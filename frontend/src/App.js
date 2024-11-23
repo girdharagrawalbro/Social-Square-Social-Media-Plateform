@@ -13,10 +13,10 @@ function App() {
       <section className='main-screen'>
         <Router>
           <Routes>
-            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot" element={<Forgot />} />
+            <Route path="/" element={<Home />} />
           </Routes>
         </Router>
       </section>

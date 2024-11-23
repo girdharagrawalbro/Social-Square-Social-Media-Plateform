@@ -30,6 +30,22 @@ ul {
     justify-content: center;
 }
 
+.auth-bg {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: url('../public/bg.jpg');
+    background-size: cover;
+}
+
+.authnav {
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
 .bordershadow {
     box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
 }
@@ -150,8 +166,12 @@ ul {
 
 .form-container {
     padding: 40px;
+    width: 800px;
+    box-shadow: rgba(0, 0, 0, 0.2) 0px 18px 50px -10px;
+}
+
+.form-container img {
     width: 400px;
-    box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
 }
 
 .form-container.active {

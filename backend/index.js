@@ -1,4 +1,4 @@
-const connectToMongo = require('./db');
+const connectToMongo = require('./db.js');
 const express = require('express')
 var cors = require('cors')
 connectToMongo();
@@ -9,8 +9,8 @@ app.use(cors())
 app.use(express.json())
 
 // Available Routes
-app.use('/api/', require('./routes/'));
+app.use('/api/auth', require('./routes/auth.js'));
 
 app.listen(port, () => {
-  console.log(`E Sports backend listening at http://localhost:${port}`)
+  console.log(`Social Media Plateform backend listening at http://localhost:${port}`)
 })
