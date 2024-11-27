@@ -2,9 +2,10 @@ import React, { useContext } from 'react';
 import { Link } from 'react-router-dom'; // Import Link from react-router-dom
 import Profile from './components/Profile';
 import Feed from './components/Feed';
-import FollowingList from './components/FollowingList';
+import OtherUserList from './components/OtherUserList';
 import { AuthContext } from '../context/AuthContext';
 import Bg from './components/Bg';
+import UserProfile from "./popups/UserProfile";
 
 const Home = () => {
     const { userData, loading } = useContext(AuthContext);
@@ -25,9 +26,11 @@ const Home = () => {
 
     return (
         <>
-            <FollowingList userData={userData} />
+            <OtherUserList userData={userData} />
             <Feed userData={userData} />
             <Profile userData={userData} /> {/* Pass user data to Profile */}
+            {/* <UserProfile userData={userData} /> */}
+
         </>
     );
 };

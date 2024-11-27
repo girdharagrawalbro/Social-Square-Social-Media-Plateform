@@ -31,6 +31,19 @@ router.post('/login', async (req, res) => {
     }
 });
 
+router.post('/users/details', async (req, res) => {
+    const { ids } = req.body;
+
+    try {
+        // Fetch users from the database using the provided IDs
+        const users = await User.find({ _id: { $in: ids } }).select('fullname profile_picture');
+        res.status(200).json({ users });
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        res.status(500).json({ error: 'Failed to fetch user details' });
+    }
+});
+
 // Registration (Signup) endpoint
 router.post('/add', async (req, res) => {
     try {
@@ -136,8 +149,17 @@ router.get('/view', async (req, res) => {
             return res.status(400).json({ message: 'User ID is required' });
         }
 
-        // Fetch all users except the logged-in user
-        const users = await User.find({ _id: { $ne: userId } });
+        // Find the logged-in user's document to get the list of followed users
+        const loggedInUser = await User.findById(userId);
+        if (!loggedInUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Fetch all users except the logged-in user and those they follow
+        const users = await User.find({
+            _id: { $ne: userId, $nin: loggedInUser.following },
+        });
+
         res.status(200).json({ users });
     } catch (error) {
         console.error(error);
@@ -145,5 +167,45 @@ router.get('/view', async (req, res) => {
     }
 });
 
+
+// Follow a user
+router.post('/follow', async (req, res) => {
+    try {
+        const { userId, followUserId } = req.body;
+
+        if (!userId || !followUserId) {
+            return res.status(400).json({ message: 'Both userId and followUserId are required.' });
+        }
+
+        // Add followUserId to the user's following list and vice versa
+        await User.findByIdAndUpdate(userId, { $addToSet: { following: followUserId } });
+        await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } });
+
+        res.status(200).json({ message: 'Followed successfully.' });
+    } catch (error) {
+        console.error('Error following user:', error);
+        res.status(500).json({ message: 'Failed to follow user.' });
+    }
+});
+
+// Unfollow a user
+router.post('/unfollow', async (req, res) => {
+    try {
+        const { userId, unfollowUserId } = req.body;
+
+        if (!userId || !unfollowUserId) {
+            return res.status(400).json({ message: 'Both userId and unfollowUserId are required.' });
+        }
+
+        // Remove unfollowUserId from the user's following list and vice versa
+        await User.findByIdAndUpdate(userId, { $pull: { following: unfollowUserId } });
+        await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } });
+
+        res.status(200).json({ message: 'Unfollowed successfully.' });
+    } catch (error) {
+        console.error('Error unfollowing user:', error);
+        res.status(500).json({ message: 'Failed to unfollow user.' });
+    }
+});
 
 module.exports = router;
