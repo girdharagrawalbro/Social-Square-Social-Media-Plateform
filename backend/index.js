@@ -10,6 +10,7 @@ app.use(express.json())
 
 // Available Routes
 app.use('/api/auth', require('./routes/auth.js'));
+app.use('/api/post', require('./routes/post.js'));
 
 app.listen(port, () => {
   console.log(`Social Media Plateform backend listening at http://localhost:${port}`)

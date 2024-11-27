@@ -30,6 +30,22 @@ ul {
     justify-content: center;
 }
 
+.theme-bg {
+    background-color: #808bf5;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+.theme-btn:hover {
+    background-color: #808cf5ec;
+
+}
+
+.suggestion {
+    overflow-x: scroll;
+}
+
 .auth-bg {
     width: 100%;
     height: 100%;
@@ -38,6 +54,10 @@ ul {
     justify-content: center;
     background-image: url('../public/bg.jpg');
     background-size: cover;
+}
+
+.editform {
+    overflow: scroll;
 }
 
 .authnav {
@@ -51,7 +71,7 @@ ul {
 }
 
 .logo {
-    width: 50px;
+    width: 40px;
     height: 40px;
     border-radius: 50%;
 }
@@ -61,15 +81,40 @@ ul {
 }
 
 .feed {
-    overflow: scroll;
+    overflow-y: scroll;
     height: 70vh;
 }
 
-.post-img {
+.post {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .post-img-container {
+    position: relative;
     width: 100%;
-    height: 290px;
-}
-
+  }
+  
+  .post-img {
+    width: 100%;
+    height: 360px; /* Adjust height as needed */
+    object-fit:contain;
+  }
+  
+  .interaction {
+    bottom: 0;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.6); /* Semi-transparent background for the hide effect */
+    color: white;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+  }
+  
+  .interaction p,
+  .interaction button {
+    margin: 0;
+  }
+  
 .profilepic {
     width: 100px;
     height: 100px;

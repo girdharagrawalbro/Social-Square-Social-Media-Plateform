@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
-import Authnav from './components/Authnav';
+import Bg from './components/Bg';
 
 const Signup = () => {
+
   const [formData, setFormData] = useState({
     email: '',
     fullname: '',
@@ -11,6 +12,15 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate(); // Initialize useNavigate
+  
+  useEffect(() => {
+    // Check if the token exists in localStorage
+    const token = localStorage.getItem('token');
+    if (token) {
+      alert("You are already logged in..");
+      navigate('/'); // Redirect to the home page or dashboard
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -52,9 +62,8 @@ const Signup = () => {
   };
 
   return (
-    <div className="auth-bg">
-      <Authnav />
-      <div className="form-container border bg-white text-center d-flex gap-4 h-75">
+    <>
+      <Bg>
         <div className="d-flex align-items-center">
           <div>
             <h3 className="pacifico-regular mb-3">Social Square</h3>
@@ -87,11 +96,15 @@ const Signup = () => {
                 required
               />
 
-              <button className="btn mt-2 btn-primary w-100" type="submit">
-                {loading ? 'Signing up...' : 'Sign up'}
+              <button
+                className="py-2 mt-2 theme-bg w-100"
+                type="submit"
+              >
+                {loading ? (message || 'Signing up...') : 'Sign up'}
               </button>
+
             </form>
-            <div className="text-danger mt-3">{message}</div>
+
             <div className="mt-4">
               <p>
                 Have an account?{' '}
@@ -105,8 +118,8 @@ const Signup = () => {
         <div>
           <img src="image.png" alt="" />
         </div>
-      </div>
-    </div>
+      </Bg >
+    </>
   );
 };
 

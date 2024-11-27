@@ -4,13 +4,13 @@ import { Link } from 'react-router-dom';
 const Authnav = () => {
     return (
         <div className='authnav d-flex justify-content-between p-4 align-items-center text-white'>
-            <div><h3 className='pacifico-regular'>Social Square</h3>
+            <div><Link to="/"><h3 className='pacifico-regular'>Social Square</h3></Link>
             </div>
             <div className='d-flex gap-4'>
-                <Link className='btn text-white'>
+                <Link to='/contact' className='btn text-white'>
                     Contact Us
                 </Link>
-                <Link className='btn text-white'>
+                <Link to='/help' className='btn text-white'>
                     Help
                 </Link>
             </div>

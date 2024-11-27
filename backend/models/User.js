@@ -26,13 +26,8 @@ const UserSchema = new mongoose.Schema({
   // interests: {
   //   type: String,
   // },
-  // followers: [{
-  //   type: Schema.Types.ObjectId, ref: 'User',
-  // }],
-  // following: [{
-  //   type: Schema.Types.ObjectId, ref: 'User',
-  // }],
-
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   created_at: {
     type: Date,
     default: Date.now,
