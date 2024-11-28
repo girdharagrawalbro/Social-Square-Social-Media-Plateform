@@ -88,9 +88,11 @@ const Login = () => {
               <button
                 className="py-2 mt-2 theme-bg w-100"
                 type="submit"
+                disabled={loading} // Disable the button when loading is true
               >
                 {loading ? (message || 'Logging in...') : 'Log in'}
               </button>
+
             </form>
             <Link to="/forgot" className="mt-5 text-primary text-decoration-none text-start">
               Forgot Password ?

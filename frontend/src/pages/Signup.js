@@ -12,7 +12,7 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate(); // Initialize useNavigate
-  
+
   useEffect(() => {
     // Check if the token exists in localStorage
     const token = localStorage.getItem('token');
@@ -99,9 +99,12 @@ const Signup = () => {
               <button
                 className="py-2 mt-2 theme-bg w-100"
                 type="submit"
+                disabled={loading} // Disable the button when loading is true
               >
                 {loading ? (message || 'Signing up...') : 'Sign up'}
+
               </button>
+
 
             </form>
 
