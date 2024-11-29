@@ -31,19 +31,6 @@ router.post('/login', async (req, res) => {
     }
 });
 
-router.post('/users/details', async (req, res) => {
-    const { ids } = req.body;
-
-    try {
-        // Fetch users from the database using the provided IDs
-        const users = await User.find({ _id: { $in: ids } }).select('fullname profile_picture');
-        res.status(200).json({ users });
-    } catch (error) {
-        console.error('Error fetching user details:', error);
-        res.status(500).json({ error: 'Failed to fetch user details' });
-    }
-});
-
 // Registration (Signup) endpoint
 router.post('/add', async (req, res) => {
     try {
@@ -78,7 +65,7 @@ router.post('/add', async (req, res) => {
     }
 });
 
-// Get user details endpoint
+// Get logged user details using token
 router.get('/get', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -111,7 +98,21 @@ router.get('/get', async (req, res) => {
     }
 });
 
-// Update profile endpoint
+// get other user profile details
+router.post('/users/details', async (req, res) => {
+    const { ids } = req.body;
+
+    try {
+        // Fetch users from the database using the provided IDs
+        const users = await User.find({ _id: { $in: ids } }).select('fullname profile_picture');
+        res.status(200).json({ users });
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        res.status(500).json({ error: 'Failed to fetch user details' });
+    }
+});
+
+// Update profile 
 router.put('/update-profile', async (req, res) => {
     try {
         // Extract user ID and form data from the request body
@@ -141,8 +142,8 @@ router.put('/update-profile', async (req, res) => {
     }
 });
 
-// View all users endpoint
-router.get('/view', async (req, res) => {
+// View all other users 
+router.get('/other-users', async (req, res) => {
     try {
         const { userId } = req.query; // Extract logged-in user ID from query parameters
         if (!userId) {
@@ -166,7 +167,6 @@ router.get('/view', async (req, res) => {
         res.status(500).json({ message: 'Failed to retrieve users, please try again.' });
     }
 });
-
 
 // Follow a user
 router.post('/follow', async (req, res) => {
@@ -207,5 +207,71 @@ router.post('/unfollow', async (req, res) => {
         res.status(500).json({ message: 'Failed to unfollow user.' });
     }
 });
+
+// get details of a particular 
+router.get('/other-users/view', async (req, res) => {
+    try {
+        const userId = req.header.authorization;
+        if (!userId) {
+            return res.status(401).json({ message: 'No Id provided.' });
+        }
+        const user = await User.findById(userId).select('-password')
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        // Return the user data
+        return res.status(200).json(user);
+    }
+    catch (error) {
+        console.error(error);
+        return res.status(403).json({ message: "Something went wrong" });
+    }
+});
+
+// searched users 
+router.get('/search'
+    , async (req, res) => {
+        try {
+            const fullname = req.header.search;
+            if (!fullname) {
+                return res.status(401).json({ message: 'No data provided.' });
+            }
+            const user = await User.find(fullname).select('-password')
+            if (!user) {
+                return res.status(404).json({ message: 'User not found.' });
+            }
+            // Return the user data
+            return res.status(200).json(user);
+        }
+        catch (error) {
+            console.error(error);
+            return res.status(403).json({ message: "Something went wrong" });
+        }
+    }
+);
+
+// create a conversation 
+router.get('/conversation/create', async (req, res) => {
+
+});
+
+// fetch conversations 
+router.get('/conversation', async (req, res) => {
+
+});
+
+
+// create message 
+router.get('/message/create', async (req, res) => {
+
+});
+
+// fetch messages
+router.get('/messages', async (req, res) => {
+
+});
+
+
+
 
 module.exports = router;

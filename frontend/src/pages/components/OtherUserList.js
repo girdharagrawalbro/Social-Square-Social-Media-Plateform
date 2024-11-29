@@ -1,65 +1,64 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import PropTypes from "prop-types";
+
+const DEFAULT_AVATAR = "/default-avatar.png";
 
 const OtherUserList = ({ userData }) => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
-
-    useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                const response = await fetch(`http://localhost:5000/api/auth/view?userId=${userData._id}`);
-                if (response.ok) {
-                    const { users } = await response.json();
-                    setUsers(users);
-                } else {
-                    console.error("Failed to fetch users");
-                }
-            } catch (error) {
-                console.error("Error fetching users:", error);
-            } finally {
-                setLoading(false);
+    const [error, setError] = useState(null);
+    
+    const fetchUsers = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch(`http://localhost:5000/api/auth/other-users?userId=${userData._id}`);
+            if (response.ok) {
+                const { users } = await response.json();
+                setUsers(users);
+            } else {
+                throw new Error("Failed to fetch users");
             }
-        };
-
-        if (userData._id) {
-            fetchUsers();
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setLoading(false);
         }
     }, [userData._id]);
 
+    useEffect(() => {
+        if (userData._id) fetchUsers();
+    }, [userData._id, fetchUsers]);
+
     const handleAction = async (url, payload, userId, isFollow) => {
         setActionLoading(userId);
+        setError(null);
         try {
             const response = await fetch(url, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
+            if (!response.ok) throw new Error(`Failed to ${isFollow ? "follow" : "unfollow"} user`);
 
-            if (response.ok) {
-                setUsers((prevUsers) =>
-                    prevUsers.map((user) =>
-                        user._id === userId ? { ...user, isFollowing: isFollow } : user
-                    )
-                );
-            } else {
-                console.error(`Failed to ${isFollow ? "follow" : "unfollow"} user`);
-            }
+            setUsers((prevUsers) =>
+                prevUsers.map((user) =>
+                    user._id === userId ? { ...user, isFollowing: isFollow } : user
+                )
+            );
         } catch (error) {
-            console.error(`Error during ${isFollow ? "follow" : "unfollow"} operation:`, error);
+            setError(error.message);
         } finally {
             setActionLoading(null);
         }
     };
 
     const handleFollow = (followUserId) =>
-        handleAction(`${process.env.NEXT_PUBLIC_API_URL}/auth/follow`, { userId: userData._id, followUserId }, followUserId, true);
+        handleAction(`http://localhost:5000/api/auth/follow`, { userId: userData._id, followUserId }, followUserId, true);
 
     const handleUnfollow = (unfollowUserId) =>
-        handleAction(`${process.env.NEXT_PUBLIC_API_URL}/auth/unfollow`, { userId: userData._id, unfollowUserId }, unfollowUserId, false);
+        handleAction(`http://localhost:5000/api/auth/unfollow`, { userId: userData._id, unfollowUserId }, unfollowUserId, false);
 
     return (
         <div className="w-25 h-100 p-3 d-flex flex-column gap-3">
@@ -70,6 +69,8 @@ const OtherUserList = ({ userData }) => {
                 <h5>Other Users</h5>
                 {loading ? (
                     <p>Loading...</p>
+                ) : error ? (
+                    <p className="text-danger">{error}</p>
                 ) : users.length === 0 ? (
                     <p>No other users found.</p>
                 ) : (
@@ -82,7 +83,7 @@ const OtherUserList = ({ userData }) => {
                                 <div className="d-flex align-items-center gap-2">
                                     <div className="friend-img">
                                         <img
-                                            src={user.profile_picture || "/default-avatar.png"}
+                                            src={user.profile_picture || DEFAULT_AVATAR}
                                             className="logo"
                                             alt={user.fullname || "User Avatar"}
                                         />
@@ -90,11 +91,12 @@ const OtherUserList = ({ userData }) => {
                                     <h6>{user.fullname || "Unknown User"}</h6>
                                 </div>
                                 <button
-                                    className={`btn ${user.isFollowing ? "btn-danger" : "btn-primary"} py-1 px-2`}
+                                    className={`btn ${user.isFollowing ? "btn-danger" : "btn-primary"} btn-sm py-1 px-2`}
                                     onClick={() =>
                                         user.isFollowing ? handleUnfollow(user._id) : handleFollow(user._id)
                                     }
                                     disabled={actionLoading === user._id}
+                                    title={user.isFollowing ? "Unfollow this user" : "Follow this user"}
                                     aria-label={user.isFollowing ? "Unfollow user" : "Follow user"}
                                 >
                                     {actionLoading === user._id ? "Processing..." : user.isFollowing ? "Unfollow" : "Follow"}

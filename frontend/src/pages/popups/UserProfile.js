@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from '../../context/AuthContext';
 
 const UserProfile = ({ userData, loggedInUserId }) => {
   const [isFollowing, setIsFollowing] = useState(false);
+  const { otheruserData, fetchOtherUserData } = useContext(AuthContext);
 
+  
   useEffect(() => {
     // Check if the logged-in user is already following this user
     const checkFollowingStatus = async () => {

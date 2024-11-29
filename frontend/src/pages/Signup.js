@@ -101,10 +101,11 @@ const Signup = () => {
                 type="submit"
                 disabled={loading} // Disable the button when loading is true
               >
-                {loading ? (message || 'Signing up...') : 'Sign up'}
+                {loading ? 'Signing up...' : 'Sign up'}
 
               </button>
 
+              <div className='text-danger py-2'>{message}</div>
 
             </form>
 

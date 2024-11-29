@@ -11,7 +11,7 @@ const Home = () => {
     const { userData, loading } = useContext(AuthContext);
     const token = localStorage.getItem('token');
 
-    if (loading && !userData) return <Bg>
+    if (loading) return <Bg>
         <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3"><h3>Loading...</h3>
         </div></Bg>;
     if (!token)

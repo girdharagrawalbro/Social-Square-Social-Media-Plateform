@@ -90,9 +90,9 @@ const Login = () => {
                 type="submit"
                 disabled={loading} // Disable the button when loading is true
               >
-                {loading ? (message || 'Logging in...') : 'Log in'}
+                {loading ? 'Logging in...' : 'Log in'}
               </button>
-
+<div className='text-danger py-2'>{message}</div>
             </form>
             <Link to="/forgot" className="mt-5 text-primary text-decoration-none text-start">
               Forgot Password ?
