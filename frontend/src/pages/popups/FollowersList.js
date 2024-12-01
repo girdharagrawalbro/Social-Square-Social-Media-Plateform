@@ -32,14 +32,19 @@ const FollowersList = ({ ids, onClose }) => {
                 <h4>Followers</h4>
                 <button onClick={onClose} className="btn btn-outline-dark btn-sm">X</button>
             </div>
-            <div className="list mt-2">
+            <div className="list mt-2 ">
                 {loading ? (
                     <p>Loading...</p>
                 ) : followers.length > 0 ? (
                     followers.map((user) => (
-                        <div key={user._id} className="follower-item d-flex gap-2 align-items-center">
+                        <div key={user._id} className="follower-item mt-2 d-flex    justify-content-between align-items-center">
+                            <div className="d-flex justify-content-center d-flex gap-2 align-items-center">
                             <img src={user.profile_picture} alt="Profile" className="logo" />
                             <h6>{user.fullname}</h6>
+                            </div>
+                            <div>
+                                <button className="btn btn-danger btn-sm">remove</button>
+                            </div>
                         </div>
                     ))
                 ) : (

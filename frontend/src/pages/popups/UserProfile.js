@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from '../../context/AuthContext';
+import { useSelector } from 'react-redux';
 
 const UserProfile = ({ userData, loggedInUserId }) => {
+  const isVisible = useSelector((state) => state.userProfile.isVisible);
   const [isFollowing, setIsFollowing] = useState(false);
   const { otheruserData, fetchOtherUserData } = useContext(AuthContext);
 
@@ -74,7 +76,7 @@ const UserProfile = ({ userData, loggedInUserId }) => {
     }
   };
 
-  return (
+  return isVisible ? (
     <div className="popups bordershadow rounded p-3 d-flex flex-column gap-1 text-center">
       {/* Top Cover Image */}
       <div>
@@ -125,7 +127,8 @@ const UserProfile = ({ userData, loggedInUserId }) => {
         )}
       </div>
     </div>
-  );
+  )
+ : null;
 };
 
 export default UserProfile;

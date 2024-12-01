@@ -4,7 +4,13 @@ import { PostContext } from "../../context/PostContext";
 const Feed = ({ userData }) => {
   const { fetchCategories, fetchPosts, categories, posts } = useContext(PostContext);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [showImageInput, setShowImageInput] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState(""); // To track the search input
+  const [users, setUsers] = useState([]); // To store the search results for users
+  const [searchposts, setPosts] = useState([]); // To store the search results for posts
+  const [notfound, setNotfound] = useState(false);
+
   const [formData, setFormData] = useState({
     caption: "",
     category: "Default",
@@ -12,7 +18,7 @@ const Feed = ({ userData }) => {
 
 
   useEffect(() => {
-    const fetchData = async () => { 
+    const fetchData = async () => {
       await fetchPosts();
       await fetchCategories();
       setLoading(false);
@@ -24,8 +30,9 @@ const Feed = ({ userData }) => {
   }
 
   if (loading) {
-    return <p>Loading feed...</p>;
+    return <div className="w-50 h-100 p-3 feed">Loading feed...</div>;
   }
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -40,7 +47,7 @@ const Feed = ({ userData }) => {
     }
 
     try {
-      const { caption, category, user } = formData; // Assuming `formData.user` contains user data
+      const { caption, category, imageURL } = formData; // Assuming `formData.user` contains user data
       const response = await fetch("http://localhost:5000/api/post/create", {
         method: 'POST',
         headers: {
@@ -49,21 +56,24 @@ const Feed = ({ userData }) => {
         body: JSON.stringify({
           caption,
           category,
-          user: {
-            username: userData.username,
-            fullname: userData.fullname,
-            profile_picture: userData.profile_picture,
-          },
+          imageURL,
+          user: userData._id, // Ensure userData has the correct structure
         }),
+
       });
 
       if (response.ok) {
         const data = await response.json();
+        setFormData({
+          caption: "",
+          category: "",
+          imageURL: "",
+        });
         alert("Post created successfully!");
         fetchPosts();
       } else {
         const error = await response.json();
-        alert(`Error: ${error.message}`);
+        alert(`Error: ${error.error}`);
       }
     } catch (err) {
       console.error("Failed to create post:", err);
@@ -72,10 +82,47 @@ const Feed = ({ userData }) => {
   };
 
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    // Optionally filter posts here or make an API call
+  const toggleImageInput = () => {
+    setShowImageInput(!showImageInput);
   };
+
+  const handleSearch = async (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+
+    if (term.trim()) {
+      try {
+        const response = await fetch(`http://localhost:5000/api/auth/search`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: term }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.type === "user") {
+            setUsers(data.results); // Update user suggestions
+          } else if (data.type === "post") {
+            setPosts(data.results); // Update post suggestions
+          }
+          else if (data.type === "no") {
+            setNotfound(true);
+          }
+        } else {
+          console.error("Error fetching search results");
+        }
+      } catch (error) {
+        console.error("Error during search:", error);
+      }
+    } else {
+      setUsers([]);
+      setPosts([]);
+      setNotfound(false)
+    }
+  };
+
 
 
   return (
@@ -118,12 +165,48 @@ const Feed = ({ userData }) => {
       <div className="suggestion d-flex gap-2 mt-3">
         {categories.length > 0 ? (
           categories.map((category, index) => (
-            <button key={index} className="theme-bg">#{category}</button>
+            <button key={index} className="theme-bg" value={category.category}
+              onClick={handleSearch}>#{category.category}</button>
           ))
         ) : (
           <p>No categories available.</p>
         )}
       </div>
+
+      <div className="suggestion my-2">
+        {users.length > 0 && (
+          <div>
+            <h5>Users</h5>
+            <div className=" d-flex gap-2 flex-wrap">
+              {users.map((user) => (
+                <button key={user._id} className="btn btn-outline-primary">
+                  {user.fullname}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {searchposts.length > 0 && (
+          <div className="mt-2">
+            <h5>Posts</h5>
+            <div className=" d-flex gap-2 flex-column">
+
+              {searchposts.map((post) => (
+                <button key={post._id} className="btn btn-outline-primary">
+                  #{post.category} - {post.caption}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {notfound && (
+          <p>No results found for "{searchTerm}"</p>
+        )
+        }
+      </div>
+
 
       {/* New Post */}
       <div className="new mt-2 bordershadow p-2 rounded w-100 d-flex gap-1 align-items-center">
@@ -132,27 +215,79 @@ const Feed = ({ userData }) => {
           alt="Profile"
           className="logo"
         />
-        <form onSubmit={handleSubmit} className="d-flex w-100">
-          <input
-            type="text"
-            placeholder="# Tell your thoughts to your friends"
-            className="p-2 border-0 w-100"
-            id="caption"
-            name="caption"
-            value={formData.caption}
-            onChange={handleChange}
-          />
-          <button type="submit" className="theme-bg px-2 py-1" aria-label="Share thoughts">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="#ffffff" fill="none">
-              <path d="M10 13.229C10.1416 13.4609 10.3097 13.6804 10.5042 13.8828C11.7117 15.1395 13.5522 15.336 14.9576 14.4722C15.218 14.3121 15.4634 14.1157 15.6872 13.8828L18.9266 10.5114C20.3578 9.02184 20.3578 6.60676 18.9266 5.11718C17.4953 3.6276 15.1748 3.62761 13.7435 5.11718L13.03 5.85978" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              <path d="M10.9703 18.14L10.2565 18.8828C8.82526 20.3724 6.50471 20.3724 5.07345 18.8828C3.64218 17.3932 3.64218 14.9782 5.07345 13.4886L8.31287 10.1172C9.74413 8.62761 12.0647 8.6276 13.4959 10.1172C13.6904 10.3195 13.8584 10.539 14 10.7708" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            </svg>
-          </button>
-          <button type="submit" className="theme-bg px-2 py-1 ms-2" aria-label="Share thoughts">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="#ffffff" fill="none">
-              <path d="M11.922 4.79004C16.6963 3.16245 19.0834 2.34866 20.3674 3.63261C21.6513 4.91656 20.8375 7.30371 19.21 12.078L18.1016 15.3292C16.8517 18.9958 16.2267 20.8291 15.1964 20.9808C14.9195 21.0216 14.6328 20.9971 14.3587 20.9091C13.3395 20.5819 12.8007 18.6489 11.7231 14.783C11.4841 13.9255 11.3646 13.4967 11.0924 13.1692C11.0134 13.0742 10.9258 12.9866 10.8308 12.9076C10.5033 12.6354 10.0745 12.5159 9.21705 12.2769C5.35111 11.1993 3.41814 10.6605 3.0909 9.64127C3.00292 9.36724 2.97837 9.08053 3.01916 8.80355C3.17088 7.77332 5.00419 7.14834 8.6708 5.89838L11.922 4.79004Z" stroke="currentColor" stroke-width="1.5" />
-            </svg>
-          </button>
+        <form onSubmit={handleSubmit} className="d-flex w-100 flex-column">
+          <div className="d-flex w-100">
+            <input
+              type="text"
+              placeholder="# Tell your thoughts to your friends"
+              className="p-2 border-0 w-100"
+              id="caption"
+              name="caption"
+              value={formData.caption}
+              onChange={handleChange}
+            />
+            <span
+              className="theme-bg px-2 py-1 ms-2"
+              aria-label="Add image"
+              onClick={toggleImageInput}
+            >
+
+
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                color="#ffffff"
+                fill="none"
+              >
+                <path
+                  d="M10 13.229C10.1416 13.4609 10.3097 13.6804 10.5042 13.8828C11.7117 15.1395 13.5522 15.336 14.9576 14.4722C15.218 14.3121 15.4634 14.1157 15.6872 13.8828L18.9266 10.5114C20.3578 9.02184 20.3578 6.60676 18.9266 5.11718C17.4953 3.6276 15.1748 3.62761 13.7435 5.11718L13.03 5.85978"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M10.9703 18.14L10.2565 18.8828C8.82526 20.3724 6.50471 20.3724 5.07345 18.8828C3.64218 17.3932 3.64218 14.9782 5.07345 13.4886L8.31287 10.1172C9.74413 8.62761 12.0647 8.6276 13.4959 10.1172C13.6904 10.3195 13.8584 10.539 14 10.7708"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <button
+              type="submit"
+              className="theme-bg mx-1 px-2 py-1"
+              aria-label="Share thoughts"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                color="#ffffff"
+                fill="none"
+              >
+                <path
+                  d="M11.922 4.79004C16.6963 3.16245 19.0834 2.34866 20.3674 3.63261C21.6513 4.91656 20.8375 7.30371 19.21 12.078L18.1016 15.3292C16.8517 18.9958 16.2267 20.8291 15.1964 20.9808C14.9195 21.0216 14.6328 20.9971 14.3587 20.9091C13.3395 20.5819 12.8007 18.6489 11.7231 14.783C11.4841 13.9255 11.3646 13.4967 11.0924 13.1692C11.0134 13.0742 10.9258 12.9866 10.8308 12.9076C10.5033 12.6354 10.0745 12.5159 9.21705 12.2769C5.35111 11.1993 3.41814 10.6605 3.0909 9.64127C3.00292 9.36724 2.97837 9.08053 3.01916 8.80355C3.17088 7.77332 5.00419 7.14834 8.6708 5.89838L11.922 4.79004Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+              </svg>
+            </button>
+
+          </div>
+          {showImageInput && (
+            <input
+              type="text"
+              placeholder="Enter image URL"
+              className="p-2 border-0 mt-2 w-100"
+              id="imageURL"
+              name="imageURL"
+              value={formData.imageURL}
+              onChange={handleChange}
+            />
+          )}
         </form>
       </div>
 
@@ -160,23 +295,32 @@ const Feed = ({ userData }) => {
       <div className="mt-3 rounded d-flex flex-column gap-3">
         {posts.length > 0 ? (
           posts.map((post, index) => (
-            <div key={index} className="post w-100 h-20 rounded-3 p-3 shadow">
-              <div className="d-flex align-items-center gap-2">
+            <div key={index} className="post w-100 h-20 rounded-3 p-3 shadow d-flex flex-column gap-1">
+              <div
+                className={`d-flex align-items-center gap-2 ${post.image_url ? "" : "mb-5"
+                  }`}
+              >
                 <img
-                  src=""
+                  src={post.user.profile_picture}
                   alt="Profile"
                   className="logo"
                 />
                 <div className="d-flex flex-column gap-0">
-                  <h6 className="m-0 p-0">{post.username}</h6>
+                  <h6 className="m-0 p-0">{post.user.fullname}</h6>
                 </div>
               </div>
               <div className="post-img-container border mt-2 position-relative">
-                <img
-                  src={post.image_url}
-                  alt="Post"
-                  className="post-img rounded-3"
-                />
+                {
+                  post.image_url ?
+                    <img
+                      src={post.image_url}
+                      alt="Post"
+                      className="post-img rounded-3"
+                    />
+                    :
+                    <></>
+                }
+
                 <div className="interaction position-absolute w-100">
                   <div className="d-flex justify-content-between align-items-center px-3 py-2">
                     <div className="d-flex gap-2">

@@ -3,24 +3,26 @@ const mongoose = require('mongoose');
 const PostSchema = new mongoose.Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      fullname: { type: String, required: true },
+      profile_picture: { type: String },
     },
     image_url: {
       type: String,
-      // required: true,
-      default: "https://example.com/default-image.jpg", // Use a URL to a placeholder image
       validate: {
         validator: function (value) {
-          return /^(https?:\/\/|data:image\/)/.test(value); // Check for URL or base64
+          return /^(https?:\/\/|data:image\/)/.test(value);
         },
         message: (props) => `${props.value} is not a valid image URL or base64 string!`,
       },
     },
     caption: {
       type: String,
-      maxLength: 500, // Example: Limit the caption length
+      maxLength: 500,
     },
     likes: [
       {
@@ -35,9 +37,13 @@ const PostSchema = new mongoose.Schema(
         created_at: { type: Date, default: Date.now },
       },
     ],
+    category: {
+      type: String,
+      required: true,
+    },
   },
   {
-    timestamps: true, // Automatically add createdAt and updatedAt fields
+    timestamps: true,
   }
 );
 

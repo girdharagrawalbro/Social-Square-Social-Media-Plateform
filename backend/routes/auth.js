@@ -1,6 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Post = require("../models/Post");
+
 
 const router = express.Router();
 
@@ -229,26 +231,40 @@ router.get('/other-users/view', async (req, res) => {
 });
 
 // searched users 
-router.get('/search'
-    , async (req, res) => {
-        try {
-            const fullname = req.header.search;
-            if (!fullname) {
-                return res.status(401).json({ message: 'No data provided.' });
-            }
-            const user = await User.find(fullname).select('-password')
-            if (!user) {
-                return res.status(404).json({ message: 'User not found.' });
-            }
-            // Return the user data
-            return res.status(200).json(user);
-        }
-        catch (error) {
-            console.error(error);
-            return res.status(403).json({ message: "Something went wrong" });
-        }
+
+router.post("/search", async (req, res) => {
+  const { query } = req.body;
+
+  if (!query) {
+    return res.status(400).json({ message: "Search query is required." });
+  }
+
+  try {
+    // Search for users by full name
+    const userResults = await User.find({
+      fullname: { $regex: query, $options: "i" }, // Case-insensitive search
+    }).select("-password");
+
+    // Search for posts by category
+    const postResults = await Post.find({
+      category: { $regex: query, $options: "i" }, // Case-insensitive search
+    });
+
+    // Determine which results to return based on the query
+    const isCategory = postResults.length > 0 && userResults.length === 0;
+
+    if (isCategory) {
+      return res.status(200).json({ type: "post", results: postResults });
+    } else if (userResults.length > 0) {
+      return res.status(200).json({ type: "user", results: userResults });
+    } else {
+      return res.status(200).json({ type: "no", results: "No results found." });
     }
-);
+  } catch (error) {
+    console.error("Search error:", error);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+});
 
 // create a conversation 
 router.get('/conversation/create', async (req, res) => {
