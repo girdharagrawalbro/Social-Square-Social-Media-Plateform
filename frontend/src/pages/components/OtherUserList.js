@@ -1,19 +1,20 @@
 import React, { useEffect, useState, useCallback } from "react";
 import PropTypes from "prop-types";
-
+import { useDispatch } from 'react-redux';
+import { showComponent } from '../../redux/actions';
 const DEFAULT_AVATAR = "/default-avatar.png";
 
 const OtherUserList = ({ userData }) => {
-    
+    const dispatch = useDispatch();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
 
-    const handleShowUserProfile = () => {
-    
+    const handleShow = (id) => {
+        dispatch(showComponent(id));
     };
-    
+
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -97,8 +98,7 @@ const OtherUserList = ({ userData }) => {
             <h3 className="pacifico-regular bordershadow p-3 rounded text-center theme-bg">
                 Social Square
             </h3>
-            <button onClick={handleShowUserProfile}>Show User Profile</button>
-   
+
             <div className="p-3 bordershadow rounded">
                 <h5>Other Users</h5>
                 {loading ? (
@@ -110,9 +110,10 @@ const OtherUserList = ({ userData }) => {
                 ) : (
                     <div className="d-flex mt-3 flex-column gap-2">
                         {users.map((user) => (
-                            <div
+                            <button
                                 key={user._id}
-                                className="friend-item d-flex align-items-center justify-content-between"
+                                className="btn border-0 friend-item d-flex align-items-center justify-content-between"
+                                onClick={handleShow(user._id)}
                             >
                                 <div className="d-flex align-items-center gap-2">
                                     <div className="friend-img">
@@ -125,9 +126,8 @@ const OtherUserList = ({ userData }) => {
                                     <h6>{user.fullname || "Unknown User"}</h6>
                                 </div>
                                 <button
-                                    className={`btn ${
-                                        user.isFollowing ? "btn-danger" : "btn-primary"
-                                    } btn-sm py-1 px-2`}
+                                    className={`btn ${user.isFollowing ? "btn-danger" : "btn-primary"
+                                        } btn-sm py-1 px-2`}
                                     onClick={() =>
                                         user.isFollowing
                                             ? handleUnfollow(user._id)
@@ -148,10 +148,10 @@ const OtherUserList = ({ userData }) => {
                                     {actionLoading === user._id
                                         ? "Processing..."
                                         : user.isFollowing
-                                        ? "Unfollow"
-                                        : "Follow"}
+                                            ? "Unfollow"
+                                            : "Follow"}
                                 </button>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 )}

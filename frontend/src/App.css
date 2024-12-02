@@ -303,5 +303,5 @@ input {
     width: 400px;
  height: 400px;
     overflow-y: scroll;
-    z-index: 2;
+    z-index: 999;
 }

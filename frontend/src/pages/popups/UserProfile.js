@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useContext } from "react";
-import { AuthContext } from '../../context/AuthContext';
-import { useSelector } from 'react-redux';
+import React, { useState, useEffect } from "react";
+import { useSelector, useDispatch } from 'react-redux';
+import { hideComponent } from '../../redux/actions';
 
-const UserProfile = ({ userData, loggedInUserId }) => {
-  const isVisible = useSelector((state) => state.userProfile.isVisible);
+const UserProfile = ({ userData, loggedInUserId, userid }) => {
   const [isFollowing, setIsFollowing] = useState(false);
-  const { otheruserData, fetchOtherUserData } = useContext(AuthContext);
 
-  
+  const dispatch = useDispatch();
+
+  const handleClose = () => {
+    dispatch(hideComponent());
+  };
+
+
   useEffect(() => {
     // Check if the logged-in user is already following this user
     const checkFollowingStatus = async () => {
@@ -76,9 +80,12 @@ const UserProfile = ({ userData, loggedInUserId }) => {
     }
   };
 
-  return isVisible ? (
+  return (
+
     <div className="popups bordershadow rounded p-3 d-flex flex-column gap-1 text-center">
       {/* Top Cover Image */}
+      fourth comonent {userid}
+      <button onClick={handleClose}>Close</button>
       <div>
         <img
           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQWdjis-8T0ZC_aBUa_8QAxnkmCuWLQCP5rg&s"
@@ -127,8 +134,7 @@ const UserProfile = ({ userData, loggedInUserId }) => {
         )}
       </div>
     </div>
-  )
- : null;
+  );
 };
 
 export default UserProfile;
