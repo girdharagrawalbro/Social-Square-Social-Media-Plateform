@@ -43,12 +43,15 @@ router.post("/create", async (req, res) => {
 
 router.get("/", async (req, res) => {
   try {
-    const posts = await Post.find();
+    // Fetch posts and sort them in descending order by createdAt or updatedAt
+    const posts = await Post.find().sort({ updatedAt: -1, createdAt: -1 });
     res.status(200).json(posts);
   } catch (error) {
+    console.error("Error fetching posts:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 router.get("/categories", async (req, res) => {
   try {
     const categories = await Category.find();

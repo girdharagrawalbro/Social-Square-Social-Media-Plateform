@@ -21,10 +21,22 @@ const Profile = ({ userData }) => {
   };
 
   const handleLogout = () => {
-    alert('You are logging out..');
+    alert('You are logging out...');
     localStorage.removeItem('token');
-    navigate('/login');
+    navigate('/login'); // Redirect to login page
+    window.location.reload(); // Reload the page to clear any cached data
   };
+
+  // Loading fallback
+  if (!userData) {
+    return (
+      <div className="loading-container d-flex justify-content-center align-items-center vh-100">
+        <div className="spinner-border text-primary" role="status">
+          <span className="sr-only">Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -56,7 +68,6 @@ const Profile = ({ userData }) => {
               </div>
 
               <div className="d-flex justify-content-around">
-
                 <div
                   className="text-center"
                   onClick={() => setShowFollowersList(true)}
@@ -67,39 +78,44 @@ const Profile = ({ userData }) => {
                   <h6>Followers</h6>
                 </div>
 
-                <div
-                  className="text-center"
-                >
+                <div className="text-center">
                   <h6 className="m-0 p-0 nosifer-regular">
                     {userData.following.length}
                   </h6>
                   <h6>Following</h6>
-                </div>            </div>
+                </div>
+              </div>
 
               <div className="d-flex justify-content-center gap-2">
-                <button className="theme-bg border-0 rounded w-100" onClick={handleEditClick}>
+                <button
+                  className="theme-bg border-0 rounded w-100"
+                  onClick={handleEditClick}
+                >
                   Edit
                 </button>
-                <button className="btn btn-danger btn-sm w-100" onClick={handleLogout}>
+                <button
+                  className="btn btn-light btn-sm w-100"
+                  onClick={handleLogout}
+                >
                   Logout
                 </button>
               </div>
             </div>
-            <input type="search" className='border py-1 px-2 mt-3 rounded bg-white w-100 ' placeholder='Seacrh your Friends' />
+            <input
+              type="search"
+              className="border py-1 px-2 mt-3 rounded bg-white w-100"
+              placeholder="Search your Friends"
+            />
             <div className="mt-3 bordershadow p-3 rounded">
               <h5>Your Friends</h5>
               <div className="friends-list d-flex flex-column gap-3 mt-3">
-
-                <FollowingList
-                  ids={userData.following}
-                />
+                <FollowingList ids={userData.following} />
               </div>
             </div>
           </>
         ) : (
           <EditProfile userData={userData} onSubmit={handleEditSubmit} />
         )}
-
       </div>
 
       {showFollowersList && (
@@ -108,7 +124,6 @@ const Profile = ({ userData }) => {
           onClose={() => setShowFollowersList(false)}
         />
       )}
-
     </>
   );
 };

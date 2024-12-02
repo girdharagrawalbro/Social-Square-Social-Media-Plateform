@@ -66,7 +66,7 @@ const Feed = ({ userData }) => {
         const data = await response.json();
         setFormData({
           caption: "",
-          category: "",
+          category: "Default",
           imageURL: "",
         });
         alert("Post created successfully!");

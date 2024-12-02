@@ -7,6 +7,8 @@ const AuthProvider = ({ children }) => {
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    const [ShowUserProfile, setShowUserProfile] = useState(false);
+
     const fetchUserData = async () => {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -50,7 +52,7 @@ const AuthProvider = ({ children }) => {
             if (response.ok) {
                 const data = await response.json();
                 setOtherUserData(data);
-            } 
+            }
             else {
                 alert("Something went wrong");
             }
@@ -67,7 +69,7 @@ const AuthProvider = ({ children }) => {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ userData, setUserData,otheruserData, fetchOtherUserData,loading, fetchUserData }}>
+        <AuthContext.Provider value={{ userData, setUserData, otheruserData, fetchOtherUserData, loading, fetchUserData, ShowUserProfile, setShowUserProfile }}>
             {children}
         </AuthContext.Provider>
     );

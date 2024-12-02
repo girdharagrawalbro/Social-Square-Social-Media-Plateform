@@ -4,11 +4,16 @@ import PropTypes from "prop-types";
 const DEFAULT_AVATAR = "/default-avatar.png";
 
 const OtherUserList = ({ userData }) => {
+    
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
 
+    const handleShowUserProfile = () => {
+    
+    };
+    
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -92,6 +97,8 @@ const OtherUserList = ({ userData }) => {
             <h3 className="pacifico-regular bordershadow p-3 rounded text-center theme-bg">
                 Social Square
             </h3>
+            <button onClick={handleShowUserProfile}>Show User Profile</button>
+   
             <div className="p-3 bordershadow rounded">
                 <h5>Other Users</h5>
                 {loading ? (
