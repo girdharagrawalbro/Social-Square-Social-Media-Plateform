@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useSelector, useDispatch } from 'react-redux';
-import { hideComponent } from '../../redux/actions';
+import { useDispatch, useSelector } from 'react-redux';
 
 const UserProfile = ({ userData, loggedInUserId, userid }) => {
+  const { isVisible, id } = useSelector((state) => state);
   const [isFollowing, setIsFollowing] = useState(false);
 
   const dispatch = useDispatch();
 
-  const handleClose = () => {
-    dispatch(hideComponent());
-  };
 
 
   useEffect(() => {
@@ -80,12 +77,11 @@ const UserProfile = ({ userData, loggedInUserId, userid }) => {
     }
   };
 
-  return (
-
-    <div className="popups bordershadow rounded p-3 d-flex flex-column gap-1 text-center">
+  return (<>
+    {isVisible && (<div className="popups bordershadow rounded p-3 d-flex flex-column gap-1 text-center">
       {/* Top Cover Image */}
-      fourth comonent {userid}
-      <button onClick={handleClose}>Close</button>
+      fourth comonent {id}
+      <button>Close</button>
       <div>
         <img
           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQWdjis-8T0ZC_aBUa_8QAxnkmCuWLQCP5rg&s"
@@ -134,6 +130,7 @@ const UserProfile = ({ userData, loggedInUserId, userid }) => {
         )}
       </div>
     </div>
+    )}</>
   );
 };
 

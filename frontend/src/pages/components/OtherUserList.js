@@ -1,20 +1,24 @@
 import React, { useEffect, useState, useCallback } from "react";
 import PropTypes from "prop-types";
-import { useDispatch } from 'react-redux';
-import { showComponent } from '../../redux/actions';
+import { useDispatch, useSelector } from 'react-redux';
+import { showComponent, hideComponent } from '../../store/slices/visibilitySlice';
+
 const DEFAULT_AVATAR = "/default-avatar.png";
 
 const OtherUserList = ({ userData }) => {
     const dispatch = useDispatch();
+    const { isVisible, id } = useSelector((state) => state.visibility);
+  
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
 
-    const handleShow = (id) => {
-        dispatch(showComponent(id));
-    };
 
+    const handleShow = () => {
+        dispatch(showComponent('component-id'));
+      };
+      
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -113,7 +117,6 @@ const OtherUserList = ({ userData }) => {
                             <button
                                 key={user._id}
                                 className="btn border-0 friend-item d-flex align-items-center justify-content-between"
-                                onClick={handleShow(user._id)}
                             >
                                 <div className="d-flex align-items-center gap-2">
                                     <div className="friend-img">

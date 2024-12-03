@@ -6,12 +6,10 @@ import OtherUserList from './components/OtherUserList';
 import { AuthContext } from '../context/AuthContext';
 import Bg from './components/Bg';
 import UserProfile from "./popups/UserProfile";
-import { useSelector } from 'react-redux';
 
 const Home = () => {
     const { userData, loading } = useContext(AuthContext);
     const token = localStorage.getItem('token');
-    const { isVisible, id } = useSelector((state) => state);
 
 
     if (loading) return <Bg>
@@ -32,11 +30,7 @@ const Home = () => {
             <OtherUserList userData={userData} />
             <Feed userData={userData} />
             <Profile userData={userData} /> {/* Pass user data to Profile */}
-            {
-                isVisible && (
-                    <UserProfile userData={userData} userid={id} />
-                )
-            }
+                    <UserProfile userData={userData} />
 
         </>
     );
