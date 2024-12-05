@@ -30,7 +30,7 @@ const Home = () => {
             <OtherUserList userData={userData} />
             <Feed userData={userData} />
             <Profile userData={userData} /> {/* Pass user data to Profile */}
-                    <UserProfile userData={userData} />
+            <UserProfile userData={userData} />
 
         </>
     );

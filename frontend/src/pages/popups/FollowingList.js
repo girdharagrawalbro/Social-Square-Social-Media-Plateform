@@ -45,7 +45,7 @@ const FollowingList = ({ ids, onClose }) => {
 
             <div key={user._id} className="friend-item d-flex align-items-center justify-content-between">
               <div className="d-flex align-items-center gap-2" onClick={() => handleShow(user._id)}>
-              <img
+                <img
                   src={user.profile_picture}
                   className="logo"
                   alt="logo"

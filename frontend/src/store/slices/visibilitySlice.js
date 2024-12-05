@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   isVisible: false,
-  id: null, // To track which component triggered visibility
+  id: null, // To track which component trigger`ed visibility
 };
 
 export const visibilitySlice = createSlice({

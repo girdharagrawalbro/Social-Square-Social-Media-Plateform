@@ -92,7 +92,7 @@ const Login = () => {
               >
                 {loading ? 'Logging in...' : 'Log in'}
               </button>
-<div className='text-danger py-2'>{message}</div>
+              <div className='text-danger py-2'>{message}</div>
             </form>
             <Link to="/forgot" className="mt-5 text-primary text-decoration-none text-start">
               Forgot Password ?
@@ -107,7 +107,7 @@ const Login = () => {
             </div>
           </div>
         </div>
-        <div>
+        <div className='pc'>
           <img src="http://localhost:3000/image.png" alt="" />
         </div>
       </Bg>

@@ -10,7 +10,6 @@ import Contact from './pages/Contact'
 import Help from './pages/Help'
 function App() {
   return (
-    <>
       <section className='main-screen'>
         <AuthProvider>
           <PostProvider>
@@ -28,7 +27,6 @@ function App() {
           </PostProvider>
         </AuthProvider>
       </section>
-    </>
   );
 }
 

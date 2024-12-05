@@ -1,10 +1,13 @@
 import React, { useContext, useEffect, useState } from "react";
 import { PostContext } from "../../context/PostContext";
+import { useDispatch } from 'react-redux';
+import { showComponent } from '../../store/slices/visibilitySlice';
 
 const Feed = ({ userData }) => {
   const { fetchCategories, fetchPosts, categories, posts } = useContext(PostContext);
   const [loading, setLoading] = useState(true);
   const [showImageInput, setShowImageInput] = useState(false);
+  const dispatch = useDispatch();
 
   const [searchTerm, setSearchTerm] = useState(""); // To track the search input
   const [users, setUsers] = useState([]); // To store the search results for users
@@ -31,6 +34,10 @@ const Feed = ({ userData }) => {
 
   if (loading) {
     return <div className="w-50 h-100 p-3 feed">Loading feed...</div>;
+  }
+
+  const handleShow = (id) => {
+    dispatch(showComponent(id));
   }
 
   const handleChange = (e) => {
@@ -126,7 +133,7 @@ const Feed = ({ userData }) => {
 
 
   return (
-    <div className="w-50 h-100 p-3 feed">
+    <div className=" h-100 p-3 feed">
       {/* Explore Section */}
       <div className="explore d-flex gap-2">
         <input
@@ -179,7 +186,7 @@ const Feed = ({ userData }) => {
             <h5>Users</h5>
             <div className=" d-flex gap-2 flex-wrap">
               {users.map((user) => (
-                <button key={user._id} className="btn btn-outline-primary">
+                <button key={user._id} onClick={() => handleShow(user._id)} className="btn btn-outline-primary">
                   {user.fullname}
                 </button>
               ))}

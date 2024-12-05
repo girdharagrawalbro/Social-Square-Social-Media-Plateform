@@ -89,6 +89,10 @@ const UserProfile = ({ userData }) => {
     dispatch(hideComponent());
   };
 
+  if(userData){
+    <>Loading...</>
+  }
+
   if (!otheruserid) {
     return null;
   }

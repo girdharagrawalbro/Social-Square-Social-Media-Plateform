@@ -119,7 +119,7 @@ const Signup = () => {
             </div>
           </div>
         </div>
-        <div>
+        <div className='pc'>
           <img src="image.png" alt="" />
         </div>
       </Bg >

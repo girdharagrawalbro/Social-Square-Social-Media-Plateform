@@ -1,9 +1,11 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EditProfile from './EditProfile';
+import { useDispatch, useSelector } from 'react-redux';
 import { AuthContext } from '../../context/AuthContext';
 import FollowingList from "../popups/FollowingList";
 import FollowersList from "../popups/FollowersList";
+import { hideComponent3 } from "../../store/slices/visibilitySlice3";
 
 
 const Profile = ({ userData }) => {
@@ -11,10 +13,16 @@ const Profile = ({ userData }) => {
   const [isEditing, setIsEditing] = useState(false);
   const navigate = useNavigate();
   const { fetchUserData } = useContext(AuthContext);
+  const dispatch = useDispatch();
+  const { isVisible3 } = useSelector((state) => state.visibility3);
 
   const handleEditClick = () => {
     setIsEditing(true);
   };
+  const handleClose3 = () => {
+    dispatch(hideComponent3())
+  }
+
 
   const handleEditSubmit = (updatedData) => {
     setIsEditing(false);
@@ -41,10 +49,10 @@ const Profile = ({ userData }) => {
 
   return (
     <>
-      <div className="profile-container w-25 p-3 h-100 gap-1">
+      <div className={`profile-container pc p-3 bg-white h-100 gap-1 ${isVisible3 ? "pc-show" : ``}`}>
         {!isEditing ? (
           <>
-            <div className="bordershadow p-3 rounded d-flex flex-column gap-1">
+            <div className="bordershadow p-3 rounded bg-white d-flex flex-column gap-1">
               <div>
                 <img
                   src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQWdjis-8T0ZC_aBUa_8QAxnkmCuWLQCP5rg&s"
@@ -101,6 +109,11 @@ const Profile = ({ userData }) => {
                   Logout
                 </button>
               </div>
+              {isVisible3 ?
+                <button onClick={() => handleClose3()} className="btn btn-sm btn-outline-dark mt-1">close</button>
+                :
+                <></>
+              }
             </div>
             <input
               type="search"
