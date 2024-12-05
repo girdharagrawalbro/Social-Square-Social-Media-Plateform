@@ -5,6 +5,7 @@ import { AuthContext } from '../../context/AuthContext';
 import FollowingList from "../popups/FollowingList";
 import FollowersList from "../popups/FollowersList";
 
+
 const Profile = ({ userData }) => {
   const [showFollowersList, setShowFollowersList] = useState(false);
   const [isEditing, setIsEditing] = useState(false);

@@ -211,13 +211,15 @@ router.post('/unfollow', async (req, res) => {
 });
 
 // get details of a particular 
-router.get('/other-users/view', async (req, res) => {
+router.get('/other-user/view', async (req, res) => {
     try {
-        const userId = req.header.authorization;
+        const userId = req.headers.authorization;
+        
         if (!userId) {
             return res.status(401).json({ message: 'No Id provided.' });
         }
         const user = await User.findById(userId).select('-password')
+        
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }

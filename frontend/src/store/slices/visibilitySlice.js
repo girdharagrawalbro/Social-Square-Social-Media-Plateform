@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   isVisible: false,
-  id: null,
+  id: null, // To track which component triggered visibility
 };
 
 export const visibilitySlice = createSlice({
@@ -11,16 +11,15 @@ export const visibilitySlice = createSlice({
   reducers: {
     showComponent: (state, action) => {
       state.isVisible = true;
-      state.id = action.payload;
+      state.id = action.payload; // ID of the triggering component
     },
     hideComponent: (state) => {
       state.isVisible = false;
-      state.id = null;
+      state.id = null; // Reset ID when hidden
     },
   },
 });
 
-// Action creators are generated for each case reducer function
 export const { showComponent, hideComponent } = visibilitySlice.actions;
 
 export default visibilitySlice.reducer;

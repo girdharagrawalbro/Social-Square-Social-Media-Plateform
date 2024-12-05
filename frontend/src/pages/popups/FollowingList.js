@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useDispatch } from 'react-redux';
+import { showComponent } from '../../store/slices/visibilitySlice';
+
 
 const FollowingList = ({ ids, onClose }) => {
   const [following, setFollowing] = useState([]);
   const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const fetchFollowingDetails = async () => {
@@ -26,6 +30,11 @@ const FollowingList = ({ ids, onClose }) => {
     fetchFollowingDetails();
   }, [ids]);
 
+
+
+  const handleShow = (id) => {
+    dispatch(showComponent(id));
+  }
   return (
     <>
       {
@@ -35,8 +44,8 @@ const FollowingList = ({ ids, onClose }) => {
           following.map((user) => (
 
             <div key={user._id} className="friend-item d-flex align-items-center justify-content-between">
-              <div className="d-flex align-items-center gap-2">
-                <img
+              <div className="d-flex align-items-center gap-2" onClick={() => handleShow(user._id)}>
+              <img
                   src={user.profile_picture}
                   className="logo"
                   alt="logo"

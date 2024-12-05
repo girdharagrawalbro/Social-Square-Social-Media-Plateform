@@ -8,7 +8,6 @@ import Signup from './pages/Signup'
 import Forgot from './pages/Forgot'
 import Contact from './pages/Contact'
 import Help from './pages/Help'
-import Componenta from './Componenta'
 function App() {
   return (
     <>
@@ -22,8 +21,7 @@ function App() {
                 <Route path="/forgot" element={<Forgot />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/help" element={<Help />} />
-                {/* <Route path="/" element={<Home />} /> */}
-                <Route path="/" element={<Componenta />} />
+                <Route path="/" element={<Home />} />
 
               </Routes>
             </Router>

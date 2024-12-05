@@ -1,24 +1,27 @@
 import React, { useEffect, useState, useCallback } from "react";
 import PropTypes from "prop-types";
-import { useDispatch, useSelector } from 'react-redux';
-import { showComponent, hideComponent } from '../../store/slices/visibilitySlice';
+import { useDispatch } from 'react-redux';
+import { showComponent } from '../../store/slices/visibilitySlice';
+
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 
 const OtherUserList = ({ userData }) => {
     const dispatch = useDispatch();
-    const { isVisible, id } = useSelector((state) => state.visibility);
-  
+    
+
+
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
 
 
-    const handleShow = () => {
-        dispatch(showComponent('component-id'));
-      };
-      
+
+    const handleShow = (id) => {
+        dispatch(showComponent(id));
+    }
+
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -83,21 +86,7 @@ const OtherUserList = ({ userData }) => {
             false
         );
 
-    if (!userData || !userData._id) {
         return (
-            <div className="w-25 h-100 p-3 d-flex flex-column gap-3">
-                <h3 className="pacifico-regular bordershadow p-3 rounded text-center theme-bg">
-                    Social Square
-                </h3>
-                <div className="p-3 bordershadow rounded">
-                    <h5>Other Users</h5>
-                    <p>Loading user data...</p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
         <div className="w-25 h-100 p-3 d-flex flex-column gap-3">
             <h3 className="pacifico-regular bordershadow p-3 rounded text-center theme-bg">
                 Social Square
@@ -105,7 +94,14 @@ const OtherUserList = ({ userData }) => {
 
             <div className="p-3 bordershadow rounded">
                 <h5>Other Users</h5>
-                {loading ? (
+
+
+                {
+                (!userData || !userData._id) ? 
+                <p>Loading user data...</p>
+                :
+                
+                loading ? (
                     <p>Loading...</p>
                 ) : error ? (
                     <p className="text-danger">{error}</p>
@@ -114,11 +110,11 @@ const OtherUserList = ({ userData }) => {
                 ) : (
                     <div className="d-flex mt-3 flex-column gap-2">
                         {users.map((user) => (
-                            <button
+                            <div
                                 key={user._id}
                                 className="btn border-0 friend-item d-flex align-items-center justify-content-between"
                             >
-                                <div className="d-flex align-items-center gap-2">
+                                <div className="d-flex align-items-center gap-2" onClick={() => handleShow(user._id)}      >
                                     <div className="friend-img">
                                         <img
                                             src={user.profile_picture || DEFAULT_AVATAR}
@@ -154,7 +150,7 @@ const OtherUserList = ({ userData }) => {
                                             ? "Unfollow"
                                             : "Follow"}
                                 </button>
-                            </button>
+                            </div>
                         ))}
                     </div>
                 )}

@@ -301,7 +301,7 @@ input {
     transform: translate(-50%, -50%);
     background: #fff;
     width: 400px;
- height: 400px;
+ height: max-content;
     overflow-y: scroll;
     z-index: 999;
 }
