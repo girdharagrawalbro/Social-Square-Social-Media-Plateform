@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { hideComponent } from "../../store/slices/visibilitySlice";
-
 const UserProfile = ({ userData }) => {
   const [userDetails, setUserDetails] = useState(null);
   const [isFollower, setIsFollower] = useState(false);
@@ -9,9 +8,10 @@ const UserProfile = ({ userData }) => {
 
   const otheruserid = useSelector((state) => state.visibility.id);
   const dispatch = useDispatch();
-  const loggedInUserId = userData._id;
+
+
   useEffect(() => {
-    if (otheruserid) {
+    if (otheruserid && userData) {
       const fetchUserDetails = async () => {
         try {
           const response = await fetch("http://localhost:5000/api/auth/other-user/view", {
@@ -23,7 +23,7 @@ const UserProfile = ({ userData }) => {
 
           const data = await response.json();
           setUserDetails(data);
-          setIsFollower(data.followers.includes(loggedInUserId)); // Check if logged-in user is in the followers list
+          setIsFollower(data?.followers?.includes(userData._id)); // Optional chaining to avoid errors
           setLoading(false);
         } catch (error) {
           console.error("Error fetching user details:", error);
@@ -33,24 +33,33 @@ const UserProfile = ({ userData }) => {
 
       fetchUserDetails();
     }
-  }, [otheruserid, loggedInUserId]);
+  }, [otheruserid ]);
+
+
+  // Early return if userData is null or undefined
+  if (!userData) {
+    return <p>Loading...</p>; // Ensure we return here
+  }
+
 
   const handleFollow = async () => {
+    if (!userDetails) return;
+
     try {
       const response = await fetch("http://localhost:5000/api/auth/follow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId: loggedInUserId, followUserId: userDetails._id }),
+        body: JSON.stringify({ userId: userData._id, followUserId: userDetails._id }),
       });
 
       if (response.ok) {
         const updatedUser = await response.json();
-        setIsFollower(true); // Update the follow status
+        setIsFollower(true);
         setUserDetails((prevDetails) => ({
           ...prevDetails,
-          followers: [...prevDetails.followers, loggedInUserId],
+          followers: [...prevDetails.followers, userData._id],
         }));
       } else {
         console.error("Failed to follow user");
@@ -61,21 +70,23 @@ const UserProfile = ({ userData }) => {
   };
 
   const handleUnfollow = async () => {
+    if (!userDetails) return;
+
     try {
       const response = await fetch("http://localhost:5000/api/auth/unfollow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId: loggedInUserId, unfollowUserId: userDetails._id }),
+        body: JSON.stringify({ userId: userData._id, unfollowUserId: userDetails._id }),
       });
 
       if (response.ok) {
         const updatedUser = await response.json();
-        setIsFollower(false); // Update the follow status
+        setIsFollower(false);
         setUserDetails((prevDetails) => ({
           ...prevDetails,
-          followers: prevDetails.followers.filter((id) => id !== loggedInUserId),
+          followers: prevDetails.followers.filter((id) => id !== userData._id),
         }));
       } else {
         console.error("Failed to unfollow user");
@@ -88,10 +99,6 @@ const UserProfile = ({ userData }) => {
   const handleHide = () => {
     dispatch(hideComponent());
   };
-
-  if(userData){
-    <>Loading...</>
-  }
 
   if (!otheruserid) {
     return null;
@@ -110,7 +117,6 @@ const UserProfile = ({ userData }) => {
               className="cover-image"
             />
           </div>
-
           <div className="profile-details d-flex align-items-center justify-content-center text-center flex-column gap-1">
             <div className="profile-pic-container">
               <img
@@ -121,22 +127,19 @@ const UserProfile = ({ userData }) => {
             </div>
             <h3 className="m-0 pacifico-regular">{userDetails.fullname}</h3>
           </div>
-
           <div className="text-center">
             <p>{userDetails.bio}</p>
           </div>
-
           <div className="d-flex justify-content-around">
             <div className="text-center">
-              <h6 className="m-0 p-0 nosifer-regular">{userDetails.following.length}</h6>
+              <h6 className="m-0 p-0 nosifer-regular">{userDetails.following?.length || 0}</h6>
               <h6>Following</h6>
             </div>
             <div className="text-center">
-              <h6 className="m-0 p-0 nosifer-regular">{userDetails.followers.length}</h6>
+              <h6 className="m-0 p-0 nosifer-regular">{userDetails.followers?.length || 0}</h6>
               <h6>Followers</h6>
             </div>
           </div>
-
           <div className="mt-2 d-flex justify-content-center gap-2 flex-column">
             {isFollower ? (
               <button className="btn btn-sm btn-danger p-1 w-100" onClick={handleUnfollow}>

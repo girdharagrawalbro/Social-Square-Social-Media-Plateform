@@ -122,11 +122,7 @@ const OtherUserList = ({ userData }) => {
                     }
                 </div>
                 {
-                    (!userData || !userData._id) ?
-                        <p>Loading user data...</p>
-                        :
-
-                        loading ? (
+                           loading ? (
                             <p>Loading...</p>
                         ) : error ? (
                             <p className="text-danger">{error}</p>

@@ -6,7 +6,7 @@ import { AuthContext } from '../../context/AuthContext';
 import FollowingList from "../popups/FollowingList";
 import FollowersList from "../popups/FollowersList";
 import { hideComponent3 } from "../../store/slices/visibilitySlice3";
-
+import Loader from './Loader'
 
 const Profile = ({ userData }) => {
   const [showFollowersList, setShowFollowersList] = useState(false);
@@ -32,20 +32,12 @@ const Profile = ({ userData }) => {
   const handleLogout = () => {
     alert('You are logging out...');
     localStorage.removeItem('token');
+    sessionStorage.removeItem('hasReloaded'); // Set reload flag
+
     navigate('/login'); // Redirect to login page
     window.location.reload(); // Reload the page to clear any cached data
   };
 
-  // Loading fallback
-  if (!userData) {
-    return (
-      <div className="loading-container d-flex justify-content-center align-items-center vh-100">
-        <div className="spinner-border text-primary" role="status">
-          <span className="sr-only">Loading...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
