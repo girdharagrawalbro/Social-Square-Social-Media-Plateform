@@ -16,16 +16,16 @@ import FollowingUsers from './components/FollowingUsers';
 import UserProfile from "./popups/UserProfile";
 
 // links of context 
-import { fetchUsers } from '../store/slices/usersSlice';
-
+import { fetchloggedUser, fetchOtherUsers } from '../store/slices/userSlice'
 const Home = () => {
     const token = localStorage.getItem('token');
     const [initialLoad, setInitialLoad] = useState(true);
     const dispatch = useDispatch();
-    const { users, loading, error } = useSelector((state) => state.users);
+    const { loggeduser } = useSelector((state) => state.users);
 
     useEffect(() => {
-        dispatch(fetchUsers());
+        dispatch(fetchloggedUser());
+        dispatch(fetchOtherUsers(loggeduser._id));
     }, [dispatch]);
 
     // Auto-reload logic
@@ -40,29 +40,29 @@ const Home = () => {
     }, []);
 
     // Remove initial loading state after first render
-    useEffect(() => {
-        if (!loading) {
-            setInitialLoad(false);
-        }
-    }, [loading]);
+    // useEffect(() => {
+    //     if (!loading) {
+    //         setInitialLoad(false);
+    //     }
+    // }, [loading]);
 
 
-    if (error) return (
-        <Bg>
-            <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
-                Error :{error}
-            </div>
-        </Bg>
-    );
+    // if (error) return (
+    //     <Bg>
+    //         <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
+    //             Error :{error}
+    //         </div>
+    //     </Bg>
+    // );
 
-    if (initialLoad || loading)
-        return (
-            <Bg>
-                <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
-                    <Loader />
-                </div>
-            </Bg>
-        );
+    // if (initialLoad || loading)
+    //     return (
+    //         <Bg>
+    //             <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
+    //                 <Loader />
+    //             </div>
+    //         </Bg>
+    //     );
 
     if (!token)
         return (
@@ -76,22 +76,21 @@ const Home = () => {
 
     return (
         <>
-            {users ? (
+            {true ? (
                 <section className='main-screen p-3'>
                     <div className="header">
                         <Header />
-                        <OtherUsers  />
+                        <OtherUsers />
                     </div>
                     <div className="feed px-3">
-                        <Search />
-                        <Newpost />
-                        <Feed />
+                        {/* <Search /> */}
+                        {/* <Newpost /> */}
+                        {/* <Feed /> */}
                     </div>
                     <div className="profile">
-                        <Profile /> 
-                        <FollowingUsers />
+                        {/* <Profile /> */}
+                        {/* <FollowingUsers /> */}
                     </div>
-                    <UserProfile />
                 </section>
             ) : (
                 <Loader />

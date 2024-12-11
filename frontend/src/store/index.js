@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import visibilityReducer1 from './slices/visibilitySlice';
 import visibilityReducer2 from './slices/visibilitySlice2';
 import visibilityReducer3 from './slices/visibilitySlice3';
-import usersReducer from './slices/usersSlice';
+import usersReducer from './slices/getloggeduserSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,5 +10,5 @@ export const store = configureStore({
     visibility2: visibilityReducer2,
     visibility3: visibilityReducer3,
     users: usersReducer,
-    },
+  },
 });

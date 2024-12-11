@@ -2,11 +2,12 @@ import React from 'react'
 
 const Loader = () => {
     return (
-        /* From Uiverse.io by G4b413l */
-        <div className="three-body">
-            <div className="three-body__dot"></div>
-            <div className="three-body__dot"></div>
-            <div className="three-body__dot"></div>
+        <div className="d-flex my-2 justify-content-center">
+            <div className="three-body">
+                <div className="three-body__dot"></div>
+                <div className="three-body__dot"></div>
+                <div className="three-body__dot"></div>
+            </div>
         </div>
     )
 }

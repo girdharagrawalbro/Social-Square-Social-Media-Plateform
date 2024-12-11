@@ -1,4 +1,4 @@
-// features/users/usersSlice.js
+// features/users/getloggeduserSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
@@ -26,7 +26,7 @@ export const fetchUsers = createAsyncThunk('users/fetchUsers', async () => {
 });
 
 // Slice
-const usersSlice = createSlice({
+const getloggeduserSlice = createSlice({
   name: 'users',
   initialState: {
     users: [],
@@ -51,4 +51,4 @@ const usersSlice = createSlice({
   },
 });
 
-export default usersSlice.reducer;
+export default getloggeduserSlice.reducer;

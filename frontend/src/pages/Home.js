@@ -16,7 +16,7 @@ import FollowingUsers from './components/FollowingUsers';
 import UserProfile from "./popups/UserProfile";
 
 // links of context 
-import { fetchUsers } from '../store/slices/usersSlice';
+import { fetchUsers } from '../store/slices/getloggeduserSlice';
 
 const Home = () => {
     const token = localStorage.getItem('token');
@@ -80,7 +80,7 @@ const Home = () => {
                 <section className='main-screen p-3'>
                     <div className="header">
                         <Header />
-                        <OtherUsers  />
+                        <OtherUsers />
                     </div>
                     <div className="feed px-3">
                         <Search />
@@ -88,7 +88,7 @@ const Home = () => {
                         <Feed />
                     </div>
                     <div className="profile">
-                        <Profile /> 
+                        <Profile />
                         <FollowingUsers />
                     </div>
                     <UserProfile />

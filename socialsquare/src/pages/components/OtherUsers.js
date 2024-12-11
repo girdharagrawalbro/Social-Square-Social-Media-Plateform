@@ -6,7 +6,7 @@ import { showComponent2 } from '../../store/slices/visibilitySlice2';
 import { showComponent3 } from '../../store/slices/visibilitySlice3';
 import { hideComponent2 } from "../../store/slices/visibilitySlice2";
 import { hideComponent3 } from "../../store/slices/visibilitySlice3";
-
+import Loader from './Loader'
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 
@@ -17,7 +17,7 @@ const OtherUsers = ({ userData }) => {
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
     const { isVisible2 } = useSelector((state) => state.visibility2);
-
+    const { otheruser } = useSelector((state) => state.users);
 
 
     const handleShow1 = (id) => {
@@ -103,7 +103,7 @@ const OtherUsers = ({ userData }) => {
 
     return (
         <div className=" d-flex OtherUsers flex-column gap-3">
-            
+
             <div className="justify-content-around w-100 mobile">
                 <button className="theme-bg border-0 rounded p-2" onClick={() => handleShow2()}>Other Users</button>
                 <button className="theme-bg border-0 rounded p-2" onClick={() => handleShow3()}>Your Profile</button>
@@ -121,7 +121,7 @@ const OtherUsers = ({ userData }) => {
                 </div>
                 {
                     loading ? (
-                        <p>Loading...</p>
+                        <Loader />
                     ) : error ? (
                         <p className="text-danger">{error}</p>
                     ) : users.length === 0 ? (

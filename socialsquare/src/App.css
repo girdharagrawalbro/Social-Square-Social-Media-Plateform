@@ -189,13 +189,13 @@ ul {
             transparent 70%,
             var(--bg-color) 90%);
     z-index: 2;
-}
+}   
 
 .word {
     display: block;
     height: 100%;
     padding-left: 6px;
-    color: #956afa;
+    color: #dba540;
     animation: spin_4991 4s infinite;
 }
 
@@ -336,7 +336,7 @@ input {
 .three-body {
     --uib-size: 35px;
     --uib-speed: 0.8s;
-    --uib-color: #5D3FD3;
+    --uib-color: #808bf5;
     position: relative;
     display: inline-block;
     height: var(--uib-size);
