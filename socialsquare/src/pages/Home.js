@@ -1,6 +1,6 @@
 // Links for react and redux 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom'; // Import Link from react-router-dom
+import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 
 // links of comoponents
@@ -12,20 +12,19 @@ import Search from './components/Search';
 import Newpost from './components/Newpost';
 import Feed from './components/Feed';
 import Profile from './components/Profile';
-import FollowingUsers from './components/FollowingUsers';
-import UserProfile from "./popups/UserProfile";
 
-// links of context 
-import { fetchloggedUser, fetchOtherUsers } from '../store/slices/userSlice'
+// links of context and redux
+import { fetchLoggedUser } from '../store/slices/userSlice'
+
 const Home = () => {
     const token = localStorage.getItem('token');
     const [initialLoad, setInitialLoad] = useState(true);
+
     const dispatch = useDispatch();
-    const { loggeduser } = useSelector((state) => state.users);
+    const { loading, error } = useSelector((state) => state.users);
 
     useEffect(() => {
-        dispatch(fetchloggedUser());
-        dispatch(fetchOtherUsers(loggeduser._id));
+        dispatch(fetchLoggedUser());
     }, [dispatch]);
 
     // Auto-reload logic
@@ -35,34 +34,34 @@ const Home = () => {
             sessionStorage.setItem('hasReloaded', 'true'); // Set reload flag
             setTimeout(() => {
                 window.location.reload(); // Reload the page after 2 seconds
-            }, 2000);
+            }, 100);
         }
     }, []);
 
     // Remove initial loading state after first render
-    // useEffect(() => {
-    //     if (!loading) {
-    //         setInitialLoad(false);
-    //     }
-    // }, [loading]);
+    useEffect(() => {
+        if (!loading.user) {
+            setInitialLoad(false);
+        }
+    }, [loading.user]);
 
 
-    // if (error) return (
-    //     <Bg>
-    //         <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
-    //             Error :{error}
-    //         </div>
-    //     </Bg>
-    // );
+    if (error.loggeduser) return (
+        <Bg>
+            <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
+                Error :{error.user}
+            </div>
+        </Bg>
+    );
 
-    // if (initialLoad || loading)
-    //     return (
-    //         <Bg>
-    //             <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
-    //                 <Loader />
-    //             </div>
-    //         </Bg>
-    //     );
+    if (initialLoad || loading.loggeduser)
+        return (
+            <Bg>
+                <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
+                    <Loader />
+                </div>
+            </Bg>
+        );
 
     if (!token)
         return (
@@ -76,25 +75,20 @@ const Home = () => {
 
     return (
         <>
-            {true ? (
                 <section className='main-screen p-3'>
                     <div className="header">
                         <Header />
                         <OtherUsers />
                     </div>
                     <div className="feed px-3">
-                        {/* <Search /> */}
-                        {/* <Newpost /> */}
-                        {/* <Feed /> */}
+                        <Search />
+                        <Newpost />
+                        <Feed />
                     </div>
                     <div className="profile">
-                        {/* <Profile /> */}
-                        {/* <FollowingUsers /> */}
+                        <Profile />
                     </div>
                 </section>
-            ) : (
-                <Loader />
-            )}
         </>
     );
 };

@@ -1,187 +1,129 @@
-import React, { useEffect, useState, useCallback } from "react";
-import PropTypes from "prop-types";
+// links of react 
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from 'react-redux';
-import { showComponent } from '../../store/slices/visibilitySlice';
-import { showComponent2 } from '../../store/slices/visibilitySlice2';
-import { showComponent3 } from '../../store/slices/visibilitySlice3';
-import { hideComponent2 } from "../../store/slices/visibilitySlice2";
-import { hideComponent3 } from "../../store/slices/visibilitySlice3";
-import Loader from './Loader'
 
-const DEFAULT_AVATAR = "/default-avatar.png";
+// components
+import Loader from './Loader';
+import UserProfile from "./UserProfile";
 
-const OtherUsers = ({ userData }) => {
+// ui
+import { Dialog } from 'primereact/dialog';
+
+// redux
+import { followUser, fetchOtherUsers } from '../../store/slices/userSlice';
+
+const OtherUsers = () => {
     const dispatch = useDispatch();
     const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
-    const { isVisible2 } = useSelector((state) => state.visibility2);
-    const { otheruser } = useSelector((state) => state.users);
+    const { loggeduser, otherusers, loading } = useSelector((state) => state.users);
+
+    const [isVisible, setVisible] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState(null); // State to store selected otherusers ID
 
 
-    const handleShow1 = (id) => {
-        dispatch(showComponent(id));
-    }
-
-    const handleShow2 = (id) => {
-        dispatch(hideComponent3());
-        dispatch(showComponent2());
-    }
-    const handleShow3 = (id) => {
-        dispatch(hideComponent2());
-        dispatch(showComponent3());
-    }
-
-    const handleClose2 = () => {
-        dispatch(hideComponent2())
-    }
-
-    const fetchUsers = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await fetch(
-                `http://localhost:5000/api/auth/other-users?userId=${userData._id}`
-            );
-            if (response.ok) {
-                const { users } = await response.json();
-                setUsers(users);
-            } else {
-                throw new Error("Failed to fetch users");
-            }
-        } catch (error) {
-            setError(error.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [userData?._id]);
+    console.log(loggeduser._id)
 
     useEffect(() => {
-        if (userData?._id) fetchUsers();
-    }, [userData?._id, fetchUsers]);
+        if (loggeduser?._id) {
+            dispatch(fetchOtherUsers(loggeduser._id));
+        }
+    }, [dispatch, loggeduser?._id]);
 
-    const handleAction = async (url, payload, userId, isFollow) => {
-        setActionLoading(userId);
-        setError(null);
+    const handleUserClick = (userId) => {
+        setSelectedUserId(userId); // Set selected otherusers ID
+        setVisible(true); // Open the dialog
+    };
+
+
+    const handleFollow = async (followUserId) => {
+        setActionLoading(followUserId);
         try {
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-            if (!response.ok)
-                throw new Error(`Failed to ${isFollow ? "follow" : "unfollow"} user`);
-
+            await dispatch(followUser({ loggedUserId: loggeduser._id, followUserId })).unwrap();
             setUsers((prevUsers) =>
-                prevUsers.map((user) =>
-                    user._id === userId ? { ...user, isFollowing: isFollow } : user
+                prevUsers.map((u) =>
+                    u._id === followUserId ? { ...u, isFollowing: true } : u
                 )
             );
-        } catch (error) {
-            setError(error.message);
+        } catch (err) {
+            setError("Failed to follow otherusers.");
         } finally {
             setActionLoading(null);
         }
     };
 
-    const handleFollow = (followUserId) =>
-        handleAction(
-            `http://localhost:5000/api/auth/follow`,
-            { userId: userData._id, followUserId },
-            followUserId,
-            true
-        );
 
-    const handleUnfollow = (unfollowUserId) =>
-        handleAction(
-            `http://localhost:5000/api/auth/unfollow`,
-            { userId: userData._id, unfollowUserId },
-            unfollowUserId,
-            false
-        );
+    useEffect(() => {
+        if (otherusers?.otherusers) {
+            setUsers(otherusers.otherusers);
+        }
+    }, [otherusers]);
 
     return (
-        <div className=" d-flex OtherUsers flex-column gap-3">
-
+        <div className="d-flex OtherUsers flex-column gap-3">
             <div className="justify-content-around w-100 mobile">
-                <button className="theme-bg border-0 rounded p-2" onClick={() => handleShow2()}>Other Users</button>
-                <button className="theme-bg border-0 rounded p-2" onClick={() => handleShow3()}>Your Profile</button>
+                <button className="theme-bg border-0 rounded p-2">Other Users</button>
+                <button className="theme-bg border-0 rounded p-2">Your Profile</button>
+
             </div>
 
-            <div className={`p-3 bordershadow bg-white rounded pc ${isVisible2 ? 'pc-show' : ''}`}>
+            <div className={`p-3 bordershadow bg-white rounded pc pc-show`}>
                 <div className="d-flex justify-content-between">
-
                     <h5>Other Users</h5>
-                    {isVisible2 ?
-                        <button onClick={() => handleClose2()} className="btn btn-sm rounded-pill btn-outline-dark">X</button>
-                        :
-                        <></>
-                    }
                 </div>
                 {
-                    loading ? (
+                    loading.otherusers ?
                         <Loader />
-                    ) : error ? (
-                        <p className="text-danger">{error}</p>
-                    ) : users.length === 0 ? (
-                        <p>No other users found.</p>
-                    ) : (
-                        <div className="d-flex mt-3 flex-column gap-2">
-                            {users.map((user) => (
-                                <div
-                                    key={user._id}
-                                    className="btn border-0 friend-item d-flex align-items-center justify-content-between"
-                                >
-                                    <div className="d-flex align-items-center gap-2" onClick={() => handleShow1(user._id)}      >
-                                        <div className="friend-img">
-                                            <img
-                                                src={user.profile_picture || DEFAULT_AVATAR}
-                                                className="logo"
-                                                alt={user.fullname || "User Avatar"}
-                                            />
+                        : error ? { error } :
+                            otherusers.length === 0 ? (
+                                <p>No other users found.</p>
+                            ) : (
+                                <div className="d-flex mt-3 flex-column gap-2">
+                                    {otherusers.map((u) => (
+                                        <div
+                                            key={u._id}
+                                            className="btn border-0 friend-item d-flex align-items-center justify-content-between"
+                                            onClick={() => handleUserClick(u._id)} // Pass otherusers ID
+                                        >
+                                            <div className="d-flex align-items-center gap-2">
+                                                <div className="friend-img">
+                                                    <img
+                                                        src={u?.profile_picture}
+                                                        className="logo"
+                                                        alt={u.fullname}
+                                                    />
+                                                </div>
+                                                <h6>{u.fullname || "Unknown User"}</h6>
+                                            </div>
+                                            <button
+                                                className={`btn btn-primary btn-sm py-1 px-2`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // Prevent triggering the parent div click
+                                                    handleFollow(u._id);
+                                                }}
+                                                disabled={actionLoading === u._id}
+
+                                            >
+                                                {actionLoading === u._id
+                                                    ? "Processing..."
+                                                    : "Follow"}
+                                            </button>
                                         </div>
-                                        <h6>{user.fullname || "Unknown User"}</h6>
-                                    </div>
-                                    <button
-                                        className={`btn ${user.isFollowing ? "btn-danger" : "btn-primary"
-                                            } btn-sm py-1 px-2`}
-                                        onClick={() =>
-                                            user.isFollowing
-                                                ? handleUnfollow(user._id)
-                                                : handleFollow(user._id)
-                                        }
-                                        disabled={actionLoading === user._id}
-                                        title={
-                                            user.isFollowing
-                                                ? "Unfollow this user"
-                                                : "Follow this user"
-                                        }
-                                        aria-label={
-                                            user.isFollowing
-                                                ? "Unfollow user"
-                                                : "Follow user"
-                                        }
-                                    >
-                                        {actionLoading === user._id
-                                            ? "Processing..."
-                                            : user.isFollowing
-                                                ? "Unfollow"
-                                                : "Follow"}
-                                    </button>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            )}
             </div>
+            <Dialog
+                header="User Profile"
+                visible={isVisible}
+                style={{ width: '25vw' }}
+                onHide={() => setVisible(false)}
+            >
+                <UserProfile id={selectedUserId} /> {/* Pass selected otherusers ID */}
+            </Dialog>
         </div>
     );
-};
-
-OtherUsers.propTypes = {
-    userData: PropTypes.shape({
-        _id: PropTypes.string.isRequired,
-    }).isRequired,
 };
 
 export default OtherUsers;

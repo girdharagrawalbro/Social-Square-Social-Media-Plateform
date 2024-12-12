@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Bg from './components/Bg';
+import { ToastContainer, toast } from 'react-toastify';
+
+
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -10,12 +13,17 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate(); // Initialize useNavigate
- 
+
   useEffect(() => {
     // Check if the token exists in localStorage
     const token = localStorage.getItem('token');
     if (token) {
-      alert("You are already logged in..");
+      toast.info("You are already logged in..", {
+        position: "top-center",
+        theme: "colored",
+        autoClose: 1500
+      })
+      // alert("You are already logged in..");
       setTimeout(() => navigate('/'), 1500); // Redirect to the home page or dashboard
     }
   }, [navigate]);
@@ -31,7 +39,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
+
 
     try {
       // Simulating a login API call
@@ -47,13 +55,15 @@ const Login = () => {
 
       if (response.ok) {
         localStorage.setItem('token', result.token);
-        setMessage('Login successful! Redirecting...');
+        toast.success("Login successful! Redirecting...")
         setTimeout(() => navigate('/'), 1500);
       } else {
-        setMessage(result.error || 'Invalid credentials. Please try again.');
+        toast.error("Something went wrong!")
+        toast.error(result.error)
       }
     } catch (error) {
-      setMessage('Network error! Please try again.');
+      toast.error("Network error! Please try again.");
+      toast.error(error);
     }
 
     setLoading(false);
@@ -94,6 +104,10 @@ const Login = () => {
               </button>
               <div className='text-danger py-2'>{message}</div>
             </form>
+            <ToastContainer
+              theme="light"
+            />
+
             <Link to="/forgot" className="mt-5 text-primary text-decoration-none text-start">
               Forgot Password ?
             </Link>

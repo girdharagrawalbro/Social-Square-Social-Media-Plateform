@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
 import Bg from './components/Bg';
+import { ToastContainer, toast } from 'react-toastify';
 
 const Signup = () => {
 
@@ -17,8 +18,13 @@ const Signup = () => {
     // Check if the token exists in localStorage
     const token = localStorage.getItem('token');
     if (token) {
-      alert("You are already logged in..");
-      setTimeout(() => navigate('/'), 1500);}
+      toast.info("You are already logged in..", {
+        position: "top-center",
+        theme: "colored",
+        autoClose: 1500
+      })
+      setTimeout(() => navigate('/'), 1500);
+    }
   }, [navigate]);
 
   const handleChange = (e) => {
@@ -48,13 +54,15 @@ const Signup = () => {
 
       if (response.ok) {
         localStorage.setItem('token', result.token);
-        setMessage('Signup successful! Redirecting...');
+        toast.success("Signup successful! Redirecting...")
         setTimeout(() => navigate('/'), 1500); // Redirect after 1.5 seconds
       } else {
-        setMessage(result.error || 'Something went wrong!');
+        toast.error("Something went wrong!")
+        toast.error(result.error)
       }
     } catch (error) {
-      setMessage('Network error! Please try again.');
+      toast.error("Network error! Please try again.");
+      toast.error(error);
     }
 
     setLoading(false);
@@ -107,7 +115,9 @@ const Signup = () => {
               <div className='text-danger py-2'>{message}</div>
 
             </form>
-
+            <ToastContainer
+              theme='light'
+            />
             <div className="mt-4">
               <p>
                 Have an account?{' '}

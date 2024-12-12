@@ -12,7 +12,22 @@
     font-style: normal;
 }
 
+.p-overlaypanel-content {
+    padding: 0 0 4px 4px;
+}
 
+
+.p-button{
+    padding: 5px 15px;
+}
+
+.p-dialog-header{
+    padding: 1rem;
+}
+.p-dialog-content{
+    padding: 0 1rem 1rem 1rem;
+
+}
 a,
 Link {
     color: inherit;
@@ -68,10 +83,11 @@ ul {
     width: 50%;
     height: 100%;
 }
+
 .profile {
     width: 25%;
     height: 100%;
-    
+
 
     /* border-left: 1px solid lightgray; */
     /* padding: 15px 20px; */
@@ -125,12 +141,6 @@ ul {
     width: 100%;
 }
 
-.post-img {
-    width: 100%;
-    height: 360px;
-    /* Adjust height as needed */
-    object-fit: contain;
-}
 
 .interaction {
     bottom: 0;
@@ -189,7 +199,7 @@ ul {
             transparent 70%,
             var(--bg-color) 90%);
     z-index: 2;
-}   
+}
 
 .word {
     display: block;
@@ -466,7 +476,7 @@ input {
     }
 
     .main-screen {
-        
+
         flex-direction: column;
     }
 
@@ -484,5 +494,18 @@ input {
     .popups {
         width: 90%;
         top: 340px;
+    }
+    
+    .p-dialog-header{
+        padding: 10px;
+    }
+    .p-dialog-content{
+        padding: 0 1.5rem 0 1.5rem;
+    }
+    .p-dialog-footer{
+        padding: 10px;
+    }
+    .p-button{
+        padding: 5px 15px;
     }
 }

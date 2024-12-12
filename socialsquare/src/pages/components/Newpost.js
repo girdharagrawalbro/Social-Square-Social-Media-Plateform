@@ -1,74 +1,66 @@
-import React, { useContext, useEffect, useState } from "react";
-import Loader from './Loader'
-import { useDispatch, useSelector } from 'react-redux';
+// React imports
+import React, { useState, useEffect ,useRef} from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { newPost } from "../../store/slices/postsSlice";
+import { ToastContainer, toast } from 'react-toastify';
+import { OverlayPanel } from 'primereact/overlaypanel';
 
-
-const Newpost = () => {
-  const [loading, setLoading] = useState(true);
-  const [showImageInput, setShowImageInput] = useState(false);
+const NewPost = () => {
+  const op = useRef(null);
   const dispatch = useDispatch();
-  const { users } = useSelector((state) => state.users);
+  const { loggeduser } = useSelector((state) => state.users);
+  const { newpostsuccess, error } = useSelector((state) => state.posts);
+
+
+  useEffect(() => {
+    if (newpostsuccess) {
+      toast.success(newpostsuccess);
+    }
+    if (error.newpost) {
+      toast.error(error.newpost);
+    }
+  }, [newpostsuccess, error]);
 
   const [formData, setFormData] = useState({
     caption: "",
     category: "Default",
   });
 
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.caption.trim()) {
-      alert("Caption cannot be empty.");
+      toast.warn('Caption cannot be empty!');
       return;
     }
 
-    try {
-      const { caption, category, imageURL } = formData; // Assuming `formData.user` contains user data
-      const response = await fetch("http://localhost:5000/api/post/create", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          caption,
-          category,
-          imageURL,
-          user: users._id, // Ensure userData has the correct structure
-        }),
+    const postData = {
+      ...formData,
+      loggeduser: loggeduser?._id,
+    };
 
-      });
+    dispatch(newPost(postData));
 
-      if (response.ok) {
-        const data = await response.json();
-        setFormData({
-          caption: "",
-          category: "Default",
-          imageURL: "",
-        });
-        alert("Post created successfully!");
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.error}`);
-      }
-    } catch (err) {
-      console.error("Failed to create post:", err);
-      alert("An error occurred. Please try again.");
-    }
+    setFormData({
+      caption: "",
+      category: "Default",
+    });
   };
 
-
-  const toggleImageInput = () => {
-    setShowImageInput(!showImageInput);
-  };
 
   return (
-    <> <div className="new mt-2 bordershadow p-2 rounded w-100 d-flex gap-1 align-items-center">
+    <div className="new mt-2 bordershadow p-2 rounded w-100 d-flex gap-1 align-items-center">
+      <ToastContainer
+        theme="light"
+      />
       <img
-        src={users?.profile_picture || "default-profile.png"}
+        src={loggeduser?.profile_picture || "default-profile.png"}
         alt="Profile"
         className="logo"
       />
@@ -86,10 +78,8 @@ const Newpost = () => {
           <span
             className="theme-bg px-2 py-1 ms-2"
             aria-label="Add image"
-            onClick={toggleImageInput}
+            onClick={(e) => op.current.toggle(e)} 
           >
-
-
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -132,9 +122,9 @@ const Newpost = () => {
               />
             </svg>
           </button>
-
         </div>
-        {showImageInput && (
+
+        <OverlayPanel ref={op} style={{padding : "0px"}}>
           <input
             type="text"
             placeholder="Enter image URL"
@@ -144,10 +134,10 @@ const Newpost = () => {
             value={formData.imageURL}
             onChange={handleChange}
           />
-        )}
+       </OverlayPanel>
       </form>
-    </div></>
-  )
-}
+    </div>
+  );
+};
 
-export default Newpost
+export default NewPost;

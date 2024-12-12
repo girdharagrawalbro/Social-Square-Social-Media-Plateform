@@ -84,6 +84,7 @@ router.get('/get', async (req, res) => {
 
             // Find the user by ID
             const user = await User.findById(userId).select('-password'); // Exclude password
+
             if (!user) {
                 return res.status(404).json({ message: 'User not found.' });
             }
@@ -100,7 +101,35 @@ router.get('/get', async (req, res) => {
     }
 });
 
-// get other user profile details
+router.get('/other-users', async (req, res) => {
+    try {
+        const loggeduserId = req.headers.authorization;
+
+        try {
+            // Find the user by ID
+            const user = await User.findById(loggeduserId).select('-password'); // Exclude password
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found.' });
+            }
+
+            const otherusers = await User.find({
+                _id: { $ne: loggeduserId, $nin: user.following },
+            });
+
+            // Return the user data
+            return res.status(200).json(otherusers);
+        } catch (error) {
+            console.error(error);
+            return res.status(403).json({ message: error });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
+// get follow - following user profile details
 router.post('/users/details', async (req, res) => {
     const { ids } = req.body;
 
@@ -136,7 +165,6 @@ router.put('/update-profile', async (req, res) => {
             return res.status(404).json({ message: 'User not found.' });
         }
 
-        // Send the updated user data as a response
         res.status(200).json(updatedUser);
     } catch (error) {
         console.error('Error updating profile:', error);
@@ -144,31 +172,7 @@ router.put('/update-profile', async (req, res) => {
     }
 });
 
-// View all other users 
-router.get('/other-users', async (req, res) => {
-    try {
-        const { userId } = req.query; // Extract logged-in user ID from query parameters
-        if (!userId) {
-            return res.status(400).json({ message: 'User ID is required' });
-        }
 
-        // Find the logged-in user's document to get the list of followed users
-        const loggedInUser = await User.findById(userId);
-        if (!loggedInUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Fetch all users except the logged-in user and those they follow
-        const users = await User.find({
-            _id: { $ne: userId, $nin: loggedInUser.following },
-        });
-
-        res.status(200).json({ users });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to retrieve users, please try again.' });
-    }
-});
 
 // Follow a user
 router.post('/follow', async (req, res) => {
@@ -181,9 +185,9 @@ router.post('/follow', async (req, res) => {
 
         // Add followUserId to the user's following list and vice versa
         await User.findByIdAndUpdate(userId, { $addToSet: { following: followUserId } });
-        await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } });
+      const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } });
 
-        res.status(200).json({ message: 'Followed successfully.' });
+        res.status(200).json(user);
     } catch (error) {
         console.error('Error following user:', error);
         res.status(500).json({ message: 'Failed to follow user.' });
@@ -201,9 +205,9 @@ router.post('/unfollow', async (req, res) => {
 
         // Remove unfollowUserId from the user's following list and vice versa
         await User.findByIdAndUpdate(userId, { $pull: { following: unfollowUserId } });
-        await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } });
+       const user =  await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } });
 
-        res.status(200).json({ message: 'Unfollowed successfully.' });
+        res.status(200).json(user);
     } catch (error) {
         console.error('Error unfollowing user:', error);
         res.status(500).json({ message: 'Failed to unfollow user.' });
@@ -214,12 +218,12 @@ router.post('/unfollow', async (req, res) => {
 router.get('/other-user/view', async (req, res) => {
     try {
         const userId = req.headers.authorization;
-        
+
         if (!userId) {
             return res.status(401).json({ message: 'No Id provided.' });
         }
         const user = await User.findById(userId).select('-password')
-        
+
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
@@ -233,39 +237,38 @@ router.get('/other-user/view', async (req, res) => {
 });
 
 // searched users 
-
 router.post("/search", async (req, res) => {
-  const { query } = req.body;
+    const { query } = req.body;
 
-  if (!query) {
-    return res.status(400).json({ message: "Search query is required." });
-  }
-
-  try {
-    // Search for users by full name
-    const userResults = await User.find({
-      fullname: { $regex: query, $options: "i" }, // Case-insensitive search
-    }).select("-password");
-
-    // Search for posts by category
-    const postResults = await Post.find({
-      category: { $regex: query, $options: "i" }, // Case-insensitive search
-    });
-
-    // Determine which results to return based on the query
-    const isCategory = postResults.length > 0 && userResults.length === 0;
-
-    if (isCategory) {
-      return res.status(200).json({ type: "post", results: postResults });
-    } else if (userResults.length > 0) {
-      return res.status(200).json({ type: "user", results: userResults });
-    } else {
-      return res.status(200).json({ type: "no", results: "No results found." });
+    if (!query) {
+        return res.status(400).json({ message: "Search query is required." });
     }
-  } catch (error) {
-    console.error("Search error:", error);
-    return res.status(500).json({ message: "Internal server error." });
-  }
+
+    try {
+        // Search for users by full name
+        const userResults = await User.find({
+            fullname: { $regex: query, $options: "i" }, // Case-insensitive search
+        }).select("-password");
+
+        // Search for posts by category
+        const postResults = await Post.find({
+            category: { $regex: query, $options: "i" }, // Case-insensitive search
+        });
+
+        // Determine which results to return based on the query
+        const isCategory = postResults.length > 0 && userResults.length === 0;
+
+        if (isCategory) {
+            return res.status(200).json({ type: "post", results: postResults });
+        } else if (userResults.length > 0) {
+            return res.status(200).json({ type: "user", results: userResults });
+        } else {
+            return res.status(200).json({ type: "no", results: "No results found." });
+        }
+    } catch (error) {
+        console.error("Search error:", error);
+        return res.status(500).json({ message: "Internal server error." });
+    }
 });
 
 // create a conversation 

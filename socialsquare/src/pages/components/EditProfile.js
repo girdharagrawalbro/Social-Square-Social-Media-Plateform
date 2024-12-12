@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Toast } from 'primereact/toast';
+import { useDispatch, useSelector } from "react-redux";
+import { updateUser } from '../../store/slices/userSlice';
+const EditProfile = ({ users, onSubmit, closeSidebar }) => {
+    const dispatch = useDispatch();
 
-const EditProfile = ({ userData, onSubmit }) => {
     const [formData, setFormData] = useState({
         fullname: "",
         email: "",
@@ -8,55 +12,38 @@ const EditProfile = ({ userData, onSubmit }) => {
         bio: "",
     });
 
-    // Load user data into the form when the component mounts or userData changes
+    // Load user data into the form when the component mounts or users changes
     useEffect(() => {
-        if (userData) {
+        if (users) {
             setFormData({
-                fullname: userData.fullname || "",
-                email: userData.email || "",
-                profile_picture: userData.profile_picture || "",
-                bio: userData.bio || "",
+                fullname: users.fullname || "",
+                email: users.email || "",
+                profile_picture: users.profile_picture || "",
+                bio: users.bio || "",
             });
         }
-    }, [userData]);
+    }, [users]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
+    const userData = {
+        ...formData,
+        userId: users._id
+    }
     const handleSubmit = async (e) => {
         e.preventDefault();
-        try {
-            const response = await fetch('http://localhost:5000/api/auth/update-profile', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    userId: userData._id, // Pass userId from userData
-                    ...formData, // Spread formData containing fullname, email, etc.
-                }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                alert("Profile updated successfully!");
-                onSubmit(data);
-            } else {
-                const error = await response.json();
-                alert(`Error: ${error.message}`);
-            }
-        } catch (err) {
-            console.error("Failed to update profile:", err);
-            alert("An error occurred. Please try again.");
-        }
+        dispatch(updateUser(userData));
+        onSubmit();
+        closeSidebar();
     };
 
 
 
     return (
-        <form onSubmit={handleSubmit} className=" editform p-4 bordershadow rounded w-100 h-100">
+        <form onSubmit={handleSubmit} className=" w-100 h-100">
             <h4 className="mb-4 text-center">Update your Profile</h4>
 
             <div className="mb-3">

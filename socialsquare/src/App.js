@@ -4,6 +4,9 @@ import {
   Routes, // Correctly imported Routes
   Route
 } from "react-router-dom";
+
+import "primereact/resources/themes/lara-light-cyan/theme.css";
+import 'react-toastify/dist/ReactToastify.css';
 import AuthProvider from './context/AuthContext';
 import PostProvider from './context/PostContext';
 import Home from './pages/Home';
@@ -12,11 +15,11 @@ import Signup from './pages/Signup';
 import Forgot from './pages/Forgot';
 import Contact from './pages/Contact';
 import Help from './pages/Help';
-
+import { PrimeReactProvider } from 'primereact/api';
 function App() {
   return (
     <>
-      {/* <ChakraProvider> */}
+      <PrimeReactProvider>
         <AuthProvider>
           <PostProvider>
             <Router>
@@ -31,8 +34,9 @@ function App() {
             </Router>
           </PostProvider>
         </AuthProvider>
-      {/* </ChakraProvider> */}
+      </PrimeReactProvider>
     </>
+
   );
 }
 

@@ -7,15 +7,15 @@ const router = express.Router();
 
 router.post("/create", async (req, res) => {
   try {
-    const { caption, user, category, imageURL } = req.body;
+    const { caption, loggeduser, category, imageURL } = req.body;
 
     // Validate fields
-    if (!caption || !user || !category) {
+    if (!caption || !loggeduser || !category) {
       return res.status(400).json({ message: "All fields are required." });
     }
 
     // Fetch user details from the database
-    const userDetails = await User.findById(user).select('username fullname profile_picture');
+    const userDetails = await User.findById(loggeduser).select('username fullname profile_picture');
     if (!userDetails) {
       return res.status(404).json({ message: "User not found." });
     }
