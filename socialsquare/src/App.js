@@ -9,8 +9,6 @@ import {
 
 import "primereact/resources/themes/lara-light-cyan/theme.css";
 import 'react-toastify/dist/ReactToastify.css';
-import AuthProvider from './context/AuthContext';
-import PostProvider from './context/PostContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -22,8 +20,6 @@ function App() {
   return (
     <>
       <PrimeReactProvider>
-        <AuthProvider>
-          <PostProvider>
             <Router>
               <Routes>
                 <Route path="/signup" element={<Signup />} />
@@ -34,8 +30,6 @@ function App() {
                 <Route path="/" element={<Home />} />
               </Routes>
             </Router>
-          </PostProvider>
-        </AuthProvider>
       </PrimeReactProvider>
     </>
 

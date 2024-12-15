@@ -42,7 +42,7 @@ const Signup = () => {
 
     try {
       // Simulating a signup API call
-      const response = await fetch('http://localhost:5000/api/auth/add', {
+      const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

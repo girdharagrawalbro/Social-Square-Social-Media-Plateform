@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { AuthContext } from '../../context/AuthContext';
 
 // components
 import EditProfile from './EditProfile';
@@ -23,7 +22,6 @@ const Profile = () => {
   const [showFollowingList, setShowFollowingList] = useState(false);
 
   const navigate = useNavigate();
-  const { fetchUserData } = useContext(AuthContext);
   const dispatch = useDispatch();
 
   const { loggeduser, updateusersuccess, error } = useSelector((state) => state.users);
@@ -36,11 +34,6 @@ const Profile = () => {
       toast.error(error.updateuser);
     }
   }, [updateusersuccess, error]);
-
-
-  const handleEditSubmit = () => {
-    fetchUserData();
-  };
 
   const handleLogout = () => {
     confirmDialog({
@@ -142,7 +135,7 @@ const Profile = () => {
         </div>
 
         <Sidebar visible={visible} position="right" onHide={() => setVisible(false)} >
-          <EditProfile users={loggeduser} onSubmit={handleEditSubmit} closeSidebar={() => setVisible(false)} />
+          <EditProfile users={loggeduser} closeSidebar={() => setVisible(false)} />
         </Sidebar>
 
       </div>

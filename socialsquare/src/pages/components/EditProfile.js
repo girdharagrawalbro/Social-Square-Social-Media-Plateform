@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Toast } from 'primereact/toast';
 import { useDispatch, useSelector } from "react-redux";
 import { updateUser } from '../../store/slices/userSlice';
-const EditProfile = ({ users, onSubmit, closeSidebar }) => {
+const EditProfile = ({ users, closeSidebar }) => {
     const dispatch = useDispatch();
 
     const [formData, setFormData] = useState({
@@ -36,7 +36,6 @@ const EditProfile = ({ users, onSubmit, closeSidebar }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         dispatch(updateUser(userData));
-        onSubmit();
         closeSidebar();
     };
 

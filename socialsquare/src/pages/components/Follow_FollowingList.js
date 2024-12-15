@@ -14,7 +14,7 @@ const Follow_FollowingList = ({ isfollowing }) => {
     useEffect(() => {
         const fetchUsersDetails = async () => {
             try {
-                const response = await fetch("http://localhost:5000/api/auth/users/details", {
+                const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/auth/users/details", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -74,8 +74,8 @@ const Follow_FollowingList = ({ isfollowing }) => {
                                 {isfollowing ? (
                                     <button
                                         className={`btn ${loggeduser.following.includes(user._id)
-                                                ? "btn-danger"
-                                                : "btn-primary"
+                                            ? "btn-danger"
+                                            : "btn-primary"
                                             } btn-sm py-1 px-2`}
                                         onClick={(e) => {
                                             e.stopPropagation(); // Prevent triggering the parent div click

@@ -4,7 +4,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 // Fetch Posts
 export const fetchPosts = createAsyncThunk("posts/fetchPosts", async (_, thunkAPI) => {
   try {
-    const response = await fetch("http://localhost:5000/api/post/");
+    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/");
     return await response.json();
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message);
@@ -14,7 +14,7 @@ export const fetchPosts = createAsyncThunk("posts/fetchPosts", async (_, thunkAP
 // Fetch Categories
 export const fetchCategories = createAsyncThunk("posts/fetchCategories", async (_, thunkAPI) => {
   try {
-    const response = await fetch("http://localhost:5000/api/post/categories");
+    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/categories");
     return await response.json();
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message);
@@ -24,7 +24,7 @@ export const fetchCategories = createAsyncThunk("posts/fetchCategories", async (
 // Create New Post
 export const newPost = createAsyncThunk("posts/newPost", async (postData, thunkAPI) => {
   try {
-    const response = await fetch("http://localhost:5000/api/post/create", {
+    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/create", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -46,7 +46,7 @@ export const newPost = createAsyncThunk("posts/newPost", async (postData, thunkA
 // handle like
 export const likepost = createAsyncThunk("posts/likepost", async ({ postId, userId }) => {
   try {
-    const response = await fetch("http://localhost:5000/api/post/like", {
+    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/like", {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",
@@ -69,7 +69,7 @@ export const likepost = createAsyncThunk("posts/likepost", async ({ postId, user
 // handle unlike
 export const unlikepost = createAsyncThunk("posts/unlikepost", async ({ postId, userId }) => {
   try {
-    const response = await fetch("http://localhost:5000/api/post/unlike", {
+    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/unlike", {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",
@@ -94,7 +94,7 @@ export const fetchComments = createAsyncThunk(
   'posts/fetchComments',
   async (postId) => {
     try {
-      const response = await fetch("http://localhost:5000/api/post/comments", {
+      const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/comments", {
         method: "GET",
         headers: {
           Authorization: `${postId}`,
@@ -113,7 +113,7 @@ export const createComment = createAsyncThunk(
   'posts/createComment',
   async ({ postId, content, user }) => {
     try {
-      const response = await fetch("http://localhost:5000/api/post/comments/add", {
+      const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/comments/add", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

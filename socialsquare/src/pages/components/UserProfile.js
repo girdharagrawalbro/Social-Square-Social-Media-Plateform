@@ -14,13 +14,13 @@ const UserProfile = ({ id }) => {
 
   const dispatch = useDispatch();
 
-  const { userFollowStatus , loading: loadingState, loggeduser } = useSelector((state) => state.users);
+  const { userFollowStatus, loading: loadingState, loggeduser } = useSelector((state) => state.users);
 
   useEffect(() => {
     if (id && loggeduser._id) {
       const fetchUserDetails = async () => {
         try {
-          const response = await fetch("http://localhost:5000/api/auth/other-user/view", {
+          const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/auth/other-user/view", {
             method: "GET",
             headers: {
               Authorization: `${id}`,
@@ -64,7 +64,7 @@ const UserProfile = ({ id }) => {
         <>
           <div>
             <img
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQWdjis-8T0ZC_aBUa_8QAxnkmCuWLQCP5rg&s"
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQWdjis-8T0ZC_aBUa_8QAxnkmCuWLQCP5rg&s"
               alt="Cover"
               className="cover-image"
             />
