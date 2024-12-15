@@ -48,7 +48,7 @@ const Feed = () => {
   };
   return (
     <div className="">
-      {loading.posts ? (
+      {loading.posts || !loggeduser ? (
         <Loader />
       ) : (
         <div className="mt-3 rounded d-flex flex-column gap-3">
@@ -89,14 +89,14 @@ const Feed = () => {
                           <span
                             onClick={() =>
                               dispatch(
-                                post?.likes?.includes(loggeduser._id)
+                                post?.likes?.includes(loggeduser?._id)
                                   ? unlikepost({ postId: post._id, userId: loggeduser._id })
                                   : likepost({ postId: post._id, userId: loggeduser._id })
                               )
                             }
                             className="d-flex align-items-center gap-2"
                           >
-                            {post?.likes?.includes(loggeduser._id) ? (
+                            {post?.likes?.includes(loggeduser?._id) ? (
                               <Like count={post?.likes?.length} isliked={true} />
                             ) : (
                               <Like count={post?.likes?.length} isliked={false} />

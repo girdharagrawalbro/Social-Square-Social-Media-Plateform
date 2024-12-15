@@ -124,8 +124,9 @@ const Profile = () => {
               Edit
             </button>
 
-            <Button onClick={handleLogout} icon="pi pi-times" label="Logout" className="mr-2 btn btn-light btn-sm w-100"></Button>
-
+            <button onClick={handleLogout} className="mr-2 btn btn-light btn-sm w-100">
+              Logout
+            </button>
           </div>
           {false ?
             <button className="btn btn-sm btn-outline-dark mt-1">close</button>
