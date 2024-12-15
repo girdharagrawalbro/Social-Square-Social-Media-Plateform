@@ -1,0 +1,699 @@
+@import url('https://fonts.googleapis.com/css2?family=Nosifer&family=Pacifico&display=swap');
+
+.pacifico-regular {
+    font-family: "Pacifico", cursive;
+    font-weight: 400;
+    font-style: normal;
+}
+
+.nosifer-regular {
+    font-family: "Nosifer", serif;
+    font-weight: 400;
+    font-style: normal;
+}
+
+.p-overlaypanel-content {
+    padding: 0 0 4px 4px;
+}
+
+
+.p-button {
+    padding: 5px 15px;
+}
+
+.p-dialog-header {
+    padding: 1rem;
+}
+
+.p-dialog-content {
+    padding: 0 1rem 1rem 1rem;
+
+}
+
+a,
+Link {
+    color: inherit;
+    text-decoration: none;
+}
+
+ul {
+    list-style: none;
+}
+
+.main-screen {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-bg {
+    background-color: #808bf5;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+.theme-btn:hover {
+    background-color: #808cf5ec;
+
+}
+
+.suggestion {
+    overflow-x: scroll;
+}
+
+.auth-bg {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: url('../public/bg.jpg');
+    background-size: cover;
+}
+
+.header {
+    width: 25%;
+    height: 100%;
+
+}
+
+.feed {
+    overflow-y: scroll;
+    width: 50%;
+    height: 100%;
+}
+
+.profile {
+    width: 25%;
+    height: 100%;
+
+
+    /* border-left: 1px solid lightgray; */
+    /* padding: 15px 20px; */
+}
+
+
+.profile-container {
+    position: relative;
+}
+
+.editform {
+    overflow: scroll;
+}
+
+.authnav {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    display: flex;
+}
+
+
+.bordershadow {
+    box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+}
+
+.logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+.OtherUsers {
+    display: flex;
+    height: max-content;
+}
+
+
+
+.post {
+    position: relative;
+    overflow: hidden;
+}
+
+.post-img-container {
+    position: relative;
+    width: 100%;
+}
+
+
+.interaction {
+    bottom: 0;
+    z-index: 5;
+    background: rgba(0, 0, 0, 0.6);
+    /* Semi-transparent background for the hide effect */
+    color: white;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+}
+
+.interaction p,
+.interaction button {
+    margin: 0;
+}
+
+.profilepic {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+}
+
+/* From Uiverse.io by kennyotsu */
+.card {
+    background-color: transparent;
+    padding: 1rem 2rem;
+    border-radius: 1.25rem;
+}
+
+.loader {
+    color: rgb(124, 124, 124);
+    font-family: "Poppins", sans-serif;
+    font-weight: 500;
+    font-size: 25px;
+    -webkit-box-sizing: content-box;
+    box-sizing: content-box;
+    height: 40px;
+    padding: 10px 10px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    border-radius: 8px;
+}
+
+.words {
+    overflow: hidden;
+    position: relative;
+}
+
+.words::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(var(--bg-color) 10%,
+            transparent 30%,
+            transparent 70%,
+            var(--bg-color) 90%);
+    z-index: 2;
+}
+
+.word {
+    display: block;
+    height: 100%;
+    padding-left: 6px;
+    color: #dba540;
+    animation: spin_4991 4s infinite;
+    scale: 0;
+}
+
+.post , .comment{
+    animation: post 0.2s ease;
+}
+
+@keyframes post {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes spin_4991 {
+    10% {
+        -webkit-transform: translateY(-102%);
+        transform: translateY(-102%);
+    }
+
+    25% {
+        -webkit-transform: translateY(-100%);
+        transform: translateY(-100%);
+    }
+
+    35% {
+        -webkit-transform: translateY(-202%);
+        transform: translateY(-202%);
+    }
+
+    50% {
+        -webkit-transform: translateY(-200%);
+        transform: translateY(-200%);
+    }
+
+    60% {
+        -webkit-transform: translateY(-302%);
+        transform: translateY(-302%);
+    }
+
+    75% {
+        -webkit-transform: translateY(-300%);
+        transform: translateY(-300%);
+    }
+
+    85% {
+        -webkit-transform: translateY(-402%);
+        transform: translateY(-402%);
+    }
+
+    100% {
+        -webkit-transform: translateY(-400%);
+        transform: translateY(-400%);
+    }
+}
+
+.form-container {
+    padding: 40px;
+    width: 800px;
+    box-shadow: rgba(0, 0, 0, 0.2) 0px 18px 50px -10px;
+    height: 70%;
+}
+
+.form-container img {
+    width: 400px;
+}
+
+.form-container.active {
+    display: block;
+}
+
+.img-container img {
+    background-color: #333;
+    border: 10px solid #333;
+    border-radius: 28px;
+}
+
+input {
+    outline: none;
+}
+
+.main {
+    height: 90vh;
+}
+
+.peoples {
+    border-right: 1px solid lightgray;
+
+}
+
+.cover-image {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.profile-details {
+    margin-top: -60px;
+}
+
+.profile-stats {
+    align-items: center;
+}
+
+.profile-pic-container {
+    position: relative;
+    z-index: 1;
+}
+
+.profile-pic {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border: 3px solid white;
+    position: relative;
+}
+
+.friends-list .friend-item {
+    align-items: center;
+}
+
+.friend-img img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.popups {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    width: 400px;
+    height: max-content;
+    overflow-y: scroll;
+    z-index: 999;
+}
+
+.mobile {
+    display: none;
+}
+
+
+/* loding css */
+/* From Uiverse.io by G4b413l */
+.three-body {
+    --uib-size: 35px;
+    --uib-speed: 0.8s;
+    --uib-color: #808bf5;
+    position: relative;
+    display: inline-block;
+    height: var(--uib-size);
+    width: var(--uib-size);
+    animation: spin78236 calc(var(--uib-speed) * 2.5) infinite linear;
+}
+
+.three-body__dot {
+    position: absolute;
+    height: 100%;
+    width: 30%;
+}
+
+.three-body__dot:after {
+    content: '';
+    position: absolute;
+    height: 0%;
+    width: 100%;
+    padding-bottom: 100%;
+    background-color: var(--uib-color);
+    border-radius: 50%;
+}
+
+.three-body__dot:nth-child(1) {
+    bottom: 5%;
+    left: 0;
+    transform: rotate(60deg);
+    transform-origin: 50% 85%;
+}
+
+.three-body__dot:nth-child(1)::after {
+    bottom: 0;
+    left: 0;
+    animation: wobble1 var(--uib-speed) infinite ease-in-out;
+    animation-delay: calc(var(--uib-speed) * -0.3);
+}
+
+.three-body__dot:nth-child(2) {
+    bottom: 5%;
+    right: 0;
+    transform: rotate(-60deg);
+    transform-origin: 50% 85%;
+}
+
+.three-body__dot:nth-child(2)::after {
+    bottom: 0;
+    left: 0;
+    animation: wobble1 var(--uib-speed) infinite calc(var(--uib-speed) * -0.15) ease-in-out;
+}
+
+.three-body__dot:nth-child(3) {
+    bottom: -5%;
+    left: 0;
+    transform: translateX(116.666%);
+}
+
+.three-body__dot:nth-child(3)::after {
+    top: 0;
+    left: 0;
+    animation: wobble2 var(--uib-speed) infinite ease-in-out;
+}
+
+@keyframes spin78236 {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes wobble1 {
+
+    0%,
+    100% {
+        transform: translateY(0%) scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: translateY(-66%) scale(0.65);
+        opacity: 0.8;
+    }
+}
+
+@keyframes wobble2 {
+
+    0%,
+    100% {
+        transform: translateY(0%) scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: translateY(66%) scale(0.65);
+        opacity: 0.8;
+    }
+}
+
+@media (max-width: 480px) {
+    .pc {
+        display: none;
+    }
+
+    .pc-show {
+        display: block;
+        position: absolute;
+        top: 140px;
+        z-index: 8;
+        width: 90%;
+    }
+
+    .mobile {
+        display: flex;
+    }
+
+    .authnav {
+        flex-direction: column;
+    }
+
+    .form-container {
+        width: 300px;
+        padding: 20px;
+        height: max-content;
+        margin-top: 30px;
+    }
+
+    .main-screen {
+
+        flex-direction: column;
+    }
+
+    .feed,
+    .OtherUsers,
+    .profile-container {
+        width: 100%;
+
+    }
+
+    .OtherUsers {
+        height: max-content;
+    }
+
+    .popups {
+        width: 90%;
+        top: 340px;
+    }
+
+    .p-dialog-header {
+        padding: 10px;
+    }
+
+    .p-dialog-content {
+        padding: 0 1.5rem 0 1.5rem;
+    }
+
+    .p-dialog-footer {
+        padding: 10px;
+    }
+
+    .p-button {
+        padding: 5px 15px;
+    }
+}
+
+/* From Uiverse.io by catraco */
+.heart-container {
+    color: white;
+    position: relative;
+    width: 25px;
+    height: 25px;
+    transition: .3s;
+}
+
+.heart-container .checkbox {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    z-index: 20;
+    cursor: pointer;
+}
+
+.heart-container .svg-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.heart-container .svg-outline {
+    fill: white;
+}
+
+.heart-container .svg-filled {
+    fill: red;
+    position: absolute;
+}
+
+.heart-container .svg-filled {
+    animation: keyframes-svg-filled 1s;
+    display: none;
+}
+
+.heart-container .svg-celebrate {
+    position: absolute;
+    animation: keyframes-svg-celebrate .5s;
+    animation-fill-mode: forwards;
+    display: none;
+    stroke: red;
+    fill: red;
+    stroke-width: 2px;
+}
+
+.heart-container .checkbox:checked~.svg-container .svg-filled {
+    display: block
+}
+
+.heart-container .checkbox:checked~.svg-container .svg-celebrate {
+    display: block
+}
+
+@keyframes keyframes-svg-filled {
+    0% {
+        transform: scale(0);
+    }
+
+    25% {
+        transform: scale(1.2);
+    }
+
+    50% {
+        transform: scale(1);
+        filter: brightness(1.5);
+    }
+}
+
+@keyframes keyframes-svg-celebrate {
+    0% {
+        transform: scale(0);
+    }
+
+    50% {
+        opacity: 1;
+        filter: brightness(1.5);
+    }
+
+    100% {
+        transform: scale(1.4);
+        opacity: 0;
+        display: none;
+    }
+}
+
+/* From Uiverse.io by Priyanshu02020 */
+#heart {
+    display: none;
+}
+
+.like-button {
+    cursor: pointer;
+    display: flex;
+    width: 70px;
+    border-radius: 25px;
+    border: 1px solid gray;
+    overflow: hidden;
+    position: relative;
+    
+}
+
+.like {
+    height: 100%;
+    display: flex;
+    padding:5px 5px 5px 10px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: space-evenly;
+}
+
+.like-icon {
+    fill: white;
+    stroke: #333;
+    height: 20px;
+    width: 20px;
+}
+
+.like-count {
+    position: absolute;
+    right: 0;
+    display: flex;
+    padding:5px 8px 5px 5px;
+    justify-content: center;
+    align-items: center;
+    color: #717070;
+    font-size: 16px;
+    height: 100%;
+    border-left: 1px solid #4e4e4e;
+    transition: all 0.5s ease-out;
+}
+
+.like-count.two {
+    transform: translateY(40px);
+}
+
+.on:checked~.like .like-icon {
+    fill: #fc4e4e;
+    animation: enlarge 0.2s ease-out 1;
+    transition: all 0.2s ease-out;
+}
+
+.on:checked~.like-count.two {
+    transform: translateX(0);
+    color: #000000;
+}
+
+.on:checked~.like-count.one {
+    transform: translateY(-40px);
+}
+
+@keyframes enlarge {
+    0% {
+        transform: scale(0.5);
+    }
+
+    100% {
+        transform: scale(1.2);
+    }
+}
+
