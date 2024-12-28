@@ -60,14 +60,8 @@ const OtherUsers = () => {
     }, [otherusers]);
 
     return (
-        <div className="d-flex OtherUsers flex-column gap-3">
-            <div className="justify-content-around w-100 mobile">
-                <button className="theme-bg border-0 rounded p-2">Other Users</button>
-                <button className="theme-bg border-0 rounded p-2">Your Profile</button>
-
-            </div>
-
-            <div className={`p-3 bordershadow bg-white rounded pc pc-show`}>
+        <div className="d-flex flex-column gap-3">
+            <div className={`p-3 bordershadow bg-white rounded `}>
                 <div className="d-flex justify-content-between">
                     <h5>Other Users</h5>
                 </div>

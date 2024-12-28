@@ -1,10 +1,9 @@
-// Redux Slice (store/slices/postsSlice.js)
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 // Fetch Posts
 export const fetchPosts = createAsyncThunk("posts/fetchPosts", async (_, thunkAPI) => {
   try {
-    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/");
+    const response = await fetch("http://localhost:5000/api/post/");
     return await response.json();
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message);
@@ -14,7 +13,7 @@ export const fetchPosts = createAsyncThunk("posts/fetchPosts", async (_, thunkAP
 // Fetch Categories
 export const fetchCategories = createAsyncThunk("posts/fetchCategories", async (_, thunkAPI) => {
   try {
-    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/categories");
+    const response = await fetch("http://localhost:5000/api/post/categories");
     return await response.json();
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message);
@@ -24,7 +23,7 @@ export const fetchCategories = createAsyncThunk("posts/fetchCategories", async (
 // Create New Post
 export const newPost = createAsyncThunk("posts/newPost", async (postData, thunkAPI) => {
   try {
-    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/create", {
+    const response = await fetch("http://localhost:5000/api/post/create", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -46,7 +45,7 @@ export const newPost = createAsyncThunk("posts/newPost", async (postData, thunkA
 // handle like
 export const likepost = createAsyncThunk("posts/likepost", async ({ postId, userId }) => {
   try {
-    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/like", {
+    const response = await fetch("http://localhost:5000/api/post/like", {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",
@@ -69,7 +68,7 @@ export const likepost = createAsyncThunk("posts/likepost", async ({ postId, user
 // handle unlike
 export const unlikepost = createAsyncThunk("posts/unlikepost", async ({ postId, userId }) => {
   try {
-    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/unlike", {
+    const response = await fetch("http://localhost:5000/api/post/unlike", {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",
@@ -94,13 +93,13 @@ export const fetchComments = createAsyncThunk(
   'posts/fetchComments',
   async (postId) => {
     try {
-      const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/comments", {
+      const response = await fetch("http://localhost:5000/api/post/comments", {
         method: "GET",
         headers: {
           Authorization: `${postId}`,
         },
       });
-      const data = response.json()
+      const data = await response.json()
       return data;
     }
     catch (error) {
@@ -113,7 +112,7 @@ export const createComment = createAsyncThunk(
   'posts/createComment',
   async ({ postId, content, user }) => {
     try {
-      const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/comments/add", {
+      const response = await fetch("http://localhost:5000/api/post/comments/add", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,7 +122,7 @@ export const createComment = createAsyncThunk(
         })
 
       });
-      const data = response.json();
+      const data = await response.json();
       return { data, postId };
     } catch (error) {
       console.error("Error in commenting");
@@ -142,12 +141,16 @@ const postsSlice = createSlice({
       newpost: null,
       categories: null,
       comments: null,
+      like: null,
+      unlike: null,
     },
     error: {
       posts: null,
       newpost: null,
       categories: null,
-      comments: null
+      comments: null,
+      like: null,
+      unlike: null,
     },
     newpostsuccess: null
   },
@@ -201,20 +204,51 @@ const postsSlice = createSlice({
       })
 
       // Handle Like Post 
+      .addCase(likepost.pending, (state, action) => {
+        const { userId, postId } = action.meta.arg; // Assuming `meta.arg` contains the payload
+        const postIndex = state.posts.findIndex(post => post._id === postId);
+        if (postIndex !== -1 && !state.posts[postIndex].likes.includes(userId)) {
+          state.posts[postIndex].likes.push(userId); // Optimistic update
+        }
+        state.loading.like = true;
+      })
+
       .addCase(likepost.fulfilled, (state, action) => {
-        const { userId, postId } = action.payload;
+        state.loading.like = false; // No need to update likes; already handled optimistically
+      })
+
+      .addCase(likepost.rejected, (state, action) => {
+        const { userId, postId } = action.meta.arg;
         const postIndex = state.posts.findIndex(post => post._id === postId);
         if (postIndex !== -1) {
-          state.posts[postIndex].likes.push(userId);
+          state.posts[postIndex].likes = state.posts[postIndex].likes.filter(id => id !== userId); // Rollback
         }
+        state.loading.like = false;
       })
+
+
+      .addCase(unlikepost.pending, (state, action) => {
+        const { userId, postId } = action.meta.arg; // Assuming `meta.arg` contains the payload
+        const postIndex = state.posts.findIndex(post => post._id === postId);
+        if (postIndex !== -1 && state.posts[postIndex].likes.includes(userId)) {
+          state.posts[postIndex].likes = state.posts[postIndex].likes.filter((id) => id !== userId); // Optimistic update
+        }
+        state.loading.unlike = true;
+      })
+
       .addCase(unlikepost.fulfilled, (state, action) => {
-        const { userId, postId } = action.payload;
-        const postIndex = state.posts.findIndex(post => post._id === postId);
-        if (postIndex !== -1) {
-          state.posts[postIndex].likes = state.posts[postIndex].likes.filter((id) => id !== userId);
-        }
+        state.loading.unlike = false; // No need to update likes; already handled optimistically
       })
+
+      .addCase(unlikepost.rejected, (state, action) => {
+        const { userId, postId } = action.meta.arg;
+        const postIndex = state.posts.findIndex(post => post._id === postId);
+        if (postIndex !== -1 && !state.posts[postIndex].likes.includes(userId)) {
+          state.posts[postIndex].likes.push(userId); // Rollback if unliking failed
+        }
+        state.loading.unlike = false;
+      })
+
       // add comment
       .addCase(createComment.fulfilled, (state, action) => {
         const { data, postId } = action.payload;

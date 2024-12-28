@@ -46,6 +46,7 @@ ul {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 1rem;
 }
 
 .theme-bg {
@@ -84,6 +85,7 @@ ul {
     overflow-y: scroll;
     width: 50%;
     height: 100%;
+    padding: 0 1rem;
 }
 
 .profile {
@@ -103,7 +105,10 @@ ul {
 .editform {
     overflow: scroll;
 }
-
+.chats{
+    height: 28.5vh;
+    overflow-y: scroll;
+}
 .authnav {
     position: absolute;
     top: 0;
@@ -212,7 +217,8 @@ ul {
     scale: 0;
 }
 
-.post , .comment{
+.post,
+.comment {
     animation: post 0.2s ease;
 }
 
@@ -466,71 +472,6 @@ input {
     }
 }
 
-@media (max-width: 480px) {
-    .pc {
-        display: none;
-    }
-
-    .pc-show {
-        display: block;
-        position: absolute;
-        top: 140px;
-        z-index: 8;
-        width: 90%;
-    }
-
-    .mobile {
-        display: flex;
-    }
-
-    .authnav {
-        flex-direction: column;
-    }
-
-    .form-container {
-        width: 300px;
-        padding: 20px;
-        height: max-content;
-        margin-top: 30px;
-    }
-
-    .main-screen {
-
-        flex-direction: column;
-    }
-
-    .feed,
-    .OtherUsers,
-    .profile-container {
-        width: 100%;
-
-    }
-
-    .OtherUsers {
-        height: max-content;
-    }
-
-    .popups {
-        width: 90%;
-        top: 340px;
-    }
-
-    .p-dialog-header {
-        padding: 10px;
-    }
-
-    .p-dialog-content {
-        padding: 0 1.5rem 0 1.5rem;
-    }
-
-    .p-dialog-footer {
-        padding: 10px;
-    }
-
-    .p-button {
-        padding: 5px 15px;
-    }
-}
 
 /* From Uiverse.io by catraco */
 .heart-container {
@@ -538,7 +479,7 @@ input {
     position: relative;
     width: 25px;
     height: 25px;
-    transition: .3s;
+    transition: .1s;
 }
 
 .heart-container .checkbox {
@@ -635,13 +576,13 @@ input {
     border: 1px solid gray;
     overflow: hidden;
     position: relative;
-    
+
 }
 
 .like {
     height: 100%;
     display: flex;
-    padding:5px 5px 5px 10px;
+    padding: 5px 5px 5px 10px;
     cursor: pointer;
     align-items: center;
     justify-content: space-evenly;
@@ -658,7 +599,7 @@ input {
     position: absolute;
     right: 0;
     display: flex;
-    padding:5px 8px 5px 5px;
+    padding: 5px 8px 5px 5px;
     justify-content: center;
     align-items: center;
     color: #717070;
@@ -675,7 +616,7 @@ input {
 .on:checked~.like .like-icon {
     fill: #fc4e4e;
     animation: enlarge 0.2s ease-out 1;
-    transition: all 0.2s ease-out;
+    transition: all 0.1s ease-out;
 }
 
 .on:checked~.like-count.two {
@@ -697,3 +638,94 @@ input {
     }
 }
 
+
+.OtherUsers {
+    display: flex;
+}
+
+/* Default: PC Layout */
+.pc-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+}
+
+.mobile-layout {
+    display: none;
+}
+
+@media (max-width: 480px) {
+    .pc-layout {
+        display: none;
+    }
+
+    .mobile-layout {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding-top:5px;
+    }
+
+    .feed {
+        padding: 0;
+    }
+
+    .OtherUsers,
+    .profile,
+    .header {
+        display: none;
+    }
+
+    .authnav {
+        flex-direction: column;
+    }
+
+    .form-container {
+        width: 300px;
+        padding: 20px;
+        height: max-content;
+        margin-top: 30px;
+    }
+
+    .main-screen {
+        padding: .5rem;
+    }
+
+    .feed,
+    .OtherUsers,
+    .profile-container {
+        width: 100%;
+
+    }
+
+    .p-sidebar-content {
+        padding: 0rem;
+        height: 100vh;
+    }
+
+    .OtherUsers {
+        height: max-content;
+    }
+
+    .popups {
+        width: 90%;
+        top: 340px;
+    }
+
+    .p-dialog-header {
+        padding: 10px;
+    }
+
+    .p-dialog-content {
+        padding: 0 1.5rem 0 1.5rem;
+    }
+
+    .p-dialog-footer {
+        padding: 10px;
+    }
+
+    .p-button {
+        padding: 5px 15px;
+    }
+}

@@ -39,6 +39,7 @@ const Feed = () => {
       reject
     });
   };
+  
   const accept = () => {
 
   };
@@ -97,9 +98,9 @@ const Feed = () => {
                             className="d-flex align-items-center gap-2"
                           >
                             {post?.likes?.includes(loggeduser?._id) ? (
-                              <Like count={post?.likes?.length} isliked={true} />
+                              <Like count={post?.likes?.length} isliked={true} loading={loading.like} />
                             ) : (
-                              <Like count={post?.likes?.length} isliked={false} />
+                              <Like count={post?.likes?.length} isliked={false} loading={loading.unlike} />
                             )}
                           </span>
                         </div>

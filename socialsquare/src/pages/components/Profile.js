@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 // components
 import EditProfile from './EditProfile';
 import Follow_FollowingList from "./Follow_FollowingList";
+import { socket } from '../../socket'; // Assume this is your socket connection file
 
 // ui
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
@@ -44,12 +45,20 @@ const Profile = () => {
       acceptClassName: 'p-button-danger',
       accept: () => {
         // Clear session storage and Redux state
+
+        localStorage.removeItem('socketId');
         localStorage.removeItem('token');
         sessionStorage.removeItem('hasReloaded');
+        
         dispatch(resetState()); // Reset Redux store
 
         toast.info('You have been logged out.');
-
+      
+        if (socket.connected) {
+          // Emit logoutUser event
+          const userId = loggeduser?._id; // Assuming loggeduser contains the user's ID
+          socket.emit('logoutUser', userId);
+        }
         // Delay navigation to ensure cleanup
         setTimeout(() => navigate('/login'), 500);
       },
@@ -65,7 +74,7 @@ const Profile = () => {
 
   return (
     <>
-      <div className={`profile-container pc  bg-white gap-1 pc-show`}>
+      <div className={`profile-container bg-white gap-1 pc-show`}>
         <div className="bordershadow p-3 rounded bg-white d-flex flex-column gap-1">
           <div>
             <img

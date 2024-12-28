@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchComments, createComment } from '../../../store/slices/postsSlice';
+import { createComment } from '../../../store/slices/postsSlice';
 
 const Comment = ({ postId, setVisible }) => {
     const dispatch = useDispatch();
@@ -35,19 +35,19 @@ const Comment = ({ postId, setVisible }) => {
         <div className='comment'>
             <hr />
             <div className="commentlist d-flex flex-column gap-2">
-                {loading.comments ? <p className="text-secondary" style={{ fontSize: "14px" }}>Loading</p> :
+                {loading.comments || !comments ? <p className="text-secondary" style={{ fontSize: "14px" }}>Loading...</p> :
                     comments.length > 0 ? (
                         (comments.map((comment) => (
                             <div className="commentbox bordershadow p-2 rounded w-100">
                                 <div className='d-flex gap-2 align-items-center justify-content-between'>
                                     <div className='d-flex gap-2 align-items-center'>
                                         <img
-                                            src={comment.user.profile_picture || "default-profile.png"}
+                                            src={comment?.user?.profile_picture || "default-profile.png"}
                                             alt="Profile"
                                             className="logo"
                                         />
                                         <div>
-                                            <h6 className='m-0 p-0'>{comment.user.fullname}</h6>
+                                            <h6 className='m-0 p-0'>{comment?.user?.fullname}</h6>
                                             <p className='m-0 p-0 text-secondary' style={{ fontSize: "12px" }}>{(comment.createdAt)}</p>
                                         </div>
                                     </div>
