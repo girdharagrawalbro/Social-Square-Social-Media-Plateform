@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchConversations } from '../../store/slices/conversationSlice';
+import { fetchConversations, updateLastMessage } from '../../store/slices/conversationSlice';
 import { Dialog } from 'primereact/dialog';
 import ChatPanel from './ChatPanel';
 import { socket } from '../../socket'; // Assume this is your socket connection file
@@ -27,15 +27,9 @@ const Conversations = () => {
 
     socket?.on('receiveMessage', (message) => {
       console.log(message.content)
-      // Update the conversations state in Redux
-      dispatch({
-        type: 'conversation/updateLastMessage',
-        payload: {
-          conversationId: message.conversationId,
-          lastMessage: message.content,
-          lastMessageAt: new Date().toISOString(),
-        },
-      });
+
+      dispatch(updateLastMessage({ conversationId: message.conversationId, content: message.content }));
+
     });
 
     return () => {

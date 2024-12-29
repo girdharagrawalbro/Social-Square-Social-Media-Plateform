@@ -77,7 +77,7 @@ export const createMessage = createAsyncThunk(
                 sender,
                 content,
             });
-            socket.emit('sendMessage', { recipientId, senderName, content });
+            socket.emit('sendMessage', { recipientId, senderName, content, sender, conversationId });
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response.data);
@@ -112,7 +112,6 @@ const conversationSlice = createSlice({
             const conversation = state.conversations.find(
                 (conv) => conv._id === conversationId
             );
-            console.log(content)
             if (conversation) {
                 conversation.lastMessage = content;
             }

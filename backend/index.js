@@ -55,14 +55,16 @@ io.on('connection', (socket) => {
     });
 
     // Handle sending messages to a specific user
-    socket.on('sendMessage', ({ recipientId, content, senderName }) => {
+    socket.on('sendMessage', ({ recipientId, content, senderName,sender }) => {
         console.log(`Message from ${senderName} to ${recipientId}:`, content);
         const recipient = onlineUsers.find(u => u.userId === recipientId);
         if (recipient) {
             io.to(recipient.socketId).emit('receiveMessage', {
-                senderId: socket.id,
+                senderId: sender,
                 content,
-                senderName
+                recipientId,
+                senderName,
+                conversationId
             });
             console.log(`Message sent to ${recipientId}`);
         } else {

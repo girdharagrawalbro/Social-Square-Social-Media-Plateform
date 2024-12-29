@@ -17,36 +17,20 @@ const ChatPanel = ({ participantId }) => {
         }
 
         // Listen to incoming messages
-        const handleReceiveMessage = (message) => {
+        socket.on('receiveMessage', (message) => {
             if (message.senderId === participantId) {
                 // If the chat panel is open, add message to chat
                 dispatch(addMessageToChat(message));
-                console.log('New message received:', message.content);
-            } else {
-                // Otherwise, show notification
-            }
-        };
-        if (socket) {
-            socket.on('receiveMessage', handleReceiveMessage);
-            return () => {
-                socket.off('receiveMessage', handleReceiveMessage);
-            };
-        }
 
-        // Listen to incoming messages
-        socket.on('receiveMessage', (message) => {
-            if (isChatPanelOpen && message.senderId === participantId) {
-                // If the chat panel is open, add message to chat
-                dispatch(addMessageToChat(message));
             } else {
-                console.log('New message received:', message.content);
+                console.log('Error in reciving message');
             }
         });
 
         return () => {
             socket.off('receiveMessage');
         };
-    }, [dispatch, participantId, isChatPanelOpen, socket]);
+    }, [dispatch, loggeduser?._id, participantId]);
 
     useEffect(() => {
         if (chatContainerRef.current) {
