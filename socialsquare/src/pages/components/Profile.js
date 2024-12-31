@@ -13,8 +13,7 @@ import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
-import { Sidebar } from 'primereact/sidebar';
-import { ToastContainer, toast } from 'react-toastify';
+import {toast, ToastContainer} from 'react-toastify';
 import { resetState } from '../../store/slices/userSlice';
 
 const Profile = () => {
@@ -49,14 +48,14 @@ const Profile = () => {
         localStorage.removeItem('socketId');
         localStorage.removeItem('token');
         sessionStorage.removeItem('hasReloaded');
-        
+
         dispatch(resetState()); // Reset Redux store
 
         toast.info('You have been logged out.');
-      
+
         if (socket.connected) {
           // Emit logoutUser event
-          const userId = loggeduser?._id; // Assuming loggeduser contains the user's ID
+          const userId = loggeduser?._id; // Assuming loggeduser? contains the user's ID
           socket.emit('logoutUser', userId);
         }
         // Delay navigation to ensure cleanup
@@ -87,19 +86,19 @@ const Profile = () => {
           <div className="profile-details d-flex align-items-center justify-content-center text-center flex-column gap-1">
             <div className="profile-pic-container">
               <Image
-                src={loggeduser.profile_picture}
-                zoomSrc={loggeduser.profile_picture}
+                src={loggeduser?.profile_picture}
+                zoomSrc={loggeduser?.profile_picture}
                 alt="Profile"
                 className="profile-pic rounded-circle overflow-hidden"
                 preview
                 width="100" height="100"
               />
             </div>
-            <h3 className="m-0 pacifico-regular">{loggeduser.fullname}</h3>
+            <h3 className="m-0 pacifico-regular">{loggeduser?.fullname}</h3>
           </div>
 
           <div className="text-center">
-            <p>{loggeduser.bio}</p>
+            <p>{loggeduser?.bio}</p>
           </div>
 
           <div className="d-flex justify-content-around">
@@ -109,7 +108,7 @@ const Profile = () => {
             >
 
               <h6 className="m-0 p-0 nosifer-regular">
-                {loggeduser.followers.length}
+                {loggeduser?.followers?.length || 0}
               </h6>
               <h6>Followers</h6>
             </div>
@@ -119,7 +118,7 @@ const Profile = () => {
               onClick={() => setShowFollowingList(true)}
             >
               <h6 className="m-0 p-0 nosifer-regular">
-                {loggeduser.following.length}
+                {loggeduser?.following?.length}
               </h6>
               <h6>Following</h6>
             </div>
@@ -144,26 +143,25 @@ const Profile = () => {
           }
         </div>
 
-        <Sidebar visible={visible} position="right" onHide={() => setVisible(false)} >
+        <Dialog visible={visible} position="right" style={{width: "25vw"}} onHide={() => setVisible(false)} >
           <EditProfile users={loggeduser} closeSidebar={() => setVisible(false)} />
-        </Sidebar>
+        </Dialog>
 
       </div>
       <ConfirmDialog />
-      <ToastContainer
-        theme="light"
-      />
+ 
       <Dialog header="Followers" visible={showFollowersList} style={{ width: '25vw' }} onHide={() => { if (!showFollowersList) return; setShowFollowersList(false); }}>
         <Follow_FollowingList
           isfollowing={false}
-          ids={loggeduser.followers}
+          ids={loggeduser?.followers}
         />
       </Dialog>
 
+        <ToastContainer />
       <Dialog header="Following" visible={showFollowingList} style={{ width: '25vw' }} onHide={() => { if (!showFollowingList) return; setShowFollowingList(false); }}>
         <Follow_FollowingList
           isfollowing={true}
-          ids={loggeduser.following}
+          ids={loggeduser?.following}
         />
       </Dialog>
     </>

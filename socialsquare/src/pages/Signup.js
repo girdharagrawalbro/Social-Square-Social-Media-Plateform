@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
 import Bg from './components/Bg';
-import { ToastContainer, toast } from 'react-toastify';
+import toast from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 
 const Signup = () => {
 
@@ -115,9 +116,7 @@ const Signup = () => {
               <div className='text-danger py-2'>{message}</div>
 
             </form>
-            <ToastContainer
-              theme='light'
-            />
+          
             <div className="mt-4">
               <p>
                 Have an account?{' '}
@@ -132,6 +131,7 @@ const Signup = () => {
           <img src="image.png" alt="" />
         </div>
       </Bg >
+      <Toaster />
     </>
   );
 };

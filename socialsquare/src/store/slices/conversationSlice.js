@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { socket } from '../../socket'; // Import socket connection
 
-
 // Async thunk for creating a conversation
 export const createConversation = createAsyncThunk(
     'conversations/createConversation',
@@ -76,44 +75,92 @@ export const createMessage = createAsyncThunk(
                 conversationId,
                 sender,
                 content,
+                recipientId,
+                senderName
             });
-            socket.emit('sendMessage', { recipientId, senderName, content, sender, conversationId });
-            return response.data;
-        } catch (error) {
+            const data = response.data;
+            socket.emit('sendMessage', { recipientId, senderName, content, sender, conversationId, _id: data._id, createdAt: data.createdAt, isRead: data.isRead });
+            return data;
+        }
+        catch (error) {
             return rejectWithValue(error.response.data);
         }
     }
 );
+
+// Async thunk for mark message as read 
 export const markMessagesAsRead = createAsyncThunk(
     'conversation/markMessagesAsRead',
-    async (messageIds, { rejectWithValue }) => {
+    async ({ unreadMessageIds, lastMessage }, { rejectWithValue }) => {
         try {
-            const response = await axios.patch('http://localhost:5000/api/conversation/messages/mark-read', { messageIds });
+            const response = await axios.post('http://localhost:5000/api/conversation/messages/mark-read', { unreadMessageIds, lastMessage });
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response.data);
         }
     }
 );
+
+export const getNotifications = createAsyncThunk(
+    'conversation/getNotifications',
+    async (userId, { rejectWithValue }) => {
+        try {
+            const response = await axios.get(`http://localhost:5000/api/conversation/notifications/${userId}`);
+            return response.data;  // Return the notifications data
+        } catch (error) {
+            return rejectWithValue(error.response.data);  // Handle errors
+        }
+    }
+);
+
+//  to mark notifications as read 
+export const readNotifications = createAsyncThunk(
+    'conversation/readNotifications',
+    async (Ids, { rejectWithValue }) => {
+        try {
+            const response = await axios.patch('http://localhost:5000/api/conversation/notifications/mark-read', { Ids });
+            return response.data;
+        }
+        catch (error) {
+            return rejectWithValue(error.response.data)
+        }
+    });
+
 const conversationSlice = createSlice({
     name: 'conversation',
     initialState: {
         conversations: [],
+        notifications: [],
         messages: [],
         loading: {
             conversation: true,
             messages: null,
+            notifications: null
         },
         error: null,
     },
     reducers: {
+
         updateLastMessage: (state, action) => {
-            const { conversationId, content } = action.payload;
+            const { conversationId, content, createdAt, messageid, isRead } = action.payload;
+
             const conversation = state.conversations.find(
                 (conv) => conv._id === conversationId
             );
+
             if (conversation) {
-                conversation.lastMessage = content;
+                if (content !== undefined) {
+                    conversation.lastMessage.message = content;
+                }
+                if (messageid !== undefined) {
+                    conversation.lastMessage.id = messageid;
+                }
+                if (createdAt !== undefined) {
+                    conversation.lastMessageAt = createdAt;
+                }
+                if (isRead !== undefined) {
+                    conversation.lastMessage.isRead = isRead;
+                }
             }
         },
 
@@ -121,7 +168,19 @@ const conversationSlice = createSlice({
             state.messages.push(action.payload);
         },
 
+        addNewNotification: (state, action) => {
+            const { notification } = action.payload;
+            state.notifications.push(notification);
+        },
 
+        updateReadMessage: (state, action) => {
+            const messageId = action.payload;
+            const message = state.messages.find((message) => message._id === messageId.messageId);
+            console.log(message)
+            if (message) {
+                message.isRead = true;
+            }
+        }
     },
     extraReducers: (builder) => {
         builder
@@ -174,28 +233,55 @@ const conversationSlice = createSlice({
             .addCase(createMessage.fulfilled, (state, action) => {
                 state.loading.messages = false;
                 state.messages.push(action.payload); // Add the new message to the existing messages
-
             })
             .addCase(createMessage.rejected, (state, action) => {
                 state.loading.messages = false;
                 state.error = action.payload;
             })
+
             .addCase(markMessagesAsRead.fulfilled, (state, action) => {
-                const updatedIds = action.payload.messageIds;
+                const updatedIds = action.payload.unreadMessageIds;
                 state.messages = state.messages.map((message) =>
                     updatedIds.includes(message._id) ? { ...message, isRead: true } : message
                 );
             })
+
             .addCase(markMessagesAsRead.rejected, (state, action) => {
                 state.error = action.payload;
-            });
+            })
+
+            .addCase(getNotifications.pending, (state, action) => {
+                state.loading.notifications = true;
+                state.error = action.payload;
+            })
+            .addCase(getNotifications.fulfilled, (state, action) => {
+                state.loading.notifications = false;
+                state.notifications = action.payload
+            })
+            .addCase(getNotifications.rejected, (state, action) => {
+                state.loading.notifications = false;
+                state.error = action.payload;
+            })
 
 
+            .addCase(readNotifications.fulfilled, (state, action) => {
+                const updatedIds = action.payload.Ids;
+                console.log(updatedIds)
+                // Update the notifications in the state
+                state.notifications = state.notifications.filter(notification =>
+                    !updatedIds.includes(notification._id)
+                );
 
+            })
+
+
+            .addCase(readNotifications.rejected, (state, action) => {
+                state.error = action.payload;
+            })
 
     },
 });
 
-export const { addMessageToChat, updateLastMessage } = conversationSlice.actions;
+export const { updateReadMessage, addMessageToChat, updateLastMessage, updateReadNotifications, addNewNotification } = conversationSlice.actions;
 
 export default conversationSlice.reducer;

@@ -145,6 +145,7 @@ const initialState = {
     follow: false,
     unfollow: false,
     updateUser: false,
+    loggeduser : true,
   },
   error: {
     search: null,

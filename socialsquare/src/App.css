@@ -16,7 +16,23 @@
     padding: 0 0 4px 4px;
 }
 
-
+.notification {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    width: max-content;
+    text-align: center;
+    transition: transform 0.3s ease;
+  }
+  
+  .notification.show {
+    transform: translate(-50%, 20px);
+  }
+  
+  
 .p-button {
     padding: 5px 15px;
 }
@@ -642,12 +658,15 @@ input {
 .OtherUsers {
     display: flex;
 }
-
+.pc{
+    display: none;
+}
 /* Default: PC Layout */
 .pc-layout {
     display: flex;
     flex-direction: row;
     gap: 1rem;
+    height: 100%;
 }
 
 .mobile-layout {
@@ -690,8 +709,11 @@ input {
 
     .main-screen {
         padding: .5rem;
+        height: 600px;
     }
-
+    .auth-bg{
+        height: 600px;
+    }
     .feed,
     .OtherUsers,
     .profile-container {

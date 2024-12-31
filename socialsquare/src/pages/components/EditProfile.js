@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Toast } from 'primereact/toast';
 import { useDispatch, useSelector } from "react-redux";
 import { updateUser } from '../../store/slices/userSlice';
 const EditProfile = ({ users, closeSidebar }) => {

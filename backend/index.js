@@ -55,21 +55,30 @@ io.on('connection', (socket) => {
     });
 
     // Handle sending messages to a specific user
-    socket.on('sendMessage', ({ recipientId, content, senderName,sender }) => {
+    socket.on('sendMessage', ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
         console.log(`Message from ${senderName} to ${recipientId}:`, content);
         const recipient = onlineUsers.find(u => u.userId === recipientId);
         if (recipient) {
             io.to(recipient.socketId).emit('receiveMessage', {
                 senderId: sender,
+                socketId: socket.id,
                 content,
                 recipientId,
                 senderName,
-                conversationId
+                conversationId,
+                _id,
+                createdAt,
+                isRead
             });
             console.log(`Message sent to ${recipientId}`);
         } else {
             console.log(`Recipient ${recipientId} not found or not online.`);
         }
+    });
+    socket.on("readMessage", ({ messageId, socketId }) => {
+        io.to(socketId).emit("seenMessage", {
+            messageId,
+        });
     });
 
     // Handle disconnect

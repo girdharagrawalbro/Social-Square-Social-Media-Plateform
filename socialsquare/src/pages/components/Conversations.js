@@ -1,59 +1,117 @@
+// Import - React 
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+
+// Import - Slices functions
+import { socket } from '../../socket'; // Socket connection file
 import { fetchConversations, updateLastMessage } from '../../store/slices/conversationSlice';
+import { getNotifications, addNewNotification } from '../../store/slices/conversationSlice';
+
+// Import - UI
 import { Dialog } from 'primereact/dialog';
-import ChatPanel from './ChatPanel';
-import { socket } from '../../socket'; // Assume this is your socket connection file
-import Loader from './Loader';
 import { Badge } from 'primereact/badge';
-import { ToastContainer, toast } from 'react-toastify';
+
+// Import - Components
+import ChatPanel from './ChatPanel';
+import Loader from './Loader';
+import Notifications from './Notifications';
+import Notification from './Notification';
 
 const Conversations = () => {
   const dispatch = useDispatch();
   const { loggeduser } = useSelector((state) => state.users);
-  const { conversations, loading } = useSelector((state) => state.conversation);
+  const { conversations, loading, notifications } = useSelector((state) => state.conversation);
   const [visible, setVisible] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [selectedId, setSelectedId] = useState(null); // Stores the entire user object
   const [selectedName, setSelectedName] = useState(null); // Stores the entire user object
   const [selectedPic, setSelectedPic] = useState(null); // Stores the entire user object
+  const [visbleNotifications, setVisibleNotifications] = useState(null);
+  const [lastMessageid, setLastMessageid] = useState(null);
+  const [notification, setNotification] = useState(null);
+  const [name, setName] = useState(null);
+  // fetch the conversations 
 
+  useEffect(() => {
+    if (loggeduser?._id) {
+      dispatch(fetchConversations(loggeduser?._id));
+    }
+  }, [dispatch, loggeduser]);
+
+  // update online users from socket
   useEffect(() => {
     socket.on('updateUserList', (users) => {
       if (Array.isArray(users)) {
         setOnlineUsers(users);
       }
     });
+    return () => {
+      socket.off('updateUserList')
+    };
+  }, [dispatch]);
 
-    socket?.on('receiveMessage', (message) => {
-      console.log(message.content)
-
-      dispatch(updateLastMessage({ conversationId: message.conversationId, content: message.content }));
-
+  // get new messages from socket 
+  useEffect(() => {
+    socket.on('receiveMessage', ({ senderId,
+      socketId,
+      content,
+      recipientId,
+      senderName,
+      conversationId,
+      _id,
+      createdAt,
+      isRead
+    }) => {
+      showNotification(content, senderName)
+      dispatch(updateLastMessage({ conversationId, content, createdAt, messageid: _id, isRead }));
+      dispatch(
+        addNewNotification({
+          notification: {
+            recipient: recipientId,
+            message: {
+              content,
+              id: _id,
+            },
+            sender: {
+              id: senderId,
+              fullname: senderName,
+            },
+            createdAt,
+          },
+        })
+      );
     });
 
     return () => {
-      socket.off('updateUserList');
-      socket?.off('receiveMessage');
-    };
+      socket.off('receiveMessage');
+    }
+  }, [dispatch])
 
-  }, [dispatch]);
+  useEffect(() => {
+    if (loggeduser?._id) {
+      dispatch(getNotifications(loggeduser._id));
+    }
+  }, [dispatch, loggeduser?._id]);
+
+  // to show new message Notifications
+  const showNotification = (message, name) => {
+    setNotification(message);
+    setName(name)
+    setTimeout(() => {
+      setNotification(null);
+    }, 5000);
+  };
 
   const onlineUserSet = new Set(onlineUsers.map((u) => u.userId));
 
-  useEffect(() => {
-    // Fetch conversations when loggedUser exists
-    if (loggeduser?._id) {
-      dispatch(fetchConversations(loggeduser?._id));
-    }
-  }, [dispatch, loggeduser]);
-
-  const selectChat = ({ id, name, pic }) => {
+  const selectChat = ({ id, name, pic, lastMessage }) => {
     setSelectedId(id);
     setSelectedName(name);
     setSelectedPic(pic)
     setVisible(true);
+    setLastMessageid(lastMessage);
   };
+
 
   const headerElement = (
     <div className="d-flex align-items-center gap-2">
@@ -79,10 +137,11 @@ const Conversations = () => {
 
   return (
     <div className="p-3 bordershadow bg-white rounded mt-3 conversations">
-      <div className="d-flex justify-message-between align-items-center">
+      <div className="d-flex justify-content-between align-items-center">
         <h5>Messages</h5>
-        <i className="pi pi-bell p-overlay-badge" style={{ fontSize: '1.5rem' }}>
-          <Badge value="2"></Badge>
+
+        <i className="pi pi-bell p-overlay-badge" style={{ fontSize: '1.5rem' }} onClick={() => setVisibleNotifications(true)}>
+          <Badge value={notifications?.length}></Badge>
         </i>
       </div>
       <div className="chats d-flex flex-column gap-2">
@@ -111,10 +170,10 @@ const Conversations = () => {
                     id: otherParticipant.userId,
                     name: otherParticipant.fullname,
                     pic: otherParticipant.profilePicture,
+                    lastMessage: conversation.lastMessage.id
                   })
                 }
               >
-
                 <div className="friend-img position-relative">
                   <img
                     src={otherParticipant.profilePicture}
@@ -131,13 +190,18 @@ const Conversations = () => {
                 <div className="d-flex flex-column justify-message-center align-items-start w-100">
                   <h6 className="p-0 m-0">{otherParticipant.fullname}</h6>
                   <div className='d-flex justify-content-between w-100'>
+
                     <p
-                      className="text-secondary p-0 m-0"
+                      className={`p-0 m-0 ${conversation.lastMessageBy === loggeduser?._id ? "" : conversation.lastMessage.isRead ? "text-secondary" : "fw-bold text-dark "} `}
                       style={{ fontSize: "14px" }}
+
                     >
-                      {conversation.lastMessageBy === loggeduser?._id ? "You" :
-                        "Them"
-                      }: {conversation.lastMessage}
+                      {conversation.lastMessageBy === loggeduser?._id ? "You : " :
+                        conversation.lastMessageBy === otherParticipant.userId ?
+                          "Them : " :
+                          ""
+                      }
+                      {conversation.lastMessage.message}
                     </p>
                     <p className="text-secondary p-0 m-0" style={{ fontSize: "14px" }}>
                       {
@@ -154,16 +218,32 @@ const Conversations = () => {
         )}
       </div>
 
-      <ToastContainer />
-
       {/* Chat Dialog */}
+
       <Dialog
         header={headerElement}
         visible={visible}
         style={{ width: '50vw', height: '100vh' }}
         onHide={() => setVisible(false)}
       >
-        {selectedId && <ChatPanel participantId={selectedId} />}
+
+        {selectedId && <ChatPanel participantId={selectedId} lastMessage={lastMessageid} />}
+      </Dialog>
+      {notification && (
+        <Notification
+          message={notification}
+          name={name}
+        />
+      )}
+      {/* Notifications Dialog */}
+      <Dialog
+        header="Notifications"
+        visible={visbleNotifications}
+        style={{ width: '25vw', height: '100vh' }}
+        onHide={() => setVisibleNotifications(false)}
+        position="right"
+      >
+        <Notifications />
       </Dialog>
     </div>
   );

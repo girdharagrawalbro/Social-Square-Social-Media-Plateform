@@ -1,25 +1,14 @@
 // React imports
-import React, { useState, useEffect ,useRef} from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { newPost } from "../../store/slices/postsSlice";
-import { ToastContainer, toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import { OverlayPanel } from 'primereact/overlaypanel';
+import { addNewPost } from '../../store/slices/postsSlice';
 
 const NewPost = () => {
-  const op = useRef(null);
   const dispatch = useDispatch();
+  const op = useRef(null);
   const { loggeduser } = useSelector((state) => state.users);
-  const { newpostsuccess, error } = useSelector((state) => state.posts);
-
-
-  useEffect(() => {
-    if (newpostsuccess) {
-      toast.success(newpostsuccess);
-    }
-    if (error.newpost) {
-      toast.error(error.newpost);
-    }
-  }, [newpostsuccess, error]);
 
   const [formData, setFormData] = useState({
     caption: "",
@@ -36,17 +25,35 @@ const NewPost = () => {
     e.preventDefault();
 
     if (!formData.caption.trim()) {
-      toast.warn('Caption cannot be empty!');
-      return;
+      toast.error('Caption cannot be empty!');
     }
-
+else{
     const postData = {
       ...formData,
       loggeduser: loggeduser?._id,
     };
 
-    dispatch(newPost(postData));
+    try {
+      const response = await fetch("http://localhost:5000/api/post/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData),
+      });
 
+      const data = await response.json();
+      if (data) {
+        toast.success("Post created successfully");
+        dispatch(addNewPost(data));
+      } else {
+        const error = await response.json();
+        toast.error(error.error);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  }
     setFormData({
       caption: "",
       category: "Default",
@@ -56,9 +63,7 @@ const NewPost = () => {
 
   return (
     <div className="new mt-2 bordershadow p-2 rounded w-100 d-flex gap-1 align-items-center">
-      <ToastContainer
-        theme="light"
-      />
+
       <img
         src={loggeduser?.profile_picture || "default-profile.png"}
         alt="Profile"
@@ -78,7 +83,7 @@ const NewPost = () => {
           <span
             className="theme-bg px-2 py-1 ms-2"
             aria-label="Add image"
-            onClick={(e) => op.current.toggle(e)} 
+            onClick={(e) => op.current.toggle(e)}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -124,7 +129,20 @@ const NewPost = () => {
           </button>
         </div>
 
-        <OverlayPanel ref={op} style={{padding : "0px"}}>
+        <ToastContainer
+   position="top-right"
+   autoClose={1000}
+   hideProgressBar={false}
+   newestOnTop
+   closeOnClick
+   rtl={false}
+   pauseOnFocusLoss={false}
+   draggable
+   pauseOnHover={false}
+   theme="light"
+        transition={"Bounce"} />
+
+        <OverlayPanel ref={op} style={{ padding: "0px" }}>
           <input
             type="text"
             placeholder="Enter image URL"
@@ -134,7 +152,7 @@ const NewPost = () => {
             value={formData.imageURL}
             onChange={handleChange}
           />
-       </OverlayPanel>
+        </OverlayPanel>
       </form>
     </div>
   );

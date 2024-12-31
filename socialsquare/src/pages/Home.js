@@ -13,7 +13,6 @@ import Newpost from './components/Newpost';
 import Feed from './components/Feed';
 import Profile from './components/Profile';
 import Conversations from './components/Conversations';
-
 // Redux actions
 import { fetchLoggedUser } from '../store/slices/userSlice';
 
@@ -25,7 +24,7 @@ const Home = () => {
 
     useEffect(() => {
         dispatch(fetchLoggedUser());
-    }, []); 
+    }, []);
 
     useEffect(() => {
         if (loggeduser?._id) {
@@ -43,8 +42,8 @@ const Home = () => {
             socket.off('connect'); // Clean up listener
         };
     }, [loggeduser]);
-    
-    
+
+
 
     if (error.loggeduser) {
         return (
@@ -96,7 +95,7 @@ const Home = () => {
         <>
             <section className="main-screen">
                 {/* PC Layout */}
-                <div className="pc-layout h-100">
+                <div className="pc-layout">
                     <div className="header">
                         <Header />
                         <OtherUsers />

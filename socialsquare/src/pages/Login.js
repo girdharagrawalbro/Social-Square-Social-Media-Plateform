@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Bg from './components/Bg';
-import { ToastContainer, toast } from 'react-toastify';
+import toast from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -18,8 +19,6 @@ const Login = () => {
     if (token) {
       toast.info("You are already logged in..", {
         position: "top-center",
-        theme: "colored",
-        autoClose: 1500
       })
       navigate('/'); // Redirect to the home page or dashboard
     }
@@ -53,13 +52,12 @@ const Login = () => {
       if (response.ok) {
         localStorage.setItem('token', result.token);
         toast.success("Login successful! Redirecting...")
+
         setTimeout(() => navigate('/'), 1500);
       } else {
-        toast.error("Something went wrong!")
         toast.error(result.error)
       }
     } catch (error) {
-      toast.error("Network error! Please try again.");
       toast.error(error);
     }
 
@@ -101,9 +99,6 @@ const Login = () => {
               </button>
               <div className='text-danger py-2'>{message}</div>
             </form>
-            <ToastContainer
-              theme="light"
-            />
 
             <Link to="/forgot" className="mt-5 text-primary text-decoration-none text-start">
               Forgot Password ?
@@ -122,6 +117,8 @@ const Login = () => {
           <img src="http://localhost:3000/image.png" alt="" />
         </div>
       </Bg>
+
+      <Toaster />
     </>
   );
 };

@@ -20,28 +20,6 @@ export const fetchCategories = createAsyncThunk("posts/fetchCategories", async (
   }
 });
 
-// Create New Post
-export const newPost = createAsyncThunk("posts/newPost", async (postData, thunkAPI) => {
-  try {
-    const response = await fetch("http://localhost:5000/api/post/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(postData),
-    });
-
-    if (response.ok) {
-      return await response.json();
-    } else {
-      const error = await response.json();
-      return thunkAPI.rejectWithValue(error.error);
-    }
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message);
-  }
-});
-
 // handle like
 export const likepost = createAsyncThunk("posts/likepost", async ({ postId, userId }) => {
   try {
@@ -138,7 +116,6 @@ const postsSlice = createSlice({
     comments: [],
     loading: {
       posts: null,
-      newpost: null,
       categories: null,
       comments: null,
       like: null,
@@ -146,15 +123,18 @@ const postsSlice = createSlice({
     },
     error: {
       posts: null,
-      newpost: null,
       categories: null,
       comments: null,
       like: null,
       unlike: null,
     },
-    newpostsuccess: null
   },
-  reducers: {},
+  reducers: {
+
+    addNewPost: (state, action) => {
+      state.posts.unshift(action.payload)
+    },
+  },
   extraReducers: (builder) => {
     builder
       // Handle Fetch Posts
@@ -184,23 +164,6 @@ const postsSlice = createSlice({
       .addCase(fetchCategories.rejected, (state, action) => {
         state.loading.categories = false;
         state.error.categories = action.payload;
-      })
-
-      // Handle New Post 
-      .addCase(newPost.pending, (state) => {
-        state.loading.newpost = true;
-        state.error.newpost = null;
-        state.newpostsuccess = null;
-      })
-      .addCase(newPost.fulfilled, (state, action) => {
-        state.loading.newpost = false;
-        state.posts.unshift(action.payload); // Insert at the beginning
-        state.newpostsuccess = 'Post created successfully!';
-      })
-
-      .addCase(newPost.rejected, (state, action) => {
-        state.loading.newpost = false;
-        state.error.newpost = action.payload || 'Failed to create post.';
       })
 
       // Handle Like Post 
@@ -262,7 +225,6 @@ const postsSlice = createSlice({
       // fetch comments
       .addCase(fetchComments.pending, (state, action) => {
         state.loading.comments = true;
-
         state.comments = null;
       })
       .addCase(fetchComments.fulfilled, (state, action) => {
@@ -279,6 +241,6 @@ const postsSlice = createSlice({
 
   },
 });
-
+export const { addNewPost } = postsSlice.actions;
 export default postsSlice.reducer;
 

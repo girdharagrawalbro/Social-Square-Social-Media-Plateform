@@ -21,7 +21,6 @@ import { createStore, applyMiddleware } from 'redux';
 import rootReducer from './store';
 import { thunk } from 'redux-thunk';
 
-
 const store = createStore(rootReducer, applyMiddleware(thunk)); // Apply middleware
 
 function App() {

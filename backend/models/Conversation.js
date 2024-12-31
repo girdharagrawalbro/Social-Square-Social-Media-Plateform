@@ -19,8 +19,19 @@ const conversationSchema = new mongoose.Schema(
     },],
 
     lastMessage: {
-      type: String, // Store the last message text for quick preview
-      default: '',
+      id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Message",
+        default: null,
+      },
+      message: {
+        type: String,
+        default: '',
+      },
+      isRead: {
+        type: Boolean,
+        default: false,
+      }
     },
     lastMessageBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -36,3 +47,4 @@ const conversationSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model('Conversation', conversationSchema);
+
