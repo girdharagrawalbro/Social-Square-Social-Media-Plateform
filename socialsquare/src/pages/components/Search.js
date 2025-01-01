@@ -9,7 +9,7 @@ const Search = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const dispatch = useDispatch();
     const { categories } = useSelector((state) => state.posts);
-    const { searchResults, loading, error } = useSelector((state) => state.users);
+    const { searchResults, loading } = useSelector((state) => state.users);
     const [isVisible, setVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
 

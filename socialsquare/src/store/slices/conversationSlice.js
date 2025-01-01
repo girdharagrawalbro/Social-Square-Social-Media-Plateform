@@ -12,7 +12,7 @@ export const createConversation = createAsyncThunk(
                 throw new Error('Exactly two participants are required to create a conversation.');
             }
 
-            const response = await axios.post('http://localhost:5000/api/conversation/create', {
+            const response = await axios.post('https://social-square-social-media-plateform.onrender.com/api/conversation/create', {
                 participants,
             });
 
@@ -28,7 +28,7 @@ export const fetchConversations = createAsyncThunk(
     'conversations/fetchConversations',
     async (userId, { rejectWithValue }) => {
         try {
-            const response = await axios.get(`http://localhost:5000/api/conversation/${userId}`);
+            const response = await axios.get(`https://social-square-social-media-plateform.onrender.com/api/conversation/${userId}`);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response.data);
@@ -48,7 +48,7 @@ export const fetchMessages = createAsyncThunk(
                 throw new Error('Exactly two participant IDs are required.');
             }
 
-            const response = await fetch(`http://localhost:5000/api/conversation/messages`, {
+            const response = await fetch(`https://social-square-social-media-plateform.onrender.com/api/conversation/messages`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -73,7 +73,7 @@ export const createMessage = createAsyncThunk(
     'conversations/createMessage',
     async ({ conversationId, sender, content, senderName, recipientId }, { rejectWithValue }) => {
         try {
-            const response = await axios.post('http://localhost:5000/api/conversation/messages/create', {
+            const response = await axios.post('https://social-square-social-media-plateform.onrender.com/api/conversation/messages/create', {
                 conversationId,
                 sender,
                 content,
@@ -95,7 +95,7 @@ export const markMessagesAsRead = createAsyncThunk(
     'conversation/markMessagesAsRead',
     async ({ unreadMessageIds, lastMessage }, { rejectWithValue }) => {
         try {
-            const response = await axios.post('http://localhost:5000/api/conversation/messages/mark-read', { unreadMessageIds, lastMessage });
+            const response = await axios.post('https://social-square-social-media-plateform.onrender.com/api/conversation/messages/mark-read', { unreadMessageIds, lastMessage });
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response.data);
@@ -107,7 +107,7 @@ export const getNotifications = createAsyncThunk(
     'conversation/getNotifications',
     async (userId, { rejectWithValue }) => {
         try {
-            const response = await axios.get(`http://localhost:5000/api/conversation/notifications/${userId}`);
+            const response = await axios.get(`https://social-square-social-media-plateform.onrender.com/api/conversation/notifications/${userId}`);
             return response.data;  // Return the notifications data
         } catch (error) {
             return rejectWithValue(error.response.data);  // Handle errors
@@ -120,7 +120,7 @@ export const readNotifications = createAsyncThunk(
     'conversation/readNotifications',
     async (Ids, { rejectWithValue }) => {
         try {
-            const response = await axios.patch('http://localhost:5000/api/conversation/notifications/mark-read', { Ids });
+            const response = await axios.patch('https://social-square-social-media-plateform.onrender.com/api/conversation/notifications/mark-read', { Ids });
             return response.data;
         }
         catch (error) {

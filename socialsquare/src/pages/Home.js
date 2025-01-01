@@ -24,7 +24,7 @@ const Home = () => {
 
     useEffect(() => {
         dispatch(fetchLoggedUser());
-    }, []);
+    }, [dispatch]);
 
     useEffect(() => {
         if (loggeduser?._id) {

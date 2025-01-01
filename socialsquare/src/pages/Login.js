@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Bg from './components/Bg';
 import toast from 'react-hot-toast';
@@ -10,7 +10,6 @@ const Login = () => {
     password: '',
   });
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
   const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
@@ -39,7 +38,7 @@ const Login = () => {
 
     try {
       // Simulating a login API call
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +96,6 @@ const Login = () => {
               >
                 {loading ? 'Logging in...' : 'Log in'}
               </button>
-              <div className='text-danger py-2'>{message}</div>
             </form>
 
             <Link to="/forgot" className="mt-5 text-primary text-decoration-none text-start">
@@ -114,7 +112,7 @@ const Login = () => {
           </div>
         </div>
         <div className='pc'>
-          <img src="http://localhost:3000/image.png" alt="" />
+          <img src="https://ibb.co/PQqJv3w" alt="" />
         </div>
       </Bg>
 

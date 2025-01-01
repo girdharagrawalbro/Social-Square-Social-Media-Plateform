@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { followUser, unfollowUser } from "../../store/slices/userSlice";
+import { unfollowUser } from "../../store/slices/userSlice";
 import { Dialog } from "primereact/dialog";
 import ChatPanel from "./ChatPanel";
 import { createConversation } from '../../store/slices/conversationSlice';
@@ -10,7 +10,7 @@ const FollowFollowingList = ({ isfollowing, ids }) => {
     const [following, setFollowing] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
-    const [error, setError] = useState(null);
+    const [setError] = useState(null);
     const [visible, setVisible] = useState(false);
     const [selectedId, setSelectedId] = useState(null); // Stores the entire user object
     const [selectedName, setSelectedName] = useState(null); // Stores the entire user object
@@ -22,7 +22,7 @@ const FollowFollowingList = ({ isfollowing, ids }) => {
         const fetchUsersDetails = async () => {
             try {
                 const response = await fetch(
-                    "http://localhost:5000/api/auth/users/details",
+                    "https://social-square-social-media-plateform.onrender.com/api/auth/users/details",
                     {
                         method: "POST",
                         headers: {
@@ -63,7 +63,7 @@ const FollowFollowingList = ({ isfollowing, ids }) => {
 
     const headerElement = (
         <div className="d-flex align-items-center gap-2">
-            <img src={selectedPic} className="logo" />
+            <img src={selectedPic} className="logo" alt={selectedPic} />
             <span className="font-bold white-space-nowrap">{selectedName}</span>
         </div>
     );

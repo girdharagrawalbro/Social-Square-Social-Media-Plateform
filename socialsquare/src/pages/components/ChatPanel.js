@@ -15,7 +15,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
         if (loggeduser?._id && participantId) {
             dispatch(fetchMessages({ participantIds: [loggeduser._id, participantId] }));
         }
-    }, []);
+    }, [loggeduser._id, dispatch, participantId]);
 
     useEffect(() => {
         // Listen to incoming messages
@@ -58,7 +58,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             dispatch(markMessagesAsRead({ unreadMessageIds, lastMessage }));
             dispatch(updateLastMessage({ conversationId: slectedCon?._id, isRead: true }));
         }
-    }, [messages, participantId, dispatch]);
+    }, [messages, participantId, dispatch, lastMessage, slectedCon?._id]);
 
     const handleSendMessage = (e) => {
         e.preventDefault();

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useDispatch, useSelector } from "react-redux";
+import React, { useState, useEffect } from 'react';
+import { useDispatch } from "react-redux";
 import { updateUser } from '../../store/slices/userSlice';
 const EditProfile = ({ users, closeSidebar }) => {
     const dispatch = useDispatch();

@@ -14,7 +14,7 @@ import { followUser, fetchOtherUsers } from '../../store/slices/userSlice';
 
 const OtherUsers = () => {
     const dispatch = useDispatch();
-    const [users, setUsers] = useState([]);
+    const [ setUsers] = useState([]);
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
     const { loggeduser, otherusers, loading } = useSelector((state) => state.users);
@@ -57,7 +57,7 @@ const OtherUsers = () => {
         if (otherusers?.otherusers) {
             setUsers(otherusers.otherusers);
         }
-    }, [otherusers]);
+    }, [otherusers,setUsers]);
 
     return (
         <div className="d-flex flex-column gap-3">

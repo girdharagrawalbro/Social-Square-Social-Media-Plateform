@@ -11,7 +11,7 @@ const Notification = () => {
         if (unseenNotifications && unseenNotifications.length > 0) {
             dispatch(readNotifications(unseenNotifications));
         }
-    }, [])
+    }, [dispatch,notifications])
 
     const formatDateTime = (dateString) => {
         const date = new Date(dateString);

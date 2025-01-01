@@ -1,5 +1,5 @@
 // React imports
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast, ToastContainer } from 'react-toastify';
 import { OverlayPanel } from 'primereact/overlaypanel';
@@ -27,33 +27,33 @@ const NewPost = () => {
     if (!formData.caption.trim()) {
       toast.error('Caption cannot be empty!');
     }
-else{
-    const postData = {
-      ...formData,
-      loggeduser: loggeduser?._id,
-    };
+    else {
+      const postData = {
+        ...formData,
+        loggeduser: loggeduser?._id,
+      };
 
-    try {
-      const response = await fetch("http://localhost:5000/api/post/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(postData),
-      });
+      try {
+        const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(postData),
+        });
 
-      const data = await response.json();
-      if (data) {
-        toast.success("Post created successfully");
-        dispatch(addNewPost(data));
-      } else {
-        const error = await response.json();
-        toast.error(error.error);
+        const data = await response.json();
+        if (data) {
+          toast.success("Post created successfully");
+          dispatch(addNewPost(data));
+        } else {
+          const error = await response.json();
+          toast.error(error.error);
+        }
+      } catch (error) {
+        toast.error(error.message);
       }
-    } catch (error) {
-      toast.error(error.message);
     }
-  }
     setFormData({
       caption: "",
       category: "Default",
@@ -130,17 +130,17 @@ else{
         </div>
 
         <ToastContainer
-   position="top-right"
-   autoClose={1000}
-   hideProgressBar={false}
-   newestOnTop
-   closeOnClick
-   rtl={false}
-   pauseOnFocusLoss={false}
-   draggable
-   pauseOnHover={false}
-   theme="light"
-        transition={"Bounce"} />
+          position="top-right"
+          autoClose={1000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss={false}
+          draggable
+          pauseOnHover={false}
+          theme="light"
+          transition={"Bounce"} />
 
         <OverlayPanel ref={op} style={{ padding: "0px" }}>
           <input

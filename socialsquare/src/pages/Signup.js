@@ -43,7 +43,7 @@ const Signup = () => {
 
     try {
       // Simulating a signup API call
-      const response = await fetch('http://localhost:5000/api/auth/add', {
+      const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,7 +116,7 @@ const Signup = () => {
               <div className='text-danger py-2'>{message}</div>
 
             </form>
-          
+
             <div className="mt-4">
               <p>
                 Have an account?{' '}
@@ -128,7 +128,7 @@ const Signup = () => {
           </div>
         </div>
         <div className='pc'>
-          <img src="image.png" alt="" />
+          <img src="https://ibb.co/PQqJv3w" alt="" />
         </div>
       </Bg >
       <Toaster />

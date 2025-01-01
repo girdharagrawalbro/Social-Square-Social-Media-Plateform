@@ -87,16 +87,13 @@ ul {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-image: url('../public/bg.jpg');
+    background-image: url('https://i.ibb.co/tKbHYTv/bg.jpg');
     background-size: cover;
 }
-
 .header {
     width: 25%;
     height: 100%;
-
 }
-
 .feed {
     overflow-y: scroll;
     width: 50%;

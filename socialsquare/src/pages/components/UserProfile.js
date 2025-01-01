@@ -14,13 +14,13 @@ const UserProfile = ({ id }) => {
 
   const dispatch = useDispatch();
 
-  const { userFollowStatus, loading: loadingState, loggeduser } = useSelector((state) => state.users);
+  const { loading: loadingState, loggeduser } = useSelector((state) => state.users);
 
   useEffect(() => {
     if (id && loggeduser._id) {
       const fetchUserDetails = async () => {
         try {
-          const response = await fetch("http://localhost:5000/api/auth/other-user/view", {
+          const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/auth/other-user/view", {
             method: "GET",
             headers: {
               Authorization: `${id}`,
@@ -38,7 +38,7 @@ const UserProfile = ({ id }) => {
 
       fetchUserDetails();
     }
-  }, [id]);
+  }, [id, loggeduser._id]);
 
   const handleFollow = () => {
     dispatch(followUser({ loggedUserId: loggeduser._id, followUserId: id }));

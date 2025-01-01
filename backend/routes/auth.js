@@ -100,35 +100,51 @@ router.get('/get', async (req, res) => {
         return res.status(500).json({ message: 'Internal server error.' });
     }
 });
-
-router.get('/other-users', async (req, res) => {
+router.get("/other-users", async (req, res) => {
     try {
-        const loggeduserId = req.headers.authorization;
-
-        try {
-            // Find the user by ID
-            const user = await User.findById(loggeduserId).select('-password').populate('following'); // Exclude password
-            if (!user) {
-                return res.status(404).json({ message: 'User not found.' });
-            }
-            const followingIds = user.following.map(f => f._id);
-
-            const otherusers = await User.find({
-                _id: { $ne: loggeduserId, $nin: followingIds },
-                followers: { $in: followingIds }
-            }).limit(10);
-
-            // Return the user data
-            return res.status(200).json(otherusers);
-        } catch (error) {
-            console.error(error);
-            return res.status(403).json({ message: error });
-        }
+      const loggedUserId = req.headers.authorization; // Use token or header to get logged-in user ID
+  
+      if (!loggedUserId) {
+        return res.status(400).json({ message: "Authorization header missing." });
+      }
+  
+      // Fetch the logged-in user and their following list
+      const user = await User.findById(loggedUserId)
+        .select("-password") // Exclude password field
+        .populate("following", "_id"); // Populate following to get IDs only
+  
+      if (!user) {
+        return res.status(404).json({ message: "User not found." });
+      }
+  
+      const followingIds = user.following.map((f) => f._id);
+  
+      // Fetch suggested users from followers and following list
+      let suggestions = await User.find({
+        _id: { $ne: loggedUserId, $nin: followingIds },
+        followers: { $in: followingIds },
+      })
+        .limit(10)
+        .select("_id username profile_picture");
+  
+      // If less than 10 suggestions, fill with random users not in following or logged-in user
+      if (suggestions.length < 10) {
+        const additionalUsers = await User.find({
+          _id: { $ne: loggedUserId, $nin: followingIds, $nin: suggestions.map((s) => s._id) },
+        })
+          .limit(10 - suggestions.length)
+          .select("_id username profile_picture");
+  
+        suggestions = [...suggestions, ...additionalUsers];
+      }
+  
+      return res.status(200).json(suggestions);
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'Internal server error.' });
+      console.error("Error fetching other users:", error);
+      return res.status(500).json({ message: "Internal server error." });
     }
-});
+  });
+  
 
 // get follow - following user profile details
 router.post('/users/details', async (req, res) => {
