@@ -125,7 +125,7 @@ router.get("/other-users", async (req, res) => {
         followers: { $in: followingIds },
       })
         .limit(10)
-        .select("_id username profile_picture");
+        .select("_id fullname profile_picture");
   
       // If less than 10 suggestions, fill with random users not in following or logged-in user
       if (suggestions.length < 10) {
@@ -133,7 +133,7 @@ router.get("/other-users", async (req, res) => {
           _id: { $ne: loggedUserId, $nin: followingIds, $nin: suggestions.map((s) => s._id) },
         })
           .limit(10 - suggestions.length)
-          .select("_id username profile_picture");
+          .select("_id fullname profile_picture");
   
         suggestions = [...suggestions, ...additionalUsers];
       }

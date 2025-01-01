@@ -28,23 +28,6 @@ const Feed = () => {
     setVisiblePostId((prev) => (prev === postId ? null : postId)); // Toggle visibility for the specific post
   };
 
-  const confirm = (event) => {
-    confirmPopup({
-      target: event.currentTarget,
-      message: 'Do you want to delete this post?',
-      icon: 'pi pi-trash-circle',
-      defaultFocus: 'reject',
-      acceptClassName: 'p-button-danger',
-      accept
-    });
-  };
-
-  const accept = (postId) => {
-    // dispatch(deletePost(postId));
-    toast.error("you can't delete this post..")
-  };
-
-
   return (
     <>
       <div className="">
@@ -116,12 +99,12 @@ const Feed = () => {
                             <i className="pi pi-share-alt" style={{ fontSize: '1.3rem', color: 'white' }}></i>
                             <span>{post.shares?.length || 0}</span>
                           </span>
-                          {post.user._id === loggeduser._id ?
+                          {/* {post.user._id === loggeduser._id ?
                             <span className="d-flex align-items-center justify-content-center gap-2 text-white" onClick={confirm(post._id)} >
                               <i className="pi pi-trash" style={{ fontSize: '1.3rem', color: 'white' }}></i>
                             </span>
                             : <></>
-                          }
+                          } */}
                         </div>
                       </div>
                     </div>

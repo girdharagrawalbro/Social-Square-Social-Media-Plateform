@@ -128,7 +128,7 @@ const Signup = () => {
           </div>
         </div>
         <div className='pc'>
-          <img src="https://ibb.co/PQqJv3w" alt="" />
+          <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" />
         </div>
       </Bg >
       <Toaster />
