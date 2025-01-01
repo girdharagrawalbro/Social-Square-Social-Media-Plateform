@@ -5,7 +5,7 @@ import { Dialog } from "primereact/dialog";
 import ChatPanel from "./ChatPanel";
 import { createConversation } from '../../store/slices/conversationSlice';
 
-const Follow_FollowingList = ({ isfollowing, ids }) => {
+const FollowFollowingList = ({ isfollowing, ids }) => {
     const dispatch = useDispatch();
     const [following, setFollowing] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -167,4 +167,4 @@ const Follow_FollowingList = ({ isfollowing, ids }) => {
     );
 };
 
-export default Follow_FollowingList;
+export default FollowFollowingList;

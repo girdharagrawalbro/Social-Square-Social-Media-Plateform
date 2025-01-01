@@ -63,7 +63,7 @@ const OtherUsers = () => {
         <div className="d-flex flex-column gap-3">
             <div className={`p-3 bordershadow bg-white rounded `}>
                 <div className="d-flex justify-content-between">
-                    <h5>Other Users</h5>
+                    <h5>Suggested Users</h5>
                 </div>
                 {
                     loading.otherusers ?
@@ -110,7 +110,7 @@ const OtherUsers = () => {
             <Dialog
                 header="User Profile"
                 visible={isVisible}
-                style={{ width: '25vw' }}
+                style={{ width: '340px' , height : "400px"}}
                 onHide={() => setVisible(false)}
             >
                 <UserProfile id={selectedUserId} /> {/* Pass selected otherusers ID */}

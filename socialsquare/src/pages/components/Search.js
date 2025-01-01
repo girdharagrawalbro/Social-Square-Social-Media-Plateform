@@ -90,7 +90,7 @@ const Search = () => {
                             </div>
                         )}
 
-                        {/* {searchResults.posts.length > 0 && (
+                        {searchResults.posts.length > 0 && (
                             <div className="mt-2">
                                 <h5>Posts</h5>
                                 <div className="d-flex gap-2 flex-wrap">
@@ -101,7 +101,7 @@ const Search = () => {
                                     ))}
                                 </div>
                             </div>
-                        )} */}
+                        )}
 
                         {searchResults.users.length === 0 &&
                             searchResults.posts.length === 0 &&
@@ -114,7 +114,7 @@ const Search = () => {
             <Dialog
                 header="User Profile"
                 visible={isVisible}
-                style={{ width: '25vw' }}
+                style={{ width: '340px' , height : "400px"}}
                 onHide={() => setVisible(false)}
             >
                 <UserProfile id={selectedUserId} />

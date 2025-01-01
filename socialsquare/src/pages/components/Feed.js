@@ -10,7 +10,7 @@ import Like from "./ui/Like";
 import Comment from './ui/Comment';
 import { ConfirmPopup, confirmPopup } from 'primereact/confirmpopup';
 // redux
-import { fetchPosts, fetchComments, unlikepost, likepost } from '../../store/slices/postsSlice';
+import { fetchPosts, fetchComments, unlikepost, likepost, deletePost } from '../../store/slices/postsSlice';
 
 const Feed = () => {
   const op = useRef(null);
@@ -32,21 +32,16 @@ const Feed = () => {
     confirmPopup({
       target: event.currentTarget,
       message: 'Do you want to delete this post?',
-      icon: 'pi pi-info-circle',
+      icon: 'pi pi-trash-circle',
       defaultFocus: 'reject',
       acceptClassName: 'p-button-danger',
-      accept,
-      reject
     });
   };
-  
-  const accept = () => {
 
-  };
+  // const accept = (postId) => {
+  //   dispatch(deletePost(postId));
+  // };
 
-  const reject = () => {
-
-  };
   return (
     <div className="">
       {loading.posts || !loggeduser ? (
@@ -118,7 +113,7 @@ const Feed = () => {
                           <span>{post.shares?.length || 0}</span>
                         </span>
                         {post.user._id === loggeduser._id ?
-                          <span className="d-flex align-items-center justify-content-center gap-2 text-white" onClick={confirm} >
+                          <span className="d-flex align-items-center justify-content-center gap-2 text-white" onClick={confirm(post._id)} >
                             <i className="pi pi-trash" style={{ fontSize: '1.3rem', color: 'white' }}></i>
                           </span>
                           : <></>

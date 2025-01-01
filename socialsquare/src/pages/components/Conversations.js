@@ -239,7 +239,7 @@ const Conversations = () => {
       <Dialog
         header="Notifications"
         visible={visbleNotifications}
-        style={{ width: '25vw', height: '100vh' }}
+        style={{ width: '340px', height: '100vh' }}
         onHide={() => setVisibleNotifications(false)}
         position="right"
       >

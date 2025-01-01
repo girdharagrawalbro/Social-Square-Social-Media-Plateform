@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
 
 // Fetch Posts
 export const fetchPosts = createAsyncThunk("posts/fetchPosts", async (_, thunkAPI) => {
@@ -108,6 +109,19 @@ export const createComment = createAsyncThunk(
   }
 );
 
+export const deletePost = createAsyncThunk(
+  'posts/deletePost',
+  async (postId, { rejectWithValue }) => {
+    try {
+      const response = await axios.delete('http://localhost:5000/post/delete',
+        { postId }
+      );
+      return response.data;
+    }
+    catch (error) {
+      return rejectWithValue(error.response.data)
+    }
+  });
 const postsSlice = createSlice({
   name: "posts",
   initialState: {
@@ -120,6 +134,8 @@ const postsSlice = createSlice({
       comments: null,
       like: null,
       unlike: null,
+      deletePost: null,
+      addPost: null,
     },
     error: {
       posts: null,
@@ -127,6 +143,8 @@ const postsSlice = createSlice({
       comments: null,
       like: null,
       unlike: null,
+      deletePost: null,
+      addPost: null,
     },
   },
   reducers: {
@@ -234,7 +252,27 @@ const postsSlice = createSlice({
       .addCase(fetchComments.rejected, (state, action) => {
         state.loading.comments = false;
         state.error.comments = action.payload;
+      })
+
+      // delete post
+      .addCase(deletePost.pending, (state, action) => {
+        state.loading.deletePost = true;
+      })
+      .addCase(deletePost.fulfilled, (state, action) => {
+        state.loading.deletePost = false;
+      const Id  = action.payload;
+        state.posts = state.posts.filter((id) => id._id !== Id);
+
+      })
+      .addCase(deletePost.rejected, (state, action) => {
+        state.loading.deletePost = false;
+        state.error.deletePost = action.payload;
       });
+
+
+
+
+
 
 
 

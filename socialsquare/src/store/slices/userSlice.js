@@ -235,18 +235,18 @@ const dataSlice = createSlice({
 
       // update users
       .addCase(updateUser.pending, (state) => {
-        state.loading.updateuser = true;
-        state.error.updateuser = null;
+        state.loading.updateUser = true;
+        state.error.updateUser = null;
         state.updateusersuccess = null;
       })
       .addCase(updateUser.fulfilled, (state, action) => {
-        state.loading.updateuser = false;
+        state.loading.updateUser = false;
         state.loggeduser = action.payload;
         state.updateusersuccess = 'Profile updated successfully!';
       })
       .addCase(updateUser.rejected, (state, action) => {
-        state.loading.updateuser = false;
-        state.error.updateuser = action.payload || 'Failed to create post.';
+        state.loading.updateUser = false;
+        state.error.updateUser = action.payload || 'Failed to create post.';
       })
 
       .addCase(search.pending, (state) => {

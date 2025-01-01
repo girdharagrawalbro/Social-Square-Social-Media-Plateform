@@ -107,15 +107,16 @@ router.get('/other-users', async (req, res) => {
 
         try {
             // Find the user by ID
-            const user = await User.findById(loggeduserId).select('-password'); // Exclude password
-
+            const user = await User.findById(loggeduserId).select('-password').populate('following'); // Exclude password
             if (!user) {
                 return res.status(404).json({ message: 'User not found.' });
             }
+            const followingIds = user.following.map(f => f._id);
 
             const otherusers = await User.find({
-                _id: { $ne: loggeduserId, $nin: user.following },
-            });
+                _id: { $ne: loggeduserId, $nin: followingIds },
+                followers: { $in: followingIds }
+            }).limit(10);
 
             // Return the user data
             return res.status(200).json(otherusers);

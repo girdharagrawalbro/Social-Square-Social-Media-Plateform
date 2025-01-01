@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 // components
 import EditProfile from './EditProfile';
-import Follow_FollowingList from "./Follow_FollowingList";
+import FollowFollowingList from "./FollowFollowingList";
 import { socket } from '../../socket'; // Assume this is your socket connection file
 
 // ui
@@ -143,23 +143,23 @@ const Profile = () => {
           }
         </div>
 
-        <Dialog visible={visible} position="right" style={{width: "25vw"}} onHide={() => setVisible(false)} >
+        <Dialog header="Update your Profile" visible={visible} position="right" style={{width: "340px", height : "100vh"}} onHide={() => setVisible(false)} >
           <EditProfile users={loggeduser} closeSidebar={() => setVisible(false)} />
         </Dialog>
 
       </div>
       <ConfirmDialog />
  
-      <Dialog header="Followers" visible={showFollowersList} style={{ width: '25vw' }} onHide={() => { if (!showFollowersList) return; setShowFollowersList(false); }}>
-        <Follow_FollowingList
+      <Dialog header="Followers" visible={showFollowersList} style={{ width: '340px', height: "100vh" }} onHide={() => { if (!showFollowersList) return; setShowFollowersList(false); }}>
+        <FollowFollowingList
           isfollowing={false}
           ids={loggeduser?.followers}
         />
       </Dialog>
 
         <ToastContainer />
-      <Dialog header="Following" visible={showFollowingList} style={{ width: '25vw' }} onHide={() => { if (!showFollowingList) return; setShowFollowingList(false); }}>
-        <Follow_FollowingList
+      <Dialog header="Following" visible={showFollowingList} style={{ width: '340px', height: "100vh" }} onHide={() => { if (!showFollowingList) return; setShowFollowingList(false); }}>
+        <FollowFollowingList
           isfollowing={true}
           ids={loggeduser?.following}
         />

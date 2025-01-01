@@ -86,6 +86,8 @@ const Home = () => {
                 return <Profile />;
             case 'otherUsers':
                 return <OtherUsers />;
+            case 'messages':
+                return <Conversations />
             default:
                 return null;
         }
@@ -107,7 +109,6 @@ const Home = () => {
                     </div>
                     <div className="profile">
                         <Profile />
-
                         <Conversations />
                     </div>
                 </div>
@@ -125,15 +126,20 @@ const Home = () => {
                             >
                                 <i className="pi pi-home"></i>
                             </button>
+
                             <button
                                 className={`btn ${activeView === 'otherUsers' ? 'btn-primary' : 'btn-outline-primary'}`}
                                 onClick={() => setActiveView('otherUsers')}
                             >
                                 <i className="pi pi-users"></i>
                             </button>
-                            <button className="btn btn-outline-primary">
+
+                            <button className={`btn ${activeView === 'messages' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => setActiveView('messages')}
+                            >
                                 <i className="pi pi-envelope"></i>
                             </button>
+
                             <button
                                 className={`btn ${activeView === 'profile' ? 'btn-primary' : 'btn-outline-primary'}`}
                                 onClick={() => setActiveView('profile')}

@@ -41,9 +41,7 @@ const EditProfile = ({ users, closeSidebar }) => {
 
 
     return (
-        <form onSubmit={handleSubmit} className=" w-100 h-100">
-            <h4 className="mb-4 text-center">Update your Profile</h4>
-
+        <form onSubmit={handleSubmit} className="w-100 h-100 py-3">
             <div className="mb-3">
                 <label htmlFor="fullname" className="form-label">Full Name</label>
                 <input
