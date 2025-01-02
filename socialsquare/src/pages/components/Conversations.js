@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 // Import - Slices functions
 import { socket } from '../../socket'; // Socket connection file
 import { fetchConversations, updateLastMessage } from '../../store/slices/conversationSlice';
-import { getNotifications, addNewNotification } from '../../store/slices/conversationSlice';
+import { getNotifications, addNewNotification,readNotifications } from '../../store/slices/conversationSlice';
 
 // Import - UI
 import { Dialog } from 'primereact/dialog';
@@ -237,14 +237,23 @@ const Conversations = () => {
       )}
       {/* Notifications Dialog */}
       <Dialog
-        header="Notifications"
-        visible={visbleNotifications}
-        style={{ width: '340px', height: '100vh' }}
-        onHide={() => setVisibleNotifications(false)}
-        position="right"
-      >
-        <Notifications />
-      </Dialog>
+  header="Notifications"
+  visible={visbleNotifications}
+  style={{ width: '340px', height: '100vh' }}
+  onHide={() => {
+    setVisibleNotifications(false);
+    const unseenNotifications = notifications
+      ?.filter((noty) => !noty.read)
+      .map((not) => not._id);
+    if (unseenNotifications && unseenNotifications.length > 0) {
+      dispatch(readNotifications(unseenNotifications));
+    }
+  }}
+  position="right"
+>
+  <Notifications />
+</Dialog>
+
     </div>
   );
 };

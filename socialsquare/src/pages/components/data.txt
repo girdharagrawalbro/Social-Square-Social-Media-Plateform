@@ -1,3 +1,0 @@
-after reading message redux update to last message read 
-
-w

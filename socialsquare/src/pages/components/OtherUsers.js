@@ -68,7 +68,7 @@ const OtherUsers = () => {
                 {
                     loading.otherusers ?
                         <Loader />
-                        : error ? { error } :
+                        : error ?  <p className="text-danger">{error}</p> :
                             otherusers.length === 0 ? (
                                 <p>No other users found.</p>
                             ) : (

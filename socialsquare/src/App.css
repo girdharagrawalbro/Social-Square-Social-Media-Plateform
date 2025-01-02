@@ -674,7 +674,10 @@ input {
     .pc-layout {
         display: none;
     }
-
+    .dock{
+        position: absolute;
+        bottom: 5px;;
+    }
     .mobile-layout {
         width: 100%;
         display: flex;
@@ -706,7 +709,7 @@ input {
 
     .main-screen {
         padding: .5rem;
-        height: 600px;
+        align-items: start;
     }
     .auth-bg{
         height: 600px;

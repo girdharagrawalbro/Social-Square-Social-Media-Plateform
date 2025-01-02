@@ -2,13 +2,12 @@ import React, { useEffect, useState, useRef } from "react";
 import { useSelector, useDispatch } from 'react-redux';
 // components
 import Loader from './Loader';
-import { toast, ToastContainer } from 'react-toastify';
 // ui
 import { Image } from 'primereact/image';
 import { OverlayPanel } from 'primereact/overlaypanel';
 import Like from "./ui/Like";
 import Comment from './ui/Comment';
-import { ConfirmPopup, confirmPopup } from 'primereact/confirmpopup';
+import { ConfirmPopup } from 'primereact/confirmpopup';
 // redux
 import { fetchPosts, fetchComments, unlikepost, likepost } from '../../store/slices/postsSlice';
 
@@ -131,8 +130,6 @@ const Feed = () => {
           </div>
         </OverlayPanel>
       </div>
-
-      <ToastContainer />
     </>
   );
 };

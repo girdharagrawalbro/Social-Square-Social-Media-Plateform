@@ -1,17 +1,9 @@
 import React, { useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux';
-import { readNotifications } from '../../store/slices/conversationSlice';
 
 const Notification = () => {
     const { notifications, loading, error } = useSelector((state) => state.conversation);
     const dispatch = useDispatch();
-
-    useEffect(() => {
-        const unseenNotifications = notifications?.filter((noty) => !noty.read).map((not) => not._id);
-        if (unseenNotifications && unseenNotifications.length > 0) {
-            dispatch(readNotifications(unseenNotifications));
-        }
-    }, [dispatch,notifications])
 
     const formatDateTime = (dateString) => {
         const date = new Date(dateString);
