@@ -12,7 +12,7 @@ const port = 5000;
 const io = socketIo(server, {
     cors: {
         origin: "https://social-square.netlify.app",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
         credentials: true 
     }
 });
