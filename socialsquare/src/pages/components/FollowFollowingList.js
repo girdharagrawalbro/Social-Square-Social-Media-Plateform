@@ -154,7 +154,7 @@ const FollowFollowingList = ({ isfollowing, ids }) => {
             <Dialog
                 header={headerElement}
                 visible={visible}
-                style={{ width: "50vw", height: "100vh" }}
+                style={{ width: "340px", height: "100vh" }}
                 onHide={() => setVisible(false)}
             >
                 {selectedId && (
