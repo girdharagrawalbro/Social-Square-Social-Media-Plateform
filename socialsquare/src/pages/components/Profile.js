@@ -12,7 +12,8 @@ import { socket } from '../../socket'; // Assume this is your socket connection 
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
-import {toast, ToastContainer} from 'react-toastify';
+import toast from "react-hot-toast";
+import { Toaster } from "react-hot-toast";
 import { resetState } from '../../store/slices/userSlice';
 
 const Profile = () => {
@@ -50,7 +51,7 @@ const Profile = () => {
 
         dispatch(resetState()); // Reset Redux store
 
-        toast.info('You have been logged out.');
+        toast.error('You have been logged out.');
 
         if (socket.connected) {
           // Emit logoutUser event
@@ -61,7 +62,7 @@ const Profile = () => {
         setTimeout(() => navigate('/login'), 500);
       },
       reject: () => {
-        toast.info('Logout canceled.');
+        toast.error('Logout canceled.');
       }
     });
   };
@@ -142,13 +143,13 @@ const Profile = () => {
           }
         </div>
 
-        <Dialog header="Update your Profile" visible={visible} position="right" style={{width: "340px", height : "100vh"}} onHide={() => setVisible(false)} >
+        <Dialog header="Update your Profile" visible={visible} position="right" style={{ width: "340px", height: "100vh" }} onHide={() => setVisible(false)} >
           <EditProfile users={loggeduser} closeSidebar={() => setVisible(false)} />
         </Dialog>
 
       </div>
       <ConfirmDialog />
- 
+
       <Dialog header="Followers" visible={showFollowersList} style={{ width: '340px', height: "100vh" }} onHide={() => { if (!showFollowersList) return; setShowFollowersList(false); }}>
         <FollowFollowingList
           isfollowing={false}
@@ -156,7 +157,7 @@ const Profile = () => {
         />
       </Dialog>
 
-        <ToastContainer />
+      <Toaster />
       <Dialog header="Following" visible={showFollowingList} style={{ width: '340px', height: "100vh" }} onHide={() => { if (!showFollowingList) return; setShowFollowingList(false); }}>
         <FollowFollowingList
           isfollowing={true}

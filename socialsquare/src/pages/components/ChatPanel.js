@@ -94,11 +94,11 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     };
 
     return (
-        <div className="d-flex flex-column gap-2">
+        <div className="d-flex flex-column gap-2" style={{ height: '80vh' }}>
             <div
                 ref={chatContainerRef}
                 className="flex-grow-1 overflow-auto d-flex flex-column gap-2 border-top pt-3"
-                style={{ height: '68vh' }}
+                style={{ height: '100vh' }}
             >
                 {messages?.length > 0 ? (
                     messages.map((message) => (

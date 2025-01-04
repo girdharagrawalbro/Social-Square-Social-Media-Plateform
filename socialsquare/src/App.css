@@ -575,83 +575,22 @@ input {
         display: none;
     }
 }
-
-/* From Uiverse.io by Priyanshu02020 */
-#heart {
-    display: none;
-}
-
-.like-button {
-    cursor: pointer;
-    display: flex;
-    width: 70px;
-    border-radius: 25px;
-    border: 1px solid gray;
+.progress {
+    height: 5px;
+    background-color: #e9ecef;
+    border-radius: 5px;
     overflow: hidden;
-    position: relative;
-
-}
-
-.like {
+  }
+  
+  .progress-bar {
     height: 100%;
-    display: flex;
-    padding: 5px 5px 5px 10px;
-    cursor: pointer;
-    align-items: center;
-    justify-content: space-evenly;
-}
-
-.like-icon {
-    fill: white;
-    stroke: #333;
-    height: 20px;
-    width: 20px;
-}
-
-.like-count {
-    position: absolute;
-    right: 0;
-    display: flex;
-    padding: 5px 8px 5px 5px;
-    justify-content: center;
-    align-items: center;
-    color: #717070;
-    font-size: 16px;
-    height: 100%;
-    border-left: 1px solid #4e4e4e;
-    transition: all 0.5s ease-out;
-}
-
-.like-count.two {
-    transform: translateY(40px);
-}
-
-.on:checked~.like .like-icon {
-    fill: #fc4e4e;
-    animation: enlarge 0.2s ease-out 1;
-    transition: all 0.1s ease-out;
-}
-
-.on:checked~.like-count.two {
-    transform: translateX(0);
-    color: #000000;
-}
-
-.on:checked~.like-count.one {
-    transform: translateY(-40px);
-}
-
-@keyframes enlarge {
-    0% {
-        transform: scale(0.5);
-    }
-
-    100% {
-        transform: scale(1.2);
-    }
-}
-
-
+    background-color: #007bff;
+    transition: width 0.3s;
+    color: white;
+    text-align: center;
+    line-height: 10px;
+  }
+  
 .OtherUsers {
     display: flex;
 }
@@ -674,16 +613,20 @@ input {
     .pc-layout {
         display: none;
     }
-    .dock{
-        position: absolute;
-        bottom: 5px;;
+    .dock {
+        z-index: 999;
+        background-color: white;
+        position: fixed;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
     }
+    
     .mobile-layout {
         width: 100%;
         display: flex;
         flex-direction: column;
         height: 100vh;
-        padding-top:5px;
     }
 
     .feed {
@@ -704,7 +647,7 @@ input {
         width: 300px;
         padding: 20px;
         height: max-content;
-        margin-top: 30px;
+        margin-top: 120px;
     }
 
     .main-screen {
@@ -712,7 +655,7 @@ input {
         align-items: start;
     }
     .auth-bg{
-        height: 600px;
+        height: 100%;
     }
     .feed,
     .OtherUsers,

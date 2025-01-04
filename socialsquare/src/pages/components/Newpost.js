@@ -1,9 +1,9 @@
-// React imports
 import React, { useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { toast, ToastContainer } from 'react-toastify';
-import { OverlayPanel } from 'primereact/overlaypanel';
-import { addNewPost } from '../../store/slices/postsSlice';
+import toast from "react-hot-toast";
+import { Toaster } from "react-hot-toast";
+import { OverlayPanel } from "primereact/overlaypanel";
+import { addNewPost } from "../../store/slices/postsSlice";
 
 const NewPost = () => {
   const dispatch = useDispatch();
@@ -15,6 +15,8 @@ const NewPost = () => {
     category: "Default",
   });
 
+  const [progress, setProgress] = useState(0);
+  const [isPosting, setIsPosting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -25,45 +27,64 @@ const NewPost = () => {
     e.preventDefault();
 
     if (!formData.caption.trim()) {
-      toast.error('Caption cannot be empty!');
+      toast.error("Caption cannot be empty!");
+      return;
     }
-    else {
-      const postData = {
-        ...formData,
-        loggeduser: loggeduser?._id,
-      };
 
-      try {
-        const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/post/create", {
+    const postData = {
+      ...formData,
+      loggeduser: loggeduser?._id,
+    };
+
+    try {
+      setIsPosting(true);
+      setProgress(0);
+
+      // Simulate progress for 3 seconds
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 10; // Increase progress in steps
+        });
+      }, 100); // 300ms per step for a total of 3 seconds
+
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // 3-second delay
+
+      const response = await fetch(
+        "https://social-square-social-media-plateform.onrender.com/api/post/create",
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(postData),
-        });
-
-        const data = await response.json();
-        if (data) {
-          toast.success("Post created successfully");
-          dispatch(addNewPost(data));
-        } else {
-          const error = await response.json();
-          toast.error(error.error);
         }
-      } catch (error) {
-        toast.error(error.message);
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Post created successfully");
+        dispatch(addNewPost(data));
+      } else {
+        toast.error(data.error || "Failed to create post");
       }
+    } catch (error) {
+      toast.error(error.message || "An unexpected error occurred");
+    } finally {
+      setIsPosting(false);
+      setFormData({
+        caption: "",
+        category: "Default",
+      });
     }
-    setFormData({
-      caption: "",
-      category: "Default",
-    });
   };
 
-
   return (
+    <>
     <div className="new mt-2 bordershadow p-2 rounded w-100 d-flex gap-1 align-items-center">
-
       <img
         src={loggeduser?.profile_picture || "default-profile.png"}
         alt="Profile"
@@ -85,7 +106,7 @@ const NewPost = () => {
             aria-label="Add image"
             onClick={(e) => op.current.toggle(e)}
           >
-            <svg
+              <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               width="24"
@@ -111,7 +132,9 @@ const NewPost = () => {
             type="submit"
             className="theme-bg mx-1 px-2 py-1"
             aria-label="Share thoughts"
+            disabled={isPosting}
           >
+            
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -129,18 +152,20 @@ const NewPost = () => {
           </button>
         </div>
 
-        <ToastContainer
-          position="top-right"
-          autoClose={1000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss={false}
-          draggable
-          pauseOnHover={false}
-          theme="light"
-          transition={"Bounce"} />
+        {isPosting && (
+          <div className="progress mt-2">
+            <div
+              className="progress-bar"
+              role="progressbar"
+              style={{ width: `${progress}%` }}
+              aria-valuenow={progress}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+            </div>
+          </div>
+        )}
+
 
         <OverlayPanel ref={op} style={{ padding: "0px" }}>
           <input
@@ -155,6 +180,8 @@ const NewPost = () => {
         </OverlayPanel>
       </form>
     </div>
+        <Toaster />
+</>
   );
 };
 

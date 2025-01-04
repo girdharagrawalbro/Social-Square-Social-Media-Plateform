@@ -118,7 +118,7 @@ const Home = () => {
                     <Header />
 
                     <div className="feed">{renderMobileView()}</div>
-                    <div className="dock w-100">
+                    <div className="dock w-75">
                         <div className="d-flex border rounded py-2 w-100 justify-content-around">
                             <button
                                 className={`btn ${activeView === 'feed' ? 'btn-primary' : 'btn-outline-primary'}`}

@@ -36,10 +36,9 @@ const Feed = () => {
           <div className="mt-3 rounded d-flex flex-column gap-3">
             {posts.length > 0 ? (
               posts.map((post, index) => (
-                <div key={index} className="post w-100 h-20 rounded-3 p-3 shadow d-flex flex-column gap-1">
+                <div key={index} className="post w-100 rounded-3 shadow d-flex flex-column gap-1">
                   <div
-                    className={`d-flex align-items-center gap-2 ${post.image_url ? "" : "mb-5"}`}
-                  >
+                    className="d-flex align-items-center gap-2 px-2 pt-2" >
                     <img
                       src={post.user.profile_picture}
                       alt="Profile"
@@ -49,8 +48,8 @@ const Feed = () => {
                       <h6 className="m-0 p-0">{post.user.fullname}</h6>
                     </div>
                   </div>
-                  <div className="post-img-container border mt-2 position-relative">
                     {post.image_url && (
+                  <div className="post-img-container border mt-2">
                       <Image
                         src={post.image_url}
                         alt="Post"
@@ -58,54 +57,66 @@ const Feed = () => {
                         preview
                         width="100%"
                       />
+                        </div>
+
                     )}
 
-                    <div className="interaction position-absolute w-100">
-                      <div className="d-flex justify-content-between align-items-center px-3 py-2">
-                        <div className="d-flex gap-2">
-                          <p className="text-white">{post.caption}</p>
+                    <div className="interaction w-100">
+                      <div className="d-flex flex-wrap justify-content-between align-items-center gap-1 px-3 py-2">
+                        {/* Post Caption */}
+                        <div className="d-flex flex-wrap align-items-center gap-2">
+                          <p className="text-white m-0">{post.caption}</p>
                         </div>
-                        <div className="d-flex justify-content-center align-items-center gap-3">
 
-                          <div className="d-flex align-items-center gap-2">
-                            <span
-                              onClick={() =>
-                                dispatch(
-                                  post?.likes?.includes(loggeduser?._id)
-                                    ? unlikepost({ postId: post._id, userId: loggeduser._id })
-                                    : likepost({ postId: post._id, userId: loggeduser._id })
-                                )
-                              }
-                              className="d-flex align-items-center gap-2"
-                            >
-                              {post?.likes?.includes(loggeduser?._id) ? (
-                                <Like count={post?.likes?.length} isliked={true} loading={loading.like} />
-                              ) : (
-                                <Like count={post?.likes?.length} isliked={false} loading={loading.unlike} />
-                              )}
-                            </span>
+                        {/* Post Actions (Aligned to End) */}
+                        <div className="d-flex flex-wrap justify-content-end align-items-center gap-3 ms-auto">
+                          {/* Like Button */}
+                          <div
+                            onClick={() =>
+                              dispatch(
+                                post?.likes?.includes(loggeduser?._id)
+                                  ? unlikepost({ postId: post._id, userId: loggeduser._id })
+                                  : likepost({ postId: post._id, userId: loggeduser._id })
+                              )
+                            }
+                            className="d-flex align-items-center gap-2"
+                          >
+                            <Like
+                              count={post?.likes?.length}
+                              isliked={post?.likes?.includes(loggeduser?._id)}
+                              loading={post?.likes?.includes(loggeduser?._id) ? loading.like : loading.unlike}
+                            />
                           </div>
 
+                          {/* Comments Button */}
                           <span
                             className="d-flex align-items-center justify-content-center gap-2 text-white"
-                            onClick={() => toggleComments(post._id)} // Pass the postId to toggleComments
+                            onClick={() => toggleComments(post._id)}
                           >
                             <i className="pi pi-comment" style={{ fontSize: '1.3rem', color: 'white' }}></i>
                             <span>{post.comments?.length || 0}</span>
                           </span>
 
-                          <span className="d-flex align-items-center justify-content-center gap-2 text-white" onClick={(e) => op.current.toggle(e)} >
+                          {/* Share Button */}
+                          <span
+                            className="d-flex align-items-center justify-content-center gap-2 text-white"
+                            onClick={(e) => op.current.toggle(e)}
+                          >
                             <i className="pi pi-share-alt" style={{ fontSize: '1.3rem', color: 'white' }}></i>
                             <span>{post.shares?.length || 0}</span>
                           </span>
-                          {/* {post.user._id === loggeduser._id ?
-                            <span className="d-flex align-items-center justify-content-center gap-2 text-white" onClick={confirm(post._id)} >
-                              <i className="pi pi-trash" style={{ fontSize: '1.3rem', color: 'white' }}></i>
-                            </span>
-                            : <></>
-                          } */}
+
+                          {/* Delete Button (Conditional) */}
+                          {/* {post.user._id === loggeduser._id && (
+      <span
+        className="d-flex align-items-center justify-content-center gap-2 text-white"
+        onClick={() => confirm(post._id)}
+      >
+        <i className="pi pi-trash" style={{ fontSize: '1.3rem', color: 'white' }}></i>
+      </span>
+    )} */}
                         </div>
-                      </div>
+
                     </div>
                   </div>
                   <ConfirmPopup />
