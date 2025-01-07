@@ -89,6 +89,7 @@ router.get('/get', async (req, res) => {
                 return res.status(404).json({ message: 'User not found.' });
             }
 
+
             // Return the user data
             return res.status(200).json(user);
         } catch (error) {
@@ -102,49 +103,34 @@ router.get('/get', async (req, res) => {
 });
 router.get("/other-users", async (req, res) => {
     try {
-      const loggedUserId = req.headers.authorization; // Use token or header to get logged-in user ID
-  
-      if (!loggedUserId) {
-        return res.status(400).json({ message: "Authorization header missing." });
-      }
-  
-      // Fetch the logged-in user and their following list
-      const user = await User.findById(loggedUserId)
-        .select("-password") // Exclude password field
-        .populate("following", "_id"); // Populate following to get IDs only
-  
-      if (!user) {
-        return res.status(404).json({ message: "User not found." });
-      }
-  
-      const followingIds = user.following.map((f) => f._id);
-  
-      // Fetch suggested users from followers and following list
-      let suggestions = await User.find({
-        _id: { $ne: loggedUserId, $nin: followingIds },
-        followers: { $in: followingIds },
-      })
-        .limit(10)
-        .select("_id fullname profile_picture");
-  
-      // If less than 10 suggestions, fill with random users not in following or logged-in user
-      if (suggestions.length < 10) {
-        const additionalUsers = await User.find({
-          _id: { $ne: loggedUserId, $nin: followingIds, $nin: suggestions.map((s) => s._id) },
+        const loggedUserId = req.headers.authorization; // Use token or header to get logged-in user ID
+
+        if (!loggedUserId) {
+            return res.status(400).json({ message: "Authorization header missing." });
+        }
+
+        const user = await User.findById(loggedUserId)
+            .select("-password") // Exclude password field
+            .populate("following", "_id"); // Populate following to get IDs only
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        // Fetch suggested users (not in following list and not the logged-in user)
+        let suggestions = await User.find({
+            _id: { $ne: loggedUserId, $nin: user.following }, // Exclude logged-in user and followed users
+            followers: { $in: user.following }, // Suggest users followed by those in the following list
         })
-          .limit(10 - suggestions.length)
-          .select("_id fullname profile_picture");
-  
-        suggestions = [...suggestions, ...additionalUsers];
-      }
-  
-      return res.status(200).json(suggestions);
+            .limit(10)
+            .select("_id fullname profile_picture");
+
+        return res.status(200).json(suggestions);
+
     } catch (error) {
-      console.error("Error fetching other users:", error);
-      return res.status(500).json({ message: "Internal server error." });
+        console.error("Error fetching other users:", error);
+        return res.status(500).json({ message: "Internal server error." });
     }
-  });
-  
+});
+
 
 // get follow - following user profile details
 router.post('/users/details', async (req, res) => {
@@ -202,7 +188,7 @@ router.post('/follow', async (req, res) => {
 
         // Add followUserId to the user's following list and vice versa
         await User.findByIdAndUpdate(userId, { $addToSet: { following: followUserId } });
-        const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } });
+        const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } }).select("-password");
 
         res.status(200).json(user);
     } catch (error) {
@@ -222,7 +208,7 @@ router.post('/unfollow', async (req, res) => {
 
         // Remove unfollowUserId from the user's following list and vice versa
         await User.findByIdAndUpdate(userId, { $pull: { following: unfollowUserId } });
-        const user = await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } });
+        const user = await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } }).select("-password");
 
         res.status(200).json(user);
     } catch (error) {
@@ -273,29 +259,6 @@ router.post("/search", async (req, res) => {
         res.status(500).json({ message: "Internal server error." });
     }
 });
-
-// create a conversation 
-router.get('/conversation/create', async (req, res) => {
-
-});
-
-// fetch conversations 
-router.get('/conversation', async (req, res) => {
-
-});
-
-
-// create message 
-router.get('/message/create', async (req, res) => {
-
-});
-
-// fetch messages
-router.get('/messages', async (req, res) => {
-
-});
-
-
 
 
 module.exports = router;

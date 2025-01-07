@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 const Notification = ({ message, name }) => {
   const [show, setShow] = useState(false);
+  console.log(message,name)
 
   React.useEffect(() => {
     setTimeout(() => setShow(true), 10); // Trigger transition

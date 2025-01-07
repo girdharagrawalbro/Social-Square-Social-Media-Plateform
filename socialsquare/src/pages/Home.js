@@ -13,6 +13,7 @@ import Newpost from './components/Newpost';
 import Feed from './components/Feed';
 import Profile from './components/Profile';
 import Conversations from './components/Conversations';
+
 // Redux actions
 import { fetchLoggedUser } from '../store/slices/userSlice';
 
@@ -21,7 +22,7 @@ const Home = () => {
     const [activeView, setActiveView] = useState('feed'); // 'feed', 'profile', or 'otherUsers'
     const dispatch = useDispatch();
     const { loggeduser, loading, error } = useSelector((state) => state.users);
-
+    
     useEffect(() => {
         dispatch(fetchLoggedUser());
     }, [dispatch]);
@@ -42,9 +43,6 @@ const Home = () => {
             socket.off('connect'); // Clean up listener
         };
     }, [loggeduser]);
-
-
-
     if (error.loggeduser) {
         return (
             <>
@@ -149,6 +147,7 @@ const Home = () => {
                         </div>
                     </div>
                 </div>
+              
             </section>
         </>
     );

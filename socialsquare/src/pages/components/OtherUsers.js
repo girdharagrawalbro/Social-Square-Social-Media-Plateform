@@ -14,7 +14,6 @@ import { followUser, fetchOtherUsers } from '../../store/slices/userSlice';
 
 const OtherUsers = () => {
     const dispatch = useDispatch();
-    const [ setUsers] = useState([]);
     const [actionLoading, setActionLoading] = useState(null);
     const [error, setError] = useState(null);
     const { loggeduser, otherusers, loading } = useSelector((state) => state.users);
@@ -40,24 +39,13 @@ const OtherUsers = () => {
         setActionLoading(followUserId);
         try {
             await dispatch(followUser({ loggedUserId: loggeduser._id, followUserId })).unwrap();
-            setUsers((prevUsers) =>
-                prevUsers.map((u) =>
-                    u._id === followUserId ? { ...u, isFollowing: true } : u
-                )
-            );
         } catch (err) {
-            setError("Failed to follow otherusers.");
+            setError(err.message);
         } finally {
             setActionLoading(null);
         }
     };
 
-
-    useEffect(() => {
-        if (otherusers?.otherusers) {
-            setUsers(otherusers.otherusers);
-        }
-    }, [otherusers,setUsers]);
 
     return (
         <div className="d-flex flex-column gap-3">
@@ -68,7 +56,7 @@ const OtherUsers = () => {
                 {
                     loading.otherusers ?
                         <Loader />
-                        : error ?  <p className="text-danger">{error}</p> :
+                        : error ? <p className="text-danger">{error}</p> :
                             otherusers.length === 0 ? (
                                 <p>No other users found.</p>
                             ) : (
@@ -110,7 +98,7 @@ const OtherUsers = () => {
             <Dialog
                 header="User Profile"
                 visible={isVisible}
-                style={{ width: '340px' , height : "400px"}}
+                style={{ width: '340px', height: "400px" }}
                 onHide={() => setVisible(false)}
             >
                 <UserProfile id={selectedUserId} /> {/* Pass selected otherusers ID */}

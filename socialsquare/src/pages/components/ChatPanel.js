@@ -20,6 +20,8 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     useEffect(() => {
         // Listen to incoming messages
         socket.on('receiveMessage', (message) => {
+            console.log(message.senderName)
+
             if (message.senderId === participantId) {
                 dispatch(addMessageToChat(message));
                 dispatch(markMessagesAsRead({ unreadMessageIds: [message._id], lastMessage: message._id }));
@@ -94,7 +96,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     };
 
     return (
-        <div className="d-flex flex-column gap-2" style={{ height: '80vh' }}>
+        <div className="d-flex flex-column gap-2" style={{ height: '77vh' }}>
             <div
                 ref={chatContainerRef}
                 className="flex-grow-1 overflow-auto d-flex flex-column gap-2 border-top pt-3"

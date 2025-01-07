@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 // Import - Slices functions
 import { socket } from '../../socket'; // Socket connection file
 import { fetchConversations, updateLastMessage } from '../../store/slices/conversationSlice';
-import { getNotifications, addNewNotification,readNotifications } from '../../store/slices/conversationSlice';
+import { getNotifications, addNewNotification, readNotifications } from '../../store/slices/conversationSlice';
 
 // Import - UI
 import { Dialog } from 'primereact/dialog';
@@ -28,9 +28,9 @@ const Conversations = () => {
   const [selectedPic, setSelectedPic] = useState(null); // Stores the entire user object
   const [visbleNotifications, setVisibleNotifications] = useState(null);
   const [lastMessageid, setLastMessageid] = useState(null);
-  const [notification, setNotification] = useState(null);
+  const [notification, setNotification] = useState(false);
+  const [message, setMessage] = useState(null);
   const [name, setName] = useState(null);
-  // fetch the conversations 
 
   useEffect(() => {
     if (loggeduser?._id) {
@@ -93,14 +93,17 @@ const Conversations = () => {
     }
   }, [dispatch, loggeduser?._id]);
 
-  // to show new message Notifications
   const showNotification = (message, name) => {
-    setNotification(message);
+    setNotification(true);
+    setMessage(message)
     setName(name)
     setTimeout(() => {
-      setNotification(null);
+      setNotification(false);
     }, 5000);
   };
+
+  // to show new message Notifications
+
 
   const onlineUserSet = new Set(onlineUsers.map((u) => u.userId));
 
@@ -229,30 +232,31 @@ const Conversations = () => {
 
         {selectedId && <ChatPanel participantId={selectedId} lastMessage={lastMessageid} />}
       </Dialog>
+
+      {/* Notifications Dialog */}
+      <Dialog
+        header="Notifications"
+        visible={visbleNotifications}
+        style={{ width: '340px', height: '100vh' }}
+        onHide={() => {
+          setVisibleNotifications(false);
+          const unseenNotifications = notifications
+            ?.filter((noty) => !noty.read)
+            .map((not) => not._id);
+          if (unseenNotifications && unseenNotifications.length > 0) {
+            dispatch(readNotifications(unseenNotifications));
+          }
+        }}
+        position="right"
+      >
+        <Notifications />
+      </Dialog>
       {notification && (
         <Notification
-          message={notification}
+          message={message}
           name={name}
         />
       )}
-      {/* Notifications Dialog */}
-      <Dialog
-  header="Notifications"
-  visible={visbleNotifications}
-  style={{ width: '340px', height: '100vh' }}
-  onHide={() => {
-    setVisibleNotifications(false);
-    const unseenNotifications = notifications
-      ?.filter((noty) => !noty.read)
-      .map((not) => not._id);
-    if (unseenNotifications && unseenNotifications.length > 0) {
-      dispatch(readNotifications(unseenNotifications));
-    }
-  }}
-  position="right"
->
-  <Notifications />
-</Dialog>
 
     </div>
   );
