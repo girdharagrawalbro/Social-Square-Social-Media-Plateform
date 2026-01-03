@@ -49,7 +49,7 @@ const Feed = () => {
                     </div>
                   </div>
                     {post.image_url && (
-                  <div className="post-img-container border mt-2">
+                  <div className="post-img-container text-center border mt-2">
                       <Image
                         src={post.image_url}
                         alt="Post"

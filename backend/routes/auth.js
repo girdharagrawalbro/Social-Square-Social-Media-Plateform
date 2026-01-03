@@ -1,21 +1,46 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Post = require("../models/Post");
-
+const { decryptPassword, isEncrypted } = require('../utils/crypto');
 
 const router = express.Router();
 
-const JWT_SECRET = 'your_jwt_secret'; // Replace with a secure environment variable
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Login endpoint
-router.post('/login', async (req, res) => {
+if (!JWT_SECRET) {
+    console.error('ERROR: JWT_SECRET is not defined in environment variables');
+    process.exit(1);
+}
+
+// Login endpoint with validation
+router.post('/login', [
+    body('identifier').isEmail().withMessage('Please provide a valid email'),
+    body('password').notEmpty().withMessage('Password is required')
+], async (req, res) => {
     try {
+        // Validate input
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { identifier, password } = req.body;
 
+        // Decrypt password if encrypted from frontend
+        const decryptedPassword = isEncrypted(password) ? decryptPassword(password) : password;
+
         // Check if the user exists
-        const user = await User.findOne({ email: identifier });
-        if (!user || user.password !== password) {
+        const user = await User.findOne({ email: identifier.toLowerCase().trim() });
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Compare password with hashed password
+        const isPasswordValid = await bcrypt.compare(decryptedPassword, user.password);
+        if (!isPasswordValid) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
@@ -28,27 +53,44 @@ router.post('/login', async (req, res) => {
             token,
         });
     } catch (error) {
-        console.error(error);
+        console.error('Login error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// Registration (Signup) endpoint
-router.post('/add', async (req, res) => {
+// Registration (Signup) endpoint with validation
+router.post('/add', [
+    body('fullname').trim().isLength({ min: 2, max: 50 }).withMessage('Full name must be between 2 and 50 characters'),
+    body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
     try {
+        // Validate input
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { fullname, email, password } = req.body;
 
-        // Check if a user with the same identifier exists
-        const existingUser = await User.findOne({ email });
+        // Decrypt password if encrypted from frontend
+        const decryptedPassword = isEncrypted(password) ? decryptPassword(password) : password;
+
+        // Check if a user with the same email exists
+        const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
         if (existingUser) {
             return res.status(400).json({ message: 'User already exists with this email.' });
         }
 
-        // Create a new user instance with plaintext password
+        // Hash the password with bcrypt
+        const saltRounds = 12;
+        const hashedPassword = await bcrypt.hash(decryptedPassword, saltRounds);
+
+        // Create a new user instance with hashed password
         const newUser = new User({
-            fullname,
-            email,
-            password, // Storing plaintext password (not recommended, hash it in production)
+            fullname: fullname.trim(),
+            email: email.toLowerCase().trim(),
+            password: hashedPassword,
         });
 
         // Save the new user to the database
@@ -62,7 +104,7 @@ router.post('/add', async (req, res) => {
             token,
         });
     } catch (error) {
-        console.error(error);
+        console.error('Registration error:', error);
         res.status(500).json({ message: 'Failed to register user, please try again.' });
     }
 });
@@ -120,9 +162,9 @@ router.get("/other-users", async (req, res) => {
             _id: { $ne: loggedUserId, $nin: user.following }, // Exclude logged-in user and followed users
             followers: { $in: user.following }, // Suggest users followed by those in the following list
         })
-            .limit(10)
+            .limit(20)
             .select("_id fullname profile_picture");
-
+        
         return res.status(200).json(suggestions);
 
     } catch (error) {

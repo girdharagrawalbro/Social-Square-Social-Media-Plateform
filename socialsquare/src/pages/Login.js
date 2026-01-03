@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Bg from './components/Bg';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
+import { encryptPassword } from '../utils/crypto';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -35,15 +36,34 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.identifier)) {
+      toast.error('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password length
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
 
     try {
-      // Simulating a login API call
+      // Encrypt password before sending
+      const encryptedPassword = encryptPassword(formData.password);
+      
       const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          identifier: formData.identifier,
+          password: encryptedPassword
+        }),
       });
 
       const result = await response.json();
@@ -54,10 +74,10 @@ const Login = () => {
 
         setTimeout(() => navigate('/'), 1500);
       } else {
-        toast.error(result.error)
+        toast.error(result.error || result.message || 'Login failed')
       }
     } catch (error) {
-      toast.error(error);
+      toast.error('Network error! Please try again.');
     }
 
     setLoading(false);

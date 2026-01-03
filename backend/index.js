@@ -1,18 +1,32 @@
+require('dotenv').config();
 const connectToMongo = require('./db.js');
 const express = require('express');
 var cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
 connectToMongo();
 
 const app = express();
 const server = http.createServer(app);
-const port = 5000;
+const port = process.env.PORT || 5000;
+
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api/auth', limiter);
 
 const io = socketIo(server, {
     cors: {
-        origin:  "https://social-square.netlify.app",
-        // origin: "http://localhost:3000",
+        origin: process.env.FRONTEND_URL || "https://social-square.netlify.app",
         methods: ["GET", "POST"],
         credentials: true
     }

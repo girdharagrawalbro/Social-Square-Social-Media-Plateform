@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { socket } from '../socket'; // Assume this is your socket connection file
 
@@ -21,11 +21,17 @@ const Home = () => {
     const token = localStorage.getItem('token');
     const [activeView, setActiveView] = useState('feed'); // 'feed', 'profile', or 'otherUsers'
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { loggeduser, loading, error } = useSelector((state) => state.users);
     
+    // Check token and redirect if not present
     useEffect(() => {
+        if (!token) {
+            navigate('/login');
+            return;
+        }
         dispatch(fetchLoggedUser());
-    }, [dispatch]);
+    }, [dispatch, token, navigate]);
 
     useEffect(() => {
         if (loggeduser?._id) {
@@ -43,13 +49,16 @@ const Home = () => {
             socket.off('connect'); // Clean up listener
         };
     }, [loggeduser]);
-    if (error.loggeduser) {
-        return (
-            <>
-                Error :{error.user}
-            </>
-        );
-    }
+
+    // Handle authentication errors - redirect to login
+    useEffect(() => {
+        if (error.loggeduser && !loading.loggeduser) {
+            // Clear invalid token and redirect
+            localStorage.removeItem('token');
+            localStorage.removeItem('socketId');
+            navigate('/login');
+        }
+    }, [error.loggeduser, loading.loggeduser, navigate]);
 
     if (loading.loggeduser) {
         return (
@@ -59,14 +68,12 @@ const Home = () => {
         );
     }
 
-    if (!token) {
+    // If no token, show loading while redirecting
+    if (!token || !loggeduser) {
         return (
-            <Bg>
-                <div className="d-flex flex-column justify-content-center text-center align-items-center w-100 gap-3">
-                    <h3>You are being logged out. Please login again..</h3>
-                    <Link className="theme-bg py-2 px-3" to="/login">Go to Login</Link>
-                </div>
-            </Bg>
+            <div className='d-flex h-100 mt-5 justify-content-center align-items-center'>
+                <Loader />
+            </div>
         );
     }
 

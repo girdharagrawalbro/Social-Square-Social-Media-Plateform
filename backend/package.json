@@ -3,16 +3,22 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "��#\u0000 \u0000L\u0000e\u0000a\u0000r\u0000n\u0000-\u0000N\u0000e\u0000w\u0000-\u0000S\u0000k\u0000i\u0000l\u0000l\u0000s\u0000\r\u0000 \u0000#\u0000 \u0000L\u0000e\u0000a\u0000r\u0000n\u0000-\u0000N\u0000e\u0000w\u0000-\u0000S\u0000k\u0000i\u0000l\u0000l\u0000s\u0000\r\u0000 \u0000#\u0000 \u0000L\u0000e\u0000a\u0000r\u0000n\u0000-\u0000N\u0000e\u0000w\u0000-\u0000S\u0000k\u0000i\u0000l\u0000l\u0000s\u0000\r\u0000 \u0000",
+  "description": "Social Square Backend API",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
     "express-validator": "^7.2.0",
+    "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.2",
     "nodemon": "^3.1.7",

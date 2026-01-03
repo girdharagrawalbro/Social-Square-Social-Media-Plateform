@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
 import Bg from './components/Bg';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
+import { encryptPassword } from '../utils/crypto';
 
 const Signup = () => {
 
@@ -41,14 +42,42 @@ const Signup = () => {
     setLoading(true);
     setMessage('');
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    // Validate fullname length
+    if (formData.fullname.trim().length < 2) {
+      toast.error('Full name must be at least 2 characters');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password length
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Simulating a signup API call
+      // Encrypt password before sending
+      const encryptedPassword = encryptPassword(formData.password);
+      
       const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          fullname: formData.fullname,
+          email: formData.email,
+          password: encryptedPassword
+        }),
       });
 
       const result = await response.json();
@@ -56,14 +85,12 @@ const Signup = () => {
       if (response.ok) {
         localStorage.setItem('token', result.token);
         toast.success("Signup successful! Redirecting...")
-        setTimeout(() => navigate('/'), 1500); // Redirect after 1.5 seconds
+        setTimeout(() => navigate('/'), 1500);
       } else {
-        toast.error("Something went wrong!")
-        toast.error(result.error)
+        toast.error(result.message || result.error || "Something went wrong!")
       }
     } catch (error) {
       toast.error("Network error! Please try again.");
-      toast.error(error);
     }
 
     setLoading(false);

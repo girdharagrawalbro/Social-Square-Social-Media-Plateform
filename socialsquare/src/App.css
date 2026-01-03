@@ -26,13 +26,13 @@
     width: max-content;
     text-align: center;
     transition: transform 0.3s ease;
-  }
-  
-  .notification.show {
+}
+
+.notification.show {
     transform: translate(-50%, 20px);
-  }
-  
-  
+}
+
+
 .p-button {
     padding: 5px 15px;
 }
@@ -90,10 +90,12 @@ ul {
     background-image: url('https://i.ibb.co/tKbHYTv/bg.jpg');
     background-size: cover;
 }
+
 .header {
     width: 25%;
     height: 100%;
 }
+
 .feed {
     overflow-y: scroll;
     width: 50%;
@@ -118,10 +120,12 @@ ul {
 .editform {
     overflow: scroll;
 }
-.chats{
+
+.chats {
     height: 28.5vh;
     overflow-y: scroll;
 }
+
 .authnav {
     position: absolute;
     top: 0;
@@ -575,34 +579,38 @@ input {
         display: none;
     }
 }
+
 .progress {
     height: 5px;
     background-color: #e9ecef;
     border-radius: 5px;
     overflow: hidden;
-  }
-  
-  .progress-bar {
+}
+
+.progress-bar {
     height: 100%;
     background-color: #007bff;
     transition: width 0.3s;
     color: white;
     text-align: center;
     line-height: 10px;
-  }
-  
+}
+
 .OtherUsers {
     display: flex;
 }
-.pc{
-    display: none;
-}
+
 /* Default: PC Layout */
 .pc-layout {
     display: flex;
     flex-direction: row;
     gap: 1rem;
     height: 100%;
+    width: 100%;
+}
+
+.pc {
+    display: block;
 }
 
 .mobile-layout {
@@ -613,6 +621,11 @@ input {
     .pc-layout {
         display: none;
     }
+
+    .pc {
+        display: none;
+    }
+
     .dock {
         z-index: 999;
         background-color: white;
@@ -621,7 +634,7 @@ input {
         left: 50%;
         transform: translateX(-50%);
     }
-    
+
     .mobile-layout {
         width: 100%;
         display: flex;
@@ -654,9 +667,11 @@ input {
         padding: .5rem;
         align-items: start;
     }
-    .auth-bg{
+
+    .auth-bg {
         height: 100%;
     }
+
     .feed,
     .OtherUsers,
     .profile-container {

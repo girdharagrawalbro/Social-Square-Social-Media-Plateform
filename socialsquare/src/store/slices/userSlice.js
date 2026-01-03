@@ -1,29 +1,46 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
+// Helper function to handle logout
+const handleLogout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('socketId');
+  window.location.href = '/login';
+};
+
 // get the details of logged user
-export const fetchLoggedUser = createAsyncThunk('users/fetchloggedUsers', async () => {
+export const fetchLoggedUser = createAsyncThunk('users/fetchloggedUsers', async (_, { rejectWithValue }) => {
 
   const token = localStorage.getItem('token');
 
   if (!token) {
-    return 'No token found';
+    return rejectWithValue('No token found');
   }
-  else {
-    try {
-      const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/get', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-
-      });
-      const data = await response.json(); // Parse the response as JSON
-      return data; // Assuming response data contains the users
-
+  
+  try {
+    const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/get', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    const data = await response.json();
+    
+    // Check if token is invalid or expired
+    if (response.status === 401 || response.status === 403) {
+      handleLogout();
+      return rejectWithValue(data.message || 'Session expired. Please login again.');
     }
-    catch (error) {
-      console.log(error);
+    
+    if (!response.ok) {
+      return rejectWithValue(data.message || 'Failed to fetch user');
     }
+    
+    return data;
+  }
+  catch (error) {
+    console.log(error);
+    return rejectWithValue(error.message || 'Network error');
   }
 });
 
