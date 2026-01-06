@@ -17,7 +17,7 @@ export const fetchLoggedUser = createAsyncThunk('users/fetchloggedUsers', async 
   }
   
   try {
-    const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/get', {
+    const response = await fetch('https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/get', {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -48,7 +48,7 @@ export const fetchLoggedUser = createAsyncThunk('users/fetchloggedUsers', async 
 export const fetchOtherUsers = createAsyncThunk('users/fetchOtherUsers', async (loggeduserId) => {
 
   try {
-    const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/other-users', {
+    const response = await fetch('https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/other-users', {
       method: 'GET',
       headers: {
         Authorization: `${loggeduserId}`,
@@ -67,7 +67,7 @@ export const fetchOtherUsers = createAsyncThunk('users/fetchOtherUsers', async (
 // Follow a user
 export const followUser = createAsyncThunk("data/followUser", async ({ loggedUserId, followUserId }, thunkAPI) => {
   try {
-    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/auth/follow", {
+    const response = await fetch("https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/follow", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -88,7 +88,7 @@ export const followUser = createAsyncThunk("data/followUser", async ({ loggedUse
 // Unfollow a user
 export const unfollowUser = createAsyncThunk("data/unfollowUser", async ({ loggedUserId, unfollowUserId }, thunkAPI) => {
   try {
-    const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/auth/unfollow", {
+    const response = await fetch("https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/unfollow", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -110,7 +110,7 @@ export const unfollowUser = createAsyncThunk("data/unfollowUser", async ({ logge
 // update a user
 export const updateUser = createAsyncThunk("data/updateUser", async (userData, thunkAPI) => {
   try {
-    const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/update-profile', {
+    const response = await fetch('https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/update-profile', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ export const updateUser = createAsyncThunk("data/updateUser", async (userData, t
 // search a user and post
 export const search = createAsyncThunk("data/search", async (query, thunkAPI) => {
   try {
-    const response = await fetch(`https://social-square-social-media-plateform.onrender.com/api/auth/search`, {
+    const response = await fetch(`https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

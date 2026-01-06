@@ -55,7 +55,7 @@ const Login = () => {
       // Encrypt password before sending
       const encryptedPassword = encryptPassword(formData.password);
       
-      const response = await fetch('https://social-square-social-media-plateform.onrender.com/api/auth/login', {
+      const response = await fetch('https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

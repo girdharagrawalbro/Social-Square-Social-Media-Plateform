@@ -54,7 +54,7 @@ const NewPost = () => {
       await new Promise((resolve) => setTimeout(resolve, 1000)); // 3-second delay
 
       const response = await fetch(
-        "https://social-square-social-media-plateform.onrender.com/api/post/create",
+        "https://social-square-social-media-plateform-uwd8.onrender.com/api/post/create",
         {
           method: "POST",
           headers: {

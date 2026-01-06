@@ -20,7 +20,7 @@ const UserProfile = ({ id }) => {
     if (id && loggeduser._id) {
       const fetchUserDetails = async () => {
         try {
-          const response = await fetch("https://social-square-social-media-plateform.onrender.com/api/auth/other-user/view", {
+          const response = await fetch("https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/other-user/view", {
             method: "GET",
             headers: {
               Authorization: `${id}`,
