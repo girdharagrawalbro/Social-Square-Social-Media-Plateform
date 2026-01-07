@@ -4,7 +4,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import { socket } from '../socket'; // Assume this is your socket connection file
 
 // Component imports
-import Bg from './components/Bg';
 import Loader from './components/Loader';
 import Header from './components/Header';
 import OtherUsers from './components/OtherUsers';

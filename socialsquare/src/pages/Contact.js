@@ -17,10 +17,10 @@ const Contact = () => {
             </a>
           </li>
           <li>
-            📸 <b>Instagram:</b> Follow us and drop a message on our Instagram profile at  <a href=""><u className='text-primary'>codewithgirdhar</u></a>. 
+            📸 <b>Instagram:</b> Follow us and drop a message on our Instagram profile at  <a href="https://instagram.com/codewithgirdhar" target="_blank" rel="noopener noreferrer"><u className='text-primary'>codewithgirdhar</u></a>. 
           </li>
           <li>
-            💼 <b>LinkedIn:</b> Connect with us on LinkedIn to stay updated with our journey at  <a href="" ><u className='text-primary'>Girdhar Agrawal</u></a>.
+            💼 <b>LinkedIn:</b> Connect with us on LinkedIn to stay updated with our journey at  <a href="https://linkedin.com/in/girdhar-agrawal" target="_blank" rel="noopener noreferrer"><u className='text-primary'>Girdhar Agrawal</u></a>.
           </li>
         </ul>
 

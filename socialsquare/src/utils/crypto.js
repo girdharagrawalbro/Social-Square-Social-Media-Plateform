@@ -3,34 +3,6 @@
 
 const ENCRYPTION_KEY = 'socialsquare_encryption_key_2024';
 
-// Create a key from the encryption key using Web Crypto API
-const getKeyMaterial = async () => {
-    const encoder = new TextEncoder();
-    return crypto.subtle.importKey(
-        'raw',
-        encoder.encode(ENCRYPTION_KEY),
-        { name: 'PBKDF2' },
-        false,
-        ['deriveBits', 'deriveKey']
-    );
-};
-
-const getKey = async (salt) => {
-    const keyMaterial = await getKeyMaterial();
-    return crypto.subtle.deriveKey(
-        {
-            name: 'PBKDF2',
-            salt: salt,
-            iterations: 100000,
-            hash: 'SHA-256'
-        },
-        keyMaterial,
-        { name: 'AES-CBC', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
-    );
-};
-
 // Simple XOR-based encryption for browser compatibility
 // This provides basic obfuscation to prevent plain-text password exposure in network requests
 export const encryptPassword = (password) => {
