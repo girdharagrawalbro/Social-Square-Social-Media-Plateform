@@ -26,7 +26,7 @@ const Home = () => {
     // Check token and redirect if not present
     useEffect(() => {
         if (!token) {
-            navigate('/login');
+            navigate('/landing');
             return;
         }
         dispatch(fetchLoggedUser());
@@ -49,13 +49,13 @@ const Home = () => {
         };
     }, [loggeduser]);
 
-    // Handle authentication errors - redirect to login
+    // Handle authentication errors - redirect to landing
     useEffect(() => {
         if (error.loggeduser && !loading.loggeduser) {
             // Clear invalid token and redirect
             localStorage.removeItem('token');
             localStorage.removeItem('socketId');
-            navigate('/login');
+            navigate('/landing');
         }
     }, [error.loggeduser, loading.loggeduser, navigate]);
 

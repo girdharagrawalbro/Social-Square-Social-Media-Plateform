@@ -13,6 +13,7 @@ import Signup from './pages/Signup';
 import Forgot from './pages/Forgot';
 import Contact from './pages/Contact';
 import Help from './pages/Help';
+import Landing from './pages/Landing';
 
 import { PrimeReactProvider } from 'primereact/api';
 
@@ -30,6 +31,7 @@ function App() {
         <PrimeReactProvider>
           <Router>
             <Routes>
+              <Route path="/landing" element={<Landing />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot" element={<Forgot />} />
               <Route path="/contact" element={<Contact />} />

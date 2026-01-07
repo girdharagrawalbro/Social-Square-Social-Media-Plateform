@@ -4,7 +4,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 const handleLogout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('socketId');
-  window.location.href = '/login';
+  window.location.href = '/landing';
 };
 
 // get the details of logged user
