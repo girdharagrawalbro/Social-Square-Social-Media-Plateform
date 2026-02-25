@@ -25,14 +25,23 @@ const limiter = rateLimit({
 app.use('/api/auth', limiter);
 
 const io = socketIo(server, {
-    cors: {
-        origin: process.env.FRONTEND_URL || "https://social-square.netlify.app",
-        methods: ["GET", "POST"],
-        credentials: true
-    }
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://social-square-social-media-platefor.vercel.app"
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Available Routes
