@@ -24,6 +24,11 @@ const limiter = rateLimit({
 });
 app.use('/api/auth', limiter);
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://social-square-social-media-platefor.vercel.app"
+];
+
 const io = socketIo(server, {
   cors: {
     origin: allowedOrigins,
@@ -31,11 +36,6 @@ const io = socketIo(server, {
     credentials: true
   }
 });
-
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://social-square-social-media-platefor.vercel.app"
-];
 
 app.use(cors({
   origin: allowedOrigins,
