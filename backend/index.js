@@ -26,7 +26,7 @@ app.use('/api/auth', limiter);
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://social-square-social-media-platefor.vercel.app"
+  "https://social-square-social-media-platefor.vercel.app",
 ];
 
 const io = socketIo(server, {

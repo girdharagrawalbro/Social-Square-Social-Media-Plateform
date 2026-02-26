@@ -22,7 +22,7 @@ const FollowFollowingList = ({ isfollowing, ids }) => {
         const fetchUsersDetails = async () => {
             try {
                 const response = await fetch(
-                    "https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/users/details",
+                    `${process.env.REACT_APP_BACKEND_URL}/api/auth/users/details`,
                     {
                         method: "POST",
                         headers: {
