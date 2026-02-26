@@ -68,7 +68,7 @@ const Signup = () => {
       // Encrypt password before sending
       const encryptedPassword = encryptPassword(formData.password);
       
-      const response = await fetch('https://social-square-social-media-plateform-uwd8.onrender.com/api/auth/add', {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
