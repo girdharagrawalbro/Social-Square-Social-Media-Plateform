@@ -17,7 +17,7 @@ const Login = () => {
     // Check if the token exists in localStorage
     const token = localStorage.getItem('token');
     if (token) {
-      toast.info("You are already logged in..", {
+      toast.success("You are already logged in..", {
         position: "top-center",
       })
       navigate('/'); // Redirect to the home page or dashboard
