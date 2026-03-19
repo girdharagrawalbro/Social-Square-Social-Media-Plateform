@@ -317,5 +317,14 @@ router.post('/comments/:commentId/like', async (req, res) => {
     } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
+// ─── SINGLE POST DETAIL ───────────────────────────────────────────────────────
+router.get("/detail/:postId", async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.postId);
+        if (!post) return res.status(404).json({ message: "Post not found." });
+        res.status(200).json(post);
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
 module.exports = router;
 module.exports.setIo = setIo;
