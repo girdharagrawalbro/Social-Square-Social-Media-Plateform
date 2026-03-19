@@ -1,120 +1,221 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchCategories } from "../../store/slices/postsSlice";
 import { search } from "../../store/slices/userSlice";
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
+import { debounce } from 'lodash';
+
+const RECENT_KEY = 'recentSearches';
+const MAX_RECENT = 5;
 
 const Search = () => {
     const [searchTerm, setSearchTerm] = useState("");
-    const dispatch = useDispatch();
-    const { categories } = useSelector((state) => state.posts);
-    const { searchResults, loading } = useSelector((state) => state.users);
+    const [isFocused, setIsFocused] = useState(false);
     const [isVisible, setVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
+    const [recentSearches, setRecentSearches] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; }
+        catch { return []; }
+    });
+    const containerRef = useRef(null);
+    const dispatch = useDispatch();
+    const { categories } = useSelector(state => state.posts);
+    const { searchResults, loading } = useSelector(state => state.users);
 
     useEffect(() => {
         dispatch(fetchCategories());
     }, [dispatch]);
 
-    const handleSearch = (e) => {
-        const term = e.target.value.trim();
-        setSearchTerm(term);
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsFocused(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
-        if (term) {
-            dispatch(search(term));
-        }
+    // Debounced search — fires 400ms after user stops typing
+    const debouncedSearch = useCallback(
+        debounce((term) => {
+            if (term.trim()) dispatch(search(term.trim()));
+        }, 400),
+        [dispatch]
+    );
+
+    const handleInputChange = (e) => {
+        const term = e.target.value;
+        setSearchTerm(term);
+        debouncedSearch(term);
     };
 
-    const handleUserClick = (userId) => {
+    const saveRecentSearch = (term) => {
+        if (!term.trim()) return;
+        const updated = [term, ...recentSearches.filter(r => r !== term)].slice(0, MAX_RECENT);
+        setRecentSearches(updated);
+        localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+    };
+
+    const clearRecentSearches = () => {
+        setRecentSearches([]);
+        localStorage.removeItem(RECENT_KEY);
+    };
+
+    const handleRecentClick = (term) => {
+        setSearchTerm(term);
+        dispatch(search(term));
+    };
+
+    const handleUserClick = (userId, userName) => {
         setSelectedUserId(userId);
         setVisible(true);
+        setIsFocused(false);
+        saveRecentSearch(userName);
     };
+
+    const handleCategoryClick = (category) => {
+        setSearchTerm(`#${category}`);
+        dispatch(search(category));
+        saveRecentSearch(`#${category}`);
+    };
+
+    const handleClear = () => {
+        setSearchTerm('');
+        setIsFocused(true);
+    };
+
+    const showDropdown = isFocused;
+    const hasResults = searchResults?.users?.length > 0 || searchResults?.posts?.length > 0;
 
     return (
         <>
-            {/* Search Input */}
-            <div className="explore relative w-full flex gap-2 items-center">
-                <input
-                    placeholder="Search for users, posts, or categories..."
-                    className="py-2 px-4 rounded-full bg-gray-100 w-full"
-                    type="text"
-                    value={searchTerm}
-                    onChange={handleSearch}
-                />
-               
+            <div ref={containerRef} className="relative w-full">
+                {/* Search input */}
+                <div className="relative flex items-center">
+                    <i className="pi pi-search absolute left-3 text-gray-400" style={{ fontSize: '14px' }}></i>
+                    <input
+                        placeholder="Search users, posts, categories..."
+                        className="py-2 pl-9 pr-9 rounded-full bg-gray-100 w-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-200 transition-all"
+                        type="text"
+                        value={searchTerm}
+                        onChange={handleInputChange}
+                        onFocus={() => setIsFocused(true)}
+                    />
+                    {searchTerm && (
+                        <button onClick={handleClear} className="absolute right-3 bg-transparent border-0 cursor-pointer text-gray-400 p-0">
+                            <i className="pi pi-times" style={{ fontSize: '12px' }}></i>
+                        </button>
+                    )}
+                </div>
 
-                {searchTerm && (
-                    <div className="absolute left-0 right-0 t-54 bg-white shadow-md rounded max-h-96 overflow-auto z-50 p-3">
-                        {/* Categories */}
-                        <div className="suggestion flex gap-2 mt-1 flex-wrap">
-                            {categories.length > 0 ? (
-                                categories.map((category, index) => (
-                                    <button
-                                        key={index}
-                                        className="btn bg-[#808bf5] px-3 py-1 rounded-full text-white"
-                                        onClick={() => dispatch(search(category.category))}
-                                    >
-                                        # {category.category}
-                                    </button>
-                                ))
-                            ) : (
-                                <p>No categories available.</p>
-                            )}
-                        </div>
+                {/* Dropdown */}
+                {showDropdown && (
+                    <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid #e5e7eb' }}>
 
-                        {/* Search Results */}
-                        <div className="suggestion my-2">
-                            {loading.search ? (
-                                <p className="mt-2">Searching...</p>
-                            ) : (
-                                <>
-                                    {searchResults.users.length > 0 && (
-                                        <div>
-                                            <div className="flex gap-2 flex-wrap">
-                                                {searchResults.users.map((user) => (
-                                                    <button
-                                                        key={user._id}
-                                                        onClick={() => handleUserClick(user._id)}
-                                                        className="btn btn-outline-primary dropdown-item border px-3 py-2 rounded-full"
-                                                    >
-                                                        {user.fullname}
-                                                    </button>
-                                                ))}
+                        {/* Recent searches — shown when no search term */}
+                        {!searchTerm && recentSearches.length > 0 && (
+                            <div className="p-3">
+                                <div className="flex justify-between items-center mb-2">
+                                    <p className="text-xs font-bold text-gray-500 m-0 uppercase tracking-wider">Recent</p>
+                                    <button onClick={clearRecentSearches} className="text-xs text-indigo-500 border-0 bg-transparent cursor-pointer p-0">Clear all</button>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    {recentSearches.map((term, i) => (
+                                        <button key={i} onClick={() => handleRecentClick(term)}
+                                            className="flex items-center gap-2 px-2 py-2 rounded-lg border-0 bg-transparent cursor-pointer text-left hover:bg-gray-50 w-full">
+                                            <i className="pi pi-clock text-gray-400" style={{ fontSize: '12px' }}></i>
+                                            <span className="text-sm text-gray-700">{term}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Categories — always show when no search term */}
+                        {!searchTerm && categories.length > 0 && (
+                            <div className="px-3 pb-3">
+                                <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">Categories</p>
+                                <div className="flex gap-2 flex-wrap">
+                                    {categories.slice(0, 8).map((cat, i) => (
+                                        <button key={i} onClick={() => handleCategoryClick(cat.category)}
+                                            className="text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-medium"
+                                            style={{ background: '#ede9fe', color: '#808bf5' }}>
+                                            #{cat.category}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Search results */}
+                        {searchTerm && (
+                            <div className="p-3">
+                                {loading.search ? (
+                                    <div className="flex items-center gap-2 py-4 justify-center">
+                                        <span className="spinner-border spinner-border-sm text-indigo-500" role="status" />
+                                        <span className="text-sm text-gray-500">Searching...</span>
+                                    </div>
+                                ) : hasResults ? (
+                                    <>
+                                        {/* User results */}
+                                        {searchResults.users?.length > 0 && (
+                                            <div className="mb-3">
+                                                <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">People</p>
+                                                <div className="flex flex-col gap-1">
+                                                    {searchResults.users.map(user => (
+                                                        <button key={user._id} onClick={() => handleUserClick(user._id, user.fullname)}
+                                                            className="flex items-center gap-3 px-2 py-2 rounded-xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-gray-50">
+                                                            <img src={user.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                                                            <div>
+                                                                <p className="m-0 text-sm font-medium">{user.fullname}</p>
+                                                                <p className="m-0 text-xs text-gray-400">{user.followers?.length || 0} followers</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {searchResults.posts.length > 0 && (
-                                        <div className="mt-2">
-                                            <div className="flex gap-2 flex-wrap">
-                                                {searchResults.posts.map((post) => (
-                                                    <button key={post._id} className="btn btn-outline-primary dropdown-item border">
-                                                        #{post.category} - {post.caption}
-                                                    </button>
-                                                ))}
+                                        {/* Post results */}
+                                        {searchResults.posts?.length > 0 && (
+                                            <div>
+                                                <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">Posts</p>
+                                                <div className="flex flex-col gap-1">
+                                                    {searchResults.posts.slice(0, 4).map(post => (
+                                                        <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl">
+                                                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                                {(post.image_urls?.[0] || post.image_url)
+                                                                    ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
+                                                                    : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '12px' }}></i></div>
+                                                                }
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="m-0 text-xs text-indigo-500 font-medium">#{post.category}</p>
+                                                                <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-
-                                    {searchResults.users.length === 0 &&
-                                        searchResults.posts.length === 0 &&
-                                        searchTerm && <p>No results found for "{searchTerm}".</p>}
-                                </>
-                            )}
-                        </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="text-center py-6">
+                                        <p className="text-2xl mb-1">🔍</p>
+                                        <p className="text-sm text-gray-400 m-0">No results for "<strong>{searchTerm}</strong>"</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
 
-
             {/* User Profile Dialog */}
-            <Dialog
-                header="User Profile"
-                visible={isVisible}
-                style={{ width: '340px', height: "400px" }}
-                onHide={() => setVisible(false)}
-            >
+            <Dialog header="Profile" visible={isVisible} style={{ width: '380px', height: '90vh' }} onHide={() => setVisible(false)}>
                 <UserProfile id={selectedUserId} />
             </Dialog>
         </>
