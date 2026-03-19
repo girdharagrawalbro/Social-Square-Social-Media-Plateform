@@ -10,6 +10,7 @@ const cookieParser = require('cookie-parser');
 const { initNats } = require('./lib/nats');
 const { initPostSubscriber, setIo: setSubscriberIo } = require('./subscribers/postSubscriber');
 const postRouter = require('./routes/post.js');
+const storyRouter = require('./routes/story.js');
 
 connectToMongo();
 
@@ -48,12 +49,13 @@ const io = socketIo(server, {
     }
 })();
 
-// NATS + subscribers
+// NATS + inject io into routes
 (async () => {
     try {
         await initNats();
-        setSubscriberIo(io);                    // inject io into postSubscriber
-        postRouter.setIo(io);                   // inject io into post routes
+        setSubscriberIo(io);        // postSubscriber
+        postRouter.setIo(io);       // post routes (likes, comments, new post)
+        storyRouter.setIo(io);      // story routes (new story to followers)
         await initPostSubscriber();
         console.log('NATS subscribers initialized');
     } catch (err) {
@@ -64,11 +66,10 @@ const io = socketIo(server, {
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
-// Routes
 app.use('/api/auth', require('./routes/auth.js'));
 app.use('/api/post', postRouter);
 app.use('/api/conversation', require('./routes/conversation.js'));
-app.use('/api/story', require('./routes/story.js'));
+app.use('/api/story', storyRouter);
 
 const onlineUsers = [];
 
@@ -98,7 +99,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Typing indicators
     socket.on('typing', ({ recipientId, senderName }) => {
         const recipient = onlineUsers.find(u => u.userId === recipientId);
         if (recipient) io.to(recipient.socketId).emit('userTyping', { senderName });
