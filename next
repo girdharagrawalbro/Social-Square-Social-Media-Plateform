@@ -1,0 +1,30 @@
+🧠 AI-Powered:
+
+Mood-based feed — detects your typing mood and adjusts feed tone
+Auto caption generator — AI writes captions from your image
+Vibe check — AI analyzes post sentiment before you post ("This sounds angry, are you sure?")
+
+🎮 Gamification:
+
+Post streaks — post every day, build a streak like Duolingo
+Reputation points — earn XP for likes, comments, quality posts
+Weekly leaderboard — top contributors in your network
+
+🤝 Social:
+
+Collaborative posts — two users co-author a single post
+Anonymous confessions mode — post anonymously, revealed after X likes
+Time-locked posts — post visible only at a specific time
+
+📍 Unique:
+
+Mood board rooms — shared visual spaces followers can add to
+Voice notes on posts — record a voice comment instead of typing
+Post expiry — posts auto-delete after X days like stories but for feed
+
+
+Q: What do you want to work on next? (Select all that apply)
+    A: User profile page for other users (with their posts + follow), 
+    Performance & SEO (lazy loading, meta tags), 
+    Search improvements (debounce, recent searches),
+    Post detail page (/post/:id), Admin dashboard (manage users, posts),
