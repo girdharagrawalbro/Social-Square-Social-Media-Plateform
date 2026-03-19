@@ -9,6 +9,7 @@ Social-Square-Social-Media-Platform/
 │   │   ├── User.js
 │   │   ├── Post.js
 │   │   ├── Comment.js
+│   │   ├── Story.js
 │   │   ├── Conversation.js
 │   │   ├── Message.js
 │   │   ├── Notification.js
@@ -20,7 +21,8 @@ Social-Square-Social-Media-Platform/
 │   ├── routes/
 │   │   ├── auth.js
 │   │   ├── post.js
-│   │   └── conversation.js
+│   │   ├── conversation.js
+│   │   └── story.js
 │   ├── subscribers/
 │   │   └── postSubscriber.js
 │   ├── utils/
@@ -33,18 +35,29 @@ Social-Square-Social-Media-Platform/
 │
 └── frontend/
     ├── public/
+    │   └── logo192.png
     ├── src/
+    │   ├── context/
+    │   │   └── DarkModeContext.jsx
     │   ├── hooks/
     │   │   ├── useTokenRefresh.js
-    │   │   └── useNotifications.js
+    │   │   ├── useNotifications.js
+    │   │   └── useFeedSocket.js
     │   ├── pages/
     │   │   ├── components/
     │   │   │   ├── ui/
-    │   │   │   │   └── NotificationToast.jsx
+    │   │   │   │   ├── NotificationToast.jsx
+    │   │   │   │   ├── SkeletonPost.jsx
+    │   │   │   │   └── Like.jsx
     │   │   │   ├── Bg.jsx
     │   │   │   ├── Search.jsx
-    │   │   │   └── Authnav.jsx
+    │   │   │   ├── Authnav.jsx
+    │   │   │   ├── MainSkeleton.jsx
+    │   │   │   ├── Loader.jsx
+    │   │   │   ├── Notifications.jsx
+    │   │   │   └── Notification.jsx
     │   │   ├── Home.jsx
+    │   │   ├── Explore.jsx
     │   │   ├── Login.jsx
     │   │   ├── Signup.jsx
     │   │   ├── Forgot.jsx
@@ -55,22 +68,6 @@ Social-Square-Social-Media-Platform/
     │   │   ├── Contact.jsx
     │   │   └── Help.jsx
     │   ├── components/
-    │   │   ├── Navbar.jsx
-    │   │   ├── NewPost.jsx
-    │   │   ├── EditProfile.jsx
-    │   │   ├── NotificationBell.jsx
-    │   │   └── PasswordStrengthMeter.jsx
-    │   ├── store/
-    │   │   ├── slices/
-    │   │   │   ├── userSlice.js
-    │   │   │   ├── postsSlice.js
-    │   │   │   └── conversationSlice.js
-    │   │   └── index.js
-    │   ├── utils/
-    │   │   ├── crypto.js
-    │   │   ├── fingerprint.js
-    │   │   └── cloudinary.js
-    │   ├── socket.js
-    │   ├── App.js
-    │   └── App.css
-    └── .env
+    │   │   ├── ui/
+    │   │   │   ├── Comment.jsx
+    │

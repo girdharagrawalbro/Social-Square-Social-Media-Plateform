@@ -1,14 +1,15 @@
 require('dotenv').config();
 const connectToMongo = require('./db.js');
 const express = require('express');
-var cors = require('cors');
+const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { initNats } = require('./lib/nats');
-const { initPostSubscriber, setIo } = require('./subscribers/postSubscriber');
 const cookieParser = require('cookie-parser');
+const { initNats } = require('./lib/nats');
+const { initPostSubscriber, setIo: setSubscriberIo } = require('./subscribers/postSubscriber');
+const postRouter = require('./routes/post.js');
 
 connectToMongo();
 
@@ -19,28 +20,19 @@ const port = process.env.PORT || 5000;
 app.use(helmet());
 app.use(cookieParser());
 
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: 'Too many requests from this IP, please try again later.'
-});
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: 'Too many requests.' });
 app.use('/api/auth', limiter);
 
 const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3000/login",
-  "https://social-square-social-media-platefor.vercel.app",
+    "http://localhost:3000",
+    "https://social-square-social-media-platefor.vercel.app",
 ];
 
 const io = socketIo(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+    cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true }
 });
 
-// Redis adapter for socket.io
+// Redis adapter
 (async () => {
     try {
         const { createClient } = require('redis');
@@ -56,15 +48,16 @@ const io = socketIo(server, {
     }
 })();
 
-// Initialize NATS and subscribers
+// NATS + subscribers
 (async () => {
     try {
         await initNats();
-        setIo(io); // inject socket.io into subscriber
+        setSubscriberIo(io);                    // inject io into postSubscriber
+        postRouter.setIo(io);                   // inject io into post routes
         await initPostSubscriber();
         console.log('NATS subscribers initialized');
     } catch (err) {
-        console.warn('NATS initialization failed (non-critical):', err.message);
+        console.warn('NATS initialization failed:', err.message);
     }
 })();
 
@@ -73,54 +66,47 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', require('./routes/auth.js'));
-app.use('/api/post', require('./routes/post.js'));
+app.use('/api/post', postRouter);
 app.use('/api/conversation', require('./routes/conversation.js'));
+app.use('/api/story', require('./routes/story.js'));
 
 const onlineUsers = [];
 
 io.on('connection', (socket) => {
-    console.log('A user connected with socket ID:', socket.id);
+    console.log('A user connected:', socket.id);
 
     socket.on('registerUser', (userId) => {
-        socket.join(userId); // join personal room for targeted notifications
+        socket.join(userId);
         if (!onlineUsers.find(u => u.userId === userId)) {
             onlineUsers.push({ socketId: socket.id, userId });
-            console.log('User registered successfully:', { userId, socketId: socket.id });
-            io.emit('updateUserList', onlineUsers);
-        } else {
-            console.log('User already registered:', userId);
-            io.emit('updateUserList', onlineUsers);
         }
+        io.emit('updateUserList', onlineUsers);
     });
 
     socket.on('logoutUser', (userId) => {
-        const index = onlineUsers.findIndex((u) => u.userId === userId);
-        if (index !== -1) {
-            onlineUsers.splice(index, 1);
-            io.emit('updateUserList', onlineUsers);
-            console.log(`User ${userId} has logged out.`);
-        }
+        const index = onlineUsers.findIndex(u => u.userId === userId);
+        if (index !== -1) { onlineUsers.splice(index, 1); io.emit('updateUserList', onlineUsers); }
     });
 
     socket.on('sendMessage', ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
-        console.log(`Message from ${senderName} to ${recipientId}:`, content);
         const recipient = onlineUsers.find(u => u.userId === recipientId);
         if (recipient) {
             io.to(recipient.socketId).emit('receiveMessage', {
-                senderId: sender,
-                socketId: socket.id,
-                content,
-                recipientId,
-                senderName,
-                conversationId,
-                _id,
-                createdAt,
-                isRead
+                senderId: sender, socketId: socket.id,
+                content, recipientId, senderName, conversationId, _id, createdAt, isRead
             });
-            console.log(`Message sent to ${recipientId}`);
-        } else {
-            console.log(`Recipient ${recipientId} not found or not online.`);
         }
+    });
+
+    // Typing indicators
+    socket.on('typing', ({ recipientId, senderName }) => {
+        const recipient = onlineUsers.find(u => u.userId === recipientId);
+        if (recipient) io.to(recipient.socketId).emit('userTyping', { senderName });
+    });
+
+    socket.on('stopTyping', ({ recipientId }) => {
+        const recipient = onlineUsers.find(u => u.userId === recipientId);
+        if (recipient) io.to(recipient.socketId).emit('userStoppedTyping');
     });
 
     socket.on("readMessage", ({ messageId, socketId }) => {
@@ -129,15 +115,8 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         const index = onlineUsers.findIndex(u => u.socketId === socket.id);
-        if (index !== -1) {
-            const disconnectedUser = onlineUsers[index];
-            console.log(`User disconnected:`, disconnectedUser);
-            onlineUsers.splice(index, 1);
-            io.emit('updateUserList', onlineUsers);
-        }
+        if (index !== -1) { onlineUsers.splice(index, 1); io.emit('updateUserList', onlineUsers); }
     });
 });
 
-server.listen(port, () => {
-    console.log('Server is running on port', port);
-});
+server.listen(port, () => console.log('Server is running on port', port));

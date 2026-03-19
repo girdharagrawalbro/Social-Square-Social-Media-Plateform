@@ -11,6 +11,8 @@ import Forgot from './pages/Forgot';
 import Contact from './pages/Contact';
 import Help from './pages/Help';
 import Landing from './pages/Landing';
+import ResetPassword from './pages/ResetPassword';
+import VerifyOtp from './pages/VerifyOtp';
 import { PrimeReactProvider } from 'primereact/api';
 import { Provider } from 'react-redux';
 import { createStore, applyMiddleware } from 'redux';
@@ -19,13 +21,11 @@ import { thunk } from 'redux-thunk';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import useTokenRefresh from './hooks/useTokenRefresh.js';
-import ResetPassword from './pages/ResetPassword';
-import VerifyOtp from './pages/VerifyOtp';
+import { DarkModeProvider } from './context/DarkModeContext';
 
 const store = createStore(rootReducer, applyMiddleware(thunk));
-const queryClient = new QueryClient(); // move outside component
+const queryClient = new QueryClient();
 
-// ✅ Separate inner component — has access to Provider and QueryClient
 function AppContent() {
   useTokenRefresh();
   const { loggeduser } = useSelector(state => state.users);
@@ -54,12 +54,13 @@ function AppContent() {
   );
 }
 
-// ✅ App just wraps providers — no hooks here
 function App() {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        <AppContent />
+        <DarkModeProvider>
+          <AppContent />
+        </DarkModeProvider>
       </QueryClientProvider>
     </Provider>
   );
