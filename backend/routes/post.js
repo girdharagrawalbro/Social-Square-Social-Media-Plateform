@@ -296,14 +296,14 @@ router.post('/comments/:commentId/like', async (req, res) => {
         const { userId } = req.body;
         const comment = await Comment.findById(req.params.commentId);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
-        const liked = comment.likes.includes(userId);
+        const liked = await comment.likes.includes(userId);
+
         if (liked) {
             await Comment.findByIdAndUpdate(req.params.commentId, { $pull: { likes: userId } });
         } else {
             await Comment.findByIdAndUpdate(req.params.commentId, { $addToSet: { likes: userId } });
         }
 
-        // ✅ Broadcast comment like
         if (_io) {
             _io.emit('commentLiked', {
                 commentId: req.params.commentId,

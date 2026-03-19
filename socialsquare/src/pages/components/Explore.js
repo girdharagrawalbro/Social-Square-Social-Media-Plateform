@@ -68,15 +68,15 @@ const Explore = () => {
         <div style={{ maxWidth: '680px', margin: '0 auto', padding: '16px' }}>
             {/* Search bar */}
             <div style={{ position: 'relative', marginBottom: '20px' }}>
-                <i className="pi pi-search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}></i>
+                <i className="pi pi-search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}></i>
                 <input
                     type="text"
                     placeholder="Search users, posts, categories..."
                     value={searchTerm}
                     onChange={handleSearchChange}
-                    style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '24px', border: '1px solid #e5e7eb', background: '#f9fafb', fontSize: '14px', outline: 'none' }}
+                    style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '24px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', fontSize: '14px', outline: 'none' }}
                     onFocus={e => e.target.style.borderColor = '#808bf5'}
-                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
                 />
             </div>
 
@@ -84,23 +84,23 @@ const Explore = () => {
             {searchTerm && (
                 <div style={{ marginBottom: '24px' }}>
                     {loading.search ? (
-                        <p style={{ color: '#9ca3af', textAlign: 'center', padding: '20px' }}>Searching...</p>
+                        <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>Searching...</p>
                     ) : hasResults ? (
                         <>
                             {/* User results */}
                             {searchResults.users?.length > 0 && (
                                 <div style={{ marginBottom: '16px' }}>
-                                    <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>People</p>
+                                    <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>People</p>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {searchResults.users.map(user => (
                                             <button key={user._id} onClick={() => { setSelectedUserId(user._id); setUserProfileVisible(true); }}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: '#f9fafb', border: 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-                                                onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
-                                                onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}>
+                                                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}>
                                                 <img src={user.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
                                                 <div>
                                                     <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{user.fullname}</p>
-                                                    <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>{user.followers?.length || 0} followers</p>
+                                                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{user.followers?.length || 0} followers</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -111,14 +111,14 @@ const Explore = () => {
                             {/* Post results */}
                             {searchResults.posts?.length > 0 && (
                                 <div>
-                                    <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Posts</p>
+                                    <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Posts</p>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
                                         {searchResults.posts.map(post => {
                                             const imgs = getImages(post);
                                             return (
-                                                <div key={post._id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: '#f3f4f6', position: 'relative' }}>
+                                                <div key={post._id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: 'var(--surface-3)', position: 'relative' }}>
                                                     {imgs[0] ? <img src={imgs[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
+                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
                                                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', padding: '4px 6px', fontSize: '10px', color: '#fff' }}>
                                                         ❤️ {post.likes?.length || 0}
                                                     </div>
@@ -130,7 +130,7 @@ const Explore = () => {
                             )}
                         </>
                     ) : (
-                        <p style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>No results for "{searchTerm}"</p>
+                        <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No results for "{searchTerm}"</p>
                     )}
                 </div>
             )}
@@ -143,21 +143,21 @@ const Explore = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {trending.length > 0 ? trending.map((item, i) => (
                                 <button key={item.category} onClick={() => handleCategoryClick(item.category)}
-                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: activeCategory === item.category ? '#ede9fe' : '#f9fafb', border: activeCategory === item.category ? '1px solid #808bf5' : '1px solid #e5e7eb', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-                                    onMouseEnter={e => { if (activeCategory !== item.category) e.currentTarget.style.background = '#f3f4f6'; }}
-                                    onMouseLeave={e => { if (activeCategory !== item.category) e.currentTarget.style.background = '#f9fafb'; }}>
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: activeCategory === item.category ? 'var(--surface-accent-soft)' : 'var(--surface-2)', border: activeCategory === item.category ? '1px solid #808bf5' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+                                    onMouseEnter={e => { if (activeCategory !== item.category) e.currentTarget.style.background = 'var(--surface-hover)'; }}
+                                    onMouseLeave={e => { if (activeCategory !== item.category) e.currentTarget.style.background = 'var(--surface-2)'; }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <span style={{ width: 28, height: 28, background: '#808bf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '12px', fontWeight: 700 }}>#{i + 1}</span>
                                         <div>
-                                            <p style={{ margin: 0, fontWeight: 600, fontSize: '14px', color: activeCategory === item.category ? '#808bf5' : '#111' }}>#{item.category}</p>
-                                            <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>{item.postCount} posts · {item.totalLikes} likes</p>
+                                            <p style={{ margin: 0, fontWeight: 600, fontSize: '14px', color: activeCategory === item.category ? '#808bf5' : 'var(--text-main)' }}>#{item.category}</p>
+                                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{item.postCount} posts · {item.totalLikes} likes</p>
                                         </div>
                                     </div>
-                                    <i className="pi pi-chevron-right" style={{ color: '#9ca3af', fontSize: '12px' }}></i>
+                                    <i className="pi pi-chevron-right" style={{ color: 'var(--text-muted)', fontSize: '12px' }}></i>
                                 </button>
                             )) : (
                                 [1, 2, 3, 4, 5].map(i => (
-                                    <div key={i} style={{ height: '60px', background: '#f3f4f6', borderRadius: '12px', animation: 'pulse 1.5s infinite' }} />
+                                    <div key={i} style={{ height: '60px', background: 'var(--surface-3)', borderRadius: '12px', animation: 'pulse 1.5s infinite' }} />
                                 ))
                             )}
                         </div>
@@ -171,9 +171,9 @@ const Explore = () => {
                                 {searchResults.posts.map(post => {
                                     const imgs = getImages(post);
                                     return (
-                                        <div key={post._id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: '#f3f4f6', position: 'relative' }}>
+                                        <div key={post._id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: 'var(--surface-3)', position: 'relative' }}>
                                             {imgs[0] ? <img src={imgs[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
+                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
                                             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', padding: '4px 6px', display: 'flex', gap: '6px', fontSize: '10px', color: '#fff' }}>
                                                 <span>❤️ {post.likes?.length || 0}</span>
                                                 <span>💬 {post.comments?.length || 0}</span>
@@ -191,7 +191,7 @@ const Explore = () => {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                             {categories.map((cat, i) => (
                                 <button key={i} onClick={() => handleCategoryClick(cat.category)}
-                                    style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid #e5e7eb', background: activeCategory === cat.category ? '#808bf5' : '#f9fafb', color: activeCategory === cat.category ? '#fff' : '#374151', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
+                                    style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', background: activeCategory === cat.category ? '#808bf5' : 'var(--surface-2)', color: activeCategory === cat.category ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
                                     #{cat.category}
                                 </button>
                             ))}

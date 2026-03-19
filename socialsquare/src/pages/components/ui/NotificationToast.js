@@ -41,7 +41,7 @@ export default function NotificationToast({ userId }) {
         }}>
             {toasts.map(toast => (
                 <div key={toast.toastId} style={{
-                    background: '#fff', border: '1px solid #e5e7eb',
+                    background: 'var(--surface-1)', border: '1px solid var(--border-color)',
                     borderRadius: '12px', padding: '12px 16px',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
                     display: 'flex', alignItems: 'center', gap: '10px',
@@ -57,13 +57,13 @@ export default function NotificationToast({ userId }) {
                         <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>
                             {toast.sender?.fullname}
                         </p>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
                             {toast.type === 'new_post' ? 'Created a new post' : toast.message?.content}
                         </p>
                     </div>
                     <button
                         onClick={() => setToasts(prev => prev.filter(t => t.toastId !== toast.toastId))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '16px' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '16px' }}
                     >✕</button>
                 </div>
             ))}
