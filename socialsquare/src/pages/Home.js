@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { socket } from '../socket'; // Assume this is your socket connection file
+import { socket } from '../socket';
 
 // Component imports
-import Loader from './components/Loader';
-import Header from './components/Header';
+import MainSkeleton from './components/MainSkeleton';
 import OtherUsers from './components/OtherUsers';
 import Search from './components/Search';
 import Newpost from './components/Newpost';
@@ -15,15 +14,15 @@ import Conversations from './components/Conversations';
 
 // Redux actions
 import { fetchLoggedUser } from '../store/slices/userSlice';
+import Navbar from './components/Navbar';
 
 const Home = () => {
     const token = localStorage.getItem('token');
-    const [activeView, setActiveView] = useState('feed'); // 'feed', 'profile', or 'otherUsers'
+    const [activeView, setActiveView] = useState('feed');
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { loggeduser, loading, error } = useSelector((state) => state.users);
-    
-    // Check token and redirect if not present
+
     useEffect(() => {
         if (!token) {
             navigate('/landing');
@@ -34,47 +33,28 @@ const Home = () => {
 
     useEffect(() => {
         if (loggeduser?._id) {
-            if (!socket.connected) {
-                socket.connect(); // Connect if not already connected
-            }
-            // Emit user registration only if loggeduser exists
+            if (!socket.connected) socket.connect();
             socket.emit('registerUser', loggeduser._id);
             socket.on('connect', () => {
-                const socketId = socket.id; // Get the socket ID
-                localStorage.setItem('socketId', socketId); // Store it in localStorage
+                const socketId = socket.id;
+                localStorage.setItem('socketId', socketId);
             });
         }
         return () => {
-            socket.off('connect'); // Clean up listener
+            socket.off('connect');
         };
     }, [loggeduser]);
 
-    // Handle authentication errors - redirect to landing
     useEffect(() => {
         if (error.loggeduser && !loading.loggeduser) {
-            // Clear invalid token and redirect
             localStorage.removeItem('token');
             localStorage.removeItem('socketId');
             navigate('/landing');
         }
     }, [error.loggeduser, loading.loggeduser, navigate]);
 
-    if (loading.loggeduser) {
-        return (
-            <div className='d-flex h-100 mt-5 justify-content-center align-items-center'>
-                <Loader />
-            </div>
-        );
-    }
-
-    // If no token, show loading while redirecting
-    if (!token || !loggeduser) {
-        return (
-            <div className='d-flex h-100 mt-5 justify-content-center align-items-center'>
-                <Loader />
-            </div>
-        );
-    }
+    if (loading.loggeduser) return <MainSkeleton />;
+    if (!token || !loggeduser) return <MainSkeleton />;
 
     const renderMobileView = () => {
         switch (activeView) {
@@ -91,7 +71,7 @@ const Home = () => {
             case 'otherUsers':
                 return <OtherUsers />;
             case 'messages':
-                return <Conversations />
+                return <Conversations />;
             default:
                 return null;
         }
@@ -99,61 +79,47 @@ const Home = () => {
 
     return (
         <>
-            <section className="main-screen">
-                {/* PC Layout */}
-                <div className="pc-layout">
-                    <div className="header">
-                        <Header />
+            <section className="min-h-screen w-full bg-gray-50">
+                <Navbar />
+
+                {/* Desktop / tablet layout */}
+                <div className="hidden lg:flex gap-3 h-[600px] w-full max-w-8xl mx-auto p-3">
+                    <div className="w-25">
                         <OtherUsers />
                     </div>
-                    <div className="feed">
-                        <Search />
+
+                    <div className="w-50 overflow-y-scroll h-screen px-3">
                         <Newpost />
                         <Feed />
                     </div>
-                    <div className="profile">
+
+                    <div className="w-25">
                         <Profile />
                         <Conversations />
                     </div>
                 </div>
 
-                {/* Mobile Layout */}
-                <div className="mobile-layout">
-                    <Header />
+                {/* Mobile layout */}
+                <div className="flex lg:hidden flex-col h-screen">
+                    <div className="flex-1 overflow-auto">{renderMobileView()}</div>
 
-                    <div className="feed">{renderMobileView()}</div>
-                    <div className="dock w-75">
-                        <div className="d-flex border rounded py-2 w-100 justify-content-around">
-                            <button
-                                className={`btn ${activeView === 'feed' ? 'btn-primary' : 'btn-outline-primary'}`}
-                                onClick={() => setActiveView('feed')}
-                            >
+                    <div className="fixed bottom-3 left-1/2 transform -translate-x-1/2 w-11/12 md:w-3/4 lg:hidden bg-white rounded-full p-2 shadow-md">
+                        <div className="flex justify-around">
+                            <button className={`px-3 py-2 rounded-full ${activeView === 'feed' ? 'bg-themeStart text-white' : 'bg-transparent border border-gray-200'}`} onClick={() => setActiveView('feed')}>
                                 <i className="pi pi-home"></i>
                             </button>
-
-                            <button
-                                className={`btn ${activeView === 'otherUsers' ? 'btn-primary' : 'btn-outline-primary'}`}
-                                onClick={() => setActiveView('otherUsers')}
-                            >
+                            <button className={`px-3 py-2 rounded-full ${activeView === 'otherUsers' ? 'bg-themeStart text-white' : 'bg-transparent border border-gray-200'}`} onClick={() => setActiveView('otherUsers')}>
                                 <i className="pi pi-users"></i>
                             </button>
-
-                            <button className={`btn ${activeView === 'messages' ? 'btn-primary' : 'btn-outline-primary'}`}
-                                onClick={() => setActiveView('messages')}
-                            >
+                            <button className={`px-3 py-2 rounded-full ${activeView === 'messages' ? 'bg-themeStart text-white' : 'bg-transparent border border-gray-200'}`} onClick={() => setActiveView('messages')}>
                                 <i className="pi pi-envelope"></i>
                             </button>
-
-                            <button
-                                className={`btn ${activeView === 'profile' ? 'btn-primary' : 'btn-outline-primary'}`}
-                                onClick={() => setActiveView('profile')}
-                            >
+                            <button className={`px-3 py-2 rounded-full ${activeView === 'profile' ? 'bg-themeStart text-white' : 'bg-transparent border border-gray-200'}`} onClick={() => setActiveView('profile')}>
                                 <i className="pi pi-user"></i>
                             </button>
                         </div>
                     </div>
                 </div>
-              
             </section>
         </>
     );

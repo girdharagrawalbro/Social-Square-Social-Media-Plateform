@@ -1,10 +1,11 @@
 // react
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 
 // components
 import EditProfile from './EditProfile';
+import ActiveSessions from './ActiveSessions';
 import FollowFollowingList from "./FollowFollowingList";
 import { socket } from '../../socket'; // Assume this is your socket connection file
 
@@ -17,7 +18,8 @@ import { Toaster } from "react-hot-toast";
 import { resetState } from '../../store/slices/userSlice';
 
 const Profile = () => {
-  const [visible, setVisible] = useState(false);
+  const [editvisible, setEditVisible] = useState(false);
+  const [activesessionsvisible, setActiveSessionsVisible] = useState(false);
   const [showFollowersList, setShowFollowersList] = useState(false);
   const [showFollowingList, setShowFollowingList] = useState(false);
 
@@ -74,66 +76,65 @@ const Profile = () => {
   return (
     <>
       <div className={`profile-container bg-white gap-1 pc-show`}>
-        <div className="bordershadow p-3 rounded bg-white d-flex flex-column gap-1">
-          <div>
-            <img
-              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQWdjis-8T0ZC_aBUa_8QAxnkmCuWLQCP5rg&s"
-              alt="Cover"
-              className="cover-image"
-            />
-          </div>
+        <div className="bordershadow p-3 rounded bg-white flex flex-column gap-1">
 
-          <div className="profile-details d-flex align-items-center justify-content-center text-center flex-column gap-1">
-            <div className="profile-pic-container">
+          <div className="flex py-4 items-center justify-center text-center flex-col gap-1">
+            <div className="profile-pic-container ">
               <Image
                 src={loggeduser?.profile_picture}
                 zoomSrc={loggeduser?.profile_picture}
                 alt="Profile"
-                className="profile-pic rounded-circle overflow-hidden"
+                className="profile-pic rounded-full overflow-hidden"
                 preview
                 width="100" height="100"
               />
             </div>
             <h3 className="m-0 pacifico-regular">{loggeduser?.fullname}</h3>
           </div>
-
+          {/* 
           <div className="text-center">
             <p>{loggeduser?.bio}</p>
-          </div>
+          </div> */}
 
-          <div className="d-flex justify-content-around">
+          <div className="flex justify-around border-y py-4">
             <div label="Show"
               className="text-center"
               onClick={() => setShowFollowersList(true)}
             >
 
-              <h6 className="m-0 p-0 nosifer-regular">
+              <h6 className="m-0 p-0 nosifer-regular font-bold">
                 {loggeduser?.followers?.length || 0}
               </h6>
-              <h6>Followers</h6>
+              <span className='text-sm text-gray-500 font-medium'>Followers</span>
             </div>
 
             <div className="text-center"
               label="Show"
               onClick={() => setShowFollowingList(true)}
             >
-              <h6 className="m-0 p-0 nosifer-regular">
+              <h6 className="m-0 p-0 nosifer-regular font-bold">
                 {loggeduser?.following?.length}
               </h6>
-              <h6>Following</h6>
+              <span className='text-sm text-gray-500 font-medium'>Following</span>
             </div>
           </div>
 
-          <div className="d-flex justify-content-center gap-2">
+          <div className="flex justify-center gap-2 py-4 w-100">
             <button
-              className="theme-bg border-0 rounded w-100"
-              onClick={() => setVisible(true)}
+              className="btn bg-[#808bf5] border-0 rounded-xl text-white w-80 font-medium"
+              onClick={() => setEditVisible(true)}
             >
-              Edit
+              Edit Profile
             </button>
 
-            <button onClick={handleLogout} className="mr-2 btn btn-light btn-sm w-100">
-              Logout
+            <button
+              className="btn bg-[#808bf5] border-0 rounded-xl text-white w-80 font-medium"
+              onClick={() => setActiveSessionsVisible(true)}
+            >
+              Active Sessions
+            </button>
+            <button onClick={handleLogout} className="btn border border-gray-500 rounded-xl w-10">
+              <i className="pi pi-sign-out"></i>
             </button>
           </div>
           {false ?
@@ -143,8 +144,12 @@ const Profile = () => {
           }
         </div>
 
-        <Dialog header="Update your Profile" visible={visible} position="right" style={{ width: "340px", height: "100vh" }} onHide={() => setVisible(false)} >
-          <EditProfile users={loggeduser} closeSidebar={() => setVisible(false)} />
+        <Dialog header="Update your Profile" visible={activesessionsvisible} position="right" style={{ width: "340px", height: "100vh" }} onHide={() => setActiveSessionsVisible(false)} >
+          <ActiveSessions />
+        </Dialog>
+
+        <Dialog header="Update your Profile" visible={editvisible} position="right" style={{ width: "340px", height: "100vh" }} onHide={() => setEditVisible(false)} >
+          <EditProfile users={loggeduser} closeSidebar={() => setEditVisible(false)} />
         </Dialog>
 
       </div>

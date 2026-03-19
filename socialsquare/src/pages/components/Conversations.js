@@ -141,7 +141,7 @@ const Conversations = () => {
   return (
     <div className="p-3 bordershadow bg-white rounded mt-3 conversations">
       <div className="d-flex justify-content-between align-items-center">
-        <h5>Messages</h5>
+        <h5 className='font-medium'>Messages</h5>
 
         <i className="pi pi-bell p-overlay-badge" style={{ fontSize: '1.5rem' }} onClick={() => setVisibleNotifications(true)}>
           <Badge value={notifications?.length}></Badge>

@@ -84,25 +84,25 @@ const NewPost = () => {
 
   return (
     <>
-      <div className="new mt-2 bordershadow p-2 rounded w-100 d-flex gap-1 align-items-center">
+      <div className="new mt-2 shadow-md p-2 rounded w-100 d-flex gap-2 align-items-center">
         <img
           src={loggeduser?.profile_picture || "default-profile.png"}
           alt="Profile"
           className="logo"
         />
-        <form onSubmit={handleSubmit} className="d-flex w-100 flex-column">
-          <div className="d-flex w-100">
+        <form onSubmit={handleSubmit} className="flex gap-3 w-100">
+          <div className="flex w-100">
             <input
               type="text"
               placeholder="# Tell your thoughts to your friends"
-              className="p-2 border-0 w-100"
+              className="py-2 px-4 bg-gray-100 rounded-full w-100"
               id="caption"
               name="caption"
               value={formData.caption}
               onChange={handleChange}
             />
             <span
-              className="theme-bg px-2 py-1 ms-2"
+              className="border rounded-full  flex items-center justify-center ms-1 p-2"
               aria-label="Add image"
               onClick={(e) => op.current.toggle(e)}
             >
@@ -111,7 +111,6 @@ const NewPost = () => {
                 viewBox="0 0 24 24"
                 width="24"
                 height="24"
-                color="#ffffff"
                 fill="none"
               >
                 <path
@@ -130,7 +129,7 @@ const NewPost = () => {
             </span>
             <button
               type="submit"
-              className="theme-bg mx-1 px-2 py-1"
+              className="border rounded-full bg-[#808bf5] flex items-center justify-center mx-1 p-2"
               aria-label="Share thoughts"
               disabled={isPosting}
             >
@@ -140,7 +139,7 @@ const NewPost = () => {
                 viewBox="0 0 24 24"
                 width="24"
                 height="24"
-                color="#ffffff"
+                color="#fff"
                 fill="none"
               >
                 <path
@@ -150,34 +149,15 @@ const NewPost = () => {
                 />
               </svg>
             </button>
-          </div>
 
           {isPosting && (
-            <div className="progress mt-2">
-              <div
-                className="progress-bar"
-                role="progressbar"
-                style={{ width: `${progress}%` }}
-                aria-valuenow={progress}
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
-              </div>
-            </div>
+            <span className="d-flex justify-content-center align-items-center">
+              <span className="spinner-border text-[#808bf5]" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </span>
+            </span>
           )}
-
-
-          <OverlayPanel ref={op} style={{ padding: "0px" }}>
-            <input
-              type="text"
-              placeholder="Enter image URL"
-              className="p-2 border-0 mt-2 w-100"
-              id="imageURL"
-              name="imageURL"
-              value={formData.imageURL}
-              onChange={handleChange}
-            />
-          </OverlayPanel>
+          </div>
         </form>
       </div>
       <Toaster />

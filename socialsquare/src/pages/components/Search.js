@@ -34,87 +34,85 @@ const Search = () => {
     return (
         <>
             {/* Search Input */}
-            <div className="explore d-flex gap-2">
+            <div className="explore relative w-full flex gap-2 items-center">
                 <input
-                    placeholder="Search..."
-                    className="border p-2 rounded w-100"
+                    placeholder="Search for users, posts, or categories..."
+                    className="py-2 px-4 rounded-full bg-gray-100 w-full"
                     type="text"
                     value={searchTerm}
                     onChange={handleSearch}
                 />
-                <button className="theme-bg px-2" aria-label="Search">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
-                        <path d="M17.5 17.5L22 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        <path d="M20 11C20 6.02944 15.9706 2 11 2C6.02944 2 2 6.02944 2 11C2 15.9706 6.02944 20 11 20C15.9706 20 20 15.9706 20 11Z" stroke="currentColor" strokeWidth="1.5" />
-                    </svg>
-                </button>
-            </div>
+               
 
-            {/* Categories */}
-            <div className="suggestion d-flex gap-2 mt-3">
-                {categories.length > 0 ? (
-                    categories.map((category, index) => (
-                        <button
-                            key={index}
-                            className="theme-bg"
-                            onClick={() => dispatch(search(category.category))}
-                        >
-                            #{category.category}
-                        </button>
-                    ))
-                ) : (
-                    <p>No categories available.</p>
+                {searchTerm && (
+                    <div className="absolute left-0 right-0 t-54 bg-white shadow-md rounded max-h-96 overflow-auto z-50 p-3">
+                        {/* Categories */}
+                        <div className="suggestion flex gap-2 mt-1 flex-wrap">
+                            {categories.length > 0 ? (
+                                categories.map((category, index) => (
+                                    <button
+                                        key={index}
+                                        className="btn bg-[#808bf5] px-3 py-1 rounded-full text-white"
+                                        onClick={() => dispatch(search(category.category))}
+                                    >
+                                        # {category.category}
+                                    </button>
+                                ))
+                            ) : (
+                                <p>No categories available.</p>
+                            )}
+                        </div>
+
+                        {/* Search Results */}
+                        <div className="suggestion my-2">
+                            {loading.search ? (
+                                <p className="mt-2">Searching...</p>
+                            ) : (
+                                <>
+                                    {searchResults.users.length > 0 && (
+                                        <div>
+                                            <div className="flex gap-2 flex-wrap">
+                                                {searchResults.users.map((user) => (
+                                                    <button
+                                                        key={user._id}
+                                                        onClick={() => handleUserClick(user._id)}
+                                                        className="btn btn-outline-primary dropdown-item border px-3 py-2 rounded-full"
+                                                    >
+                                                        {user.fullname}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {searchResults.posts.length > 0 && (
+                                        <div className="mt-2">
+                                            <div className="flex gap-2 flex-wrap">
+                                                {searchResults.posts.map((post) => (
+                                                    <button key={post._id} className="btn btn-outline-primary dropdown-item border">
+                                                        #{post.category} - {post.caption}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {searchResults.users.length === 0 &&
+                                        searchResults.posts.length === 0 &&
+                                        searchTerm && <p>No results found for "{searchTerm}".</p>}
+                                </>
+                            )}
+                        </div>
+                    </div>
                 )}
             </div>
 
-            {/* Search Results */}
-            <div className="suggestion my-2">
-                {loading.search ? (
-                    <p>Searching...</p>
-                ) : (
-                    <>
-                        {searchResults.users.length > 0 && (
-                            <div>
-                                <h5>Users</h5>
-                                <div className="d-flex gap-2 flex-wrap">
-                                    {searchResults.users.map((user) => (
-                                        <button
-                                            key={user._id}
-                                            onClick={() => handleUserClick(user._id)}
-                                            className="btn btn-outline-primary"
-                                        >
-                                            {user.fullname}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {searchResults.posts.length > 0 && (
-                            <div className="mt-2">
-                                <h5>Posts</h5>
-                                <div className="d-flex gap-2 flex-wrap">
-                                    {searchResults.posts.map((post) => (
-                                        <button key={post._id} className="btn btn-outline-primary">
-                                            #{post.category} - {post.caption}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {searchResults.users.length === 0 &&
-                            searchResults.posts.length === 0 &&
-                            searchTerm && <p>No results found for "{searchTerm}".</p>}
-                    </>
-                )}
-            </div>
 
             {/* User Profile Dialog */}
             <Dialog
                 header="User Profile"
                 visible={isVisible}
-                style={{ width: '340px' , height : "400px"}}
+                style={{ width: '340px', height: "400px" }}
                 onHide={() => setVisible(false)}
             >
                 <UserProfile id={selectedUserId} />

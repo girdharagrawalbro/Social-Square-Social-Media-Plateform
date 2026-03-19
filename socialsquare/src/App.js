@@ -1,10 +1,7 @@
 import './App.css';
-import {
-  BrowserRouter as Router,
-  Routes, // Correctly imported Routes
-  Route
-} from "react-router-dom";
-
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import NotificationToast from './pages/components/ui/NotificationToast';
+import { useSelector } from 'react-redux';
 import "primereact/resources/themes/lara-light-cyan/theme.css";
 import 'react-toastify/dist/ReactToastify.css';
 import Home from './pages/Home';
@@ -14,20 +11,29 @@ import Forgot from './pages/Forgot';
 import Contact from './pages/Contact';
 import Help from './pages/Help';
 import Landing from './pages/Landing';
-
 import { PrimeReactProvider } from 'primereact/api';
-
 import { Provider } from 'react-redux';
 import { createStore, applyMiddleware } from 'redux';
 import rootReducer from './store';
 import { thunk } from 'redux-thunk';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import useTokenRefresh from './hooks/useTokenRefresh.js';
+import ResetPassword from './pages/ResetPassword';
+import VerifyOtp from './pages/VerifyOtp';
 
-const store = createStore(rootReducer, applyMiddleware(thunk)); // Apply middleware
+const store = createStore(rootReducer, applyMiddleware(thunk));
+const queryClient = new QueryClient(); // move outside component
 
-function App() {
+// ✅ Separate inner component — has access to Provider and QueryClient
+function AppContent() {
+  useTokenRefresh();
+  const { loggeduser } = useSelector(state => state.users);
+
   return (
     <>
-      <Provider store={store}>
+      <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
+        <NotificationToast userId={loggeduser?._id} />
         <PrimeReactProvider>
           <Router>
             <Routes>
@@ -37,13 +43,25 @@ function App() {
               <Route path="/contact" element={<Contact />} />
               <Route path="/login" element={<Login />} />
               <Route path="/help" element={<Help />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/verify-otp" element={<VerifyOtp />} />
               <Route path="/" element={<Home />} />
             </Routes>
           </Router>
         </PrimeReactProvider>
-      </Provider>
+      </GoogleOAuthProvider>
     </>
+  );
+}
 
+// ✅ App just wraps providers — no hooks here
+function App() {
+  return (
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
+      </QueryClientProvider>
+    </Provider>
   );
 }
 
