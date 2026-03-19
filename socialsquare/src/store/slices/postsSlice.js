@@ -3,15 +3,13 @@ import axios from "axios";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
-// ─── THUNKS ───────────────────────────────────────────────────────────────────
-
 export const fetchPosts = createAsyncThunk("posts/fetchPosts", async ({ cursor = null, userId = null } = {}, thunkAPI) => {
     try {
         const params = new URLSearchParams({ limit: 10 });
         if (cursor) params.append('cursor', cursor);
         if (userId) params.append('userId', userId);
         const res = await fetch(`${BASE}/api/post/?${params}`);
-        return await res.json(); // { posts, nextCursor, hasMore }
+        return await res.json();
     } catch (error) { return thunkAPI.rejectWithValue(error.message); }
 });
 
@@ -20,14 +18,14 @@ export const fetchUserPosts = createAsyncThunk("posts/fetchUserPosts", async ({ 
         const params = new URLSearchParams({ limit: 12 });
         if (cursor) params.append('cursor', cursor);
         const res = await fetch(`${BASE}/api/post/user/${userId}?${params}`);
-        return await res.json(); // { posts, nextCursor, hasMore }
+        return await res.json();
     } catch (error) { return thunkAPI.rejectWithValue(error.message); }
 });
 
 export const fetchSavedPosts = createAsyncThunk("posts/fetchSavedPosts", async (userId, thunkAPI) => {
     try {
         const res = await fetch(`${BASE}/api/post/saved/${userId}`);
-        return await res.json(); // array of posts
+        return await res.json();
     } catch (error) { return thunkAPI.rejectWithValue(error.message); }
 });
 
@@ -37,8 +35,7 @@ export const savePost = createAsyncThunk("posts/savePost", async ({ postId, user
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ postId, userId }),
         });
-        const data = await res.json(); // { saved: true/false }
-        return { postId, saved: data.saved };
+        return { postId, saved: (await res.json()).saved };
     } catch (error) { return thunkAPI.rejectWithValue(error.message); }
 });
 
@@ -57,7 +54,7 @@ export const likepost = createAsyncThunk("posts/likepost", async ({ postId, user
         });
         if (!res.ok) throw new Error("Failed to like post");
         return { userId, postId };
-    } catch (error) { console.error("Error liking post", error); }
+    } catch (error) { console.error("Error liking", error); }
 });
 
 export const unlikepost = createAsyncThunk("posts/unlikepost", async ({ postId, userId }) => {
@@ -68,25 +65,23 @@ export const unlikepost = createAsyncThunk("posts/unlikepost", async ({ postId, 
         });
         if (!res.ok) throw new Error("Failed to unlike post");
         return { userId, postId };
-    } catch (error) { console.error("Error unliking post", error); }
+    } catch (error) { console.error("Error unliking", error); }
 });
 
 export const fetchComments = createAsyncThunk('posts/fetchComments', async (postId) => {
     try {
-        const res = await fetch(`${BASE}/api/post/comments`, {
-            method: "GET", headers: { Authorization: `${postId}` },
-        });
+        const res = await fetch(`${BASE}/api/post/comments`, { method: "GET", headers: { Authorization: `${postId}` } });
         return await res.json();
     } catch (error) { console.error("Error fetching comments", error); }
 });
 
-export const createComment = createAsyncThunk('posts/createComment', async ({ postId, content, user }) => {
+export const createComment = createAsyncThunk('posts/createComment', async ({ postId, content, user, parentId }) => {
     try {
         const res = await fetch(`${BASE}/api/post/comments/add`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ postId, content, user }),
+            body: JSON.stringify({ postId, content, user, parentId }),
         });
-        return { data: await res.json(), postId };
+        return { data: await res.json(), postId, parentId };
     } catch (error) { console.error("Error commenting", error); }
 });
 
@@ -104,68 +99,123 @@ export const deletePost = createAsyncThunk('posts/deletePost', async ({ postId, 
     } catch (error) { return rejectWithValue(error.response?.data); }
 });
 
-// ─── SLICE ────────────────────────────────────────────────────────────────────
-
 const postsSlice = createSlice({
     name: "posts",
     initialState: {
-        // Feed
         posts: [],
-        nextCursor: null,
-        hasMore: true,
-
-        // Profile - own posts
         userPosts: [],
         userPostsNextCursor: null,
         userPostsHasMore: true,
-
-        // Saved posts
-        savedPosts: [],        // array of full post objects
-        savedPostIds: [],      // array of post _ids for quick lookup
-
-        // Misc
+        savedPosts: [],
+        savedPostIds: [],
         categories: [],
         comments: [],
-
+        nextCursor: null,
+        hasMore: true,
         loading: {
-            posts: null,
-            userPosts: null,
-            savedPosts: null,
-            savePost: null,
-            categories: null,
-            comments: null,
-            like: null,
-            unlike: null,
-            deletePost: null,
-            updatePost: null,
+            posts: null, userPosts: null, savedPosts: null, savePost: null,
+            categories: null, comments: null, like: null, unlike: null,
+            deletePost: null, updatePost: null,
         },
         error: {
-            posts: null,
-            userPosts: null,
-            savedPosts: null,
-            categories: null,
-            comments: null,
-            like: null,
-            unlike: null,
-            deletePost: null,
-            updatePost: null,
+            posts: null, userPosts: null, savedPosts: null, categories: null,
+            comments: null, like: null, unlike: null, deletePost: null, updatePost: null,
         },
     },
     reducers: {
         addNewPost: (state, action) => {
             state.posts.unshift(action.payload);
-            state.userPosts.unshift(action.payload); // also add to profile
+            state.userPosts.unshift(action.payload);
         },
         resetUserPosts: (state) => {
             state.userPosts = [];
             state.userPostsNextCursor = null;
             state.userPostsHasMore = true;
         },
+
+        // ✅ Socket: new post pushed to feed from server
+        socketNewFeedPost: (state, action) => {
+            const post = action.payload;
+            const exists = state.posts.some(p => p._id === post._id);
+            if (!exists) state.posts.unshift(post);
+        },
+
+        // ✅ Socket: like count synced from server
+        socketPostLiked: (state, action) => {
+            const { postId, userId, likesCount } = action.payload;
+            const post = state.posts.find(p => p._id === postId);
+            if (post) {
+                if (!post.likes.includes(userId)) post.likes.push(userId);
+                // Sync exact count from server
+                post.likes = post.likes.slice(0, likesCount);
+            }
+        },
+
+        // ✅ Socket: unlike count synced from server
+        socketPostUnliked: (state, action) => {
+            const { postId, userId, likesCount } = action.payload;
+            const post = state.posts.find(p => p._id === postId);
+            if (post) {
+                post.likes = post.likes.filter(id => id !== userId);
+            }
+        },
+
+        // ✅ Socket: new comment pushed to post
+        socketNewComment: (state, action) => {
+            const { postId, comment, parentId, commentsCount } = action.payload;
+            // Update comments count on the post
+            const post = state.posts.find(p => p._id === postId);
+            if (post && commentsCount) post.comments = new Array(commentsCount).fill(null);
+
+            // If comments panel is open for this post, add the comment
+            if (state.comments && state.comments[0]?.postId === postId) {
+                if (!parentId) {
+                    const exists = state.comments.some(c => c._id === comment._id);
+                    if (!exists) state.comments.push({ ...comment, repliesList: [] });
+                } else {
+                    const parent = state.comments.find(c => c._id === parentId);
+                    if (parent) {
+                        if (!parent.repliesList) parent.repliesList = [];
+                        const replyExists = parent.repliesList.some(r => r._id === comment._id);
+                        if (!replyExists) parent.repliesList.push(comment);
+                    }
+                }
+            }
+        },
+
+        // ✅ Socket: comment deleted
+        socketCommentDeleted: (state, action) => {
+            const { commentId, postId, parentId } = action.payload;
+            const post = state.posts.find(p => p._id === postId);
+            if (post && post.comments.length > 0) {
+                post.comments = post.comments.filter(c => c !== commentId && c?._id !== commentId);
+            }
+            if (!parentId) {
+                state.comments = state.comments?.filter(c => c._id !== commentId) || [];
+            } else {
+                const parent = state.comments?.find(c => c._id === parentId);
+                if (parent?.repliesList) {
+                    parent.repliesList = parent.repliesList.filter(r => r._id !== commentId);
+                }
+            }
+        },
+
+        // ✅ Socket: post updated by owner
+        socketPostUpdated: (state, action) => {
+            const { postId, caption, category } = action.payload;
+            const post = state.posts.find(p => p._id === postId);
+            if (post) { if (caption) post.caption = caption; if (category) post.category = category; }
+        },
+
+        // ✅ Socket: post deleted by owner
+        socketPostDeleted: (state, action) => {
+            const { postId } = action.payload;
+            state.posts = state.posts.filter(p => p._id !== postId);
+            state.userPosts = state.userPosts.filter(p => p._id !== postId);
+        },
     },
     extraReducers: (builder) => {
         builder
-
-            // ── Feed ──────────────────────────────────────────────────────────
             .addCase(fetchPosts.pending, (state) => { state.loading.posts = true; state.error.posts = null; })
             .addCase(fetchPosts.fulfilled, (state, action) => {
                 state.loading.posts = false;
@@ -177,8 +227,7 @@ const postsSlice = createSlice({
             })
             .addCase(fetchPosts.rejected, (state, action) => { state.loading.posts = false; state.error.posts = action.payload; })
 
-            // ── User Posts (profile) ──────────────────────────────────────────
-            .addCase(fetchUserPosts.pending, (state) => { state.loading.userPosts = true; state.error.userPosts = null; })
+            .addCase(fetchUserPosts.pending, (state) => { state.loading.userPosts = true; })
             .addCase(fetchUserPosts.fulfilled, (state, action) => {
                 state.loading.userPosts = false;
                 const { posts, nextCursor, hasMore } = action.payload;
@@ -187,44 +236,37 @@ const postsSlice = createSlice({
                 state.userPostsNextCursor = nextCursor;
                 state.userPostsHasMore = hasMore;
             })
-            .addCase(fetchUserPosts.rejected, (state, action) => { state.loading.userPosts = false; state.error.userPosts = action.payload; })
+            .addCase(fetchUserPosts.rejected, (state, action) => { state.loading.userPosts = false; })
 
-            // ── Saved Posts ───────────────────────────────────────────────────
             .addCase(fetchSavedPosts.pending, (state) => { state.loading.savedPosts = true; })
             .addCase(fetchSavedPosts.fulfilled, (state, action) => {
                 state.loading.savedPosts = false;
                 state.savedPosts = Array.isArray(action.payload) ? action.payload : [];
                 state.savedPostIds = state.savedPosts.map(p => p._id);
             })
-            .addCase(fetchSavedPosts.rejected, (state, action) => { state.loading.savedPosts = false; state.error.savedPosts = action.payload; })
+            .addCase(fetchSavedPosts.rejected, (state) => { state.loading.savedPosts = false; })
 
-            // ── Save / Unsave ─────────────────────────────────────────────────
             .addCase(savePost.pending, (state) => { state.loading.savePost = true; })
             .addCase(savePost.fulfilled, (state, action) => {
                 state.loading.savePost = false;
                 const { postId, saved } = action.payload;
                 if (saved) {
-                    // Add to saved
                     if (!state.savedPostIds.includes(postId)) {
                         state.savedPostIds.push(postId);
-                        // Add full post object if available in feed
                         const post = state.posts.find(p => p._id === postId);
                         if (post) state.savedPosts.push(post);
                     }
                 } else {
-                    // Remove from saved
                     state.savedPostIds = state.savedPostIds.filter(id => id !== postId);
                     state.savedPosts = state.savedPosts.filter(p => p._id !== postId);
                 }
             })
             .addCase(savePost.rejected, (state) => { state.loading.savePost = false; })
 
-            // ── Categories ────────────────────────────────────────────────────
             .addCase(fetchCategories.pending, (state) => { state.loading.categories = true; })
             .addCase(fetchCategories.fulfilled, (state, action) => { state.loading.categories = false; state.categories = action.payload; })
-            .addCase(fetchCategories.rejected, (state, action) => { state.loading.categories = false; state.error.categories = action.payload; })
+            .addCase(fetchCategories.rejected, (state, action) => { state.loading.categories = false; })
 
-            // ── Like (optimistic) ─────────────────────────────────────────────
             .addCase(likepost.pending, (state, action) => {
                 const { userId, postId } = action.meta.arg;
                 const post = state.posts.find(p => p._id === postId);
@@ -239,7 +281,6 @@ const postsSlice = createSlice({
                 state.loading.like = false;
             })
 
-            // ── Unlike (optimistic) ───────────────────────────────────────────
             .addCase(unlikepost.pending, (state, action) => {
                 const { userId, postId } = action.meta.arg;
                 const post = state.posts.find(p => p._id === postId);
@@ -254,32 +295,29 @@ const postsSlice = createSlice({
                 state.loading.unlike = false;
             })
 
-            // ── Comments ──────────────────────────────────────────────────────
             .addCase(createComment.fulfilled, (state, action) => {
-                const { data, postId } = action.payload;
-                state.comments.push(data);
-                const post = state.posts.find(p => p._id === postId);
-                if (post) post.comments.push(data._id);
+                const { data, postId, parentId } = action.payload;
+                if (!parentId) {
+                    if (state.comments) state.comments.push({ ...data, repliesList: [] });
+                    const post = state.posts.find(p => p._id === postId);
+                    if (post) post.comments.push(data._id);
+                }
             })
             .addCase(fetchComments.pending, (state) => { state.loading.comments = true; state.comments = null; })
             .addCase(fetchComments.fulfilled, (state, action) => { state.loading.comments = false; state.comments = action.payload; })
-            .addCase(fetchComments.rejected, (state, action) => { state.loading.comments = false; state.error.comments = action.payload; })
+            .addCase(fetchComments.rejected, (state) => { state.loading.comments = false; })
 
-            // ── Update Post ───────────────────────────────────────────────────
             .addCase(updatePost.pending, (state) => { state.loading.updatePost = true; })
             .addCase(updatePost.fulfilled, (state, action) => {
                 state.loading.updatePost = false;
                 const updated = action.payload;
-                // Update in feed
-                const feedIndex = state.posts.findIndex(p => p._id === updated._id);
-                if (feedIndex !== -1) state.posts[feedIndex] = updated;
-                // Update in userPosts
-                const profileIndex = state.userPosts.findIndex(p => p._id === updated._id);
-                if (profileIndex !== -1) state.userPosts[profileIndex] = updated;
+                const fi = state.posts.findIndex(p => p._id === updated._id);
+                if (fi !== -1) state.posts[fi] = updated;
+                const pi = state.userPosts.findIndex(p => p._id === updated._id);
+                if (pi !== -1) state.userPosts[pi] = updated;
             })
             .addCase(updatePost.rejected, (state) => { state.loading.updatePost = false; })
 
-            // ── Delete Post ───────────────────────────────────────────────────
             .addCase(deletePost.pending, (state) => { state.loading.deletePost = true; })
             .addCase(deletePost.fulfilled, (state, action) => {
                 state.loading.deletePost = false;
@@ -293,5 +331,11 @@ const postsSlice = createSlice({
     },
 });
 
-export const { addNewPost, resetUserPosts } = postsSlice.actions;
+export const {
+    addNewPost, resetUserPosts,
+    socketNewFeedPost, socketPostLiked, socketPostUnliked,
+    socketNewComment, socketCommentDeleted,
+    socketPostUpdated, socketPostDeleted,
+} = postsSlice.actions;
+
 export default postsSlice.reducer;

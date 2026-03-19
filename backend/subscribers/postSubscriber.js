@@ -14,7 +14,6 @@ async function initPostSubscriber() {
 
         const author = await User.findById(user._id).select('followers fullname profile_picture');
         console.log('[NATS] Author found:', author);
-        console.log('[NATS] Followers:', author?.followers);
 
         if (!author || !author.followers.length) {
             console.log('[NATS] No followers, skipping...');
@@ -33,9 +32,9 @@ async function initPostSubscriber() {
         const savedNotifications = await Notification.insertMany(notifications);
         console.log(`[NATS] Notifications saved for ${followerIds.length} followers`);
 
-        // 2. Emit real-time socket event to each follower's room
+        // 2. Emit real-time socket notification to each follower
         if (_io) {
-            savedNotifications.forEach((notification) => {
+            savedNotifications.forEach(notification => {
                 _io.to(notification.recipient.toString()).emit('newNotification', {
                     _id: notification._id,
                     type: notification.type,

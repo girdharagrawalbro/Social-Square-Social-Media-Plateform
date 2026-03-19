@@ -8,6 +8,10 @@ const { publish } = require('../lib/nats');
 
 const router = express.Router();
 
+// io is injected from index.js
+let _io;
+function setIo(io) { _io = io; }
+
 function computeScore(post, followingIds = []) {
     const ageHours = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60);
     return (post.likes?.length || 0) * 2 + (post.comments?.length || 0) * 3
@@ -20,8 +24,9 @@ router.post("/create", async (req, res) => {
     try {
         const { caption, loggeduser, category, imageURLs, location, music } = req.body;
         if (!caption || !loggeduser || !category) return res.status(400).json({ message: "All fields are required." });
-        const userDetails = await User.findById(loggeduser).select('username fullname profile_picture');
+        const userDetails = await User.findById(loggeduser).select('username fullname profile_picture followers');
         if (!userDetails) return res.status(404).json({ message: "User not found." });
+
         const newPost = new Post({
             caption, category,
             image_urls: Array.isArray(imageURLs) ? imageURLs : [],
@@ -29,8 +34,18 @@ router.post("/create", async (req, res) => {
             location: location || {}, music: music || {},
         });
         await newPost.save();
+
+        // ✅ Push new post to all followers' feeds in real-time
+        if (_io && userDetails.followers?.length > 0) {
+            userDetails.followers.forEach(followerId => {
+                _io.to(followerId.toString()).emit('newFeedPost', newPost);
+            });
+        }
+
         await emailQueue.add('sendWelcome', { userId: userDetails._id }, { attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
-        publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category }).catch(err => console.warn('[NATS]:', err.message));
+        publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category })
+            .catch(err => console.warn('[NATS]:', err.message));
+
         res.status(201).json(newPost);
     } catch (error) {
         res.status(500).json({ message: "Internal Server Error", error: error.message });
@@ -47,6 +62,10 @@ router.put("/update/:postId", async (req, res) => {
         if (caption) post.caption = caption;
         if (category) post.category = category;
         await post.save();
+
+        // ✅ Notify all users about post update
+        if (_io) _io.emit('postUpdated', { postId: post._id, caption: post.caption, category: post.category });
+
         res.status(200).json(post);
     } catch (error) { res.status(500).json({ message: "Internal Server Error" }); }
 });
@@ -59,6 +78,10 @@ router.delete("/delete/:postId", async (req, res) => {
         if (!post) return res.status(404).json({ message: "Post not found." });
         if (post.user._id.toString() !== userId) return res.status(403).json({ message: "Unauthorized." });
         await Post.findByIdAndDelete(req.params.postId);
+
+        // ✅ Notify all users to remove post from feed
+        if (_io) _io.emit('postDeleted', { postId: req.params.postId });
+
         res.status(200).json({ message: "Post deleted.", postId: req.params.postId });
     } catch (error) { res.status(500).json({ message: "Internal Server Error" }); }
 });
@@ -90,7 +113,7 @@ router.get("/", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── USER POSTS (profile page) ────────────────────────────────────────────────
+// ─── USER POSTS ───────────────────────────────────────────────────────────────
 router.get("/user/:userId", async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 12;
@@ -107,7 +130,6 @@ router.get("/user/:userId", async (req, res) => {
 router.post("/save", async (req, res) => {
     try {
         const { postId, userId } = req.body;
-        if (!postId || !userId) return res.status(400).json({ message: 'Both required.' });
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found.' });
         const alreadySaved = (user.savedPosts || []).some(id => id.toString() === postId);
@@ -121,7 +143,6 @@ router.post("/save", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── GET SAVED POSTS ──────────────────────────────────────────────────────────
 router.get("/saved/:userId", async (req, res) => {
     try {
         const user = await User.findById(req.params.userId).select('savedPosts');
@@ -139,15 +160,14 @@ router.get("/trending", async (req, res) => {
             { $match: { createdAt: { $gte: sevenDaysAgo } } },
             { $group: { _id: '$category', postCount: { $sum: 1 }, totalLikes: { $sum: { $size: '$likes' } }, totalComments: { $sum: { $size: '$comments' } } } },
             { $addFields: { score: { $add: ['$totalLikes', { $multiply: ['$totalComments', 2] }, '$postCount'] } } },
-            { $sort: { score: -1 } },
-            { $limit: 10 },
+            { $sort: { score: -1 } }, { $limit: 10 },
             { $project: { category: '$_id', postCount: 1, totalLikes: 1, totalComments: 1, score: 1, _id: 0 } }
         ]);
         res.status(200).json(trending);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── LIKE / UNLIKE ────────────────────────────────────────────────────────────
+// ─── LIKE ─────────────────────────────────────────────────────────────────────
 router.post("/like", async (req, res) => {
     try {
         const { postId, userId } = req.body;
@@ -157,11 +177,16 @@ router.post("/like", async (req, res) => {
             post.likes.push(userId);
             post.score = computeScore(post);
             await post.save();
+
+            // ✅ Broadcast like update to all connected users
+            if (_io) _io.emit('postLiked', { postId, userId, likesCount: post.likes.length });
+
             res.status(200).json({ message: "Success" });
         } else { res.status(400).json({ message: "Already liked." }); }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── UNLIKE ───────────────────────────────────────────────────────────────────
 router.post("/unlike", async (req, res) => {
     try {
         const { postId, userId } = req.body;
@@ -172,6 +197,10 @@ router.post("/unlike", async (req, res) => {
             post.likes = post.likes.filter(id => id.toString() !== userId);
             post.score = computeScore(post);
             await post.save();
+
+            // ✅ Broadcast unlike update to all connected users
+            if (_io) _io.emit('postUnliked', { postId, userId, likesCount: post.likes.length });
+
             res.status(200).json({ message: "success" });
         } else { res.status(400).json({ message: "Not liked." }); }
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -185,28 +214,108 @@ router.get("/categories", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── COMMENTS ─────────────────────────────────────────────────────────────────
+// ─── FETCH COMMENTS ───────────────────────────────────────────────────────────
 router.get('/comments', async (req, res) => {
     try {
         const postId = req.headers.authorization;
         if (!postId) return res.status(400).json({ error: 'postId required' });
-        const comments = await Comment.find({ postId });
-        res.status(200).json(comments);
+        const comments = await Comment.find({ postId, parentId: null }).sort({ createdAt: 1 });
+        const withReplies = await Promise.all(comments.map(async (comment) => {
+            const replies = await Comment.find({ parentId: comment._id }).sort({ createdAt: 1 });
+            return { ...comment.toObject(), repliesList: replies };
+        }));
+        res.status(200).json(withReplies);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── ADD COMMENT ──────────────────────────────────────────────────────────────
 router.post('/comments/add', async (req, res) => {
     try {
-        const { content, postId, user } = req.body;
+        const { content, postId, user, parentId } = req.body;
         if (!content || !postId || !user) return res.status(400).json({ error: 'Invalid data' });
-        const newComment = new Comment({ postId, content, user });
+
+        const newComment = new Comment({ postId, content, user, parentId: parentId || null });
         await newComment.save();
-        const post = await Post.findById(postId);
-        post.comments.push(newComment._id);
-        post.score = computeScore(post);
-        await post.save();
+
+        if (parentId) {
+            await Comment.findByIdAndUpdate(parentId, { $push: { replies: newComment._id } });
+        } else {
+            const post = await Post.findById(postId);
+            post.comments.push(newComment._id);
+            post.score = computeScore(post);
+            await post.save();
+        }
+
+        // ✅ Broadcast new comment to all users viewing this post
+        if (_io) {
+            _io.emit('newComment', {
+                postId,
+                comment: { ...newComment.toObject(), repliesList: [] },
+                parentId: parentId || null,
+                commentsCount: (await Post.findById(postId).select('comments'))?.comments?.length || 0,
+            });
+        }
+
         return res.status(200).json(newComment);
     } catch (error) { return res.status(500).json({ error: 'Server error' }); }
 });
 
+// ─── DELETE COMMENT ───────────────────────────────────────────────────────────
+router.delete('/comments/:commentId', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const comment = await Comment.findById(req.params.commentId);
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+        if (comment.user._id.toString() !== userId) return res.status(403).json({ error: 'Unauthorized' });
+
+        if (comment.parentId) {
+            await Comment.findByIdAndUpdate(comment.parentId, { $pull: { replies: comment._id } });
+        } else {
+            await Post.findByIdAndUpdate(comment.postId, { $pull: { comments: comment._id } });
+        }
+
+        await Comment.deleteMany({ parentId: comment._id });
+        await Comment.findByIdAndDelete(req.params.commentId);
+
+        // ✅ Broadcast comment deletion
+        if (_io) {
+            _io.emit('commentDeleted', {
+                commentId: req.params.commentId,
+                postId: comment.postId,
+                parentId: comment.parentId || null,
+            });
+        }
+
+        res.status(200).json({ message: 'Comment deleted', commentId: req.params.commentId });
+    } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ─── LIKE COMMENT ─────────────────────────────────────────────────────────────
+router.post('/comments/:commentId/like', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const comment = await Comment.findById(req.params.commentId);
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+        const liked = comment.likes.includes(userId);
+        if (liked) {
+            await Comment.findByIdAndUpdate(req.params.commentId, { $pull: { likes: userId } });
+        } else {
+            await Comment.findByIdAndUpdate(req.params.commentId, { $addToSet: { likes: userId } });
+        }
+
+        // ✅ Broadcast comment like
+        if (_io) {
+            _io.emit('commentLiked', {
+                commentId: req.params.commentId,
+                postId: comment.postId,
+                userId,
+                liked: !liked,
+            });
+        }
+
+        res.status(200).json({ liked: !liked });
+    } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
 module.exports = router;
+module.exports.setIo = setIo;
