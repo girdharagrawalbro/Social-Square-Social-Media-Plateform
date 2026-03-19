@@ -1,284 +1,164 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-// Fetch Posts
-export const fetchPosts = createAsyncThunk("posts/fetchPosts", async (_, thunkAPI) => {
-  try {
-    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/`);
-    return await response.json();
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message);
-  }
-});
-
-// Fetch Categories
-export const fetchCategories = createAsyncThunk("posts/fetchCategories", async (_, thunkAPI) => {
-  try {
-    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/categories`);
-    return await response.json();
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message);
-  }
-});
-
-// handle like
-export const likepost = createAsyncThunk("posts/likepost", async ({ postId, userId }) => {
-  try {
-    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/like`, {
-      method: 'POST',
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        postId,
-        userId,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error("Failed to like post");
-    }
-    const data = await response.json();
-    return { userId, postId, data };
-  }
-  catch (error) {
-    console.error("Error in likeing ");
-  }
-});
-// handle unlike
-export const unlikepost = createAsyncThunk("posts/unlikepost", async ({ postId, userId }) => {
-  try {
-    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/unlike`, {
-      method: 'POST',
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        postId,
-        userId,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error("Failed to like post");
-    }
-    const data = await response.json();
-    return { userId, postId, data };
-  }
-  catch (error) {
-    console.error("Error in likeing ");
-  }
-});
-
-export const fetchComments = createAsyncThunk(
-  'posts/fetchComments',
-  async (postId) => {
+export const fetchPosts = createAsyncThunk("posts/fetchPosts", async ({ cursor = null, userId = null } = {}, thunkAPI) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/comments`, {
-        method: "GET",
-        headers: {
-          Authorization: `${postId}`,
-        },
-      });
-      const data = await response.json()
-      return data;
-    }
-    catch (error) {
-      console.error("Error in fetching comments");
-    }
-  }
-);
-
-export const createComment = createAsyncThunk(
-  'posts/createComment',
-  async ({ postId, content, user }) => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/comments/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          postId,
-          content,
-          user
-        })
-
-      });
-      const data = await response.json();
-      return { data, postId };
+        const params = new URLSearchParams({ limit: 10 });
+        if (cursor) params.append('cursor', cursor);
+        if (userId) params.append('userId', userId);
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/?${params}`);
+        return await response.json();
     } catch (error) {
-      console.error("Error in commenting");
+        return thunkAPI.rejectWithValue(error.message);
     }
-  }
-);
-
-export const deletePost = createAsyncThunk(
-  'posts/deletePost',
-  async (postId, { rejectWithValue }) => {
-    try {
-      const response = await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/post/delete`,
-        { postId }
-      );
-      return response.data;
-    }
-    catch (error) {
-      return rejectWithValue(error.response.data)
-    }
-  });
-const postsSlice = createSlice({
-  name: "posts",
-  initialState: {
-    posts: [],
-    categories: [],
-    comments: [],
-    loading: {
-      posts: null,
-      categories: null,
-      comments: null,
-      like: null,
-      unlike: null,
-      deletePost: null,
-      addPost: null,
-    },
-    error: {
-      posts: null,
-      categories: null,
-      comments: null,
-      like: null,
-      unlike: null,
-      deletePost: null,
-      addPost: null,
-    },
-  },
-  reducers: {
-
-    addNewPost: (state, action) => {
-      state.posts.unshift(action.payload)
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      // Handle Fetch Posts
-      .addCase(fetchPosts.pending, (state) => {
-        state.loading.posts = true;
-        state.error.posts = null;
-      })
-      .addCase(fetchPosts.fulfilled, (state, action) => {
-        state.loading.posts = false;
-        state.posts = action.payload;
-      })
-
-      .addCase(fetchPosts.rejected, (state, action) => {
-        state.loading.posts = false;
-        state.error.posts = action.payload;
-      })
-
-      // Handle Fetch Categories
-      .addCase(fetchCategories.pending, (state) => {
-        state.loading.categories = true;
-        state.error.categories = null;
-      })
-      .addCase(fetchCategories.fulfilled, (state, action) => {
-        state.loading.categories = false;
-        state.categories = action.payload;
-      })
-      .addCase(fetchCategories.rejected, (state, action) => {
-        state.loading.categories = false;
-        state.error.categories = action.payload;
-      })
-
-      // Handle Like Post 
-      .addCase(likepost.pending, (state, action) => {
-        const { userId, postId } = action.meta.arg; // Assuming `meta.arg` contains the payload
-        const postIndex = state.posts.findIndex(post => post._id === postId);
-        if (postIndex !== -1 && !state.posts[postIndex].likes.includes(userId)) {
-          state.posts[postIndex].likes.push(userId); // Optimistic update
-        }
-        state.loading.like = true;
-      })
-
-      .addCase(likepost.fulfilled, (state, action) => {
-        state.loading.like = false; // No need to update likes; already handled optimistically
-      })
-
-      .addCase(likepost.rejected, (state, action) => {
-        const { userId, postId } = action.meta.arg;
-        const postIndex = state.posts.findIndex(post => post._id === postId);
-        if (postIndex !== -1) {
-          state.posts[postIndex].likes = state.posts[postIndex].likes.filter(id => id !== userId); // Rollback
-        }
-        state.loading.like = false;
-      })
-
-
-      .addCase(unlikepost.pending, (state, action) => {
-        const { userId, postId } = action.meta.arg; // Assuming `meta.arg` contains the payload
-        const postIndex = state.posts.findIndex(post => post._id === postId);
-        if (postIndex !== -1 && state.posts[postIndex].likes.includes(userId)) {
-          state.posts[postIndex].likes = state.posts[postIndex].likes.filter((id) => id !== userId); // Optimistic update
-        }
-        state.loading.unlike = true;
-      })
-
-      .addCase(unlikepost.fulfilled, (state, action) => {
-        state.loading.unlike = false; // No need to update likes; already handled optimistically
-      })
-
-      .addCase(unlikepost.rejected, (state, action) => {
-        const { userId, postId } = action.meta.arg;
-        const postIndex = state.posts.findIndex(post => post._id === postId);
-        if (postIndex !== -1 && !state.posts[postIndex].likes.includes(userId)) {
-          state.posts[postIndex].likes.push(userId); // Rollback if unliking failed
-        }
-        state.loading.unlike = false;
-      })
-
-      // add comment
-      .addCase(createComment.fulfilled, (state, action) => {
-        const { data, postId } = action.payload;
-        state.comments.push(data);
-        const postIndex = state.posts.findIndex(post => post._id === postId);
-        if (postIndex !== -1) {
-          state.posts[postIndex].comments.push(data._id);
-        }
-      })
-
-      // fetch comments
-      .addCase(fetchComments.pending, (state, action) => {
-        state.loading.comments = true;
-        state.comments = null;
-      })
-      .addCase(fetchComments.fulfilled, (state, action) => {
-        state.loading.comments = false;
-        state.comments = action.payload;
-      })
-      .addCase(fetchComments.rejected, (state, action) => {
-        state.loading.comments = false;
-        state.error.comments = action.payload;
-      })
-
-      // delete post
-      .addCase(deletePost.pending, (state, action) => {
-        state.loading.deletePost = true;
-      })
-      .addCase(deletePost.fulfilled, (state, action) => {
-        state.loading.deletePost = false;
-        const Id = action.payload;
-        state.posts = state.posts.filter((id) => id._id !== Id);
-
-      })
-      .addCase(deletePost.rejected, (state, action) => {
-        state.loading.deletePost = false;
-        state.error.deletePost = action.payload;
-      });
-
-
-
-
-
-
-
-
-
-  },
 });
+
+export const fetchCategories = createAsyncThunk("posts/fetchCategories", async (_, thunkAPI) => {
+    try {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/categories`);
+        return await response.json();
+    } catch (error) {
+        return thunkAPI.rejectWithValue(error.message);
+    }
+});
+
+export const likepost = createAsyncThunk("posts/likepost", async ({ postId, userId }) => {
+    try {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/like`, {
+            method: 'POST', headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postId, userId }),
+        });
+        if (!response.ok) throw new Error("Failed to like post");
+        return { userId, postId };
+    } catch (error) { console.error("Error in liking"); }
+});
+
+export const unlikepost = createAsyncThunk("posts/unlikepost", async ({ postId, userId }) => {
+    try {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/unlike`, {
+            method: 'POST', headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postId, userId }),
+        });
+        if (!response.ok) throw new Error("Failed to unlike post");
+        return { userId, postId };
+    } catch (error) { console.error("Error in unliking"); }
+});
+
+export const fetchComments = createAsyncThunk('posts/fetchComments', async (postId) => {
+    try {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/comments`, {
+            method: "GET", headers: { Authorization: `${postId}` },
+        });
+        return await response.json();
+    } catch (error) { console.error("Error fetching comments"); }
+});
+
+export const createComment = createAsyncThunk('posts/createComment', async ({ postId, content, user }) => {
+    try {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/post/comments/add`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, content, user }),
+        });
+        return { data: await response.json(), postId };
+    } catch (error) { console.error("Error commenting"); }
+});
+
+export const updatePost = createAsyncThunk('posts/updatePost', async ({ postId, userId, caption, category }, { rejectWithValue }) => {
+    try {
+        const response = await axios.put(`${process.env.REACT_APP_BACKEND_URL}/api/post/update/${postId}`, { userId, caption, category });
+        return response.data;
+    } catch (error) { return rejectWithValue(error.response?.data); }
+});
+
+export const deletePost = createAsyncThunk('posts/deletePost', async ({ postId, userId }, { rejectWithValue }) => {
+    try {
+        await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/api/post/delete/${postId}`, { data: { userId } });
+        return postId;
+    } catch (error) { return rejectWithValue(error.response?.data); }
+});
+
+const postsSlice = createSlice({
+    name: "posts",
+    initialState: {
+        posts: [],
+        categories: [],
+        comments: [],
+        nextCursor: null,
+        hasMore: true,
+        loading: { posts: null, categories: null, comments: null, like: null, unlike: null, deletePost: null, addPost: null },
+        error: { posts: null, categories: null, comments: null, like: null, unlike: null, deletePost: null, addPost: null },
+    },
+    reducers: {
+        addNewPost: (state, action) => { state.posts.unshift(action.payload); },
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(fetchPosts.pending, (state) => { state.loading.posts = true; state.error.posts = null; })
+            .addCase(fetchPosts.fulfilled, (state, action) => {
+                state.loading.posts = false;
+                const { posts, nextCursor, hasMore } = action.payload;
+                const existingIds = new Set(state.posts.map(p => p._id));
+                state.posts = [...state.posts, ...posts.filter(p => !existingIds.has(p._id))];
+                state.nextCursor = nextCursor;
+                state.hasMore = hasMore;
+            })
+            .addCase(fetchPosts.rejected, (state, action) => { state.loading.posts = false; state.error.posts = action.payload; })
+
+            .addCase(fetchCategories.pending, (state) => { state.loading.categories = true; })
+            .addCase(fetchCategories.fulfilled, (state, action) => { state.loading.categories = false; state.categories = action.payload; })
+            .addCase(fetchCategories.rejected, (state, action) => { state.loading.categories = false; state.error.categories = action.payload; })
+
+            .addCase(likepost.pending, (state, action) => {
+                const { userId, postId } = action.meta.arg;
+                const post = state.posts.find(p => p._id === postId);
+                if (post && !post.likes.includes(userId)) post.likes.push(userId);
+                state.loading.like = true;
+            })
+            .addCase(likepost.fulfilled, (state) => { state.loading.like = false; })
+            .addCase(likepost.rejected, (state, action) => {
+                const { userId, postId } = action.meta.arg;
+                const post = state.posts.find(p => p._id === postId);
+                if (post) post.likes = post.likes.filter(id => id !== userId);
+                state.loading.like = false;
+            })
+
+            .addCase(unlikepost.pending, (state, action) => {
+                const { userId, postId } = action.meta.arg;
+                const post = state.posts.find(p => p._id === postId);
+                if (post) post.likes = post.likes.filter(id => id !== userId);
+                state.loading.unlike = true;
+            })
+            .addCase(unlikepost.fulfilled, (state) => { state.loading.unlike = false; })
+            .addCase(unlikepost.rejected, (state, action) => {
+                const { userId, postId } = action.meta.arg;
+                const post = state.posts.find(p => p._id === postId);
+                if (post && !post.likes.includes(userId)) post.likes.push(userId);
+                state.loading.unlike = false;
+            })
+
+            .addCase(createComment.fulfilled, (state, action) => {
+                const { data, postId } = action.payload;
+                state.comments.push(data);
+                const post = state.posts.find(p => p._id === postId);
+                if (post) post.comments.push(data._id);
+            })
+            .addCase(fetchComments.pending, (state) => { state.loading.comments = true; state.comments = null; })
+            .addCase(fetchComments.fulfilled, (state, action) => { state.loading.comments = false; state.comments = action.payload; })
+            .addCase(fetchComments.rejected, (state, action) => { state.loading.comments = false; state.error.comments = action.payload; })
+
+            .addCase(updatePost.fulfilled, (state, action) => {
+                const index = state.posts.findIndex(p => p._id === action.payload._id);
+                if (index !== -1) state.posts[index] = action.payload;
+            })
+
+            .addCase(deletePost.pending, (state) => { state.loading.deletePost = true; })
+            .addCase(deletePost.fulfilled, (state, action) => {
+                state.loading.deletePost = false;
+                state.posts = state.posts.filter(p => p._id !== action.payload);
+            })
+            .addCase(deletePost.rejected, (state, action) => { state.loading.deletePost = false; state.error.deletePost = action.payload; });
+    },
+});
+
 export const { addNewPost } = postsSlice.actions;
 export default postsSlice.reducer;
-

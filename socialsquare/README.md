@@ -68,3 +68,12 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+### Environment variables
+
+To avoid hardcoding Cloudinary credentials in code, create a file named `.env` in the `socialsquare` folder with these values (or set the vars in your environment):
+
+- `REACT_APP_CLOUD_NAME` — your Cloudinary cloud name (example: `dcmrsdydh`)
+- `REACT_APP_UPLOAD_PRESET` — your unsigned upload preset (example: `socialsquare`)
+
+An example file is included as `.env.example`.
