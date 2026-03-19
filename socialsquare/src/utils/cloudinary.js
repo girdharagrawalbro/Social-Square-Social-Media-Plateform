@@ -1,5 +1,5 @@
-const CLOUD_NAME = 'dcmrsdydr';
-const UPLOAD_PRESET = 'socialsquare';
+const CLOUD_NAME = process.env.REACT_APP_CLOUD_NAME;
+const UPLOAD_PRESET = process.env.REACT_APP_UPLOAD_PRESET;
 
 export async function uploadToCloudinary(file, onProgress) {
     const formData = new FormData();
