@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from 'react-redux';
 import SkeletonPost from './ui/SkeletonPost';
-import { OverlayPanel } from 'primereact/overlaypanel';
 import Like from "./ui/Like";
 import Comment from './ui/Comment';
-import { ConfirmPopup, confirmPopup } from 'primereact/confirmpopup';
 import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
 import { fetchPosts, fetchComments, unlikepost, likepost, deletePost, updatePost, savePost, fetchSavedPosts } from '../../store/slices/postsSlice';
@@ -23,16 +21,16 @@ const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
     const [current, setCurrent] = useState(0);
     if (!images?.length) return null;
     if (images.length === 1) return (
-        <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd}>
-            <img src={images[0]} alt="Post" style={{ width: '100%', display: 'block' }} />
+        <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ background: '#000' }}>
+            <img src={images[0]} alt="Post" style={{ width: '100%', aspectRatio: '1 / 1', maxHeight: '620px', objectFit: 'cover', display: 'block' }} />
         </div>
     );
     return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ position: 'relative' }}>
-            <img src={images[current]} alt={`Post ${current + 1}`} style={{ width: '100%', display: 'block' }} />
-            {current > 0 && <button onClick={e => { e.stopPropagation(); setCurrent(c => c - 1); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', color: '#fff', cursor: 'pointer', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
-            {current < images.length - 1 && <button onClick={e => { e.stopPropagation(); setCurrent(c => c + 1); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', color: '#fff', cursor: 'pointer', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
-            <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: '12px', padding: '3px 10px', borderRadius: '12px' }}>{current + 1} / {images.length}</div>
+            <img src={images[current]} alt={`Post ${current + 1}`} style={{ width: '100%', aspectRatio: '1 / 1', maxHeight: '620px', objectFit: 'cover', display: 'block', background: '#000' }} />
+            {current > 0 && <button onClick={e => { e.stopPropagation(); setCurrent(c => c - 1); }} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>‹</button>}
+            {current < images.length - 1 && <button onClick={e => { e.stopPropagation(); setCurrent(c => c + 1); }} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>›</button>}
+            <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 2, background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: '11px', padding: '3px 8px', borderRadius: '999px', fontWeight: 600 }}>{current + 1} / {images.length}</div>
             <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '5px', zIndex: 2 }}>
                 {images.map((_, i) => <button key={i} onClick={e => { e.stopPropagation(); setCurrent(i); }} style={{ width: i === current ? '16px' : '6px', height: '6px', borderRadius: '3px', border: 'none', cursor: 'pointer', padding: 0, background: i === current ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'all 0.2s' }} />)}
             </div>
@@ -53,9 +51,9 @@ const PostMenu = ({ post, loggeduser, onEdit, onDelete, onSave, isSaved }) => {
 
     return (
         <div ref={ref} className="relative">
-            <button onClick={() => setOpen(v => !v)} className="bg-transparent border-0 cursor-pointer px-2 py-1 rounded-lg text-gray-500 text-lg">⋯</button>
+            <button onClick={() => setOpen(v => !v)} className="bg-transparent border-0 cursor-pointer p-2 rounded-full text-gray-500 text-lg hover:bg-gray-100 transition-colors" title="Post options">⋯</button>
             {open && (
-                <div className="absolute right-0 top-full bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden" style={{ minWidth: '150px' }}>
+                <div className="absolute right-0 top-full bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden mt-1" style={{ minWidth: '170px' }}>
                     <button onClick={() => { onSave(); setOpen(false); }}
                         className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm flex items-center gap-2 hover:bg-gray-50">
                         {isSaved ? '🔖 Unsave' : '🔖 Save post'}
@@ -130,7 +128,6 @@ const ShareDialog = ({ post, visible, onHide, loggeduser }) => {
 };
 
 const Feed = () => {
-    const shareOp = useRef(null);
     const loaderRef = useRef(null);
     const isFetching = useRef(false);
     const dispatch = useDispatch();
@@ -214,6 +211,15 @@ const Feed = () => {
 
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
 
+    const renderCaption = (caption = '') => {
+        return caption.split(/(\s+)/).map((token, index) => {
+            if (/^#[\w]+$/.test(token) || /^@[\w.]+$/.test(token)) {
+                return <span key={index} className="text-indigo-500 font-medium">{token}</span>;
+            }
+            return <span key={index}>{token}</span>;
+        });
+    };
+
     return (
         <>
             <style>{`
@@ -226,7 +232,7 @@ const Feed = () => {
                 {loading.posts && posts.length === 0 ? (
                     <div className="mt-3 flex flex-col gap-3">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
                 ) : (
-                    <div className="mt-3 flex flex-col gap-3">
+                    <div className="mt-3 flex flex-col gap-4">
                         {posts.length > 0 ? posts.map((post, index) => {
                             const images = getImages(post);
                             const isOwn = post.user._id === loggeduser?._id || post.user._id?.toString() === loggeduser?._id;
@@ -234,28 +240,28 @@ const Feed = () => {
                             const isSaved = savedPostIds.includes(post._id);
 
                             return (
-                                <div key={post._id || index} className="relative overflow-hidden w-full rounded-xl shadow-md flex flex-col gap-1 border bg-white">
+                                <article key={post._id || index} className="relative overflow-hidden w-full rounded-2xl shadow-sm flex flex-col border bg-white">
 
                                     {/* Header */}
-                                    <div className="flex items-center justify-between px-2 pt-2">
-                                        <div className="flex items-center gap-2">
-                                            <img src={post.user.profile_picture} alt="Profile" className="w-10 h-10 rounded-full object-cover" />
+                                    <div className="flex items-start justify-between px-4 py-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <img src={post.user.profile_picture} alt="Profile" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <h6 className="m-0 font-medium text-sm">{post.user.fullname}</h6>
+                                                    <h6 className="m-0 font-semibold text-sm leading-tight">{post.user.fullname}</h6>
                                                     {!isOwn && (
                                                         <button onClick={() => handleFollow(post)}
-                                                            className={`text-xs px-2 py-0.5 rounded-full border cursor-pointer font-semibold ${isFollowing ? 'border-gray-200 bg-transparent text-gray-500' : 'border-indigo-500 bg-[#808bf5] text-white'}`}>
+                                                            className={`text-[11px] px-2.5 py-1 rounded-full border cursor-pointer font-semibold transition ${isFollowing ? 'border-gray-200 bg-transparent text-gray-500 hover:bg-gray-50' : 'border-indigo-500 bg-[#808bf5] text-white hover:opacity-95'}`}>
                                                             {isFollowing ? 'Following' : 'Follow'}
                                                         </button>
                                                     )}
                                                 </div>
-                                                {post.location?.name && <span className="text-xs text-gray-500">📍 {post.location.name}</span>}
+                                                {post.location?.name && <span className="text-xs text-gray-500">{post.location.name}</span>}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1">
+                                        <div className="flex items-center gap-2 flex-shrink-0 pl-2">
                                             {post.music?.title && (
-                                                <div className="music-tag flex items-center gap-1 bg-pink-50 rounded-full px-2 py-0.5 text-xs text-pink-500">
+                                                <div className="music-tag flex items-center gap-1 bg-pink-50 rounded-full px-2 py-1 text-[11px] text-pink-500 font-medium max-w-[130px] truncate">
                                                     🎵 {post.music.title}
                                                 </div>
                                             )}
@@ -269,40 +275,39 @@ const Feed = () => {
 
                                     {/* Images */}
                                     {images.length > 0 && (
-                                        <div className="relative">
+                                        <div className="relative border-y border-gray-100">
                                             <ImageCarousel images={images} onDoubleClick={() => handleImageDoubleClick(post)} onTouchEnd={() => handleImageTap(post)} />
                                             <HeartBurst visible={!!heartVisible[post._id]} />
                                         </div>
                                     )}
 
                                     {/* Actions */}
-                                    <div className="bg-white text-black w-full">
-                                        <div className="flex flex-col gap-1 p-3">
-                                            <div className="flex items-center gap-3">
+                                    <div className="bg-white text-gray-900 w-full px-4 py-3">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-4">
                                                 <div onClick={() => handleLikeToggle(post)} className="flex items-center gap-2 cursor-pointer">
                                                     <Like isliked={post?.likes?.includes(loggeduser?._id)} loading={post?.likes?.includes(loggeduser?._id) ? loading.like : loading.unlike} />
                                                 </div>
-                                                <button onClick={() => toggleComments(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer">
-                                                    <i className="pi pi-comment" style={{ fontSize: '1.3rem', color: 'black' }}></i>
+                                                <button onClick={() => toggleComments(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900" title="Comments">
+                                                    <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i>
                                                 </button>
-                                                <button onClick={() => setSharePost(post)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer">
-                                                    <i className="pi pi-share-alt" style={{ fontSize: '1.3rem', color: 'black' }}></i>
+                                                <button onClick={() => setSharePost(post)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900" title="Share">
+                                                    <i className="pi pi-send" style={{ fontSize: '1.15rem' }}></i>
                                                 </button>
                                                 {/* Bookmark — synced with Redux */}
-                                                <button onClick={() => handleSave(post)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer ml-auto">
-                                                    <i className={`pi ${isSaved ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.2rem', color: isSaved ? '#808bf5' : 'black' }}></i>
+                                                <button onClick={() => handleSave(post)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer ml-auto p-0" title={isSaved ? 'Unsave' : 'Save'}>
+                                                    <i className={`pi ${isSaved ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: isSaved ? '#808bf5' : 'currentColor' }}></i>
                                                 </button>
                                             </div>
-                                            <p className="m-0 text-xs"><span className="font-medium text-sm">{post?.likes?.length}</span> likes</p>
-                                            <p className="m-0 text-sm"><span className="font-medium">{post.user.fullname}</span> {post.caption}</p>
-                                            <p className="m-0 text-xs text-gray-500 cursor-pointer" onClick={() => toggleComments(post._id)}>View all {post.comments?.length || 0} comments</p>
-                                            <p className="m-0 text-xs text-gray-400">{relativeTime(post.updatedAt)}</p>
+                                            <p className="m-0 mt-2 text-sm font-semibold">{(post?.likes?.length || 0).toLocaleString()} likes</p>
+                                            <p className="m-0 mt-1 text-sm leading-relaxed"><span className="font-semibold mr-1">{post.user.username || post.user.fullname}</span>{renderCaption(post.caption || '')}</p>
+                                            <p className="m-0 mt-1 text-xs text-gray-500 cursor-pointer" onClick={() => toggleComments(post._id)}>View all {post.comments?.length || 0} comments</p>
+                                            <p className="m-0 mt-2 text-[10px] text-gray-400 uppercase tracking-wide">{relativeTime(post.updatedAt)}</p>
                                         </div>
                                     </div>
 
-                                    <ConfirmPopup />
                                     {visiblePostId === post._id && <Comment postId={post._id} setVisible={() => setVisiblePostId(null)} />}
-                                </div>
+                                </article>
                             );
                         }) : <p className="text-center text-gray-400 py-8">No posts to display.</p>}
 
@@ -328,8 +333,6 @@ const Feed = () => {
                         </div>
                     )}
                 </Dialog>
-
-                <OverlayPanel ref={shareOp}><div className="w-64 p-2">Share</div></OverlayPanel>
             </div>
         </>
     );

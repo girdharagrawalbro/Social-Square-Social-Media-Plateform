@@ -29,10 +29,10 @@ const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
 const PostDetail = lazy(() => import('./pages/components/PostDetail'));
 
 const PageLoader = () => (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--app-bg)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', border: '4px solid #808bf5', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-            <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>Loading...</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0 }}>Loading...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

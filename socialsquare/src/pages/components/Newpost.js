@@ -17,7 +17,7 @@ const EmojiPicker = ({ onSelect, onClose }) => {
     return (
         <div ref={ref} style={{
             position: 'absolute', top: '110%', left: 0,
-            background: '#fff', border: '1px solid #e5e7eb',
+            background: 'var(--surface-1)', border: '1px solid var(--border-color)',
             borderRadius: '12px', padding: '10px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
             display: 'flex', flexWrap: 'wrap', gap: '4px',
@@ -26,7 +26,7 @@ const EmojiPicker = ({ onSelect, onClose }) => {
             {EMOJIS.map(emoji => (
                 <button key={emoji} type="button" onClick={() => onSelect(emoji)}
                     style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '2px', borderRadius: '4px' }}
-                    onMouseEnter={e => e.target.style.background = '#f3f4f6'}
+                    onMouseEnter={e => e.target.style.background = 'var(--surface-hover)'}
                     onMouseLeave={e => e.target.style.background = 'none'}
                 >{emoji}</button>
             ))}
@@ -197,7 +197,7 @@ const NewPost = () => {
                                 {/* Extras toggle */}
                                 <span className="border rounded-full flex items-center justify-center ms-1 p-2 cursor-pointer"
                                     onClick={() => setShowExtras(v => !v)} title="Location & music"
-                                    style={{ background: showExtras ? '#f3f4f6' : '', fontSize: '16px' }}>＋</span>
+                                    style={{ background: showExtras ? 'var(--surface-hover)' : '', fontSize: '16px' }}>＋</span>
 
                                 {/* Submit */}
                                 <button type="submit" className="border rounded-full bg-[#808bf5] flex items-center justify-center mx-1 p-2" disabled={isPosting}>
@@ -215,34 +215,34 @@ const NewPost = () => {
                                     {/* Location */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <button type="button" onClick={handleGetLocation} disabled={loadingLocation}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: location.name ? '#ede9fe' : '#f3f4f6', border: 'none', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', fontSize: '13px', color: location.name ? '#6366f1' : '#6b7280' }}>
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: location.name ? 'var(--surface-accent-soft)' : 'var(--surface-3)', border: 'none', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', fontSize: '13px', color: location.name ? '#6366f1' : 'var(--text-muted)' }}>
                                             📍 {loadingLocation ? 'Getting location...' : location.name || 'Add location'}
                                         </button>
                                         {location.name && (
                                             <button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' }}>✕</button>
                                         )}
                                     </div>
 
                                     {/* Music */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <button type="button" onClick={() => setShowMusicInput(v => !v)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: music.title ? '#fdf2f8' : '#f3f4f6', border: 'none', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', fontSize: '13px', color: music.title ? '#ec4899' : '#6b7280' }}>
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: music.title ? '#fdf2f8' : 'var(--surface-3)', border: 'none', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', fontSize: '13px', color: music.title ? '#ec4899' : 'var(--text-muted)' }}>
                                             🎵 {music.title ? `${music.title}${music.artist ? ` — ${music.artist}` : ''}` : 'Add music'}
                                         </button>
                                         {music.title && (
                                             <button type="button" onClick={() => setMusic({ title: '', artist: '' })}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' }}>✕</button>
                                         )}
                                     </div>
                                     {showMusicInput && (
                                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                             <input type="text" placeholder="Song title" value={music.title}
                                                 onChange={e => setMusic(prev => ({ ...prev, title: e.target.value }))}
-                                                style={{ flex: 1, minWidth: '120px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
+                                                style={{ flex: 1, minWidth: '120px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px' }} />
                                             <input type="text" placeholder="Artist" value={music.artist}
                                                 onChange={e => setMusic(prev => ({ ...prev, artist: e.target.value }))}
-                                                style={{ flex: 1, minWidth: '100px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
+                                                style={{ flex: 1, minWidth: '100px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px' }} />
                                             <button type="button" onClick={() => setShowMusicInput(false)}
                                                 style={{ padding: '5px 10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>Done</button>
                                         </div>
@@ -261,7 +261,7 @@ const NewPost = () => {
                                 <img src={img.preview} alt="preview"
                                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', opacity: img.uploaded ? 1 : 0.7 }} />
                                 {isPosting && !img.uploaded && (
-                                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: '#e5e7eb', borderRadius: '0 0 8px 8px' }}>
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: 'var(--border-color)', borderRadius: '0 0 8px 8px' }}>
                                         <div style={{ width: `${img.progress}%`, height: '100%', background: '#808bf5', borderRadius: '0 0 8px 8px', transition: 'width 0.2s' }} />
                                     </div>
                                 )}
@@ -278,7 +278,7 @@ const NewPost = () => {
                         ))}
                         {images.length < 5 && !isPosting && (
                             <div onClick={() => fileInputRef.current?.click()}
-                                style={{ width: '80px', height: '80px', border: '2px dashed #d1d5db', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', fontSize: '24px' }}>+</div>
+                                style={{ width: '80px', height: '80px', border: '2px dashed var(--border-color)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '24px' }}>+</div>
                         )}
                     </div>
                 )}

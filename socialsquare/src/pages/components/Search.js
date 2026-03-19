@@ -113,7 +113,7 @@ const Search = () => {
 
                 {/* Dropdown */}
                 {showDropdown && (
-                    <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid #e5e7eb' }}>
+                    <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
 
                         {/* Recent searches — shown when no search term */}
                         {!searchTerm && recentSearches.length > 0 && (

@@ -3,6 +3,115 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --app-bg: #f8fafc;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --surface-hover: #e2e8f0;
+  --surface-accent-soft: #ede9fe;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+}
+
+html.dark {
+  --app-bg: #0f172a;
+  --surface-1: #111827;
+  --surface-2: #1f2937;
+  --surface-3: #374151;
+  --surface-hover: #475569;
+  --surface-accent-soft: #312e81;
+  --text-main: #e5e7eb;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
+}
+
+html,
+body,
+#root {
+  background-color: var(--app-bg);
+  color: var(--text-main);
+}
+
+html.dark .bg-white {
+  background-color: var(--surface-1) !important;
+}
+
+html.dark .bg-gray-50 {
+  background-color: var(--surface-2) !important;
+}
+
+html.dark .bg-gray-100 {
+  background-color: var(--surface-3) !important;
+}
+
+html.dark .bg-gray-200 {
+  background-color: #475569 !important;
+}
+
+html.dark .text-black,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-dark {
+  color: var(--text-main) !important;
+}
+
+html.dark .text-gray-700,
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-gray-400,
+html.dark .text-gray-300 {
+  color: var(--text-muted) !important;
+}
+
+html.dark .border,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-gray-400 {
+  border-color: var(--border-color) !important;
+}
+
+html.dark .hover\:bg-gray-50:hover {
+  background-color: #374151 !important;
+}
+
+html.dark .focus\:bg-white:focus {
+  background-color: #374151 !important;
+}
+
+html.dark .focus\:ring-indigo-200:focus {
+  --tw-ring-color: rgba(129, 140, 248, 0.35) !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: var(--surface-1);
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--text-muted);
+}
+
+html.dark .p-dialog,
+html.dark .p-overlaypanel,
+html.dark .p-menu,
+html.dark .p-component {
+  background-color: var(--surface-1);
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+
+html.dark .skeleton {
+  background: linear-gradient(90deg, #1f2937 25%, #334155 37%, #1f2937 63%);
+  background-size: 400% 100%;
+}
+
 /* Keep only small helpers and animations that are hard to express with utilities. */
 
 /* PrimeReact tweaks */
@@ -185,7 +294,7 @@ ul {
 
 /* Heart animation */
 .heart-container {
-  color: white;
+  color: inherit;
   position: relative;
   width: 25px;
   height: 25px;
