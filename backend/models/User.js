@@ -6,30 +6,22 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: false },
   profile_picture: {
     type: String,
-    default: "https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain",
+    default: "https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg",
   },
   bio: { type: String, default: null },
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-
-  // OAuth
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
   googleId: { type: String, default: null },
   githubId: { type: String, default: null },
   authProvider: { type: String, enum: ['local', 'google', 'github'], default: 'local' },
-
-  // Password reset
   resetPasswordToken: { type: String, default: null },
   resetPasswordExpires: { type: Date, default: null },
-
-  // Account lockout (max 5 failed attempts → 30 min lockout)
   failedLoginAttempts: { type: Number, default: 0 },
   lockoutUntil: { type: Date, default: null },
-
-  // 2FA via email OTP
   twoFactorEnabled: { type: Boolean, default: false },
-  twoFactorOtp: { type: String, default: null },         // hashed OTP
+  twoFactorOtp: { type: String, default: null },
   twoFactorOtpExpires: { type: Date, default: null },
-
   created_at: { type: Date, default: Date.now },
 });
 

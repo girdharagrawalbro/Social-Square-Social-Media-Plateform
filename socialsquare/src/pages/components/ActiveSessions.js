@@ -5,8 +5,9 @@ import toast, { Toaster } from 'react-hot-toast';
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
 const deviceIcon = (device = '') => {
-  if (device.toLowerCase().includes('mobile') || device.toLowerCase().includes('android') || device.toLowerCase().includes('iphone')) return '📱';
-  if (device.toLowerCase().includes('tablet') || device.toLowerCase().includes('ipad')) return '📟';
+  const d = device.toLowerCase();
+  if (d.includes('mobile') || d.includes('android') || d.includes('iphone')) return '📱';
+  if (d.includes('tablet') || d.includes('ipad')) return '📟';
   return '💻';
 };
 
@@ -68,66 +69,68 @@ const ActiveSessions = () => {
 
   return (
     <>
-      <div style={{ maxWidth: '680px', margin: '40px auto', padding: '0 16px' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>Security Settings</h2>
-        <p style={{ color: '#6b7280', marginBottom: '32px', fontSize: '14px' }}>Manage your active sessions and security preferences.</p>
+      <div className="p-2">
+        <p className="text-sm text-gray-500 mb-6">Manage your active sessions and security preferences.</p>
 
         {/* 2FA Toggle */}
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px 24px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 flex items-center justify-between gap-4">
           <div>
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Two-Factor Authentication</h3>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>
-              {twoFaEnabled ? '✅ Enabled — OTP sent to your email on every login' : 'Add an extra layer of security to your account'}
+            <h3 className="text-sm font-bold m-0">Two-Factor Authentication</h3>
+            <p className="text-xs text-gray-500 mt-1 m-0">
+              {twoFaEnabled
+                ? '✅ Enabled — OTP sent to your email on every login'
+                : 'Add an extra layer of security to your account'}
             </p>
           </div>
           <button
             onClick={toggle2FA}
             disabled={toggling2FA}
-            style={{
-              padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-              background: twoFaEnabled ? '#fee2e2' : '#6366f1',
-              color: twoFaEnabled ? '#ef4444' : '#fff',
-            }}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all ${
+              twoFaEnabled ? 'bg-red-100 text-red-500' : 'bg-indigo-500 text-white'
+            }`}
           >
             {toggling2FA ? '...' : twoFaEnabled ? 'Disable' : 'Enable'}
           </button>
         </div>
 
-        {/* Active Sessions */}
-        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Active Sessions ({sessions.length})</h3>
+        {/* Sessions header */}
+        <h3 className="text-sm font-bold mb-3">Active Sessions ({sessions.length})</h3>
 
+        {/* Sessions list */}
         {loading ? (
-          <p style={{ color: '#9ca3af' }}>Loading sessions...</p>
+          <div className="flex flex-col gap-3">
+            {[1, 2].map(i => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
+          </div>
         ) : sessions.length === 0 ? (
-          <p style={{ color: '#9ca3af' }}>No active sessions found.</p>
+          <p className="text-sm text-gray-400 text-center py-6">No active sessions found.</p>
         ) : (
-          sessions.map(session => (
-            <div key={session._id} style={{
-              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
-              padding: '16px 20px', marginBottom: '12px',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <span style={{ fontSize: '28px' }}>{deviceIcon(session.device)}</span>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{session.device || 'Unknown Device'}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#6b7280' }}>
-                    {session.location?.city}, {session.location?.country} · {session.ip}
-                  </p>
-                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#9ca3af' }}>
-                    Last active: {formatDate(session.lastUsedAt)}
-                    {session.isNewDevice && <span style={{ marginLeft: '8px', color: '#f59e0b', fontWeight: 600 }}>· New device</span>}
-                  </p>
+          <div className="flex flex-col gap-3">
+            {sessions.map(session => (
+              <div key={session._id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{deviceIcon(session.device)}</span>
+                  <div>
+                    <p className="m-0 text-sm font-semibold">{session.device || 'Unknown Device'}</p>
+                    <p className="m-0 text-xs text-gray-500">
+                      {session.location?.city}, {session.location?.country} · {session.ip}
+                    </p>
+                    <p className="m-0 text-xs text-gray-400">
+                      Last active: {formatDate(session.lastUsedAt)}
+                      {session.isNewDevice && (
+                        <span className="ml-2 text-yellow-500 font-semibold">· New device</span>
+                      )}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={() => revokeSession(session._id)}
+                  className="bg-red-100 text-red-500 border-0 rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer whitespace-nowrap"
+                >
+                  Revoke
+                </button>
               </div>
-              <button
-                onClick={() => revokeSession(session._id)}
-                style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}
-              >
-                Revoke
-              </button>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
       <Toaster />

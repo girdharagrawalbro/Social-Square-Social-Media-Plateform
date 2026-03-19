@@ -13,21 +13,15 @@ const PostSchema = new mongoose.Schema(
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     comments: [],
     category: { type: String, required: true },
-
-    // Location tag
     location: {
       name: { type: String, default: null },
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
     },
-
-    // Music tag
     music: {
       title: { type: String, default: null },
       artist: { type: String, default: null },
     },
-
-    // Feed algorithm score (recomputed on like/comment)
     score: { type: Number, default: 0 },
   },
   { timestamps: true }
