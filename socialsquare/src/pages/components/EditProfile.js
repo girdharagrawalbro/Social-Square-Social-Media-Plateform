@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch } from "react-redux";
 import { updateUser } from '../../store/slices/userSlice';
+import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
+import toast from 'react-hot-toast';
+
 const EditProfile = ({ users, closeSidebar }) => {
     const dispatch = useDispatch();
+    const fileInputRef = useRef(null);
 
-    const [formData, setFormData] = useState({
-        fullname: "",
-        email: "",
-        profile_picture: "",
-        bio: "",
-    });
+    const [formData, setFormData] = useState({ fullname: "", email: "", profile_picture: "", bio: "" });
+    const [preview, setPreview] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
-    // Load user data into the form when the component mounts or users changes
     useEffect(() => {
         if (users) {
             setFormData({
@@ -20,81 +21,122 @@ const EditProfile = ({ users, closeSidebar }) => {
                 profile_picture: users.profile_picture || "",
                 bio: users.bio || "",
             });
+            setPreview(users.profile_picture || null);
         }
     }, [users]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const userData = {
-        ...formData,
-        userId: users._id
-    }
-    const handleSubmit = async (e) => {
+    const handleFileSelect = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const error = validateImageFile(file);
+        if (error) { toast.error(error); return; }
+
+        // Show preview immediately
+        const previewUrl = URL.createObjectURL(file);
+        setPreview(previewUrl);
+        setUploading(true);
+        setUploadProgress(0);
+
+        try {
+            const url = await uploadToCloudinary(file, (progress) => {
+                setUploadProgress(progress);
+            });
+            setFormData(prev => ({ ...prev, profile_picture: url }));
+            toast.success('Photo uploaded!');
+        } catch {
+            toast.error('Failed to upload image. Please try again.');
+            setPreview(users?.profile_picture || null);
+        } finally {
+            setUploading(false);
+            URL.revokeObjectURL(previewUrl);
+            e.target.value = '';
+        }
+    };
+
+    const handleSubmit = (e) => {
         e.preventDefault();
-        dispatch(updateUser(userData));
+        if (uploading) { toast.error('Please wait for image to finish uploading'); return; }
+        dispatch(updateUser({ ...formData, userId: users?._id }));
         closeSidebar();
     };
 
-
-
     return (
-        <form onSubmit={handleSubmit} className="w-100 h-100 py-3">
-            <div className="mb-3">
-                <label htmlFor="fullname" className="form-label">Full Name</label>
-                <input
-                    type="text"
-                    id="fullname"
-                    name="fullname"
-                    value={formData.fullname}
-                    onChange={handleChange}
-                    className="form-control"
-                    required
-                />
+        <form onSubmit={handleSubmit} className="w-full h-full py-3">
+
+            {/* Profile Picture Upload */}
+            <div className="mb-4 flex flex-col items-center gap-2">
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <img
+                        src={preview || '/default-profile.png'}
+                        alt="Profile"
+                        style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #e5e7eb' }}
+                    />
+                    {/* Upload overlay */}
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        style={{
+                            position: 'absolute', bottom: 0, right: 0,
+                            background: '#808bf5', border: 'none', borderRadius: '50%',
+                            width: '28px', height: '28px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Progress bar */}
+                {uploading && (
+                    <div style={{ width: '90px', height: '4px', background: '#e5e7eb', borderRadius: '2px' }}>
+                        <div style={{ width: `${uploadProgress}%`, height: '100%', background: '#808bf5', borderRadius: '2px', transition: 'width 0.2s' }} />
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    style={{ fontSize: '12px', color: '#808bf5', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                    {uploading ? `Uploading ${uploadProgress}%...` : 'Change photo'}
+                </button>
+
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: 'none' }} />
             </div>
 
             <div className="mb-3">
-                <label htmlFor="email" className="form-label">Email</label>
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="form-control"
-                    required
-                />
-            </div>
-
-
-
-            <div className="mb-3">
-                <label htmlFor="profile_picture" className="form-label">Profile Picture URL</label>
-                <input
-                    type="url"
-                    id="profile_picture"
-                    name="profile_picture"
-                    value={formData.profile_picture}
-                    onChange={handleChange}
-                    className="form-control"
-                />
+                <label htmlFor="fullname" className="block mb-1">Full Name</label>
+                <input type="text" id="fullname" name="fullname" value={formData.fullname} onChange={handleChange} className="w-full border px-3 py-2 rounded" required />
             </div>
 
             <div className="mb-3">
-                <label htmlFor="bio" className="form-label">Bio</label>
-                <textarea
-                    id="bio"
-                    name="bio"
-                    value={formData.bio}
-                    onChange={handleChange}
-                    className="form-control"
-                />
+                <label htmlFor="email" className="block mb-1">Email</label>
+                <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} className="w-full border px-3 py-2 rounded" required />
             </div>
 
+            <div className="mb-3">
+                <label htmlFor="bio" className="block mb-1">Bio</label>
+                <textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} className="w-full border px-3 py-2 rounded" rows={3} />
+            </div>
 
-            <button type="submit" className="theme-bg py-1 px-2">Save Changes</button>
+            <button
+                type="submit"
+                disabled={uploading}
+                className="bg-themeAccent text-white py-1 px-3 rounded"
+                style={{ opacity: uploading ? 0.6 : 1 }}
+            >
+                {uploading ? 'Uploading...' : 'Save Changes'}
+            </button>
         </form>
     );
 };

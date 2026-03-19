@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:6.2
+    ports: ['6379:6379']
+    command: ["redis-server","--appendonly","yes"]
+  nats:
+    image: nats:2.10
+    ports: ['4222:4222','8222:8222']
+    command: ["-js"] # enable JetStream
+  backend:
+    build: .
+    ports: ['5000:5000']
+    depends_on: ['redis','nats']
+  worker:
+    build: .
+    command: node backend/workers/imageWorker.js
+    depends_on: ['redis','nats']

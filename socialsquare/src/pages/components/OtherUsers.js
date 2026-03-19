@@ -48,53 +48,51 @@ const OtherUsers = () => {
 
 
     return (
-        <div className="d-flex flex-column gap-3">
-            <div className={`p-3 bordershadow bg-white rounded `}>
-                <div className="d-flex justify-content-between">
-                    <h5>Suggested Users</h5>
-                </div>
-                {
-                    loading.otherusers ?
-                        <Loader />
-                        : error ? <p className="text-danger">{error}</p> :
-                            otherusers.length === 0 ? (
-                                <p>No other users found.</p>
-                            ) : (
-                                <div className="d-flex mt-3 flex-column gap-2">
-                                    {otherusers.map((u) => (
-                                        <div
-                                            key={u._id}
-                                            className="btn border-0 friend-item d-flex align-items-center justify-content-between"
-                                            onClick={() => handleUserClick(u._id)} // Pass otherusers ID
-                                        >
-                                            <div className="d-flex align-items-center gap-2">
-                                                <div className="friend-img">
-                                                    <img
-                                                        src={u?.profile_picture}
-                                                        className="logo"
-                                                        alt={u.fullname}
-                                                    />
-                                                </div>
-                                                <h6>{u.fullname || "Unknown User"}</h6>
-                                            </div>
-                                            <button
-                                                className={`btn btn-primary btn-sm py-1 px-2`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation(); // Prevent triggering the parent div click
-                                                    handleFollow(u._id);
-                                                }}
-                                                disabled={actionLoading === u._id}
-
-                                            >
-                                                {actionLoading === u._id
-                                                    ? "Processing..."
-                                                    : "Follow"}
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+        <div className="flex flex-col gap-3 border bg-white rounded-xl shadow-md p-3">
+            <div className="d-flex justify-content-between">
+                <h5 className="font-medium">Suggested Users</h5>
             </div>
+            {
+                loading.otherusers ?
+                    <Loader />
+                    : error ? <p className="text-danger">{error}</p> :
+                        otherusers.length === 0 ? (
+                            <p>No other users found.</p>
+                        ) : (
+                            <div className="d-flex mt-3 flex-column gap-2">
+                                {otherusers.map((u) => (
+                                    <div
+                                        key={u._id}
+                                        className="btn border-0 friend-item d-flex align-items-center justify-content-between"
+                                        onClick={() => handleUserClick(u._id)} // Pass otherusers ID
+                                    >
+                                        <div className="d-flex align-items-center gap-2">
+                                            <div className="friend-img">
+                                                <img
+                                                    src={u?.profile_picture}
+                                                    className="logo"
+                                                    alt={u.fullname}
+                                                />
+                                            </div>
+                                            <h6 className="">{u.fullname || "Unknown User"}</h6>
+                                        </div>
+                                        <span
+                                            className={` text-[#808bf5] font-medium text-sm py-1 px-2`}
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent triggering the parent div click
+                                                handleFollow(u._id);
+                                            }}
+                                            disabled={actionLoading === u._id}
+
+                                        >
+                                            {actionLoading === u._id
+                                                ? <span className="text-gray-500">Processing...</span>
+                                                : "Follow"}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
             <Dialog
                 header="User Profile"
                 visible={isVisible}
