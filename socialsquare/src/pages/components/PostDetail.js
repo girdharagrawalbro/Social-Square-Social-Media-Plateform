@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { likepost, unlikepost, fetchComments } from '../../store/slices/postsSlice';
 import { Helmet } from 'react-helmet-async';
 import Comment from './ui/Comment';
-import relativeTime from '../../utils/relativeTime';
+import formatDate from '../../utils/formatDate';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -104,7 +104,7 @@ const PostDetail = () => {
                                 {post.location?.name && <p className="m-0 text-xs text-gray-400">📍 {post.location.name}</p>}
                             </div>
                         </div>
-                        <p className="text-xs text-gray-400 m-0">{relativeTime(post.createdAt)}</p>
+                        <p className="text-xs text-gray-400 m-0">{formatDate(post.createdAt)}</p>
                     </div>
 
                     {/* Images */}
@@ -154,7 +154,7 @@ const PostDetail = () => {
                             <p className="text-xs text-pink-500 mt-1 m-0">🎵 {post.music.title}{post.music.artist ? ` — ${post.music.artist}` : ''}</p>
                         )}
 
-                        <p className="text-xs text-gray-400 mt-2 m-0">{relativeTime(post.createdAt)}</p>
+                        <p className="text-xs text-gray-400 mt-2 m-0">{formatDate(post.createdAt)}</p>
                     </div>
 
                     {/* Comments */}

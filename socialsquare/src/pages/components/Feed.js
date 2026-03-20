@@ -7,7 +7,7 @@ import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
 import { fetchPosts, fetchComments, unlikepost, likepost, deletePost, updatePost, savePost, fetchSavedPosts } from '../../store/slices/postsSlice';
 import { followUser, unfollowUser } from '../../store/slices/userSlice';
-import relativeTime from '../../utils/relativeTime';
+import formatDate from '../../utils/formatDate';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -302,7 +302,7 @@ const Feed = () => {
                                             <p className="m-0 mt-2 text-sm font-semibold">{(post?.likes?.length || 0).toLocaleString()} likes</p>
                                             <p className="m-0 mt-1 text-sm leading-relaxed"><span className="font-semibold mr-1">{post.user.username || post.user.fullname}</span>{renderCaption(post.caption || '')}</p>
                                             <p className="m-0 mt-1 text-xs text-gray-500 cursor-pointer" onClick={() => toggleComments(post._id)}>View all {post.comments?.length || 0} comments</p>
-                                            <p className="m-0 mt-2 text-[10px] text-gray-400 uppercase tracking-wide">{relativeTime(post.updatedAt)}</p>
+                                            <p className="m-0 mt-2 text-[10px] text-gray-400 uppercase tracking-wide"> {formatDate(post.updatedAt)}</p>
                                         </div>
                                     </div>
 
