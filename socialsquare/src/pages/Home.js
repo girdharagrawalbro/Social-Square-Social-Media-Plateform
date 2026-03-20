@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
 import { socket } from '../socket';
 import MainSkeleton from './components/MainSkeleton';
 import OtherUsers from './components/OtherUsers';
@@ -10,27 +9,32 @@ import Profile from './components/Profile';
 import Conversations from './components/Conversations';
 import Stories from './components/Stories';
 import Explore from './components/Explore';
-import { fetchLoggedUser } from '../store/slices/userSlice';
 import Navbar from './components/Navbar';
 import { useDarkMode } from '../context/DarkModeContext';
 import { showPushNotification } from '../utils/pushNotifications';
 import useFeedSocket from '../hooks/useFeedSocket';
+import MoodFeedToggle from './components/MoodFeedToggle';
+import useAuthStore from '../store/zustand/useAuthStore';
 
 const Home = () => {
     const token = localStorage.getItem('token');
     const [activeView, setActiveView] = useState('feed');
-    const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { loggeduser, loading, error } = useSelector(state => state.users);
+    const fetchUser = useAuthStore(state => state.fetchUser);
+    const loggeduser = useAuthStore(state => state.user);
+    const authLoading = useAuthStore(state => state.loading);
+    const authError = useAuthStore(state => state.error);
     const { isDark } = useDarkMode();
+
+    const [activeMood, setActiveMood] = useState(null);
 
     // ✅ All real-time feed socket listeners
     useFeedSocket();
 
     useEffect(() => {
         if (!token) { navigate('/landing'); return; }
-        dispatch(fetchLoggedUser());
-    }, [dispatch, token, navigate]);
+        fetchUser();
+    }, [fetchUser, token, navigate]);
 
     useEffect(() => {
         if (loggeduser?._id) {
@@ -54,14 +58,14 @@ const Home = () => {
     }, [loggeduser]);
 
     useEffect(() => {
-        if (error.loggeduser && !loading.loggeduser) {
+        if (authError && !authLoading) {
             localStorage.removeItem('token');
             localStorage.removeItem('socketId');
             navigate('/landing');
         }
-    }, [error.loggeduser, loading.loggeduser, navigate]);
+    }, [authError, authLoading, navigate]);
 
-    if (loading.loggeduser) return <MainSkeleton />;
+    if (authLoading) return <MainSkeleton />;
     if (!token || !loggeduser) return <MainSkeleton />;
 
     const bg = isDark ? 'bg-gray-900' : 'bg-gray-50';
@@ -69,7 +73,7 @@ const Home = () => {
 
     const renderMobileView = () => {
         switch (activeView) {
-            case 'feed': return <><Stories /><Newpost /><Feed /></>;
+            case 'feed': return <><Stories /><Newpost /><MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} /><Feed activeMood={activeMood} /></>;
             case 'explore': return <Explore />;
             case 'profile': return <Profile />;
             case 'otherUsers': return <OtherUsers />;
@@ -96,7 +100,8 @@ const Home = () => {
                 <div className="w-50 overflow-y-scroll h-screen px-3">
                     <Stories />
                     <Newpost />
-                    <Feed />
+                    <MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} />
+                    <Feed activeMood={activeMood} />
                 </div>
                 <div className="w-25">
                     <Profile />

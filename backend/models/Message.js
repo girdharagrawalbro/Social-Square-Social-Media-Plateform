@@ -1,27 +1,31 @@
 const mongoose = require('mongoose');
 
-const MessageSchema = new mongoose.Schema(
-  {
-    conversationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Conversation',
-      required: true,
+const MessageSchema = new mongoose.Schema({
+    conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', required: true },
+    sender:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    content:        { type: String, default: '' },
+
+    // Media sharing
+    media: {
+        url:  { type: String, default: null },
+        type: { type: String, enum: ['image', 'video', 'audio', 'file'], default: null },
+        name: { type: String, default: null },
+        size: { type: Number, default: null },
     },
-    sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    content: {
-      type: String,
-      required: true,
-    },
-    isRead: {
-      type: Boolean,
-      default: false, // Track whether the message has been read
-    },
-  },
-  { timestamps: true }
-);
+
+    // Reactions: { userId → emoji }
+    reactions: { type: Map, of: String, default: {} },
+
+    // Edit/delete
+    edited:    { type: Boolean, default: false },
+    editedAt:  { type: Date,    default: null },
+    deletedAt: { type: Date,    default: null }, // soft delete
+
+    isRead: { type: Boolean, default: false },
+}, { timestamps: true });
+
+MessageSchema.index({ conversationId: 1, createdAt: 1 });
+MessageSchema.index({ sender: 1 });
+MessageSchema.index({ content: 'text' });
 
 module.exports = mongoose.model('Message', MessageSchema);
