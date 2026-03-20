@@ -9,7 +9,7 @@ import { resetState } from '../../store/slices/userSlice';
 import { fetchUserPosts, fetchSavedPosts, resetUserPosts } from '../../store/slices/postsSlice';
 import { socket } from '../../socket';
 import EditProfile from './EditProfile';
-import ActiveSessions from './ActiveSessions';
+import ActiveSessions from '../ActiveSessions';
 import FollowFollowingList from './FollowFollowingList';
 import CollabManager from './CollabManager';
 

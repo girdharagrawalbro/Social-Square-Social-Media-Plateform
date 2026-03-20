@@ -1,107 +1,70 @@
-// links of react 
-import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from 'react-redux';
-
-// components
-import Loader from './Loader';
-import UserProfile from "./UserProfile";
-
-// ui
+import React, { useEffect, useState } from 'react';
 import { Dialog } from 'primereact/dialog';
+import useAuthStore from '../../store/zustand/useAuthStore';
+import UserProfile from './UserProfile';
 
-// redux
-import { followUser, fetchOtherUsers } from '../../store/slices/userSlice';
+const BASE = process.env.REACT_APP_BACKEND_URL;
 
 const OtherUsers = () => {
-    const dispatch = useDispatch();
-    const [actionLoading, setActionLoading] = useState(null);
-    const [error, setError] = useState(null);
-    const { loggeduser, otherusers, loading } = useSelector((state) => state.users);
+    const user        = useAuthStore(s => s.user);
+    const followUser  = useAuthStore(s => s.followUser);
+    const unfollowUser= useAuthStore(s => s.unfollowUser);
 
-    const [isVisible, setVisible] = useState(false);
-    const [selectedUserId, setSelectedUserId] = useState(null); // State to store selected otherusers ID
-
-
+    const [users, setUsers]             = useState([]);
+    const [loading, setLoading]         = useState(true);
+    const [selectedId, setSelectedId]   = useState(null);
+    const [profileVisible, setProfileVisible] = useState(false);
 
     useEffect(() => {
-        if (loggeduser?._id) {
-            dispatch(fetchOtherUsers(loggeduser._id));
-        }
-    }, [dispatch, loggeduser?._id]);
+        if (!user?._id) return;
+        fetch(`${BASE}/api/auth/other-users`)
+            .then(r => r.json())
+            .then(data => { setUsers(Array.isArray(data) ? data : []); setLoading(false); })
+            .catch(() => setLoading(false));
+    }, [user?._id]);
 
-    const handleUserClick = (userId) => {
-        setSelectedUserId(userId); // Set selected otherusers ID
-        setVisible(true); // Open the dialog
+    const handleFollow = (e, userId) => {
+        e.stopPropagation();
+        const isFollowing = user?.following?.some(f => f?.toString() === userId?.toString());
+        if (isFollowing) unfollowUser(userId);
+        else followUser(userId);
     };
 
-
-    const handleFollow = async (followUserId) => {
-        setActionLoading(followUserId);
-        try {
-            await dispatch(followUser({ loggedUserId: loggeduser._id, followUserId })).unwrap();
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setActionLoading(null);
-        }
-    };
-
+    if (loading) return (
+        <div className="p-3 bordershadow bg-white rounded mt-3">
+            {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl mb-2 animate-pulse" />)}
+        </div>
+    );
 
     return (
-        <div className="flex flex-col gap-3 border bg-white rounded-xl shadow-md p-3">
-            <div className="d-flex justify-content-between">
-                <h5 className="font-medium">Suggested Users</h5>
-            </div>
-            {
-                loading.otherusers ?
-                    <Loader />
-                    : error ? <p className="text-danger">{error}</p> :
-                        otherusers.length === 0 ? (
-                            <p>No other users found.</p>
-                        ) : (
-                            <div className="d-flex mt-3 flex-column gap-2">
-                                {otherusers.map((u) => (
-                                    <div
-                                        key={u._id}
-                                        className="btn border-0 friend-item d-flex align-items-center justify-content-between"
-                                        onClick={() => handleUserClick(u._id)} // Pass otherusers ID
-                                    >
-                                        <div className="d-flex align-items-center gap-2">
-                                            <div className="friend-img">
-                                                <img
-                                                    src={u?.profile_picture}
-                                                    className="logo"
-                                                    alt={u.fullname}
-                                                />
-                                            </div>
-                                            <h6 className="">{u.fullname || "Unknown User"}</h6>
-                                        </div>
-                                        <span
-                                            className={` text-[#808bf5] font-medium text-sm py-1 px-2`}
-                                            onClick={(e) => {
-                                                e.stopPropagation(); // Prevent triggering the parent div click
-                                                handleFollow(u._id);
-                                            }}
-                                            disabled={actionLoading === u._id}
-
-                                        >
-                                            {actionLoading === u._id
-                                                ? <span className="text-gray-500">Processing...</span>
-                                                : "Follow"}
-                                        </span>
-                                    </div>
-                                ))}
+        <>
+            <div className="p-3 bordershadow bg-white rounded mt-3">
+                <h5 className="font-medium mb-3">Suggested Users</h5>
+                <div className="flex flex-col gap-2">
+                    {users.filter(u => u._id !== user?._id).slice(0, 8).map(u => {
+                        const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
+                        return (
+                            <div key={u._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition"
+                                onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}>
+                                <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="m-0 text-sm font-medium truncate">{u.fullname}</p>
+                                    <p className="m-0 text-xs text-gray-400">{u.followers?.length || 0} followers</p>
+                                </div>
+                                <button onClick={e => handleFollow(e, u._id)}
+                                    className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold flex-shrink-0 ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'}`}>
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </button>
                             </div>
-                        )}
-            <Dialog
-                header="User Profile"
-                visible={isVisible}
-                style={{ width: '340px', height: "400px" }}
-                onHide={() => setVisible(false)}
-            >
-                <UserProfile id={selectedUserId} /> {/* Pass selected otherusers ID */}
+                        );
+                    })}
+                </div>
+            </div>
+
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '380px' }} onHide={() => setProfileVisible(false)}>
+                <UserProfile id={selectedId} />
             </Dialog>
-        </div>
+        </>
     );
 };
 

@@ -1,211 +1,261 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 const Conversation = require('../models/Conversation');
-const Message = require('../models/Message')
-const Notification = require('../models/Notification')
+const Message      = require('../models/Message');
+const Notification = require('../models/Notification');
+const { createClient } = require('redis');
 
-// Create a new conversation
+// ─── REDIS CLIENT ─────────────────────────────────────────────────────────────
+let redis;
+(async () => {
+    try {
+        redis = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+        await redis.connect();
+        console.log('[Redis] Conversation cache connected');
+    } catch (err) {
+        console.warn('[Redis] Cache not available:', err.message);
+        redis = null;
+    }
+})();
+
+const CACHE_TTL = 60; // 60 seconds
+
+async function getCache(key) {
+    if (!redis) return null;
+    try { const v = await redis.get(key); return v ? JSON.parse(v) : null; } catch { return null; }
+}
+async function setCache(key, data, ttl = CACHE_TTL) {
+    if (!redis) return;
+    try { await redis.setEx(key, ttl, JSON.stringify(data)); } catch {}
+}
+async function delCache(...keys) {
+    if (!redis) return;
+    try { await Promise.all(keys.map(k => redis.del(k))); } catch {}
+}
+
+let _io;
+function setIo(io) { _io = io; }
+
+// ─── CREATE CONVERSATION ──────────────────────────────────────────────────────
 router.post('/create', async (req, res) => {
     try {
         const { participants } = req.body;
+        if (!participants || participants.length !== 2)
+            return res.status(400).json({ error: 'Exactly two participants required' });
 
-        if (!participants || participants.length !== 2) {
-            return res.status(400).json({ error: 'Exactly two participants are required to create a conversation.' });
-        }
-
-        // Extract user IDs from participants
         const participantIds = participants.map(p => p.userId);
+        const existing = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
+        if (existing) return res.status(200).json(existing);
 
-        // Check for an existing conversation with the same participants
-        const existingConversation = await Conversation.findOne({
-            'participants.userId': { $all: participantIds },
-        });
+        const conversation = await Conversation.create({ participants });
 
-        if (existingConversation) {
-            return res.status(200).json(existingConversation); // Return the existing conversation
-        }
-
-        // Create a new conversation if none exists
-        const conversation = new Conversation({
-            participants,
-        });
-
-        await conversation.save();
+        // Invalidate both users' conversation cache
+        await delCache(`convs:${participantIds[0]}`, `convs:${participantIds[1]}`);
         res.status(201).json(conversation);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Fetch all conversations for a user
+// ─── FETCH CONVERSATIONS ──────────────────────────────────────────────────────
 router.get('/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
+        const cacheKey = `convs:${userId}`;
 
-        // Find all conversations where the user is a participant
-        const conversations = await Conversation.find({
-            'participants.userId': userId,
-        }).sort({ lastMessageAt: -1 });
+        const cached = await getCache(cacheKey);
+        if (cached) return res.json(cached);
 
+        const conversations = await Conversation.find({ 'participants.userId': userId })
+            .sort({ lastMessageAt: -1 })
+            .lean();
+
+        await setCache(cacheKey, conversations, 30); // shorter TTL — changes frequently
         res.status(200).json(conversations);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Fetch all messages for a user
+// ─── FETCH MESSAGES ───────────────────────────────────────────────────────────
 router.post('/messages', async (req, res) => {
     try {
         const { participantIds } = req.body;
+        if (!participantIds || participantIds.length !== 2)
+            return res.status(400).json({ error: 'Two participant IDs required' });
 
-        if (!participantIds || participantIds.length !== 2) {
-            return res.status(400).json({ error: 'Exactly two participant IDs are required to fetch a conversation.' });
-        }
+        const cacheKey = `msgs:${participantIds.sort().join(':')}`;
+        const cached = await getCache(cacheKey);
+        if (cached) return res.json(cached);
 
-        // Find the conversation with the specified participants
-        const conversation = await Conversation.findOne({
-            'participants.userId': { $all: participantIds },
-        });
+        const conversation = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
+        if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
 
-        if (!conversation) {
-            return res.status(404).json({ message: 'Conversation not found.' });
-        }
+        const messages = await Message.find({
+            conversationId: conversation._id,
+            deletedAt: null, // exclude soft-deleted
+        }).sort({ createdAt: 1 }).lean();
 
-        // Fetch messages related to the conversation
-        const messages = await Message.find({ conversationId: conversation._id });
-
-        res.status(200).json({ messages, conversation });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+        const result = { messages, conversation };
+        await setCache(cacheKey, result, 15); // 15s TTL for messages
+        res.status(200).json(result);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── SEARCH MESSAGES ──────────────────────────────────────────────────────────
+router.get('/messages/search', async (req, res) => {
+    try {
+        const { conversationId, q } = req.query;
+        if (!conversationId || !q) return res.status(400).json({ error: 'conversationId and q required' });
+
+        const messages = await Message.find({
+            conversationId,
+            deletedAt: null,
+            $text: { $search: q },
+        }).sort({ score: { $meta: 'textScore' } }).limit(20).lean();
+
+        res.json(messages);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── SEND MESSAGE ─────────────────────────────────────────────────────────────
 router.post('/messages/create', async (req, res) => {
-    const { conversationId, sender, senderName, content, recipientId } = req.body;
-
-    if (!conversationId || !sender || !content || !recipientId || !senderName) {
-        return res.status(400).json({ error: 'All fields are required' });
-    }
-
     try {
-        const message = new Message({
-            conversationId,
-            sender,
-            content,
+        const { conversationId, sender, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize } = req.body;
+        if (!conversationId || !sender || !recipientId)
+            return res.status(400).json({ error: 'Required fields missing' });
+
+        const message = await Message.create({
+            conversationId, sender, content: content || '',
+            media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
         });
 
-        // Save the message to the database
-        const savedMessage = await message.save();
+        // Update conversation last message
+        await Conversation.findByIdAndUpdate(conversationId, {
+            lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
+            lastMessageAt: new Date(),
+            lastMessageBy: sender,
+        });
 
-        const notification = await new Notification({
+        // Notification
+        await Notification.create({
             recipient: recipientId,
-            sender: {
-                id: sender,
-                fullname: senderName,
-            },
-            message: {
-                id: savedMessage._id,
-                content
-            },
-        })
+            sender: { id: sender, fullname: senderName },
+            message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
+        });
 
-        await notification.save();
-        console.log(notification)
-        // Update the last message in the conversation
-        await Conversation.findByIdAndUpdate(
-            conversationId,
-            { lastMessage: { id: savedMessage._id, message: content }, lastMessageAt: Date.now(), lastMessageBy: sender },
-            { new: true }
-        );
+        // Invalidate cache
+        await delCache(`convs:${sender}`, `convs:${recipientId}`, `msgs:${[sender, recipientId].sort().join(':')}`);
 
-        res.status(201).json(savedMessage);
-    } catch (error) {
-        console.error('Error creating message:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-// Route to mark messages as read
-router.post('/messages/mark-read', async (req, res) => {
-    const { unreadMessageIds, lastMessage } = req.body;
-
-    if (!unreadMessageIds || !Array.isArray(unreadMessageIds)) {
-        return res.status(400).json({ error: 'Invalid message IDs' });
-    }
-
-    try {
-        // Mark all specified messages as read
-        await Message.updateMany(
-            { _id: { $in: unreadMessageIds } },
-            { $set: { isRead: true } }
-        );
-
-        // If lastMessage is provided, update the conversation's lastMessage
-        if (lastMessage) {
-            const lastmessagedata = await Message.findById(lastMessage);
-
-            if (!lastmessagedata) {
-                return res.status(404).json({ error: 'Last message not found' });
-            }
-
-            await Conversation.findByIdAndUpdate(
-                lastmessagedata.conversationId, // Ensure the correct conversation ID is used
-                {
-                    lastMessage: {
-                        id: lastmessagedata._id,
-                        message: lastmessagedata.content,
-                        isRead: true,
-                    },
-                    lastMessageBy: lastmessagedata.sender,
-                    lastMessageAt: lastmessagedata.createdAt,
-                },
-                { new: true }
-            );
+        // Emit via socket if io available
+        if (_io) {
+            _io.to(recipientId).emit('receiveMessage', {
+                ...message.toObject(), senderId: sender, senderName,
+            });
         }
 
-        res.json({ message: 'Messages marked as read', unreadMessageIds });
-    } catch (error) {
-        console.error('Error marking messages as read:', error);
-        res.status(500).json({ error: 'Failed to update messages' });
-    }
+        res.status(201).json(message);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Assuming you're using Express
+// ─── EDIT MESSAGE ─────────────────────────────────────────────────────────────
+router.patch('/messages/:messageId', async (req, res) => {
+    try {
+        const { content } = req.body;
+        const message = await Message.findByIdAndUpdate(
+            req.params.messageId,
+            { content, edited: true, editedAt: new Date() },
+            { new: true }
+        ).lean();
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+
+        // Notify recipient via socket
+        if (_io) _io.emit('messageEdited', { messageId: message._id, content, conversationId: message.conversationId });
+
+        await delCache(`msgs:${message.conversationId}`);
+        res.json(message);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── DELETE MESSAGE (soft) ────────────────────────────────────────────────────
+router.delete('/messages/:messageId', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const message = await Message.findOne({ _id: req.params.messageId, sender: userId });
+        if (!message) return res.status(404).json({ error: 'Message not found or unauthorized' });
+
+        message.deletedAt = new Date();
+        message.content   = '';
+        await message.save();
+
+        if (_io) _io.emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId });
+        await delCache(`msgs:${message.conversationId}`);
+        res.json({ message: 'Message deleted' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── REACT TO MESSAGE ─────────────────────────────────────────────────────────
+router.post('/messages/:messageId/react', async (req, res) => {
+    try {
+        const { userId, emoji } = req.body;
+        const message = await Message.findById(req.params.messageId);
+        if (!message) return res.status(404).json({ error: 'Not found' });
+
+        if (message.reactions.get(userId) === emoji) {
+            message.reactions.delete(userId); // toggle off same emoji
+        } else {
+            message.reactions.set(userId, emoji);
+        }
+        await message.save();
+
+        const reactionsObj = Object.fromEntries(message.reactions);
+        if (_io) _io.emit('messageReaction', {
+            messageId: message._id,
+            conversationId: message.conversationId,
+            reactions: reactionsObj,
+        });
+
+        await delCache(`msgs:${message.conversationId}`);
+        res.json({ reactions: reactionsObj });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── MARK READ ────────────────────────────────────────────────────────────────
+router.post('/messages/mark-read', async (req, res) => {
+    try {
+        const { unreadMessageIds, lastMessage } = req.body;
+        if (!Array.isArray(unreadMessageIds)) return res.status(400).json({ error: 'Invalid' });
+
+        await Message.updateMany({ _id: { $in: unreadMessageIds } }, { $set: { isRead: true } });
+
+        if (lastMessage) {
+            const msg = await Message.findById(lastMessage).lean();
+            if (msg) {
+                await Conversation.findByIdAndUpdate(msg.conversationId, {
+                    'lastMessage.isRead': true,
+                    lastMessageBy: msg.sender,
+                    lastMessageAt: msg.createdAt,
+                });
+                await delCache(`convs:${msg.sender}`);
+            }
+        }
+
+        res.json({ message: 'Marked as read', unreadMessageIds });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 router.get('/notifications/:userId', async (req, res) => {
     try {
-        const { userId } = req.params;  // Change to use query params
-        if (!userId) {
-            return res.status(400).json({ error: "No user id provided" });
-        }
-
-        // Find all notifications where the user is the recipient
-        const notifications = await Notification.find({
-            recipient: userId,
-            read: false
-        }).sort({ createdAt: -1 });  // Sort by creation date (or adjust this as per your need)
-
-        res.status(200).json(notifications);  // Return the notifications
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+        const notifications = await Notification.find({ recipient: req.params.userId, read: false })
+            .sort({ createdAt: -1 }).lean();
+        res.status(200).json(notifications);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.patch('/notifications/mark-read', async (req, res) => {
-    const { Ids } = req.body;
-    console.log(Ids)
-    if (!Ids || !Array.isArray(Ids)) {
-        return res.status(400).json({ error: 'Invalid message IDs' });
-    }
-
     try {
-        await Notification.updateMany(
-            { _id: { $in: Ids } },
-            { $set: { read: true } }
-        );
+        const { Ids } = req.body;
+        await Notification.updateMany({ _id: { $in: Ids } }, { $set: { read: true } });
         res.json({ Ids });
-    } catch (err) {
-        res.status(500).json({ error: 'Error marking notification as read:', err });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 module.exports = router;
+module.exports.setIo = setIo;

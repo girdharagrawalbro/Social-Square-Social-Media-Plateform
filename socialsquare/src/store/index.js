@@ -1,15 +1,9 @@
-import visibilityReducer from './slices/visibilitySlice';
-import userReducer from './slices/userSlice';
-import postReducer from './slices/postsSlice';
-import conversationReducer from './slices/conversationSlice';
-import { combineReducers } from 'redux';
+// ─── ZUSTAND STORES ──────────────────────────────────────────────────────────
+// Redux has been removed. Import directly from zustand stores:
+//   import useAuthStore from './zustand/useAuthStore';
+//   import usePostStore from './zustand/usePostStore';
+//   import useConversationStore from './zustand/useConversationStore';
 
-const rootReducer = combineReducers({
-  conversation: conversationReducer,
-  visibility: visibilityReducer,
-  users: userReducer,
-  posts: postReducer
-});
-
-export default rootReducer;
-
+export { default as useAuthStore } from './zustand/useAuthStore';
+export { default as usePostStore } from './zustand/usePostStore';
+export { default as useConversationStore } from './zustand/useConversationStore';

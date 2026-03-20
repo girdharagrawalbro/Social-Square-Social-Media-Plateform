@@ -1,36 +1,4 @@
-🧠 AI-Powered:
-
-Mood-based feed — detects your typing mood and adjusts feed tone
-Auto caption generator — AI writes captions from your image
-Vibe check — AI analyzes post sentiment before you post ("This sounds angry, are you sure?")
-
-🎮 Gamification:
-
-Post streaks — post every day, build a streak like Duolingo
-Reputation points — earn XP for likes, comments, quality posts
-Weekly leaderboard — top contributors in your network
-
-🤝 Social:
-
-Collaborative posts — two users co-author a single post
-Anonymous confessions mode — post anonymously, revealed after X likes
-Time-locked posts — post visible only at a specific time
-
-📍 Unique:
-
-Mood board rooms — shared visual spaces followers can add to
-Voice notes on posts — record a voice comment instead of typing
-Post expiry — posts auto-delete after X days like stories but for feed
-
-
-Q: What do you want to work on next? (Select all that apply)
-    A: User profile page for other users (with their posts + follow), 
-    Performance & SEO (lazy loading, meta tags), 
-    Search improvements (debounce, recent searches),
-    Post detail page (/post/:id), Admin dashboard (manage users, posts),
-
-
-    Social-Square-Social-Media-Platform/
+Social-Square-Social-Media-Platform/
 │
 ├── backend/
 │   ├── lib/
@@ -50,7 +18,8 @@ Q: What do you want to work on next? (Select all that apply)
 │   │   ├── Analytics.js
 │   │   └── Report.js
 │   ├── queues/
-│   │   └── emailQueue.js
+│   │   ├── emailQueue.js
+│   │   └── digestQueue.js
 │   ├── routes/
 │   │   ├── auth.js
 │   │   ├── post.js
@@ -59,7 +28,8 @@ Q: What do you want to work on next? (Select all that apply)
 │   │   ├── ai.js
 │   │   └── admin.js
 │   ├── scripts/
-│   │   └── makeAdmin.js
+│   │   ├── makeAdmin.js
+│   │   └── createIndexes.js
 │   ├── subscribers/
 │   │   └── postSubscriber.js
 │   ├── utils/
@@ -80,7 +50,16 @@ Q: What do you want to work on next? (Select all that apply)
     │   ├── hooks/
     │   │   ├── useTokenRefresh.js
     │   │   ├── useNotifications.js
-    │   │   └── useFeedSocket.js
+    │   │   ├── useFeedSocket.js
+    │   │   └── queries/
+    │   │       ├── usePostQueries.js
+    │   │       ├── useConversationQueries.js
+    │   │       └── useNotificationQueries.js
+    │   ├── store/
+    │   │   └── zustand/
+    │   │       ├── useAuthStore.js
+    │   │       ├── usePostStore.js
+    │   │       └── useConversationStore.js
     │   ├── pages/
     │   │   ├── components/
     │   │   │   ├── ui/
@@ -88,7 +67,6 @@ Q: What do you want to work on next? (Select all that apply)
     │   │   │   │   ├── SkeletonPost.jsx
     │   │   │   │   └── Like.jsx
     │   │   │   ├── Bg.jsx
-    │   │   │   ├── Search.jsx
     │   │   │   ├── Authnav.jsx
     │   │   │   ├── MainSkeleton.jsx
     │   │   │   ├── Loader.jsx
@@ -124,18 +102,16 @@ Q: What do you want to work on next? (Select all that apply)
     │   │   ├── UserProfile.jsx
     │   │   ├── FollowFollowingList.jsx
     │   │   ├── NotificationBell.jsx
-    │   │   └── PasswordStrengthMeter.jsx
-    │   ├── store/
-    │   │   ├── slices/
-    │   │   │   ├── userSlice.js
-    │   │   │   ├── postsSlice.js
-    │   │   │   └── conversationSlice.js
-    │   │   └── index.js
+    │   │   ├── PasswordStrengthMeter.jsx
+    │   │   ├── CollabManager.jsx
+    │   │   ├── MoodFeedToggle.jsx
+    │   │   └── Search.jsx
     │   ├── utils/
     │   │   ├── crypto.js
     │   │   ├── fingerprint.js
     │   │   ├── cloudinary.js
     │   │   ├── pushNotifications.js
+    │   │   ├── formatDate.js
     │   │   └── relativeTime.js
     │   ├── socket.js
     │   ├── App.js

@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { likepost, unlikepost, fetchComments } from '../../store/slices/postsSlice';
+import { likepost, unlikepost, fetchComments } from '../store/slices/postsSlice';
 import { Helmet } from 'react-helmet-async';
-import Comment from './ui/Comment';
-import formatDate from '../../utils/formatDate';
+import Comment from './components/ui/Comment';
+import formatDate from '../utils/formatDate';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
