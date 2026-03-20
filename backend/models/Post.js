@@ -13,20 +13,39 @@ const PostSchema = new mongoose.Schema(
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     comments: [],
     category: { type: String, required: true },
-    location: {
-      name: { type: String, default: null },
-      lat: { type: Number, default: null },
-      lng: { type: Number, default: null },
-    },
-    music: {
-      title: { type: String, default: null },
-      artist: { type: String, default: null },
-    },
+    location: { name: { type: String, default: null }, lat: { type: Number, default: null }, lng: { type: Number, default: null } },
+    music: { title: { type: String, default: null }, artist: { type: String, default: null } },
     score: { type: Number, default: 0 },
+
+    // Post Expiry — auto-deleted by MongoDB TTL index
+    expiresAt: { type: Date, default: null },
+
+    // Anonymous Confessions — hides user identity
+    isAnonymous: { type: Boolean, default: false },
+
+    // Time-Locked — hidden until unlocksAt
+    unlocksAt: { type: Date, default: null },
+
+    // Collaborative Posts
+    isCollaborative: { type: Boolean, default: false },
+    collaborators: [{
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      fullname: { type: String },
+      profile_picture: { type: String },
+      status: { type: String, enum: ['pending', 'accepted', 'declined'], default: 'pending' },
+      contribution: { type: String, default: null },
+    }],
+
+    // Voice Notes
+    voiceNote: { url: { type: String, default: null }, duration: { type: Number, default: null } },
+
+    // AI mood tag
+    mood: { type: String, default: null },
   },
   { timestamps: true }
 );
 
 PostSchema.index({ score: -1, createdAt: -1 });
+PostSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, sparse: true });
 
 module.exports = mongoose.model('Post', PostSchema);

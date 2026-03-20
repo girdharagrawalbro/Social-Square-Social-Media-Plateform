@@ -28,3 +28,116 @@ Q: What do you want to work on next? (Select all that apply)
     Performance & SEO (lazy loading, meta tags), 
     Search improvements (debounce, recent searches),
     Post detail page (/post/:id), Admin dashboard (manage users, posts),
+
+
+    Social-Square-Social-Media-Platform/
+│
+├── backend/
+│   ├── lib/
+│   │   └── nats.js
+│   ├── middleware/
+│   │   └── verifyToken.js
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── Post.js
+│   │   ├── Comment.js
+│   │   ├── Story.js
+│   │   ├── Conversation.js
+│   │   ├── Message.js
+│   │   ├── Notification.js
+│   │   ├── LoginSession.js
+│   │   ├── Feed.js
+│   │   ├── Analytics.js
+│   │   └── Report.js
+│   ├── queues/
+│   │   └── emailQueue.js
+│   ├── routes/
+│   │   ├── auth.js
+│   │   ├── post.js
+│   │   ├── conversation.js
+│   │   ├── story.js
+│   │   ├── ai.js
+│   │   └── admin.js
+│   ├── scripts/
+│   │   └── makeAdmin.js
+│   ├── subscribers/
+│   │   └── postSubscriber.js
+│   ├── utils/
+│   │   ├── authSecurity.js
+│   │   ├── mailer.js
+│   │   ├── gemini.js
+│   │   └── crypto.js
+│   ├── db.js
+│   ├── index.js
+│   └── .env
+│
+└── frontend/
+    ├── public/
+    │   └── logo192.png
+    ├── src/
+    │   ├── context/
+    │   │   └── DarkModeContext.jsx
+    │   ├── hooks/
+    │   │   ├── useTokenRefresh.js
+    │   │   ├── useNotifications.js
+    │   │   └── useFeedSocket.js
+    │   ├── pages/
+    │   │   ├── components/
+    │   │   │   ├── ui/
+    │   │   │   │   ├── NotificationToast.jsx
+    │   │   │   │   ├── SkeletonPost.jsx
+    │   │   │   │   └── Like.jsx
+    │   │   │   ├── Bg.jsx
+    │   │   │   ├── Search.jsx
+    │   │   │   ├── Authnav.jsx
+    │   │   │   ├── MainSkeleton.jsx
+    │   │   │   ├── Loader.jsx
+    │   │   │   ├── Notifications.jsx
+    │   │   │   └── Notification.jsx
+    │   │   ├── Home.jsx
+    │   │   ├── Explore.jsx
+    │   │   ├── Login.jsx
+    │   │   ├── Signup.jsx
+    │   │   ├── Forgot.jsx
+    │   │   ├── ResetPassword.jsx
+    │   │   ├── VerifyOtp.jsx
+    │   │   ├── ActiveSessions.jsx
+    │   │   ├── PostDetail.jsx
+    │   │   ├── AdminDashboard.jsx
+    │   │   ├── Landing.jsx
+    │   │   ├── Contact.jsx
+    │   │   └── Help.jsx
+    │   ├── components/
+    │   │   ├── ui/
+    │   │   │   ├── Comment.jsx
+    │   │   │   ├── SkeletonPost.jsx
+    │   │   │   └── Like.jsx
+    │   │   ├── Navbar.jsx
+    │   │   ├── NewPost.jsx
+    │   │   ├── Feed.jsx
+    │   │   ├── Profile.jsx
+    │   │   ├── Stories.jsx
+    │   │   ├── EditProfile.jsx
+    │   │   ├── ChatPanel.jsx
+    │   │   ├── Conversations.jsx
+    │   │   ├── OtherUsers.jsx
+    │   │   ├── UserProfile.jsx
+    │   │   ├── FollowFollowingList.jsx
+    │   │   ├── NotificationBell.jsx
+    │   │   └── PasswordStrengthMeter.jsx
+    │   ├── store/
+    │   │   ├── slices/
+    │   │   │   ├── userSlice.js
+    │   │   │   ├── postsSlice.js
+    │   │   │   └── conversationSlice.js
+    │   │   └── index.js
+    │   ├── utils/
+    │   │   ├── crypto.js
+    │   │   ├── fingerprint.js
+    │   │   ├── cloudinary.js
+    │   │   ├── pushNotifications.js
+    │   │   └── relativeTime.js
+    │   ├── socket.js
+    │   ├── App.js
+    │   └── App.css
+    └── .env

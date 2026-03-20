@@ -124,8 +124,15 @@ const postsSlice = createSlice({
     },
     reducers: {
         addNewPost: (state, action) => {
-            state.posts.unshift(action.payload);
-            state.userPosts.unshift(action.payload);
+            const post = action.payload;
+            // Anonymous posts go to confessions, not main feed
+            if (post.isAnonymous) {
+                state.confessions.unshift(post);
+            } else {
+                state.posts.unshift(post);
+            }
+            // Always add to own profile posts
+            state.userPosts.unshift(post);
         },
         resetUserPosts: (state) => {
             state.userPosts = [];
@@ -133,11 +140,19 @@ const postsSlice = createSlice({
             state.userPostsHasMore = true;
         },
 
-        // ✅ Socket: new post pushed to feed from server
+        // ✅ Socket: new post pushed to feed from server (non-anonymous only)
         socketNewFeedPost: (state, action) => {
             const post = action.payload;
+            if (post.isAnonymous) return; // never add anonymous posts to main feed via socket
             const exists = state.posts.some(p => p._id === post._id);
             if (!exists) state.posts.unshift(post);
+        },
+
+        // ✅ Socket: new anonymous confession post — goes to confessions state only
+        socketNewConfessionPost: (state, action) => {
+            const post = action.payload;
+            const exists = state.confessions.some(p => p._id === post._id);
+            if (!exists) state.confessions.unshift(post);
         },
 
         // ✅ Socket: like count synced from server
@@ -333,7 +348,8 @@ const postsSlice = createSlice({
 
 export const {
     addNewPost, resetUserPosts,
-    socketNewFeedPost, socketPostLiked, socketPostUnliked,
+    socketNewFeedPost, socketNewConfessionPost,
+    socketPostLiked, socketPostUnliked,
     socketNewComment, socketCommentDeleted,
     socketPostUpdated, socketPostDeleted,
 } = postsSlice.actions;
