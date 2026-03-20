@@ -33,7 +33,7 @@ const io = socketIo(server, {
     cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true }
 });
 
-// Redis adapter
+// ─── REDIS ADAPTER ────────────────────────────────────────────────────────────
 (async () => {
     try {
         const { createClient } = require('redis');
@@ -49,13 +49,13 @@ const io = socketIo(server, {
     }
 })();
 
-// NATS + inject io into routes
+// ─── NATS + INJECT IO INTO ROUTES ─────────────────────────────────────────────
 (async () => {
     try {
         await initNats();
-        setSubscriberIo(io);        // postSubscriber
-        postRouter.setIo(io);       // post routes (likes, comments, new post)
-        storyRouter.setIo(io);      // story routes (new story to followers)
+        setSubscriberIo(io);        // postSubscriber — notifies followers on new post
+        postRouter.setIo(io);       // post routes — likes, comments, new post, collab
+        storyRouter.setIo(io);      // story routes — new story to followers
         await initPostSubscriber();
         console.log('NATS subscribers initialized');
     } catch (err) {
@@ -66,16 +66,21 @@ const io = socketIo(server, {
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
-app.use('/api/auth', require('./routes/auth.js'));
-app.use('/api/post', postRouter);
+// ─── ROUTES ───────────────────────────────────────────────────────────────────
+app.use('/api/auth',         require('./routes/auth.js'));
+app.use('/api/post',         postRouter);
 app.use('/api/conversation', require('./routes/conversation.js'));
-app.use('/api/story', storyRouter);
+app.use('/api/story',        storyRouter);
+app.use('/api/ai',           require('./routes/ai.js'));
+app.use('/api/admin',        require('./routes/admin.js'));
 
+// ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const onlineUsers = [];
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
+    // Register user — join personal room for targeted events
     socket.on('registerUser', (userId) => {
         socket.join(userId);
         if (!onlineUsers.find(u => u.userId === userId)) {
@@ -89,6 +94,7 @@ io.on('connection', (socket) => {
         if (index !== -1) { onlineUsers.splice(index, 1); io.emit('updateUserList', onlineUsers); }
     });
 
+    // Direct messages
     socket.on('sendMessage', ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
         const recipient = onlineUsers.find(u => u.userId === recipientId);
         if (recipient) {
@@ -99,6 +105,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Typing indicators
     socket.on('typing', ({ recipientId, senderName }) => {
         const recipient = onlineUsers.find(u => u.userId === recipientId);
         if (recipient) io.to(recipient.socketId).emit('userTyping', { senderName });
@@ -109,8 +116,14 @@ io.on('connection', (socket) => {
         if (recipient) io.to(recipient.socketId).emit('userStoppedTyping');
     });
 
-    socket.on("readMessage", ({ messageId, socketId }) => {
-        io.to(socketId).emit("seenMessage", { messageId });
+    // Message seen receipt
+    socket.on('readMessage', ({ messageId, socketId }) => {
+        io.to(socketId).emit('seenMessage', { messageId });
+    });
+
+    // Collaboration invite response (forwarded to post owner via REST, socket used for live update)
+    socket.on('collaborationResponse', ({ postId, userId, accepted }) => {
+        if (_io) io.emit('collaborationUpdate', { postId, userId, accepted });
     });
 
     socket.on('disconnect', () => {

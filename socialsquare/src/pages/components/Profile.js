@@ -11,6 +11,7 @@ import { socket } from '../../socket';
 import EditProfile from './EditProfile';
 import ActiveSessions from './ActiveSessions';
 import FollowFollowingList from './FollowFollowingList';
+import CollabManager from './CollabManager';
 
 const PostCard = ({ post }) => {
     const images = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
@@ -84,13 +85,21 @@ const Profile = () => {
 
     if (!loggeduser) return <div className="text-center p-4">Loading...</div>;
 
+    // Only posts/saved use the grid — collabs has its own renderer
     const tabPosts = activeTab === 'posts' ? userPosts : savedPosts;
-    const isLoadingTab = activeTab === 'posts' ? loading.userPosts : loading.savedPosts;
+    const isLoadingTab = activeTab === 'posts' ? loading.userPosts : activeTab === 'saved' ? loading.savedPosts : false;
+
     const formatCount = (count = 0) => {
         if (count >= 1000000) return `${(count / 1000000).toFixed(1).replace('.0', '')}M`;
         if (count >= 1000) return `${(count / 1000).toFixed(1).replace('.0', '')}K`;
         return `${count}`;
     };
+
+    const TABS = [
+        { key: 'posts',  label: `Posts (${userPosts.length})` },
+        { key: 'saved',  label: `Saved (${savedPosts.length})` },
+        { key: 'collabs', label: '🤝 Collabs' },
+    ];
 
     return (
         <>
@@ -112,7 +121,15 @@ const Profile = () => {
                     {/* Avatar + identity */}
                     <div className="flex items-center justify-center text-center flex-col gap-1">
                         <div className="relative">
-                            <Image src={loggeduser?.profile_picture} zoomSrc={loggeduser?.profile_picture} alt="Profile" className="rounded-full overflow-hidden border-4 border-indigo-100" preview width="100" height="100" />
+                            <Image
+                                src={loggeduser?.profile_picture}
+                                zoomSrc={loggeduser?.profile_picture}
+                                alt="Profile"
+                                className="rounded-full overflow-hidden border-4 border-indigo-100"
+                                preview
+                                width="100"
+                                height="100"
+                            />
                             <button
                                 className="absolute bottom-1 right-1 w-7 h-7 rounded-full border-0 cursor-pointer bg-[#4f46e5] text-white flex items-center justify-center"
                                 onClick={() => setEditVisible(true)}
@@ -122,8 +139,12 @@ const Profile = () => {
                             </button>
                         </div>
                         <h3 className="m-0 text-2xl font-semibold">{loggeduser?.fullname}</h3>
-                        {loggeduser?.username && <p className="m-0 text-sm font-medium text-indigo-600">@{loggeduser.username}</p>}
-                        {loggeduser?.bio && <p className="text-sm text-gray-500 m-0 max-w-[260px] leading-6">{loggeduser.bio}</p>}
+                        {loggeduser?.username && (
+                            <p className="m-0 text-sm font-medium text-indigo-600">@{loggeduser.username}</p>
+                        )}
+                        {loggeduser?.bio && (
+                            <p className="text-sm text-gray-500 m-0 max-w-[260px] leading-6">{loggeduser.bio}</p>
+                        )}
                     </div>
 
                     {/* Action buttons */}
@@ -144,11 +165,13 @@ const Profile = () => {
 
                     {/* Stats tiles */}
                     <div className="grid grid-cols-3 gap-2">
-                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer" onClick={() => setShowFollowersList(true)}>
+                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer"
+                            onClick={() => setShowFollowersList(true)}>
                             <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(loggeduser?.followers?.length || 0)}</h6>
                             <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Followers</span>
                         </div>
-                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer" onClick={() => setShowFollowingList(true)}>
+                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer"
+                            onClick={() => setShowFollowingList(true)}>
                             <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(loggeduser?.following?.length || 0)}</h6>
                             <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Following</span>
                         </div>
@@ -160,32 +183,40 @@ const Profile = () => {
 
                     {/* Tabs */}
                     <div className="flex border-b border-gray-100">
-                        {['posts', 'saved'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)}
-                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab
-                                        ? 'text-indigo-600 border-b-2 border-indigo-500'
-                                        : 'text-gray-500'
-                                    }`}
-                                style={{ borderBottom: activeTab === tab ? '2px solid #808bf5' : '2px solid transparent' }}>
-                                {tab === 'posts' ? `Posts (${userPosts.length})` : `Saved (${savedPosts.length})`}
+                        {TABS.map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${
+                                    activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500'
+                                }`}
+                                style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
+                            >
+                                {tab.label}
                             </button>
                         ))}
                     </div>
 
-                    {/* Posts grid */}
-                    <div className="grid grid-cols-3 gap-2">
-                        {isLoadingTab ? (
-                            [1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ aspectRatio: '1' }} />
-                            ))
-                        ) : tabPosts.length > 0 ? (
-                            tabPosts.map(post => <PostCard key={post._id} post={post} />)
-                        ) : (
-                            <div className="col-span-3 text-center text-gray-400 text-sm py-6">
-                                {activeTab === 'posts' ? 'No posts yet' : 'No saved posts'}
-                            </div>
-                        )}
-                    </div>
+                    {/* Tab content */}
+                    {activeTab === 'collabs' ? (
+                        // Collabs tab — full width, no grid
+                        <CollabManager mode="all" />
+                    ) : (
+                        // Posts / Saved — 3-col grid
+                        <div className="grid grid-cols-3 gap-2">
+                            {isLoadingTab ? (
+                                [1, 2, 3, 4, 5, 6].map(i => (
+                                    <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ aspectRatio: '1' }} />
+                                ))
+                            ) : tabPosts.length > 0 ? (
+                                tabPosts.map(post => <PostCard key={post._id} post={post} />)
+                            ) : (
+                                <div className="col-span-3 text-center text-gray-400 text-sm py-6">
+                                    {activeTab === 'posts' ? 'No posts yet' : 'No saved posts'}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 

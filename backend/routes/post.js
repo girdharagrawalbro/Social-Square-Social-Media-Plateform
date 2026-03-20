@@ -22,34 +22,96 @@ function computeScore(post, followingIds = []) {
 // ─── CREATE ───────────────────────────────────────────────────────────────────
 router.post("/create", async (req, res) => {
     try {
-        const { caption, loggeduser, category, imageURLs, location, music } = req.body;
+        const {
+            caption, loggeduser, category, imageURLs, location, music,
+            isAnonymous, expiresAt, unlocksAt, isCollaborative,
+            collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
+        } = req.body;
         if (!caption || !loggeduser || !category) return res.status(400).json({ message: "All fields are required." });
         const userDetails = await User.findById(loggeduser).select('username fullname profile_picture followers');
         if (!userDetails) return res.status(404).json({ message: "User not found." });
 
+        let collaborators = [];
+        if (isCollaborative && Array.isArray(collaboratorIds) && collaboratorIds.length > 0) {
+            const collabUsers = await User.find({ _id: { $in: collaboratorIds } }).select('fullname profile_picture');
+            collaborators = collabUsers.map(u => ({ userId: u._id, fullname: u.fullname, profile_picture: u.profile_picture, status: 'pending' }));
+        }
+
         const newPost = new Post({
             caption, category,
             image_urls: Array.isArray(imageURLs) ? imageURLs : [],
-            user: { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
+            user: isAnonymous
+                ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' }
+                : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             location: location || {}, music: music || {},
+            isAnonymous: !!isAnonymous,
+            expiresAt: expiresAt ? new Date(expiresAt) : null,
+            unlocksAt: unlocksAt ? new Date(unlocksAt) : null,
+            isCollaborative: !!isCollaborative,
+            collaborators,
+            voiceNote: voiceNoteUrl ? { url: voiceNoteUrl, duration: voiceNoteDuration || null } : {},
+            mood: mood || null,
         });
         await newPost.save();
 
-        // ✅ Push new post to all followers' feeds in real-time
-        if (_io && userDetails.followers?.length > 0) {
+        if (_io && collaborators.length > 0) {
+            collaborators.forEach(c => {
+                _io.to(c.userId.toString()).emit('collaborationInvite', { postId: newPost._id, postCaption: caption, invitedBy: userDetails.fullname });
+            });
+        }
+
+        // Anonymous posts do NOT go to followers' feeds — they go to a public confessions feed only.
+        // This prevents followers identifying the poster by timing.
+        if (!isAnonymous && !unlocksAt && _io && userDetails.followers?.length > 0) {
             userDetails.followers.forEach(followerId => {
                 _io.to(followerId.toString()).emit('newFeedPost', newPost);
             });
         }
 
-        await emailQueue.add('sendWelcome', { userId: userDetails._id }, { attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
-        publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category })
-            .catch(err => console.warn('[NATS]:', err.message));
+        // Anonymous posts: emit to a public 'confessions' room that any connected user can join
+        if (isAnonymous && _io) {
+            _io.emit('newConfessionPost', newPost);
+        }
+
+        // Only notify followers via NATS for non-anonymous posts
+        if (!isAnonymous) {
+            await emailQueue.add('sendWelcome', { userId: userDetails._id }, { attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
+            publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category })
+                .catch(err => console.warn('[NATS]:', err.message));
+        }
 
         res.status(201).json(newPost);
     } catch (error) {
         res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
+});
+
+// ─── ACCEPT COLLABORATION ─────────────────────────────────────────────────────
+router.post("/collaborate/accept", async (req, res) => {
+    try {
+        const { postId, userId, contribution } = req.body;
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: "Post not found." });
+        const idx = post.collaborators.findIndex(c => c.userId.toString() === userId);
+        if (idx === -1) return res.status(403).json({ message: "Not a collaborator." });
+        post.collaborators[idx].status = 'accepted';
+        if (contribution) post.collaborators[idx].contribution = contribution;
+        await post.save();
+        if (_io) _io.to(post.user._id.toString()).emit('collaborationAccepted', { postId, userId });
+        res.status(200).json(post);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ─── DECLINE COLLABORATION ────────────────────────────────────────────────────
+router.post("/collaborate/decline", async (req, res) => {
+    try {
+        const { postId, userId } = req.body;
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: "Post not found." });
+        const idx = post.collaborators.findIndex(c => c.userId.toString() === userId);
+        if (idx !== -1) { post.collaborators[idx].status = 'declined'; await post.save(); }
+        res.status(200).json({ message: "Declined." });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ─── UPDATE ───────────────────────────────────────────────────────────────────
@@ -99,7 +161,13 @@ router.get("/", async (req, res) => {
             const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
             userCategories = [...new Set(likedPosts.map(p => p.category))];
         }
-        const query = cursor ? { _id: { $lt: cursor } } : {};
+        // Exclude anonymous posts from normal feed — they appear in confessions feed only
+        // Also exclude time-locked posts that haven't unlocked yet
+        const query = {
+            isAnonymous: { $ne: true },
+            $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
+            ...(cursor ? { _id: { $lt: cursor } } : {}),
+        };
         const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 3);
         const scored = posts.map(post => {
             let score = computeScore(post, followingIds);
@@ -118,6 +186,7 @@ router.get("/user/:userId", async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 12;
         const cursor = req.query.cursor;
+        // Show all posts for profile page — owner sees their own anonymous posts too
         const query = { 'user._id': req.params.userId, ...(cursor ? { _id: { $lt: cursor } } : {}) };
         const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1);
         const hasMore = posts.length > limit;
@@ -296,14 +365,14 @@ router.post('/comments/:commentId/like', async (req, res) => {
         const { userId } = req.body;
         const comment = await Comment.findById(req.params.commentId);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
-        const liked = await comment.likes.includes(userId);
-
+        const liked = comment.likes.includes(userId);
         if (liked) {
             await Comment.findByIdAndUpdate(req.params.commentId, { $pull: { likes: userId } });
         } else {
             await Comment.findByIdAndUpdate(req.params.commentId, { $addToSet: { likes: userId } });
         }
 
+        // ✅ Broadcast comment like
         if (_io) {
             _io.emit('commentLiked', {
                 commentId: req.params.commentId,
@@ -323,6 +392,35 @@ router.get("/detail/:postId", async (req, res) => {
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
         res.status(200).json(post);
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// ─── CONFESSIONS FEED ────────────────────────────────────────────────────────
+// Anonymous posts only — identity is never revealed, sorted by score
+router.get("/confessions", async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 10;
+        const cursor = req.query.cursor;
+        const query = {
+            isAnonymous: true,
+            $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
+            ...(cursor ? { _id: { $lt: cursor } } : {}),
+        };
+        const posts = await Post.find(query).sort({ score: -1, _id: -1 }).limit(limit + 1);
+        const hasMore = posts.length > limit;
+        const result = hasMore ? posts.slice(0, limit) : posts;
+
+        // Strip any identifying info before sending — extra safety layer
+        const sanitized = result.map(p => ({
+            ...p.toObject(),
+            user: {
+                _id: null, // never reveal real _id
+                fullname: 'Anonymous',
+                profile_picture: 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff',
+            },
+        }));
+
+        res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 

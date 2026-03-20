@@ -6,7 +6,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: false },
   profile_picture: {
     type: String,
-    default: "https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg",
+    default: "https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain",
   },
   bio: { type: String, default: null },
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -22,6 +22,13 @@ const UserSchema = new mongoose.Schema({
   twoFactorEnabled: { type: Boolean, default: false },
   twoFactorOtp: { type: String, default: null },
   twoFactorOtpExpires: { type: Date, default: null },
+
+  // Admin
+  isAdmin: { type: Boolean, default: false },
+  isBanned: { type: Boolean, default: false },
+  banReason: { type: String, default: null },
+  bannedAt: { type: Date, default: null },
+
   created_at: { type: Date, default: Date.now },
 });
 

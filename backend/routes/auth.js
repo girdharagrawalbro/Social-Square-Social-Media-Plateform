@@ -528,4 +528,27 @@ router.post("/search", async (req, res) => {
     } catch { res.status(500).json({ message: "Internal server error." }); }
 });
 
+// ─── VERIFY PASSWORD (for admin re-auth gate) ────────────────────────────────
+router.post('/verify-password', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ message: 'Unauthorized' });
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId).select('+password');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Google/OAuth users have no password
+        if (!user.password) return res.status(400).json({ message: 'Password login not available for this account' });
+
+        const bcrypt = require('bcryptjs');
+        const isMatch = await bcrypt.compare(req.body.password, user.password);
+        if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
+
+        res.status(200).json({ message: 'Verified' });
+    } catch (err) {
+        res.status(401).json({ message: 'Invalid token' });
+    }
+});
+
 module.exports = router;
