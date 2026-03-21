@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchMoodFeed } from '../../store/slices/postsSlice';
+import useAuthStore from '../../store/zustand/useAuthStore';
+import { useMoodFeed } from '../../hooks/queries/usePostQueries';
 
 const MOODS = [
     { key: 'happy',         emoji: '😊', label: 'Happy' },
@@ -15,14 +15,13 @@ const MOODS = [
 
 const MoodFeedToggle = ({ onMoodSelect, activeMood, onClear }) => {
     const [expanded, setExpanded] = useState(false);
-    const { loading } = useSelector(state => state.posts);
-    const { loggeduser } = useSelector(state => state.users);
-    const dispatch = useDispatch();
+    const user = useAuthStore(s => s.user);
+    const loggeduser = user;
 
     const handleMoodClick = (moodKey) => {
         if (activeMood === moodKey) { onClear(); return; }
         if (!loggeduser?._id) return;
-        dispatch(fetchMoodFeed({ mood: moodKey, userId: loggeduser._id }));
+        // mood feed triggered via activeMood prop → useMoodFeed in Feed
         onMoodSelect(moodKey);
     };
 
@@ -40,9 +39,7 @@ const MoodFeedToggle = ({ onMoodSelect, activeMood, onClear }) => {
                             : 'Mood-based feed'
                         }
                     </p>
-                    {loading.moodFeed && (
-                        <div style={{ width: 14, height: 14, border: '2px solid #e5e7eb', borderTopColor: '#808bf5', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                    )}
+
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {activeMood && (

@@ -1,6 +1,6 @@
 require('dotenv').config();
 const cluster = require('cluster');
-const os      = require('os');
+const os = require('os');
 
 // ─── CLUSTER MODE ─────────────────────────────────────────────────────────────
 if (cluster.isPrimary && process.env.NODE_ENV === 'production') {
@@ -14,25 +14,25 @@ if (cluster.isPrimary && process.env.NODE_ENV === 'production') {
     return;
 }
 
-const connectToMongo     = require('./db.js');
-const express            = require('express');
-const cors               = require('cors');
-const http               = require('http');
-const socketIo           = require('socket.io');
-const helmet             = require('helmet');
-const compression        = require('compression');
-const rateLimit          = require('express-rate-limit');
-const cookieParser       = require('cookie-parser');
-const { initNats }       = require('./lib/nats');
+const connectToMongo = require('./db.js');
+const express = require('express');
+const cors = require('cors');
+const http = require('http');
+const socketIo = require('socket.io');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const { initNats } = require('./lib/nats');
 const { initPostSubscriber, setIo: setSubscriberIo } = require('./subscribers/postSubscriber');
-const postRouter         = require('./routes/post.js');
-const storyRouter        = require('./routes/story.js');
+const postRouter = require('./routes/post.js');
+const storyRouter = require('./routes/story.js');
 
 connectToMongo();
 
-const app    = express();
+const app = express();
 const server = http.createServer(app);
-const port   = process.env.PORT || 5000;
+const port = process.env.PORT || 5000;
 
 // ─── SECURITY ─────────────────────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
@@ -43,13 +43,13 @@ app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cookieParser());
 
 // ─── RATE LIMITING ────────────────────────────────────────────────────────────
-const authLimiter   = rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  message: { error: 'Too many auth attempts.' }, standardHeaders: true, legacyHeaders: false });
-const apiLimiter    = rateLimit({ windowMs: 60 * 1000,       max: 200, message: { error: 'Rate limit exceeded.' }, skip: req => req.path.startsWith('/api/admin') });
-const reportLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10,  message: { error: 'Too many reports.' } });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, message: { error: 'Too many auth attempts.' }, standardHeaders: true, legacyHeaders: false });
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 200, message: { error: 'Rate limit exceeded.' }, skip: req => req.path.startsWith('/api/admin') });
+const reportLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 100, message: { error: 'Too many reports.' } });
 
-app.use('/api/auth',         authLimiter);
+app.use('/api/auth', authLimiter);
 app.use('/api/admin/report', reportLimiter);
-app.use('/api',              apiLimiter);
+app.use('/api', apiLimiter);
 
 // ─── ALLOWED ORIGINS ──────────────────────────────────────────────────────────
 const allowedOrigins = [
@@ -60,17 +60,17 @@ const allowedOrigins = [
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const io = socketIo(server, {
-    cors:              { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
-    pingTimeout:       60000,
-    pingInterval:      25000,
-    transports:        ['websocket', 'polling'],
+    cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'],
     maxHttpBufferSize: 1e6,
 });
 
 // ─── REDIS ADAPTER ────────────────────────────────────────────────────────────
 (async () => {
     try {
-        const { createClient }  = require('redis');
+        const { createClient } = require('redis');
         const { createAdapter } = require('@socket.io/redis-adapter');
         const pubClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
         const subClient = pubClient.duplicate();
@@ -107,12 +107,14 @@ app.get('/health', (req, res) => {
 });
 
 // ─── ROUTES ───────────────────────────────────────────────────────────────────
-app.use('/api/auth',         require('./routes/auth.js'));
-app.use('/api/post',         postRouter);
+app.use('/api/auth', require('./routes/auth.js'));
+app.use('/api/post', postRouter);
 app.use('/api/conversation', require('./routes/conversation.js'));
-app.use('/api/story',        storyRouter);
-app.use('/api/ai',           require('./routes/ai.js'));
-app.use('/api/admin',        require('./routes/admin.js'));
+app.use('/api/story', storyRouter);
+app.use('/api/ai', require('./routes/ai.js'));
+app.use('/api/admin', require('./routes/admin.js'));
+app.use('/api/chatbot', require('./routes/chatbot.js'))
+
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -176,14 +178,14 @@ io.on('connection', (socket) => {
 const gracefulShutdown = (signal) => {
     console.log(`[${signal}] Graceful shutdown`);
     server.close(async () => {
-        try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch {}
+        try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch { }
         process.exit(0);
     });
     setTimeout(() => process.exit(1), 30000);
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // ─── START ────────────────────────────────────────────────────────────────────
 server.listen(port, () => console.log(`[Worker ${process.pid}] Running on port ${port}`));

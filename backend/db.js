@@ -4,19 +4,19 @@ const connectToMongo = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI, {
             // ─── Connection pool ─────────────────────────────────────────────
-            maxPoolSize:      50,   // max 50 concurrent DB connections per worker
-            minPoolSize:      5,    // keep 5 connections warm always
-            maxIdleTimeMS:    30000, // close idle connections after 30s
+            maxPoolSize: 50,   // max 50 concurrent DB connections per worker
+            minPoolSize: 5,    // keep 5 connections warm always
+            maxIdleTimeMS: 30000, // close idle connections after 30s
 
             // ─── Timeouts ────────────────────────────────────────────────────
             serverSelectionTimeoutMS: 5000,   // fail fast if MongoDB unreachable
-            socketTimeoutMS:          45000,  // abort slow queries after 45s
-            connectTimeoutMS:         10000,  // connection timeout
+            socketTimeoutMS: 45000,  // abort slow queries after 45s
+            connectTimeoutMS: 10000,  // connection timeout
 
             // ─── Reliability ─────────────────────────────────────────────────
-            retryWrites:  true,   // auto-retry failed writes on replica sets
-            retryReads:   true,
-            w:            'majority', // write concern — confirmed by majority of replica set
+            retryWrites: true,   // auto-retry failed writes on replica sets
+            retryReads: true,
+            w: 'majority', // write concern — confirmed by majority of replica set
         });
 
         console.log('[MongoDB] Connected successfully');

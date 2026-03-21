@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchCategories } from '../../store/slices/postsSlice';
-import { search } from '../../store/slices/userSlice';
+import useAuthStore from '../../store/zustand/useAuthStore';
+import { useCategories, useTrending } from '../../hooks/queries/usePostQueries';
+
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
@@ -76,7 +76,7 @@ const ConfessionsFeed = () => {
                                 <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
                                     {post.category && <span style={{ background: '#ede9fe', color: '#6366f1', borderRadius: '8px', padding: '1px 7px', fontSize: '10px', marginRight: '6px' }}>#{post.category}</span>}
                                     {post.mood && <span style={{ fontSize: '12px' }}>
-                                        {({ happy:'😊', sad:'😢', excited:'🤩', angry:'😠', calm:'😌', romantic:'❤️', funny:'😂', inspirational:'💪', nostalgic:'🥹', neutral:'😐' })[post.mood]}
+                                        {({ happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' })[post.mood]}
                                     </span>}
                                 </p>
                             </div>
@@ -128,10 +128,21 @@ const ConfessionsFeed = () => {
 
 // ─── MAIN EXPLORE ─────────────────────────────────────────────────────────────
 const Explore = () => {
-    const dispatch = useDispatch();
-    const { categories } = useSelector(state => state.posts);
-    const { searchResults, loading } = useSelector(state => state.users);
-    const { loggeduser } = useSelector(state => state.users);
+    const loggeduser = useAuthStore(s => s.user);
+    const { data: categories = [] } = useCategories();
+    const [searchResults, setSearchResults] = React.useState({ users: [], posts: [] });
+    const [searchLoading, setSearchLoading] = React.useState(false);
+    const loading = { search: searchLoading };
+    const doSearch = async (term) => {
+        if (!term) return;
+        setSearchLoading(true);
+        try {
+            const res = await fetch(`${BASE}/api/auth/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: term }) });
+            const data = await res.json();
+            setSearchResults({ users: data.users || [], posts: data.posts || [] });
+        } catch { }
+        setSearchLoading(false);
+    };
 
     const [searchTerm, setSearchTerm] = useState('');
     const [trending, setTrending] = useState([]);
@@ -143,10 +154,7 @@ const Explore = () => {
     // ✅ Tab: 'discover' | 'confessions'
     const [activeTab, setActiveTab] = useState('discover');
 
-    useEffect(() => {
-        dispatch(fetchCategories());
-        fetchTrending();
-    }, [dispatch]);
+    useEffect(() => { fetchTrending(); }, []);
 
     const fetchTrending = async () => {
         try {
@@ -157,20 +165,22 @@ const Explore = () => {
     };
 
     const debouncedSearch = useCallback(
-        debounce((term) => { if (term) dispatch(search(term)); }, 400),
-        [dispatch]
+        debounce((term) => { if (term) doSearch(term); }, 400),
+        []
     );
 
     const handleSearchChange = (e) => {
         const term = e.target.value;
         setSearchTerm(term);
-        debouncedSearch(term);
+        if (term) debouncedSearch(term); else setSearchResults({ users: [], posts: [] });
     };
 
     const handleCategoryClick = async (category) => {
         setActiveCategory(category);
         setLoadingCategoryPosts(true);
-        try { dispatch(search(category)); }
+        try {
+            doSearch(category);
+        }
         finally { setLoadingCategoryPosts(false); }
     };
 
@@ -192,7 +202,8 @@ const Explore = () => {
                     { key: 'confessions', label: '🎭 Confessions' },
                 ].map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                        style={{ flex: 1, padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s',
+                        style={{
+                            flex: 1, padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s',
                             background: activeTab === tab.key ? '#808bf5' : 'transparent',
                             color: activeTab === tab.key ? '#fff' : 'var(--text-muted)',
                         }}>

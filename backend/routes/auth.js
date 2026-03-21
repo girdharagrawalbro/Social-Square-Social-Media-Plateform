@@ -83,7 +83,7 @@ router.post('/login', authLimiter, [
                 user.failedLoginAttempts = 0;
                 await user.save();
                 const unlockTime = new Date(user.lockoutUntil).toLocaleTimeString();
-                sendLockoutEmail(user.email, user.fullname, unlockTime).catch(() => {});
+                sendLockoutEmail(user.email, user.fullname, unlockTime).catch(() => { });
                 return res.status(423).json({ error: 'Too many failed attempts. Account locked for 30 minutes.' });
             }
             await user.save();
@@ -188,7 +188,7 @@ router.post('/verify-otp', otpLimiter, [
 
         if (isNewDevice) {
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
-                .catch(() => {});
+                .catch(() => { });
         }
 
         const accessToken = generateAccessToken(user._id);
@@ -303,7 +303,7 @@ router.post('/google', authLimiter, async (req, res) => {
 
         if (isNewDevice) {
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
-                .catch(() => {});
+                .catch(() => { });
         }
 
         const accessToken = generateAccessToken(user._id);

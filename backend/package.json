@@ -33,6 +33,7 @@
     "nats": "^2.29.3",
     "nodemailer": "^8.0.2",
     "nodemon": "^3.1.7",
+    "openai": "^6.32.0",
     "pm2": "^6.0.14",
     "rate-limiter-flexible": "^10.0.1",
     "react-helmet-async": "^3.0.0",

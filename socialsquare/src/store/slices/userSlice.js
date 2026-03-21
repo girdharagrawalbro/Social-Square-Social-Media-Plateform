@@ -294,4 +294,5 @@ export const updateProfile = () => () => {};
 export const followUser = () => () => {};
 export const unfollowUser = () => () => {};
 export const search = () => () => {};
-export default { reducer: (s = {}) => s };
+const userSliceStub = { reducer: (s = {}) => s };
+export default userSliceStub;

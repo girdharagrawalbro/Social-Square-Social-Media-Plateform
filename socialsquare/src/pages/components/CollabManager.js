@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
+import useAuthStore from '../../store/zustand/useAuthStore';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -161,7 +161,7 @@ const InviteCard = ({ post, userId, onRespond }) => {
 // ─── MAIN COLLAB MANAGER ──────────────────────────────────────────────────────
 // mode: 'invites' (pending only) | 'all' (accepted too)
 const CollabManager = ({ mode = 'invites', compact = false }) => {
-    const { loggeduser } = useSelector(state => state.users);
+    const loggeduser = useAuthStore(s => s.user);
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
 

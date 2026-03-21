@@ -303,4 +303,5 @@ export const updateLastMessage = () => ({ type: 'NOOP' });
 export const addMessageToChat = () => ({ type: 'NOOP' });
 export const addNewNotification = () => ({ type: 'NOOP' });
 export const updateReadMessage = () => ({ type: 'NOOP' });
-export default { reducer: (s = {}) => s };
+const conversationSliceStub = { reducer: (s = {}) => s };
+export default conversationSliceStub;

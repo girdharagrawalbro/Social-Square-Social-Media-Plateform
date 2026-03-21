@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 
 export async function getFingerprint() {
     const components = [

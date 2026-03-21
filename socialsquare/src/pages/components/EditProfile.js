@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useDispatch } from "react-redux";
-import { updateUser } from '../../store/slices/userSlice';
+import useAuthStore from '../../store/zustand/useAuthStore';
 import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import toast from 'react-hot-toast';
 
 const EditProfile = ({ users, closeSidebar }) => {
-    const dispatch = useDispatch();
+    const updateProfile = useAuthStore(s => s.updateProfile);
     const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({ fullname: "", email: "", profile_picture: "", bio: "" });
@@ -59,11 +58,16 @@ const EditProfile = ({ users, closeSidebar }) => {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (uploading) { toast.error('Please wait for image to finish uploading'); return; }
-        dispatch(updateUser({ ...formData, userId: users?._id }));
-        closeSidebar();
+        const result = await updateProfile({ ...formData, userId: users?._id });
+        if (result.success) {
+            toast.success('Profile updated successfully!');
+            closeSidebar();
+        } else {
+            toast.error(result.message || 'Failed to update profile');
+        }
     };
 
     return (
