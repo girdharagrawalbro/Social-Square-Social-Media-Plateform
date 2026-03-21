@@ -15,6 +15,7 @@ import { showPushNotification } from '../utils/pushNotifications';
 import useFeedSocket from '../hooks/useFeedSocket';
 import MoodFeedToggle from './components/MoodFeedToggle';
 import useAuthStore from '../store/zustand/useAuthStore';
+import Chatbot from './components/Chatbot'
 
 const Home = () => {
     const token = localStorage.getItem('token');
@@ -32,6 +33,8 @@ const Home = () => {
     useFeedSocket();
 
     useEffect(() => {
+        const token = localStorage.getItem('token');
+        console.log(token);
         if (!token) { navigate('/landing'); return; }
         fetchUser();
     }, [fetchUser, token, navigate]);
@@ -124,6 +127,8 @@ const Home = () => {
                     </div>
                 </div>
             </div>
+            <Chatbot />
+
         </section>
     );
 };

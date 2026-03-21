@@ -13,7 +13,10 @@ const Login = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) { toast.success('You are already logged in..'); navigate('/'); }
+    if (token) {
+      toast.success('You are already logged in..');
+      setTimeout(() => navigate('/'), 1000);
+    }
   }, [navigate]);
 
   const handleChange = (e) => {

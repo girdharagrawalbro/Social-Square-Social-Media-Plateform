@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { createComment } from '../../../store/slices/postsSlice';
+import useAuthStore from '../../../store/zustand/useAuthStore';
+import { useComments, useCreateComment } from '../../../hooks/queries/usePostQueries';
 import axios from 'axios';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
@@ -117,24 +117,32 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
 };
 
 const Comment = ({ postId, setVisible }) => {
-    const dispatch = useDispatch();
-    const { loggeduser } = useSelector(state => state.users);
-    const { comments, loading } = useSelector(state => state.posts);
+    const user = useAuthStore(s => s.user);
+    const loggeduser = user;
     const [formData, setFormData] = useState({ content: '' });
     const [localComments, setLocalComments] = useState(null);
 
+    const { data: fetchedComments, isLoading: commentsLoading } = useComments(postId);
+    const createCommentMutation = useCreateComment();
+
+    const comments = fetchedComments || [];
     const displayComments = localComments ?? comments;
+    const loading = { comments: commentsLoading };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.content.trim()) return;
-        dispatch(createComment({
+        const payload = {
             postId, content: formData.content,
             user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }
-        })).unwrap().then((result) => {
-            setLocalComments(prev => [...(prev ?? comments ?? []), { ...result.data, repliesList: [] }]);
-            setFormData({ content: '' });
-        }).catch(console.error);
+        };
+        createCommentMutation.mutate(payload, {
+            onSuccess: (res) => {
+                setLocalComments(prev => [...(prev ?? comments ?? []), { ...res.data, repliesList: [] }]);
+                setFormData({ content: '' });
+            },
+            onError: console.error,
+        });
     };
 
     const handleDelete = async (commentId, parentId) => {

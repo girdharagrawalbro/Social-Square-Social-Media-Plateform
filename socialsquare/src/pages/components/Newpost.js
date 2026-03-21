@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import useAuthStore from '../../store/zustand/useAuthStore';
+import usePostStore from '../../store/zustand/usePostStore';
+import { useCreatePost } from '../../hooks/queries/usePostQueries';
 import toast, { Toaster } from "react-hot-toast";
-import { addNewPost } from "../../store/slices/postsSlice";
-import { uploadToCloudinary, validateImageFile } from "../../utils/cloudinary";
+
+import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import axios from "axios";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
@@ -23,12 +25,13 @@ const EmojiPicker = ({ onSelect, onClose }) => {
 };
 
 const NewPost = () => {
-    const dispatch = useDispatch();
+    const loggeduser = useAuthStore(s => s.user);
+    const addSocketPost = usePostStore(s => s.addSocketPost);
+    const createPostMutation = useCreatePost();
     const fileInputRef = useRef(null);
     const captionRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
-    const { loggeduser } = useSelector(state => state.users);
 
     const [formData, setFormData] = useState({ caption: "", category: "Default" });
     const [images, setImages] = useState([]);
@@ -238,14 +241,11 @@ const NewPost = () => {
                 mood,
             };
 
-            const response = await fetch(`${BASE}/api/post/create`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(postData),
-            });
-            const data = await response.json();
-            if (response.ok) {
+            const response = await createPostMutation.mutateAsync(postData);
+            const data = response.data;
+            if (data?._id) {
                 toast.success("Post created successfully");
-                dispatch(addNewPost(data));
+                addSocketPost(data);
                 images.forEach(img => URL.revokeObjectURL(img.preview));
                 if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
                 setImages([]); setVoiceBlob(null); setVoicePreviewUrl(null); setRecordingDuration(0);

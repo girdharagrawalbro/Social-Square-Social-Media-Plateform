@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import useAuthStore from '../../store/zustand/useAuthStore';
+import { useUserPosts, useSavedPosts } from '../../hooks/queries/usePostQueries';
 import { useNavigate, Link } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
 import toast, { Toaster } from 'react-hot-toast';
-import { resetState } from '../../store/slices/userSlice';
-import { fetchUserPosts, fetchSavedPosts, resetUserPosts } from '../../store/slices/postsSlice';
+
+
 import { socket } from '../../socket';
 import EditProfile from './EditProfile';
 import ActiveSessions from '../ActiveSessions';
@@ -47,22 +48,15 @@ const Profile = () => {
     const [activeTab, setActiveTab] = useState('posts');
 
     const navigate = useNavigate();
-    const dispatch = useDispatch();
+    const loggeduser = useAuthStore(s => s.user);
+    const logout = useAuthStore(s => s.logout);
+    const { data: userPosts = [], isLoading: loadingUserPosts } = useUserPosts(loggeduser?._id);
+    const { data: savedPostsData = [] } = useSavedPosts(loggeduser?._id);
+    const userPostsList = userPosts?.pages?.flatMap(p => p.posts) || [];
+    const savedPosts = savedPostsData || [];
+    const loading = { userPosts: loadingUserPosts, savedPosts: false };
 
-    const { loggeduser, updateusersuccess, error: userError } = useSelector(state => state.users);
-    const { userPosts, savedPosts, loading } = useSelector(state => state.posts);
 
-    useEffect(() => {
-        if (updateusersuccess) toast.success(updateusersuccess);
-        if (userError?.updateuser) toast.error(userError.updateuser);
-    }, [updateusersuccess, userError]);
-
-    useEffect(() => {
-        if (!loggeduser?._id) return;
-        dispatch(resetUserPosts());
-        dispatch(fetchUserPosts({ userId: loggeduser._id }));
-        dispatch(fetchSavedPosts(loggeduser._id));
-    }, [dispatch, loggeduser?._id]);
 
     const handleLogout = () => {
         confirmDialog({
@@ -74,10 +68,10 @@ const Profile = () => {
                 localStorage.removeItem('socketId');
                 localStorage.removeItem('token');
                 sessionStorage.removeItem('hasReloaded');
-                dispatch(resetState());
+                logout();
                 toast.error('You have been logged out.');
                 if (socket.connected) socket.emit('logoutUser', loggeduser?._id);
-                setTimeout(() => navigate('/login'), 500);
+                navigate('/login');
             },
             reject: () => toast.error('Logout canceled.'),
         });
@@ -86,8 +80,8 @@ const Profile = () => {
     if (!loggeduser) return <div className="text-center p-4">Loading...</div>;
 
     // Only posts/saved use the grid — collabs has its own renderer
-    const tabPosts = activeTab === 'posts' ? userPosts : savedPosts;
-    const isLoadingTab = activeTab === 'posts' ? loading.userPosts : activeTab === 'saved' ? loading.savedPosts : false;
+    const tabPosts = activeTab === 'posts' ? userPostsList : savedPosts;
+    const isLoadingTab = activeTab === 'posts' ? loadingUserPosts : false;
 
     const formatCount = (count = 0) => {
         if (count >= 1000000) return `${(count / 1000000).toFixed(1).replace('.0', '')}M`;
@@ -96,8 +90,8 @@ const Profile = () => {
     };
 
     const TABS = [
-        { key: 'posts',  label: `Posts (${userPosts.length})` },
-        { key: 'saved',  label: `Saved (${savedPosts.length})` },
+        { key: 'posts', label: `Posts (${userPosts.length})` },
+        { key: 'saved', label: `Saved (${savedPosts.length})` },
         { key: 'collabs', label: '🤝 Collabs' },
     ];
 
@@ -187,9 +181,8 @@ const Profile = () => {
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${
-                                    activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500'
-                                }`}
+                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500'
+                                    }`}
                                 style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
                             >
                                 {tab.label}

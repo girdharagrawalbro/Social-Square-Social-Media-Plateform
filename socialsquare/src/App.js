@@ -12,19 +12,20 @@ import useConversationStore from './store/zustand/useConversationStore';
 import { socket } from './socket';
 import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
+import Like from './pages/components/ui/Like';
 
 // ─── LAZY PAGES ───────────────────────────────────────────────────────────────
-const Home           = lazy(() => import('./pages/Home'));
-const Login          = lazy(() => import('./pages/Login'));
-const Signup         = lazy(() => import('./pages/Signup'));
-const Forgot         = lazy(() => import('./pages/Forgot'));
-const Contact        = lazy(() => import('./pages/Contact'));
-const Help           = lazy(() => import('./pages/Help'));
-const Landing        = lazy(() => import('./pages/Landing'));
-const ResetPassword  = lazy(() => import('./pages/ResetPassword'));
-const VerifyOtp      = lazy(() => import('./pages/VerifyOtp'));
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const Forgot = lazy(() => import('./pages/Forgot'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Help = lazy(() => import('./pages/Help'));
+const Landing = lazy(() => import('./pages/Landing'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
 const ActiveSessions = lazy(() => import('./pages/ActiveSessions'));
-const PostDetail     = lazy(() => import('./pages/PostDetail'));
+const PostDetail = lazy(() => import('./pages/PostDetail'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 const PageLoader = () => (
@@ -42,9 +43,9 @@ const queryClient = new QueryClient({
 });
 
 function AppInit() {
-    const fetchUser      = useAuthStore(s => s.fetchUser);
-    const user           = useAuthStore(s => s.user);
-    const token          = useAuthStore(s => s.token);
+    const fetchUser = useAuthStore(s => s.fetchUser);
+    const user = useAuthStore(s => s.user);
+    const token = useAuthStore(s => s.token);
     const setOnlineUsers = useConversationStore(s => s.setOnlineUsers);
 
     useTokenRefresh();
@@ -78,18 +79,18 @@ function App() {
                         <Router>
                             <Suspense fallback={<PageLoader />}>
                                 <Routes>
-                                    <Route path="/landing"        element={<Landing />} />
-                                    <Route path="/signup"         element={<Signup />} />
-                                    <Route path="/forgot"         element={<Forgot />} />
-                                    <Route path="/contact"        element={<Contact />} />
-                                    <Route path="/login"          element={<Login />} />
-                                    <Route path="/help"           element={<Help />} />
+                                    <Route path="/landing" element={<Landing />} />
+                                    <Route path="/signup" element={<Signup />} />
+                                    <Route path="/forgot" element={<Forgot />} />
+                                    <Route path="/contact" element={<Contact />} />
+                                    <Route path="/login" element={<Login />} />
+                                    <Route path="/help" element={<Help />} />
                                     <Route path="/reset-password" element={<ResetPassword />} />
-                                    <Route path="/verify-otp"     element={<VerifyOtp />} />
-                                    <Route path="/sessions"       element={<ActiveSessions />} />
-                                    <Route path="/post/:postId"   element={<PostDetail />} />
-                                    <Route path="/admin"          element={<AdminDashboard />} />
-                                    <Route path="/"               element={<Home />} />
+                                    <Route path="/verify-otp" element={<VerifyOtp />} />
+                                    <Route path="/sessions" element={<ActiveSessions />} />
+                                    <Route path="/post/:postId" element={<PostDetail />} />
+                                    <Route path="/admin" element={<AdminDashboard />} />
+                                    <Route path="/" element={<Home />} />
                                 </Routes>
                             </Suspense>
                         </Router>

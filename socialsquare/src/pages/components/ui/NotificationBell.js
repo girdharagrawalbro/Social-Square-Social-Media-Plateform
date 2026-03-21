@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Badge } from 'primereact/badge';
 import { useNotifications } from '../../../hooks/useNotifications';
-import { useSelector } from 'react-redux';
 import CollabManager from '../CollabManager';
 import axios from 'axios';
 
@@ -13,7 +12,6 @@ export default function NotificationBell({ userId }) {
     const [pendingCollabCount, setPendingCollabCount] = useState(0);
     const ref = useRef(null);
     const { data: notifications = [], markRead, unreadCount } = useNotifications(userId);
-    const { loggeduser } = useSelector(state => state.users);
 
     // Close on outside click
     useEffect(() => {
@@ -27,7 +25,7 @@ export default function NotificationBell({ userId }) {
         if (!userId) return;
         axios.get(`${BASE}/api/post/collaborate/invites/${userId}`)
             .then(r => setPendingCollabCount(r.data.length))
-            .catch(() => {});
+            .catch(() => { });
     }, [userId, open]);
 
     const handleMarkRead = (id) => markRead.mutate([id]);
@@ -130,4 +128,4 @@ export default function NotificationBell({ userId }) {
             )}
         </div>
     );
-}
+}   

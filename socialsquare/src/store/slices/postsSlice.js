@@ -414,4 +414,5 @@ export const socketCommentDeleted = () => ({ type: 'NOOP' });
 export const socketPostUpdated = () => ({ type: 'NOOP' });
 export const socketPostDeleted = () => ({ type: 'NOOP' });
 export const socketNewConfessionPost = () => ({ type: 'NOOP' });
-export default { reducer: (s = {}) => s };
+const postsSliceStub = { reducer: (s = {}) => s };
+export default postsSliceStub;

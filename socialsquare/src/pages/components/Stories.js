@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
+import useAuthStore from '../../store/zustand/useAuthStore';
 import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import { socket } from '../../socket';
 import toast from 'react-hot-toast';
@@ -153,23 +153,23 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser }) => {
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: 'var(--surface-1)', borderRadius: '16px', padding: '24px', width: '360px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', width: '360px', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Create Story</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
                 </div>
-                <div onClick={() => fileInputRef.current?.click()} style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px', background: 'var(--surface-2)', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-                    {preview ? (mediaType === 'video' ? <video src={preview} style={{ width: '100%', borderRadius: '8px', maxHeight: '200px' }} controls /> : <img src={preview} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'cover' }} />) : <div><p style={{ fontSize: '32px', margin: 0 }}>📷</p><p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p></div>}
+                <div onClick={() => fileInputRef.current?.click()} style={{ border: '2px dashed #e5e7eb', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px', background: '#f9fafb', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                    {preview ? (mediaType === 'video' ? <video src={preview} style={{ width: '100%', borderRadius: '8px', maxHeight: '200px' }} controls /> : <img src={preview} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'cover' }} />) : <div><p style={{ fontSize: '32px', margin: 0 }}>📷</p><p style={{ color: '#9ca3af', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p></div>}
                     {preview && text && <div style={{ position: 'absolute', top: textPosition === 'top' ? '15%' : textPosition === 'bottom' ? '75%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: textColor, fontSize: '18px', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)', pointerEvents: 'none' }}>{text}</div>}
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} />
-                <input type="text" placeholder="Add text overlay (optional)" value={text} onChange={e => setText(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px' }} />
+                <input type="text" placeholder="Add text overlay (optional)" value={text} onChange={e => setText(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px' }} />
                 {text && (
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'].map(color => (
-                            <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid #808bf5' : '2px solid var(--border-color)', cursor: 'pointer' }} />
+                            <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid #808bf5' : '2px solid #e5e7eb', cursor: 'pointer' }} />
                         ))}
-                        <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+                        <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
                             <option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option>
                         </select>
                     </div>
@@ -183,7 +183,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser }) => {
 };
 
 const Stories = () => {
-    const { loggeduser } = useSelector(state => state.users);
+    const loggeduser = useAuthStore(s => s.user);
     const [groups, setGroups] = useState([]);
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerGroupIndex, setViewerGroupIndex] = useState(0);
@@ -256,7 +256,7 @@ const Stories = () => {
                         <img src={loggeduser?.profile_picture} alt="" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: ownGroup ? '3px solid #808bf5' : '3px solid #e5e7eb' }} />
                         {!ownGroup && <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, background: '#808bf5', borderRadius: '50%', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 700 }}>+</div>}
                     </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-main)', fontWeight: 500, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '11px', color: '#374151', fontWeight: 500, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {ownGroup ? 'Your story' : 'Add story'}
                     </span>
                 </div>
@@ -265,10 +265,10 @@ const Stories = () => {
                     const allViewed = !group.hasUnviewed;
                     return (
                         <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={() => openViewer(realIndex)}>
-                            <div style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)' }}>
+                            <div style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? '#e5e7eb' : 'linear-gradient(135deg, #808bf5, #ec4899)' }}>
                                 <img src={group.user.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff' }} />
                             </div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-main)', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '11px', color: '#374151', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {group.user.fullname.split(' ')[0]}
                             </span>
                         </div>

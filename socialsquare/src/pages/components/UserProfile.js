@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
-import { followUser, unfollowUser } from '../../store/slices/userSlice';
-import { createConversation } from '../../store/slices/conversationSlice';
+import useAuthStore from '../../store/zustand/useAuthStore';
+import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
+
 import ChatPanel from './ChatPanel';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
@@ -59,8 +59,12 @@ const UserProfile = ({ id }) => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('posts');
     const [chatVisible, setChatVisible] = useState(false);
-    const dispatch = useDispatch();
-    const { loading: loadingState, loggeduser } = useSelector(state => state.users);
+
+    const loggeduser = useAuthStore(s => s.user);
+    const followUser = useAuthStore(s => s.followUser);
+    const unfollowUser = useAuthStore(s => s.unfollowUser);
+    const createConvMutation = useCreateConversation();
+    const loadingState = {}; // follow/unfollow loading is handled by useAuthStore internally
 
     useEffect(() => {
         if (!id || !loggeduser?._id) return;
@@ -75,16 +79,14 @@ const UserProfile = ({ id }) => {
 
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === id?.toString());
 
-    const handleFollow = () => dispatch(followUser({ loggedUserId: loggeduser._id, followUserId: id }));
-    const handleUnfollow = () => dispatch(unfollowUser({ loggedUserId: loggeduser._id, unfollowUserId: id }));
+    const handleFollow = () => followUser(id);
+    const handleUnfollow = () => unfollowUser(id);
 
     const handleMessage = () => {
-        dispatch(createConversation({
-            participants: [
-                { userId: loggeduser._id, fullname: loggeduser.fullname, profilePicture: loggeduser.profile_picture },
-                { userId: id, fullname: userDetails.fullname, profilePicture: userDetails.profile_picture },
-            ]
-        }));
+        createConvMutation.mutate([
+            { userId: loggeduser._id, fullname: loggeduser.fullname, profilePicture: loggeduser.profile_picture },
+            { userId: id, fullname: userDetails.fullname, profilePicture: userDetails.profile_picture },
+        ]);
         setChatVisible(true);
     };
 

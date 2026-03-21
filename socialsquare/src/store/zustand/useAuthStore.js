@@ -24,16 +24,33 @@ const useAuthStore = create(
 
                 // ─── Fetch logged user ────────────────────────────────────────
                 fetchUser: async () => {
-                    const token = get().token;
-                    if (!token) return;
                     set({ loading: true });
                     try {
+                        // ① Always try to get a fresh access token via the httpOnly refresh cookie
+                        const { getFingerprint } = await import('../../utils/fingerprint');
+                        const fingerprint = await getFingerprint();``
+                        const refreshRes = await axios.post(
+                            `${BASE}/api/auth/refresh`,
+                            {},
+                            { withCredentials: true, headers: { 'x-fingerprint': fingerprint } }
+                        );
+                        const freshToken = refreshRes.data.token;
+                        localStorage.setItem('token', freshToken);
+                        set({ token: freshToken });
+
+                        // ② Now fetch the user with the fresh token
                         const res = await axios.get(`${BASE}/api/auth/get`, {
-                            headers: { Authorization: `Bearer ${token}` },
+                            headers: { Authorization: `Bearer ${freshToken}` },
                         });
                         set({ user: res.data, loading: false, error: null });
                     } catch (err) {
-                        set({ loading: false, error: err.response?.data?.message || 'Failed to fetch user' });
+                        // Refresh failed — token truly expired, force logout
+                        if (err.response?.status === 401 || err.response?.status === 403) {
+                            localStorage.removeItem('token');
+                            set({ user: null, token: null, loading: false });
+                        } else {
+                            set({ loading: false, error: err.response?.data?.message || 'Failed to fetch user' });
+                        }
                     }
                 },
 
@@ -42,7 +59,7 @@ const useAuthStore = create(
                     set({ loading: true, error: null });
                     try {
                         const res = await axios.post(`${BASE}/api/auth/login`,
-                            { email, password, fingerprint },
+                            { identifier: email, password, fingerprint },
                             { withCredentials: true }
                         );
                         if (res.data.requiresOtp) {
@@ -54,7 +71,7 @@ const useAuthStore = create(
                         set({ token, user, loading: false });
                         return { success: true };
                     } catch (err) {
-                        const msg = err.response?.data?.message || 'Login failed';
+                        const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
                         set({ loading: false, error: msg });
                         return { error: msg };
                     }
@@ -116,7 +133,7 @@ const useAuthStore = create(
                 // ─── Follow / Unfollow ────────────────────────────────────────
                 followUser: async (followUserId) => {
                     const token = get().token;
-                    const user  = get().user;
+                    const user = get().user;
                     // Optimistic update
                     set(state => ({
                         user: { ...state.user, following: [...(state.user?.following || []), followUserId] }
@@ -136,7 +153,7 @@ const useAuthStore = create(
 
                 unfollowUser: async (unfollowUserId) => {
                     const token = get().token;
-                    const user  = get().user;
+                    const user = get().user;
                     set(state => ({
                         user: { ...state.user, following: state.user.following.filter(id => id !== unfollowUserId) }
                     }));

@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchCategories } from "../../store/slices/postsSlice";
-import { search } from "../../store/slices/userSlice";
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
+import { useCategories } from '../../hooks/queries/usePostQueries';
+
+const BASE = process.env.REACT_APP_BACKEND_URL;
 
 const RECENT_KEY = 'recentSearches';
 const MAX_RECENT = 5;
@@ -19,13 +19,22 @@ const Search = () => {
         catch { return []; }
     });
     const containerRef = useRef(null);
-    const dispatch = useDispatch();
-    const { categories } = useSelector(state => state.posts);
-    const { searchResults, loading } = useSelector(state => state.users);
+    const { data: catData = [] } = useCategories();
+    const categories = catData;
+    const [searchResults, setSearchResults] = useState({ users: [], posts: [] });
+    const [searchLoading, setSearchLoading] = useState(false);
+    const loading = { search: searchLoading };
+    const doSearch = async (term) => {
+        setSearchLoading(true);
+        try {
+            const res = await fetch(`${BASE}/api/auth/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: term }) });
+            const data = await res.json();
+            setSearchResults({ users: data.users || [], posts: data.posts || [] });
+        } catch {}
+        setSearchLoading(false);
+    };
 
-    useEffect(() => {
-        dispatch(fetchCategories());
-    }, [dispatch]);
+    // categories are loaded automatically by useCategories() above
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -41,15 +50,15 @@ const Search = () => {
     // Debounced search — fires 400ms after user stops typing
     const debouncedSearch = useCallback(
         debounce((term) => {
-            if (term.trim()) dispatch(search(term.trim()));
+            if (term.trim()) doSearch(term.trim());
         }, 400),
-        [dispatch]
+        []
     );
 
     const handleInputChange = (e) => {
         const term = e.target.value;
         setSearchTerm(term);
-        debouncedSearch(term);
+        if (term.trim()) { debouncedSearch(term); } else { setSearchResults({ users: [], posts: [] }); }
     };
 
     const saveRecentSearch = (term) => {
@@ -66,7 +75,7 @@ const Search = () => {
 
     const handleRecentClick = (term) => {
         setSearchTerm(term);
-        dispatch(search(term));
+        doSearch(term);
     };
 
     const handleUserClick = (userId, userName) => {
@@ -78,7 +87,7 @@ const Search = () => {
 
     const handleCategoryClick = (category) => {
         setSearchTerm(`#${category}`);
-        dispatch(search(category));
+        doSearch(category);
         saveRecentSearch(`#${category}`);
     };
 
@@ -113,7 +122,7 @@ const Search = () => {
 
                 {/* Dropdown */}
                 {showDropdown && (
-                    <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                    <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid #e5e7eb' }}>
 
                         {/* Recent searches — shown when no search term */}
                         {!searchTerm && recentSearches.length > 0 && (
