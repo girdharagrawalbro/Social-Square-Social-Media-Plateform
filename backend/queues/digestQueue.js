@@ -24,10 +24,18 @@ async function scheduleDailyDigest() {
 }
 
 // ─── MAILER ───────────────────────────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-});
+function getTransporter() {
+    const user = process.env.EMAIL_USER?.trim();
+    const pass = process.env.EMAIL_PASS?.trim();
+    if (!user || !pass) {
+        return { sendMail: async () => { console.warn("[Digest] Mailer skipped: Credentials missing"); } };
+    }
+    return nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user, pass },
+    });
+}
+const transporter = getTransporter();
 
 function buildDigestEmail(user, stats) {
     const { newFollowers, newLikes, newComments, trendingPosts } = stats;

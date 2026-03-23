@@ -47,7 +47,7 @@ const Profile = () => {
                 logout();
                 toast.error('You have been logged out.');
                 if (socket.connected) socket.emit('logoutUser', loggeduser?._id);
-                navigate('/login');
+                window.location.href = '/login';
             },
             reject: () => toast.error('Logout canceled.'),
         });
