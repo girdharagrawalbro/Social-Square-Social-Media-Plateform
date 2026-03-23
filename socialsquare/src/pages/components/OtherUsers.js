@@ -1,36 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import { useOtherUsers, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
 import UserProfile from './UserProfile';
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
-
 const OtherUsers = () => {
-    const user        = useAuthStore(s => s.user);
-    const followUser  = useAuthStore(s => s.followUser);
-    const unfollowUser= useAuthStore(s => s.unfollowUser);
+    const user = useAuthStore(s => s.user);
+    
+    // ✅ TanStack Query - cached, deduplicated requests
+    const { data: users = [], isLoading } = useOtherUsers();
+    const followMutation = useFollowUser();
+    const unfollowMutation = useUnfollowUser();
 
-    const [users, setUsers]             = useState([]);
-    const [loading, setLoading]         = useState(true);
-    const [selectedId, setSelectedId]   = useState(null);
+    const [selectedId, setSelectedId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
-
-    useEffect(() => {
-        if (!user?._id) return;
-        fetch(`${BASE}/api/auth/other-users`)
-            .then(r => r.json())
-            .then(data => { setUsers(Array.isArray(data) ? data : []); setLoading(false); })
-            .catch(() => setLoading(false));
-    }, [user?._id]);
 
     const handleFollow = (e, userId) => {
         e.stopPropagation();
         const isFollowing = user?.following?.some(f => f?.toString() === userId?.toString());
-        if (isFollowing) unfollowUser(userId);
-        else followUser(userId);
+        if (isFollowing) {
+            unfollowMutation.mutate({ targetUserId: userId });
+        } else {
+            followMutation.mutate({ targetUserId: userId });
+        }
     };
 
-    if (loading) return (
+    if (isLoading) return (
         <div className="p-3 bordershadow bg-white rounded mt-3">
             {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl mb-2 animate-pulse" />)}
         </div>
@@ -43,6 +38,7 @@ const OtherUsers = () => {
                 <div className="flex flex-col gap-2">
                     {users.filter(u => u._id !== user?._id).slice(0, 8).map(u => {
                         const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
+                        const isLoading = followMutation.isPending || unfollowMutation.isPending;
                         return (
                             <div key={u._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition"
                                 onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}>
@@ -52,8 +48,9 @@ const OtherUsers = () => {
                                     <p className="m-0 text-xs text-gray-400">{u.followers?.length || 0} followers</p>
                                 </div>
                                 <button onClick={e => handleFollow(e, u._id)}
-                                    className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold flex-shrink-0 ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'}`}>
-                                    {isFollowing ? 'Following' : 'Follow'}
+                                    disabled={isLoading}
+                                    className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold flex-shrink-0 transition ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    {isLoading ? 'Loading...' : (isFollowing ? 'Following' : 'Follow')}
                                 </button>
                             </div>
                         );
@@ -61,7 +58,7 @@ const OtherUsers = () => {
                 </div>
             </div>
 
-            <Dialog header="Profile" visible={profileVisible} style={{ width: '380px' }} onHide={() => setProfileVisible(false)}>
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '500px' }} onHide={() => setProfileVisible(false)}>
                 <UserProfile id={selectedId} />
             </Dialog>
         </>

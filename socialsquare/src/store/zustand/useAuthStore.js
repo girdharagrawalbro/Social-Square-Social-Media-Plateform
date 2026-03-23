@@ -1,196 +1,235 @@
 import { create } from 'zustand';
-import { persist, devtools } from 'zustand/middleware';
+import { devtools } from 'zustand/middleware';
 import axios from 'axios';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
+// ─── AXIOS INSTANCE ───────────────────────────────────────────────────────────
+// Single axios instance used everywhere — interceptor auto-refreshes on 401
+export const api = axios.create({
+    baseURL: BASE,
+    withCredentials: true, // sends httpOnly refresh token cookie automatically
+});
+
+// In-memory access token — never touches localStorage
+// Survives re-renders, lost on hard refresh (intentional — refresh endpoint restores it)
+let inMemoryToken = null;
+
+export function getToken() { return inMemoryToken; }
+export function setToken(t) { inMemoryToken = t; }
+export function clearToken() { inMemoryToken = null; }
+
+// Attach token to every request
+api.interceptors.request.use(config => {
+    if (inMemoryToken) config.headers.Authorization = `Bearer ${inMemoryToken}`;
+    return config;
+});
+
+// ─── REFRESH LOGIC ────────────────────────────────────────────────────────────
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(({ resolve, reject }) => error ? reject(error) : resolve(token));
+    failedQueue = [];
+};
+
+/**
+ * Shared thread-safe refresh function
+ */
+export const refreshAccessToken = async () => {
+    if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+        });
+    }
+
+    isRefreshing = true;
+    try {
+        const { getFingerprint } = await import('../../utils/fingerprint');
+        const fingerprint = await getFingerprint();
+        
+        const res = await axios.post(
+            `${BASE}/api/auth/refresh`,
+            {},
+            { withCredentials: true, headers: { 'x-fingerprint': fingerprint } }
+        );
+        
+        const { token, user } = res.data;
+        setToken(token);
+        if (user) useAuthStore.getState().setUser(user);
+        
+        processQueue(null, token);
+        return token;
+    } catch (err) {
+        processQueue(err, null);
+        clearToken();
+        useAuthStore.getState().setUser(null);
+        // Only redirect if we are not already on login/landing
+        if (!['/login', '/landing', '/signup'].includes(window.location.pathname)) {
+            window.location.href = '/login';
+        }
+        throw err;
+    } finally {
+        isRefreshing = false;
+    }
+};
+
+api.interceptors.response.use(
+    res => res,
+    async err => {
+        const original = err.config;
+        if (err.response?.status !== 401 || original._retry || original.url?.includes('/auth/refresh')) {
+            return Promise.reject(err);
+        }
+
+        original._retry = true;
+        try {
+            const newToken = await refreshAccessToken();
+            original.headers.Authorization = `Bearer ${newToken}`;
+            return api(original);
+        } catch (refreshErr) {
+            return Promise.reject(refreshErr);
+        }
+    }
+);
+
+// ─── AUTH STORE ───────────────────────────────────────────────────────────────
 const useAuthStore = create(
     devtools(
-        persist(
-            (set, get) => ({
-                // ─── State ────────────────────────────────────────────────────
-                user: null,
-                token: localStorage.getItem('token') || null,
-                loading: false,
-                error: null,
+        (set, get) => ({
+            user: null,
+            loading: false,
+            error: null,
 
-                // ─── Setters ──────────────────────────────────────────────────
-                setUser: (user) => set({ user }),
-                setToken: (token) => {
-                    localStorage.setItem('token', token);
-                    set({ token });
-                },
-                clearError: () => set({ error: null }),
+            setUser: (user) => set({ user }),
+            clearError: () => set({ error: null }),
 
-                // ─── Fetch logged user ────────────────────────────────────────
-                fetchUser: async () => {
-                    set({ loading: true });
-                    try {
-                        // ① Always try to get a fresh access token via the httpOnly refresh cookie
-                        const { getFingerprint } = await import('../../utils/fingerprint');
-                        const fingerprint = await getFingerprint();``
-                        const refreshRes = await axios.post(
-                            `${BASE}/api/auth/refresh`,
-                            {},
-                            { withCredentials: true, headers: { 'x-fingerprint': fingerprint } }
-                        );
-                        const freshToken = refreshRes.data.token;
-                        localStorage.setItem('token', freshToken);
-                        set({ token: freshToken });
+            // ── Silent restore on page refresh ────────────────────────────────
+            // Called once on app mount — uses httpOnly refresh token cookie
+            // to get a new access token without user doing anything
+            initAuth: async () => {
+                set({ loading: true });
+                try {
+                    // refreshAccessToken already sets the token and user in the store
+                    await refreshAccessToken();
+                    set({ loading: false, error: null });
+                } catch {
+                    // No valid refresh token — user needs to log in
+                    clearToken();
+                    set({ user: null, loading: false });
+                }
+            },
 
-                        // ② Now fetch the user with the fresh token
-                        const res = await axios.get(`${BASE}/api/auth/get`, {
-                            headers: { Authorization: `Bearer ${freshToken}` },
-                        });
-                        set({ user: res.data, loading: false, error: null });
-                    } catch (err) {
-                        // Refresh failed — token truly expired, force logout
-                        if (err.response?.status === 401 || err.response?.status === 403) {
-                            localStorage.removeItem('token');
-                            set({ user: null, token: null, loading: false });
-                        } else {
-                            set({ loading: false, error: err.response?.data?.message || 'Failed to fetch user' });
-                        }
+            // ── Login ─────────────────────────────────────────────────────────
+            login: async ({ email, password, fingerprint }) => {
+                set({ loading: true, error: null });
+                try {
+                    const res = await axios.post(
+                        `${BASE}/api/auth/login`,
+                        { email, password, fingerprint },
+                        { withCredentials: true }
+                    );
+                    if (res.data.requiresOtp) {
+                        set({ loading: false });
+                        return { requiresOtp: true, email };
                     }
-                },
+                    const { token, user } = res.data;
+                    setToken(token);
+                    set({ user, loading: false });
+                    return { success: true };
+                } catch (err) {
+                    const msg = err.response?.data?.message || 'Login failed';
+                    set({ loading: false, error: msg });
+                    return { error: msg };
+                }
+            },
 
-                // ─── Login ────────────────────────────────────────────────────
-                login: async ({ email, password, fingerprint }) => {
-                    set({ loading: true, error: null });
-                    try {
-                        const res = await axios.post(`${BASE}/api/auth/login`,
-                            { identifier: email, password, fingerprint },
-                            { withCredentials: true }
-                        );
-                        if (res.data.requiresOtp) {
-                            set({ loading: false });
-                            return { requiresOtp: true, email };
-                        }
-                        const { token, user } = res.data;
-                        localStorage.setItem('token', token);
-                        set({ token, user, loading: false });
-                        return { success: true };
-                    } catch (err) {
-                        const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
-                        set({ loading: false, error: msg });
-                        return { error: msg };
-                    }
-                },
+            // ── Signup ────────────────────────────────────────────────────────
+            signup: async ({ fullname, email, password, fingerprint }) => {
+                set({ loading: true, error: null });
+                try {
+                    const res = await axios.post(
+                        `${BASE}/api/auth/add`,
+                        { fullname, email, password, fingerprint },
+                        { withCredentials: true }
+                    );
+                    const { token, user } = res.data;
+                    setToken(token);
+                    set({ user, loading: false });
+                    return { success: true };
+                } catch (err) {
+                    const msg = err.response?.data?.message || 'Signup failed';
+                    set({ loading: false, error: msg });
+                    return { error: msg };
+                }
+            },
 
-                // ─── Signup ───────────────────────────────────────────────────
-                signup: async ({ fullname, email, password, fingerprint }) => {
-                    set({ loading: true, error: null });
-                    try {
-                        const res = await axios.post(`${BASE}/api/auth/add`,
-                            { fullname, email, password, fingerprint },
-                            { withCredentials: true }
-                        );
-                        const { token, user } = res.data;
-                        localStorage.setItem('token', token);
-                        set({ token, user, loading: false });
-                        return { success: true };
-                    } catch (err) {
-                        const msg = err.response?.data?.message || 'Signup failed';
-                        set({ loading: false, error: msg });
-                        return { error: msg };
-                    }
-                },
+            // ── Google OAuth ──────────────────────────────────────────────────
+            googleAuth: async ({ credential, fingerprint }) => {
+                set({ loading: true, error: null });
+                try {
+                    const res = await axios.post(
+                        `${BASE}/api/auth/google`,
+                        { credential, fingerprint },
+                        { withCredentials: true }
+                    );
+                    const { token, user } = res.data;
+                    setToken(token);
+                    set({ user, loading: false });
+                    return { success: true };
+                } catch (err) {
+                    const msg = err.response?.data?.message || 'Google auth failed';
+                    set({ loading: false, error: msg });
+                    return { error: msg };
+                }
+            },
 
-                // ─── Google OAuth ─────────────────────────────────────────────
-                googleAuth: async ({ credential, fingerprint }) => {
-                    set({ loading: true, error: null });
-                    try {
-                        const res = await axios.post(`${BASE}/api/auth/google`,
-                            { credential, fingerprint },
-                            { withCredentials: true }
-                        );
-                        const { token, user } = res.data;
-                        localStorage.setItem('token', token);
-                        set({ token, user, loading: false });
-                        return { success: true };
-                    } catch (err) {
-                        const msg = err.response?.data?.message || 'Google auth failed';
-                        set({ loading: false, error: msg });
-                        return { error: msg };
-                    }
-                },
+            // ── Logout ────────────────────────────────────────────────────────
+            logout: async () => {
+                const user = get().user;
+                try {
+                    await api.post('/api/auth/logout');
+                } catch { }
+                clearToken();
+                localStorage.removeItem('socketId');
+                set({ user: null });
+            },
 
-                // ─── Logout ───────────────────────────────────────────────────
-                logout: async () => {
-                    const token = get().token;
-                    try {
-                        await axios.post(`${BASE}/api/auth/logout`, {}, {
-                            headers: { Authorization: `Bearer ${token}` },
-                            withCredentials: true,
-                        });
-                    } catch { }
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('socketId');
-                    sessionStorage.removeItem('hasReloaded');
-                    set({ user: null, token: null });
-                },
+            // ── Follow / Unfollow ─────────────────────────────────────────────
+            followUser: async (followUserId) => {
+                const user = get().user;
+                set(s => ({ user: { ...s.user, following: [...(s.user?.following || []), followUserId] } }));
+                try {
+                    await api.post('/api/auth/follow', { loggedUserId: user._id, followUserId });
+                } catch {
+                    set(s => ({ user: { ...s.user, following: s.user.following.filter(id => id !== followUserId) } }));
+                }
+            },
 
-                // ─── Follow / Unfollow ────────────────────────────────────────
-                followUser: async (followUserId) => {
-                    const token = get().token;
-                    const user = get().user;
-                    // Optimistic update
-                    set(state => ({
-                        user: { ...state.user, following: [...(state.user?.following || []), followUserId] }
-                    }));
-                    try {
-                        await axios.post(`${BASE}/api/auth/follow`,
-                            { loggedUserId: user._id, followUserId },
-                            { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                    } catch {
-                        // Rollback
-                        set(state => ({
-                            user: { ...state.user, following: state.user.following.filter(id => id !== followUserId) }
-                        }));
-                    }
-                },
+            unfollowUser: async (unfollowUserId) => {
+                const user = get().user;
+                set(s => ({ user: { ...s.user, following: s.user.following.filter(id => id !== unfollowUserId) } }));
+                try {
+                    await api.post('/api/auth/unfollow', { loggedUserId: user._id, unfollowUserId });
+                } catch {
+                    set(s => ({ user: { ...s.user, following: [...(s.user?.following || []), unfollowUserId] } }));
+                }
+            },
 
-                unfollowUser: async (unfollowUserId) => {
-                    const token = get().token;
-                    const user = get().user;
-                    set(state => ({
-                        user: { ...state.user, following: state.user.following.filter(id => id !== unfollowUserId) }
-                    }));
-                    try {
-                        await axios.post(`${BASE}/api/auth/unfollow`,
-                            { loggedUserId: user._id, unfollowUserId },
-                            { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                    } catch {
-                        set(state => ({
-                            user: { ...state.user, following: [...(state.user?.following || []), unfollowUserId] }
-                        }));
-                    }
-                },
-
-                // ─── Update profile ───────────────────────────────────────────
-                updateProfile: async (data) => {
-                    const token = get().token;
-                    set({ loading: true });
-                    try {
-                        const res = await axios.put(`${BASE}/api/auth/update-profile`, data, {
-                            headers: { Authorization: `Bearer ${token}` },
-                        });
-                        set({ user: res.data, loading: false });
-                        return { success: true };
-                    } catch (err) {
-                        set({ loading: false, error: err.response?.data?.message });
-                        return { error: err.response?.data?.message };
-                    }
-                },
-            }),
-            {
-                name: 'auth-store',
-                // Only persist token — user is fetched fresh on mount
-                partialize: (state) => ({ token: state.token }),
-            }
-        ),
+            // ── Update profile ────────────────────────────────────────────────
+            updateProfile: async (data) => {
+                set({ loading: true });
+                try {
+                    const res = await api.put('/api/auth/update-profile', data);
+                    set({ user: res.data, loading: false });
+                    return { success: true };
+                } catch (err) {
+                    set({ loading: false, error: err.response?.data?.message });
+                    return { error: err.response?.data?.message };
+                }
+            },
+        }),
         { name: 'AuthStore' }
     )
 );

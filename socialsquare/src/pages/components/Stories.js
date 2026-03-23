@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import { useStoryFeed } from '../../hooks/queries/useAuthQueries';
 import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import { socket } from '../../socket';
 import toast from 'react-hot-toast';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
 
 const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDeleted }) => {
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
@@ -16,31 +15,43 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     const story = group?.stories[storyIndex];
     const DURATION = story?.media?.type === 'video' ? 15000 : 5000;
 
+    const goNext = React.useCallback(() => {
+        if (!group) return;
+        if (storyIndex < group.stories.length - 1) setStoryIndex(s => s + 1);
+        else if (groupIndex < groups.length - 1) {
+            setGroupIndex(g => g + 1);
+            setStoryIndex(0);
+        } else onClose();
+    }, [group, storyIndex, groupIndex, groups.length, onClose]);
+
     useEffect(() => {
         if (!story) return;
+
         if (story._id && loggeduser?._id) {
-            fetch(`${BASE}/api/story/view/${story._id}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: loggeduser._id }),
-            }).catch(() => {});
+            import('../../store/zustand/useAuthStore').then(({ api }) => {
+                api.post(`/api/story/view/${story._id}`, { userId: loggeduser._id }).catch(() => { });
+            });
         }
+
         setProgress(0);
         clearInterval(intervalRef.current);
+
         intervalRef.current = setInterval(() => {
             setProgress(prev => {
-                if (prev >= 100) { clearInterval(intervalRef.current); goNext(); return 0; }
+                if (prev >= 100) {
+                    clearInterval(intervalRef.current);
+                    goNext();
+                    return 0;
+                }
                 return prev + (100 / (DURATION / 100));
             });
         }, 100);
-        return () => clearInterval(intervalRef.current);
-    }, [groupIndex, storyIndex, story?._id]);
 
-    const goNext = () => {
-        if (!group) return;
-        if (storyIndex < group.stories.length - 1) setStoryIndex(s => s + 1);
-        else if (groupIndex < groups.length - 1) { setGroupIndex(g => g + 1); setStoryIndex(0); }
-        else onClose();
-    };
+        return () => clearInterval(intervalRef.current);
+
+    }, [story, DURATION, loggeduser?._id, goNext]);
+
+
     const goPrev = () => {
         if (storyIndex > 0) setStoryIndex(s => s - 1);
         else if (groupIndex > 0) { setGroupIndex(g => g - 1); setStoryIndex(0); }
@@ -51,12 +62,9 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
 
     const handleDelete = async () => {
         try {
-            await fetch(`${BASE}/api/story/${story._id}`, {
-                method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: loggeduser._id }),
-            });
+            const { api } = await import('../../store/zustand/useAuthStore');
+            await api.delete(`/api/story/${story._id}`, { data: { userId: loggeduser._id } });
             toast.success('Story deleted');
-            // ✅ Update parent state
             onStoryDeleted(group.user._id.toString(), story._id);
             if (group.stories.length <= 1) {
                 if (groupIndex < groups.length - 1) { setGroupIndex(g => g + 1); setStoryIndex(0); }
@@ -139,13 +147,14 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser }) => {
                 mediaUrl = (await res.json()).secure_url;
             } else { mediaUrl = await uploadToCloudinary(file); }
 
-            const res = await fetch(`${BASE}/api/story/create`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: loggeduser._id, mediaUrl, mediaType, text: text ? { content: text, color: textColor, position: textPosition } : null }),
+            const { api } = await import('../../store/zustand/useAuthStore');
+            const res = await api.post(`/api/story/create`, {
+                userId: loggeduser._id, mediaUrl, mediaType,
+                text: text ? { content: text, color: textColor, position: textPosition } : null
             });
-            const newStory = await res.json();
+            const newStory = res.data;
             toast.success('Story created!');
-            onCreated(newStory); // ✅ pass back to parent
+            onCreated(newStory);
             onClose();
         } catch { toast.error('Failed to create story'); }
         setUploading(false);
@@ -189,16 +198,13 @@ const Stories = () => {
     const [viewerGroupIndex, setViewerGroupIndex] = useState(0);
     const [createOpen, setCreateOpen] = useState(false);
 
-    const fetchStories = async () => {
-        if (!loggeduser?._id) return;
-        try {
-            const res = await fetch(`${BASE}/api/story/feed/${loggeduser._id}`);
-            const data = await res.json();
-            setGroups(Array.isArray(data) ? data : []);
-        } catch {}
-    };
+    // ✅ TanStack Query - cached, deduplicated requests
+    const { data: storyFeed = [] } = useStoryFeed(loggeduser?._id);
 
-    useEffect(() => { fetchStories(); }, [loggeduser?._id]);
+    // Sync TanStack Query data with local state
+    useEffect(() => {
+        setGroups(storyFeed);
+    }, [storyFeed]);
 
     // ✅ Real-time: new story from a followed user
     useEffect(() => {
@@ -219,7 +225,6 @@ const Stories = () => {
         return () => socket.off('newStory', handleNewStory);
     }, [loggeduser?._id]);
 
-    // ✅ Delete story from local state
     const handleStoryDeleted = (userId, storyId) => {
         setGroups(prev =>
             prev.map(g => g.user._id.toString() === userId
@@ -229,7 +234,6 @@ const Stories = () => {
         );
     };
 
-    // ✅ Add created story to own group optimistically
     const handleStoryCreated = (newStory) => {
         const myId = loggeduser?._id?.toString();
         setGroups(prev => {

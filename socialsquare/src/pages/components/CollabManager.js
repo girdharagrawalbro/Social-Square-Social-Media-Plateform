@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import axios from 'axios';
+import { useAcceptCollaboration, useDeclineCollaboration } from '../../hooks/queries/usePostOperationsQueries';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -14,9 +15,10 @@ const STATUS_STYLE = {
 // ─── SINGLE INVITE CARD ───────────────────────────────────────────────────────
 const InviteCard = ({ post, userId, onRespond }) => {
     const [contribution, setContribution] = useState('');
-    const [loading, setLoading] = useState(false);
     const [showContrib, setShowContrib] = useState(false);
     const [expanded, setExpanded] = useState(false);
+    const acceptMut = useAcceptCollaboration();
+    const declineMut = useDeclineCollaboration();
 
     const myCollab = post.collaborators?.find(c => c.userId?.toString() === userId?.toString());
     const images = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
@@ -26,19 +28,17 @@ const InviteCard = ({ post, userId, onRespond }) => {
             setShowContrib(true);
             return;
         }
-        setLoading(true);
         try {
-            await axios.post(`${BASE}/api/post/collaborate/${accepted ? 'accept' : 'decline'}`, {
-                postId: post._id,
-                userId,
-                contribution: accepted ? contribution : undefined,
-            });
+            if (accepted) {
+                await acceptMut.mutateAsync({ postId: post._id, contribution });
+            } else {
+                await declineMut.mutateAsync({ postId: post._id });
+            }
             toast.success(accepted ? '🤝 Collaboration accepted!' : 'Invite declined');
             onRespond(post._id, accepted ? 'accepted' : 'declined');
         } catch (e) {
             toast.error(e.response?.data?.message || 'Failed');
         }
-        setLoading(false);
     };
 
     if (!myCollab) return null;
@@ -119,9 +119,9 @@ const InviteCard = ({ post, userId, onRespond }) => {
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button
                                     onClick={() => respond(true)}
-                                    disabled={loading || !contribution.trim()}
+                                    disabled={acceptMut.isPending || !contribution.trim()}
                                     style={{ flex: 1, padding: '8px', background: contribution.trim() ? '#808bf5' : '#e5e7eb', color: contribution.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: '10px', cursor: contribution.trim() ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 600 }}>
-                                    {loading ? '...' : '🤝 Accept & Contribute'}
+                                    {acceptMut.isPending ? '...' : '🤝 Accept & Contribute'}
                                 </button>
                                 <button onClick={() => setShowContrib(false)} style={{ padding: '8px 14px', background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px' }}>
                                     Back
@@ -137,9 +137,9 @@ const InviteCard = ({ post, userId, onRespond }) => {
                             </button>
                             <button
                                 onClick={() => respond(false)}
-                                disabled={loading}
+                                disabled={declineMut.isPending}
                                 style={{ flex: 1, padding: '8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
-                                {loading ? '...' : '✕ Decline'}
+                                {declineMut.isPending ? '...' : '✕ Decline'}
                             </button>
                         </div>
                     )}

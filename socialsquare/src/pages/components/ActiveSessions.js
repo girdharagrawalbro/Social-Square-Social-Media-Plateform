@@ -35,7 +35,7 @@ const ActiveSessions = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTwoFaEnabled(res.data.twoFactorEnabled);
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -73,7 +73,7 @@ const ActiveSessions = () => {
         <p className="text-sm text-gray-500 mb-6">Manage your active sessions and security preferences.</p>
 
         {/* 2FA Toggle */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 flex items-center justify-between gap-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-bold m-0">Two-Factor Authentication</h3>
             <p className="text-xs text-gray-500 mt-1 m-0">
@@ -85,9 +85,8 @@ const ActiveSessions = () => {
           <button
             onClick={toggle2FA}
             disabled={toggling2FA}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all ${
-              twoFaEnabled ? 'bg-red-100 text-red-500' : 'bg-indigo-500 text-white'
-            }`}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all ${twoFaEnabled ? 'bg-red-100 text-red-500' : 'bg-indigo-500 text-white'
+              }`}
           >
             {toggling2FA ? '...' : twoFaEnabled ? 'Disable' : 'Enable'}
           </button>

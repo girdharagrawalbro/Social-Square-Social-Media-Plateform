@@ -27,6 +27,10 @@ html.dark {
   --border-color: #334155;
 }
 
+body {
+  overflow: hidden;
+}
+
 html,
 body,
 #root {
@@ -118,12 +122,15 @@ html.dark .skeleton {
 .p-overlaypanel-content {
   padding: 0 0 4px 4px;
 }
+
 .p-button {
   padding: 5px 15px;
 }
+
 .p-dialog-header {
   padding: 1rem;
 }
+
 .p-dialog-content {
   padding: 0 1rem 1rem 1rem;
 }
@@ -134,9 +141,11 @@ Link {
   color: inherit;
   text-decoration: none;
 }
+
 ul {
   list-style: none;
 }
+
 ::-webkit-scrollbar {
   display: none;
 }
@@ -148,9 +157,11 @@ ul {
   border-radius: 50%;
   object-fit: cover;
 }
+
 .bordershadow {
   box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
 }
+
 .interaction {
   bottom: 0;
   z-index: 5;
@@ -167,28 +178,33 @@ ul {
   animation: shimmer 1.4s linear infinite;
   border-radius: 4px;
 }
+
 .skeleton-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
 }
+
 .skeleton-profile-pic {
   width: 100px;
   height: 100px;
   border-radius: 50%;
 }
+
 .skeleton-line {
   height: 12px;
   width: 100%;
   margin-bottom: 8px;
   border-radius: 6px;
 }
+
 .skeleton-image {
   width: 100%;
   height: 200px;
   border-radius: 8px;
   margin-top: 12px;
 }
+
 .post-skeleton {
   padding: 12px;
 }
@@ -197,9 +213,15 @@ ul {
   0% {
     background-position: -400% 0;
   }
+
   100% {
     background-position: 400% 0;
   }
+}
+
+.profile-container {
+  position: sticky;
+  top: 80px;
 }
 
 /* Three-body loader */
@@ -213,11 +235,13 @@ ul {
   width: var(--uib-size);
   animation: spin78236 calc(var(--uib-speed) * 2.5) infinite linear;
 }
+
 .three-body__dot {
   position: absolute;
   height: 100%;
   width: 30%;
 }
+
 .three-body__dot:after {
   content: "";
   position: absolute;
@@ -227,65 +251,78 @@ ul {
   background-color: var(--uib-color);
   border-radius: 50%;
 }
+
 .three-body__dot:nth-child(1) {
   bottom: 5%;
   left: 0;
   transform: rotate(60deg);
   transform-origin: 50% 85%;
 }
+
 .three-body__dot:nth-child(1)::after {
   bottom: 0;
   left: 0;
   animation: wobble1 var(--uib-speed) infinite ease-in-out;
   animation-delay: calc(var(--uib-speed) * -0.3);
 }
+
 .three-body__dot:nth-child(2) {
   bottom: 5%;
   right: 0;
   transform: rotate(-60deg);
   transform-origin: 50% 85%;
 }
+
 .three-body__dot:nth-child(2)::after {
   bottom: 0;
   left: 0;
-  animation: wobble1 var(--uib-speed) infinite calc(var(--uib-speed) * -0.15)
-    ease-in-out;
+  animation: wobble1 var(--uib-speed) infinite calc(var(--uib-speed) * -0.15) ease-in-out;
 }
+
 .three-body__dot:nth-child(3) {
   bottom: -5%;
   left: 0;
   transform: translateX(116.666%);
 }
+
 .three-body__dot:nth-child(3)::after {
   top: 0;
   left: 0;
   animation: wobble2 var(--uib-speed) infinite ease-in-out;
 }
+
 @keyframes spin78236 {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
 }
+
 @keyframes wobble1 {
+
   0%,
   100% {
     transform: translateY(0%) scale(1);
     opacity: 1;
   }
+
   50% {
     transform: translateY(-66%) scale(0.65);
     opacity: 0.8;
   }
 }
+
 @keyframes wobble2 {
+
   0%,
   100% {
     transform: translateY(0%) scale(1);
     opacity: 1;
   }
+
   50% {
     transform: translateY(66%) scale(0.65);
     opacity: 0.8;
@@ -300,6 +337,7 @@ ul {
   height: 25px;
   transition: 0.1s;
 }
+
 .heart-container .checkbox {
   position: absolute;
   width: 100%;
@@ -308,6 +346,7 @@ ul {
   z-index: 20;
   cursor: pointer;
 }
+
 .heart-container .svg-container {
   width: 100%;
   height: 100%;
@@ -315,15 +354,18 @@ ul {
   justify-content: center;
   align-items: center;
 }
+
 .heart-container .svg-outline {
   fill: white;
 }
+
 .heart-container .svg-filled {
   fill: red;
   position: absolute;
   animation: keyframes-svg-filled 1s;
   display: none;
 }
+
 .heart-container .svg-celebrate {
   position: absolute;
   animation: keyframes-svg-celebrate 0.5s;
@@ -333,32 +375,40 @@ ul {
   fill: red;
   stroke-width: 2px;
 }
-.heart-container .checkbox:checked ~ .svg-container .svg-filled {
+
+.heart-container .checkbox:checked~.svg-container .svg-filled {
   display: block;
 }
-.heart-container .checkbox:checked ~ .svg-container .svg-celebrate {
+
+.heart-container .checkbox:checked~.svg-container .svg-celebrate {
   display: block;
 }
+
 @keyframes keyframes-svg-filled {
   0% {
     transform: scale(0);
   }
+
   25% {
     transform: scale(1.2);
   }
+
   50% {
     transform: scale(1);
     filter: brightness(1.5);
   }
 }
+
 @keyframes keyframes-svg-celebrate {
   0% {
     transform: scale(0);
   }
+
   50% {
     opacity: 1;
     filter: brightness(1.5);
   }
+
   100% {
     transform: scale(1.4);
     opacity: 0;
@@ -372,6 +422,7 @@ ul {
   border-radius: 5px;
   overflow: hidden;
 }
+
 .progress-bar {
   height: 100%;
   background-color: #007bff;

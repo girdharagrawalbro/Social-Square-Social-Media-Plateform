@@ -11,16 +11,16 @@ const api = () => {
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const postKeys = {
-    all:         ['posts'],
-    feed:        (userId) => ['posts', 'feed', userId],
-    userPosts:   (userId) => ['posts', 'user', userId],
-    saved:       (userId) => ['posts', 'saved', userId],
-    detail:      (postId) => ['posts', 'detail', postId],
-    comments:    (postId) => ['posts', 'comments', postId],
-    mood:        (mood, userId) => ['posts', 'mood', mood, userId],
+    all: ['posts'],
+    feed: (userId) => ['posts', 'feed', userId],
+    userPosts: (userId) => ['posts', 'user', userId],
+    saved: (userId) => ['posts', 'saved', userId],
+    detail: (postId) => ['posts', 'detail', postId],
+    comments: (postId) => ['posts', 'comments', postId],
+    mood: (mood, userId) => ['posts', 'mood', mood, userId],
     confessions: ['posts', 'confessions'],
-    trending:    ['posts', 'trending'],
-    categories:  ['posts', 'categories'],
+    trending: ['posts', 'trending'],
+    categories: ['posts', 'categories'],
 };
 
 // ─── FEED (infinite scroll) ───────────────────────────────────────────────────
@@ -30,7 +30,7 @@ export function useFeed(userId) {
         queryFn: async ({ pageParam = null }) => {
             const params = new URLSearchParams({ limit: '10' });
             if (pageParam) params.append('cursor', pageParam);
-            if (userId)    params.append('userId', userId);
+            if (userId) params.append('userId', userId);
             const res = await axios.get(`${BASE}/api/post/?${params}`);
             return res.data; // { posts, nextCursor, hasMore }
         },
@@ -166,7 +166,7 @@ export function useCreatePost() {
 export function useLikePost() {
     const qc = useQueryClient();
     const optimisticLike = usePostStore(s => s.optimisticLike);
-    const rollbackLike   = usePostStore(s => s.rollbackLike);
+    const rollbackLike = usePostStore(s => s.rollbackLike);
     const user = useAuthStore(s => s.user);
 
     return useMutation({

@@ -136,7 +136,7 @@ const EditProfile = ({ users, closeSidebar }) => {
             <button
                 type="submit"
                 disabled={uploading}
-                className="bg-themeAccent text-white py-1 px-3 rounded"
+                className="btn btn-primary w-full text-white py-1 px-3 rounded"
                 style={{ opacity: uploading ? 0.6 : 1 }}
             >
                 {uploading ? 'Uploading...' : 'Save Changes'}

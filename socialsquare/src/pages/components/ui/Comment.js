@@ -160,8 +160,9 @@ const Comment = ({ postId, setVisible }) => {
     };
 
     return (
-        <div className="comment border-t">
-            <div className="p-3 flex flex-col gap-2 max-h-64 overflow-y-auto">
+        <div className="comment flex flex-col h-full bg-white">
+            {/* Scrollable Comments Section */}
+            <div className="flex-1 overflow-y-auto border-b p-3 flex flex-col gap-2 max-h-[600px]">
                 {loading.comments || !displayComments ? (
                     <p className="text-gray-400 text-xs text-center">Loading...</p>
                 ) : displayComments.length > 0 ? (
@@ -172,16 +173,15 @@ const Comment = ({ postId, setVisible }) => {
                     <p className="text-gray-400 text-xs text-center">No comments yet. Be the first!</p>
                 )}
             </div>
-            <div className="border-t p-2 flex gap-2 items-center">
+            
+            {/* Fixed Input Section at Bottom */}
+            <div className="border-t p-3 flex gap-2 items-center bg-white flex-shrink-0">
                 <img src={loggeduser?.profile_picture || '/default-profile.png'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
-                <form onSubmit={handleSubmit} className="flex w-full gap-1">
-                    <input type="text" placeholder="Write a comment..." className="flex-1 text-sm border border-gray-200 rounded-full px-3 py-1.5 outline-none bg-gray-50"
+                <form onSubmit={handleSubmit} className="flex w-full gap-2">
+                    <input type="text" placeholder="Write a comment..." className="flex-1 text-sm border border-gray-200 rounded-full px-3 py-2 outline-none bg-gray-50 focus:border-[#808bf5]"
                         name="content" value={formData.content} onChange={e => setFormData({ content: e.target.value })} />
-                    <button type="submit" className="bg-[#808bf5] text-white border-0 rounded-full px-3 py-1 cursor-pointer">
+                    <button type="submit" className="bg-[#808bf5] hover:bg-[#6b7ae6] text-white border-0 rounded-full px-4 py-2 cursor-pointer transition">
                         <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
-                    </button>
-                    <button type="button" onClick={() => setVisible(false)} className="bg-gray-100 border-0 rounded-full px-3 py-1 cursor-pointer text-gray-500">
-                        <i className="pi pi-times" style={{ fontSize: '14px' }}></i>
                     </button>
                 </form>
             </div>

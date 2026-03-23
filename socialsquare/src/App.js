@@ -12,7 +12,6 @@ import useConversationStore from './store/zustand/useConversationStore';
 import { socket } from './socket';
 import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
-import Like from './pages/components/ui/Like';
 
 // ─── LAZY PAGES ───────────────────────────────────────────────────────────────
 const Home = lazy(() => import('./pages/Home'));
@@ -24,8 +23,6 @@ const Help = lazy(() => import('./pages/Help'));
 const Landing = lazy(() => import('./pages/Landing'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
-const ActiveSessions = lazy(() => import('./pages/ActiveSessions'));
-const PostDetail = lazy(() => import('./pages/PostDetail'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 const PageLoader = () => (
@@ -43,16 +40,17 @@ const queryClient = new QueryClient({
 });
 
 function AppInit() {
-    const fetchUser = useAuthStore(s => s.fetchUser);
+    const initAuth = useAuthStore(s => s.initAuth);
     const user = useAuthStore(s => s.user);
-    const token = useAuthStore(s => s.token);
     const setOnlineUsers = useConversationStore(s => s.setOnlineUsers);
 
     useTokenRefresh();
 
+    // ✅ On every page load/refresh — silently restore session from httpOnly cookie
+    // No localStorage needed — refresh token cookie does it all
     useEffect(() => {
-        if (token && !user) fetchUser();
-    }, [token]);
+        initAuth();
+    }, []);
 
     useEffect(() => {
         if (!user?._id) return;
@@ -87,8 +85,6 @@ function App() {
                                     <Route path="/help" element={<Help />} />
                                     <Route path="/reset-password" element={<ResetPassword />} />
                                     <Route path="/verify-otp" element={<VerifyOtp />} />
-                                    <Route path="/sessions" element={<ActiveSessions />} />
-                                    <Route path="/post/:postId" element={<PostDetail />} />
                                     <Route path="/admin" element={<AdminDashboard />} />
                                     <Route path="/" element={<Home />} />
                                 </Routes>
@@ -101,4 +97,4 @@ function App() {
     );
 }
 
-export default App; 
+export default App;

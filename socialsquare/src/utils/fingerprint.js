@@ -1,4 +1,3 @@
-
 export async function getFingerprint() {
     const components = [
         navigator.userAgent,

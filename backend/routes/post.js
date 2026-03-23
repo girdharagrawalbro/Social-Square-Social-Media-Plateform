@@ -114,6 +114,23 @@ router.post("/collaborate/decline", async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// ─── COLLABORATION INVITES ────────────────────────────────────────────────────
+router.get("/collaborate/invites/:userId", async (req, res) => {
+    try {
+        const posts = await Post.find({
+            collaborators: {
+                $elemMatch: {
+                    userId: req.params.userId,
+                    status: 'pending'
+                }
+            }
+        });
+        res.status(200).json(posts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ─── UPDATE ───────────────────────────────────────────────────────────────────
 router.put("/update/:postId", async (req, res) => {
     try {

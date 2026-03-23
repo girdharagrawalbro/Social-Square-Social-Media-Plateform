@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import useAuthStore from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
@@ -8,7 +8,7 @@ import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import axios from "axios";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
-const EMOJIS = ['😀','😂','😍','🥰','😎','🤔','😅','🥳','❤️','🔥','✨','🎉','👍','🙌','💯','🌟','😭','🤣','😊','🥹','💪','🎵','📍','🌍','🍕','☕','🌸','🌈','👀','💬'];
+const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😅', '🥳', '❤️', '🔥', '✨', '🎉', '👍', '🙌', '💯', '🌟', '😭', '🤣', '😊', '🥹', '💪', '🎵', '📍', '🌍', '🍕', '☕', '🌸', '🌈', '👀', '💬'];
 
 const EmojiPicker = ({ onSelect, onClose }) => {
     const ref = useRef(null);
@@ -18,13 +18,13 @@ const EmojiPicker = ({ onSelect, onClose }) => {
         return () => document.removeEventListener('mousedown', h);
     }, [onClose]);
     return (
-        <div ref={ref} style={{ position: 'absolute', bottom: '110%', left: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '10px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', display: 'flex', flexWrap: 'wrap', gap: '4px', width: '220px', zIndex: 100 }}>
-            {EMOJIS.map(e => <button key={e} type="button" onClick={() => onSelect(e)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '2px', borderRadius: '4px' }}>{e}</button>)}
+        <div ref={ref} className="flex flex-wrap gap-2  p-2 mt-2" >
+            {EMOJIS.map(e => <button key={e} type="button" className="border rounded-full bg-gray-100 text-lg cursor-pointer p-1 " onClick={() => onSelect(e)}>{e}</button>)}
         </div>
     );
 };
 
-const NewPost = () => {
+const NewPost = ({ setnewpostVisible }) => {
     const loggeduser = useAuthStore(s => s.user);
     const addSocketPost = usePostStore(s => s.addSocketPost);
     const createPostMutation = useCreatePost();
@@ -37,7 +37,6 @@ const NewPost = () => {
     const [images, setImages] = useState([]);
     const [isPosting, setIsPosting] = useState(false);
     const [showEmoji, setShowEmoji] = useState(false);
-    const [showExtras, setShowExtras] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
 
     // Location & music
@@ -139,13 +138,13 @@ const NewPost = () => {
     };
 
     // ── Collaborator Search ───────────────────────────────────────────────────
-    const searchCollaborator = async (query) => {
-        if (!query.trim()) return;
+    const searchCollaborator = useCallback(async (query) => {
+        if (!query.trim()) return [];
         try {
             const res = await axios.post(`${BASE}/api/auth/search`, { query });
             return res.data.users?.filter(u => u._id !== loggeduser._id) || [];
         } catch { return []; }
-    };
+    }, [loggeduser?._id]);
 
     const [collabResults, setCollabResults] = useState([]);
     useEffect(() => {
@@ -155,7 +154,7 @@ const NewPost = () => {
             setCollabResults(results.slice(0, 5));
         }, 400);
         return () => clearTimeout(timer);
-    }, [collaboratorSearch]);
+    }, [collaboratorSearch, searchCollaborator]);
 
     const addCollaborator = (user) => {
         if (collaborators.find(c => c._id === user._id)) return;
@@ -253,195 +252,254 @@ const NewPost = () => {
                 setLocation({ name: '', lat: null, lng: null }); setMusic({ title: '', artist: '' });
                 setIsAnonymous(false); setExpiresIn(''); setUnlocksAt('');
                 setIsCollaborative(false); setCollaborators([]);
-                setSuggestedCaptions([]); setShowExtras(false); setShowAdvanced(false);
+                setSuggestedCaptions([]); setShowAdvanced(false);
+                setnewpostVisible(false);
             } else { toast.error(data.error || "Failed to create post"); }
         } catch (error) { toast.error(error.message || "An unexpected error occurred"); }
         finally { setIsPosting(false); }
     };
 
     const formatDuration = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
+    const actionBtnStyle = (active) => ({
+        background: active ? '#22c55e' : '#f3f4f6',
+        border: '1px solid #e5e7eb',
+        borderRadius: '999px',
+        padding: '8px',
+        cursor: 'pointer',
+        fontSize: '16px',
+        color: active ? '#ffffff' : '#6b7280',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.2s ease'
+    });
     return (
         <>
-            <div className="new mt-2 shadow-md p-2 rounded w-100 bg-white">
-                <div className="d-flex gap-2 align-items-center">
-                    <img src={isAnonymous ? 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' : (loggeduser?.profile_picture || "default-profile.png")} alt="Profile" className="logo" style={{ borderRadius: '50%' }} />
-                    <form onSubmit={handleSubmit} className="flex gap-3 w-100">
+            <div className="new ">
+                <div className="flex flex-col gap-3">
+                    <div className="flex gap-2 align-items-center">
+                        <img src={isAnonymous ? 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' : (loggeduser?.profile_picture || "default-profile.png")} alt="Profile" className="logo" style={{ borderRadius: '50%' }} />
+                        <div>
+                            <span>{loggeduser?.fullname}</span>
+                            {location.name && <span className="flex items-center text-xs gap-1">📍 {location.name}<button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button></span>}
+                        </div>
+
+                    </div>
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-100">
+                        <textarea ref={captionRef} type="text" placeholder={isAnonymous ? "# Share your anonymous confession..." : "# Tell your thoughts to your friends"}
+                            className="py-2 px-4 rounded bg-gray-100 w-100" cols={50} rows={5} name="caption" value={formData.caption} onChange={handleChange} />
                         <div className="flex flex-col w-100 gap-2">
-                            <div className="flex w-100">
-                                <input ref={captionRef} type="text" placeholder={isAnonymous ? "# Share your anonymous confession..." : "# Tell your thoughts to your friends"}
-                                    className="py-2 px-4 bg-gray-100 rounded-full w-100" name="caption" value={formData.caption} onChange={handleChange} />
+                            <div className="flex w-100 flex-wrap justify-around">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEmoji(v => !v)}
+                                    style={actionBtnStyle(showEmoji)}
+                                >
+                                    😊
+                                </button>
 
-                                {/* Emoji */}
-                                <span className="border rounded-full flex items-center justify-center ms-1 p-2 cursor-pointer" style={{ position: 'relative' }} onClick={() => setShowEmoji(v => !v)}>
-                                    <span style={{ fontSize: '18px' }}>😊</span>
-                                    {showEmoji && <EmojiPicker onSelect={e => { handleEmojiSelect(e); setShowEmoji(false); }} onClose={() => setShowEmoji(false)} />}
-                                </span>
 
-                                {/* Image */}
-                                <span className="border rounded-full flex items-center justify-center ms-1 p-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none">
-                                        <path d="M10 13.229C10.1416 13.4609 10.3097 13.6804 10.5042 13.8828C11.7117 15.1395 13.5522 15.336 14.9576 14.4722C15.218 14.3121 15.4634 14.1157 15.6872 13.8828L18.9266 10.5114C20.3578 9.02184 20.3578 6.60676 18.9266 5.11718C17.4953 3.6276 15.1748 3.62761 13.7435 5.11718L13.03 5.85978" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                        <path d="M10.9703 18.14L10.2565 18.8828C8.82526 20.3724 6.50471 20.3724 5.07345 18.8828C3.64218 17.3932 3.64218 14.9782 5.07345 13.4886L8.31287 10.1172C9.74413 8.62761 12.0647 8.6276 13.4959 10.1172C13.6904 10.3195 13.8584 10.539 14 10.7708" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                    </svg>
-                                </span>
-                                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    style={actionBtnStyle(false)}
+                                >
+                                    <i className="pi pi-image"></i>
+                                </button>
 
-                                {/* Extras toggle */}
-                                <span className="border rounded-full flex items-center justify-center ms-1 p-2 cursor-pointer" onClick={() => setShowExtras(v => !v)} style={{ background: showExtras ? '#f3f4f6' : '' }}>＋</span>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    onChange={handleFileSelect}
+                                    hidden
+                                />
 
-                                {/* Advanced toggle */}
-                                <span className="border rounded-full flex items-center justify-center ms-1 p-2 cursor-pointer" onClick={() => setShowAdvanced(v => !v)} title="Advanced options"
-                                    style={{ background: showAdvanced ? '#ede9fe' : '', fontSize: '14px' }}>⚙️</span>
 
-                                {/* Submit */}
-                                <button type="submit" className="border rounded-full bg-[#808bf5] flex items-center justify-center mx-1 p-2" disabled={isPosting}>
-                                    {isPosting ? <span className="spinner-border spinner-border-sm text-white" role="status" /> : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="#fff" fill="none">
-                                            <path d="M11.922 4.79004C16.6963 3.16245 19.0834 2.34866 20.3674 3.63261C21.6513 4.91656 20.8375 7.30371 19.21 12.078L18.1016 15.3292C16.8517 18.9958 16.2267 20.8291 15.1964 20.9808C14.9195 21.0216 14.6328 20.9971 14.3587 20.9091C13.3395 20.5819 12.8007 18.6489 11.7231 14.783C11.4841 13.9255 11.3646 13.4967 11.0924 13.1692C11.0134 13.0742 10.9258 12.9866 10.8308 12.9076C10.5033 12.6354 10.0745 12.5159 9.21705 12.2769C5.35111 11.1993 3.41814 10.6605 3.0909 9.64127C3.00292 9.36724 2.97837 9.08053 3.01916 8.80355C3.17088 7.77332 5.00419 7.14834 8.6708 5.89838L11.922 4.79004Z" stroke="currentColor" strokeWidth="1.5" />
-                                        </svg>
+                                <button
+                                    type="button"
+                                    onClick={handleGetLocation}
+                                    disabled={loadingLocation}
+                                    style={actionBtnStyle(!!location.name)}
+                                >
+                                    {loadingLocation ? (
+                                        <i className="pi pi-spin pi-spinner"></i>
+                                    ) : (
+                                        <i className="pi pi-map-marker"></i>
+                                    )}
+                                </button>
+
+
+                                {/* Music */}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMusicInput(v => !v)}
+                                    style={actionBtnStyle(!!music.title)}
+                                >
+                                    🎵
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvanced(v => !v)}
+                                    style={actionBtnStyle(showAdvanced)}
+                                >
+                                    ⚙️
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isPosting}
+                                    style={{
+                                        ...actionBtnStyle(false),
+                                        background: '#6366f1',
+                                        color: '#fff',
+                                        padding: '8px 10px'
+                                    }}
+                                >
+                                    {isPosting ? (
+                                        <span className="spinner-border spinner-border-sm text-white" />
+                                    ) : (
+                                        <i className="pi pi-send"></i>
                                     )}
                                 </button>
                             </div>
 
-                            {/* Extras panel - location + music */}
-                            {showExtras && (
-                                <div style={{ paddingLeft: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <button type="button" onClick={handleGetLocation} disabled={loadingLocation}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: location.name ? '#ede9fe' : '#f3f4f6', border: 'none', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', fontSize: '13px', color: location.name ? '#6366f1' : '#6b7280' }}>
-                                            📍 {loadingLocation ? 'Getting...' : location.name || 'Add location'}
-                                        </button>
-                                        {location.name && <button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
+                            <div className="flex flex-col gap-2">
+                                {showEmoji && (
+                                    <EmojiPicker
+                                        onSelect={(e) => {
+                                            handleEmojiSelect(e);
+                                            setShowEmoji(false);
+                                        }}
+                                        onClose={() => setShowEmoji(false)}
+                                    />
+                                )}
+
+                                {music.title && <button type="button" onClick={() => setMusic({ title: '', artist: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
+                                {showMusicInput && (
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        <input type="text" placeholder="Song title" value={music.title} onChange={e => setMusic(p => ({ ...p, title: e.target.value }))} style={{ flex: 1, minWidth: '120px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
+                                        <input type="text" placeholder="Artist" value={music.artist} onChange={e => setMusic(p => ({ ...p, artist: e.target.value }))} style={{ flex: 1, minWidth: '100px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
+                                        <button type="button" onClick={() => setShowMusicInput(false)} style={{ padding: '5px 10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>+</button>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <button type="button" onClick={() => setShowMusicInput(v => !v)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: music.title ? '#fdf2f8' : '#f3f4f6', border: 'none', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', fontSize: '13px', color: music.title ? '#ec4899' : '#6b7280' }}>
-                                            🎵 {music.title ? `${music.title}${music.artist ? ` — ${music.artist}` : ''}` : 'Add music'}
-                                        </button>
-                                        {music.title && <button type="button" onClick={() => setMusic({ title: '', artist: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
-                                    </div>
-                                    {showMusicInput && (
-                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                            <input type="text" placeholder="Song title" value={music.title} onChange={e => setMusic(p => ({ ...p, title: e.target.value }))} style={{ flex: 1, minWidth: '120px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
-                                            <input type="text" placeholder="Artist" value={music.artist} onChange={e => setMusic(p => ({ ...p, artist: e.target.value }))} style={{ flex: 1, minWidth: '100px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
-                                            <button type="button" onClick={() => setShowMusicInput(false)} style={{ padding: '5px 10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>Done</button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                )}
 
-                            {/* Advanced panel */}
-                            {showAdvanced && (
-                                <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-                                    {/* Anonymous */}
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                                        <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} />
-                                        <span>🎭 Post anonymously</span>
-                                        <span style={{ fontSize: '11px', color: '#9ca3af' }}>Your name will be hidden</span>
-                                    </label>
 
-                                    {/* Expiry */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: '13px' }}>⏳ Auto-delete after</span>
-                                        <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)}
-                                            style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
-                                            <option value="">Never</option>
-                                            <option value="1">1 hour</option>
-                                            <option value="6">6 hours</option>
-                                            <option value="24">24 hours</option>
-                                            <option value="72">3 days</option>
-                                            <option value="168">1 week</option>
-                                        </select>
-                                    </div>
+                                {/* Advanced panel */}
+                                {showAdvanced && (
+                                    <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-                                    {/* Time-lock */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: '13px' }}>🔒 Unlock at</span>
-                                        <input type="datetime-local" value={unlocksAt} onChange={e => setUnlocksAt(e.target.value)}
-                                            min={new Date().toISOString().slice(0, 16)}
-                                            style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }} />
-                                        {unlocksAt && <button type="button" onClick={() => setUnlocksAt('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
-                                    </div>
-
-                                    {/* Collaborative */}
-                                    <div>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', marginBottom: '6px' }}>
-                                            <input type="checkbox" checked={isCollaborative} onChange={e => setIsCollaborative(e.target.checked)} />
-                                            <span>🤝 Collaborative post</span>
+                                        {/* Anonymous */}
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} />
+                                            <span>🎭 Post anonymously</span>
+                                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>Your name will be hidden</span>
                                         </label>
-                                        {isCollaborative && (
-                                            <div style={{ position: 'relative' }}>
-                                                <input type="text" placeholder="Search collaborators..." value={collaboratorSearch} onChange={e => setCollaboratorSearch(e.target.value)}
-                                                    style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px', boxSizing: 'border-box' }} />
-                                                {collabResults.length > 0 && (
-                                                    <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', zIndex: 50, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                                                        {collabResults.map(u => (
-                                                            <button key={u._id} type="button" onClick={() => addCollaborator(u)}
-                                                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                                                                <img src={u.profile_picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%' }} />
-                                                                <span style={{ fontSize: '12px' }}>{u.fullname}</span>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                                {collaborators.length > 0 && (
-                                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                                        {collaborators.map(c => (
-                                                            <div key={c._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#ede9fe', borderRadius: '20px', padding: '3px 8px', fontSize: '11px' }}>
-                                                                <img src={c.profile_picture} alt="" style={{ width: 16, height: 16, borderRadius: '50%' }} />
-                                                                {c.fullname}
-                                                                <button type="button" onClick={() => setCollaborators(prev => prev.filter(x => x._id !== c._id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '10px', padding: 0 }}>✕</button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
 
-                                    {/* Voice note */}
-                                    <div>
-                                        <p style={{ fontSize: '13px', margin: '0 0 6px' }}>🎤 Voice note</p>
-                                        {!voicePreviewUrl ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <button type="button" onClick={isRecording ? stopRecording : startRecording}
-                                                    style={{ padding: '6px 14px', background: isRecording ? '#ef4444' : '#808bf5', color: '#fff', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    {isRecording ? <>⏹ Stop {formatDuration(recordingDuration)}</> : '⏺ Record'}
-                                                </button>
-                                                {isRecording && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s infinite' }} />}
-                                            </div>
-                                        ) : (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <audio src={voicePreviewUrl} controls style={{ height: '32px', flex: 1 }} />
-                                                <button type="button" onClick={() => { setVoiceBlob(null); setVoicePreviewUrl(null); setRecordingDuration(0); }}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px' }}>Remove</button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* AI Caption suggestions */}
-                            {images.length > 0 && (
-                                <div>
-                                    <button type="button" onClick={generateCaption} disabled={generatingCaption}
-                                        style={{ fontSize: '12px', color: '#808bf5', background: '#ede9fe', border: 'none', borderRadius: '20px', padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        {generatingCaption ? '✨ Generating...' : '✨ AI: Generate caption'}
-                                    </button>
-                                    {suggestedCaptions.length > 0 && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
-                                            {suggestedCaptions.map((cap, i) => (
-                                                <button key={i} type="button" onClick={() => setFormData(p => ({ ...p, caption: cap }))}
-                                                    style={{ textAlign: 'left', padding: '6px 10px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#374151' }}>
-                                                    {cap}
-                                                </button>
-                                            ))}
+                                        {/* Expiry */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: '13px' }}>⏳ Auto-delete after</span>
+                                            <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)}
+                                                style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
+                                                <option value="">Never</option>
+                                                <option value="1">1 hour</option>
+                                                <option value="6">6 hours</option>
+                                                <option value="24">24 hours</option>
+                                                <option value="72">3 days</option>
+                                                <option value="168">1 week</option>
+                                            </select>
                                         </div>
-                                    )}
-                                </div>
-                            )}
+
+                                        {/* Time-lock */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: '13px' }}>🔒 Unlock at</span>
+                                            <input type="datetime-local" value={unlocksAt} onChange={e => setUnlocksAt(e.target.value)}
+                                                min={new Date().toISOString().slice(0, 16)}
+                                                style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }} />
+                                            {unlocksAt && <button type="button" onClick={() => setUnlocksAt('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
+                                        </div>
+
+                                        {/* Collaborative */}
+                                        <div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', marginBottom: '6px' }}>
+                                                <input type="checkbox" checked={isCollaborative} onChange={e => setIsCollaborative(e.target.checked)} />
+                                                <span>🤝 Collaborative post</span>
+                                            </label>
+                                            {isCollaborative && (
+                                                <div style={{ position: 'relative' }}>
+                                                    <input type="text" placeholder="Search collaborators..." value={collaboratorSearch} onChange={e => setCollaboratorSearch(e.target.value)}
+                                                        style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px', boxSizing: 'border-box' }} />
+                                                    {collabResults.length > 0 && (
+                                                        <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', zIndex: 50, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                                                            {collabResults.map(u => (
+                                                                <button key={u._id} type="button" onClick={() => addCollaborator(u)}
+                                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                                                                    <img src={u.profile_picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%' }} />
+                                                                    <span style={{ fontSize: '12px' }}>{u.fullname}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {collaborators.length > 0 && (
+                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                                            {collaborators.map(c => (
+                                                                <div key={c._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#ede9fe', borderRadius: '20px', padding: '3px 8px', fontSize: '11px' }}>
+                                                                    <img src={c.profile_picture} alt="" style={{ width: 16, height: 16, borderRadius: '50%' }} />
+                                                                    {c.fullname}
+                                                                    <button type="button" onClick={() => setCollaborators(prev => prev.filter(x => x._id !== c._id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '10px', padding: 0 }}>✕</button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Voice note */}
+                                        <div>
+                                            <p style={{ fontSize: '13px', margin: '0 0 6px' }}>🎤 Voice note</p>
+                                            {!voicePreviewUrl ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <button type="button" onClick={isRecording ? stopRecording : startRecording}
+                                                        style={{ padding: '6px 14px', background: isRecording ? '#ef4444' : '#808bf5', color: '#fff', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {isRecording ? <>⏹ Stop {formatDuration(recordingDuration)}</> : '⏺ Record'}
+                                                    </button>
+                                                    {isRecording && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s infinite' }} />}
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <audio src={voicePreviewUrl} controls style={{ height: '32px', flex: 1 }} />
+                                                    <button type="button" onClick={() => { setVoiceBlob(null); setVoicePreviewUrl(null); setRecordingDuration(0); }}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px' }}>Remove</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* AI Caption suggestions */}
+                                {images.length > 0 && (
+                                    <div>
+                                        <button type="button" onClick={generateCaption} disabled={generatingCaption}
+                                            style={{ fontSize: '12px', color: '#808bf5', background: '#ede9fe', border: 'none', borderRadius: '20px', padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {generatingCaption ? '✨ Generating...' : '✨ AI: Generate caption'}
+                                        </button>
+                                        {suggestedCaptions.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                                                {suggestedCaptions.map((cap, i) => (
+                                                    <button key={i} type="button" onClick={() => setFormData(p => ({ ...p, caption: cap }))}
+                                                        style={{ textAlign: 'left', padding: '6px 10px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#374151' }}>
+                                                        {cap}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                            </div>
                         </div>
                     </form>
                 </div>
