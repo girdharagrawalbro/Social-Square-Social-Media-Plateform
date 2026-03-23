@@ -91,18 +91,15 @@ app.use('/api/admin/report', reportLimiter);
 app.use('/api', apiLimiter);       // general fallback
 
 // ─── ALLOWED ORIGINS ──────────────────────────────────────────────────────────
-const allowedOrigins = [
-    'http://localhost:3000',
-    'https://social-square-social-media-platefor.vercel.app',
-    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
-];
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const io = socketIo(server, {
     cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
     pingTimeout: 60000,
     pingInterval: 25000,
-    transports: ['websocket', 'polling'],
+    transports: ['websocket', 'polling'], // Prioritize websocket
+    allowEIO3: true,
     maxHttpBufferSize: 1e6,
 });
 
