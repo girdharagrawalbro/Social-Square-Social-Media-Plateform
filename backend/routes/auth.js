@@ -89,7 +89,7 @@ router.post('/login', authLimiter, [
                 user.failedLoginAttempts = 0;
                 await user.save();
                 const unlockTime = new Date(user.lockoutUntil).toLocaleTimeString();
-                sendLockoutEmail(user.email, user.fullname, unlockTime).catch(() => {});
+                sendLockoutEmail(user.email, user.fullname, unlockTime).catch(() => { });
                 return res.status(423).json({ error: 'Too many failed attempts. Account locked for 30 minutes.' });
             }
             await user.save();
@@ -140,12 +140,12 @@ router.post('/login', authLimiter, [
 
         const accessToken = generateAccessToken(user._id);
         setRefreshTokenCookie(res, refreshToken);
-        
+
         // Return user object so frontend can restore session without extra request
         const userResponse = await User.findById(user._id)
             .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
             .lean();
-        
+
         return res.status(200).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('Login error:', error);
@@ -200,17 +200,17 @@ router.post('/verify-otp', otpLimiter, [
 
         if (isNewDevice) {
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
-                .catch(() => {});
+                .catch(() => { });
         }
 
         const accessToken = generateAccessToken(user._id);
         setRefreshTokenCookie(res, refreshToken);
-        
+
         // Return user object so frontend can restore session without extra request
         const userResponse = await User.findById(user._id)
             .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
             .lean();
-        
+
         return res.status(200).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('OTP verify error:', error);
@@ -275,12 +275,12 @@ router.post('/add', authLimiter, [
 
         const accessToken = generateAccessToken(newUser._id);
         setRefreshTokenCookie(res, refreshToken);
-        
+
         // Return user object so frontend can restore session without extra request
         const userResponse = await User.findById(newUser._id)
             .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
             .lean();
-        
+
         return res.status(201).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('Registration error:', error);
@@ -327,17 +327,17 @@ router.post('/google', authLimiter, async (req, res) => {
 
         if (isNewDevice) {
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
-                .catch(() => {});
+                .catch(() => { });
         }
 
         const accessToken = generateAccessToken(user._id);
         setRefreshTokenCookie(res, refreshToken);
-        
+
         // Return user object so frontend can restore session without extra request
         const userResponse = await User.findById(user._id)
             .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
             .lean();
-        
+
         return res.status(200).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('Google auth error:', error);
@@ -419,12 +419,12 @@ router.get('/sessions', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-        
+
         if (!JWT_SECRET) {
             logger.error('[TOKEN_VERIFY] JWT_SECRET is not set');
             return res.status(500).json({ message: 'Server configuration error' });
         }
-        
+
         const token = authHeader.split(' ')[1];
         let decoded;
         try {
@@ -433,7 +433,7 @@ router.get('/sessions', async (req, res) => {
             logger.error('[SESSIONS] JWT verification failed:', { error: err.message, name: err.name });
             return res.status(403).json({ message: 'Invalid or expired token' });
         }
-        
+
         const sessions = await LoginSession.find({
             userId: decoded.userId, isRevoked: false, expiresAt: { $gt: new Date() },
         }).select('-refreshToken -fingerprint').sort({ lastUsedAt: -1 });
@@ -507,12 +507,12 @@ router.get('/get', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized.' });
-        
+
         if (!JWT_SECRET) {
             logger.error('[TOKEN_VERIFY] JWT_SECRET is not set');
             return res.status(500).json({ message: 'Server configuration error' });
         }
-        
+
         const token = authHeader.split(' ')[1];
         let decoded;
         try {
@@ -521,7 +521,7 @@ router.get('/get', async (req, res) => {
             logger.error('[GET_USER] JWT verification failed:', { error: err.message, name: err.name });
             return res.status(403).json({ message: 'Invalid or expired token.' });
         }
-        
+
         const user = await User.findById(decoded.userId).select('-password -resetPasswordToken -resetPasswordExpires -twoFactorOtp');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         return res.status(200).json(user);
@@ -536,13 +536,13 @@ router.get("/other-users", verifyToken, async (req, res) => {
         const loggedUserId = req.userId;
         const user = await User.findById(loggedUserId).select("-password").populate("following", "_id");
         if (!user) return res.status(404).json({ message: "User not found." });
-        
+
         // Suggest users who the logged user is not following, but are followed by people the logged user follows
-        const suggestions = await User.find({ 
-            _id: { $ne: loggedUserId, $nin: user.following }, 
-            followers: { $in: user.following } 
+        const suggestions = await User.find({
+            _id: { $ne: loggedUserId, $nin: user.following },
+            followers: { $in: user.following }
         }).limit(20).select("_id fullname profile_picture");
-        
+
         return res.status(200).json(suggestions);
     } catch (error) {
         logger.error('Other users fetch error:', error);
@@ -591,9 +591,9 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
         const user = await User.findById(userId).select('-password');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         return res.status(200).json(user);
-    } catch (error) { 
+    } catch (error) {
         logger.error('[OTHER_USER_VIEW] Error:', error);
-        return res.status(500).json({ message: "Internal server error" }); 
+        return res.status(500).json({ message: "Internal server error" });
     }
 });
 
