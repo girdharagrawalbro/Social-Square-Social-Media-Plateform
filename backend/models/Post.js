@@ -41,9 +41,13 @@ const PostSchema = new mongoose.Schema(
 
     // AI mood tag
     mood: { type: String, default: null },
+
+    // Track AI posts
+    isAiGenerated: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
+
 
 PostSchema.index({ score: -1, createdAt: -1 });
 PostSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, sparse: true });

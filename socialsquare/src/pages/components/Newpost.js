@@ -63,6 +63,20 @@ const NewPost = ({ setnewpostVisible }) => {
     // AI
     const [generatingCaption, setGeneratingCaption] = useState(false);
     const [suggestedCaptions, setSuggestedCaptions] = useState([]);
+    const [showAiTools, setShowAiTools] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState("");
+    const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+    const [aiLimit, setAiLimit] = useState({ count: 0, remaining: 2 });
+    const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
+
+    useEffect(() => {
+        if (loggeduser?._id) {
+            axios.get(`${BASE}/api/ai/limit/${loggeduser._id}`)
+                .then(res => setAiLimit(res.data))
+                .catch(() => {});
+        }
+    }, [loggeduser?._id]);
+
 
     const handleChange = e => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -136,6 +150,46 @@ const NewPost = ({ setnewpostVisible }) => {
         } catch { toast.error('Failed to generate caption. Check your Gemini API key.'); }
         setGeneratingCaption(false);
     };
+
+    const generateAiText = async () => {
+        if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
+        setIsGeneratingAi(true);
+        try {
+            const res = await axios.post(`${BASE}/api/ai/generate-text`, { prompt: aiPrompt, userId: loggeduser?._id });
+            setFormData(p => ({ ...p, caption: res.data.text }));
+            setAiLimit(prev => ({ ...prev, remaining: res.data.remaining }));
+            setUsedAiForThisPost(true);
+            toast.success(`✨ Text generated using ${res.data.model}`);
+        } catch (err) {
+
+            toast.error(err.response?.data?.error || 'Failed to generate text');
+        } finally { setIsGeneratingAi(false); }
+    };
+
+    const generateAiImage = async () => {
+        if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
+        if (images.length >= 5) { toast.error('Max 5 images reached'); return; }
+        setIsGeneratingAi(true);
+        try {
+            const res = await axios.post(`${BASE}/api/ai/generate-image`, { prompt: aiPrompt, userId: loggeduser?._id });
+            const newImg = {
+                id: Math.random().toString(36).slice(2),
+                preview: res.data.imageUrl,
+                url: res.data.imageUrl,
+                uploaded: true,
+                progress: 100
+            };
+            setImages(prev => [...prev, newImg]);
+            setAiLimit(prev => ({ ...prev, remaining: res.data.remaining }));
+            setUsedAiForThisPost(true);
+            toast.success(`✨ Image generated using ${res.data.model}`);
+        } catch (err) {
+
+            toast.error(err.response?.data?.error || 'Failed to generate image');
+        } finally { setIsGeneratingAi(false); }
+    };
+
+
 
     // ── Collaborator Search ───────────────────────────────────────────────────
     const searchCollaborator = useCallback(async (query) => {
@@ -234,11 +288,12 @@ const NewPost = ({ setnewpostVisible }) => {
                 isAnonymous,
                 expiresAt: expiresIn ? new Date(Date.now() + parseInt(expiresIn) * 3600000).toISOString() : null,
                 unlocksAt: unlocksAt || null,
-                isCollaborative,
                 collaboratorIds: collaborators.map(c => c._id),
                 voiceNoteUrl, voiceNoteDuration,
                 mood,
+                isAiGenerated: usedAiForThisPost,
             };
+
 
             const response = await createPostMutation.mutateAsync(postData);
             const data = response.data;
@@ -342,11 +397,20 @@ const NewPost = ({ setnewpostVisible }) => {
 
                                 <button
                                     type="button"
-                                    onClick={() => setShowAdvanced(v => !v)}
+                                    onClick={() => { setShowAiTools(v => !v); setShowAdvanced(false); }}
+                                    style={actionBtnStyle(showAiTools)}
+                                    title="AI Magic"
+                                >
+                                    ✨
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowAdvanced(v => !v); setShowAiTools(false); }}
                                     style={actionBtnStyle(showAdvanced)}
                                 >
                                     ⚙️
                                 </button>
+
                                 <button
                                     type="submit"
                                     disabled={isPosting}
@@ -387,7 +451,47 @@ const NewPost = ({ setnewpostVisible }) => {
 
 
 
+                                {showAiTools && (
+                                    <div style={{ background: '#f5f3ff', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid #ddd6fe' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#5b21b6' }}>✨ NVIDIA AI Magic</span>
+                                            <span style={{ fontSize: '11px', color: aiLimit.remaining === 0 ? '#ef4444' : '#6b7280' }}>
+                                                {aiLimit.remaining} / 2 daily posts left
+                                            </span>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Describe what you want to create..." 
+                                            value={aiPrompt} 
+                                            onChange={e => setAiPrompt(e.target.value)}
+                                            style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd6fe', fontSize: '12px' }}
+                                        />
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button 
+                                                type="button" 
+                                                onClick={generateAiText} 
+                                                disabled={isGeneratingAi || aiLimit.remaining === 0}
+                                                style={{ flex: 1, padding: '8px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
+                                            >
+                                                {isGeneratingAi ? '...' : '📝 Text'}
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={generateAiImage} 
+                                                disabled={isGeneratingAi || aiLimit.remaining === 0}
+                                                style={{ flex: 1, padding: '8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
+                                            >
+                                                {isGeneratingAi ? '...' : '🖼️ Image'}
+                                            </button>
+                                        </div>
+                                        {aiLimit.remaining === 0 && (
+                                            <p style={{ fontSize: '10px', color: '#ef4444', margin: 0 }}>Daily AI limit reached.</p>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Advanced panel */}
+
                                 {showAdvanced && (
                                     <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 

@@ -26,8 +26,10 @@ router.post("/create", async (req, res) => {
             caption, loggeduser, category, imageURLs, location, music,
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
+            isAiGenerated,
         } = req.body;
         if (!caption || !loggeduser || !category) return res.status(400).json({ message: "All fields are required." });
+
         const userDetails = await User.findById(loggeduser).select('username fullname profile_picture followers');
         if (!userDetails) return res.status(404).json({ message: "User not found." });
 
@@ -51,8 +53,10 @@ router.post("/create", async (req, res) => {
             collaborators,
             voiceNote: voiceNoteUrl ? { url: voiceNoteUrl, duration: voiceNoteDuration || null } : {},
             mood: mood || null,
+            isAiGenerated: !!isAiGenerated,
         });
         await newPost.save();
+
 
         if (_io && collaborators.length > 0) {
             collaborators.forEach(c => {
