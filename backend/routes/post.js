@@ -3,7 +3,7 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const Comment = require('../models/Comment');
 const Category = require("../models/Category");
-const { publish } = require('../lib/nats');
+const { publish } = require('../lib/pubsub');
 const verifyToken = require('../middleware/Verifytoken');
 
 const router = express.Router();

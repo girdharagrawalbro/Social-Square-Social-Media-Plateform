@@ -1,8 +1,8 @@
-const { Queue, QueueScheduler, Worker } = require('bullmq');
-const Redis = require('../lib/redis'); // ioredis instance
-const connection = { host: process.env.REDIS_HOST || '127.0.0.1', port: process.env.REDIS_PORT || 6379 };
+const { Queue, Worker } = require('bullmq');
+const redis = require('../lib/redis'); 
 
-const emailQueue = new Queue('email', { connection });
+// BullMQ can use the existing ioredis instance directly
+const emailQueue = new Queue('email', { connection: redis });
 
 
 // Worker (run in separate process/container)

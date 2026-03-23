@@ -1,15 +1,17 @@
-const { initNats } = require('../lib/nats');
-const { imageQueue } = require('../queues/imageQueue'); // or other queues
+const { subscribe } = require('../lib/pubsub');
 
+// Note: imageQueue was referenced in the original NATS worker but is not found in the project.
+// This worker is updated to use Redis Pub/Sub and can be used for future background tasks.
 async function run() {
-  const { js, sc } = await initNats();
-  const sub = await js.subscribe('posts.created', { durable: 'posts_consumer' });
-  (async () => {
-    for await (const m of sub) {
-      const data = JSON.parse(sc.decode(m.data));
-      await imageQueue.add('processImage', { postId: data.id });
-      m.ack();
+  await subscribe('posts.created', async (data) => {
+    try {
+      console.log('[PubSub Worker] Received posts.created event for post:', data.id);
+      // For example, trigger image processing or other background tasks here
+      // await imageQueue.add('processImage', { postId: data.id });
+    } catch (err) {
+      console.error('[PubSub Worker] Error handling message:', err.message);
     }
-  })();
+  });
 }
+
 run().catch(console.error);

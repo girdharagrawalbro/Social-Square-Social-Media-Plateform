@@ -1,9 +1,11 @@
 const { RateLimiterRedis } = require('rate-limiter-flexible');
-const Redis = require('ioredis');
-const redisClient = new Redis(process.env.REDIS_URL);
+const redisClient = require('../lib/redis'); 
+
 const rateLimiter = new RateLimiterRedis({
   storeClient: redisClient,
-  points: 100, duration: 60, keyPrefix: 'rl'
+  points: 100,
+  duration: 60,
+  keyPrefix: 'rl-main', // Shared prefix for rate limiting
 });
 module.exports = (req,res,next) => {
   const key = req.ip; // or use `req.user.id` for authenticated limits

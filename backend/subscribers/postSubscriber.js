@@ -1,4 +1,4 @@
-const { subscribe } = require('../lib/nats');
+const { subscribe } = require('../lib/pubsub');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Feed = require('../models/Feed');
