@@ -1,42 +1,85 @@
-import axios from 'axios';
-import { readFile } from 'node:fs/promises';
+const axios = require('axios');
+const OpenAI = require('openai');
+const { generateText } = require('./gemini');
 
-const invokeUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
-const stream = true;
+const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
-const headers = {
-    "Authorization": "Bearer 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",
-    "Accept": stream ? "text/event-stream" : "application/json"
-};
+const client = new OpenAI({
+    baseURL: NVIDIA_BASE_URL,
+    apiKey: NVIDIA_KEY,
+});
 
-
-const payload = {
-    "model": "microsoft/phi-4-multimodal-instruct",
-    "messages": [{ "role": "user", "content": "" }],
-    "max_tokens": 512,
-    "temperature": 0.10,
-    "top_p": 0.70,
-    "frequency_penalty": 0.00,
-    "presence_penalty": 0.00,
-    "stream": stream
-};
-
-Promise.resolve(
-    axios.post(invokeUrl, payload, {
-        headers: headers,
-        responseType: stream ? 'stream' : 'json'
-    })
-)
-
-    .then(response => {
-        if (stream) {
-            response.data.on('data', (chunk) => {
-                console.log(chunk.toString());
-            });
-        } else {
-            console.log(JSON.stringify(response.data));
+/**
+ * Generate text using NVIDIA's Llama model
+ * Fallback to Gemini if NVIDIA fails
+ */
+async function generateNvidiaText(prompt) {
+    try {
+        const completion = await client.chat.completions.create({
+            model: 'nvidia/llama3-chatqa-1.5-8b',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            top_p: 0.9,
+            max_tokens: 512,
+        });
+        return { 
+            text: completion.choices[0]?.message?.content || '', 
+            model: 'NVIDIA (llama3)' 
+        };
+    } catch (error) {
+        console.warn('[NVIDIA Text Error] Falling back to Gemini:', error.message);
+        try {
+            const text = await generateText(prompt);
+            return { text, model: 'Gemini (Backup)' };
+        } catch (geminiError) {
+            console.error('[Fallback Error]:', geminiError.message);
+            throw new Error('AI Text generation failed on all providers.');
         }
-    })
-    .catch(error => {
-        console.error(error);
-    });
+    }
+}
+
+/**
+ * Generate image using NVIDIA's Stable Diffusion model (SDXL)
+ */
+async function generateNvidiaImage(prompt) {
+    const models = ['stabilityai/stable-diffusion-xl', 'nvidia/sdxl-turbo'];
+    let lastError = null;
+
+    for (const model of models) {
+        try {
+            const response = await axios.post(
+                `${NVIDIA_BASE_URL}/images/generations`,
+                {
+                    model: model,
+                    prompt: prompt,
+                    response_format: 'b64_json',
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${NVIDIA_KEY}`,
+                        Accept: 'application/json',
+                    },
+                    timeout: 30000,
+                }
+            );
+
+            const b64Data = response.data.data[0].b64_json;
+            return { 
+                buffer: Buffer.from(b64Data, 'base64'), 
+                model: `NVIDIA (${model.split('/')[1]})` 
+            };
+        } catch (error) {
+            console.warn(`[NVIDIA Image Error] Model ${model} failed:`, error.message);
+            lastError = error;
+        }
+    }
+
+    // If both NVIDIA models fail, we don't have a Gemini image fallback in this setup yet.
+    throw new Error('Image generation failed: ' + (lastError.response?.data?.message || lastError.message));
+}
+
+module.exports = {
+    generateNvidiaText,
+    generateNvidiaImage,
+};
