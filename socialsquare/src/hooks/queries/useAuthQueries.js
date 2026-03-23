@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -44,31 +44,29 @@ export function useOtherUsers() {
     });
 }
 
-// ─── FETCH STORY FEED ──────────────────────────────────────────────────────────
+// ─── FETCH STORY FEED (PROTECTED) ─────────────────────────────────────────────
 export function useStoryFeed(userId) {
     return useQuery({
         queryKey: authKeys.storyFeed(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/story/feed/${userId}`);
+            const res = await api.get(`/api/story/feed`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: !!userId,
-        staleTime: 1000 * 60 * 2, // 2 minutes - stories update frequently
-        gcTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60 * 2,
     });
 }
 
-// ─── FETCH COLLAB INVITES ─────────────────────────────────────────────────────
+// ─── FETCH COLLAB INVITES (PROTECTED) ─────────────────────────────────────────
 export function useCollabInvites(userId) {
     return useQuery({
         queryKey: authKeys.collabInvites(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/post/collaborate/invites/${userId}`);
+            const res = await api.get(`/api/post/collaborate/invites`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: !!userId,
-        staleTime: 1000 * 60, // 1 minute - invites are time-sensitive
-        gcTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60,
     });
 }
 
@@ -124,7 +122,7 @@ export function useFollowUser() {
 
     return useMutation({
         mutationFn: ({ targetUserId }) =>
-            axios.post(`${BASE}/api/auth/follow`, { userId: user._id, targetUserId }),
+            api.post(`/api/auth/follow`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             followUser(targetUserId);
             qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
@@ -140,7 +138,7 @@ export function useUnfollowUser() {
 
     return useMutation({
         mutationFn: ({ targetUserId }) =>
-            axios.post(`${BASE}/api/auth/unfollow`, { userId: user._id, targetUserId }),
+            api.post(`/api/auth/unfollow`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             unfollowUser(targetUserId);
             qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });

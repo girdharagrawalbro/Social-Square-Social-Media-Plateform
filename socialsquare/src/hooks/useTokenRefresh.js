@@ -2,8 +2,6 @@ import { refreshAccessToken } from '../store/zustand/useAuthStore';
 import { useRef, useEffect } from 'react';
 
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
-
 // Refresh access token 2 minutes before it expires (token is 15min)
 // So refresh fires every 13 minutes
 const REFRESH_INTERVAL = 13 * 60 * 1000;

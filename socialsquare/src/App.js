@@ -50,7 +50,7 @@ function AppInit() {
     // No localStorage needed — refresh token cookie does it all
     useEffect(() => {
         initAuth();
-    }, []);
+    }, [initAuth]);
 
     useEffect(() => {
         if (!user?._id) return;
@@ -62,7 +62,7 @@ function AppInit() {
             socket.off('connect');
             socket.off('updateUserList');
         };
-    }, [user?._id]);
+    }, [user?._id, setOnlineUsers]);
 
     return null;
 }

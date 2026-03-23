@@ -84,8 +84,12 @@ const UserProfile = ({ id }) => {
     useEffect(() => {
         if (!id || !loggeduser?._id) return;
         setLoading(true);
-        fetch(`${BASE}/api/auth/other-user/view`, {
-            method: "GET", headers: { Authorization: `${id}` },
+        const token = useAuthStore.getState().token;
+        fetch(`${BASE}/api/auth/other-user/view/${id}`, {
+            method: "GET", 
+            headers: { 
+                Authorization: `Bearer ${token}` 
+            },
         })
             .then(r => r.json())
             .then(data => { setUserDetails(data); setLoading(false); })

@@ -89,8 +89,8 @@ export function useComments(postId) {
     return useQuery({
         queryKey: postKeys.comments(postId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/post/comments`, {
-                headers: { Authorization: postId }
+            const res = await api().get(`${BASE}/api/post/comments`, {
+                params: { postId }
             });
             return res.data;
         },
@@ -104,7 +104,9 @@ export function useMoodFeed(mood, userId) {
     return useQuery({
         queryKey: postKeys.mood(mood, userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/ai/mood-feed/${userId}?mood=${mood}`);
+            const res = await api().get(`${BASE}/api/ai/mood-feed`, {
+                params: { mood }
+            });
             return res.data.posts;
         },
         enabled: !!mood && !!userId,
@@ -151,7 +153,7 @@ export function useCreatePost() {
     const qc = useQueryClient();
     const user = useAuthStore(s => s.user);
     return useMutation({
-        mutationFn: (data) => axios.post(`${BASE}/api/post/create`, data),
+        mutationFn: (data) => api().post(`${BASE}/api/post/create`, data),
         onSuccess: (res) => {
             // Prepend to feed cache immediately
             qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
@@ -164,14 +166,13 @@ export function useCreatePost() {
 }
 
 export function useLikePost() {
-    const qc = useQueryClient();
     const optimisticLike = usePostStore(s => s.optimisticLike);
     const rollbackLike = usePostStore(s => s.rollbackLike);
     const user = useAuthStore(s => s.user);
 
     return useMutation({
         mutationFn: ({ postId, isLiked }) =>
-            axios.post(`${BASE}/api/post/${isLiked ? 'unlike' : 'like'}`, { postId, userId: user._id }),
+            api().post(`${BASE}/api/post/${isLiked ? 'unlike' : 'like'}`, { postId }),
         onMutate: ({ postId, isLiked }) => {
             optimisticLike(postId, user._id);
             return { postId, wasLiked: isLiked };
@@ -188,7 +189,7 @@ export function useSavePost() {
     const user = useAuthStore(s => s.user);
 
     return useMutation({
-        mutationFn: ({ postId }) => axios.post(`${BASE}/api/post/save`, { postId, userId: user._id }),
+        mutationFn: ({ postId }) => api().post(`${BASE}/api/post/save`, { postId }),
         onSuccess: (res, { postId }) => {
             toggleSaved(postId, res.data.saved);
             qc.invalidateQueries({ queryKey: postKeys.saved(user?._id) });
@@ -199,7 +200,7 @@ export function useSavePost() {
 export function useCreateComment() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (data) => axios.post(`${BASE}/api/post/comments/add`, data),
+        mutationFn: (data) => api().post(`${BASE}/api/post/comments/add`, data),
         onSuccess: (_, { postId }) => {
             qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
         },
@@ -208,10 +209,9 @@ export function useCreateComment() {
 
 export function useDeleteComment() {
     const qc = useQueryClient();
-    const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ commentId, postId }) =>
-            axios.delete(`${BASE}/api/post/comments/${commentId}`, { data: { userId: user._id } }),
+            api().delete(`${BASE}/api/post/comments/${commentId}`),
         onSuccess: (_, { postId }) => {
             qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
         },
@@ -223,7 +223,7 @@ export function useDeletePost() {
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ postId }) =>
-            axios.delete(`${BASE}/api/post/delete/${postId}`, { data: { userId: user._id } }),
+            api().delete(`${BASE}/api/post/delete/${postId}`),
         onSuccess: (_, { postId }) => {
             // Remove from all feed caches
             qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
@@ -240,7 +240,7 @@ export function useUpdatePost() {
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ postId, caption, category }) =>
-            axios.put(`${BASE}/api/post/update/${postId}`, { userId: user._id, caption, category }),
+            api().put(`${BASE}/api/post/update/${postId}`, { caption, category }),
         onSuccess: (res) => {
             qc.setQueryData(postKeys.detail(res.data._id), res.data);
             qc.invalidateQueries({ queryKey: postKeys.feed(user?._id) });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -136,7 +136,7 @@ const AnalyticsTab = () => {
         axios.get(`${BASE}/api/admin/analytics`, { headers })
             .then(r => { setData(r.data); setLoading(false); })
             .catch(() => setLoading(false));
-    }, []);
+    }, [headers]);
 
     if (loading) return <div className="flex justify-center p-8"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>;
     if (!data) return <p className="text-center text-gray-400 p-8">Failed to load analytics</p>;
@@ -202,7 +202,7 @@ const UsersTab = () => {
         axios.get(`${BASE}/api/admin/users`, { headers, params: { page, search, filter } })
             .then(r => { setUsers(r.data.users); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
-    }, [page, search, filter]);
+    }, [page, search, filter, headers]);
 
     useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -303,7 +303,7 @@ const PostsTab = () => {
         axios.get(`${BASE}/api/admin/posts`, { headers, params: { page, search, filter } })
             .then(r => { setPosts(r.data.posts); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
-    }, [page, search, filter]);
+    }, [page, search, filter, headers]);
 
     useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
@@ -373,7 +373,7 @@ const ReportsTab = () => {
         axios.get(`${BASE}/api/admin/reports`, { headers, params: { status } })
             .then(r => { setReports(r.data.reports); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
-    }, [status]);
+    }, [status, headers]);
 
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
@@ -436,17 +436,16 @@ const AdminDashboard = () => {
     const loggeduser = useAuthStore(s => s.user);
     const fetchUser = useAuthStore(s => s.fetchUser);
     const token = useAuthStore(s => s.token);
-    const userLoading = { loggeduser: !loggeduser && !!token };
+    const userLoading = useMemo(() => ({ loggeduser: !loggeduser && !!token }), [loggeduser, token]);
     const navigate = useNavigate();
     const [verified, setVerified] = useState(false);
     const [activeTab, setActiveTab] = useState('analytics');
 
-    // ✅ Fix: fetch loggeduser if not loaded yet (direct URL visit)
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) { navigate('/login'); return; }
         if (!loggeduser) fetchUser();
-    }, [ loggeduser, navigate]);
+    }, [ loggeduser, navigate, fetchUser]);
 
     // ✅ Redirect non-admins only after user is confirmed loaded
     useEffect(() => {

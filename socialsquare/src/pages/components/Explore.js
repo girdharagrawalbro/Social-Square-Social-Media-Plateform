@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import React, { useState, useMemo } from 'react';
 import { useCategories, useTrending } from '../../hooks/queries/usePostQueries';
 import { useConfessions, useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -113,7 +112,6 @@ const ConfessionsFeed = () => {
 
 // ─── MAIN EXPLORE ─────────────────────────────────────────────────────────────
 const Explore = () => {
-    const loggeduser = useAuthStore(s => s.user);
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
     const { data: categories = [] } = useCategories();
 
@@ -125,14 +123,13 @@ const Explore = () => {
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [userProfileVisible, setUserProfileVisible] = useState(false);
     const [activeCategory, setActiveCategory] = useState(null);
-    const [loadingCategoryPosts, setLoadingCategoryPosts] = useState(false);
 
     // ✅ Tab: 'discover' | 'confessions'
     const [activeTab, setActiveTab] = useState('discover');
 
-    const debouncedSearch = useCallback(
+    const debouncedSearch = useMemo(() =>
         debounce((term) => { setSearchTerm(term); }, 400),
-        []
+        [] // eslint-disable-line react-hooks/exhaustive-deps
     );
 
     const handleSearchChange = (e) => {
@@ -142,11 +139,7 @@ const Explore = () => {
 
     const handleCategoryClick = async (category) => {
         setActiveCategory(category);
-        setLoadingCategoryPosts(true);
-        try {
-            setSearchTerm(category); // Search by category term instead of old doSearch
-        }
-        finally { setLoadingCategoryPosts(false); }
+        setSearchTerm(category); // Search by category term instead of old doSearch
     };
 
     const getImages = (post) => {

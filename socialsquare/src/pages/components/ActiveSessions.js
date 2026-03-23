@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -19,7 +19,7 @@ const ActiveSessions = () => {
 
   const token = localStorage.getItem('token');
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       const res = await axios.get(`${BASE}/api/auth/sessions`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -27,21 +27,21 @@ const ActiveSessions = () => {
       setSessions(res.data);
     } catch { toast.error('Failed to load sessions'); }
     finally { setLoading(false); }
-  };
+  }, [token]);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const res = await axios.get(`${BASE}/api/auth/get`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTwoFaEnabled(res.data.twoFactorEnabled);
     } catch { }
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchSessions();
     fetchUser();
-  }, []);
+  }, [fetchSessions, fetchUser]);
 
   const revokeSession = async (sessionId) => {
     try {

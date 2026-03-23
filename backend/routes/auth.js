@@ -12,8 +12,10 @@ const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
 const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail } = require('../utils/mailer');
 const logger = require('../utils/logger');
+const verifyToken = require('../middleware/Verifytoken');
 
 const router = express.Router();
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -51,19 +53,7 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { er
 const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 3, message: { error: 'Too many reset attempts.' } });
 const otpLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, message: { error: 'Too many OTP attempts.' } });
 
-// ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
-const verifyToken = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-    const token = authHeader.split(' ')[1];
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.userId = decoded.userId;
-        next();
-    } catch {
-        return res.status(403).json({ message: 'Invalid or expired token' });
-    }
-};
+// verifyToken middleware imported from ../middleware/Verifytoken
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 
@@ -594,14 +584,16 @@ router.post('/unfollow', async (req, res) => {
     } catch { res.status(500).json({ message: 'Failed to unfollow user.' }); }
 });
 
-router.get('/other-user/view', async (req, res) => {
+router.get('/other-user/view/:id', verifyToken, async (req, res) => {
     try {
-        const userId = req.headers.authorization;
-        if (!userId) return res.status(401).json({ message: 'No Id provided.' });
+        const userId = req.params.id;
         const user = await User.findById(userId).select('-password');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         return res.status(200).json(user);
-    } catch { return res.status(403).json({ message: "Something went wrong" }); }
+    } catch (error) { 
+        logger.error('[OTHER_USER_VIEW] Error:', error);
+        return res.status(500).json({ message: "Internal server error" }); 
+    }
 });
 
 router.post("/search", async (req, res) => {

@@ -3,10 +3,11 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const Comment = require('../models/Comment');
 const Category = require("../models/Category");
-const { emailQueue } = require("../queues/emailQueue");
 const { publish } = require('../lib/nats');
+const verifyToken = require('../middleware/Verifytoken');
 
 const router = express.Router();
+
 
 // io is injected from index.js
 let _io;
@@ -19,18 +20,20 @@ function computeScore(post, followingIds = []) {
         + Math.max(0, 50 - ageHours * 0.5);
 }
 
-// ─── CREATE ───────────────────────────────────────────────────────────────────
-router.post("/create", async (req, res) => {
+// ─── CREATE (PROTECTED) ────────────────────────────────────────────────────────
+router.post("/create", verifyToken, async (req, res) => {
     try {
         const {
-            caption, loggeduser, category, imageURLs, location, music,
+            caption, category, imageURLs, location, music,
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
             isAiGenerated,
         } = req.body;
-        if (!caption || !loggeduser || !category) return res.status(400).json({ message: "All fields are required." });
+        const loggedUserId = req.userId; // Secure: from token
 
-        const userDetails = await User.findById(loggeduser).select('username fullname profile_picture followers');
+        if (!caption || !loggedUserId || !category) return res.status(400).json({ message: "All fields are required." });
+
+        const userDetails = await User.findById(loggedUserId).select('username fullname profile_picture followers');
         if (!userDetails) return res.status(404).json({ message: "User not found." });
 
         let collaborators = [];
@@ -64,36 +67,31 @@ router.post("/create", async (req, res) => {
             });
         }
 
-        // Anonymous posts do NOT go to followers' feeds — they go to a public confessions feed only.
-        // This prevents followers identifying the poster by timing.
+        // Anonymous posts do NOT go to followers' feeds
         if (!isAnonymous && !unlocksAt && _io && userDetails.followers?.length > 0) {
             userDetails.followers.forEach(followerId => {
                 _io.to(followerId.toString()).emit('newFeedPost', newPost);
             });
         }
 
-        // Anonymous posts: emit to a public 'confessions' room that any connected user can join
         if (isAnonymous && _io) {
             _io.emit('newConfessionPost', newPost);
         }
 
-        // Only notify followers via NATS for non-anonymous posts
         if (!isAnonymous) {
-            await emailQueue.add('sendWelcome', { userId: userDetails._id }, { attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
             publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category })
                 .catch(err => console.warn('[NATS]:', err.message));
         }
 
         res.status(201).json(newPost);
-    } catch (error) {
-        res.status(500).json({ message: "Internal Server Error", error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ─── ACCEPT COLLABORATION ─────────────────────────────────────────────────────
-router.post("/collaborate/accept", async (req, res) => {
+// ─── ACCEPT COLLABORATION (PROTECTED) ──────────────────────────────────────────
+router.post("/collaborate/accept", verifyToken, async (req, res) => {
     try {
-        const { postId, userId, contribution } = req.body;
+        const { postId, contribution } = req.body;
+        const userId = req.userId;
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
         const idx = post.collaborators.findIndex(c => c.userId.toString() === userId);
@@ -106,10 +104,11 @@ router.post("/collaborate/accept", async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ─── DECLINE COLLABORATION ────────────────────────────────────────────────────
-router.post("/collaborate/decline", async (req, res) => {
+// ─── DECLINE COLLABORATION (PROTECTED) ───────────────────────────────────────────
+router.post("/collaborate/decline", verifyToken, async (req, res) => {
     try {
-        const { postId, userId } = req.body;
+        const { postId } = req.body;
+        const userId = req.userId;
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
         const idx = post.collaborators.findIndex(c => c.userId.toString() === userId);
@@ -135,10 +134,11 @@ router.get("/collaborate/invites/:userId", async (req, res) => {
     }
 });
 
-// ─── UPDATE ───────────────────────────────────────────────────────────────────
-router.put("/update/:postId", async (req, res) => {
+// ─── UPDATE (PROTECTED) ──────────────────────────────────────────────────────────
+router.put("/update/:postId", verifyToken, async (req, res) => {
     try {
-        const { caption, category, userId } = req.body;
+        const { caption, category } = req.body;
+        const userId = req.userId;
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
         if (post.user._id.toString() !== userId) return res.status(403).json({ message: "Unauthorized." });
@@ -153,10 +153,10 @@ router.put("/update/:postId", async (req, res) => {
     } catch (error) { res.status(500).json({ message: "Internal Server Error" }); }
 });
 
-// ─── DELETE ───────────────────────────────────────────────────────────────────
-router.delete("/delete/:postId", async (req, res) => {
+// ─── DELETE (PROTECTED) ──────────────────────────────────────────────────────────
+router.delete("/delete/:postId", verifyToken, async (req, res) => {
     try {
-        const { userId } = req.body;
+        const userId = req.userId;
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
         if (post.user._id.toString() !== userId) return res.status(403).json({ message: "Unauthorized." });
@@ -216,10 +216,11 @@ router.get("/user/:userId", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── SAVE / UNSAVE ────────────────────────────────────────────────────────────
-router.post("/save", async (req, res) => {
+// ─── SAVE / UNSAVE (PROTECTED) ───────────────────────────────────────────────────
+router.post("/save", verifyToken, async (req, res) => {
     try {
-        const { postId, userId } = req.body;
+        const { postId } = req.body;
+        const userId = req.userId;
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found.' });
         const alreadySaved = (user.savedPosts || []).some(id => id.toString() === postId);
@@ -257,12 +258,14 @@ router.get("/trending", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── LIKE ─────────────────────────────────────────────────────────────────────
-router.post("/like", async (req, res) => {
+// ─── LIKE (PROTECTED) ─────────────────────────────────────────────────────────
+router.post("/like", verifyToken, async (req, res) => {
     try {
-        const { postId, userId } = req.body;
-        if (!userId || !postId) return res.status(400).json({ message: 'Both required.' });
+        const { postId } = req.body;
+        const userId = req.userId;
+        if (!postId) return res.status(400).json({ message: 'PostId required.' });
         const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: 'Post not found.' });
         if (!post.likes.includes(userId)) {
             post.likes.push(userId);
             post.score = computeScore(post);
@@ -276,12 +279,14 @@ router.post("/like", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── UNLIKE ───────────────────────────────────────────────────────────────────
-router.post("/unlike", async (req, res) => {
+// ─── UNLIKE (PROTECTED) ───────────────────────────────────────────────────────
+router.post("/unlike", verifyToken, async (req, res) => {
     try {
-        const { postId, userId } = req.body;
-        if (!userId || !postId) return res.status(400).json({ message: 'Both required.' });
+        const { postId } = req.body;
+        const userId = req.userId;
+        if (!postId) return res.status(400).json({ message: 'PostId required.' });
         const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: 'Post not found.' });
         if (post.likes.includes(userId)) {
             await Post.findByIdAndUpdate(postId, { $pull: { likes: userId } });
             post.likes = post.likes.filter(id => id.toString() !== userId);
@@ -307,8 +312,8 @@ router.get("/categories", async (req, res) => {
 // ─── FETCH COMMENTS ───────────────────────────────────────────────────────────
 router.get('/comments', async (req, res) => {
     try {
-        const postId = req.headers.authorization;
-        if (!postId) return res.status(400).json({ error: 'postId required' });
+        const { postId } = req.query;
+        if (!postId) return res.status(400).json({ error: 'postId required as query param' });
         const comments = await Comment.find({ postId, parentId: null }).sort({ createdAt: 1 });
         const withReplies = await Promise.all(comments.map(async (comment) => {
             const replies = await Comment.find({ parentId: comment._id }).sort({ createdAt: 1 });
@@ -350,10 +355,10 @@ router.post('/comments/add', async (req, res) => {
     } catch (error) { return res.status(500).json({ error: 'Server error' }); }
 });
 
-// ─── DELETE COMMENT ───────────────────────────────────────────────────────────
-router.delete('/comments/:commentId', async (req, res) => {
+// ─── DELETE COMMENT (PROTECTED) ───────────────────────────────────────────────
+router.delete('/comments/:commentId', verifyToken, async (req, res) => {
     try {
-        const { userId } = req.body;
+        const userId = req.userId;
         const comment = await Comment.findById(req.params.commentId);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
         if (comment.user._id.toString() !== userId) return res.status(403).json({ error: 'Unauthorized' });
@@ -380,10 +385,10 @@ router.delete('/comments/:commentId', async (req, res) => {
     } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// ─── LIKE COMMENT ─────────────────────────────────────────────────────────────
-router.post('/comments/:commentId/like', async (req, res) => {
+// ─── LIKE COMMENT (PROTECTED) ─────────────────────────────────────────────────
+router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
     try {
-        const { userId } = req.body;
+        const userId = req.userId;
         const comment = await Comment.findById(req.params.commentId);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
         const liked = comment.likes.includes(userId);

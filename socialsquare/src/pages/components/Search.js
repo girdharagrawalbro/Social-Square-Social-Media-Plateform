@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
@@ -48,11 +48,11 @@ const Search = () => {
     }, []);
 
     // Debounced search — fires 400ms after user stops typing
-    const debouncedSearch = useCallback(
+    const debouncedSearch = useMemo(() =>
         debounce((term) => {
             if (term.trim()) doSearch(term.trim());
         }, 400),
-        []
+        [] // eslint-disable-line react-hooks/exhaustive-deps
     );
 
     const handleInputChange = (e) => {
