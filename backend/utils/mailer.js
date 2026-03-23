@@ -1,9 +1,18 @@
 const nodemailer = require('nodemailer');
 
 function getTransporter() {
+    const user = process.env.EMAIL_USER?.trim();
+    const pass = process.env.EMAIL_PASS?.trim();
+    if (!user || !pass) {
+        return {
+            sendMail: async () => {
+                console.warn("[Mailer] Skipped email sending: EMAIL_USER or EMAIL_PASS is missing in environment variables.");
+            }
+        };
+    }
     return nodemailer.createTransport({
         service: 'gmail',
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+        auth: { user, pass },
     });
 }
 

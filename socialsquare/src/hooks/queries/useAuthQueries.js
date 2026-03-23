@@ -36,7 +36,7 @@ export function useOtherUsers() {
     return useQuery({
         queryKey: authKeys.otherUsers,
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/auth/other-users`);
+            const res = await api.get(`/api/auth/other-users`);
             return Array.isArray(res.data) ? res.data : [];
         },
         staleTime: 1000 * 60 * 10, // 10 minutes - suggested users don't change often
@@ -62,7 +62,7 @@ export function useCollabInvites(userId) {
     return useQuery({
         queryKey: authKeys.collabInvites(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/post/collaborate/invites`);
+            const res = await api.get(`/api/post/collaborate/invites/${userId}`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: !!userId,

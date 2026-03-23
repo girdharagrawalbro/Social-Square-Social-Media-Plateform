@@ -5,7 +5,7 @@ import { api } from '../store/zustand/useAuthStore';
 
 // Fetch notifications
 const fetchNotifications = async (userId) => {
-    const res = await api.get(`/api/conversation/notifications/${userId}`);
+    const res = await api.get(`/api/conversation/notifications`);
     return res.data;
 };
 
