@@ -166,7 +166,17 @@ router.patch('/messages/:messageId', async (req, res) => {
         if (!message) return res.status(404).json({ error: 'Message not found' });
 
         // Notify recipient via socket
-        if (_io) _io.emit('messageEdited', { messageId: message._id, content, conversationId: message.conversationId });
+        // Emit to both participants' rooms (they joined with their userId as room name)
+        if (_io) {
+            const conv = await Conversation.findById(message.conversationId).select('participants').lean();
+            conv?.participants?.forEach(p => {
+                _io.to(p.userId.toString()).emit('messageEdited', {
+                    messageId: message._id,
+                    content,
+                    conversationId: message.conversationId,
+                });
+            });
+        }
 
         await delCache(`msgs:${message.conversationId}`);
         res.json(message);
@@ -184,7 +194,15 @@ router.delete('/messages/:messageId', async (req, res) => {
         message.content   = '';
         await message.save();
 
-        if (_io) _io.emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId });
+        if (_io) {
+            const conv = await Conversation.findById(message.conversationId).select('participants').lean();
+            conv?.participants?.forEach(p => {
+                _io.to(p.userId.toString()).emit('messageDeleted', {
+                    messageId: message._id,
+                    conversationId: message.conversationId,
+                });
+            });
+        }
         await delCache(`msgs:${message.conversationId}`);
         res.json({ message: 'Message deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -205,11 +223,16 @@ router.post('/messages/:messageId/react', async (req, res) => {
         await message.save();
 
         const reactionsObj = Object.fromEntries(message.reactions);
-        if (_io) _io.emit('messageReaction', {
-            messageId: message._id,
-            conversationId: message.conversationId,
-            reactions: reactionsObj,
-        });
+        if (_io) {
+            const conv = await Conversation.findById(message.conversationId).select('participants').lean();
+            conv?.participants?.forEach(p => {
+                _io.to(p.userId.toString()).emit('messageReaction', {
+                    messageId: message._id,
+                    conversationId: message.conversationId,
+                    reactions: reactionsObj,
+                });
+            });
+        }
 
         await delCache(`msgs:${message.conversationId}`);
         res.json({ reactions: reactionsObj });

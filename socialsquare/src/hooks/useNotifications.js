@@ -1,19 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { socket } from '../socket';
-import axios from 'axios';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
+import { api } from '../store/zustand/useAuthStore';
 
 // Fetch notifications
 const fetchNotifications = async (userId) => {
-    const res = await axios.get(`${BASE}/api/conversation/notifications/${userId}`);
+    const res = await api.get(`/api/conversation/notifications/${userId}`);
     return res.data;
 };
 
 // Mark notifications as read
 const markAsRead = async (Ids) => {
-    const res = await axios.patch(`${BASE}/api/conversation/notifications/mark-read`, { Ids });
+    const res = await api.patch(`/api/conversation/notifications/mark-read`, { Ids });
     return res.data;
 };
 

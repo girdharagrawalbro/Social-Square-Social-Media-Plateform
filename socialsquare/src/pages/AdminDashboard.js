@@ -329,7 +329,7 @@ const PostsTab = () => {
                 <span className="text-sm text-gray-400 self-center">{total} posts</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-                {loading ? [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ height: 200 }} />) :
+                {loading ? [1,2,3,4,5,6].map(i => <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ height: 200 }} />) :
                     posts.map(post => (
                         <div key={post._id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                             {imgs(post)
@@ -398,33 +398,33 @@ const ReportsTab = () => {
             <div className="flex flex-col gap-3">
                 {loading ? <div className="flex justify-center p-8"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div> :
                     reports.length === 0 ? <p className="text-center text-gray-400 py-8">No reports found</p> :
-                        reports.map(report => (
-                            <div key={report._id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <img src={report.reporter?.profile_picture || '/default-profile.png'} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                                        <div>
-                                            <p className="text-sm font-medium m-0">{report.reporter?.fullname || 'Unknown'}</p>
-                                            <p className="text-xs text-gray-400 m-0">reported a {report.targetType}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: `${REASON_COLOR[report.reason]}20`, color: REASON_COLOR[report.reason] }}>
-                                            {report.reason?.replace('_', ' ')}
-                                        </span>
-                                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>{new Date(report.createdAt).toLocaleDateString()}</span>
+                    reports.map(report => (
+                        <div key={report._id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <img src={report.reporter?.profile_picture || '/default-profile.png'} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-medium m-0">{report.reporter?.fullname || 'Unknown'}</p>
+                                        <p className="text-xs text-gray-400 m-0">reported a {report.targetType}</p>
                                     </div>
                                 </div>
-                                {report.description && <p className="text-xs text-gray-500 mt-2 mb-0 italic">"{report.description}"</p>}
-                                <p className="text-xs text-gray-400 mt-1 mb-0">Target ID: {report.targetId}</p>
-                                {report.status === 'pending' && (
-                                    <div className="flex gap-2 mt-3">
-                                        <button onClick={() => resolve(report._id, 'resolved')} style={{ fontSize: '12px', padding: '4px 12px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>✓ Resolve</button>
-                                        <button onClick={() => resolve(report._id, 'dismissed')} style={{ fontSize: '12px', padding: '4px 12px', background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Dismiss</button>
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: `${REASON_COLOR[report.reason]}20`, color: REASON_COLOR[report.reason] }}>
+                                        {report.reason?.replace('_', ' ')}
+                                    </span>
+                                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>{new Date(report.createdAt).toLocaleDateString()}</span>
+                                </div>
                             </div>
-                        ))
+                            {report.description && <p className="text-xs text-gray-500 mt-2 mb-0 italic">"{report.description}"</p>}
+                            <p className="text-xs text-gray-400 mt-1 mb-0">Target ID: {report.targetId}</p>
+                            {report.status === 'pending' && (
+                                <div className="flex gap-2 mt-3">
+                                    <button onClick={() => resolve(report._id, 'resolved')} style={{ fontSize: '12px', padding: '4px 12px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>✓ Resolve</button>
+                                    <button onClick={() => resolve(report._id, 'dismissed')} style={{ fontSize: '12px', padding: '4px 12px', background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Dismiss</button>
+                                </div>
+                            )}
+                        </div>
+                    ))
                 }
             </div>
         </div>
@@ -446,7 +446,7 @@ const AdminDashboard = () => {
         const token = localStorage.getItem('token');
         if (!token) { navigate('/login'); return; }
         if (!loggeduser) fetchUser();
-    }, [loggeduser, navigate]);
+    }, [ loggeduser, navigate]);
 
     // ✅ Redirect non-admins only after user is confirmed loaded
     useEffect(() => {
@@ -474,9 +474,9 @@ const AdminDashboard = () => {
 
     const tabs = [
         { key: 'analytics', icon: '📊', label: 'Analytics' },
-        { key: 'users', icon: '👥', label: 'Users' },
-        { key: 'posts', icon: '📝', label: 'Posts' },
-        { key: 'reports', icon: '🚩', label: 'Reports' },
+        { key: 'users',     icon: '👥', label: 'Users' },
+        { key: 'posts',     icon: '📝', label: 'Posts' },
+        { key: 'reports',   icon: '🚩', label: 'Reports' },
     ];
 
     return (
@@ -517,9 +517,9 @@ const AdminDashboard = () => {
                 {/* Content */}
                 <div className="flex-1 p-6 overflow-auto">
                     {activeTab === 'analytics' && <AnalyticsTab />}
-                    {activeTab === 'users' && <UsersTab />}
-                    {activeTab === 'posts' && <PostsTab />}
-                    {activeTab === 'reports' && <ReportsTab />}
+                    {activeTab === 'users'     && <UsersTab />}
+                    {activeTab === 'posts'     && <PostsTab />}
+                    {activeTab === 'reports'   && <ReportsTab />}
                 </div>
             </div>
         </div>

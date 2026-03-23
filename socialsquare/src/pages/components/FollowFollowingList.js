@@ -1,31 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
+import { useUserDetails, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
 
 const FollowFollowingList = ({ ids = [], isfollowing }) => {
-    const user         = useAuthStore(s => s.user);
-    const followUser   = useAuthStore(s => s.followUser);
-    const unfollowUser = useAuthStore(s => s.unfollowUser);
-    const [users, setUsers]   = useState([]);
-    const [loading, setLoading] = useState(true);
+    const user = useAuthStore(s => s.user);
+    
+    // ✅ TanStack Query for fetching user details
+    const { data: users = [], isLoading } = useUserDetails(ids);
+    
+    // ✅ Mutations for follow/unfollow
+    const followMutation = useFollowUser();
+    const unfollowMutation = useUnfollowUser();
 
-    useEffect(() => {
-        if (!ids?.length) { setLoading(false); return; }
-        const body = JSON.stringify({ ids });
-        fetch(`${BASE}/api/auth/users/details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
-            .then(r => r.json())
-            .then(data => { setUsers(Array.isArray(data) ? data : []); setLoading(false); })
-            .catch(() => setLoading(false));
-    }, [ids]);
-
-    const handleFollow = (userId) => {
-        const isFollowing = user?.following?.some(f => f?.toString() === userId?.toString());
-        if (isFollowing) unfollowUser(userId);
-        else followUser(userId);
+    const handleFollow = (targetUserId) => {
+        const isFollowing = user?.following?.some(f => f?.toString() === targetUserId?.toString());
+        if (isFollowing) {
+            unfollowMutation.mutate({ targetUserId });
+        } else {
+            followMutation.mutate({ targetUserId });
+        }
     };
 
-    if (loading) return (
+    if (isLoading) return (
         <div className="flex flex-col gap-2 p-2">
             {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
@@ -50,8 +46,9 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                         </div>
                         {u._id !== user?._id && (
                             <button onClick={() => handleFollow(u._id)}
-                                className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'}`}>
-                                {isFollowing ? 'Following' : 'Follow'}
+                                disabled={followMutation.isPending || unfollowMutation.isPending}
+                                className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold transition ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'} ${(followMutation.isPending || unfollowMutation.isPending) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                {followMutation.isPending || unfollowMutation.isPending ? 'Loading...' : (isFollowing ? 'Unfollow' : 'Follow')}
                             </button>
                         )}
                     </div>

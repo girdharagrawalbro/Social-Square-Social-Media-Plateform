@@ -50,11 +50,33 @@ router.post('/chat', async (req, res) => {
             content: m.content,
         }));
 
-        const fullMessages = [
+        // ✅ Enforce strict user/assistant alternation required by this model
+        // 1. Prepend system prompt as user + assistant seed pair
+        // 2. Deduplicate consecutive same-role messages by merging them
+        const raw = [
             { role: 'user', content: SYSTEM_PROMPT },
-            { role: 'assistant', content: 'Got it! I am SocialBot, ready to help.' },
+            { role: 'assistant', content: 'Got it! I am SocialBot, ready to help Social Square users.' },
             ...history,
         ];
+
+        // Merge consecutive messages with the same role into one
+        const fullMessages = raw.reduce((acc, msg) => {
+            if (acc.length > 0 && acc[acc.length - 1].role === msg.role) {
+                // Merge into previous message
+                acc[acc.length - 1] = {
+                    role: msg.role,
+                    content: acc[acc.length - 1].content + '\n' + msg.content,
+                };
+            } else {
+                acc.push({ role: msg.role, content: msg.content });
+            }
+            return acc;
+        }, []);
+
+        // Must start with user and end with user
+        if (fullMessages[fullMessages.length - 1]?.role !== 'user') {
+            fullMessages.push({ role: 'user', content: 'Please continue.' });
+        }
 
         // ✅ stream: true — model forces it anyway, consume with for-await
         const completion = await client.chat.completions.create({
@@ -104,9 +126,7 @@ router.post('/suggest-captions', async (req, res) => {
         const completion = await client.chat.completions.create({
             model: 'nvidia/llama3-chatqa-1.5-8b',
             messages: [
-                { role: 'user', content: 'You are a creative social media content writer.' },
-                { role: 'assistant', content: 'Sure! I will generate engaging captions with hashtags.' },
-                { role: 'user', content: prompt },
+                { role: 'user', content: `You are a creative social media content writer. ${prompt}` },
             ],
             temperature: 0.8,
             top_p: 0.9,

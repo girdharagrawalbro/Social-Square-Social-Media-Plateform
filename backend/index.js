@@ -19,6 +19,9 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
+const morgan = require('morgan');
+const logger = require('./utils/logger');
+
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
@@ -43,13 +46,49 @@ app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cookieParser());
 
 // ─── RATE LIMITING ────────────────────────────────────────────────────────────
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, message: { error: 'Too many auth attempts.' }, standardHeaders: true, legacyHeaders: false });
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 200, message: { error: 'Rate limit exceeded.' }, skip: req => req.path.startsWith('/api/admin') });
-const reportLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 100, message: { error: 'Too many reports.' } });
+// ─── RATE LIMITERS ────────────────────────────────────────────────────────────
+// Strategy: tight limits only on sensitive write endpoints
+// NOT on read endpoints or token refresh (would cause logout loops)
 
-app.use('/api/auth', authLimiter);
+// Sensitive auth actions: login, signup, password reset ONLY
+const authWriteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many attempts. Try again in 15 minutes.' },
+    // ✅ Skip read endpoints and token refresh — they are NOT brute-force targets
+    skip: (req) => {
+        const safePaths = ['/refresh', '/get', '/other-users', '/search', '/other-user', '/notification-settings'];
+        return safePaths.some(p => req.path.includes(p));
+    },
+});
+
+// General API — generous limit, per IP
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,  // 1 minute
+    max: 500,             // 500 req/min per IP — enough for normal usage + polling
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Slow down.' },
+    skip: (req) => {
+        // Skip admin routes (admins need higher limits)
+        // Skip socket.io polling (has its own rate limiting)
+        return req.path.startsWith('/admin') || req.path.startsWith('/socket.io');
+    },
+});
+
+// Report abuse — strict, per IP
+const reportLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10,
+    message: { error: 'Too many reports submitted.' },
+});
+
+// ✅ Apply limiters to specific paths ONLY — no stacking
+app.use('/api/auth', authWriteLimiter); // only on auth write actions
 app.use('/api/admin/report', reportLimiter);
-app.use('/api', apiLimiter);
+app.use('/api', apiLimiter);       // general fallback
 
 // ─── ALLOWED ORIGINS ──────────────────────────────────────────────────────────
 const allowedOrigins = [
@@ -76,9 +115,9 @@ const io = socketIo(server, {
         const subClient = pubClient.duplicate();
         await Promise.all([pubClient.connect(), subClient.connect()]);
         io.adapter(createAdapter(pubClient, subClient));
-        console.log('[Redis] Socket.io adapter configured');
+        logger.info('[Redis] Socket.io adapter configured');
     } catch (err) {
-        console.warn('[Redis] Not configured:', err.message);
+        logger.warn('[Redis] Not configured: %s', err.message);
     }
 })();
 
@@ -90,14 +129,16 @@ const io = socketIo(server, {
         postRouter.setIo(io);
         storyRouter.setIo(io);
         await initPostSubscriber();
-        console.log('[NATS] Subscribers initialized');
+        logger.info('[NATS] Subscribers initialized');
     } catch (err) {
-        console.warn('[NATS] Initialization failed:', err.message);
+        logger.warn('[NATS] Initialization failed: %s', err.message);
     }
 })();
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
+app.use(morgan('combined', { stream: logger.stream }));
 app.use(cors({ origin: allowedOrigins, credentials: true }));
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
@@ -113,12 +154,11 @@ app.use('/api/conversation', require('./routes/conversation.js'));
 app.use('/api/story', storyRouter);
 app.use('/api/ai', require('./routes/ai.js'));
 app.use('/api/admin', require('./routes/admin.js'));
-app.use('/api/chatbot', require('./routes/chatbot.js'))
-
+app.use('/api/chatbot', require('./routes/chatbot.js'));
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-    console.error('[Error]', err.stack);
+    logger.error('[Error] %s', err.stack);
     res.status(err.status || 500).json({ error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message });
 });
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
@@ -166,6 +206,26 @@ io.on('connection', (socket) => {
         io.emit('collaborationUpdate', { postId, userId, accepted });
     });
 
+    // ─── Chat action forwarding ───────────────────────────────────────────────
+    // Client emits these after API call — server forwards to recipient's room
+    socket.on('messageEdited', ({ messageId, content, conversationId, recipientId }) => {
+        if (recipientId) {
+            io.to(recipientId).emit('messageEdited', { messageId, content, conversationId });
+        }
+    });
+
+    socket.on('messageDeleted', ({ messageId, conversationId, recipientId }) => {
+        if (recipientId) {
+            io.to(recipientId).emit('messageDeleted', { messageId, conversationId });
+        }
+    });
+
+    socket.on('messageReaction', ({ messageId, conversationId, reactions, recipientId }) => {
+        if (recipientId) {
+            io.to(recipientId).emit('messageReaction', { messageId, conversationId, reactions });
+        }
+    });
+
     socket.on('disconnect', () => {
         for (const [userId, socketId] of onlineUsers.entries()) {
             if (socketId === socket.id) { onlineUsers.delete(userId); break; }
@@ -176,7 +236,7 @@ io.on('connection', (socket) => {
 
 // ─── GRACEFUL SHUTDOWN ────────────────────────────────────────────────────────
 const gracefulShutdown = (signal) => {
-    console.log(`[${signal}] Graceful shutdown`);
+    logger.info(`[${signal}] Graceful shutdown`);
     server.close(async () => {
         try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch { }
         process.exit(0);
@@ -188,4 +248,4 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // ─── START ────────────────────────────────────────────────────────────────────
-server.listen(port, () => console.log(`[Worker ${process.pid}] Running on port ${port}`));
+server.listen(port, () => logger.info(`[Worker ${process.pid}] Running on port ${port}`));

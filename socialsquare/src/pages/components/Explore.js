@@ -1,37 +1,22 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useCategories, useTrending } from '../../hooks/queries/usePostQueries';
+import { useConfessions, useSearchUsers } from '../../hooks/queries/useExploreQueries';
+import usePostStore from '../../store/zustand/usePostStore';
 
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
-
 // ─── CONFESSIONS FEED ─────────────────────────────────────────────────────────
 const ConfessionsFeed = () => {
-    const [posts, setPosts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [nextCursor, setNextCursor] = useState(null);
-    const [hasMore, setHasMore] = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
     const [expanded, setExpanded] = useState(null);
 
-    const fetchConfessions = async (cursor = null) => {
-        cursor ? setLoadingMore(true) : setLoading(true);
-        try {
-            const params = new URLSearchParams({ limit: 10 });
-            if (cursor) params.append('cursor', cursor);
-            const res = await fetch(`${BASE}/api/post/confessions?${params}`);
-            const data = await res.json();
-            setPosts(prev => cursor ? [...prev, ...data.posts] : data.posts);
-            setNextCursor(data.nextCursor);
-            setHasMore(data.hasMore);
-        } catch { }
-        cursor ? setLoadingMore(false) : setLoading(false);
-    };
-
-    useEffect(() => { fetchConfessions(); }, []);
+    // ✅ TanStack Query for confessions - infinite scroll
+    const confessionsQuery = useConfessions();
+    const posts = confessionsQuery.data?.pages?.flatMap(p => p.posts) || [];
+    const loading = confessionsQuery.isLoading;
+    const loadingMore = confessionsQuery.isFetchingNextPage;
 
     if (loading) return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
@@ -116,8 +101,8 @@ const ConfessionsFeed = () => {
             })}
 
             {/* Load more */}
-            {hasMore && (
-                <button onClick={() => fetchConfessions(nextCursor)} disabled={loadingMore}
+            {confessionsQuery.hasNextPage && (
+                <button onClick={() => confessionsQuery.fetchNextPage()} disabled={loadingMore}
                     style={{ padding: '12px', background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#808bf5' }}>
                     {loadingMore ? 'Loading...' : 'Load more confessions'}
                 </button>
@@ -129,23 +114,14 @@ const ConfessionsFeed = () => {
 // ─── MAIN EXPLORE ─────────────────────────────────────────────────────────────
 const Explore = () => {
     const loggeduser = useAuthStore(s => s.user);
+    const setPostDetailId = usePostStore(s => s.setPostDetailId);
     const { data: categories = [] } = useCategories();
-    const [searchResults, setSearchResults] = React.useState({ users: [], posts: [] });
-    const [searchLoading, setSearchLoading] = React.useState(false);
-    const loading = { search: searchLoading };
-    const doSearch = async (term) => {
-        if (!term) return;
-        setSearchLoading(true);
-        try {
-            const res = await fetch(`${BASE}/api/auth/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: term }) });
-            const data = await res.json();
-            setSearchResults({ users: data.users || [], posts: data.posts || [] });
-        } catch { }
-        setSearchLoading(false);
-    };
 
+    // ✅ TanStack Query hooks
+    const { data: trendingData = [] } = useTrending();
     const [searchTerm, setSearchTerm] = useState('');
-    const [trending, setTrending] = useState([]);
+    const { data: searchData = { users: [], posts: [] }, isLoading: searchLoading } = useSearchUsers(searchTerm);
+
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [userProfileVisible, setUserProfileVisible] = useState(false);
     const [activeCategory, setActiveCategory] = useState(null);
@@ -154,32 +130,21 @@ const Explore = () => {
     // ✅ Tab: 'discover' | 'confessions'
     const [activeTab, setActiveTab] = useState('discover');
 
-    useEffect(() => { fetchTrending(); }, []);
-
-    const fetchTrending = async () => {
-        try {
-            const res = await fetch(`${BASE}/api/post/trending`);
-            const data = await res.json();
-            setTrending(data);
-        } catch { }
-    };
-
     const debouncedSearch = useCallback(
-        debounce((term) => { if (term) doSearch(term); }, 400),
+        debounce((term) => { setSearchTerm(term); }, 400),
         []
     );
 
     const handleSearchChange = (e) => {
         const term = e.target.value;
-        setSearchTerm(term);
-        if (term) debouncedSearch(term); else setSearchResults({ users: [], posts: [] });
+        if (term) debouncedSearch(term); else setSearchTerm('');
     };
 
     const handleCategoryClick = async (category) => {
         setActiveCategory(category);
         setLoadingCategoryPosts(true);
         try {
-            doSearch(category);
+            setSearchTerm(category); // Search by category term instead of old doSearch
         }
         finally { setLoadingCategoryPosts(false); }
     };
@@ -190,170 +155,168 @@ const Explore = () => {
         return [];
     };
 
-    const hasResults = searchResults?.users?.length > 0 || searchResults?.posts?.length > 0;
-
     return (
-        <div style={{ maxWidth: '680px', margin: '0 auto', padding: '16px' }}>
+            <div style={{ maxWidth: '680px', margin: '0 auto', padding: '16px' }}>
 
-            {/* ── Tabs ── */}
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
-                {[
-                    { key: 'discover', label: '🔍 Discover' },
-                    { key: 'confessions', label: '🎭 Confessions' },
-                ].map(tab => (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                        style={{
-                            flex: 1, padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s',
-                            background: activeTab === tab.key ? '#808bf5' : 'transparent',
-                            color: activeTab === tab.key ? '#fff' : 'var(--text-muted)',
-                        }}>
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
+                {/* ── Tabs ── */}
+                <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
+                    {[
+                        { key: 'discover', label: '🔍 Discover' },
+                        { key: 'confessions', label: '🎭 Confessions' },
+                    ].map(tab => (
+                        <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                            style={{
+                                flex: 1, padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s',
+                                background: activeTab === tab.key ? '#808bf5' : 'transparent',
+                                color: activeTab === tab.key ? '#fff' : 'var(--text-muted)',
+                            }}>
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
 
-            {/* ── CONFESSIONS TAB ── */}
-            {activeTab === 'confessions' && <ConfessionsFeed />}
+                {/* ── CONFESSIONS TAB ── */}
+                {activeTab === 'confessions' && <ConfessionsFeed />}
 
-            {/* ── DISCOVER TAB ── */}
-            {activeTab === 'discover' && (
-                <>
-                    {/* Search bar */}
-                    <div style={{ position: 'relative', marginBottom: '20px' }}>
-                        <i className="pi pi-search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}></i>
-                        <input
-                            type="text"
-                            placeholder="Search users, posts, categories..."
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                            style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '24px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', fontSize: '14px', outline: 'none' }}
-                            onFocus={e => e.target.style.borderColor = '#808bf5'}
-                            onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
-                        />
-                    </div>
+                {/* ── DISCOVER TAB ── */}
+                {activeTab === 'discover' && (
+                    <>
+                        {/* Search bar */}
+                        <div style={{ position: 'relative', marginBottom: '20px' }}>
+                            <i className="pi pi-search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}></i>
+                            <input
+                                type="text"
+                                placeholder="Search users, posts, categories..."
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                style={{ width: '100%', padding: '12px 16px 12px 40px', borderRadius: '24px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', fontSize: '14px', outline: 'none' }}
+                                onFocus={e => e.target.style.borderColor = '#808bf5'}
+                                onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+                            />
+                        </div>
 
-                    {/* Search results */}
-                    {searchTerm && (
-                        <div style={{ marginBottom: '24px' }}>
-                            {loading.search ? (
-                                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>Searching...</p>
-                            ) : hasResults ? (
-                                <>
-                                    {searchResults.users?.length > 0 && (
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>People</p>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                {searchResults.users.map(user => (
-                                                    <button key={user._id} onClick={() => { setSelectedUserId(user._id); setUserProfileVisible(true); }}
-                                                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-                                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
-                                                        onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}>
-                                                        <img src={user.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                                                        <div>
-                                                            <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{user.fullname}</p>
-                                                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{user.followers?.length || 0} followers</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
+                        {/* Search results */}
+                        {searchTerm && (
+                            <div style={{ marginBottom: '24px' }}>
+                                {searchLoading ? (
+                                    <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>Searching...</p>
+                                ) : (searchData.users?.length > 0 || searchData.posts?.length > 0) ? (
+                                    <>
+                                        {searchData.users?.length > 0 && (
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>People</p>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {searchData.users.map(user => (
+                                                        <button key={user._id} onClick={() => { setSelectedUserId(user._id); setUserProfileVisible(true); }}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                                                            onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}>
+                                                            <img src={user.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                                            <div>
+                                                                <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{user.fullname}</p>
+                                                                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{user.followers?.length || 0} followers</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                    {searchResults.posts?.length > 0 && (
+                                        )}
+                                    {searchData.posts?.length > 0 && (
                                         <div>
                                             <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Posts</p>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-                                                {searchResults.posts.map(post => {
-                                                    const imgs = getImages(post);
-                                                    return (
-                                                        <div key={post._id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: 'var(--surface-3)', position: 'relative' }}>
-                                                            {imgs[0] ? <img src={imgs[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
-                                                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', padding: '4px 6px', fontSize: '10px', color: '#fff' }}>
-                                                                ❤️ {post.likes?.length || 0}
+                                                {searchData.posts.map(post => {
+                                                        const imgs = getImages(post);
+                                                        return (
+                                                            <div key={post._id} onClick={() => setPostDetailId(post._id)} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: 'var(--surface-3)', position: 'relative', cursor: 'pointer' }}>
+                                                                {imgs[0] ? <img src={imgs[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
+                                                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', padding: '4px 6px', fontSize: '10px', color: '#fff' }}>
+                                                                    ❤️ {post.likes?.length || 0}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </>
-                            ) : (
-                                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No results for "{searchTerm}"</p>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Trending + categories (unchanged from your original) */}
-                    {!searchTerm && (
-                        <>
-                            <div style={{ marginBottom: '24px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>🔥 Trending</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {trending.length > 0 ? trending.map((item, i) => (
-                                        <button key={item.category} onClick={() => handleCategoryClick(item.category)}
-                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: activeCategory === item.category ? 'var(--surface-accent-soft)' : 'var(--surface-2)', border: activeCategory === item.category ? '1px solid #808bf5' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
-                                            onMouseEnter={e => { if (activeCategory !== item.category) e.currentTarget.style.background = 'var(--surface-hover)'; }}
-                                            onMouseLeave={e => { if (activeCategory !== item.category) e.currentTarget.style.background = 'var(--surface-2)'; }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <span style={{ width: 28, height: 28, background: '#808bf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '12px', fontWeight: 700 }}>#{i + 1}</span>
-                                                <div>
-                                                    <p style={{ margin: 0, fontWeight: 600, fontSize: '14px', color: activeCategory === item.category ? '#808bf5' : 'var(--text-main)' }}>#{item.category}</p>
-                                                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{item.postCount} posts · {item.totalLikes} likes</p>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
-                                            <i className="pi pi-chevron-right" style={{ color: 'var(--text-muted)', fontSize: '12px' }}></i>
-                                        </button>
-                                    )) : (
-                                        [1, 2, 3, 4, 5].map(i => (
-                                            <div key={i} style={{ height: '60px', background: 'var(--surface-3)', borderRadius: '12px', animation: 'pulse 1.5s infinite' }} />
-                                        ))
-                                    )}
-                                </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No results for "{searchTerm}"</p>
+                                )}
                             </div>
+                        )}
 
-                            {activeCategory && searchResults?.posts?.length > 0 && (
-                                <div>
-                                    <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>#{activeCategory}</h3>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-                                        {searchResults.posts.map(post => {
-                                            const imgs = getImages(post);
-                                            return (
-                                                <div key={post._id} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: 'var(--surface-3)', position: 'relative' }}>
-                                                    {imgs[0] ? <img src={imgs[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
-                                                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', padding: '4px 6px', display: 'flex', gap: '6px', fontSize: '10px', color: '#fff' }}>
-                                                        <span>❤️ {post.likes?.length || 0}</span>
-                                                        <span>💬 {post.comments?.length || 0}</span>
+                        {/* Trending + categories (unchanged from your original) */}
+                        {!searchTerm && (
+                            <>
+                                <div style={{ marginBottom: '24px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>🔥 Trending</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {trendingData.length > 0 ? trendingData.map((item, i) => (
+                                            <button key={item.category} onClick={() => handleCategoryClick(item.category)}
+                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: activeCategory === item.category ? 'var(--surface-accent-soft)' : 'var(--surface-2)', border: activeCategory === item.category ? '1px solid #808bf5' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+                                                onMouseEnter={e => { if (activeCategory !== item.category) e.currentTarget.style.background = 'var(--surface-hover)'; }}
+                                                onMouseLeave={e => { if (activeCategory !== item.category) e.currentTarget.style.background = 'var(--surface-2)'; }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <span style={{ width: 28, height: 28, background: '#808bf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '12px', fontWeight: 700 }}>#{i + 1}</span>
+                                                    <div>
+                                                        <p style={{ margin: 0, fontWeight: 600, fontSize: '14px', color: activeCategory === item.category ? '#808bf5' : 'var(--text-main)' }}>#{item.category}</p>
+                                                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{item.postCount} posts · {item.totalLikes} likes</p>
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
+                                                <i className="pi pi-chevron-right" style={{ color: 'var(--text-muted)', fontSize: '12px' }}></i>
+                                            </button>
+                                        )) : (
+                                            [1, 2, 3, 4, 5].map(i => (
+                                                <div key={i} style={{ height: '60px', background: 'var(--surface-3)', borderRadius: '12px', animation: 'pulse 1.5s infinite' }} />
+                                            ))
+                                        )}
                                     </div>
                                 </div>
-                            )}
 
-                            <div style={{ marginTop: '24px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Browse Categories</h3>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                    {categories.map((cat, i) => (
-                                        <button key={i} onClick={() => handleCategoryClick(cat.category)}
-                                            style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', background: activeCategory === cat.category ? '#808bf5' : 'var(--surface-2)', color: activeCategory === cat.category ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
-                                            #{cat.category}
-                                        </button>
-                                    ))}
+                                {activeCategory && searchData?.posts?.length > 0 && (
+                                    <div>
+                                        <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>#{activeCategory}</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                                            {searchData.posts.map(post => {
+                                                const imgs = getImages(post);
+                                                return (
+                                                    <div key={post._id} onClick={() => setPostDetailId(post._id)} style={{ aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', background: 'var(--surface-3)', position: 'relative', cursor: 'pointer' }}>
+                                                        {imgs[0] ? <img src={imgs[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>{post.caption?.slice(0, 40)}</div>}
+                                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', padding: '4px 6px', display: 'flex', gap: '6px', fontSize: '10px', color: '#fff' }}>
+                                                            <span>❤️ {post.likes?.length || 0}</span>
+                                                            <span>💬 {post.comments?.length || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div style={{ marginTop: '24px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Browse Categories</h3>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {categories.map((cat, i) => (
+                                            <button key={i} onClick={() => handleCategoryClick(cat.category)}
+                                                style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', background: activeCategory === cat.category ? '#808bf5' : 'var(--surface-2)', color: activeCategory === cat.category ? '#fff' : 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
+                                                #{cat.category}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
-                </>
-            )}
+                            </>
+                        )}
+                    </>
+                )}
 
-            <Dialog header="Profile" visible={userProfileVisible} style={{ width: '340px' }} onHide={() => setUserProfileVisible(false)}>
-                <UserProfile id={selectedUserId} />
-            </Dialog>
-        </div>
-    );
+                <Dialog header="Profile" visible={userProfileVisible} style={{ width: '500px' }} onHide={() => setUserProfileVisible(false)}>
+                    <UserProfile id={selectedUserId} />
+                </Dialog>
+            </div>
+        );
 };
 
 export default Explore;

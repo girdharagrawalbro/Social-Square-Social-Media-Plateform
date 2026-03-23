@@ -9,21 +9,21 @@ import { useNotifications } from '../../hooks/queries/useNotificationQueries';
 import ChatPanel from './ChatPanel';
 
 const Conversations = () => {
-    const user             = useAuthStore(s => s.user);
-    const isOnline         = useConversationStore(s => s.isOnline);
-    const incrementUnread  = useConversationStore(s => s.incrementUnread);
-    const clearUnread      = useConversationStore(s => s.clearUnread);
-    const unreadCounts     = useConversationStore(s => s.unreadCounts);
-    const totalUnread      = useConversationStore(s => s.totalUnread);
-    const setOnlineUsers   = useConversationStore(s => s.setOnlineUsers);
+    const user = useAuthStore(s => s.user);
+    const isOnline = useConversationStore(s => s.isOnline);
+    const incrementUnread = useConversationStore(s => s.incrementUnread);
+    const clearUnread = useConversationStore(s => s.clearUnread);
+    const unreadCounts = useConversationStore(s => s.unreadCounts);
+    const totalUnread = useConversationStore(s => s.totalUnread);
+    const setOnlineUsers = useConversationStore(s => s.setOnlineUsers);
 
     const { data: conversations = [], refetch } = useConversations(user?._id);
     const { data: notifications = [], unreadCount, markRead } = useNotifications(user?._id);
 
-    const [visible, setVisible]             = useState(false);
+    const [visible, setVisible] = useState(false);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [lastMessageId, setLastMessageId] = useState(null);
-    const [notifVisible, setNotifVisible]   = useState(false);
+    const [notifVisible, setNotifVisible] = useState(false);
 
     // Socket: receive message → increment unread + refetch conversations
     useEffect(() => {
@@ -68,7 +68,7 @@ const Conversations = () => {
     );
 
     return (
-        <div className="p-3 bordershadow bg-white rounded mt-3 conversations">
+        <div className="p-3 bordershadow bg-white rounded conversations">
             <div className="flex justify-between items-center mb-3">
                 <h5 className="font-medium m-0">Messages</h5>
                 <div className="flex gap-2 items-center">
@@ -88,7 +88,7 @@ const Conversations = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 h-[calc(100vh-150px)] overflow-y-auto">
                 {conversations.length === 0 ? (
                     <p className="text-gray-400 text-sm text-center py-3">No conversations yet</p>
                 ) : conversations.map((conv) => {
@@ -129,36 +129,42 @@ const Conversations = () => {
             </div>
 
             {/* Chat Dialog */}
-            <Dialog header={headerElement} visible={visible} style={{ width: '340px', height: '100vh' }} position="right" onHide={() => setVisible(false)}>
+            <Dialog header={headerElement} visible={visible} style={{ width: '95vw', maxWidth: '500px', height: '90vh' }}
+                breakpoints={{ '768px': '100vw' }} position="center" onHide={() => setVisible(false)}>
                 {selectedParticipant && (
                     <ChatPanel participantId={selectedParticipant.userId} lastMessage={lastMessageId} />
                 )}
             </Dialog>
 
-            {/* Notifications Dialog */}
-            <Dialog header="Notifications" visible={notifVisible} style={{ width: '340px', height: '100vh' }} position="right"
-                onHide={() => {
-                    setNotifVisible(false);
-                    const unread = notifications.filter(n => !n.read).map(n => n._id);
-                    if (unread.length) markRead.mutate(unread);
-                }}>
-                <div className="flex flex-col gap-2 p-2">
-                    {notifications.length === 0 ? (
-                        <p className="text-center text-gray-400 text-sm py-6">No notifications</p>
-                    ) : notifications.map(n => (
-                        <div key={n._id} style={{ background: n.read ? '#fff' : '#f5f3ff', borderRadius: '10px', padding: '10px 12px', border: '1px solid #f3f4f6' }}>
-                            <div className="flex items-center gap-2">
-                                <img src={n.sender?.profile_picture || '/default-profile.png'} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm m-0 font-medium">{n.sender?.fullname}</p>
-                                    <p className="text-xs text-gray-500 m-0">{n.message?.content || 'sent a notification'}</p>
+            {/* Notifications Dialog - Message type only */}
+            {(() => {
+                const messageNotifications = notifications.filter(n => n.type === 'message');
+                return (
+                    <Dialog header="Notifications" visible={notifVisible} style={{ width: '95vw', maxWidth: '360px', height: '100vh' }} position="right"
+                        onHide={() => {
+                            setNotifVisible(false);
+                            const unread = messageNotifications.filter(n => !n.read).map(n => n._id);
+                            if (unread.length) markRead.mutate(unread);
+                        }}>
+                        <div className="flex flex-col gap-2 p-2">
+                            {messageNotifications.length === 0 ? (
+                                <p className="text-center text-gray-400 text-sm py-6">No message notifications</p>
+                            ) : messageNotifications.map(n => (
+                                <div key={n._id} style={{ background: n.read ? '#fff' : '#f5f3ff', borderRadius: '10px', padding: '10px 12px', border: '1px solid #f3f4f6' }}>
+                                    <div className="flex items-center gap-2">
+                                        <img src={n.sender?.profile_picture || '/default-profile.png'} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm m-0 font-medium">{n.sender?.fullname}</p>
+                                            <p className="text-xs text-gray-500 m-0">{n.message?.content || 'sent a message'}</p>
+                                        </div>
+                                        {!n.read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#808bf5', flexShrink: 0 }} />}
+                                    </div>
                                 </div>
-                                {!n.read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#808bf5', flexShrink: 0 }} />}
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            </Dialog>
+                    </Dialog>
+                );
+            })()}
         </div>
     );
 };

@@ -30,7 +30,7 @@ const Search = () => {
             const res = await fetch(`${BASE}/api/auth/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: term }) });
             const data = await res.json();
             setSearchResults({ users: data.users || [], posts: data.posts || [] });
-        } catch {}
+        } catch { }
         setSearchLoading(false);
     };
 
@@ -224,7 +224,7 @@ const Search = () => {
             </div>
 
             {/* User Profile Dialog */}
-            <Dialog header="Profile" visible={isVisible} style={{ width: '380px', height: '90vh' }} onHide={() => setVisible(false)}>
+            <Dialog header="Profile" visible={isVisible} style={{ width: '500px', height: '90vh' }} onHide={() => setVisible(false)}>
                 <UserProfile id={selectedUserId} />
             </Dialog>
         </>

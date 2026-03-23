@@ -12,20 +12,12 @@ const usePostStore = create(
             // ─── Saved post IDs (for bookmark icon) ───────────────────────
             savedPostIds: new Set(),
 
-            // ─── Active mood filter ────────────────────────────────────────
-            activeMood: null,
-
-            // ─── Open comment panel ────────────────────────────────────────
-            openCommentPostId: null,
-
-            // ─── New posts from socket (prepended to feed) ─────────────────
-            socketPosts: [],
-
-            // ─── Confession posts from socket ──────────────────────────────
-            socketConfessions: [],
+            // ─── Post Detail Dialog ───────────────────────────────────────
+            postDetailId: null,
 
             // ─── Setters ──────────────────────────────────────────────────
             setActiveMood: (mood) => set({ activeMood: mood }),
+            setPostDetailId: (id) => set({ postDetailId: id }),
             clearMood: () => set({ activeMood: null }),
             setOpenComment: (postId) => set({ openCommentPostId: postId }),
             closeComment: () => set({ openCommentPostId: null }),

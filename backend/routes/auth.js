@@ -11,6 +11,7 @@ const LoginSession = require('../models/LoginSession');
 const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
 const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail } = require('../utils/mailer');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -50,6 +51,20 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { er
 const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 3, message: { error: 'Too many reset attempts.' } });
 const otpLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, message: { error: 'Too many OTP attempts.' } });
 
+// ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.userId = decoded.userId;
+        next();
+    } catch {
+        return res.status(403).json({ message: 'Invalid or expired token' });
+    }
+};
+
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 
 router.post('/login', authLimiter, [
@@ -83,7 +98,7 @@ router.post('/login', authLimiter, [
                 user.failedLoginAttempts = 0;
                 await user.save();
                 const unlockTime = new Date(user.lockoutUntil).toLocaleTimeString();
-                sendLockoutEmail(user.email, user.fullname, unlockTime).catch(() => { });
+                sendLockoutEmail(user.email, user.fullname, unlockTime).catch(() => {});
                 return res.status(423).json({ error: 'Too many failed attempts. Account locked for 30 minutes.' });
             }
             await user.save();
@@ -134,7 +149,13 @@ router.post('/login', authLimiter, [
 
         const accessToken = generateAccessToken(user._id);
         setRefreshTokenCookie(res, refreshToken);
-        return res.status(200).json({ message: 'Login successful', token: accessToken });
+        
+        // Return user object so frontend can restore session without extra request
+        const userResponse = await User.findById(user._id)
+            .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
+            .lean();
+        
+        return res.status(200).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('Login error:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -188,12 +209,18 @@ router.post('/verify-otp', otpLimiter, [
 
         if (isNewDevice) {
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
-                .catch(() => { });
+                .catch(() => {});
         }
 
         const accessToken = generateAccessToken(user._id);
         setRefreshTokenCookie(res, refreshToken);
-        return res.status(200).json({ message: 'Login successful', token: accessToken });
+        
+        // Return user object so frontend can restore session without extra request
+        const userResponse = await User.findById(user._id)
+            .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
+            .lean();
+        
+        return res.status(200).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('OTP verify error:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -257,7 +284,13 @@ router.post('/add', authLimiter, [
 
         const accessToken = generateAccessToken(newUser._id);
         setRefreshTokenCookie(res, refreshToken);
-        return res.status(201).json({ message: 'User registered successfully!', token: accessToken });
+        
+        // Return user object so frontend can restore session without extra request
+        const userResponse = await User.findById(newUser._id)
+            .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
+            .lean();
+        
+        return res.status(201).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('Registration error:', error);
         return res.status(500).json({ message: 'Failed to register user.' });
@@ -303,12 +336,18 @@ router.post('/google', authLimiter, async (req, res) => {
 
         if (isNewDevice) {
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
-                .catch(() => { });
+                .catch(() => {});
         }
 
         const accessToken = generateAccessToken(user._id);
         setRefreshTokenCookie(res, refreshToken);
-        return res.status(200).json({ message: 'Google login successful', token: accessToken });
+        
+        // Return user object so frontend can restore session without extra request
+        const userResponse = await User.findById(user._id)
+            .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
+            .lean();
+        
+        return res.status(200).json({ token: accessToken, user: userResponse });
     } catch (error) {
         console.error('Google auth error:', error);
         return res.status(401).json({ error: 'Google authentication failed' });
@@ -355,7 +394,14 @@ router.post('/refresh', async (req, res) => {
 
         const accessToken = generateAccessToken(decoded.userId);
         setRefreshTokenCookie(res, newRefreshToken);
-        return res.status(200).json({ token: accessToken });
+
+        // ✅ Return user data alongside token so frontend can restore session
+        // without a second /api/auth/get request
+        const user = await User.findById(decoded.userId)
+            .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
+            .lean();
+
+        return res.status(200).json({ token: accessToken, user });
     } catch (error) {
         console.error('Refresh error:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -382,12 +428,29 @@ router.get('/sessions', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        
+        if (!JWT_SECRET) {
+            logger.error('[TOKEN_VERIFY] JWT_SECRET is not set');
+            return res.status(500).json({ message: 'Server configuration error' });
+        }
+        
+        const token = authHeader.split(' ')[1];
+        let decoded;
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (err) {
+            logger.error('[SESSIONS] JWT verification failed:', { error: err.message, name: err.name });
+            return res.status(403).json({ message: 'Invalid or expired token' });
+        }
+        
         const sessions = await LoginSession.find({
             userId: decoded.userId, isRevoked: false, expiresAt: { $gt: new Date() },
         }).select('-refreshToken -fingerprint').sort({ lastUsedAt: -1 });
         return res.status(200).json(sessions);
-    } catch { return res.status(403).json({ message: 'Invalid token' }); }
+    } catch (error) {
+        logger.error('[SESSIONS] Unexpected error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 // ─── REVOKE SESSION ───────────────────────────────────────────────────────────
@@ -453,22 +516,47 @@ router.get('/get', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized.' });
-        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        
+        if (!JWT_SECRET) {
+            logger.error('[TOKEN_VERIFY] JWT_SECRET is not set');
+            return res.status(500).json({ message: 'Server configuration error' });
+        }
+        
+        const token = authHeader.split(' ')[1];
+        let decoded;
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (err) {
+            logger.error('[GET_USER] JWT verification failed:', { error: err.message, name: err.name });
+            return res.status(403).json({ message: 'Invalid or expired token.' });
+        }
+        
         const user = await User.findById(decoded.userId).select('-password -resetPasswordToken -resetPasswordExpires -twoFactorOtp');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         return res.status(200).json(user);
-    } catch { return res.status(403).json({ message: 'Invalid or expired token.' }); }
+    } catch (error) {
+        logger.error('[GET_USER] Unexpected error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
-router.get("/other-users", async (req, res) => {
+router.get("/other-users", verifyToken, async (req, res) => {
     try {
-        const loggedUserId = req.headers.authorization;
-        if (!loggedUserId) return res.status(400).json({ message: "Authorization header missing." });
+        const loggedUserId = req.userId;
         const user = await User.findById(loggedUserId).select("-password").populate("following", "_id");
         if (!user) return res.status(404).json({ message: "User not found." });
-        const suggestions = await User.find({ _id: { $ne: loggedUserId, $nin: user.following }, followers: { $in: user.following } }).limit(20).select("_id fullname profile_picture");
+        
+        // Suggest users who the logged user is not following, but are followed by people the logged user follows
+        const suggestions = await User.find({ 
+            _id: { $ne: loggedUserId, $nin: user.following }, 
+            followers: { $in: user.following } 
+        }).limit(20).select("_id fullname profile_picture");
+        
         return res.status(200).json(suggestions);
-    } catch { return res.status(500).json({ message: "Internal server error." }); }
+    } catch (error) {
+        logger.error('Other users fetch error:', error);
+        return res.status(500).json({ message: "Internal server error." });
+    }
 });
 
 router.post('/users/details', async (req, res) => {
@@ -519,13 +607,39 @@ router.get('/other-user/view', async (req, res) => {
 router.post("/search", async (req, res) => {
     const { query } = req.body;
     if (!query) return res.status(400).json({ message: "Search query is required." });
+
     try {
+        // Escape special regex characters to prevent crashes
+        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
         const [userResults, postResults] = await Promise.all([
-            User.find({ fullname: { $regex: query, $options: "i" } }).select("-password"),
-            Post.find({ category: { $regex: query, $options: "i" } }),
+            User.find({ fullname: { $regex: escapedQuery, $options: "i" } }).select("-password"),
+            Post.find({ category: { $regex: escapedQuery, $options: "i" } }),
         ]);
         res.status(200).json({ users: userResults, posts: postResults });
-    } catch { res.status(500).json({ message: "Internal server error." }); }
+    } catch (error) {
+        logger.error(`Search error for query "${query}":`, error);
+        res.status(500).json({ message: "Internal server error." });
+    }
+});
+
+// ─── NOTIFICATION SETTINGS ───────────────────────────────────────────────────
+router.get('/notification-settings', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId).select('notificationSettings').lean();
+        res.json(user?.notificationSettings || { emailDigest: false, pushEnabled: true });
+    } catch { res.status(401).json({ message: 'Unauthorized' }); }
+});
+
+router.patch('/notification-settings', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findByIdAndUpdate(decoded.userId, { notificationSettings: req.body }, { new: true }).select('notificationSettings').lean();
+        res.json(user.notificationSettings);
+    } catch { res.status(401).json({ message: 'Unauthorized' }); }
 });
 
 // ─── VERIFY PASSWORD (for admin re-auth gate) ────────────────────────────────
