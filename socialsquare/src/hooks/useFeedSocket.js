@@ -109,5 +109,5 @@ export default function useFeedSocket() {
             socket.off('collaborationAccepted', onCollaborationAccepted);
             socket.off('newConfessionPost',     onNewConfessionPost);
         };
-    }, [user?._id, qc]);
+    }, [user?._id, qc, addSocketPost, removeSocketPost, syncLike]);
 }

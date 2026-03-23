@@ -29,7 +29,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
 
         if (story._id && loggeduser?._id) {
             import('../../store/zustand/useAuthStore').then(({ api }) => {
-                api.post(`/api/story/view/${story._id}`, { userId: loggeduser._id }).catch(() => { });
+                api.post(`/api/story/view/${story._id}`).catch(() => { });
             });
         }
 
@@ -63,7 +63,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     const handleDelete = async () => {
         try {
             const { api } = await import('../../store/zustand/useAuthStore');
-            await api.delete(`/api/story/${story._id}`, { data: { userId: loggeduser._id } });
+            await api.delete(`/api/story/${story._id}`);
             toast.success('Story deleted');
             onStoryDeleted(group.user._id.toString(), story._id);
             if (group.stories.length <= 1) {
@@ -149,7 +149,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser }) => {
 
             const { api } = await import('../../store/zustand/useAuthStore');
             const res = await api.post(`/api/story/create`, {
-                userId: loggeduser._id, mediaUrl, mediaType,
+                mediaUrl, mediaType,
                 text: text ? { content: text, color: textColor, position: textPosition } : null
             });
             const newStory = res.data;

@@ -1,5 +1,4 @@
 import React from 'react';
-import Authnav from './Authnav';
 import Navbar from './Navbar';
 
 const Bg = ({ children }) => {

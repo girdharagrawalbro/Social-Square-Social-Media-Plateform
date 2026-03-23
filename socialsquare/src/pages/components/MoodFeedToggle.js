@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useMoodFeed } from '../../hooks/queries/usePostQueries';
 
 const MOODS = [
     { key: 'happy',         emoji: '😊', label: 'Happy' },

@@ -135,9 +135,10 @@ const Chatbot = () => {
                         if (parsed.content) {
                             accumulated += parsed.content;
                             // Update last message in real time
+                            const currentAccumulated = accumulated;
                             setMessages(prev => [
                                 ...prev.slice(0, -1),
-                                { role: 'assistant', content: accumulated },
+                                { role: 'assistant', content: currentAccumulated },
                             ]);
                         }
                     } catch { }

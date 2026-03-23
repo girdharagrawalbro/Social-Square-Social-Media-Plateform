@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import axios from 'axios';
 import { socket } from '../../socket';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -14,11 +14,11 @@ export const notifKeys = {
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 export function useNotifications(userId) {
     const qc = useQueryClient();
-
+ 
     const query = useQuery({
         queryKey: notifKeys.list(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/conversation/notifications/${userId}`);
+            const res = await api.get(`/api/conversation/notifications`);
             return res.data;
         },
         enabled: !!userId,
@@ -36,7 +36,7 @@ export function useNotifications(userId) {
     }, [userId, qc]);
 
     const markRead = useMutation({
-        mutationFn: (Ids) => axios.patch(`${BASE}/api/conversation/notifications/mark-read`, { Ids }),
+        mutationFn: (Ids) => api.patch(`/api/conversation/notifications/mark-read`, { Ids }),
         onSuccess: (_, Ids) => {
             qc.setQueryData(notifKeys.list(userId), (old = []) =>
                 old.filter(n => !Ids.includes(n._id))
@@ -67,9 +67,7 @@ export function useNotificationSettings(userId) {
     });
 
     const updateSettings = useMutation({
-        mutationFn: (settings) => axios.patch(`${BASE}/api/auth/notification-settings`, settings, {
-            headers: { Authorization: `Bearer ${token}` }
-        }),
+        mutationFn: (settings) => api.patch(`/api/auth/notification-settings`, settings),
         onSuccess: (res) => {
             qc.setQueryData(notifKeys.settings(userId), res.data);
         },

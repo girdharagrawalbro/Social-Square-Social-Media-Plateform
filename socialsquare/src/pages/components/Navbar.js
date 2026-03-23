@@ -24,11 +24,7 @@ const Navbar = () => {
     }
   }, [token, loggeduser]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('socketId');
-    window.location.href = '/landing';
-  };
+
 
   return (
     <div className={`w-full shadow-md border-b max-w-8xl mx-auto flex items-center justify-between px-4 py-2 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts } from '../../hooks/queries/usePostQueries';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
@@ -43,8 +43,6 @@ const Profile = () => {
             icon: 'pi pi-exclamation-triangle',
             acceptClassName: 'p-button-danger',
             accept: () => {
-                localStorage.removeItem('socketId');
-                localStorage.removeItem('token');
                 sessionStorage.removeItem('hasReloaded');
                 logout();
                 toast.error('You have been logged out.');

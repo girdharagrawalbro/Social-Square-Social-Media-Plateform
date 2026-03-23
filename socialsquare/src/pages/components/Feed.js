@@ -6,7 +6,6 @@ import Comment from './ui/Comment';
 import { Dialog } from 'primereact/dialog';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Link } from 'react-router-dom';
 import formatDate from '../../utils/formatDate';
 
 import useAuthStore from '../../store/zustand/useAuthStore';
@@ -202,7 +201,7 @@ const Feed = ({ activeMood = null }) => {
         if (inView && !activeMood && feedQuery.hasNextPage && !feedQuery.isFetchingNextPage) {
             feedQuery.fetchNextPage();
         }
-    }, [inView, activeMood]);
+    }, [inView, activeMood, feedQuery]);
 
     // Merge pages + socket posts
     const serverPosts = feedQuery.data?.pages?.flatMap(p => p.posts) || [];

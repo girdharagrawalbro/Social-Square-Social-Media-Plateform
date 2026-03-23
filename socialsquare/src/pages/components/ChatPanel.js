@@ -4,10 +4,8 @@ import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 import toast from 'react-hot-toast';
-import axios from 'axios';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
 // ─── WAVEFORM PLAYER ──────────────────────────────────────────────────────────
@@ -195,10 +193,11 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     // ✅ Fetch messages from backend directly (no TanStack Query confusion)
     const fetchMessages = useCallback(async () => {
         if (!user?._id || !participantId) return;
+        const { api } = useAuthStore.getState();
         setLoading(true);
         try {
-            const res = await axios.post(`${BASE}/api/conversation/messages`, {
-                participantIds: [user._id, participantId]
+            const res = await api.post(`/api/conversation/messages`, {
+                recipientId: participantId
             });
             setMessages(res.data.messages || []);
             setConversationId(res.data.conversation?._id || null);
@@ -282,7 +281,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             socket.off('userTyping', handleTyping);
             socket.off('userStoppedTyping', handleStopTyping);
         };
-    }, [participantId]); // ✅ only re-run when participantId changes
+    }, [participantId, markReadMut, store]); // ✅ only re-run when participantId changes
 
     // ─── SEND ────────────────────────────────────────────────────────────────
     const handleSend = async (e) => {

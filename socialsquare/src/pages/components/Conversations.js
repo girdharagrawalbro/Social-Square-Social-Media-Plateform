@@ -36,7 +36,7 @@ const Conversations = () => {
             socket.off('receiveMessage');
             socket.off('updateUserList');
         };
-    }, []);
+    }, [incrementUnread, refetch, setOnlineUsers]);
 
     const openChat = (participant, lastMsgId) => {
         setSelectedParticipant(participant);

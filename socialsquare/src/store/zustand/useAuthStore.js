@@ -187,7 +187,6 @@ const useAuthStore = create(
 
             // ── Logout ────────────────────────────────────────────────────────
             logout: async () => {
-                const user = get().user;
                 try {
                     await api.post('/api/auth/logout');
                 } catch { }
