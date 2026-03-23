@@ -112,7 +112,13 @@ const io = socketIo(server, {
         const { createClient } = require('redis');
         const { createAdapter } = require('@socket.io/redis-adapter');
         const pubClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+        
+        // Register error handlers before connecting to prevent unhandled exceptions
+        pubClient.on('error', (err) => logger.error('[Redis Pub] Error: %s', err.message));
+        
         const subClient = pubClient.duplicate();
+        subClient.on('error', (err) => logger.error('[Redis Sub] Error: %s', err.message));
+
         await Promise.all([pubClient.connect(), subClient.connect()]);
         io.adapter(createAdapter(pubClient, subClient));
         logger.info('[Redis] Socket.io adapter configured');
