@@ -26,7 +26,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
-const { initNats } = require('./lib/nats');
+const { initPubSub } = require('./lib/pubsub');
 const { initPostSubscriber, setIo: setSubscriberIo } = require('./subscribers/postSubscriber');
 const postRouter = require('./routes/post.js');
 const storyRouter = require('./routes/story.js');
@@ -121,17 +121,17 @@ const io = socketIo(server, {
     }
 })();
 
-// ─── NATS ─────────────────────────────────────────────────────────────────────
+// ─── PUB/SUB (Redis) ──────────────────────────────────────────────────────────
 (async () => {
     try {
-        await initNats();
+        await initPubSub();
         setSubscriberIo(io);
         postRouter.setIo(io);
         storyRouter.setIo(io);
         await initPostSubscriber();
-        logger.info('[NATS] Subscribers initialized');
+        logger.info('[PubSub] Subscribers initialized via Redis');
     } catch (err) {
-        logger.warn('[NATS] Initialization failed: %s', err.message);
+        logger.warn('[PubSub] Initialization failed: %s', err.message);
     }
 })();
 

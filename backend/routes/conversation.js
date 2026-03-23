@@ -4,34 +4,18 @@ const Conversation = require('../models/Conversation');
 const Message      = require('../models/Message');
 const Notification = require('../models/Notification');
 const verifyToken = require('../middleware/Verifytoken');
-const { createClient } = require('redis');
-
-// ─── REDIS CLIENT ─────────────────────────────────────────────────────────────
-let redis;
-(async () => {
-    try {
-        redis = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-        await redis.connect();
-        console.log('[Redis] Conversation cache connected');
-    } catch (err) {
-        console.warn('[Redis] Cache not available:', err.message);
-        redis = null;
-    }
-})();
+const redis = require('../lib/redis'); 
 
 const CACHE_TTL = 60; // 60 seconds
 
 async function getCache(key) {
-    if (!redis) return null;
     try { const v = await redis.get(key); return v ? JSON.parse(v) : null; } catch { return null; }
 }
 async function setCache(key, data, ttl = CACHE_TTL) {
-    if (!redis) return;
-    try { await redis.setEx(key, ttl, JSON.stringify(data)); } catch {}
+    try { await redis.set(key, JSON.stringify(data), 'EX', ttl); } catch {}
 }
 async function delCache(...keys) {
-    if (!redis) return;
-    try { await Promise.all(keys.map(k => redis.del(k))); } catch {}
+    try { if (keys.length) await redis.del(keys); } catch {}
 }
 
 let _io;

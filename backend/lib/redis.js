@@ -1,3 +1,11 @@
 const IORedis = require('ioredis');
-const redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
+
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redis = new IORedis(redisUrl, {
+    maxRetriesPerRequest: null, // Critical for BullMQ
+    retryStrategy: (times) => Math.min(times * 50, 2000),
+});
+
+console.log(`[Redis] Initialized with URL: ${redisUrl.split('@')[1] || '(local)'}`);
+
 module.exports = redis;

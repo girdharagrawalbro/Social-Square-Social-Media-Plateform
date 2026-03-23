@@ -1,14 +1,12 @@
 const { Queue, Worker } = require('bullmq');
-const { createClient } = require('redis');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
-
-const connection = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+const redis = require('../lib/redis'); 
 
 // ─── QUEUE ────────────────────────────────────────────────────────────────────
-const digestQueue = new Queue('emailDigest', { connection });
+const digestQueue = new Queue('emailDigest', { connection: redis });
 
 // ─── SCHEDULE DAILY DIGEST ────────────────────────────────────────────────────
 // Called from a cron job or on app start
