@@ -36,7 +36,7 @@ connectToMongo();
 const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 5000;
-
+app.set('trust proxy', 1);
 // ─── SECURITY ─────────────────────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
 
