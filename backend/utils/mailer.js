@@ -1,19 +1,40 @@
 const nodemailer = require('nodemailer');
 
+let transporter;
+
 function getTransporter() {
+    if (transporter) return transporter;
+
     const user = process.env.EMAIL_USER?.trim();
     const pass = process.env.EMAIL_PASS?.trim();
     if (!user || !pass) {
-        return {
+        transporter = {
             sendMail: async () => {
                 console.warn("[Mailer] Skipped email sending: EMAIL_USER or EMAIL_PASS is missing in environment variables.");
             }
         };
+        return transporter;
     }
-    return nodemailer.createTransport({
-        service: 'gmail',
+
+    const host = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com';
+    const port = Number(process.env.EMAIL_PORT || 587);
+    const secure = process.env.EMAIL_SECURE
+        ? process.env.EMAIL_SECURE === 'true'
+        : port === 465;
+    const forceIPv4 = process.env.EMAIL_FORCE_IPV4 !== 'false';
+
+    transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
         auth: { user, pass },
+        family: forceIPv4 ? 4 : undefined,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
     });
+
+    return transporter;
 }
 
 async function sendNewDeviceAlert({ email, fullname, device, ip, location, time }) {

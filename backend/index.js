@@ -79,7 +79,9 @@ const reportLimiter = rateLimit({
 // app.use('/api', apiLimiter); // temporarily disabled
 
 // ─── ALLOWED ORIGINS ──────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    : [];
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const io = socketIo(server, {

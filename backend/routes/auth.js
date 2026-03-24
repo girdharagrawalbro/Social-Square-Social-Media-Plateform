@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
-const rateLimit = require('express-rate-limit');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const Post = require('../models/Post');
@@ -36,30 +35,43 @@ function generateAccessToken(userId) {
 function generateRefreshToken(userId, family) {
     return jwt.sign({ userId, family }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
 }
-function setRefreshTokenCookie(res, token) {
-    res.cookie('refreshToken', token, {
+
+function getRefreshCookieOptions() {
+    const fromEnvSecure = process.env.COOKIE_SECURE;
+    const inferredSecure = process.env.NODE_ENV === 'production'
+        || (/^https:\/\//i.test(CLIENT_URL) && !/localhost|127\.0\.0\.1/i.test(CLIENT_URL));
+    const secure = typeof fromEnvSecure === 'string' ? fromEnvSecure === 'true' : inferredSecure;
+
+    const fromEnvSameSite = process.env.COOKIE_SAMESITE?.toLowerCase();
+    const sameSite = fromEnvSameSite || (secure ? 'none' : 'lax');
+    const domain = process.env.COOKIE_DOMAIN?.trim();
+
+    return {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        // 'none' is required for cross-domain cookies in production (Vercel -> Backend)
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        secure,
+        sameSite,
         maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+        path: '/',
+        ...(domain ? { domain } : {}),
+    };
+}
+
+function setRefreshTokenCookie(res, token) {
+    res.cookie('refreshToken', token, getRefreshCookieOptions());
+}
+
+function clearRefreshTokenCookie(res) {
+    res.clearCookie('refreshToken', getRefreshCookieOptions());
 }
 function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 }
 
-// ─── Rate Limiters ────────────────────────────────────────────────────────────
-
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many attempts.' } });
-const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 3, message: { error: 'Too many reset attempts.' } });
-const otpLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, message: { error: 'Too many OTP attempts.' } });
-
 // verifyToken middleware imported from ../middleware/Verifytoken
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 
-router.post('/login', authLimiter, [
+router.post('/login', [
     body('identifier').isEmail(),
     body('password').notEmpty(),
 ], async (req, res) => {
@@ -156,7 +168,7 @@ router.post('/login', authLimiter, [
 
 // ─── VERIFY OTP ───────────────────────────────────────────────────────────────
 
-router.post('/verify-otp', otpLimiter, [
+router.post('/verify-otp', [
     body('userId').notEmpty(),
     body('otp').isLength({ min: 6, max: 6 }),
     body('fingerprint').notEmpty(),
@@ -239,7 +251,7 @@ router.post('/toggle-2fa', async (req, res) => {
 
 // ─── SIGNUP ───────────────────────────────────────────────────────────────────
 
-router.post('/add', authLimiter, [
+router.post('/add', [
     body('fullname').trim().isLength({ min: 2, max: 50 }),
     body('email').isEmail().normalizeEmail(),
     body('password').isLength({ min: 6 }),
@@ -291,7 +303,7 @@ router.post('/add', authLimiter, [
 
 // ─── GOOGLE OAUTH ─────────────────────────────────────────────────────────────
 
-router.post('/google', authLimiter, async (req, res) => {
+router.post('/google', async (req, res) => {
     try {
         const { credential, fingerprint } = req.body;
         if (!credential || !fingerprint) return res.status(400).json({ error: 'Missing credential or fingerprint' });
@@ -406,10 +418,10 @@ router.post('/logout', async (req, res) => {
     try {
         const token = req.cookies?.refreshToken;
         if (token) await LoginSession.findOneAndUpdate({ refreshToken: hashValue(token) }, { isRevoked: true });
-        res.clearCookie('refreshToken');
+        clearRefreshTokenCookie(res);
         return res.status(200).json({ message: 'Logged out successfully' });
     } catch {
-        res.clearCookie('refreshToken');
+        clearRefreshTokenCookie(res);
         return res.status(200).json({ message: 'Logged out' });
     }
 });
@@ -463,7 +475,7 @@ router.delete('/sessions/:sessionId', async (req, res) => {
 
 // ─── FORGOT / RESET PASSWORD ──────────────────────────────────────────────────
 
-router.post('/forgot-password', resetLimiter, [body('email').isEmail()], async (req, res) => {
+router.post('/forgot-password', [body('email').isEmail()], async (req, res) => {
     try {
         const { email } = req.body;
         const user = await User.findOne({ email: email.toLowerCase().trim() });
@@ -480,7 +492,7 @@ router.post('/forgot-password', resetLimiter, [body('email').isEmail()], async (
     }
 });
 
-router.post('/reset-password', resetLimiter, [body('token').notEmpty(), body('email').isEmail(), body('password').isLength({ min: 6 })], async (req, res) => {
+router.post('/reset-password', [body('token').notEmpty(), body('email').isEmail(), body('password').isLength({ min: 6 })], async (req, res) => {
     try {
         const { token, email, password } = req.body;
         const user = await User.findOne({
