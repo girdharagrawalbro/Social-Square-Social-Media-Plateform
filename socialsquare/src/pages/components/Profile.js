@@ -41,6 +41,7 @@ const Profile = () => {
             icon: 'pi pi-exclamation-triangle',
             acceptClassName: 'p-button-danger',
             accept: () => {
+                localStorage.removeItem('token');
                 sessionStorage.removeItem('hasReloaded');
                 logout();
                 toast.error('You have been logged out.');

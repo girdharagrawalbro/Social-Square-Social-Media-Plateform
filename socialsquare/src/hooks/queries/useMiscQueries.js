@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -16,7 +16,7 @@ export function useActiveSessions(userId) {
     return useQuery({
         queryKey: miscKeys.activeSessions(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/auth/sessions`);
+            const res = await api.get(`/api/auth/sessions`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: !!userId,
@@ -45,9 +45,7 @@ export function useToggle2FA() {
 
     return useMutation({
         mutationFn: async () => {
-            const res = await axios.post(`${BASE}/api/auth/toggle-2fa`, {}, {
-                headers: { Authorization: `Bearer ${useAuthStore.getState().token}` }
-            });
+            const res = await api.post(`/api/auth/toggle-2fa`, {});
             return res.data;
         },
         onSuccess: () => {

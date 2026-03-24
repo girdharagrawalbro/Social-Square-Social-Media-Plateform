@@ -6,10 +6,16 @@ import { useRef, useEffect } from 'react';
 // So refresh fires every 13 minutes
 const REFRESH_INTERVAL = 13 * 60 * 1000;
 
-export default function useTokenRefresh() {
+export default function useTokenRefresh(isActive = true) {
     const intervalRef = useRef(null);
 
     useEffect(() => {
+        if (!isActive) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+            return undefined;
+        }
+
         const refresh = async () => {
             try {
                 // refreshAccessToken handles the guard and the queue
@@ -25,5 +31,5 @@ export default function useTokenRefresh() {
         // Start proactive refresh interval
         intervalRef.current = setInterval(refresh, REFRESH_INTERVAL);
         return () => clearInterval(intervalRef.current);
-    }, []);
+    }, [isActive]);
 }

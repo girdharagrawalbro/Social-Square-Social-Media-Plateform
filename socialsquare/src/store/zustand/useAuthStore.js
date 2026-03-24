@@ -65,6 +65,7 @@ export const refreshAccessToken = async () => {
         processQueue(err, null);
         clearToken();
         useAuthStore.getState().setUser(null);
+        useAuthStore.getState().setInitialized(true);
         // Only redirect if we are not already on login/landing
         if (!['/login', '/landing', '/signup'].includes(window.location.pathname)) {
             window.location.href = '/login';
@@ -99,10 +100,12 @@ const useAuthStore = create(
     devtools(
         (set, get) => ({
             user: null,
-            loading: false,
+            loading: true,
+            initialized: false,
             error: null,
 
             setUser: (user) => set({ user }),
+            setInitialized: (initialized) => set({ initialized }),
             clearError: () => set({ error: null }),
 
             // ── Silent restore on page refresh ────────────────────────────────
@@ -113,11 +116,11 @@ const useAuthStore = create(
                 try {
                     // refreshAccessToken already sets the token and user in the store
                     await refreshAccessToken();
-                    set({ loading: false, error: null });
+                    set({ loading: false, error: null, initialized: true });
                 } catch {
                     // No valid refresh token — user needs to log in
                     clearToken();
-                    set({ user: null, loading: false });
+                    set({ user: null, loading: false, initialized: true });
                 }
             },
 
@@ -127,19 +130,19 @@ const useAuthStore = create(
                 try {
                     const res = await axios.post(
                         `${BASE}/api/auth/login`,
-                        { email, password, fingerprint },
+                        { identifier: email, password, fingerprint },
                         { withCredentials: true }
                     );
                     if (res.data.requiresOtp) {
                         set({ loading: false });
-                        return { requiresOtp: true, email };
+                        return { requiresOtp: true, userId: res.data.userId };
                     }
                     const { token, user } = res.data;
                     setToken(token);
-                    set({ user, loading: false });
+                    set({ user, loading: false, initialized: true });
                     return { success: true };
                 } catch (err) {
-                    const msg = err.response?.data?.message || 'Login failed';
+                    const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
                     set({ loading: false, error: msg });
                     return { error: msg };
                 }
@@ -156,30 +159,10 @@ const useAuthStore = create(
                     );
                     const { token, user } = res.data;
                     setToken(token);
-                    set({ user, loading: false });
+                    set({ user, loading: false, initialized: true });
                     return { success: true };
                 } catch (err) {
                     const msg = err.response?.data?.message || 'Signup failed';
-                    set({ loading: false, error: msg });
-                    return { error: msg };
-                }
-            },
-
-            // ── Google OAuth ──────────────────────────────────────────────────
-            googleAuth: async ({ credential, fingerprint }) => {
-                set({ loading: true, error: null });
-                try {
-                    const res = await axios.post(
-                        `${BASE}/api/auth/google`,
-                        { credential, fingerprint },
-                        { withCredentials: true }
-                    );
-                    const { token, user } = res.data;
-                    setToken(token);
-                    set({ user, loading: false });
-                    return { success: true };
-                } catch (err) {
-                    const msg = err.response?.data?.message || 'Google auth failed';
                     set({ loading: false, error: msg });
                     return { error: msg };
                 }
@@ -192,7 +175,7 @@ const useAuthStore = create(
                 } catch { }
                 clearToken();
                 localStorage.removeItem('socketId');
-                set({ user: null });
+                set({ user: null, initialized: true });
             },
 
             // ── Follow / Unfollow ─────────────────────────────────────────────
@@ -200,7 +183,7 @@ const useAuthStore = create(
                 const user = get().user;
                 set(s => ({ user: { ...s.user, following: [...(s.user?.following || []), followUserId] } }));
                 try {
-                    await api.post('/api/auth/follow', { loggedUserId: user._id, followUserId });
+                    await api.post('/api/auth/follow', { userId: user._id, followUserId });
                 } catch {
                     set(s => ({ user: { ...s.user, following: s.user.following.filter(id => id !== followUserId) } }));
                 }
@@ -210,7 +193,7 @@ const useAuthStore = create(
                 const user = get().user;
                 set(s => ({ user: { ...s.user, following: s.user.following.filter(id => id !== unfollowUserId) } }));
                 try {
-                    await api.post('/api/auth/unfollow', { loggedUserId: user._id, unfollowUserId });
+                    await api.post('/api/auth/unfollow', { userId: user._id, unfollowUserId });
                 } catch {
                     set(s => ({ user: { ...s.user, following: [...(s.user?.following || []), unfollowUserId] } }));
                 }

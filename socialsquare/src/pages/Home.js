@@ -28,18 +28,19 @@ const Home = () => {
 
     const loggeduser = useAuthStore(s => s.user);
     const loading = useAuthStore(s => s.loading);
+    const initialized = useAuthStore(s => s.initialized);
     const postDetailId = usePostStore(s => s.postDetailId);
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
 
     // ✅ Redirect to landing only after auth check is complete and no user found
     useEffect(() => {
-        if (!loading && !loggeduser) {
+        if (initialized && !loading && !loggeduser) {
             navigate('/landing');
         }
-    }, [loading, loggeduser, navigate]);
+    }, [initialized, loading, loggeduser, navigate]);
 
     // Show skeleton while auth is being checked
-    if (loading || !loggeduser) return <MainSkeleton />;
+    if (!initialized || loading || !loggeduser) return <MainSkeleton />;
 
     const bg = isDark ? 'bg-gray-900' : 'bg-gray-50';
     const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
