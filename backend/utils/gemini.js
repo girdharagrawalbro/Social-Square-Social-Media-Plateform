@@ -1,12 +1,12 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // ─── NVIDIA PHI-4 CLIENT ──────────────────────────────────────────────────────
 const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NVIDIA_KEY = process.env.NVIDIA_API_KEY || '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';
+const NVIDIA_KEY = process.env.NVIDIA_API_KEY || "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";
 const NVIDIA_MODEL = 'microsoft/phi-4-multimodal-instruct';
 
 async function nvidiaChat(messages, maxTokens = 512) {
@@ -34,7 +34,6 @@ async function generateCaptionFromImage(imageUrl) {
     // ── Primary: Gemini ──────────────────────────────────────────────────────
     try {
         const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-        const fetch  = (await import('node-fetch')).default;
         const imageRes = await fetch(imageUrl);
         const buffer   = await imageRes.arrayBuffer();
         const base64   = Buffer.from(buffer).toString('base64');

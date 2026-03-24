@@ -5,20 +5,36 @@ const { generateNvidiaText, generateNvidiaImage } = require('../utils/nvidia');
 const Post = require('../models/Post');
 const User = require('../models/User');
 const Category = require('../models/Category');
+const AiUsage = require('../models/AiUsage');
 const axios = require('axios');
 const FormData = require('form-data');
 const verifyToken = require('../middleware/Verifytoken');
 
 
-// ─── HELPER: CHECK AI LIMIT ───────────────────────────────────────────────────
-async function checkAiLimit(userId) {
+const DAILY_TEXT_LIMIT = 2;
+const DAILY_IMAGE_LIMIT = 2;
+
+// ─── HELPER: AI USAGE LIMITS ─────────────────────────────────────────────────
+function getUsageWindowStart() {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const count = await Post.countDocuments({
-        'user._id': userId,
-        isAiGenerated: true,
-        createdAt: { $gte: twentyFourHoursAgo }
+    return twentyFourHoursAgo;
+}
+
+async function getAiUsageCount(userId, type) {
+    const usageWindowStart = getUsageWindowStart();
+    return AiUsage.countDocuments({
+        userId,
+        type,
+        createdAt: { $gte: usageWindowStart }
     });
-    return count;
+}
+
+function getRemaining(limit, count) {
+    return Math.max(0, limit - count);
+}
+
+async function consumeAiUsage(userId, type) {
+    await AiUsage.create({ userId, type });
 }
 
 function cleanHashtags(rawTags = []) {
@@ -48,20 +64,29 @@ function tryParseJson(text) {
 }
 
 async function uploadGeneratedImageToCloudinary(imageBuffer) {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dcmrsdydr';
-    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || 'socialsquare';
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+        throw new Error('Cloudinary config missing: set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET');
+    }
 
     const formData = new FormData();
     formData.append('file', `data:image/jpeg;base64,${imageBuffer.toString('base64')}`);
     formData.append('upload_preset', uploadPreset);
 
-    const cloudRes = await axios.post(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        formData,
-        { headers: { ...formData.getHeaders() } }
-    );
+    try {
+        const cloudRes = await axios.post(
+            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+            formData,
+            { headers: { ...formData.getHeaders() } }
+        );
 
-    return cloudRes.data.secure_url;
+        return cloudRes.data.secure_url;
+    } catch (error) {
+        const reason = error.response?.data?.error?.message || error.message;
+        throw new Error(`Cloudinary upload failed: ${reason}`);
+    }
 }
 
 // ─── GENERATE TEXT (PROTECTED) ────────────────────────────────────────────────
@@ -71,13 +96,16 @@ router.post('/generate-text', verifyToken, async (req, res) => {
         const userId = req.userId;
         if (!prompt) return res.status(400).json({ error: 'prompt is required' });
  
-        const count = await checkAiLimit(userId);
-        if (count >= 2) {
-            return res.status(429).json({ error: 'Daily limit of 2 AI posts reached.' });
+        const textCount = await getAiUsageCount(userId, 'text');
+        if (textCount >= DAILY_TEXT_LIMIT) {
+            return res.status(429).json({ error: 'Daily text generation limit of 2 reached.' });
         }
  
         const { text, model } = await generateNvidiaText(prompt);
-        res.status(200).json({ text, model, remaining: Math.max(0, 2 - count) });
+        await consumeAiUsage(userId, 'text');
+
+        const textRemaining = getRemaining(DAILY_TEXT_LIMIT, textCount + 1);
+        res.status(200).json({ text, model, remaining: textRemaining, textRemaining });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -90,18 +118,36 @@ router.post('/generate-image', verifyToken, async (req, res) => {
         const userId = req.userId;
         if (!prompt) return res.status(400).json({ error: 'prompt is required' });
  
-        const count = await checkAiLimit(userId);
-        if (count >= 2) {
-            return res.status(429).json({ error: 'Daily limit of 2 AI posts reached.' });
+        const imageCount = await getAiUsageCount(userId, 'image');
+        if (imageCount >= DAILY_IMAGE_LIMIT) {
+            return res.status(429).json({ error: 'Daily image generation limit of 2 reached.' });
         }
  
-        const { buffer: imageBuffer, model } = await generateNvidiaImage(prompt);
-        const imageUrl = await uploadGeneratedImageToCloudinary(imageBuffer);
+        const { buffer: imageBuffer, imageBase64, model, seed, finishReason } = await generateNvidiaImage(prompt);
+
+        let imageUrl;
+        let imageStorage = 'cloudinary';
+        try {
+            imageUrl = await uploadGeneratedImageToCloudinary(imageBuffer);
+        } catch (uploadError) {
+            // Fallback for local/dev when Cloudinary is not configured correctly.
+            imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+            imageStorage = 'inline';
+            console.warn('[AI Image Route Warning]:', uploadError.message);
+        }
+
+        await consumeAiUsage(userId, 'image');
+
+        const imageRemaining = getRemaining(DAILY_IMAGE_LIMIT, imageCount + 1);
  
         res.status(200).json({ 
             imageUrl,
+            imageStorage,
             model,
-            remaining: Math.max(0, 2 - count)
+            seed,
+            finishReason,
+            remaining: imageRemaining,
+            imageRemaining,
         });
     } catch (error) {
         console.error('[AI Image Route Error]:', error.response?.data || error.message);
@@ -112,8 +158,20 @@ router.post('/generate-image', verifyToken, async (req, res) => {
 // ─── GET AI REMAINING LIMIT (PROTECTED) ──────────────────────────────────────────
 router.get('/limit', verifyToken, async (req, res) => {
     try {
-        const count = await checkAiLimit(req.userId);
-        res.json({ count, limit: 2, remaining: Math.max(0, 2 - count) });
+        const userId = req.userId;
+        const [textCount, imageCount] = await Promise.all([
+            getAiUsageCount(userId, 'text'),
+            getAiUsageCount(userId, 'image'),
+        ]);
+
+        const textRemaining = getRemaining(DAILY_TEXT_LIMIT, textCount);
+        const imageRemaining = getRemaining(DAILY_IMAGE_LIMIT, imageCount);
+
+        res.json({
+            text: { count: textCount, limit: DAILY_TEXT_LIMIT, remaining: textRemaining },
+            image: { count: imageCount, limit: DAILY_IMAGE_LIMIT, remaining: imageRemaining },
+            remaining: Math.min(textRemaining, imageRemaining),
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -234,9 +292,19 @@ router.post('/generate-and-post', verifyToken, async (req, res) => {
             return res.status(400).json({ error: 'prompt is required' });
         }
 
-        const count = await checkAiLimit(userId);
-        if (count >= 2) {
-            return res.status(429).json({ error: 'Daily limit of 2 AI posts reached.' });
+        const [textCount, imageCount] = await Promise.all([
+            getAiUsageCount(userId, 'text'),
+            getAiUsageCount(userId, 'image'),
+        ]);
+
+        if (textCount >= DAILY_TEXT_LIMIT && imageCount >= DAILY_IMAGE_LIMIT) {
+            return res.status(429).json({ error: 'Daily text and image generation limits reached.' });
+        }
+        if (textCount >= DAILY_TEXT_LIMIT) {
+            return res.status(429).json({ error: 'Daily text generation limit of 2 reached.' });
+        }
+        if (imageCount >= DAILY_IMAGE_LIMIT) {
+            return res.status(429).json({ error: 'Daily image generation limit of 2 reached.' });
         }
 
         const userDetails = await User.findById(userId).select('fullname profile_picture');
@@ -274,7 +342,13 @@ router.post('/generate-and-post', verifyToken, async (req, res) => {
         const hashtags = cleanHashtags(Array.isArray(parsedMeta.hashtags) ? parsedMeta.hashtags : []);
         const caption = hashtags.length ? `${rawCaption}\n\n${hashtags.join(' ')}` : rawCaption;
 
-        const imageUrl = await uploadGeneratedImageToCloudinary(imageResult.buffer);
+        let imageUrl;
+        try {
+            imageUrl = await uploadGeneratedImageToCloudinary(imageResult.buffer);
+        } catch (uploadError) {
+            imageUrl = `data:image/jpeg;base64,${imageResult.imageBase64}`;
+            console.warn('[AI Generate And Post Warning]:', uploadError.message);
+        }
 
         const post = await Post.create({
             caption,
@@ -288,13 +362,23 @@ router.post('/generate-and-post', verifyToken, async (req, res) => {
             isAiGenerated: true,
         });
 
+        await Promise.all([
+            consumeAiUsage(userId, 'text'),
+            consumeAiUsage(userId, 'image'),
+        ]);
+
+        const textRemaining = getRemaining(DAILY_TEXT_LIMIT, textCount + 1);
+        const imageRemaining = getRemaining(DAILY_IMAGE_LIMIT, imageCount + 1);
+
         return res.status(201).json({
             message: 'AI post created successfully',
             post,
             ai: {
                 textModel: textResult.model,
                 imageModel: imageResult.model,
-                remaining: Math.max(0, 1 - count),
+                remaining: Math.min(textRemaining, imageRemaining),
+                textRemaining,
+                imageRemaining,
                 hashtags,
                 mood,
             },
