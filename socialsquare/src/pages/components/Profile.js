@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts } from '../../hooks/queries/usePostQueries';
-import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
