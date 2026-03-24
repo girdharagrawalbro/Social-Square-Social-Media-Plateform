@@ -25,7 +25,6 @@ const Profile = () => {
     const [activeTab, setActiveTab] = useState('posts');
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
-    const navigate = useNavigate();
     const loggeduser = useAuthStore(s => s.user);
     const logout = useAuthStore(s => s.logout);
     const { data: userPosts = [], isLoading: loadingUserPosts } = useUserPosts(loggeduser?._id);
