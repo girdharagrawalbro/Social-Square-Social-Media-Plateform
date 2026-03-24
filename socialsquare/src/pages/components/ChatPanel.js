@@ -198,14 +198,34 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             const res = await api.post(`/api/conversation/messages`, {
                 recipientId: participantId
             });
-            setMessages(res.data.messages || []);
-            setConversationId(res.data.conversation?._id || null);
-            conversationIdRef.current = res.data.conversation?._id || null;
+            const fetchedMessages = res.data.messages || [];
+            const fetchedConversationId = res.data.conversation?._id || null;
+
+            setMessages(fetchedMessages);
+            setConversationId(fetchedConversationId);
+            conversationIdRef.current = fetchedConversationId;
+
+            // When opening chat, mark any existing incoming unread messages as read.
+            const unreadIncomingIds = fetchedMessages
+                .filter(m => (m.sender?.toString?.() || m.senderId) !== user?._id && !m.isRead)
+                .map(m => m._id);
+
+            if (fetchedConversationId && unreadIncomingIds.length) {
+                markReadMut.mutate({
+                    unreadMessageIds: unreadIncomingIds,
+                    lastMessage: unreadIncomingIds[unreadIncomingIds.length - 1],
+                    conversationId: fetchedConversationId,
+                });
+
+                setMessages(prev => prev.map(m =>
+                    unreadIncomingIds.includes(m._id) ? { ...m, isRead: true } : m
+                ));
+            }
         } catch (err) {
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-    }, [user?._id, participantId]);
+    }, [user?._id, participantId, markReadMut]);
 
     useEffect(() => { fetchMessages(); }, [fetchMessages]);
 

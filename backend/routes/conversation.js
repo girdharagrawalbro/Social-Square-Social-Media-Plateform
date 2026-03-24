@@ -138,7 +138,7 @@ router.post('/messages/create', verifyToken, async (req, res) => {
             lastMessageBy: sender,
         });
  
-        await Notification.create({
+        const notification = await Notification.create({
             recipient: recipientId,
             sender: { id: sender, fullname: senderName },
             message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
@@ -149,6 +149,18 @@ router.post('/messages/create', verifyToken, async (req, res) => {
         if (_io) {
             _io.to(recipientId).emit('receiveMessage', {
                 ...message.toObject(), senderId: sender, senderName,
+            });
+
+            // Push real-time notification for message events so bell updates instantly.
+            _io.to(recipientId).emit('newNotification', {
+                _id: notification._id,
+                recipient: notification.recipient,
+                sender: notification.sender,
+                type: notification.type,
+                message: notification.message,
+                post: notification.post,
+                createdAt: notification.createdAt,
+                read: notification.read,
             });
         }
  
