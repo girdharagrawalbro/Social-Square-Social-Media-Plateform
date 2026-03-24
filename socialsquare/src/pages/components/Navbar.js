@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Search from "./Search";
 import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
 
@@ -17,6 +17,8 @@ const Navbar = () => {
   const isAuthenticated = Boolean(loggeduser?._id || getToken());
   const { isDark, toggle } = useDarkMode();
   const [newpostVisible, setnewpostVisible] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef(null);
 
   // Request push notification permission on first login
   useEffect(() => {
@@ -25,10 +27,21 @@ const Navbar = () => {
     }
   }, [isAuthenticated, loggeduser]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleOutside = (e) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [mobileMenuOpen]);
+
 
 
   return (
-    <div className={`w-full shadow-md border-b max-w-8xl mx-auto flex items-center justify-between px-4 py-2 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+    <div ref={mobileMenuRef} className={`relative w-full shadow-md border-b max-w-8xl mx-auto flex items-center justify-between px-4 py-2 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
       <div className="flex items-center gap-3 w-25">
         <Link to="/landing">
           <i className="pi pi-home text-2xl text-black"></i>
@@ -38,11 +51,11 @@ const Navbar = () => {
         </Link>
       </div>
 
-      <div className="flex-1 mx-4 relative w-50">
+      <div className="hidden md:block flex-1 mx-4 relative w-50">
         {isAuthenticated ? <Search /> : <Authnav />}
       </div>
 
-      <div className="flex items-center justify-end gap-3 w-25">
+      <div className="hidden md:flex items-center justify-end gap-3 w-25">
          {isAuthenticated ? (
         <button onClick={() => setnewpostVisible(true)} className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}>
           +</button>
@@ -77,6 +90,78 @@ const Navbar = () => {
           <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline">Login</Link>
         )}
       </div>
+
+      <div className="md:hidden flex items-center gap-2">
+        <button
+          onClick={toggle}
+          className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? '☀️' : '🌙'}
+        </button>
+
+        <button
+          onClick={() => setMobileMenuOpen(v => !v)}
+          className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-gray-100' : 'bg-gray-100 text-gray-700'}`}
+          title="Open menu"
+          aria-label="Open mobile menu"
+          aria-expanded={mobileMenuOpen}
+        >
+          <i className={`pi ${mobileMenuOpen ? 'pi-times' : 'pi-bars'}`}></i>
+        </button>
+      </div>
+
+      {mobileMenuOpen && (
+        <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="mb-3">
+            {isAuthenticated ? <Search /> : <Authnav />}
+          </div>
+
+          {isAuthenticated ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setnewpostVisible(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+                  title="Create post"
+                >
+                  +
+                </button>
+                <NotificationBell userId={loggeduser?._id} />
+                {isAdminUser && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`border-0 rounded-lg px-2 py-1 text-xs font-semibold no-underline ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}
+                    title="Admin Dashboard"
+                  >
+                    ⚙️ Admin
+                  </Link>
+                )}
+              </div>
+
+              <img
+                src={loggeduser?.profile_picture || "default-profile.png"}
+                alt="Profile"
+                className="w-9 h-9 rounded-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="flex justify-end">
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline"
+              >
+                Login
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
 
       <Dialog header="New Post" visible={newpostVisible} modal position="center" style={{ width: '500px', maxHeight: '600px' }} onHide={() => setnewpostVisible(false)}>
         <NewPost setnewpostVisible={setnewpostVisible} />
