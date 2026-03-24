@@ -30,9 +30,23 @@ function getTransporter() {
     if (!user || !pass) {
         return { sendMail: async () => { console.warn("[Digest] Mailer skipped: Credentials missing"); } };
     }
+
+    const host = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com';
+    const port = Number(process.env.EMAIL_PORT || 587);
+    const secure = process.env.EMAIL_SECURE
+        ? process.env.EMAIL_SECURE === 'true'
+        : port === 465;
+    const forceIPv4 = process.env.EMAIL_FORCE_IPV4 !== 'false';
+
     return nodemailer.createTransport({
-        service: 'gmail',
+        host,
+        port,
+        secure,
         auth: { user, pass },
+        family: forceIPv4 ? 4 : undefined,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
     });
 }
 const transporter = getTransporter();
