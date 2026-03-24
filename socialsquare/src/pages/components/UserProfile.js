@@ -5,6 +5,7 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
 import ChatPanel from './ChatPanel';
 import PostDetail from './PostDetail';
+import toast from 'react-hot-toast';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -123,12 +124,13 @@ const UserProfile = ({ id }) => {
     const handleFollow = () => followUser(id);
     const handleUnfollow = () => unfollowUser(id);
 
-    const handleMessage = () => {
-        createConvMutation.mutate([
-            { userId: loggeduser._id, fullname: loggeduser.fullname, profilePicture: loggeduser.profile_picture },
-            { userId: id, fullname: userDetails.fullname, profilePicture: userDetails.profile_picture },
-        ]);
-        setChatVisible(true);
+    const handleMessage = async () => {
+        try {
+            await createConvMutation.mutateAsync(id);
+            setChatVisible(true);
+        } catch {
+            toast.error('Unable to start conversation');
+        }
     };
 
     const formatCount = (count = 0) => {
@@ -269,7 +271,7 @@ const UserProfile = ({ id }) => {
 
             {/* Chat Dialog */}
             <Dialog header={`Chat with ${userDetails.fullname}`} visible={chatVisible}
-                style={{ width: '340px', height: '100vh' }} position="right" onHide={() => setChatVisible(false)}>
+             style={{ width: '95vw', maxWidth: '500px', height: '90vh' }}  position="center" onHide={() => setChatVisible(false)}>
                 <ChatPanel participantId={id} />
             </Dialog>
         </>
