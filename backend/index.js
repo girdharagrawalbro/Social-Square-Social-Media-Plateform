@@ -74,9 +74,9 @@ const reportLimiter = rateLimit({
 });
 
 // ✅ Apply limiters to specific paths ONLY — no stacking
-app.use('/api/auth', authWriteLimiter); // only on auth write actions
-app.use('/api/admin/report', reportLimiter);
-app.use('/api', apiLimiter);       // general fallback
+// app.use('/api/auth', authWriteLimiter); // temporarily disabled
+// app.use('/api/admin/report', reportLimiter); // temporarily disabled
+// app.use('/api', apiLimiter); // temporarily disabled
 
 // ─── ALLOWED ORIGINS ──────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];

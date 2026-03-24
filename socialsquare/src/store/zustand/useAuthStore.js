@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import axios from 'axios';
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
+const BASE = (process.env.REACT_APP_BACKEND_URL || '').trim();
 
 // ─── AXIOS INSTANCE ───────────────────────────────────────────────────────────
 // Single axios instance used everywhere — interceptor auto-refreshes on 401
@@ -28,6 +28,7 @@ api.interceptors.request.use(config => {
 // ─── REFRESH LOGIC ────────────────────────────────────────────────────────────
 let isRefreshing = false;
 let failedQueue = [];
+let initAuthPromise = null;
 
 const processQueue = (error, token = null) => {
     failedQueue.forEach(({ resolve, reject }) => error ? reject(error) : resolve(token));
@@ -62,6 +63,12 @@ export const refreshAccessToken = async () => {
         processQueue(null, token);
         return token;
     } catch (err) {
+        // If another request already refreshed successfully, keep that session.
+        if (inMemoryToken) {
+            processQueue(null, inMemoryToken);
+            return inMemoryToken;
+        }
+
         processQueue(err, null);
         clearToken();
         useAuthStore.getState().setUser(null);
@@ -112,16 +119,24 @@ const useAuthStore = create(
             // Called once on app mount — uses httpOnly refresh token cookie
             // to get a new access token without user doing anything
             initAuth: async () => {
+                if (initAuthPromise) return initAuthPromise;
+
                 set({ loading: true });
-                try {
-                    // refreshAccessToken already sets the token and user in the store
-                    await refreshAccessToken();
-                    set({ loading: false, error: null, initialized: true });
-                } catch {
-                    // No valid refresh token — user needs to log in
-                    clearToken();
-                    set({ user: null, loading: false, initialized: true });
-                }
+                initAuthPromise = (async () => {
+                    try {
+                        // refreshAccessToken already sets the token and user in the store
+                        await refreshAccessToken();
+                        set({ loading: false, error: null, initialized: true });
+                    } catch {
+                        // No valid refresh token — user needs to log in
+                        clearToken();
+                        set({ user: null, loading: false, initialized: true });
+                    } finally {
+                        initAuthPromise = null;
+                    }
+                })();
+
+                return initAuthPromise;
             },
 
             // ── Login ─────────────────────────────────────────────────────────

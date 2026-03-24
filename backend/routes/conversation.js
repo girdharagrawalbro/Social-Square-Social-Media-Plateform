@@ -3,6 +3,7 @@ const router  = express.Router();
 const Conversation = require('../models/Conversation');
 const Message      = require('../models/Message');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const verifyToken = require('../middleware/Verifytoken');
 const redis = require('../lib/redis'); 
 
@@ -32,10 +33,20 @@ router.post('/create', verifyToken, async (req, res) => {
         const existing = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
         if (existing) return res.status(200).json(existing);
  
-        // We need names/pics from User model if Conversation schema requires them, but let's assume it just needs IDs or is simple.
-        // Actually looking at CREATE above, it took 'participants' array.
+        const [senderUser, recipientUser] = await Promise.all([
+            User.findById(senderId).select('fullname profile_picture').lean(),
+            User.findById(recipientId).select('fullname profile_picture').lean(),
+        ]);
+
+        if (!senderUser || !recipientUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
         const conversation = await Conversation.create({ 
-            participants: [{ userId: senderId }, { userId: recipientId }] 
+            participants: [
+                { userId: senderId, fullname: senderUser.fullname, profilePicture: senderUser.profile_picture || '' },
+                { userId: recipientId, fullname: recipientUser.fullname, profilePicture: recipientUser.profile_picture || '' },
+            ] 
         });
  
         await delCache(`convs:${senderId}`, `convs:${recipientId}`);

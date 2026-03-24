@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
 import { uploadToCloudinary } from '../../utils/cloudinary';
@@ -193,7 +193,6 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     // ✅ Fetch messages from backend directly (no TanStack Query confusion)
     const fetchMessages = useCallback(async () => {
         if (!user?._id || !participantId) return;
-        const { api } = useAuthStore.getState();
         setLoading(true);
         try {
             const res = await api.post(`/api/conversation/messages`, {

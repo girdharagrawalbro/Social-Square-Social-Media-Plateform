@@ -43,8 +43,10 @@ const Navbar = () => {
       </div>
 
       <div className="flex items-center justify-end gap-3 w-25">
+         {isAuthenticated ? (
         <button onClick={() => setnewpostVisible(true)} className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}>
           +</button>
+         ) : null}
 
         {/* Dark mode toggle */}
         <button
@@ -59,7 +61,7 @@ const Navbar = () => {
           <>
             <NotificationBell userId={loggeduser?._id} />
 
-            
+
             {isAdminUser && (
               <Link to="/admin" className={`border-0 rounded-lg px-2 py-1 text-xs font-semibold no-underline ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`} title="Admin Dashboard">
                 ⚙️ Admin

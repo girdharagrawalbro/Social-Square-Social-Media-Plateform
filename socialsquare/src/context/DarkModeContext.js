@@ -11,7 +11,8 @@ const getInitialDarkMode = () => {
         return storedMode === 'true';
     }
 
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Default to light theme when no prior preference exists.
+    return false;
 };
 
 export function DarkModeProvider({ children }) {
