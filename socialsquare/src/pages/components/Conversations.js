@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { socket } from '../../socket';
 import useAuthStore from '../../store/zustand/useAuthStore';
@@ -12,7 +12,6 @@ const Conversations = () => {
     const incrementUnread = useConversationStore(s => s.incrementUnread);
     const clearUnread = useConversationStore(s => s.clearUnread);
     const unreadCounts = useConversationStore(s => s.unreadCounts);
-    const totalUnread = useConversationStore(s => s.totalUnread);
     const setOnlineUsers = useConversationStore(s => s.setOnlineUsers);
 
     const { data: conversations = [], refetch } = useConversations(user?._id);
