@@ -10,6 +10,26 @@ import axios from "axios";
 const BASE = process.env.REACT_APP_BACKEND_URL;
 const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😅', '🥳', '❤️', '🔥', '✨', '🎉', '👍', '🙌', '💯', '🌟', '😭', '🤣', '😊', '🥹', '💪', '🎵', '📍', '🌍', '🍕', '☕', '🌸', '🌈', '👀', '💬'];
 
+const defaultAiLimit = {
+    text: { count: 0, limit: 2, remaining: 2 },
+    image: { count: 0, limit: 2, remaining: 2 },
+    remaining: 2,
+};
+
+const normalizeAiLimit = (data = {}) => ({
+    text: {
+        count: data?.text?.count ?? 0,
+        limit: data?.text?.limit ?? 2,
+        remaining: data?.text?.remaining ?? 2,
+    },
+    image: {
+        count: data?.image?.count ?? 0,
+        limit: data?.image?.limit ?? 2,
+        remaining: data?.image?.remaining ?? 2,
+    },
+    remaining: data?.remaining ?? Math.min(data?.text?.remaining ?? 2, data?.image?.remaining ?? 2),
+});
+
 const EmojiPicker = ({ onSelect, onClose }) => {
     const ref = useRef(null);
     useEffect(() => {
@@ -66,13 +86,13 @@ const NewPost = ({ setnewpostVisible }) => {
     const [showAiTools, setShowAiTools] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-    const [aiLimit, setAiLimit] = useState({ count: 0, remaining: 2 });
+    const [aiLimit, setAiLimit] = useState(defaultAiLimit);
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
 
     useEffect(() => {
         if (loggeduser?._id) {
             api.get(`/api/ai/limit`)
-                .then(res => setAiLimit(res.data))
+                .then(res => setAiLimit(normalizeAiLimit(res.data)))
                 .catch(() => { });
         }
     }, [loggeduser?._id]);
@@ -156,7 +176,13 @@ const NewPost = ({ setnewpostVisible }) => {
         try {
             const res = await api.post(`/api/ai/generate-text`, { prompt: aiPrompt });
             setFormData(p => ({ ...p, caption: res.data.text }));
-            setAiLimit(prev => ({ ...prev, remaining: res.data.remaining }));
+            setAiLimit(prev => normalizeAiLimit({
+                ...prev,
+                text: {
+                    ...prev.text,
+                    remaining: res.data.textRemaining ?? res.data.remaining ?? prev.text.remaining,
+                },
+            }));
             setUsedAiForThisPost(true);
             toast.success(`✨ Text generated using ${res.data.model}`);
         } catch (err) {
@@ -178,7 +204,13 @@ const NewPost = ({ setnewpostVisible }) => {
                 progress: 100
             };
             setImages(prev => [...prev, newImg]);
-            setAiLimit(prev => ({ ...prev, remaining: res.data.remaining }));
+            setAiLimit(prev => normalizeAiLimit({
+                ...prev,
+                image: {
+                    ...prev.image,
+                    remaining: res.data.imageRemaining ?? res.data.remaining ?? prev.image.remaining,
+                },
+            }));
             setUsedAiForThisPost(true);
             toast.success(`✨ Image generated using ${res.data.model}`);
         } catch (err) {
@@ -232,7 +264,17 @@ const NewPost = ({ setnewpostVisible }) => {
             }
 
             addSocketPost(createdPost);
-            setAiLimit(prev => ({ ...prev, remaining: res.data?.ai?.remaining ?? prev.remaining }));
+            setAiLimit(prev => normalizeAiLimit({
+                ...prev,
+                text: {
+                    ...prev.text,
+                    remaining: res.data?.ai?.textRemaining ?? prev.text.remaining,
+                },
+                image: {
+                    ...prev.image,
+                    remaining: res.data?.ai?.imageRemaining ?? prev.image.remaining,
+                },
+            }));
             toast.success('✨ AI post generated and published');
 
             if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
@@ -527,8 +569,8 @@ const NewPost = ({ setnewpostVisible }) => {
                                     <div style={{ background: '#f5f3ff', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid #ddd6fe' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                             <span style={{ fontSize: '13px', fontWeight: '600', color: '#5b21b6' }}>✨ NVIDIA AI Magic</span>
-                                            <span style={{ fontSize: '11px', color: aiLimit.remaining === 0 ? '#ef4444' : '#6b7280' }}>
-                                                {aiLimit.remaining} / 2 daily posts left
+                                            <span style={{ fontSize: '11px', color: (aiLimit.text.remaining === 0 && aiLimit.image.remaining === 0) ? '#ef4444' : '#6b7280' }}>
+                                                Text: {aiLimit.text.remaining}/2 | Image: {aiLimit.image.remaining}/2
                                             </span>
                                         </div>
                                         <input 
@@ -542,7 +584,7 @@ const NewPost = ({ setnewpostVisible }) => {
                                             <button 
                                                 type="button" 
                                                 onClick={generateAiText} 
-                                                disabled={isGeneratingAi || aiLimit.remaining === 0}
+                                                disabled={isGeneratingAi || aiLimit.text.remaining === 0}
                                                 style={{ flex: 1, padding: '8px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
                                             >
                                                 {isGeneratingAi ? '...' : '📝 Text'}
@@ -550,7 +592,7 @@ const NewPost = ({ setnewpostVisible }) => {
                                             <button 
                                                 type="button" 
                                                 onClick={generateAiImage} 
-                                                disabled={isGeneratingAi || aiLimit.remaining === 0}
+                                                disabled={isGeneratingAi || aiLimit.image.remaining === 0}
                                                 style={{ flex: 1, padding: '8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
                                             >
                                                 {isGeneratingAi ? '...' : '🖼️ Image'}
@@ -567,13 +609,19 @@ const NewPost = ({ setnewpostVisible }) => {
                                         <button
                                             type="button"
                                             onClick={generateAndPostAi}
-                                            disabled={isGeneratingAi || aiLimit.remaining === 0}
+                                            disabled={isGeneratingAi || aiLimit.text.remaining === 0 || aiLimit.image.remaining === 0}
                                             style={{ width: '100%', padding: '8px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, transition: 'opacity 0.2s' }}
                                         >
                                             {isGeneratingAi ? 'Generating...' : '🚀 One-click AI Generate + Post'}
                                         </button>
-                                        {aiLimit.remaining === 0 && (
-                                            <p style={{ fontSize: '10px', color: '#ef4444', margin: 0 }}>Daily AI limit reached.</p>
+                                        {(aiLimit.text.remaining === 0 || aiLimit.image.remaining === 0) && (
+                                            <p style={{ fontSize: '10px', color: '#ef4444', margin: 0 }}>
+                                                {aiLimit.text.remaining === 0 && aiLimit.image.remaining === 0
+                                                    ? 'Daily text and image limits reached.'
+                                                    : aiLimit.text.remaining === 0
+                                                        ? 'Daily text limit reached.'
+                                                        : 'Daily image limit reached.'}
+                                            </p>
                                         )}
                                     </div>
                                 )}

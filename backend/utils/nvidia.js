@@ -1,9 +1,9 @@
-const axios = require('axios');
 const OpenAI = require('openai');
 const { generateText } = require('./gemini');
 
 const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
+const NVIDIA_SD3_INVOKE_URL = 'https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium';
 
 function createClient() {
     if (!NVIDIA_KEY) {
@@ -29,9 +29,9 @@ async function generateNvidiaText(prompt) {
             top_p: 0.9,
             max_tokens: 512,
         });
-        return { 
-            text: completion.choices[0]?.message?.content || '', 
-            model: 'NVIDIA (llama3)' 
+        return {
+            text: completion.choices[0]?.message?.content || '',
+            model: 'NVIDIA (llama3)'
         };
     } catch (error) {
         console.warn('[NVIDIA Text Error] Falling back to Gemini:', error.message);
@@ -52,40 +52,63 @@ async function generateNvidiaImage(prompt) {
     if (!NVIDIA_KEY) {
         throw new Error('NVIDIA_API_KEY is not set');
     }
-    const models = ['stabilityai/stable-diffusion-xl', 'nvidia/sdxl-turbo'];
-    let lastError = null;
-
-    for (const model of models) {
-        try {
-            const response = await axios.post(
-                `${NVIDIA_BASE_URL}/images/generations`,
-                {
-                    model: model,
-                    prompt: prompt,
-                    response_format: 'b64_json',
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${NVIDIA_KEY}`,
-                        Accept: 'application/json',
-                    },
-                    timeout: 30000,
-                }
-            );
-
-            const b64Data = response.data.data[0].b64_json;
-            return { 
-                buffer: Buffer.from(b64Data, 'base64'), 
-                model: `NVIDIA (${model.split('/')[1]})` 
-            };
-        } catch (error) {
-            console.warn(`[NVIDIA Image Error] Model ${model} failed:`, error.message);
-            lastError = error;
+    try {
+        const headers = {
+            "Authorization": `Bearer ${NVIDIA_KEY}`,
+            "Accept": "application/json",
         }
-    }
+        const payload = {
+            "prompt": prompt,
+            "cfg_scale": 5,
+            "aspect_ratio": "16:9",
+            "seed": 0,
+            "steps": 50,
+            "negative_prompt": ""
+        }
+        const response = await fetch(
+            NVIDIA_SD3_INVOKE_URL,
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            }
+        );
+        if (response.status !== 200) {
+            const errBody = await response.text();
+            throw new Error(`invocation failed with status ${response.status} ${errBody}`);
+        }
 
-    // If both NVIDIA models fail, we don't have a Gemini image fallback in this setup yet.
-    throw new Error('Image generation failed: ' + (lastError.response?.data?.message || lastError.message));
+        const response_body = await response.json();
+        const finishReason = response_body?.finish_reason || null;
+        if (finishReason) {
+            console.log(`[NVIDIA SD3] finish_reason=${finishReason}`);
+        }
+
+        const b64 = typeof response_body?.image === 'string'
+            ? response_body.image
+            : response_body?.image?.base64;
+        if (!b64) {
+            throw new Error('No image data received from NVIDIA');
+        }
+        const cleaned = b64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(cleaned, 'base64');
+
+        return {
+            buffer,
+            imageBase64: cleaned,
+            model: 'NVIDIA (stable-diffusion-3-medium)',
+            seed: response_body?.seed,
+            finishReason,
+        };
+    } catch (error) {
+        const details = error.response?.data
+            ? JSON.stringify(error.response.data)
+            : error.message;
+        throw new Error(`Image generation failed: ${details}`);
+    }
 }
 
 module.exports = {
