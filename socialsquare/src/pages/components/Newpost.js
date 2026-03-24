@@ -186,6 +186,81 @@ const NewPost = ({ setnewpostVisible }) => {
         } finally { setIsGeneratingAi(false); }
     };
 
+    const generateAiMeta = async () => {
+        const source = formData.caption?.trim() || aiPrompt?.trim();
+        if (!source) { toast.error('Write a caption or prompt first'); return; }
+        setIsGeneratingAi(true);
+        try {
+            const res = await api.post(`/api/ai/suggest-meta`, {
+                caption: formData.caption,
+                prompt: aiPrompt,
+            });
+
+            const improvedCaption = res.data?.improvedCaption || source;
+            const hashtags = Array.isArray(res.data?.hashtags) ? res.data.hashtags : [];
+            const mergedCaption = hashtags.length
+                ? `${improvedCaption}\n\n${hashtags.join(' ')}`
+                : improvedCaption;
+
+            setFormData(prev => ({
+                ...prev,
+                caption: mergedCaption,
+                category: res.data?.category || prev.category || 'Default',
+            }));
+            toast.success('✨ Hashtags and category suggested');
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to suggest metadata');
+        } finally {
+            setIsGeneratingAi(false);
+        }
+    };
+
+    const generateAndPostAi = async () => {
+        if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
+        setIsGeneratingAi(true);
+        try {
+            const res = await api.post(`/api/ai/generate-and-post`, {
+                prompt: aiPrompt,
+                category: formData.category || 'Default',
+                makeAnonymous: isAnonymous,
+            });
+
+            const createdPost = res.data?.post;
+            if (!createdPost?._id) {
+                toast.error('Failed to create AI post');
+                return;
+            }
+
+            addSocketPost(createdPost);
+            setAiLimit(prev => ({ ...prev, remaining: res.data?.ai?.remaining ?? prev.remaining }));
+            toast.success('✨ AI post generated and published');
+
+            if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+            images.forEach(img => img.preview && URL.revokeObjectURL(img.preview));
+            setImages([]);
+            setVoiceBlob(null);
+            setVoicePreviewUrl(null);
+            setRecordingDuration(0);
+            setFormData({ caption: '', category: 'Default' });
+            setAiPrompt('');
+            setLocation({ name: '', lat: null, lng: null });
+            setMusic({ title: '', artist: '' });
+            setIsAnonymous(false);
+            setExpiresIn('');
+            setUnlocksAt('');
+            setIsCollaborative(false);
+            setCollaborators([]);
+            setSuggestedCaptions([]);
+            setShowAiTools(false);
+            setShowAdvanced(false);
+            setnewpostVisible(false);
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to generate and post');
+        } finally {
+            setIsGeneratingAi(false);
+        }
+    };
+
 
 
     // ── Collaborator Search ───────────────────────────────────────────────────
@@ -481,6 +556,22 @@ const NewPost = ({ setnewpostVisible }) => {
                                                 {isGeneratingAi ? '...' : '🖼️ Image'}
                                             </button>
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={generateAiMeta}
+                                            disabled={isGeneratingAi}
+                                            style={{ width: '100%', padding: '8px', background: '#6d28d9', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
+                                        >
+                                            {isGeneratingAi ? '...' : '#️⃣ Suggest hashtags + category'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={generateAndPostAi}
+                                            disabled={isGeneratingAi || aiLimit.remaining === 0}
+                                            style={{ width: '100%', padding: '8px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, transition: 'opacity 0.2s' }}
+                                        >
+                                            {isGeneratingAi ? 'Generating...' : '🚀 One-click AI Generate + Post'}
+                                        </button>
                                         {aiLimit.remaining === 0 && (
                                             <p style={{ fontSize: '10px', color: '#ef4444', margin: 0 }}>Daily AI limit reached.</p>
                                         )}

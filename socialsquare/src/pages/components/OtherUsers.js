@@ -39,13 +39,14 @@ const OtherUsers = () => {
                     {users.filter(u => u._id !== user?._id).slice(0, 8).map(u => {
                         const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
                         const isLoading = followMutation.isPending || unfollowMutation.isPending;
+                        const followersCount = typeof u.followersCount === 'number' ? u.followersCount : (u.followers?.length || 0);
                         return (
                             <div key={u._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition"
                                 onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}>
                                 <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <p className="m-0 text-sm font-medium truncate">{u.fullname}</p>
-                                    <p className="m-0 text-xs text-gray-400">{u.followers?.length || 0} followers</p>
+                                    <p className="m-0 text-xs text-gray-400 truncate">{followersCount} followers{u.reason ? ` • ${u.reason}` : ''}</p>
                                 </div>
                                 <button onClick={e => handleFollow(e, u._id)}
                                     disabled={isLoading}

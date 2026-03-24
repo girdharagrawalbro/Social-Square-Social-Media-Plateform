@@ -11,6 +11,7 @@ const LoginSession = require('../models/LoginSession');
 const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
 const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail } = require('../utils/mailer');
+const { getSuggestedUsers } = require('../services/suggestionService');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
 
@@ -534,14 +535,7 @@ router.get('/get', async (req, res) => {
 router.get("/other-users", verifyToken, async (req, res) => {
     try {
         const loggedUserId = req.userId;
-        const user = await User.findById(loggedUserId).select("-password").populate("following", "_id");
-        if (!user) return res.status(404).json({ message: "User not found." });
-
-        // Suggest users who the logged user is not following, but are followed by people the logged user follows
-        const suggestions = await User.find({
-            _id: { $ne: loggedUserId, $nin: user.following },
-            followers: { $in: user.following }
-        }).limit(20).select("_id fullname profile_picture");
+        const suggestions = await getSuggestedUsers(loggedUserId, 20);
 
         return res.status(200).json(suggestions);
     } catch (error) {

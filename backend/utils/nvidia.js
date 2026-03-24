@@ -5,10 +5,15 @@ const { generateText } = require('./gemini');
 const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
-const client = new OpenAI({
-    baseURL: NVIDIA_BASE_URL,
-    apiKey: NVIDIA_KEY,
-});
+function createClient() {
+    if (!NVIDIA_KEY) {
+        throw new Error('NVIDIA_API_KEY is not set');
+    }
+    return new OpenAI({
+        baseURL: NVIDIA_BASE_URL,
+        apiKey: NVIDIA_KEY,
+    });
+}
 
 /**
  * Generate text using NVIDIA's Llama model
@@ -16,6 +21,7 @@ const client = new OpenAI({
  */
 async function generateNvidiaText(prompt) {
     try {
+        const client = createClient();
         const completion = await client.chat.completions.create({
             model: 'nvidia/llama3-chatqa-1.5-8b',
             messages: [{ role: 'user', content: prompt }],
@@ -43,6 +49,9 @@ async function generateNvidiaText(prompt) {
  * Generate image using NVIDIA's Stable Diffusion model (SDXL)
  */
 async function generateNvidiaImage(prompt) {
+    if (!NVIDIA_KEY) {
+        throw new Error('NVIDIA_API_KEY is not set');
+    }
     const models = ['stabilityai/stable-diffusion-xl', 'nvidia/sdxl-turbo'];
     let lastError = null;
 
