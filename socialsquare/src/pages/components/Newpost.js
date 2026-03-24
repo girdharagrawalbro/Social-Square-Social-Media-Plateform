@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
 import toast, { Toaster } from "react-hot-toast";
@@ -70,13 +70,10 @@ const NewPost = ({ setnewpostVisible }) => {
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
 
     useEffect(() => {
-        const token = useAuthStore.getState().token;
-        if (token) {
-            axios.get(`${BASE}/api/ai/limit`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
+        if (loggeduser?._id) {
+            api.get(`/api/ai/limit`)
                 .then(res => setAiLimit(res.data))
-                .catch(() => {});
+                .catch(() => { });
         }
     }, [loggeduser?._id]);
 
@@ -147,10 +144,7 @@ const NewPost = ({ setnewpostVisible }) => {
             if (!imageUrl) {
                 imageUrl = await uploadToCloudinary(firstImage.file);
             }
-            const token = useAuthStore.getState().token;
-            const res = await axios.post(`${BASE}/api/ai/caption`, { imageUrl }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.post(`/api/ai/caption`, { imageUrl });
             setSuggestedCaptions(res.data.captions || []);
         } catch { toast.error('Failed to generate caption. Check your Gemini API key.'); }
         setGeneratingCaption(false);
@@ -160,10 +154,7 @@ const NewPost = ({ setnewpostVisible }) => {
         if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
         setIsGeneratingAi(true);
         try {
-            const token = useAuthStore.getState().token;
-            const res = await axios.post(`${BASE}/api/ai/generate-text`, { prompt: aiPrompt }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.post(`/api/ai/generate-text`, { prompt: aiPrompt });
             setFormData(p => ({ ...p, caption: res.data.text }));
             setAiLimit(prev => ({ ...prev, remaining: res.data.remaining }));
             setUsedAiForThisPost(true);
@@ -178,10 +169,7 @@ const NewPost = ({ setnewpostVisible }) => {
         if (images.length >= 5) { toast.error('Max 5 images reached'); return; }
         setIsGeneratingAi(true);
         try {
-            const token = useAuthStore.getState().token;
-            const res = await axios.post(`${BASE}/api/ai/generate-image`, { prompt: aiPrompt }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.post(`/api/ai/generate-image`, { prompt: aiPrompt });
             const newImg = {
                 id: Math.random().toString(36).slice(2),
                 preview: res.data.imageUrl,
@@ -286,10 +274,7 @@ const NewPost = ({ setnewpostVisible }) => {
             // Detect mood from caption
             let mood = null;
             try {
-                const token = useAuthStore.getState().token;
-                const moodRes = await axios.post(`${BASE}/api/ai/detect-mood`, { caption: formData.caption }, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const moodRes = await api.post(`/api/ai/detect-mood`, { caption: formData.caption });
                 mood = moodRes.data.mood;
             } catch { }
 

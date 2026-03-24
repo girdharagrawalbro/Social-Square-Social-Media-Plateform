@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { getFingerprint } from '../utils/fingerprint';
+import useAuthStore, { setToken } from '../store/zustand/useAuthStore';
 
 const VerifyOtp = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -12,6 +13,8 @@ const VerifyOtp = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const userId = location.state?.userId;
+  const setUser = useAuthStore(s => s.setUser);
+  const setInitialized = useAuthStore(s => s.setInitialized);
 
   useEffect(() => {
     if (!userId) navigate('/login');
@@ -54,9 +57,13 @@ const VerifyOtp = () => {
       });
       const result = await response.json();
       if (response.ok) {
-        localStorage.setItem('token', result.token);
+        setToken(result.token);
+        if (result.user) {
+          setUser(result.user);
+        }
+        setInitialized(true);
         toast.success('Verified! Redirecting...');
-        setTimeout(() => navigate('/'), 1000);
+        navigate('/');
       } else {
         toast.error(result.error || 'Invalid OTP');
         setOtp(['', '', '', '', '', '']);

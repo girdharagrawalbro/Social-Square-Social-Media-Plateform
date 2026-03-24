@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 
 // ✅ All imports from src/ root — no '../' needed
@@ -44,7 +43,7 @@ function AppInit() {
     const user = useAuthStore(s => s.user);
     const setOnlineUsers = useConversationStore(s => s.setOnlineUsers);
 
-    useTokenRefresh();
+    useTokenRefresh(Boolean(user?._id));
 
     // ✅ On every page load/refresh — silently restore session from httpOnly cookie
     // No localStorage needed — refresh token cookie does it all
@@ -72,25 +71,23 @@ function App() {
         <HelmetProvider>
             <QueryClientProvider client={queryClient}>
                 <DarkModeProvider>
-                    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID || ''}>
-                        <AppInit />
-                        <Router>
-                            <Suspense fallback={<PageLoader />}>
-                                <Routes>
-                                    <Route path="/landing" element={<Landing />} />
-                                    <Route path="/signup" element={<Signup />} />
-                                    <Route path="/forgot" element={<Forgot />} />
-                                    <Route path="/contact" element={<Contact />} />
-                                    <Route path="/login" element={<Login />} />
-                                    <Route path="/help" element={<Help />} />
-                                    <Route path="/reset-password" element={<ResetPassword />} />
-                                    <Route path="/verify-otp" element={<VerifyOtp />} />
-                                    <Route path="/admin" element={<AdminDashboard />} />
-                                    <Route path="/" element={<Home />} />
-                                </Routes>
-                            </Suspense>
-                        </Router>
-                    </GoogleOAuthProvider>
+                    <AppInit />
+                    <Router>
+                        <Suspense fallback={<PageLoader />}>
+                            <Routes>
+                                <Route path="/landing" element={<Landing />} />
+                                <Route path="/signup" element={<Signup />} />
+                                <Route path="/forgot" element={<Forgot />} />
+                                <Route path="/contact" element={<Contact />} />
+                                <Route path="/login" element={<Login />} />
+                                <Route path="/help" element={<Help />} />
+                                <Route path="/reset-password" element={<ResetPassword />} />
+                                <Route path="/verify-otp" element={<VerifyOtp />} />
+                                <Route path="/admin" element={<AdminDashboard />} />
+                                <Route path="/" element={<Home />} />
+                            </Routes>
+                        </Suspense>
+                    </Router>
                 </DarkModeProvider>
             </QueryClientProvider>
         </HelmetProvider>

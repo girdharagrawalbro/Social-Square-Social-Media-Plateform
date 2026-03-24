@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
+import { api } from '../../store/zustand/useAuthStore';
 
 const deviceIcon = (device = '') => {
   const d = device.toLowerCase();
@@ -17,26 +15,20 @@ const ActiveSessions = () => {
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
   const [toggling2FA, setToggling2FA] = useState(false);
 
-  const token = localStorage.getItem('token');
-
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await axios.get(`${BASE}/api/auth/sessions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get(`/api/auth/sessions`);
       setSessions(res.data);
     } catch { toast.error('Failed to load sessions'); }
     finally { setLoading(false); }
-  }, [token]);
+  }, []);
 
   const fetchUser = useCallback(async () => {
     try {
-      const res = await axios.get(`${BASE}/api/auth/get`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get(`/api/auth/get`);
       setTwoFaEnabled(res.data.twoFactorEnabled);
     } catch { }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchSessions();
@@ -45,9 +37,7 @@ const ActiveSessions = () => {
 
   const revokeSession = async (sessionId) => {
     try {
-      await axios.delete(`${BASE}/api/auth/sessions/${sessionId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/auth/sessions/${sessionId}`);
       setSessions(prev => prev.filter(s => s._id !== sessionId));
       toast.success('Session revoked');
     } catch { toast.error('Failed to revoke session'); }
@@ -56,9 +46,7 @@ const ActiveSessions = () => {
   const toggle2FA = async () => {
     setToggling2FA(true);
     try {
-      const res = await axios.post(`${BASE}/api/auth/toggle-2fa`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.post(`/api/auth/toggle-2fa`, {});
       setTwoFaEnabled(res.data.twoFactorEnabled);
       toast.success(`2FA ${res.data.twoFactorEnabled ? 'enabled' : 'disabled'}`);
     } catch { toast.error('Failed to toggle 2FA'); }

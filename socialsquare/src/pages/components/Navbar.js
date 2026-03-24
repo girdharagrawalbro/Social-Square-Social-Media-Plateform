@@ -13,16 +13,16 @@ import { Dialog } from "primereact/dialog";
 
 const Navbar = () => {
   const loggeduser = useAuthStore(s => s.user);
-  const token = getToken() || localStorage.getItem('token');
+  const isAuthenticated = Boolean(loggeduser?._id || getToken());
   const { isDark, toggle } = useDarkMode();
   const [newpostVisible, setnewpostVisible] = useState(false);
 
   // Request push notification permission on first login
   useEffect(() => {
-    if (token && loggeduser) {
+    if (isAuthenticated && loggeduser) {
       requestNotificationPermission();
     }
-  }, [token, loggeduser]);
+  }, [isAuthenticated, loggeduser]);
 
 
 
@@ -38,7 +38,7 @@ const Navbar = () => {
       </div>
 
       <div className="flex-1 mx-4 relative w-50">
-        {token ? <Search /> : <Authnav />}
+        {isAuthenticated ? <Search /> : <Authnav />}
       </div>
 
       <div className="flex items-center justify-end gap-3 w-25">
@@ -54,7 +54,7 @@ const Navbar = () => {
           {isDark ? '☀️' : '🌙'}
         </button>
 
-        {token ? (
+        {isAuthenticated ? (
           <>
             <NotificationBell userId={loggeduser?._id} />
 

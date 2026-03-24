@@ -1,10 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import axios from 'axios';
 import { socket } from '../../socket';
-import useAuthStore, { api } from '../../store/zustand/useAuthStore';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
+import { api } from '../../store/zustand/useAuthStore';
 
 export const notifKeys = {
     list:     (userId) => ['notifications', userId],
@@ -52,14 +49,11 @@ export function useNotifications(userId) {
 // ─── NOTIFICATION SETTINGS (email digest) ─────────────────────────────────────
 export function useNotificationSettings(userId) {
     const qc = useQueryClient();
-    const token = useAuthStore(s => s.token);
 
     const query = useQuery({
         queryKey: notifKeys.settings(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/auth/notification-settings`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.get(`/api/auth/notification-settings`);
             return res.data;
         },
         enabled: !!userId,

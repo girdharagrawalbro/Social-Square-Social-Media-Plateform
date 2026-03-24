@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
 import ChatPanel from './ChatPanel';
 import PostDetail from './PostDetail';
@@ -84,14 +84,8 @@ const UserProfile = ({ id }) => {
     useEffect(() => {
         if (!id || !loggeduser?._id) return;
         setLoading(true);
-        const token = useAuthStore.getState().token;
-        fetch(`${BASE}/api/auth/other-user/view/${id}`, {
-            method: "GET", 
-            headers: { 
-                Authorization: `Bearer ${token}` 
-            },
-        })
-            .then(r => r.json())
+        api.get(`/api/auth/other-user/view/${id}`)
+            .then(r => r.data)
             .then(data => { setUserDetails(data); setLoading(false); })
             .catch(() => setLoading(false));
     }, [id, loggeduser?._id]);
