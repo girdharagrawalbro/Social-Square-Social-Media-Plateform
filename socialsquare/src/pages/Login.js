@@ -57,9 +57,9 @@ const Login = () => {
   return (
     <>
       <Bg>
-        <div className="flex items-center gap-6">
-          <div className="mx-auto bg-white p-6 rounded text-center">
-            <h3 className="font-pacifico mb-3 text-3xl">Social Square</h3>
+        <div className="w-full flex items-center justify-center gap-6 flex-col md:flex-row">
+          <div className="w-full max-w-md mx-auto bg-white p-4 sm:p-6 rounded text-center">
+            <h3 className="font-pacifico mb-3 text-2xl sm:text-3xl">Social Square</h3>
             <form onSubmit={handleSubmit}>
               <input className="px-3 py-2 bg-white text-gray-800 w-full my-2 border rounded" type="text" name="identifier" placeholder="Email" value={formData.identifier} onChange={handleChange} required />
               <input className="px-3 py-2 bg-white text-gray-800 w-full my-2 border rounded" type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
@@ -70,8 +70,8 @@ const Login = () => {
               <p>Don't have an account? <Link to="/signup" className="text-themeStart font-semibold">Sign up</Link></p>
             </div>
           </div>
-          <div className="hidden md:block">
-            <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" />
+          <div className="hidden md:block md:max-w-sm lg:max-w-md">
+            <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" className="w-full h-auto" />
           </div>
         </div>
       </Bg>

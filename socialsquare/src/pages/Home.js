@@ -67,13 +67,13 @@ const Home = () => {
     
 
     return (
-        <section className={`h-screen w-full overflow-hidden ${bg} transition-colors duration-200`}>
+        <section className={`min-h-[100dvh] w-full overflow-x-hidden ${bg} transition-colors duration-200`}>
             <Navbar />
 
             {/* Desktop */}
             {isDesktop ? (
-                <div className="flex gap-3 w-full max-w-8xl mx-auto p-3 h-[calc(100vh-64px)]">
-                    <div className="w-25 h-full overflow-hidden">
+                <div className="flex gap-3 w-full max-w-8xl mx-auto p-3 h-[calc(100dvh-64px)]">
+                    <div className="w-25 h-full overflow-y-auto">
                         <Profile />
                     </div>
                     <div className="w-50 overflow-y-auto h-full px-3">
@@ -81,16 +81,16 @@ const Home = () => {
                         <MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} />
                         <Feed activeMood={activeMood} />
                     </div>
-                    <div className="w-25 h-full overflow-hidden">
+                    <div className="w-25 h-full overflow-y-auto">
                         <Conversations/>
                         <OtherUsers />
                     </div>
                 </div>
             ) : (
                 /* Mobile */
-                <div className="flex flex-col h-screen overflow-hidden">
-                    <div className="flex-1 overflow-auto p-2">{renderMobileView()}</div>
-                    <div className={`fixed bottom-3 left-1/2 transform -translate-x-1/2 w-11/12 md:w-3/4 ${cardBg} rounded-full p-2 shadow-md`} style={{ zIndex: 100 }}>
+                <div className="flex flex-col min-h-[calc(100dvh-64px)] overflow-hidden">
+                    <div className="flex-1 overflow-auto p-2 pb-24">{renderMobileView()}</div>
+                    <div className={`fixed bottom-2 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md ${cardBg} rounded-full p-2 shadow-md`} style={{ zIndex: 100 }}>
                         <div className="flex justify-around">
                             {navItems.map(item => (
                                 <button key={item.key}

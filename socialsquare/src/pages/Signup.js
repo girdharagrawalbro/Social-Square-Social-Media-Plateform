@@ -52,23 +52,23 @@ const Signup = () => {
   return (
     <>
       <Bg>
-        <div className="flex align-center">
-          <div className='flex flex-col'>
-            <h3 className="pacifico-regular mb-3">Social Square</h3>
+        <div className="w-full flex items-center justify-center gap-6 flex-col md:flex-row">
+          <div className="w-full max-w-md flex flex-col text-left">
+            <h3 className="font-pacifico mb-3 text-2xl sm:text-3xl text-center">Social Square</h3>
             <form onSubmit={handleSubmit}>
-              <input className="px-3 py-2 bg-white text-dark w-100 my-2 border" type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
-              <input className="px-3 py-2 bg-white text-dark w-100 my-2 border" type="text" name="fullname" placeholder="Full Name" value={formData.fullname} onChange={handleChange} required />
-              <input className="px-3 py-2 bg-white text-dark w-100 my-2 border" type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
+              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="text" name="fullname" placeholder="Full Name" value={formData.fullname} onChange={handleChange} required />
+              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
               <PasswordStrengthMeter password={formData.password} />
-              <button className="py-2 mt-2 theme-bg w-100" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign up'}</button>
+              <button className="py-2 mt-2 bg-themeAccent text-white w-full rounded" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign up'}</button>
             </form>
-            <div className="mt-4">
-              <p>Have an account? <Link to="/login" className="text-primary text-decoration-none fw-bold">Log in</Link></p>
+            <div className="mt-4 text-center">
+              <p>Have an account? <Link to="/login" className="text-themeStart font-semibold">Log in</Link></p>
             </div>
           </div>
-        </div>
-        <div className='pc'>
-          <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" />
+          <div className="hidden md:block md:max-w-sm lg:max-w-md">
+            <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" className="w-full h-auto" />
+          </div>
         </div>
       </Bg>
       <Toaster />

@@ -55,9 +55,9 @@ export default function NotificationBell({ userId }) {
     const totalBadge = unreadCount + pendingCollabCount;
 
     return (
-        <div ref={ref} style={{ position: 'relative' }}>
+        <div ref={ref}>
             {/* Bell button */}
-            <button onClick={() => setOpen(o => !o)} style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: '4px' }}>
+            <button onClick={() => setOpen(o => !o)} style={{  cursor: 'pointer', padding: '4px' }} className='text-dark'>
                 <i className="pi pi-bell text-xl">
                     {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} severity="danger" />}
                 </i>
