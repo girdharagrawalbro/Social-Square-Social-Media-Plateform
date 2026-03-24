@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useLikePost, useSavePost, useDeletePost, useUpdatePost } from '../../hooks/queries/usePostQueries';
+import { api } from '../../store/zustand/useAuthStore';
+import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail } from '../../hooks/queries/usePostQueries';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -47,7 +48,16 @@ const ShareDialog = ({ post, visible, onHide, user }) => {
 
     useEffect(() => {
         if (!visible || !user?._id) return;
-        fetch(`${BASE}/api/conversation/${user._id}`).then(r => r.json()).then(setConversations).catch(() => { });
+        api.get(`/api/conversation/${user._id}`)
+            .then(({ data }) => {
+                const normalized = Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.conversations)
+                        ? data.conversations
+                        : [];
+                setConversations(normalized);
+            })
+            .catch(() => setConversations([]));
     }, [visible, user]);
 
     const copyLink = () => { navigator.clipboard.writeText(postUrl); toast.success('Link copied!'); };
@@ -55,7 +65,13 @@ const ShareDialog = ({ post, visible, onHide, user }) => {
         setSending(conv._id);
         const other = conv.participants.find(p => p.userId !== user._id);
         try {
-            await fetch(`${BASE}/api/conversation/messages/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId: conv._id, sender: user._id, senderName: user.fullname, content: `🔗 Shared a post: ${postUrl}`, recipientId: other?.userId }) });
+            await api.post('/api/conversation/messages/create', {
+                conversationId: conv._id,
+                sender: user._id,
+                senderName: user.fullname,
+                content: `🔗 Shared a post: ${postUrl}`,
+                recipientId: other?.userId,
+            });
             toast.success(`Shared to ${other?.fullname || 'conversation'}`);
         } catch { toast.error('Failed to share'); }
         setSending(null);
@@ -69,7 +85,7 @@ const ShareDialog = ({ post, visible, onHide, user }) => {
                 <h3 className="text-lg font-semibold mb-4">Share post</h3>
                 <div className="flex flex-col gap-3">
                     <button onClick={copyLink} className="flex items-center gap-3 p-3 bg-gray-100 border-0 rounded-xl cursor-pointer font-semibold text-sm hover:bg-gray-200">🔗 Copy link</button>
-                    {conversations.map(conv => {
+                    {Array.isArray(conversations) && conversations.map(conv => {
                         const other = conv.participants.find(p => p.userId !== user._id);
                         return (
                             <button key={conv._id} onClick={() => shareToConv(conv)} disabled={sending === conv._id} className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer text-left hover:bg-gray-100">
@@ -86,11 +102,13 @@ const ShareDialog = ({ post, visible, onHide, user }) => {
     );
 };
 
-const PostDetail = ({ post, onHide }) => {
+const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const navigate = useNavigate();
     const loggeduser = useAuthStore(s => s.user);
     const followUser = useAuthStore(s => s.followUser);
     const unfollowUser = useAuthStore(s => s.unfollowUser);
+    const { data: fetchedPost, isLoading: isPostLoading } = usePostDetail(!initialPost && postId ? postId : null);
+    const post = initialPost || fetchedPost;
 
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
@@ -118,6 +136,13 @@ const PostDetail = ({ post, onHide }) => {
     const isLiked = postLikes?.some(id => id?.toString() === loggeduser?._id?.toString());
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === post?.user._id?.toString());
     const isOwner = post?.user._id === loggeduser?._id || post?.user._id?.toString() === loggeduser?._id;
+
+    if (isPostLoading && !post) return (
+        <div className="max-w-2xl mx-auto p-4 mt-6 text-center">
+            <p className="text-4xl mb-2">⏳</p>
+            <p className="text-gray-500">Loading post details...</p>
+        </div>
+    );
 
     if (!post) return (
         <div className="max-w-2xl mx-auto p-4 mt-6 text-center">

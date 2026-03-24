@@ -68,7 +68,7 @@ const Conversations = () => {
     );
 
     return (
-        <div className="p-3 bordershadow bg-white rounded conversations">
+        <div className="p-3 border bg-white rounded conversations h-[50vh]">
             <div className="flex justify-between items-center mb-3">
                 <h5 className="font-medium m-0">Messages</h5>
                 <div className="flex gap-2 items-center">

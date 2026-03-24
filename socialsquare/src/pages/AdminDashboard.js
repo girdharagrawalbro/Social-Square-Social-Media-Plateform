@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import useAuthStore from '../store/zustand/useAuthStore';
+import React, { useState, useEffect, useCallback } from 'react';
+import useAuthStore, { api, getToken } from '../store/zustand/useAuthStore';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
-
 const useAdmin = () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     return { headers: { Authorization: `Bearer ${token}` } };
 };
 
@@ -25,9 +22,9 @@ const PasswordGate = ({ onSuccess }) => {
         setLoading(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
+            const token = getToken();
             // Re-verify password via auth endpoint
-            await axios.post(`${BASE}/api/auth/verify-password`, { password }, {
+            await api.post('/api/auth/verify-password', { password }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             onSuccess();
@@ -133,7 +130,7 @@ const AnalyticsTab = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        axios.get(`${BASE}/api/admin/analytics`, { headers })
+        api.get('/api/admin/analytics', { headers })
             .then(r => { setData(r.data); setLoading(false); })
             .catch(() => setLoading(false));
     }, [headers]);
@@ -199,7 +196,7 @@ const UsersTab = () => {
 
     const fetchUsers = useCallback(() => {
         setLoading(true);
-        axios.get(`${BASE}/api/admin/users`, { headers, params: { page, search, filter } })
+        api.get('/api/admin/users', { headers, params: { page, search, filter } })
             .then(r => { setUsers(r.data.users); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
     }, [page, search, filter, headers]);
@@ -209,16 +206,16 @@ const UsersTab = () => {
     const banUser = async (userId) => {
         const r = prompt('Ban reason:');
         if (r === null) return;
-        try { await axios.patch(`${BASE}/api/admin/users/${userId}/ban`, { reason: r }, { headers }); toast.success('User banned'); fetchUsers(); }
+        try { await api.patch(`/api/admin/users/${userId}/ban`, { reason: r }, { headers }); toast.success('User banned'); fetchUsers(); }
         catch { toast.error('Failed'); }
     };
     const unbanUser = async (userId) => {
-        try { await axios.patch(`${BASE}/api/admin/users/${userId}/unban`, {}, { headers }); toast.success('User unbanned'); fetchUsers(); }
+        try { await api.patch(`/api/admin/users/${userId}/unban`, {}, { headers }); toast.success('User unbanned'); fetchUsers(); }
         catch { toast.error('Failed'); }
     };
     const deleteUser = async (userId) => {
         if (!window.confirm('Delete this user and all their posts?')) return;
-        try { await axios.delete(`${BASE}/api/admin/users/${userId}`, { headers }); toast.success('User deleted'); fetchUsers(); }
+        try { await api.delete(`/api/admin/users/${userId}`, { headers }); toast.success('User deleted'); fetchUsers(); }
         catch { toast.error('Failed'); }
     };
 
@@ -300,7 +297,7 @@ const PostsTab = () => {
 
     const fetchPosts = useCallback(() => {
         setLoading(true);
-        axios.get(`${BASE}/api/admin/posts`, { headers, params: { page, search, filter } })
+        api.get('/api/admin/posts', { headers, params: { page, search, filter } })
             .then(r => { setPosts(r.data.posts); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
     }, [page, search, filter, headers]);
@@ -309,7 +306,7 @@ const PostsTab = () => {
 
     const deletePost = async (postId) => {
         if (!window.confirm('Delete this post?')) return;
-        try { await axios.delete(`${BASE}/api/admin/posts/${postId}`, { headers }); toast.success('Post deleted'); fetchPosts(); }
+        try { await api.delete(`/api/admin/posts/${postId}`, { headers }); toast.success('Post deleted'); fetchPosts(); }
         catch { toast.error('Failed'); }
     };
 
@@ -370,7 +367,7 @@ const ReportsTab = () => {
 
     const fetchReports = useCallback(() => {
         setLoading(true);
-        axios.get(`${BASE}/api/admin/reports`, { headers, params: { status } })
+        api.get('/api/admin/reports', { headers, params: { status } })
             .then(r => { setReports(r.data.reports); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
     }, [status, headers]);
@@ -378,7 +375,7 @@ const ReportsTab = () => {
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
     const resolve = async (reportId, action) => {
-        try { await axios.patch(`${BASE}/api/admin/reports/${reportId}/resolve`, { action }, { headers }); toast.success(`Report ${action}`); fetchReports(); }
+        try { await api.patch(`/api/admin/reports/${reportId}/resolve`, { action }, { headers }); toast.success(`Report ${action}`); fetchReports(); }
         catch { toast.error('Failed'); }
     };
 
@@ -434,30 +431,29 @@ const ReportsTab = () => {
 // ─── MAIN ADMIN DASHBOARD ─────────────────────────────────────────────────────
 const AdminDashboard = () => {
     const loggeduser = useAuthStore(s => s.user);
-    const fetchUser = useAuthStore(s => s.fetchUser);
-    const token = useAuthStore(s => s.token);
-    const userLoading = useMemo(() => ({ loggeduser: !loggeduser && !!token }), [loggeduser, token]);
+    const loading = useAuthStore(s => s.loading);
+    const initialized = useAuthStore(s => s.initialized);
+    const isAdminUser = Boolean(loggeduser?.isAdmin || loggeduser?.role === 'admin');
     const navigate = useNavigate();
     const [verified, setVerified] = useState(false);
     const [activeTab, setActiveTab] = useState('analytics');
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) { navigate('/login'); return; }
-        if (!loggeduser) fetchUser();
-    }, [ loggeduser, navigate, fetchUser]);
+        if (!initialized || loading) return;
+        if (!loggeduser) navigate('/login');
+    }, [initialized, loading, loggeduser, navigate]);
 
     // ✅ Redirect non-admins only after user is confirmed loaded
     useEffect(() => {
-        if (userLoading?.loggeduser) return; // still loading
-        if (loggeduser && !loggeduser.isAdmin) {
+        if (!initialized || loading || !loggeduser) return;
+        if (!isAdminUser) {
             toast.error('Admin access required');
             navigate('/');
         }
-    }, [loggeduser, userLoading, navigate]);
+    }, [initialized, loading, loggeduser, isAdminUser, navigate]);
 
     // Still loading user
-    if (!loggeduser || userLoading?.loggeduser) return (
+    if (!initialized || loading) return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', gap: '16px' }}>
             <div style={{ width: 44, height: 44, border: '4px solid #ede9fe', borderTopColor: '#808bf5', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>Loading...</p>
@@ -465,8 +461,10 @@ const AdminDashboard = () => {
         </div>
     );
 
+    if (!loggeduser) return null;
+
     // Not admin
-    if (!loggeduser.isAdmin) return null;
+    if (!isAdminUser) return null;
 
     // ✅ Password gate — shown before dashboard
     if (!verified) return <PasswordGate onSuccess={() => setVerified(true)} />;
