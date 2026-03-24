@@ -13,6 +13,7 @@ import { Dialog } from "primereact/dialog";
 
 const Navbar = () => {
   const loggeduser = useAuthStore(s => s.user);
+  const isAdminUser = Boolean(loggeduser?.isAdmin || loggeduser?.role === 'admin');
   const isAuthenticated = Boolean(loggeduser?._id || getToken());
   const { isDark, toggle } = useDarkMode();
   const [newpostVisible, setnewpostVisible] = useState(false);
@@ -59,7 +60,7 @@ const Navbar = () => {
             <NotificationBell userId={loggeduser?._id} />
 
             
-            {loggeduser?.isAdmin && (
+            {isAdminUser && (
               <Link to="/admin" className={`border-0 rounded-lg px-2 py-1 text-xs font-semibold no-underline ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`} title="Admin Dashboard">
                 ⚙️ Admin
               </Link>

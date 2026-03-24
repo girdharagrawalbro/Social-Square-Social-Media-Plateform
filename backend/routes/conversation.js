@@ -277,5 +277,30 @@ router.patch('/notifications/mark-read', verifyToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── BACKWARD-COMPAT: FETCH CONVERSATIONS BY USER ID (PROTECTED) ───────────
+router.get('/:participantId', verifyToken, async (req, res) => {
+    try {
+        const { participantId } = req.params;
+        const userId = req.userId;
+
+        if (participantId !== userId) {
+            return res.status(403).json({ error: 'Unauthorized access' });
+        }
+
+        const cacheKey = `convs:${userId}`;
+        const cached = await getCache(cacheKey);
+        if (cached) return res.json(cached);
+
+        const conversations = await Conversation.find({ 'participants.userId': userId })
+            .sort({ lastMessageAt: -1 })
+            .lean();
+
+        await setCache(cacheKey, conversations, 30);
+        return res.status(200).json(conversations);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
 module.exports.setIo = setIo;

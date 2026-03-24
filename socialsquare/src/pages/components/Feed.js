@@ -372,19 +372,19 @@ const Feed = ({ activeMood = null }) => {
                                         <div className="bg-white text-gray-900 w-full px-4 py-3">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-4">
-                                                    <div onClick={() => handleLikeToggle(post)} className="flex items-center gap-2 cursor-pointer">
+                                                    <div onClick={(e) => { e.stopPropagation(); handleLikeToggle(post); }} className="flex items-center gap-2 cursor-pointer">
                                                         <Like isliked={likes.includes(user?._id) || likes.some(id => id?.toString() === user?._id)} loading={likeMutation.isPending} />
                                                     </div>
-                                                    <button onClick={() => setVisiblePostId(p => p === post._id ? null : post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
+                                                    <button onClick={(e) => { e.stopPropagation(); setVisiblePostId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
                                                         <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i>
                                                     </button>
-                                                    <button onClick={() => setSharePost(post)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
+                                                    <button onClick={(e) => { e.stopPropagation(); setSharePost(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
                                                         <i className="pi pi-send" style={{ fontSize: '1.15rem' }}></i>
                                                     </button>
-                                                    <button onClick={() => setPostDetailId(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900 ml-auto" style={{ marginRight: '4px' }}>
+                                                    <button onClick={(e) => { e.stopPropagation(); setPostDetailId(post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900 ml-auto" style={{ marginRight: '4px' }}>
                                                         <i className="pi pi-external-link" style={{ fontSize: '1rem' }}></i>
                                                     </button>
-                                                    <button onClick={() => handleSave(post)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleSave(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0">
                                                         <i className={`pi ${postIsSaved ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: postIsSaved ? '#808bf5' : 'currentColor' }}></i>
                                                     </button>
                                                 </div>

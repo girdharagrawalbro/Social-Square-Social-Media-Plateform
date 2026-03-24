@@ -33,7 +33,7 @@ const OtherUsers = () => {
 
     return (
         <>
-            <div className="p-3 bordershadow bg-white rounded mt-3">
+            <div className="p-3 border bg-white rounded mt-3 h-[36vh]">
                 <h5 className="font-medium mb-3">Suggested Users</h5>
                 <div className="flex flex-col gap-2">
                     {users.filter(u => u._id !== user?._id).slice(0, 8).map(u => {

@@ -82,7 +82,7 @@ const Home = () => {
                         <Feed activeMood={activeMood} />
                     </div>
                     <div className="w-25 h-full overflow-hidden">
-                        <Conversations />
+                        <Conversations/>
                         <OtherUsers />
                     </div>
                 </div>
@@ -109,11 +109,11 @@ const Home = () => {
             <Dialog 
                 header="Post Detail" 
                 visible={!!postDetailId} 
-                style={{ width: '95vw', maxWidth: '600px', height: '90vh' }} 
+                style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }}
                 onHide={() => setPostDetailId(null)} 
                 blockScroll
             >
-                {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)} />}
+                {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)}  />}
             </Dialog>
         </section>
     );
