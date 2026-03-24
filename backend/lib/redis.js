@@ -6,6 +6,6 @@ const redis = new IORedis(redisUrl, {
     retryStrategy: (times) => Math.min(times * 50, 2000),
 });
 
-console.log(`[Redis] Initialized with URL: ${redisUrl.split('@')[1] || '(local)'}`);
+console.log(`[Redis] Initialized with URL: ${redisUrl.split('@')[1] || '(local)'} (PID: ${process.pid})`);
 
 module.exports = redis;

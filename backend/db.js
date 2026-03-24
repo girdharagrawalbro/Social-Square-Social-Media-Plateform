@@ -19,7 +19,7 @@ const connectToMongo = async () => {
             w: 'majority', // write concern — confirmed by majority of replica set
         });
 
-        console.log('[MongoDB] Connected successfully');
+        console.log(`[MongoDB] Connected successfully (PID: ${process.pid})`);
 
         // Log slow queries in development
         if (process.env.NODE_ENV !== 'production') {

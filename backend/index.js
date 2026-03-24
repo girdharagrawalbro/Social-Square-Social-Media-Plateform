@@ -2,18 +2,6 @@ require('dotenv').config();
 const cluster = require('cluster');
 const os = require('os');
 
-// ─── CLUSTER MODE ─────────────────────────────────────────────────────────────
-if (cluster.isPrimary && process.env.NODE_ENV === 'production') {
-    const numCPUs = os.cpus().length;
-    console.log(`[Cluster] Primary ${process.pid} — forking ${numCPUs} workers`);
-    for (let i = 0; i < numCPUs; i++) cluster.fork();
-    cluster.on('exit', (worker, code) => {
-        console.warn(`[Cluster] Worker ${worker.process.pid} died (code ${code}) — restarting`);
-        cluster.fork();
-    });
-    return;
-}
-
 const connectToMongo = require('./db.js');
 const express = require('express');
 const cors = require('cors');
@@ -104,15 +92,17 @@ const io = socketIo(server, {
 });
 
 // ─── REDIS ADAPTER ────────────────────────────────────────────────────────────
-(async () => {
+async function initRedis() {
+    if (global.redisInitialized) return;
+    global.redisInitialized = true;
     try {
         const { createClient } = require('redis');
         const { createAdapter } = require('@socket.io/redis-adapter');
         const pubClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-        
+
         // Register error handlers before connecting to prevent unhandled exceptions
         pubClient.on('error', (err) => logger.error('[Redis Pub] Error: %s', err.message));
-        
+
         const subClient = pubClient.duplicate();
         subClient.on('error', (err) => logger.error('[Redis Sub] Error: %s', err.message));
 
@@ -122,21 +112,27 @@ const io = socketIo(server, {
     } catch (err) {
         logger.warn('[Redis] Not configured: %s', err.message);
     }
-})();
+};
+
+function bindIoToRoutes() {
+    postRouter.setIo(io);
+    storyRouter.setIo(io);
+}
 
 // ─── PUB/SUB (Redis) ──────────────────────────────────────────────────────────
-(async () => {
+async function initPubSubLayer() {
+    if (global.pubsubInitialized) return;
+    global.pubsubInitialized = true;
+
     try {
         await initPubSub();
-        setSubscriberIo(io);
-        postRouter.setIo(io);
-        storyRouter.setIo(io);
         await initPostSubscriber();
         logger.info('[PubSub] Subscribers initialized via Redis');
     } catch (err) {
         logger.warn('[PubSub] Initialization failed: %s', err.message);
     }
-})();
+};
+
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(morgan('combined', { stream: logger.stream }));
@@ -240,15 +236,65 @@ io.on('connection', (socket) => {
 // ─── GRACEFUL SHUTDOWN ────────────────────────────────────────────────────────
 const gracefulShutdown = (signal) => {
     logger.info(`[${signal}] Graceful shutdown`);
-    server.close(async () => {
+    const shutdownNow = async () => {
         try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch { }
         process.exit(0);
-    });
-    setTimeout(() => process.exit(1), 30000);
+    };
+
+    if (server.listening) {
+        server.close(async () => {
+            await shutdownNow();
+        });
+        setTimeout(() => process.exit(1), 30000);
+        return;
+    }
+
+    shutdownNow();
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // ─── START ────────────────────────────────────────────────────────────────────
-server.listen(port, () => logger.info(`[Worker ${process.pid}] Running on port ${port}`));
+const isClusterMode = process.env.NODE_ENV === 'production';
+
+const startServer = async () => {
+    bindIoToRoutes();
+    await initRedis();
+    server.listen(port, () => logger.info(`[Worker ${process.pid}] Running on port ${port}`));
+};
+
+const bootstrap = async () => {
+    if (isClusterMode && cluster.isPrimary) {
+        logger.info(`[Cluster] Primary ${process.pid} — forking workers`);
+        await initPubSubLayer();
+        logger.info('[Primary] PubSub initialized');
+
+        const numCPUs = os.cpus().length;
+        for (let i = 0; i < numCPUs; i++) {
+            cluster.fork();
+        }
+
+        cluster.on('exit', (worker, code) => {
+            logger.warn(`[Cluster] Worker ${worker.process.pid} died (code ${code}) — restarting`);
+            cluster.fork();
+        });
+        return;
+    }
+
+    if (isClusterMode && cluster.isWorker) {
+        logger.info(`[Worker ${process.pid}] Started`);
+        await startServer();
+        return;
+    }
+
+    // Development / non-cluster mode: single process does both API + subscriber.
+    setSubscriberIo(io);
+    await initPubSubLayer();
+    await startServer();
+};
+
+bootstrap().catch((err) => {
+    logger.error('[Bootstrap] Startup failed: %s', err.stack || err.message);
+    process.exit(1);
+});
