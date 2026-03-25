@@ -13,6 +13,7 @@ const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail } = r
 const { getSuggestedUsers } = require('../services/suggestionService');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
+const authRateLimiter = require('../middleware/authRateLimiter');
 
 const router = express.Router();
 
@@ -71,7 +72,7 @@ function generateOtp() {
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 
-router.post('/login', [
+router.post('/login', authRateLimiter, [
     body('identifier').isEmail(),
     body('password').notEmpty(),
 ], async (req, res) => {
@@ -251,10 +252,10 @@ router.post('/toggle-2fa', async (req, res) => {
 
 // ─── SIGNUP ───────────────────────────────────────────────────────────────────
 
-router.post('/add', [
+router.post('/add', authRateLimiter, [
     body('fullname').trim().isLength({ min: 2, max: 50 }),
     body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 6 }),
+    body('password').isLength({ min: 6, max: 128 }),
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -492,7 +493,7 @@ router.post('/forgot-password', [body('email').isEmail()], async (req, res) => {
     }
 });
 
-router.post('/reset-password', [body('token').notEmpty(), body('email').isEmail(), body('password').isLength({ min: 6 })], async (req, res) => {
+router.post('/reset-password', [body('token').notEmpty(), body('email').isEmail(), body('password').isLength({ min: 6, max: 128 })], async (req, res) => {
     try {
         const { token, email, password } = req.body;
         const user = await User.findOne({
