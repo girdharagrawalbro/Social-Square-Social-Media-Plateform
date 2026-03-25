@@ -225,7 +225,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-    }, [user?._id, participantId]); // Removed markReadMut from dependency array
+    }, [user?._id, participantId, markReadMut]);
 
     useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
