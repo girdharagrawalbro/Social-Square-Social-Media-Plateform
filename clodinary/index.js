@@ -7,7 +7,7 @@ const cloudinaryRoutes = require('./routes/cloudinary.routes');
 
 app.use('/api/cloudinary', cloudinaryRoutes);
 
-const PORT = 5001;
+const PORT = Number(process.env.PORT || 5001);
 app.listen(PORT, () => {
     console.log(`Cloudinary Server running on port http://localhost:${PORT}`);
 });

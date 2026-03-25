@@ -1,130 +1,144 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
-let transporter;
+const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
 
-function getTransporter() {
-    if (transporter) return transporter;
+// ─── BASE EMAIL WRAPPER ───────────────────────────────────────────────────────
+async function sendEmail({ to, subject, html, text }) {
+    const payload = {
+        to,
+        subject,
+        html,
+        text: text || html?.replace(/<[^>]*>/g, ''),
+    };
 
-    const user = process.env.EMAIL_USER?.trim();
-    const pass = process.env.EMAIL_PASS?.trim();
-    if (!user || !pass) {
-        transporter = {
-            sendMail: async () => {
-                console.warn("[Mailer] Skipped email sending: EMAIL_USER or EMAIL_PASS is missing in environment variables.");
-            }
-        };
-        return transporter;
+    try {
+        const response = await axios.post(`${MAIL_SERVICE_BASE_URL}/api/mail/send`, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 10000),
+        });
+
+        if (response.data?.success === false) {
+            throw new Error(response.data?.message || 'Mail service returned unsuccessful response');
+        }
+
+        return response.data?.data;
+    } catch (error) {
+        const reason = error.response?.data?.message || error.message;
+        throw new Error(`Mail API send failed: ${reason}`);
     }
-
-    const host = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com';
-    const port = Number(process.env.EMAIL_PORT || 587);
-    const secure = process.env.EMAIL_SECURE
-        ? process.env.EMAIL_SECURE === 'true'
-        : port === 465;
-    const forceIPv4 = process.env.EMAIL_FORCE_IPV4 !== 'false';
-
-    transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-        family: forceIPv4 ? 4 : undefined,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 20000,
-    });
-
-    return transporter;
 }
 
-async function sendNewDeviceAlert({ email, fullname, device, ip, location, time }) {
-    await getTransporter().sendMail({
-        from: `"Social Square Security" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: '⚠️ New device login detected',
+// ─── SPECIFIC EMAIL TYPES ─────────────────────────────────────────────────────
+
+async function sendOtpEmail(email, otp) {
+    return sendEmail({
+        to:      email,
+        subject: 'Your Social Square verification code',
         html: `
-            <div style="font-family:sans-serif;max-width:500px;margin:auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-                <div style="background:#6366f1;padding:20px 24px;">
-                    <h2 style="color:#fff;margin:0;">New Login Detected</h2>
-                </div>
-                <div style="padding:24px;">
-                    <p>Hi <strong>${fullname}</strong>,</p>
-                    <p>We detected a login to your Social Square account from a new device.</p>
-                    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-                        <tr style="border-bottom:1px solid #f3f4f6;">
-                            <td style="padding:8px;color:#6b7280;font-size:14px;">Device</td>
-                            <td style="padding:8px;font-size:14px;"><strong>${device}</strong></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid #f3f4f6;">
-                            <td style="padding:8px;color:#6b7280;font-size:14px;">IP Address</td>
-                            <td style="padding:8px;font-size:14px;"><strong>${ip}</strong></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid #f3f4f6;">
-                            <td style="padding:8px;color:#6b7280;font-size:14px;">Location</td>
-                            <td style="padding:8px;font-size:14px;"><strong>${location.city}, ${location.region}, ${location.country}</strong></td>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px;color:#6b7280;font-size:14px;">Time</td>
-                            <td style="padding:8px;font-size:14px;"><strong>${time}</strong></td>
-                        </tr>
-                    </table>
-                    <p style="color:#ef4444;font-size:14px;">If this wasn't you, <strong>change your password immediately</strong>.</p>
-                </div>
-            </div>`,
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#808bf5">Social Square</h2>
+            <p>Your verification code is:</p>
+            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#808bf5;padding:16px;background:#f5f3ff;border-radius:8px;text-align:center">${otp}</div>
+            <p style="color:#6b7280;font-size:12px;margin-top:16px">Expires in 10 minutes. Do not share this code.</p>
+        </div>`
     });
 }
 
 async function sendResetEmail(email, resetUrl) {
-    await getTransporter().sendMail({
-        from: `"Social Square" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Reset your password',
+    return sendEmail({
+        to:      email,
+        subject: 'Reset your Social Square password',
         html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto;">
-                <h2>Password Reset</h2>
-                <p>Click the button below to reset your password. Expires in <strong>1 hour</strong>.</p>
-                <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;">Reset Password</a>
-                <p style="margin-top:16px;color:#888;">If you didn't request this, ignore this email.</p>
-            </div>`,
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#808bf5">Password Reset</h2>
+            <p>Click the button below to reset your password. This link expires in 1 hour.</p>
+            <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Reset Password</a>
+            <p style="color:#6b7280;font-size:12px">If you didn't request this, ignore this email.</p>
+        </div>`
     });
 }
 
-async function sendOtpEmail(email, fullname, otp) {
-    await getTransporter().sendMail({
-        from: `"Social Square" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Your login verification code',
+async function sendNewDeviceAlert(email, { device, location, time }) {
+    return sendEmail({
+        to:      email,
+        subject: '⚠️ New device login detected — Social Square',
         html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-                <div style="background:#6366f1;padding:20px 24px;">
-                    <h2 style="color:#fff;margin:0;">Verification Code</h2>
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#ef4444">New Login Detected</h2>
+            <p>Your account was accessed from a new device:</p>
+            <ul style="color:#374151">
+                <li><strong>Device:</strong> ${device || 'Unknown'}</li>
+                <li><strong>Location:</strong> ${location || 'Unknown'}</li>
+                <li><strong>Time:</strong> ${time || new Date().toUTCString()}</li>
+            </ul>
+            <p>If this was you, no action needed. If not, <a href="${process.env.CLIENT_URL}/sessions">review your sessions</a> immediately.</p>
+        </div>`
+    });
+}
+
+async function sendLockoutEmail(email, unlockTime) {
+    return sendEmail({
+        to:      email,
+        subject: '🔒 Account temporarily locked — Social Square',
+        html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#f59e0b">Account Locked</h2>
+            <p>Too many failed login attempts. Your account is locked until:</p>
+            <p style="font-size:18px;font-weight:bold;color:#808bf5">${new Date(unlockTime).toLocaleString()}</p>
+            <p style="color:#6b7280;font-size:12px">If this wasn't you, consider resetting your password after the lockout expires.</p>
+        </div>`
+    });
+}
+
+// ─── DAILY DIGEST EMAIL ───────────────────────────────────────────────────────
+async function sendDigestEmail(user, stats) {
+    const { newFollowers, newLikes, newComments, trendingPosts = [] } = stats;
+    return sendEmail({
+        to:      user.email,
+        subject: `${user.fullname}, you had ${newLikes + newComments + newFollowers} interactions yesterday 🔥`,
+        html: `
+        <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+            <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:32px 28px;text-align:center">
+                <h1 style="color:#fff;margin:0;font-size:24px">Social Square</h1>
+                <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">Your daily activity digest</p>
+            </div>
+            <div style="padding:28px">
+                <p style="font-size:16px;color:#374151;margin:0">Hi <strong>${user.fullname}</strong> 👋</p>
+                <p style="font-size:14px;color:#6b7280;margin:8px 0 20px">Here's what happened on Social Square yesterday.</p>
+                <div style="display:flex;gap:12px;margin-bottom:24px">
+                    ${[['👥','New Followers',newFollowers],['❤️','Post Likes',newLikes],['💬','Comments',newComments]].map(([icon,label,val]) => `
+                    <div style="flex:1;background:#f9fafb;border-radius:12px;padding:16px;text-align:center;border:1px solid #f3f4f6">
+                        <p style="font-size:24px;margin:0">${icon}</p>
+                        <p style="font-size:22px;font-weight:800;color:#111827;margin:8px 0 2px">${val}</p>
+                        <p style="font-size:11px;color:#9ca3af;margin:0;text-transform:uppercase;letter-spacing:.05em">${label}</p>
+                    </div>`).join('')}
                 </div>
-                <div style="padding:24px;text-align:center;">
-                    <p>Hi <strong>${fullname}</strong>, use the code below to complete your login.</p>
-                    <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#6366f1;margin:24px 0;">
-                        ${otp}
-                    </div>
-                    <p style="color:#6b7280;font-size:13px;">This code expires in <strong>10 minutes</strong>.</p>
-                    <p style="color:#ef4444;font-size:13px;">Never share this code with anyone.</p>
+                ${trendingPosts.slice(0,3).length ? `
+                <p style="font-size:14px;font-weight:700;color:#374151;margin:0 0 12px">🔥 Trending today</p>
+                ${trendingPosts.slice(0,3).map(p => `
+                <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f9fafb">
+                    <p style="margin:0;font-size:13px;color:#374151">${(p.caption||'').slice(0,80)}</p>
+                    <p style="margin:0;font-size:12px;color:#9ca3af">❤️ ${p.likes?.length||0}</p>
+                </div>`).join('')}` : ''}
+                <div style="text-align:center;margin-top:24px">
+                    <a href="${process.env.CLIENT_URL}" style="display:inline-block;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px">Open Social Square →</a>
                 </div>
-            </div>`,
+            </div>
+            <div style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;text-align:center">
+                <p style="font-size:11px;color:#9ca3af;margin:0">
+                    <a href="${process.env.CLIENT_URL}/settings" style="color:#808bf5">Unsubscribe from digest</a>
+                </p>
+            </div>
+        </div></body></html>`
     });
 }
 
-async function sendLockoutEmail(email, fullname, unlockTime) {
-    await getTransporter().sendMail({
-        from: `"Social Square Security" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: '🔒 Account temporarily locked',
-        html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto;">
-                <h2>Account Locked</h2>
-                <p>Hi <strong>${fullname}</strong>,</p>
-                <p>Your account has been temporarily locked due to too many failed login attempts.</p>
-                <p>You can try again after <strong>${unlockTime}</strong>.</p>
-                <p style="color:#6b7280;font-size:13px;">If this wasn't you, please reset your password immediately.</p>
-            </div>`,
-    });
-}
-
-module.exports = { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail };
+module.exports = {
+    sendEmail,
+    sendOtpEmail,
+    sendResetEmail,
+    sendNewDeviceAlert,
+    sendLockoutEmail,
+    sendDigestEmail,
+};

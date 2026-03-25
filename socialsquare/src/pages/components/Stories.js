@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useStoryFeed } from '../../hooks/queries/useAuthQueries';
-import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
+import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import { socket } from '../../socket';
 import toast from 'react-hot-toast';
 
@@ -141,10 +141,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser }) => {
         try {
             let mediaUrl;
             if (mediaType === 'video') {
-                const fd = new FormData();
-                fd.append('file', file); fd.append('upload_preset', 'socialsquare'); fd.append('resource_type', 'video');
-                const res = await fetch(`https://api.cloudinary.com/v1_1/dcmrsdydr/video/upload`, { method: 'POST', body: fd });
-                mediaUrl = (await res.json()).secure_url;
+                mediaUrl = await uploadVideoToCloudinary(file);
             } else { mediaUrl = await uploadToCloudinary(file); }
 
             const { api } = await import('../../store/zustand/useAuthStore');

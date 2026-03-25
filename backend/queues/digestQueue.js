@@ -1,9 +1,9 @@
 const { Queue, Worker } = require('bullmq');
-const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const redis = require('../lib/redis'); 
+const { sendEmail } = require('../utils/mailer');
 
 // ─── QUEUE ────────────────────────────────────────────────────────────────────
 const digestQueue = new Queue('emailDigest', { connection: redis });
@@ -22,34 +22,6 @@ async function scheduleDailyDigest() {
     });
     console.log('[Digest] Daily digest scheduled for 8:00 AM UTC');
 }
-
-// ─── MAILER ───────────────────────────────────────────────────────────────────
-function getTransporter() {
-    const user = process.env.EMAIL_USER?.trim();
-    const pass = process.env.EMAIL_PASS?.trim();
-    if (!user || !pass) {
-        return { sendMail: async () => { console.warn("[Digest] Mailer skipped: Credentials missing"); } };
-    }
-
-    const host = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com';
-    const port = Number(process.env.EMAIL_PORT || 587);
-    const secure = process.env.EMAIL_SECURE
-        ? process.env.EMAIL_SECURE === 'true'
-        : port === 465;
-    const forceIPv4 = process.env.EMAIL_FORCE_IPV4 !== 'false';
-
-    return nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-        family: forceIPv4 ? 4 : undefined,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 20000,
-    });
-}
-const transporter = getTransporter();
 
 function buildDigestEmail(user, stats) {
     const { newFollowers, newLikes, newComments, trendingPosts } = stats;
@@ -158,8 +130,7 @@ const worker = new Worker('emailDigest', async (job) => {
             // Skip if nothing happened
             if (newFollowers === 0 && newLikes === 0 && newComments === 0) continue;
 
-            await transporter.sendMail({
-                from:    `"Social Square" <${process.env.EMAIL_USER}>`,
+            await sendEmail({
                 to:      user.email,
                 subject: `${user.fullname}, you had ${newLikes + newComments + newFollowers} interactions yesterday 🔥`,
                 html:    buildDigestEmail(user, { newFollowers, newLikes, newComments, trendingPosts }),
@@ -176,7 +147,7 @@ const worker = new Worker('emailDigest', async (job) => {
     }
 
     console.log(`[Digest] Done — sent: ${sent}, failed: ${failed}`);
-}, { connection, concurrency: 1 });
+}, { connection: redis, concurrency: 1 });
 
 worker.on('failed', (job, err) => console.error('[Digest] Job failed:', err.message));
 

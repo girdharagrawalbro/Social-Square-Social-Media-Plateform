@@ -1,33 +1,69 @@
-const CLOUD_NAME = process.env.REACT_APP_CLOUD_NAME;
-const UPLOAD_PRESET = process.env.REACT_APP_UPLOAD_PRESET;
+const CLOUDINARY_API_BASE_URL =
+    process.env.REACT_APP_CLOUDINARY_API_BASE_URL;
 
-export async function uploadToCloudinary(file, onProgress) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', UPLOAD_PRESET);
-
+function fileToDataUrl(file, onProgress) {
     return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`);
+        const reader = new FileReader();
 
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable && onProgress) {
-                onProgress(Math.round((e.loaded / e.total) * 100));
+        reader.onprogress = (event) => {
+            if (event.lengthComputable && onProgress) {
+                onProgress(Math.min(90, Math.round((event.loaded / event.total) * 90)));
             }
         };
 
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                const data = JSON.parse(xhr.responseText);
-                resolve(data.secure_url);
-            } else {
-                reject(new Error('Upload failed'));
-            }
-        };
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read file before upload'));
 
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.send(formData);
+        reader.readAsDataURL(file);
     });
+}
+
+async function requestCloudinaryApi(path, method, body) {
+    const response = await fetch(`${CLOUDINARY_API_BASE_URL}${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || json?.success === false) {
+        throw new Error(json?.message || 'Cloudinary API request failed');
+    }
+    return json;
+}
+
+export async function uploadToCloudinary(file, onProgress, options = {}) {
+    const fileBase64 = await fileToDataUrl(file, onProgress);
+    const payload = {
+        file: fileBase64,
+        folder: options.folder,
+        resourceType: options.resourceType,
+    };
+
+    const json = await requestCloudinaryApi('/upload-base64', 'POST', payload);
+    const secureUrl = json?.data?.secure_url;
+
+    if (!secureUrl) {
+        throw new Error('Cloudinary upload succeeded but secure_url is missing');
+    }
+
+    if (onProgress) onProgress(100);
+    return secureUrl;
+}
+
+export async function uploadVideoToCloudinary(file, onProgress, options = {}) {
+    return uploadToCloudinary(file, onProgress, {
+        ...options,
+        resourceType: 'video',
+    });
+}
+
+export async function deleteFromCloudinary(publicId, resourceType = 'image') {
+    const json = await requestCloudinaryApi('/delete', 'DELETE', {
+        publicId,
+        resourceType,
+    });
+    return json?.data;
 }
 
 export function validateImageFile(file) {

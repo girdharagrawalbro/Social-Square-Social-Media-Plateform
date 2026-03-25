@@ -4,7 +4,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
 import toast, { Toaster } from "react-hot-toast";
 
-import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
+import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import axios from "axios";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
@@ -378,13 +378,9 @@ const NewPost = ({ setnewpostVisible }) => {
             // Upload voice note if recorded
             let voiceNoteUrl = null, voiceNoteDuration = null;
             if (voiceBlob) {
-                const fd = new FormData();
-                fd.append('file', voiceBlob, 'voice.webm');
-                fd.append('upload_preset', 'socialsquare');
-                fd.append('resource_type', 'video'); // audio uses video resource type in Cloudinary
-                const res = await fetch(`https://api.cloudinary.com/v1_1/dcmrsdydr/video/upload`, { method: 'POST', body: fd });
-                const data = await res.json();
-                voiceNoteUrl = data.secure_url;
+                // Voice notes are uploaded as video resource type in Cloudinary.
+                const voiceFile = new File([voiceBlob], 'voice.webm', { type: voiceBlob.type || 'audio/webm' });
+                voiceNoteUrl = await uploadVideoToCloudinary(voiceFile);
                 voiceNoteDuration = recordingDuration;
             }
 

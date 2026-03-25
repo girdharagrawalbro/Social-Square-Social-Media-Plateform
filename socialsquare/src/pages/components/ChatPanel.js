@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
-import { uploadToCloudinary } from '../../utils/cloudinary';
+import { uploadToCloudinary, uploadVideoToCloudinary } from '../../utils/cloudinary';
 import toast from 'react-hot-toast';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
 
@@ -425,10 +425,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             if (file.type.startsWith('image/')) {
                 mediaUrl = await uploadToCloudinary(file); mediaType = 'image';
             } else if (file.type.startsWith('video/')) {
-                const fd = new FormData();
-                fd.append('file', file); fd.append('upload_preset', 'socialsquare'); fd.append('resource_type', 'video');
-                const r = await fetch(`https://api.cloudinary.com/v1_1/dcmrsdydr/video/upload`, { method: 'POST', body: fd });
-                mediaUrl = (await r.json()).secure_url; mediaType = 'video';
+                mediaUrl = await uploadVideoToCloudinary(file); mediaType = 'video';
             } else {
                 mediaUrl = await uploadToCloudinary(file); mediaType = 'file';
             }
