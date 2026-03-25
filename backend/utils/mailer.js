@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL || "https://mail-service-production-64f4.up.railway.app";
+const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
 const MAIL_SERVICE_TIMEOUT_MS = Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 30000);
 
 function shouldRetry(error) {
@@ -21,7 +21,6 @@ async function sendEmail({ to, subject, html, text }) {
         timeout: MAIL_SERVICE_TIMEOUT_MS,
     };
 
-    // Ensure we correctly target the /api/mail/send route even if the env var just maps to the origin host
     const baseUrl = MAIL_SERVICE_BASE_URL.endsWith('/api/mail') 
         ? MAIL_SERVICE_BASE_URL 
         : `${MAIL_SERVICE_BASE_URL}/api/mail`;
