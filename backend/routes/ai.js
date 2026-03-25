@@ -64,28 +64,68 @@ function tryParseJson(text) {
 }
 
 async function uploadGeneratedImageToCloudinary(imageBuffer) {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
-
-    if (!cloudName || !uploadPreset) {
-        throw new Error('Cloudinary config missing: set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET');
+    if (!imageBuffer) {
+        throw new Error('No image buffer provided for upload');
     }
-
-    const formData = new FormData();
-    formData.append('file', `data:image/jpeg;base64,${imageBuffer.toString('base64')}`);
-    formData.append('upload_preset', uploadPreset);
-
     try {
+        const cloudApiBase = process.env.CLOUDINARY_API_BASE_URL;
         const cloudRes = await axios.post(
-            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-            formData,
-            { headers: { ...formData.getHeaders() } }
+            `${cloudApiBase}/upload-base64`,
+            {
+                file: `data:image/png;base64,${imageBuffer.toString('base64')}`
+            },
+            { headers: { 'Content-Type': 'application/json' } }
         );
-
-        return cloudRes.data.secure_url;
+        const secureUrl = cloudRes.data?.data?.secure_url;
+        if (cloudRes.data?.success === false || !secureUrl) {
+            throw new Error(cloudRes.data?.message || 'Invalid Cloudinary upload response');
+        }
+        return secureUrl;
     } catch (error) {
-        const reason = error.response?.data?.error?.message || error.message;
+        const reason = error.response?.data?.message || error.response?.data?.error?.message || error.message;
         throw new Error(`Cloudinary upload failed: ${reason}`);
+    }
+}
+
+async function uploadImageUrlToCloudinary(url, folder = 'ai-generated') {
+    if (!url) {
+        throw new Error('No image URL provided for upload');
+    }
+    try {
+        const cloudApiBase = process.env.CLOUDINARY_API_BASE_URL;
+        const cloudRes = await axios.post(
+            `${cloudApiBase}/upload-url`,
+            { url, folder },
+            { headers: { 'Content-Type': 'application/json' } }
+        );
+        const secureUrl = cloudRes.data?.data?.secure_url;
+        if (cloudRes.data?.success === false || !secureUrl) {
+            throw new Error(cloudRes.data?.message || 'Invalid Cloudinary URL upload response');
+        }
+        return secureUrl;
+    } catch (error) {
+        const reason = error.response?.data?.message || error.response?.data?.error?.message || error.message;
+        throw new Error(`Cloudinary URL upload failed: ${reason}`);
+    }
+}
+
+async function deleteImageFromCloudinary(publicId, resourceType = 'image') {
+    if (!publicId) {
+        throw new Error('publicId is required for Cloudinary delete');
+    }
+    try {
+        const cloudApiBase = process.env.CLOUDINARY_API_BASE_URL;
+        const cloudRes = await axios.delete(`${cloudApiBase}/delete`, {
+            data: { publicId, resourceType },
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (cloudRes.data?.success === false) {
+            throw new Error(cloudRes.data?.message || 'Invalid Cloudinary delete response');
+        }
+        return cloudRes.data?.data;
+    } catch (error) {
+        const reason = error.response?.data?.message || error.response?.data?.error?.message || error.message;
+        throw new Error(`Cloudinary delete failed: ${reason}`);
     }
 }
 
@@ -95,12 +135,12 @@ router.post('/generate-text', verifyToken, async (req, res) => {
         const { prompt } = req.body;
         const userId = req.userId;
         if (!prompt) return res.status(400).json({ error: 'prompt is required' });
- 
+
         const textCount = await getAiUsageCount(userId, 'text');
         if (textCount >= DAILY_TEXT_LIMIT) {
             return res.status(429).json({ error: 'Daily text generation limit of 2 reached.' });
         }
- 
+
         const { text, model } = await generateNvidiaText(prompt);
         await consumeAiUsage(userId, 'text');
 
@@ -117,12 +157,12 @@ router.post('/generate-image', verifyToken, async (req, res) => {
         const { prompt } = req.body;
         const userId = req.userId;
         if (!prompt) return res.status(400).json({ error: 'prompt is required' });
- 
+
         const imageCount = await getAiUsageCount(userId, 'image');
         if (imageCount >= DAILY_IMAGE_LIMIT) {
             return res.status(429).json({ error: 'Daily image generation limit of 2 reached.' });
         }
- 
+
         const { buffer: imageBuffer, imageBase64, model, seed, finishReason } = await generateNvidiaImage(prompt);
 
         let imageUrl;
@@ -139,8 +179,8 @@ router.post('/generate-image', verifyToken, async (req, res) => {
         await consumeAiUsage(userId, 'image');
 
         const imageRemaining = getRemaining(DAILY_IMAGE_LIMIT, imageCount + 1);
- 
-        res.status(200).json({ 
+
+        res.status(200).json({
             imageUrl,
             imageStorage,
             model,
@@ -182,10 +222,10 @@ router.post('/caption', verifyToken, async (req, res) => {
     try {
         const { imageUrl } = req.body;
         if (!imageUrl) return res.status(400).json({ error: 'imageUrl is required' });
- 
+
         const captions = await generateCaptionFromImage(imageUrl);
         if (!captions) return res.status(500).json({ error: 'Failed to generate captions' });
- 
+
         res.status(200).json({ captions });
     } catch (error) {
         console.error('Caption route error:', error);
@@ -198,9 +238,9 @@ router.get('/mood-feed', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const { mood } = req.query;
- 
+
         if (!mood) return res.status(400).json({ error: 'mood is required' });
- 
+
         const moodGroups = {
             happy: ['happy', 'excited', 'funny'],
             sad: ['sad', 'nostalgic'],
@@ -213,15 +253,15 @@ router.get('/mood-feed', verifyToken, async (req, res) => {
             nostalgic: ['nostalgic', 'sad'],
             neutral: ['neutral', 'calm', 'happy'],
         };
- 
+
         const relatedMoods = moodGroups[mood] || [mood, 'neutral'];
- 
+
         const moodPosts = await Post.find({
             mood: { $in: relatedMoods },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
             $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
         }).sort({ score: -1, createdAt: -1 }).limit(20);
- 
+
         res.status(200).json({ posts: moodPosts, mood, relatedMoods });
     } catch (error) {
         console.error('Mood feed error:', error);
@@ -234,7 +274,7 @@ router.post('/detect-mood', verifyToken, async (req, res) => {
     try {
         const { caption } = req.body;
         if (!caption) return res.status(400).json({ error: 'caption is required' });
- 
+
         const mood = await detectMoodFromCaption(caption);
         res.status(200).json({ mood });
     } catch (error) {

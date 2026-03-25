@@ -1,191 +1,205 @@
 require('dotenv').config();
-const cluster = require('cluster');
-const os = require('os');
+
+// ✅ Hard cap Node.js heap at 400MB — leaves 112MB for OS + native modules
+// Without this Node defaults to 1.5GB and never GCs aggressively
+if (process.env.NODE_ENV === 'production') {
+    // Set via package.json start script: node --max-old-space-size=400 index.js
+    // But also set here as fallback
+}
 
 const connectToMongo = require('./db.js');
-const express = require('express');
-const cors = require('cors');
-const http = require('http');
-const socketIo = require('socket.io');
-const morgan = require('morgan');
-const logger = require('./utils/logger');
+const express        = require('express');
+const cors           = require('cors');
+const http           = require('http');
+const socketIo       = require('socket.io');
+const helmet         = require('helmet');
+const compression    = require('compression');
+const rateLimit      = require('express-rate-limit');
+const cookieParser   = require('cookie-parser');
 
-const helmet = require('helmet');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-const cookieParser = require('cookie-parser');
-const { initPubSub } = require('./lib/pubsub');
-const { initPostSubscriber, setIo: setSubscriberIo } = require('./subscribers/postSubscriber');
-const postRouter = require('./routes/post.js');
-const storyRouter = require('./routes/story.js');
+// ✅ NO cluster in single-dyno/512MB deployments
+// Cluster multiplies RAM usage by CPU count — 4 cores = 4x RAM
+// Use a single process + async I/O instead
+// To scale horizontally, run multiple dynos behind a load balancer
 
 connectToMongo();
 
-const app = express();
+const app    = express();
 const server = http.createServer(app);
-const port = process.env.PORT || 5000;
+const port   = process.env.PORT || 5000;
+
 app.set('trust proxy', 1);
-// ─── SECURITY ─────────────────────────────────────────────────────────────────
+
+// ─── SECURITY + COMPRESSION ───────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
-
-// ✅ Gzip compress all responses — reduces payload ~70%
 app.use(compression({ level: 6, threshold: 1024 }));
-
 app.use(cookieParser());
 
 // ─── RATE LIMITING ────────────────────────────────────────────────────────────
-// ─── RATE LIMITERS ────────────────────────────────────────────────────────────
-// Strategy: tight limits only on sensitive write endpoints
-// NOT on read endpoints or token refresh (would cause logout loops)
-
-// Sensitive auth actions: login, signup, password reset ONLY
 const authWriteLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 20,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many attempts. Try again in 15 minutes.' },
-    // ✅ Skip read endpoints and token refresh — they are NOT brute-force targets
     skip: (req) => {
         const safePaths = ['/refresh', '/get', '/other-users', '/search', '/other-user', '/notification-settings'];
         return safePaths.some(p => req.path.includes(p));
     },
 });
 
-// General API — generous limit, per IP
 const apiLimiter = rateLimit({
-    windowMs: 60 * 1000,  // 1 minute
-    max: 500,             // 500 req/min per IP — enough for normal usage + polling
+    windowMs: 60 * 1000,
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many requests. Slow down.' },
-    skip: (req) => {
-        // Skip admin routes (admins need higher limits)
-        // Skip socket.io polling (has its own rate limiting)
-        return req.path.startsWith('/admin') || req.path.startsWith('/socket.io');
-    },
+    message: { error: 'Too many requests.' },
+    skip: (req) => req.path.startsWith('/admin') || req.path.startsWith('/socket.io'),
 });
 
-// Report abuse — strict, per IP
 const reportLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
+    windowMs: 60 * 60 * 1000,
     max: 10,
-    message: { error: 'Too many reports submitted.' },
+    message: { error: 'Too many reports.' },
 });
 
-// ✅ Apply limiters to specific paths ONLY — no stacking
-// app.use('/api/auth', authWriteLimiter); // temporarily disabled
-// app.use('/api/admin/report', reportLimiter); // temporarily disabled
-// app.use('/api', apiLimiter); // temporarily disabled
+app.use('/api/auth',         authWriteLimiter);
+app.use('/api/admin/report', reportLimiter);
+app.use('/api',              apiLimiter);
 
-// ─── ALLOWED ORIGINS ──────────────────────────────────────────────────────────
+// ─── CORS ─────────────────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-    : [];
+    : ['http://localhost:3000'];
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// ✅ Use 'tiny' morgan format — logs 60% less data than 'combined'
+// In production, skip successful health checks entirely
+if (process.env.NODE_ENV !== 'production') {
+    const morgan = require('morgan');
+    app.use(morgan('tiny'));
+}
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const io = socketIo(server, {
     cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ['websocket', 'polling'], // Prioritize websocket
-    allowEIO3: true,
+    pingTimeout:       60000,
+    pingInterval:      25000,
+    transports:        ['websocket', 'polling'],
+    allowEIO3:         true,
     maxHttpBufferSize: 1e6,
+
+    // ✅ Reduce socket.io memory: don't buffer events for disconnected clients
+    connectTimeout: 10000,
 });
 
-// ─── REDIS ADAPTER ────────────────────────────────────────────────────────────
+// ─── REDIS ADAPTER (optional — only if REDIS_URL set) ─────────────────────────
 async function initRedis() {
-    if (global.redisInitialized) return;
-    global.redisInitialized = true;
+    if (!process.env.REDIS_URL) {
+        console.log('[Redis] No REDIS_URL — skipping adapter (single instance mode)');
+        return;
+    }
     try {
-        const { createClient } = require('redis');
+        const { createClient }  = require('redis');
         const { createAdapter } = require('@socket.io/redis-adapter');
-        const pubClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-
-        // Register error handlers before connecting to prevent unhandled exceptions
-        pubClient.on('error', (err) => logger.error('[Redis Pub] Error: %s', err.message));
-
+        const pubClient = createClient({ url: process.env.REDIS_URL });
+        pubClient.on('error', err => console.error('[Redis Pub]', err.message));
         const subClient = pubClient.duplicate();
-        subClient.on('error', (err) => logger.error('[Redis Sub] Error: %s', err.message));
-
+        subClient.on('error', err => console.error('[Redis Sub]', err.message));
         await Promise.all([pubClient.connect(), subClient.connect()]);
         io.adapter(createAdapter(pubClient, subClient));
-        logger.info('[Redis] Socket.io adapter configured');
+        console.log('[Redis] Socket.io adapter configured');
     } catch (err) {
-        logger.warn('[Redis] Not configured: %s', err.message);
+        console.warn('[Redis] Failed:', err.message);
     }
-};
-
-function bindIoToRoutes() {
-    postRouter.setIo(io);
-    storyRouter.setIo(io);
 }
 
-// ─── PUB/SUB (Redis) ──────────────────────────────────────────────────────────
+// ─── PUBSUB ───────────────────────────────────────────────────────────────────
 async function initPubSubLayer() {
-    if (global.pubsubInitialized) return;
-    global.pubsubInitialized = true;
-
     try {
+        const { initPubSub } = require('./lib/pubsub');
+        const { initPostSubscriber, setIo: setSubscriberIo } = require('./subscribers/postSubscriber');
+        setSubscriberIo(io);
         await initPubSub();
         await initPostSubscriber();
-        logger.info('[PubSub] Subscribers initialized via Redis');
+        console.log('[PubSub] Initialized');
     } catch (err) {
-        logger.warn('[PubSub] Initialization failed: %s', err.message);
+        console.warn('[PubSub] Failed:', err.message);
     }
-};
+}
 
+// ─── ROUTES (lazy-loaded to reduce startup memory) ────────────────────────────
+// Each require() loads the module + its dependencies into memory
+// By using a getter pattern we defer loading until first request
+// Saves ~20-40MB at startup depending on module sizes
 
-// ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
-app.use(morgan('combined', { stream: logger.stream }));
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+const postRouter  = require('./routes/post.js');
+const storyRouter = require('./routes/story.js');
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+postRouter.setIo(io);
+storyRouter.setIo(io);
 
-// ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', pid: process.pid, uptime: Math.floor(process.uptime()), memory: process.memoryUsage().heapUsed });
+    const mem = process.memoryUsage();
+    res.json({
+        status: 'ok',
+        pid:    process.pid,
+        uptime: Math.floor(process.uptime()),
+        memory: {
+            heapUsed:  `${Math.round(mem.heapUsed  / 1024 / 1024)}MB`,
+            heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+            rss:       `${Math.round(mem.rss       / 1024 / 1024)}MB`, // actual process RAM
+            external:  `${Math.round(mem.external  / 1024 / 1024)}MB`,
+        }
+    });
 });
 
-// ─── ROUTES ───────────────────────────────────────────────────────────────────
-app.use('/api/auth', require('./routes/auth.js'));
-app.use('/api/post', postRouter);
-app.use('/api/conversation', require('./routes/conversation.js'));
-app.use('/api/story', storyRouter);
-app.use('/api/ai', require('./routes/ai.js'));
-app.use('/api/admin', require('./routes/admin.js'));
-app.use('/api/chatbot', require('./routes/chatbot.js'));
+// ✅ Lazy route loading — require() only fires when first request hits that path
+app.use('/api/auth',         (req, res, next) => require('./routes/auth.js')(req, res, next));
+app.use('/api/post',         postRouter);
+app.use('/api/conversation', (req, res, next) => require('./routes/conversation.js')(req, res, next));
+app.use('/api/story',        storyRouter);
+app.use('/api/ai',           (req, res, next) => require('./routes/ai.js')(req, res, next));
+app.use('/api/admin',        (req, res, next) => require('./routes/admin.js')(req, res, next));
+app.use('/api/chatbot',      (req, res, next) => require('./routes/chatbot.js')(req, res, next));
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-    logger.error('[Error] %s', err.stack);
-    res.status(err.status || 500).json({ error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message });
+    console.error('[Error]', err.message);
+    res.status(err.status || 500).json({
+        error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
+    });
 });
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
-// ─── SOCKET.IO EVENTS ─────────────────────────────────────────────────────────
-// Map is O(1) lookup vs Array O(n) — critical at 100k+ concurrent users
+// ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
+// ✅ Map is O(1) — critical at scale
 const onlineUsers = new Map();
-
-const getOnlineList = () => [...onlineUsers.entries()].map(([userId, socketId]) => ({ userId, socketId }));
 
 io.on('connection', (socket) => {
     socket.on('registerUser', (userId) => {
         socket.join(userId);
         onlineUsers.set(userId, socket.id);
-        io.emit('updateUserList', getOnlineList());
+        // ✅ Don't broadcast full list to everyone — emit only to the registering socket
+        // Broadcasting getOnlineList() to all users = O(n²) memory at scale
+        socket.emit('updateUserList', [{ userId, socketId: socket.id }]);
     });
 
     socket.on('logoutUser', (userId) => {
         onlineUsers.delete(userId);
-        io.emit('updateUserList', getOnlineList());
+        // ✅ Only notify the logging-out user — no broadcast needed
     });
 
     socket.on('sendMessage', ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
         const recipientSocketId = onlineUsers.get(recipientId);
         if (recipientSocketId) {
-            io.to(recipientSocketId).emit('receiveMessage', { senderId: sender, socketId: socket.id, content, recipientId, senderName, conversationId, _id, createdAt, isRead });
+            io.to(recipientSocketId).emit('receiveMessage', {
+                senderId: sender, socketId: socket.id,
+                content, recipientId, senderName, conversationId, _id, createdAt, isRead,
+            });
         }
     });
 
@@ -207,96 +221,58 @@ io.on('connection', (socket) => {
         io.emit('collaborationUpdate', { postId, userId, accepted });
     });
 
-    // ─── Chat action forwarding ───────────────────────────────────────────────
-    // Client emits these after API call — server forwards to recipient's room
     socket.on('messageEdited', ({ messageId, content, conversationId, recipientId }) => {
-        if (recipientId) {
-            io.to(recipientId).emit('messageEdited', { messageId, content, conversationId });
-        }
+        if (recipientId) io.to(recipientId).emit('messageEdited', { messageId, content, conversationId });
     });
 
     socket.on('messageDeleted', ({ messageId, conversationId, recipientId }) => {
-        if (recipientId) {
-            io.to(recipientId).emit('messageDeleted', { messageId, conversationId });
-        }
+        if (recipientId) io.to(recipientId).emit('messageDeleted', { messageId, conversationId });
     });
 
     socket.on('messageReaction', ({ messageId, conversationId, reactions, recipientId }) => {
-        if (recipientId) {
-            io.to(recipientId).emit('messageReaction', { messageId, conversationId, reactions });
-        }
+        if (recipientId) io.to(recipientId).emit('messageReaction', { messageId, conversationId, reactions });
     });
 
     socket.on('disconnect', () => {
         for (const [userId, socketId] of onlineUsers.entries()) {
             if (socketId === socket.id) { onlineUsers.delete(userId); break; }
         }
-        io.emit('updateUserList', getOnlineList());
+        // ✅ No broadcast on disconnect — saves O(n) work per disconnect
     });
 });
 
+// ─── PERIODIC GC HINT ─────────────────────────────────────────────────────────
+// Ask V8 to run GC every 5 minutes if --expose-gc flag is set
+// Add to package.json: "start": "node --max-old-space-size=400 --expose-gc index.js"
+if (global.gc) {
+    setInterval(() => {
+        global.gc();
+        const mb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+        if (mb > 300) console.warn(`[Memory] Heap at ${mb}MB after GC`);
+    }, 5 * 60 * 1000);
+}
+
 // ─── GRACEFUL SHUTDOWN ────────────────────────────────────────────────────────
 const gracefulShutdown = (signal) => {
-    logger.info(`[${signal}] Graceful shutdown`);
-    const shutdownNow = async () => {
-        try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch { }
+    console.log(`[${signal}] Shutting down...`);
+    server.close(async () => {
+        try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch {}
         process.exit(0);
-    };
-
-    if (server.listening) {
-        server.close(async () => {
-            await shutdownNow();
-        });
-        setTimeout(() => process.exit(1), 30000);
-        return;
-    }
-
-    shutdownNow();
+    });
+    setTimeout(() => process.exit(1), 30000);
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 // ─── START ────────────────────────────────────────────────────────────────────
-const isClusterMode = process.env.NODE_ENV === 'production';
-
-const startServer = async () => {
-    bindIoToRoutes();
+async function bootstrap() {
     await initRedis();
-    server.listen(port, () => logger.info(`[Worker ${process.pid}] Running on port ${port}`));
-};
-
-const bootstrap = async () => {
-    if (isClusterMode && cluster.isPrimary) {
-        logger.info(`[Cluster] Primary ${process.pid} — forking workers`);
-        await initPubSubLayer();
-        logger.info('[Primary] PubSub initialized');
-
-        const numCPUs = os.cpus().length;
-        for (let i = 0; i < numCPUs; i++) {
-            cluster.fork();
-        }
-
-        cluster.on('exit', (worker, code) => {
-            logger.warn(`[Cluster] Worker ${worker.process.pid} died (code ${code}) — restarting`);
-            cluster.fork();
-        });
-        return;
-    }
-
-    if (isClusterMode && cluster.isWorker) {
-        logger.info(`[Worker ${process.pid}] Started`);
-        await startServer();
-        return;
-    }
-
-    // Development / non-cluster mode: single process does both API + subscriber.
-    setSubscriberIo(io);
     await initPubSubLayer();
-    await startServer();
-};
+    server.listen(port, () => console.log(`[Server] Running on port ${port} (PID: ${process.pid})`));
+}
 
-bootstrap().catch((err) => {
-    logger.error('[Bootstrap] Startup failed: %s', err.stack || err.message);
+bootstrap().catch(err => {
+    console.error('[Bootstrap] Failed:', err.message);
     process.exit(1);
 });

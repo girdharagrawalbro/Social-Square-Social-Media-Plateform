@@ -3,46 +3,42 @@ const mongoose = require('mongoose');
 const connectToMongo = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI, {
-            // ─── Connection pool ─────────────────────────────────────────────
-            maxPoolSize: 50,   // max 50 concurrent DB connections per worker
-            minPoolSize: 5,    // keep 5 connections warm always
-            maxIdleTimeMS: 30000, // close idle connections after 30s
+            // ─── Pool: reduced for 512MB target ──────────────────────────────
+            // 50 connections × ~1MB = 50MB — too much for 512MB budget
+            // 10 is enough for most apps under 10k concurrent users
+            maxPoolSize:      10,
+            minPoolSize:      2,     // only 2 warm — saves ~8MB idle
+            maxIdleTimeMS:    10000, // close idle faster (10s not 30s)
 
-            // ─── Timeouts ────────────────────────────────────────────────────
-            serverSelectionTimeoutMS: 5000,   // fail fast if MongoDB unreachable
-            socketTimeoutMS: 45000,  // abort slow queries after 45s
-            connectTimeoutMS: 10000,  // connection timeout
+            // ─── Timeouts ─────────────────────────────────────────────────────
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS:          30000,
+            connectTimeoutMS:         10000,
 
-            // ─── Reliability ─────────────────────────────────────────────────
-            retryWrites: true,   // auto-retry failed writes on replica sets
-            retryReads: true,
-            w: 'majority', // write concern — confirmed by majority of replica set
+            // ─── Reliability ──────────────────────────────────────────────────
+            retryWrites: true,
+            retryReads:  true,
+            // Removed w:'majority' — only for replica sets, not needed on Atlas free tier
         });
 
-        console.log(`[MongoDB] Connected successfully (PID: ${process.pid})`);
+        console.log(`[MongoDB] Connected (PID: ${process.pid})`);
 
-        // Log slow queries in development
         if (process.env.NODE_ENV !== 'production') {
-            mongoose.set('debug', (collectionName, method, query, doc) => {
-                console.log(`[Mongoose] ${collectionName}.${method}`, JSON.stringify(query));
-            });
+            // Log method only — not full query object (saves memory/string allocation)
+            mongoose.set('debug', (col, method) => console.log(`[Mongoose] ${col}.${method}`));
         }
 
     } catch (err) {
-        console.error('[MongoDB] Connection failed:', err.message);
-        // Retry after 5 seconds
+        console.error('[MongoDB] Failed:', err.message);
         setTimeout(connectToMongo, 5000);
     }
 };
 
-// Handle connection events
 mongoose.connection.on('disconnected', () => {
-    console.warn('[MongoDB] Disconnected — attempting reconnect');
+    console.warn('[MongoDB] Disconnected — reconnecting...');
     setTimeout(connectToMongo, 3000);
 });
 
-mongoose.connection.on('error', (err) => {
-    console.error('[MongoDB] Connection error:', err.message);
-});
+mongoose.connection.on('error', (err) => console.error('[MongoDB] Error:', err.message));
 
 module.exports = connectToMongo;
