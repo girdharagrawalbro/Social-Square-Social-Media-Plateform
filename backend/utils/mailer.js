@@ -1,6 +1,11 @@
 const axios = require('axios');
 
-const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
+const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL || "https://mail-service-production-64f4.up.railway.app";
+const MAIL_SERVICE_TIMEOUT_MS = Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 30000);
+
+function shouldRetry(error) {
+    return error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT' || !error?.response;
+}
 
 // ─── BASE EMAIL WRAPPER ───────────────────────────────────────────────────────
 async function sendEmail({ to, subject, html, text }) {
@@ -11,11 +16,13 @@ async function sendEmail({ to, subject, html, text }) {
         text: text || html?.replace(/<[^>]*>/g, ''),
     };
 
+    const requestConfig = {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: MAIL_SERVICE_TIMEOUT_MS,
+    };
+
     try {
-        const response = await axios.post(`${MAIL_SERVICE_BASE_URL}/api/mail/send`, payload, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 10000),
-        });
+        const response = await axios.post(`${MAIL_SERVICE_BASE_URL}/send`, payload, requestConfig);
 
         if (response.data?.success === false) {
             throw new Error(response.data?.message || 'Mail service returned unsuccessful response');
@@ -23,6 +30,18 @@ async function sendEmail({ to, subject, html, text }) {
 
         return response.data?.data;
     } catch (error) {
+        if (shouldRetry(error)) {
+            try {
+                const retryResponse = await axios.post(`${MAIL_SERVICE_BASE_URL}/send`, payload, requestConfig);
+                if (retryResponse.data?.success === false) {
+                    throw new Error(retryResponse.data?.message || 'Mail service returned unsuccessful response');
+                }
+                return retryResponse.data?.data;
+            } catch (retryError) {
+                const retryReason = retryError.response?.data?.message || retryError.message;
+                throw new Error(`Mail API send failed after retry: ${retryReason}`);
+            }
+        }
         const reason = error.response?.data?.message || error.message;
         throw new Error(`Mail API send failed: ${reason}`);
     }
