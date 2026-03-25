@@ -2,8 +2,6 @@ export async function getFingerprint() {
     const components = [
         navigator.userAgent,
         navigator.language,
-        window.screen.width + 'x' + window.screen.height,  // ✅ window.screen
-        window.screen.colorDepth,                           // ✅ window.screen
         new Date().getTimezoneOffset(),
         navigator.hardwareConcurrency || 'unknown',
         navigator.platform || 'unknown',

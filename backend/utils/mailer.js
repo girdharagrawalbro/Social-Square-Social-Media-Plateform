@@ -21,8 +21,13 @@ async function sendEmail({ to, subject, html, text }) {
         timeout: MAIL_SERVICE_TIMEOUT_MS,
     };
 
+    // Ensure we correctly target the /api/mail/send route even if the env var just maps to the origin host
+    const baseUrl = MAIL_SERVICE_BASE_URL.endsWith('/api/mail') 
+        ? MAIL_SERVICE_BASE_URL 
+        : `${MAIL_SERVICE_BASE_URL}/api/mail`;
+
     try {
-        const response = await axios.post(`${MAIL_SERVICE_BASE_URL}/send`, payload, requestConfig);
+        const response = await axios.post(`${baseUrl}/send`, payload, requestConfig);
 
         if (response.data?.success === false) {
             throw new Error(response.data?.message || 'Mail service returned unsuccessful response');
@@ -32,7 +37,7 @@ async function sendEmail({ to, subject, html, text }) {
     } catch (error) {
         if (shouldRetry(error)) {
             try {
-                const retryResponse = await axios.post(`${MAIL_SERVICE_BASE_URL}/send`, payload, requestConfig);
+                const retryResponse = await axios.post(`${baseUrl}/send`, payload, requestConfig);
                 if (retryResponse.data?.success === false) {
                     throw new Error(retryResponse.data?.message || 'Mail service returned unsuccessful response');
                 }

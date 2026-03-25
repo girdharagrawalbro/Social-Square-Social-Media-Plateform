@@ -36,9 +36,10 @@ const OtherUsers = () => {
             <div className="p-3 border bg-white rounded mt-3">
                 <h5 className="font-medium mb-3">Suggested Users</h5>
                 <div className="flex flex-col gap-2 overflow-y-auto  h-[34vh]">
-                    {users.filter(u => u._id !== user?._id).slice(0, 8).map(u => {
-                        const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
-                        const isLoading = followMutation.isPending || unfollowMutation.isPending;
+                    {users.filter(u => u._id !== user?._id && !user?.following?.some(f => f?.toString() === u._id?.toString())).slice(0, 8).map(u => {
+                        const isFollowing = false; // We filtered out already following users
+                        const isThisUserLoading = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) || 
+                                                  (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id);
                         const followersCount = typeof u.followersCount === 'number' ? u.followersCount : (u.followers?.length || 0);
                         return (
                             <div key={u._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition"
@@ -49,9 +50,9 @@ const OtherUsers = () => {
                                     <p className="m-0 text-xs text-gray-400 truncate">{followersCount} followers{u.reason ? ` • ${u.reason}` : ''}</p>
                                 </div>
                                 <button onClick={e => handleFollow(e, u._id)}
-                                    disabled={isLoading}
-                                    className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold flex-shrink-0 transition ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    {isLoading ? 'Loading...' : (isFollowing ? 'Following' : 'Follow')}
+                                    disabled={isThisUserLoading}
+                                    className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold flex-shrink-0 transition ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'} ${isThisUserLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    {isThisUserLoading ? 'Loading...' : (isFollowing ? 'Following' : 'Follow')}
                                 </button>
                             </div>
                         );
