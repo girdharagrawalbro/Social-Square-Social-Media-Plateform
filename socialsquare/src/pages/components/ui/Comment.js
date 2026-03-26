@@ -19,6 +19,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
     const [replyText, setReplyText] = useState('');
     const [showReplies, setShowReplies] = useState(false);
     const [replies, setReplies] = useState(comment.repliesList || []);
+    const [liking, setLiking] = useState(false);
 
     // ✅ Fix: compare as strings to handle ObjectId vs string mismatch
     const loggedUserId = loggeduser._id?.toString();
@@ -27,16 +28,22 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
     const [likeCount, setLikeCount] = useState(comment.likes?.length || 0);
 
     const handleLike = async () => {
+        // ✅ Prevent duplicate requests while liking
+        if (liking) return;
+        
         // ✅ Optimistic update first
         const wasLiked = liked;
         setLiked(!wasLiked);
         setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
+        setLiking(true);
         try {
             await axios.post(`${BASE}/api/post/comments/${comment._id}/like`, { userId: loggedUserId });
         } catch {
             // Rollback on error
             setLiked(wasLiked);
             setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
+        } finally {
+            setLiking(false);
         }
     };
 
@@ -70,11 +77,17 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
                     <div className="flex items-center gap-3 mt-1 px-1">
                         <span className="text-xs text-gray-400">{formatDateTime(comment.createdAt)}</span>
 
-                        {/* ✅ Like button with optimistic update */}
+                        {/* ✅ Like button with optimistic update and disabled state during request */}
                         <button
                             onClick={handleLike}
-                            className="text-xs font-semibold border-0 bg-transparent cursor-pointer p-0 flex items-center gap-1"
-                            style={{ color: liked ? '#ef4444' : '#6b7280' }}
+                            disabled={liking}
+                            className="text-xs font-semibold border-0 bg-transparent cursor-pointer p-0 flex items-center gap-1 transition"
+                            style={{ 
+                                color: liked ? '#ef4444' : '#6b7280',
+                                opacity: liking ? 0.6 : 1,
+                                pointerEvents: liking ? 'none' : 'auto'
+                            }}
+                            title={liking ? "Updating..." : "Like"}
                         >
                             {liked ? '❤️' : '🤍'} {likeCount > 0 && <span>{likeCount}</span>}
                         </button>

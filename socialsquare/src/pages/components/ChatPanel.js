@@ -60,10 +60,10 @@ const ReactionPicker = ({ onSelect, onClose }) => {
         return () => document.removeEventListener('mousedown', h);
     }, [onClose]);
     return (
-        <div ref={ref} style={{ position: 'absolute', bottom: '100%', background: '#fff', borderRadius: '24px', padding: '6px 10px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', display: 'flex', gap: '6px', zIndex: 100, border: '1px solid #f3f4f6' }}>
+        <div ref={ref} style={{ position: 'absolute', top: '100%', marginTop: '0px', left: '50%', transform: 'translateX(-50%)', background: '#fff', borderRadius: '24px', padding: '8px 12px', boxShadow: '0 6px 20px rgba(0,0,0,0.2)', display: 'flex', gap: '2px', zIndex: 9999, border: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
             {EMOJI_REACTIONS.map(emoji => (
                 <button key={emoji} onClick={() => { onSelect(emoji); onClose(); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', padding: '2px', borderRadius: '8px' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '4px', borderRadius: '8px', transition: 'transform 0.15s' }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.3)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>{emoji}</button>
             ))}
@@ -95,7 +95,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 
             {showMenu && !isDeleted && (
                 <div style={{ position: 'relative', alignSelf: 'center', margin: isOwn ? '0 4px 0 0' : '0 0 0 4px', order: isOwn ? -1 : 1 }}>
-                    <button onClick={() => setShowReactions(v => !v)} style={{ background: '#f3f4f6', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>😊</button>
+                    <button onClick={() => setShowReactions(v => !v)} style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} title="Add reaction">😊</button>
                     {showReactions && <ReactionPicker onSelect={emoji => onReact(message._id, emoji)} onClose={() => setShowReactions(false)} />}
                 </div>
             )}
@@ -145,11 +145,11 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                 </div>
 
                 {Object.keys(reactionGroups).length > 0 && !isDeleted && (
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
+                    <div style={{ position: 'absolute', left: isOwn ? 'auto' : '100%', right: isOwn ? '100%' : 'auto', marginLeft: isOwn ? 0 : '4px', marginRight: isOwn ? '4px' : 0, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: isOwn ? 'flex-end' : 'flex-start', alignItems: 'center' }}>
                         {Object.entries(reactionGroups).map(([emoji, users]) => (
                             <button key={emoji} onClick={() => onReact(message._id, emoji)}
-                                style={{ background: users.includes(loggeduser._id) ? '#ede9fe' : '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                {emoji} {users.length > 1 && <span style={{ fontSize: '10px', color: '#6b7280' }}>{users.length}</span>}
+                                style={{ background: users.includes(loggeduser._id) ? '#c4b5fd' : '#f3f4f6', border: users.includes(loggeduser._id) ? '1px solid #a78bfa' : '1px solid #e5e7eb', borderRadius: '14px', padding: '3px 8px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 500, transition: 'all 0.2s', boxShadow: users.includes(loggeduser._id) ? '0 1px 3px rgba(168,85,247,0.2)' : 'none' }}>
+                                {emoji} {users.length > 1 && <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600 }}>{users.length}</span>}
                             </button>
                         ))}
                     </div>
@@ -225,7 +225,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-    }, [user?._id, participantId, markReadMut]);
+    }, [user?._id, participantId]); // ✅ FIXED: removed markReadMut from dependency array to prevent infinite loops
 
     useEffect(() => { fetchMessages(); }, [fetchMessages]);
 

@@ -288,7 +288,6 @@ router.post("/unlike", verifyToken, async (req, res) => {
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: 'Post not found.' });
         if (post.likes.includes(userId)) {
-            await Post.findByIdAndUpdate(postId, { $pull: { likes: userId } });
             post.likes = post.likes.filter(id => id.toString() !== userId);
             post.score = computeScore(post);
             await post.save();

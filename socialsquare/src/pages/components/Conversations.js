@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { socket } from '../../socket';
 import useAuthStore from '../../store/zustand/useAuthStore';
@@ -22,18 +22,26 @@ const Conversations = () => {
 
     const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
 
+    // Memoize the refetch callback to prevent unnecessary effect re-runs
+    const handleRefetch = useCallback(() => {
+        refetch();
+    }, [refetch]);
+
     // Socket: receive message → increment unread + refetch conversations
     useEffect(() => {
-        socket.on('receiveMessage', ({ conversationId, senderName, content }) => {
+        const handleReceiveMessage = ({ conversationId, senderName, content }) => {
             incrementUnread(conversationId);
-            refetch();
-        });
-        socket.on('updateUserList', setOnlineUsers);
-        return () => {
-            socket.off('receiveMessage');
-            socket.off('updateUserList');
+            handleRefetch();
         };
-    }, [incrementUnread, refetch, setOnlineUsers]);
+
+        socket.on('receiveMessage', handleReceiveMessage);
+        socket.on('updateUserList', setOnlineUsers);
+        
+        return () => {
+            socket.off('receiveMessage', handleReceiveMessage);
+            socket.off('updateUserList', setOnlineUsers);
+        };
+    }, [handleRefetch, incrementUnread, setOnlineUsers]);
 
     const openChat = (participant, lastMsgId) => {
         setSelectedParticipant(participant);

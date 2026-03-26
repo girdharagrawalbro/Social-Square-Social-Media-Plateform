@@ -153,6 +153,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     );
 
     const handleLikeToggle = () => {
+        // ✅ Prevent clicking while request is in progress
+        if (likeMutation.isPending) return;
+        
         // Optimistic update
         if (isLiked) {
             setPostLikes(prev => prev.filter(id => id?.toString() !== loggeduser?._id?.toString()));
@@ -163,6 +166,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     };
 
     const handleImageDoubleClick = () => {
+        // ✅ Prevent clicking while request is in progress
+        if (likeMutation.isPending) return;
+        
         if (!isLiked) {
             // Optimistic update for double-click like
             setPostLikes(prev => [...prev, loggeduser._id]);
