@@ -16,6 +16,8 @@ const useConversationStore = create(
 
             // ─── Unread counts ────────────────────────────────────────────
             unreadCounts: {}, // conversationId → number
+            unreadNotificationsCount: 0,
+            notifications: [],
 
             // ─── Socket messages (real-time, merged with query cache) ─────
             socketMessages: {}, // conversationId → Message[]
@@ -146,6 +148,20 @@ const useConversationStore = create(
             setMessageSearch: (query) => set({ messageSearchQuery: query }),
             setMessageSearchResults: (results) => set({ messageSearchResults: results }),
             clearMessageSearch: () => set({ messageSearchQuery: '', messageSearchResults: [] }),
+
+            // ─── Notifications ────────────────────────────────────────────
+            setNotifications: (notifications) => set({ 
+                notifications, 
+                unreadNotificationsCount: notifications.filter(n => !n.read).length 
+            }),
+            addNotification: (notification) => set(state => ({
+                notifications: [notification, ...state.notifications],
+                unreadNotificationsCount: state.unreadNotificationsCount + 1
+            })),
+            markNotificationsRead: () => set(state => ({
+                notifications: state.notifications.map(n => ({ ...n, read: true })),
+                unreadNotificationsCount: 0
+            })),
         }),
         { name: 'ConversationStore' }
     )

@@ -1,6 +1,7 @@
 const express = require('express');
 const Story = require('../models/Story');
 const User = require('../models/User');
+const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
 const router = express.Router();
 
@@ -13,23 +14,23 @@ router.post('/create', verifyToken, async (req, res) => {
         const { mediaUrl, mediaType, text } = req.body;
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
- 
+
         const user = await User.findById(userId).select('fullname profile_picture followers');
         if (!user) return res.status(404).json({ message: 'User not found.' });
- 
+
         const story = new Story({
             user: { _id: user._id, fullname: user.fullname, profile_picture: user.profile_picture },
             media: { url: mediaUrl, type: mediaType },
             text: text || {},
         });
         await story.save();
- 
+
         if (_io && user.followers?.length > 0) {
             user.followers.forEach(followerId => {
                 _io.to(followerId.toString()).emit('newStory', story);
             });
         }
- 
+
         res.status(201).json(story);
     } catch (error) {
         res.status(500).json({ message: 'Internal server error', error: error.message });
@@ -42,13 +43,13 @@ router.get('/feed', verifyToken, async (req, res) => {
         const userId = req.userId;
         const user = await User.findById(userId).select('following');
         if (!user) return res.status(404).json({ message: 'User not found.' });
- 
+
         const userIds = [userId, ...user.following.map(id => id.toString())];
         const stories = await Story.find({
             'user._id': { $in: userIds },
             expiresAt: { $gt: new Date() },
         }).sort({ createdAt: -1 });
- 
+
         const grouped = {};
         stories.forEach(story => {
             const uid = story.user._id.toString();
@@ -60,13 +61,13 @@ router.get('/feed', verifyToken, async (req, res) => {
                 grouped[uid].hasUnviewed = true;
             }
         });
- 
+
         const result = Object.values(grouped).sort((a, b) => {
             if (a.user._id.toString() === userId) return -1;
             if (b.user._id.toString() === userId) return 1;
             return b.hasUnviewed - a.hasUnviewed;
         });
- 
+
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -103,6 +104,19 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
             _io.emit('storyUpdate', { storyId: story._id, likes: story.likes });
         }
 
+        // Create notification for story owner
+        if (!isLiked) {
+            const sender = await User.findById(userId).select('fullname profile_picture').lean();
+            if (sender) {
+                await notificationUtils.createNotification({
+                    recipientId: story.user._id,
+                    sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+                    type: 'like',
+                    url: `/stories?user=${story.user._id}`,
+                });
+            }
+        }
+
         res.status(200).json(story);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -118,6 +132,30 @@ router.delete('/:storyId', verifyToken, async (req, res) => {
         if (story.user._id.toString() !== userId) return res.status(403).json({ message: 'Unauthorized.' });
         await Story.findByIdAndDelete(req.params.storyId);
         res.status(200).json({ message: 'Story deleted.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─── REPLY TO STORY (PROTECTED) ───────────────────────────────────────────────
+router.post('/reply/:storyId', verifyToken, async (req, res) => {
+    try {
+        const { text } = req.body;
+        const userId = req.userId;
+        const story = await Story.findById(req.params.storyId);
+        if (!story) return res.status(404).json({ message: 'Story not found.' });
+
+        const sender = await User.findById(userId).select('fullname profile_picture').lean();
+
+        await notificationUtils.createNotification({
+            recipientId: story.user._id,
+            sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+            type: 'message',
+            message: { content: `Replied: "${text}"` },
+            url: `/stories?user=${story.user._id}`,
+        });
+
+        res.status(200).json({ message: 'Reply sent' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

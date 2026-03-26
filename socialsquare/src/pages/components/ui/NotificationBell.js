@@ -4,6 +4,7 @@ import { useNotifications } from '../../../hooks/useNotifications';
 import { useCollabInvites } from '../../../hooks/queries/useAuthQueries';
 import CollabManager from '../CollabManager';
 import usePostStore from '../../../store/zustand/usePostStore';
+import useConversationStore from '../../../store/zustand/useConversationStore';
 import { Dialog } from 'primereact/dialog';
 
 export default function NotificationBell({ userId }) {
@@ -15,7 +16,8 @@ export default function NotificationBell({ userId }) {
     const { data: notifications = [], markRead, unreadCount } = useNotifications(userId);
     const { data: collabInvites = [] } = useCollabInvites(userId);
 
-    const setPostDetailId = usePostStore(s => s.setPostDetailId);
+    const { setPostDetailId, setStoryDetailUserId } = usePostStore();
+    const openChat = useConversationStore(s => s.openChat);
     const pendingCollabCount = collabInvites.length;
 
     // Close on outside click
@@ -46,9 +48,10 @@ export default function NotificationBell({ userId }) {
     const getNotificationText = (n) => {
         if (n.type === 'new_post') return 'created a new post';
         if (n.type === 'message') return n.message?.content || 'sent you a message';
-        if (n.type === 'like') return 'liked your post';
+        if (n.type === 'like') return n.url?.includes('stories') ? 'liked your story' : 'liked your post';
         if (n.type === 'comment') return 'commented on your post';
         if (n.type === 'follow') return 'started following you';
+        if (n.type === 'system') return n.message?.content || 'Security alert';
         return 'sent a notification';
     };
 
@@ -102,7 +105,13 @@ export default function NotificationBell({ userId }) {
                                     notifications.map(n => (
                                         <div key={n._id} onClick={() => {
                                             handleMarkRead(n._id);
-                                            if (n.post) {
+                                            if (n.type === 'message' && n.message?.conversationId) {
+                                                openChat(n.message.conversationId, n.sender);
+                                                setOpen(false);
+                                            } else if (n.type === 'like' && n.story) {
+                                                setStoryDetailUserId(n.sender._id);
+                                                setOpen(false);
+                                            } else if (n.post) {
                                                 setPostDetailId(n.post);
                                                 setOpen(false);
                                             }

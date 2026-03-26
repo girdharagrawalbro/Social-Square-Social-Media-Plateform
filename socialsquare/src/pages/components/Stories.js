@@ -3,6 +3,7 @@ import useAuthStore from '../../store/zustand/useAuthStore';
 import { useStoryFeed } from '../../hooks/queries/useAuthQueries';
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import { socket } from '../../socket';
+import usePostStore from '../../store/zustand/usePostStore';
 import toast from 'react-hot-toast';
 
 const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDeleted, onStoryLiked }) => {
@@ -176,20 +177,43 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
 
                 {/* Footer / Interaction Bar */}
                 <div style={{ position: 'absolute', bottom: 30, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: '15px', zIndex: 25 }}>
-                    <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 15px' }}>
-                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Send message...</span>
-                    </div>
+                    <form 
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            const reply = e.target.reply.value;
+                            if (!reply.trim() || !story?._id) return;
+                            try {
+                                const { api } = await import('../../store/zustand/useAuthStore');
+                                await api.post(`/api/story/reply/${story._id}`, { content: reply });
+                                toast.success('Reply sent!');
+                                e.target.reply.value = '';
+                                setIsPaused(false);
+                            } catch { toast.error('Failed to send reply'); }
+                        }}
+                        style={{ flex: 1, display: 'flex' }}
+                    >
+                        <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+                            <input 
+                                name="reply"
+                                type="text"
+                                placeholder="Send message..."
+                                onFocus={() => setIsPaused(true)}
+                                onBlur={() => setIsPaused(false)}
+                                autoComplete="off"
+                                style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '13px', padding: '0-12px', outline: 'none' }}
+                            />
+                            <button type="submit" style={{ background: '#808bf5', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '2px' }}>
+                                <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
+                            </button>
+                        </div>
+                    </form>
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                         <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
                             <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
                         </button>
-                        {/* {likesCount > 0 && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{likesCount}</span>} */}
+                        {likesCount > 0 && <span style={{ color: '#fff', fontSize: '8px', fontWeight: 700 }}>{likesCount}</span>}
                     </div>
-
-                    <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="pi pi-send" style={{ fontSize: '20px' }}></i>
-                    </button>
                 </div>
             </div>
         </div>
@@ -281,6 +305,21 @@ const Stories = () => {
     useEffect(() => {
         setGroups(storyFeed);
     }, [storyFeed]);
+
+    const storyDetailUserId = usePostStore(s => s.storyDetailUserId);
+    const setStoryDetailUserId = usePostStore(s => s.setStoryDetailUserId);
+
+    useEffect(() => {
+        if (storyDetailUserId && groups.length > 0) {
+            const index = groups.findIndex(g => g.user._id.toString() === storyDetailUserId.toString());
+            if (index !== -1) {
+                setViewerGroupIndex(index);
+                setViewerOpen(true);
+            }
+            // Clear the selection so it doesn't trigger again
+            setStoryDetailUserId(null);
+        }
+    }, [storyDetailUserId, groups, setStoryDetailUserId]);
 
     // ✅ Real-time: new story from a followed user
     useEffect(() => {

@@ -14,10 +14,12 @@ const usePostStore = create(
 
             // ─── Post Detail Dialog ───────────────────────────────────────
             postDetailId: null,
+            storyDetailUserId: null,
 
             // ─── Setters ──────────────────────────────────────────────────
             setActiveMood: (mood) => set({ activeMood: mood }),
             setPostDetailId: (id) => set({ postDetailId: id }),
+            setStoryDetailUserId: (userId) => set({ storyDetailUserId: userId }),
             clearMood: () => set({ activeMood: null }),
             setOpenComment: (postId) => set({ openCommentPostId: postId }),
             closeComment: () => set({ openCommentPostId: null }),

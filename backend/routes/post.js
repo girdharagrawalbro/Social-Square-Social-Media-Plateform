@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Comment = require('../models/Comment');
 const Category = require("../models/Category");
 const { publish } = require('../lib/pubsub');
+const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
 
 const router = express.Router();
@@ -69,8 +70,17 @@ router.post("/create", verifyToken, async (req, res) => {
 
         // Anonymous posts do NOT go to followers' feeds
         if (!isAnonymous && !unlocksAt && _io && userDetails.followers?.length > 0) {
-            userDetails.followers.forEach(followerId => {
+            userDetails.followers.forEach(async (followerId) => {
                 _io.to(followerId.toString()).emit('newFeedPost', newPost);
+                
+                // Also create a notification
+                await notificationUtils.createNotification({
+                    recipientId: followerId,
+                    sender: { id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
+                    type: 'new_post',
+                    postId: newPost._id,
+                    url: `/post/${newPost._id}`,
+                });
             });
         }
 
@@ -274,6 +284,18 @@ router.post("/like", verifyToken, async (req, res) => {
             // ✅ Broadcast like update to all connected users
             if (_io) _io.emit('postLiked', { postId, userId, likesCount: post.likes.length });
 
+            // Create notification for post owner
+            const sender = await User.findById(userId).select('fullname profile_picture').lean();
+            if (sender) {
+                await notificationUtils.createNotification({
+                    recipientId: post.user._id,
+                    sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+                    type: 'like',
+                    postId: post._id,
+                    url: `/post/${post._id}`,
+                });
+            }
+
             res.status(200).json({ message: "Success" });
         } else { res.status(400).json({ message: "Already liked." }); }
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -347,6 +369,20 @@ router.post('/comments/add', async (req, res) => {
                 comment: { ...newComment.toObject(), repliesList: [] },
                 parentId: parentId || null,
                 commentsCount: (await Post.findById(postId).select('comments'))?.comments?.length || 0,
+            });
+        }
+
+        // Create notification for post owner or parent comment owner
+        const targetRecipientId = parentId ? (await Comment.findById(parentId).select('user')).user?.id : (await Post.findById(postId).select('user')).user?._id;
+        
+        if (targetRecipientId) {
+            await notificationUtils.createNotification({
+                recipientId: targetRecipientId,
+                sender: { id: user.id || user._id, fullname: user.fullname, profile_picture: user.profile_picture },
+                type: 'comment',
+                postId: postId,
+                message: { content: content.substring(0, 50) },
+                url: `/post/${postId}`,
             });
         }
 
