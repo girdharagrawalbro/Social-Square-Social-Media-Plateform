@@ -49,7 +49,7 @@ const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
 };
 
 // ─── POST MENU ────────────────────────────────────────────────────────────────
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport }) => {
+const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
     const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
@@ -63,7 +63,7 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport }) =
             <button onClick={() => setOpen(v => !v)} className="bg-transparent border-0 cursor-pointer p-2 rounded-full text-gray-500 hover:bg-gray-100 transition">⋯</button>
             {open && (
                 <div className="absolute right-0 top-full bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden mt-1" style={{ minWidth: '170px' }}>
-                    <button onClick={() => { onSave(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">{isSaved ? '🔖 Unsave' : '🔖 Save post'}</button>
+                    <button onClick={() => { if (!isSaving) onSave(); setOpen(false) }} disabled={isSaving} style={{ opacity: isSaving ? 0.5 : 1 }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">{isSaved ? '🔖 Unsave' : '🔖 Save post'}</button>
                     {!isOwner && <button onClick={() => { onReport(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-red-50 text-red-400">🚩 Report post</button>}
                     {isOwner && <>
                         <button onClick={() => { onEdit(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">✏️ Edit post</button>
@@ -176,6 +176,7 @@ const Feed = ({ activeMood = null }) => {
     const unfollowUser = useAuthStore(s => s.unfollowUser);
     const socketPosts = usePostStore(s => s.socketPosts) || [];
     const isSaved = usePostStore(s => s.isSaved);
+    const toggleSaved = usePostStore(s => s.toggleSaved);
     const optimisticLikes = usePostStore(s => s.optimisticLikes);
 
     // ✅ TanStack Query
@@ -193,6 +194,7 @@ const Feed = ({ activeMood = null }) => {
     const [editingPost, setEditingPost] = useState(null);
     const [editCaption, setEditCaption] = useState('');
     const [sharePost, setSharePost] = useState(null);
+    const [savingPostIds, setSavingPostIds] = useState(new Set());
     const lastTap = useRef({});
 
     // Infinite scroll sentinel
@@ -233,8 +235,33 @@ const Feed = ({ activeMood = null }) => {
     };
 
     const handleSave = post => {
+        // Disable button immediately
+        setSavingPostIds(prev => new Set([...prev, post._id]));
+        
+        // Get current saved state for rollback
+        const wasSaved = isSaved(post._id);
+        
+        // Optimistically update UI
+        toggleSaved(post._id, !wasSaved);
+        
+        // Send request
         saveMutation.mutate({ postId: post._id }, {
-            onSuccess: (res) => toast.success(res.data.saved ? 'Saved!' : 'Unsaved'),
+            onSuccess: (res) => {
+                // Silent update
+            },
+            onError: (error) => {
+                // Rollback on error
+                toggleSaved(post._id, wasSaved);
+                toast.error('Failed to save');
+            },
+            onSettled: () => {
+                // Re-enable button
+                setSavingPostIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(post._id);
+                    return next;
+                });
+            },
         });
     };
 
@@ -333,6 +360,7 @@ const Feed = ({ activeMood = null }) => {
                                                 onEdit={() => { setEditingPost(post); setEditCaption(post.caption) }}
                                                 onDelete={() => handleDelete(post)}
                                                 onReport={() => handleReport(post)}
+                                                isSaving={savingPostIds.has(post._id)}
                                             />
                                         </div>
                                     </div>
@@ -387,7 +415,7 @@ const Feed = ({ activeMood = null }) => {
                                                     <button onClick={(e) => { e.stopPropagation(); setPostDetailId(post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900 ml-auto" style={{ marginRight: '4px' }}>
                                                         <i className="pi pi-external-link" style={{ fontSize: '1rem' }}></i>
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleSave(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleSave(post); }} disabled={savingPostIds.has(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0" style={{ opacity: savingPostIds.has(post._id) ? 0.5 : 1, pointerEvents: savingPostIds.has(post._id) ? 'none' : 'auto' }}>
                                                         <i className={`pi ${postIsSaved ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: postIsSaved ? '#808bf5' : 'currentColor' }}></i>
                                                     </button>
                                                 </div>

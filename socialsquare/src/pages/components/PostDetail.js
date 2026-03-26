@@ -12,7 +12,7 @@ import formatDate from '../../utils/formatDate';
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
 // ─── POST MENU ────────────────────────────────────────────────────────────────
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport }) => {
+const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
     const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
@@ -28,7 +28,7 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport }) =
             <button onClick={() => setOpen(v => !v)} className="bg-transparent border-0 cursor-pointer p-2 rounded-full text-gray-500 hover:bg-gray-100 transition">⋯</button>
             {open && (
                 <div className="absolute right-0 top-full bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden mt-1" style={{ minWidth: '170px' }}>
-                    <button onClick={() => { onSave(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">{isSaved ? '🔖 Unsave' : '🔖 Save post'}</button>
+                    <button onClick={() => { if (!isSaving) onSave(); setOpen(false) }} disabled={isSaving} style={{ opacity: isSaving ? 0.5 : 1 }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">{isSaved ? '🔖 Unsave' : '🔖 Save post'}</button>
                     {!isOwner && <button onClick={() => { onReport(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-red-50 text-red-400">🚩 Report post</button>}
                     {isOwner && <>
                         <button onClick={() => { onEdit(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">✏️ Edit post</button>
@@ -121,6 +121,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [editCaption, setEditCaption] = useState('');
     const [shareVisible, setShareVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [postLikes, setPostLikes] = useState(post?.likes || []);
     const lastTap = useRef({});
 
@@ -185,10 +186,28 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     };
 
     const handleSave = () => {
+        // Disable button immediately
+        setIsSaving(true);
+        
+        // Get current state for rollback
+        const wasSaved = isSaved;
+        
+        // Optimistically update UI
+        setIsSaved(!wasSaved);
+        
+        // Send request
         saveMutation.mutate({ postId: post._id }, {
             onSuccess: (res) => {
                 setIsSaved(res.data.saved);
-                toast.success(res.data.saved ? 'Saved!' : 'Unsaved');
+            },
+            onError: () => {
+                // Rollback on error
+                setIsSaved(wasSaved);
+                toast.error('Failed to save');
+            },
+            onSettled: () => {
+                // Re-enable button
+                setIsSaving(false);
             },
         });
     };
@@ -299,7 +318,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     {isFollowing ? 'Following' : 'Follow'}
                                 </button>
                             )}
-                            <PostMenu post={post} user={loggeduser} onEdit={() => setEditingPost(post)} onDelete={handleDelete} onSave={handleSave} isSaved={isSaved} onReport={handleReport} />
+                            <PostMenu post={post} user={loggeduser} onEdit={() => setEditingPost(post)} onDelete={handleDelete} onSave={handleSave} isSaved={isSaved} onReport={handleReport} isSaving={isSaving} />
                         </div>
 
                         {/* Actions */}
@@ -313,7 +332,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                             <button onClick={() => setShareVisible(true)} className="bg-transparent border-0 cursor-pointer p-0">
                                 <i className="pi pi-send text-xl text-gray-700"></i>
                             </button>
-                            <button onClick={handleSave} className="ml-auto bg-transparent border-0 cursor-pointer p-0">
+                            <button onClick={handleSave} disabled={isSaving} className="ml-auto bg-transparent border-0 cursor-pointer p-0" style={{ opacity: isSaving ? 0.5 : 1, pointerEvents: isSaving ? 'none' : 'auto' }}>
                                 <i className={`pi text-xl ${isSaved ? 'pi-bookmark-fill text-[#808bf5]' : 'pi-bookmark text-gray-700'}`}></i>
                             </button>
                         </div>

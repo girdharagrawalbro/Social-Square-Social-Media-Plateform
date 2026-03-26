@@ -99,7 +99,7 @@ const Navbar = () => {
               className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
               title="Create post"
             >
-              +
+              <i className="pi pi-plus"></i>
             </button>
 
             <NotificationBell userId={loggeduser?._id} />
