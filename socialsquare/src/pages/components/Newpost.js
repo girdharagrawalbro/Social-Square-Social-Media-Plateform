@@ -276,7 +276,7 @@ const NewPost = ({ setnewpostVisible }) => {
                     remaining: aiData?.imageRemaining ?? prev.image.remaining,
                 },
             }));
-            
+
             // Show detailed success message with AI models and remaining usage
             const successMsg = `✨ Post created! 
 Models: ${aiData?.textModel || 'NVIDIA (text)'} & ${aiData?.imageModel || 'NVIDIA (image)'}
@@ -372,8 +372,9 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
     // ── Submit ────────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.caption.trim()) { toast.error("Caption cannot be empty!"); return; }
+        if (!formData.caption.trim() && images.length === 0) { toast.error("Please add a caption or at least one image!"); return; }
         setIsPosting(true);
+        let postSucceeded = false;
         try {
             let imageURLs = [];
             if (images.length > 0) {
@@ -410,13 +411,13 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 isAiGenerated: usedAiForThisPost,
             };
 
-
             const response = await createPostMutation.mutateAsync(postData);
-            const data = response.data;
+            const data = response?.data;
+
             if (data?._id) {
-                toast.success("Post created successfully");
+                postSucceeded = true;
                 addSocketPost(data);
-                images.forEach(img => URL.revokeObjectURL(img.preview));
+                images.forEach(img => img.preview && URL.revokeObjectURL(img.preview));
                 if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
                 setImages([]); setVoiceBlob(null); setVoicePreviewUrl(null); setRecordingDuration(0);
                 setFormData({ caption: "", category: "Default" });
@@ -424,9 +425,18 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 setIsAnonymous(false); setExpiresIn(''); setUnlocksAt('');
                 setIsCollaborative(false); setCollaborators([]);
                 setSuggestedCaptions([]); setShowAdvanced(false);
+                toast.success("Post created successfully!");
                 setnewpostVisible(false);
-            } else { toast.error(data.error || "Failed to create post"); }
-        } catch (error) { toast.error(error.message || "An unexpected error occurred"); }
+            } else {
+                toast.error(data?.error || "Failed to create post");
+            }
+        } catch (error) {
+            // Only show error toast if the post itself genuinely failed
+            if (!postSucceeded) {
+                const msg = error?.response?.data?.error || error?.message || "An unexpected error occurred";
+                toast.error(msg);
+            }
+        }
         finally { setIsPosting(false); }
     };
 
@@ -575,25 +585,25 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                                 Text: {aiLimit.text.remaining}/2 | Image: {aiLimit.image.remaining}/2
                                             </span>
                                         </div>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Describe what you want to create..." 
-                                            value={aiPrompt} 
+                                        <input
+                                            type="text"
+                                            placeholder="Describe what you want to create..."
+                                            value={aiPrompt}
                                             onChange={e => setAiPrompt(e.target.value)}
                                             style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd6fe', fontSize: '12px' }}
                                         />
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button 
-                                                type="button" 
-                                                onClick={generateAiText} 
+                                            <button
+                                                type="button"
+                                                onClick={generateAiText}
                                                 disabled={isGeneratingAi || aiLimit.text.remaining === 0}
                                                 style={{ flex: 1, padding: '8px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
                                             >
                                                 {isGeneratingAi ? '...' : '📝 Text'}
                                             </button>
-                                            <button 
-                                                type="button" 
-                                                onClick={generateAiImage} 
+                                            <button
+                                                type="button"
+                                                onClick={generateAiImage}
                                                 disabled={isGeneratingAi || aiLimit.image.remaining === 0}
                                                 style={{ flex: 1, padding: '8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
                                             >

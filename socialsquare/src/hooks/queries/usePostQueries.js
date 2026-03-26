@@ -152,10 +152,24 @@ export function useCreatePost() {
         mutationFn: (data) => api.post(`${BASE}/api/post/create`, data),
         onSuccess: (res) => {
             // Prepend to feed cache immediately
-            qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
-                if (!old) return old;
-                return { ...old, pages: [{ posts: [res.data], nextCursor: old.pages[0]?.nextCursor, hasMore: old.pages[0]?.hasMore }, ...old.pages] };
-            });
+            try {
+                qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
+                    if (!old?.pages) return old;
+                    const newPost = res?.data;
+                    if (!newPost) return old;
+                    return {
+                        ...old,
+                        pages: [
+                            {
+                                posts: [newPost, ...(old.pages[0]?.posts ?? [])],
+                                nextCursor: old.pages[0]?.nextCursor,
+                                hasMore: old.pages[0]?.hasMore,
+                            },
+                            ...old.pages.slice(1),
+                        ],
+                    };
+                });
+            } catch (_) { /* ignore cache update errors */ }
             qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
         },
     });
