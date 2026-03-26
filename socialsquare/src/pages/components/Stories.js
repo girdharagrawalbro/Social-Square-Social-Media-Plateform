@@ -76,7 +76,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
 
         return () => clearInterval(intervalRef.current);
 
-    }, [story?._id, DURATION, loggeduser?._id, goNext, isPaused]);
+    }, [story?._id, story, DURATION, loggeduser?._id, goNext, isPaused]);
 
     const handleLike = async (e) => {
         e.stopPropagation();
@@ -373,7 +373,7 @@ const Stories = () => {
             socket.off('newStory', handleNewStory);
             socket.off('storyUpdate', handleStoryUpdate);
         };
-    }, [loggeduser?._id, socket]);
+    }, [loggeduser?._id]);
 
     const handleStoryLiked = (storyId, likes) => {
         setGroups(prev => prev.map(g => ({

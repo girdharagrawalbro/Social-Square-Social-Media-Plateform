@@ -4,19 +4,19 @@ import { api } from '../../store/zustand/useAuthStore';
 import { Button } from 'primereact/button';
 import toast from 'react-hot-toast';
 
+const configuration = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
+
 const LiveStream = ({ streamId, isHost, onClose }) => {
     const [localStream, setLocalStream] = useState(null);
     const [remoteStreams, setRemoteStreams] = useState({}); // userId -> stream
     const peerConnections = useRef({}); // userId -> RTCPeerConnection
     const localVideoRef = useRef(null);
-    const [viewersCount, setViewersCount] = useState(0);
-
-    const configuration = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ]
-    };
+    const [viewersCount] = useState(0);
 
     useEffect(() => {
         const init = async () => {
@@ -44,6 +44,28 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
             Object.values(pcs).forEach(pc => pc.close());
         };
     }, [isHost, streamId, localStream]);
+
+
+    const createPeerConnection = useCallback((userId) => {
+        const pc = new RTCPeerConnection(configuration);
+        peerConnections.current[userId] = pc;
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('ice-candidate', { to: userId, candidate: event.candidate });
+            }
+        };
+
+        pc.ontrack = (event) => {
+            setRemoteStreams(prev => ({ ...prev, [userId]: event.streams[0] }));
+        };
+
+        return pc;
+    }, [localStream]);
 
     useEffect(() => {
         // Signaling listeners
@@ -74,27 +96,6 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
             };
         }
     }, [isHost, createPeerConnection]);
-
-    const createPeerConnection = useCallback((userId) => {
-        const pc = new RTCPeerConnection(configuration);
-        peerConnections.current[userId] = pc;
-
-        if (localStream) {
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-        }
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('ice-candidate', { to: userId, candidate: event.candidate });
-            }
-        };
-
-        pc.ontrack = (event) => {
-            setRemoteStreams(prev => ({ ...prev, [userId]: event.streams[0] }));
-        };
-
-        return pc;
-    }, [configuration, localStream]);
 
     const handleEndStream = async () => {
         try {
