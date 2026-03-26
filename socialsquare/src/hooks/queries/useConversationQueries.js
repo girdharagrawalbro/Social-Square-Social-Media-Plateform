@@ -125,7 +125,6 @@ export function useDeleteMessage() {
 
 export function useReactToMessage() {
     const qc = useQueryClient();
-    const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ messageId, emoji, conversationId }) =>
             api.post(`${BASE}/api/conversation/messages/${messageId}/react`, {
