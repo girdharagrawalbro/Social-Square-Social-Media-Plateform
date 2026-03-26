@@ -219,7 +219,6 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     const markReadMut = useMarkMessagesRead();
 
     // ✅ Fetch messages from backend directly (no TanStack Query confusion)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const fetchMessages = useCallback(async () => {
         if (!user?._id || !participantId) return;
         setLoading(true);
@@ -254,7 +253,8 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-    }, [user?._id, participantId]); // Excluded markReadMut: TanStack Query mutations are stable externally, adding it creates infinite loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?._id, participantId]);
 
     useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
