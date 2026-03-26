@@ -15,11 +15,15 @@ const usePostStore = create(
             // ─── Post Detail Dialog ───────────────────────────────────────
             postDetailId: null,
             storyDetailUserId: null,
+            liveStreamId: null,
+            isLiveHost: false,
 
             // ─── Setters ──────────────────────────────────────────────────
             setActiveMood: (mood) => set({ activeMood: mood }),
             setPostDetailId: (id) => set({ postDetailId: id }),
             setStoryDetailUserId: (userId) => set({ storyDetailUserId: userId }),
+            setLiveStream: (id, isHost) => set({ liveStreamId: id, isLiveHost: isHost }),
+            clearLiveStream: () => set({ liveStreamId: null, isLiveHost: false }),
             clearMood: () => set({ activeMood: null }),
             setOpenComment: (postId) => set({ openCommentPostId: postId }),
             closeComment: () => set({ openCommentPostId: null }),

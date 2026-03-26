@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed } from '../../hooks/queries/useAuthQueries';
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
+import LiveStream from './LiveStream';
 import toast from 'react-hot-toast';
 
 const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDeleted, onStoryLiked }) => {
@@ -306,8 +307,32 @@ const Stories = () => {
         setGroups(storyFeed);
     }, [storyFeed]);
 
-    const storyDetailUserId = usePostStore(s => s.storyDetailUserId);
-    const setStoryDetailUserId = usePostStore(s => s.setStoryDetailUserId);
+    const { storyDetailUserId, setStoryDetailUserId, liveStreamId, isLiveHost, setLiveStream, clearLiveStream } = usePostStore();
+    const [activeLiveStreams, setActiveLiveStreams] = useState([]);
+
+    const fetchActiveLives = async () => {
+        try {
+            const { data } = await api.get('/api/live/active');
+            setActiveLiveStreams(data);
+        } catch (err) {
+            console.error('Error fetching lives:', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchActiveLives();
+        const interval = setInterval(fetchActiveLives, 30000); // Polling for now
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleGoLive = async () => {
+        try {
+            const { data } = await api.post('/api/live/start', { title: `${loggeduser.fullname}'s Live` });
+            setLiveStream(data._id, true);
+        } catch (err) {
+            toast.error('Could not start live stream');
+        }
+    };
 
     useEffect(() => {
         if (storyDetailUserId && groups.length > 0) {
@@ -348,7 +373,7 @@ const Stories = () => {
             socket.off('newStory', handleNewStory);
             socket.off('storyUpdate', handleStoryUpdate);
         };
-    }, [loggeduser?._id]);
+    }, [loggeduser?._id, socket]);
 
     const handleStoryLiked = (storyId, likes) => {
         setGroups(prev => prev.map(g => ({
@@ -386,6 +411,24 @@ const Stories = () => {
     return (
         <>
             <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '12px 4px', scrollbarWidth: 'none' }}>
+                {/* Go Live Button */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
+                    <div style={{ width: 60, height: 60, borderRadius: '50%', border: '3px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+                        <i className="pi pi-video" style={{ color: '#ef4444', fontSize: '24px' }}></i>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>Go Live</span>
+                </div>
+
+                {/* Active Live Streams */}
+                {activeLiveStreams.map(live => (
+                    <div key={live._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(live._id, false)}>
+                        <div style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite' }}>
+                            <img src={live.host.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff' }} />
+                        </div>
+                        <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
+                    </div>
+                ))}
+
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}
                     onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}>
                     <div style={{ position: 'relative', width: 60, height: 60 }}>
@@ -415,6 +458,13 @@ const Stories = () => {
                 <StoryViewer groups={groups} startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)} onClose={() => setViewerOpen(false)} loggeduser={loggeduser} onStoryDeleted={handleStoryDeleted} onStoryLiked={handleStoryLiked} />
             )}
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
+            {liveStreamId && (
+                <LiveStream 
+                    streamId={liveStreamId} 
+                    isHost={isLiveHost} 
+                    onClose={clearLiveStream} 
+                />
+            )}
         </>
     );
 };

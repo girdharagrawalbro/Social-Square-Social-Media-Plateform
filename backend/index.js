@@ -165,6 +165,7 @@ app.use('/api/auth',         (req, res, next) => require('./routes/auth.js')(req
 app.use('/api/post',         postRouter);
 app.use('/api/conversation', (req, res, next) => require('./routes/conversation.js')(req, res, next));
 app.use('/api/story',        storyRouter);
+app.use('/api/live',         require('./routes/live'));
 app.use('/api/ai',           (req, res, next) => require('./routes/ai.js')(req, res, next));
 app.use('/api/admin',        (req, res, next) => require('./routes/admin.js')(req, res, next));
 app.use('/api/chatbot',      (req, res, next) => require('./routes/chatbot.js')(req, res, next));
@@ -261,6 +262,23 @@ io.on('connection', (socket) => {
         if (disconnectedUserId) {
             io.emit('userOffline', disconnectedUserId);
         }
+    });
+
+    // ─── WebRTC Signaling for Live Stream ────────────────────────────────────
+    socket.on('join-live', (streamId) => {
+        socket.join(`live:${streamId}`);
+    });
+
+    socket.on('live-offer', ({ to, offer }) => {
+        socket.to(to).emit('live-offer', { from: socket.userId, offer });
+    });
+
+    socket.on('live-answer', ({ to, answer }) => {
+        socket.to(to).emit('live-answer', { from: socket.userId, answer });
+    });
+
+    socket.on('ice-candidate', ({ to, candidate }) => {
+        socket.to(to).emit('ice-candidate', { from: socket.userId, candidate });
     });
 });
 

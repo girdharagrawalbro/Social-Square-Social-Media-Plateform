@@ -119,7 +119,7 @@ function AppInit() {
             socket.off('userOffline');
             socket.off('newNotification');
         };
-    }, [user?._id, setOnlineUsers, addOnlineUser, removeOnlineUser]);
+    }, [user?._id, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, openChat, setPostDetailId, setStoryDetailUserId]);
 
     return null;
 }
