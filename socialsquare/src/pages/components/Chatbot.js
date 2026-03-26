@@ -6,10 +6,10 @@ const BASE = process.env.REACT_APP_BACKEND_URL;
 // ─── QUICK ACTION BUTTONS ─────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
     { label: '✍️ Caption ideas', message: 'Give me caption ideas for my next post' },
-    { label: '😊 Mood check-in', message: 'Help me find posts that match my mood' },
-    { label: '❓ How to post', message: 'How do I create a post on Social Square?' },
+    { label: '📸 Stories help', message: 'How do I use stories and pause the timer?' },
     { label: '🤝 Collab posts', message: 'How do collaborative posts work?' },
     { label: '🎭 Confessions', message: 'How do anonymous confessions work?' },
+    { label: '🎙️ Messaging & Voice', message: 'Tell me about messaging and voice notes' },
     { label: '🚩 Report an issue', message: 'I want to report a problem with the app' },
 ];
 

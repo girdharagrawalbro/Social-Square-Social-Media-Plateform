@@ -1,12 +1,15 @@
-import  { useState, useEffect, useCallback } from 'react';
+    import  { useState, useEffect, useCallback, useMemo } from 'react';
 import useAuthStore, { api, getToken } from '../store/zustand/useAuthStore';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import { Dialog } from 'primereact/dialog';
+import PostDetail from './components/PostDetail';
 
 
 const useAdmin = () => {
     const token = getToken();
-    return { headers: { Authorization: `Bearer ${token}` } };
+    return useMemo(() => ({ headers: { Authorization: `Bearer ${token}` } }), [token]);
 };
 
 // ─── PASSWORD GATE ────────────────────────────────────────────────────────────
@@ -200,6 +203,7 @@ const UsersTab = () => {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
+    const [banData, setBanData] = useState({ visible: false, userId: null, reason: '' });
 
     const fetchUsers = useCallback(() => {
         setLoading(true);
@@ -210,10 +214,14 @@ const UsersTab = () => {
 
     useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-    const banUser = async (userId) => {
-        const r = prompt('Ban reason:');
-        if (r === null) return;
-        try { await api.patch(`/api/admin/users/${userId}/ban`, { reason: r }, { headers }); toast.success('User banned'); fetchUsers(); }
+    const banUser = async () => {
+        if (!banData.reason.trim()) return;
+        try { 
+            await api.patch(`/api/admin/users/${banData.userId}/ban`, { reason: banData.reason }, { headers }); 
+            toast.success('User banned'); 
+            setBanData({ visible: false, userId: null, reason: '' });
+            fetchUsers(); 
+        }
         catch { toast.error('Failed'); }
     };
     const unbanUser = async (userId) => {
@@ -221,9 +229,16 @@ const UsersTab = () => {
         catch { toast.error('Failed'); }
     };
     const deleteUser = async (userId) => {
-        if (!window.confirm('Delete this user and all their posts?')) return;
-        try { await api.delete(`/api/admin/users/${userId}`, { headers }); toast.success('User deleted'); fetchUsers(); }
-        catch { toast.error('Failed'); }
+        confirmDialog({
+            message: 'Are you sure you want to delete this user and all their posts?',
+            header: 'Delete User Confirmation',
+            icon: 'pi pi-exclamation-triangle',
+            acceptClassName: 'p-button-danger',
+            accept: async () => {
+                try { await api.delete(`/api/admin/users/${userId}`, { headers }); toast.success('User deleted'); fetchUsers(); }
+                catch { toast.error('Failed'); }
+            }
+        });
     };
 
     return (
@@ -273,7 +288,7 @@ const UsersTab = () => {
                                     <div className="flex gap-1">
                                         {user.isBanned
                                             ? <button onClick={() => unbanUser(user._id)} style={{ fontSize: '11px', padding: '3px 8px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Unban</button>
-                                            : <button onClick={() => banUser(user._id)} style={{ fontSize: '11px', padding: '3px 8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Ban</button>
+                                            : <button onClick={() => setBanData({ visible: true, userId: user._id, reason: '' })} style={{ fontSize: '11px', padding: '3px 8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Ban</button>
                                         }
                                         <button onClick={() => deleteUser(user._id)} style={{ fontSize: '11px', padding: '3px 8px', background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Delete</button>
                                     </div>
@@ -286,8 +301,18 @@ const UsersTab = () => {
             <div className="flex justify-center gap-2">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">← Prev</button>
                 <span className="px-3 py-1 text-sm text-gray-500">Page {page}</span>
-                <button onClick={() => setPage(p => p + 1)} disabled={users.length < 20} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">Next →</button>
+                <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">Next →</button>
             </div>
+
+            <Dialog header="Ban Reason" visible={banData.visible} style={{ width: '320px' }} onHide={() => setBanData({ ...banData, visible: false })}>
+                <div className="flex flex-col gap-3">
+                    <textarea value={banData.reason} onChange={e => setBanData({ ...banData, reason: e.target.value })} placeholder="Enter reason for banning..." rows={3} className="w-full border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-red-500" />
+                    <div className="flex justify-end gap-2">
+                        <button onClick={() => setBanData({ ...banData, visible: false })} className="px-3 py-1.5 border border-gray-200 rounded-lg bg-transparent text-gray-500 text-xs font-semibold cursor-pointer">Cancel</button>
+                        <button onClick={banUser} disabled={!banData.reason.trim()} className="px-3 py-1.5 bg-red-500 text-white border-0 rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50">Ban User</button>
+                    </div>
+                </div>
+            </Dialog>
         </div>
     );
 };
@@ -312,9 +337,16 @@ const PostsTab = () => {
     useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
     const deletePost = async (postId) => {
-        if (!window.confirm('Delete this post?')) return;
-        try { await api.delete(`/api/admin/posts/${postId}`, { headers }); toast.success('Post deleted'); fetchPosts(); }
-        catch { toast.error('Failed'); }
+        confirmDialog({
+            message: 'Delete this post?',
+            header: 'Confirmation',
+            icon: 'pi pi-exclamation-triangle',
+            acceptClassName: 'p-button-danger',
+            accept: async () => {
+                try { await api.delete(`/api/admin/posts/${postId}`, { headers }); toast.success('Post deleted'); fetchPosts(); }
+                catch { toast.error('Failed'); }
+            }
+        });
     };
 
     const imgs = post => post.image_urls?.[0] || post.image_url;
@@ -358,7 +390,7 @@ const PostsTab = () => {
             <div className="flex justify-center gap-2">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">← Prev</button>
                 <span className="px-3 py-1 text-sm text-gray-500">Page {page}</span>
-                <button onClick={() => setPage(p => p + 1)} disabled={posts.length < 20} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">Next →</button>
+                <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">Next →</button>
             </div>
         </div>
     );
@@ -369,21 +401,63 @@ const ReportsTab = () => {
     const { headers } = useAdmin();
     const [reports, setReports] = useState([]);
     const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
     const [status, setStatus] = useState('pending');
     const [loading, setLoading] = useState(true);
+    const [postPreview, setPostPreview] = useState({ visible: false, postId: null });
 
     const fetchReports = useCallback(() => {
         setLoading(true);
-        api.get('/api/admin/reports', { headers, params: { status } })
+        api.get('/api/admin/reports', { headers, params: { status, page } })
             .then(r => { setReports(r.data.reports); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
-    }, [status, headers]);
+    }, [status, page, headers]);
 
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
     const resolve = async (reportId, action) => {
         try { await api.patch(`/api/admin/reports/${reportId}/resolve`, { action }, { headers }); toast.success(`Report ${action}`); fetchReports(); }
         catch { toast.error('Failed'); }
+    };
+
+    const deletePost = async (postId, reportId) => {
+        confirmDialog({
+            message: 'Are you sure you want to remove this post?',
+            header: 'Remove Post',
+            icon: 'pi pi-trash',
+            acceptClassName: 'p-button-danger',
+            accept: async () => {
+                try {
+                    await api.delete(`/api/admin/posts/${postId}`, { headers });
+                    toast.success('Post removed');
+                    if (reportId) resolve(reportId, 'resolved');
+                } catch { toast.error('Failed to remove post'); }
+            }
+        });
+    };
+
+    const deleteComment = async (commentId, reportId) => {
+        confirmDialog({
+            message: 'Are you sure you want to remove this comment?',
+            header: 'Remove Comment',
+            icon: 'pi pi-trash',
+            acceptClassName: 'p-button-danger',
+            accept: async () => {
+                try {
+                    await api.delete(`/api/admin/comments/${commentId}`, { headers });
+                    toast.success('Comment removed');
+                    if (reportId) resolve(reportId, 'resolved');
+                } catch { toast.error('Failed to remove comment'); }
+            }
+        });
+    };
+
+    const banUser = async (userId, reason, reportId) => {
+        try {
+            await api.patch(`/api/admin/users/${userId}/ban`, { reason }, { headers });
+            toast.success('User banned');
+            if (reportId) resolve(reportId, 'resolved');
+        } catch { toast.error('Failed to ban user'); }
     };
 
     const REASON_COLOR = { spam: '#f59e0b', harassment: '#ef4444', hate_speech: '#dc2626', misinformation: '#f97316', nudity: '#ec4899', violence: '#b91c1c', other: '#6b7280' };
@@ -409,7 +483,7 @@ const ReportsTab = () => {
                                         <img src={report.reporter?.profile_picture || '/default-profile.png'} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                                         <div>
                                             <p className="text-sm font-medium m-0">{report.reporter?.fullname || 'Unknown'}</p>
-                                            <p className="text-xs text-gray-400 m-0">reported a {report.targetType}</p>
+                                            <p className="text-xs text-gray-400 m-0">reported a <span className="font-bold text-indigo-500">{report.targetType}</span></p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -420,10 +494,38 @@ const ReportsTab = () => {
                                     </div>
                                 </div>
                                 {report.description && <p className="text-xs text-gray-500 mt-2 mb-0 italic">"{report.description}"</p>}
-                                <p className="text-xs text-gray-400 mt-1 mb-0">Target ID: {report.targetId}</p>
+                                
+                                {/* Target Context */}
+                                <div className="mt-3 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                    {report.targetType === 'post' && report.targetPost && (
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <span className="text-xs text-gray-400 flex-shrink-0">Post:</span>
+                                                <p className="text-xs text-gray-600 m-0 truncate italic">"{report.targetPost.caption || '(No caption)'}"</p>
+                                                <button onClick={() => setPostPreview({ visible: true, postId: report.targetId })} className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded hover:bg-indigo-600 hover:text-white transition cursor-pointer">View</button>
+                                            </div>
+                                            <button onClick={() => deletePost(report.targetId, report._id)} className="text-[10px] bg-red-50 text-red-500 border border-red-100 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition cursor-pointer">Remove Post</button>
+                                        </div>
+                                    )}
+                                    {report.targetType === 'comment' && (
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-gray-400 italic">Target Comment ID: {report.targetId}</span>
+                                            <button onClick={() => deleteComment(report.targetId, report._id)} className="text-[10px] bg-red-50 text-red-500 border border-red-100 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition cursor-pointer">Remove Comment</button>
+                                        </div>
+                                    )}
+                                    {/* Action to ban the author/user */}
+                                    <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
+                                        <span className="text-[10px] text-gray-400">Target User: {report.targetUser?.fullname || report.targetPost?.user?.fullname || 'Loading...'}</span>
+                                        <button onClick={() => {
+                                            const targetUid = report.targetUser?._id || report.targetPost?.user?._id;
+                                            if (targetUid) banUser(targetUid, `Reported for ${report.reason}`, report._id);
+                                        }} className="text-[10px] bg-orange-50 text-orange-600 border border-orange-100 px-2 py-1 rounded hover:bg-orange-600 hover:text-white transition cursor-pointer">Ban Author</button>
+                                    </div>
+                                </div>
+
                                 {report.status === 'pending' && (
                                     <div className="flex gap-2 mt-3">
-                                        <button onClick={() => resolve(report._id, 'resolved')} style={{ fontSize: '12px', padding: '4px 12px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>✓ Resolve</button>
+                                        <button onClick={() => resolve(report._id, 'resolved')} style={{ fontSize: '12px', padding: '4px 12px', background: '#d1fae5', color: '#059669', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>✓ Mark Resolved</button>
                                         <button onClick={() => resolve(report._id, 'dismissed')} style={{ fontSize: '12px', padding: '4px 12px', background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Dismiss</button>
                                     </div>
                                 )}
@@ -431,6 +533,16 @@ const ReportsTab = () => {
                         ))
                 }
             </div>
+            {/* Pagination */}
+            <div className="flex justify-center gap-2 mt-4">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">← Prev</button>
+                <span className="px-3 py-1 text-sm text-gray-500">Page {page}</span>
+                <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="px-3 py-1 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer disabled:opacity-40">Next →</button>
+            </div>
+
+            <Dialog header="Post Detail" visible={postPreview.visible} style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }} onHide={() => setPostPreview({ visible: false, postId: null })} modal className="p-0">
+                {postPreview.postId && <PostDetail postId={postPreview.postId} isModal={true} onClose={() => setPostPreview({ visible: false, postId: null })} />}
+            </Dialog>
         </div>
     );
 };
@@ -485,6 +597,7 @@ const AdminDashboard = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
+            <ConfirmDialog />
             {/* Header */}
             <div className="bg-white border-b shadow-sm px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">

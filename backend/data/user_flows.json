@@ -1,0 +1,42 @@
+{
+  "signup_login": {
+    "title": "Signup & Login",
+    "keywords": ["signup", "register", "login", "signin", "otp", "google", "account"],
+    "flow": "1. Signup: Fill in your fullname, email, and password on the Signup page.\n2. Verify OTP: A 6-digit code will be sent to your email. Enter it to activate your account.\n3. Login: Use your email and password. Google Login is also available for a faster experience.\n4. Device Security: If you log in from a new device, you'll get an email alert for safety."
+  },
+  "create_post": {
+    "title": "Creating a Post",
+    "keywords": ["post", "create", "new post", "caption", "category", "mood", "image", "location", "music"],
+    "flow": "1. Tap the '+' (New Post) button in the bottom navigation bar.\n2. Caption: Write what's on your mind.\n3. Media: Upload up to 5 images. You can also add music and location.\n4. Mood & Category: Select the mood (Happy, Sad, etc.) and category (Art, Tech, etc.) to help others find your content."
+  },
+  "collaboration": {
+    "title": "Collaborative Posts",
+    "keywords": ["collab", "collaborate", "partnership", "invite", "friends"],
+    "flow": "1. In the New Post screen, toggle the 'Collaborative Post' switch.\n2. Search and invite your friends by their fullname.\n3. Your friends will receive a notification. They must 'Accept' the invite from their Notifications & Collabs tab (bell icon).\n4. Once accepted, their profiles will be linked to the post."
+  },
+  "confessions": {
+    "title": "Anonymous Confessions",
+    "keywords": ["confession", "anonymous", "identity", "secret"],
+    "flow": "1. Go to the 'Confessions' tab in the main Feed.\n2. To post one, go to New Post and toggle 'Post Anonymously'.\n3. Your identity is completely hidden. Even admins only see 'Anonymous' as the author.\n4. Confessions are perfect for sharing secrets or deep thoughts safely."
+  },
+  "stories": {
+    "title": "Stories (24-Hour Expiry)",
+    "keywords": ["story", "stories", "24 hours", "temporary", "pause"],
+    "flow": "1. View Stories: Tap the user circles at the top of the Home page.\n2. Create Story: Click 'Your Story' to upload image/video with text.\n3. Liking: Tap the heart icon on any story to show some love.\n4. **Pause Timer**: To read a story longer, simply hold your finger (long press) or mouse down on the screen to pause the timer. Release to resume."
+  },
+  "messaging": {
+    "title": "Real-time Messaging",
+    "keywords": ["message", "chat", "dm", "voice note", "reaction", "typing"],
+    "flow": "1. Open the Chat Panel from the sidebar or user profiles.\n2. Send messages, share media, or send voice notes for a personal touch.\n3. Reactions: Long-press or click a message to add an emoji reaction.\n4. Features: You can edit or delete your messages, and see real-time 'Online' status for your friends."
+  },
+  "profile_settings": {
+    "title": "Profile & Settings",
+    "keywords": ["profile", "edit", "bio", "settings", "sessions", "saved"],
+    "flow": "1. Profile: Tap your profile picture to see your posts and saved content.\n2. Edit Profile: Update your bio, name, or profile picture anytime.\n3. Active Sessions: Manage where you are logged in to keep your account secure.\n4. Saved Posts: Any post you bookmark appears in your 'Saved' tab for later viewing."
+  },
+  "search_explore": {
+    "title": "Search & Explore",
+    "keywords": ["search", "explore", "find", "trending", "people"],
+    "flow": "1. Search: Use the search bar at the top to find users or specific post categories.\n2. Explore: Discover trending topics and fresh content from across the platform.\n3. People: Find new friends from the 'Suggested Users' list on the sidebar."
+  }
+}

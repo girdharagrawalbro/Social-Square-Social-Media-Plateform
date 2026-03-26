@@ -97,17 +97,13 @@ router.get('/analytics', requireAdmin, async (req, res) => {
 // Uses cursor-based pagination instead of skip() — O(log n) vs O(n)
 router.get('/users', requireAdmin, async (req, res) => {
     try {
-        const limit  = Math.min(parseInt(req.query.limit) || 20, 100); // cap at 100
-        const cursor = req.query.cursor || null; // last _id from previous page
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
         const search = req.query.search?.trim() || '';
         const filter = req.query.filter || 'all';
 
         const query = {};
-
-        // Cursor pagination — much faster than skip() at scale
-        if (cursor) query._id = { $lt: cursor };
-
-        // Text search — uses text index if created, falls back to regex
         if (search) {
             query.$or = [
                 { fullname: { $regex: search, $options: 'i' } },
@@ -118,21 +114,17 @@ router.get('/users', requireAdmin, async (req, res) => {
         if (filter === 'banned') query.isBanned = true;
         if (filter === 'admin')  query.isAdmin  = true;
 
-        // lean() returns plain JS objects — 2-3x faster, less memory
-        const users = await User.find(query)
-            .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
-            .sort({ _id: -1 })
-            .limit(limit + 1)
-            .lean();
+        const [users, total] = await Promise.all([
+            User.find(query)
+                .select('-password -twoFactorOtp -resetPasswordToken -twoFactorOtpExpires')
+                .sort({ _id: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            User.countDocuments(query)
+        ]);
 
-        const hasMore   = users.length > limit;
-        const result    = hasMore ? users.slice(0, limit) : users;
-        const nextCursor = hasMore ? result[result.length - 1]._id : null;
-
-        // Only run countDocuments for first page (expensive on large collections)
-        const total = cursor ? null : await User.countDocuments(search || filter !== 'all' ? query : {});
-
-        res.json({ users: result, nextCursor, hasMore, total });
+        res.json({ users, total });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -187,18 +179,17 @@ router.patch('/users/:userId/toggle-admin', requireAdmin, async (req, res) => {
 // ─── POST MANAGEMENT ──────────────────────────────────────────────────────────
 router.get('/posts', requireAdmin, async (req, res) => {
     try {
-        const limit  = Math.min(parseInt(req.query.limit) || 20, 100);
-        const cursor = req.query.cursor || null;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
         const search = req.query.search?.trim() || '';
         const filter = req.query.filter || 'all';
 
         const query = {};
-        if (cursor) query._id = { $lt: cursor };
         if (search)                  query.caption      = { $regex: search, $options: 'i' };
         if (filter === 'anonymous')  query.isAnonymous  = true;
         if (filter === 'timelocked') query.unlocksAt    = { $gt: new Date() };
 
-        // For reported filter — use $lookup instead of two queries
         if (filter === 'reported') {
             const posts = await Post.aggregate([
                 {
@@ -216,24 +207,30 @@ router.get('/posts', requireAdmin, async (req, res) => {
                         as: 'reports',
                     },
                 },
-                { $match: { 'reports.0': { $exists: true }, ...(cursor ? { _id: { $lt: cursor } } : {}) } },
+                { $match: { 'reports.0': { $exists: true } } },
                 { $sort: { _id: -1 } },
-                { $limit: limit + 1 },
+                { $skip: skip },
+                { $limit: limit },
                 { $project: { reports: 0 } },
             ]);
-            const hasMore    = posts.length > limit;
-            const result     = hasMore ? posts.slice(0, limit) : posts;
-            const nextCursor = hasMore ? result[result.length - 1]._id : null;
-            return res.json({ posts: result, nextCursor, hasMore });
+            
+            // For reported filter, counting total is a bit harder, let's just use estimate or count
+            // but for simplicity in admin panel we can just count
+            const total = await Post.countDocuments({ ...query, _id: { $in: (await Post.aggregate([
+                { $lookup: { from: 'reports', let: { pid: '$_id' }, pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$targetId', '$$pid'] }, { $eq: ['$targetType', 'post'] }, { $eq: ['$status', 'pending'] }] } } }], as: 'r' } },
+                { $match: { 'r.0': { $exists: true } } },
+                { $project: { _id: 1 } }
+            ])).map(p => p._id) } });
+
+            return res.json({ posts, total });
         }
 
-        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1).lean();
-        const hasMore    = posts.length > limit;
-        const result     = hasMore ? posts.slice(0, limit) : posts;
-        const nextCursor = hasMore ? result[result.length - 1]._id : null;
-        const total      = cursor ? null : await Post.countDocuments(search || filter !== 'all' ? query : {});
+        const [posts, total] = await Promise.all([
+            Post.find(query).sort({ _id: -1 }).skip(skip).limit(limit).lean(),
+            Post.countDocuments(query)
+        ]);
 
-        res.json({ posts: result, nextCursor, hasMore, total });
+        res.json({ posts, total });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -250,27 +247,78 @@ router.delete('/posts/:postId', requireAdmin, async (req, res) => {
 // ─── REPORTS ──────────────────────────────────────────────────────────────────
 router.get('/reports', requireAdmin, async (req, res) => {
     try {
-        const limit  = Math.min(parseInt(req.query.limit) || 20, 100);
-        const cursor = req.query.cursor || null;
         const status = req.query.status || 'pending';
+        const page = parseInt(req.query.page) || 1;
+        const limit = 20;
+        const skip = (page - 1) * limit;
 
-        const query = {};
-        if (cursor) query._id = { $lt: cursor };
-        if (status !== 'all') query.status = status;
+        const match = {};
+        if (status !== 'all') match.status = status;
 
-        // populate uses index on reporter field
-        const reports = await Report.find(query)
-            .populate('reporter', 'fullname profile_picture')
-            .sort({ _id: -1 })
-            .limit(limit + 1)
-            .lean();
+        const reports = await Report.aggregate([
+            { $match: match },
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'reporter',
+                    foreignField: '_id',
+                    as: 'reporter'
+                }
+            },
+            { $unwind: '$reporter' },
+            // If target is a post, get the post and its author
+            {
+                $lookup: {
+                    from: 'posts',
+                    localField: 'targetId',
+                    foreignField: '_id',
+                    as: 'targetPost'
+                }
+            },
+            // If target is a user, get the user
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'targetId',
+                    foreignField: '_id',
+                    as: 'targetUser'
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    targetType: 1,
+                    targetId: 1,
+                    reason: 1,
+                    description: 1,
+                    status: 1,
+                    createdAt: 1,
+                    'reporter._id': 1,
+                    'reporter.fullname': 1,
+                    'reporter.profile_picture': 1,
+                    targetPost: { $arrayElemAt: ['$targetPost', 0] },
+                    targetUser: { $arrayElemAt: ['$targetUser', 0] },
+                }
+            }
+        ]);
 
-        const hasMore    = reports.length > limit;
-        const result     = hasMore ? reports.slice(0, limit) : reports;
-        const nextCursor = hasMore ? result[result.length - 1]._id : null;
-        const total      = cursor ? null : await Report.countDocuments(status !== 'all' ? { status } : {});
+        const total = await Report.countDocuments(match);
+        res.json({ reports, total });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-        res.json({ reports: result, nextCursor, hasMore, total });
+router.delete('/comments/:commentId', requireAdmin, async (req, res) => {
+    try {
+        // We need to find the post containing this comment and remove it
+        await Post.updateMany(
+            { 'comments._id': req.params.commentId },
+            { $pull: { comments: { _id: req.params.commentId } } }
+        );
+        invalidateCache();
+        res.json({ message: 'Comment deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

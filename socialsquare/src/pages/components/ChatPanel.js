@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
 import PostDetail from './PostDetail';
 import { Dialog } from 'primereact/dialog';
+import { confirmDialog } from 'primereact/confirmdialog';
 
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
@@ -426,22 +427,29 @@ const ChatPanel = ({ participantId, lastMessage }) => {
 
     // ─── DELETE ───────────────────────────────────────────────────────────────
     const handleDelete = async (messageId) => {
-        if (!window.confirm('Delete this message?')) return;
-        setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
-        try {
-            await deleteMessageMut.mutateAsync({
-                messageId,
-                conversationId: conversationIdRef.current,
-            });
-            socket.emit('messageDeleted', {
-                messageId,
-                conversationId: conversationIdRef.current,
-                recipientId: participantId,
-            });
-        } catch {
-            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deletedAt: null, content: m.content } : m));
-            toast.error('Delete failed');
-        }
+        confirmDialog({
+            message: 'Are you sure you want to delete this message?',
+            header: 'Delete Message',
+            icon: 'pi pi-exclamation-triangle',
+            acceptClassName: 'p-button-danger',
+            accept: async () => {
+                setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
+                try {
+                    await deleteMessageMut.mutateAsync({
+                        messageId,
+                        conversationId: conversationIdRef.current,
+                    });
+                    socket.emit('messageDeleted', {
+                        messageId,
+                        conversationId: conversationIdRef.current,
+                        recipientId: participantId,
+                    });
+                } catch {
+                    setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deletedAt: null, content: m.content } : m));
+                    toast.error('Delete failed');
+                }
+            }
+        });
     };
 
     // ─── MEDIA UPLOAD ─────────────────────────────────────────────────────────

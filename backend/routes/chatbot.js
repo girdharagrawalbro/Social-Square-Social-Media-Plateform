@@ -1,38 +1,52 @@
 const express = require('express');
 const router = express.Router();
 const OpenAI = require('openai');
+const fs = require('fs');
+const path = require('path');
 
 const client = new OpenAI({
     baseURL: 'https://integrate.api.nvidia.com/v1',
     apiKey: process.env.NVIDIA_API_KEY,
 });
 
+const USER_FLOWS_PATH = path.join(__dirname, '../data/user_flows.json');
+
 const SYSTEM_PROMPT = `You are SocialBot, a helpful AI assistant built into Social Square — a social media platform.
 
 You help users with:
-1. APP HELP: How to post, follow users, use stories, create collaborative posts, anonymous confessions, time-locked posts, voice notes, and all other features.
-2. CONTENT SUGGESTIONS: Caption ideas, hashtag suggestions, post ideas based on mood or topic the user gives you.
-3. MOOD CHECK-IN: Ask how the user is feeling and suggest content moods (happy, excited, calm, romantic, nostalgic, etc.) to explore on their feed.
-4. SUPPORT: Help users report issues, understand community guidelines, or troubleshoot problems.
+1. APP HELP: How to post, follow users, use stories, create collaborative posts, anonymous confessions, and all other features.
+2. CONTENT SUGGESTIONS: Caption ideas, hashtag suggestions, and post ideas.
+3. MOOD CHECK-IN: Suggest content moods based on how the user feels.
 
-Social Square features you know about:
-- Feed with infinite scroll, mood-based filtering, real-time updates
-- Stories (24hr expiry), Collaborative posts (invite others to contribute)
-- Anonymous confessions feed (identity hidden)
-- Time-locked posts (unlock at a future time), Post expiry
-- Voice notes in posts and DMs
-- AI caption generator, Mood detection on posts
-- Direct messages with reactions, edit/delete, media sharing
-- Notification bell with collaboration invites
-- Dark mode, Admin dashboard
+CONTEXT FOR THIS SESSION:
+{{CONTEXT}}
 
 Rules:
-- Be friendly, concise, and helpful
-- For content suggestions, give 3-5 specific options
-- For mood check-in, recommend one of: happy, sad, excited, angry, calm, romantic, funny, inspirational, nostalgic, neutral
-- Never make up features that don't exist
-- Keep responses under 150 words unless giving a list
-- Use emojis naturally`;
+- If CONTEXT above contains specific steps for the user's question, prioritize those steps.
+- Be friendly, concise, and helpful.
+- For content suggestions, give 3-5 specific options.
+- Keep responses under 150 words unless giving a list.
+- Use emojis naturally.`;
+
+// Simple keyword-based retrieval
+const getRelevantContext = (query) => {
+    try {
+        if (!fs.existsSync(USER_FLOWS_PATH)) return "";
+        const flows = JSON.parse(fs.readFileSync(USER_FLOWS_PATH, 'utf8'));
+        const q = query.toLowerCase();
+
+        // Check for keyword matches
+        for (const key in flows) {
+            const flow = flows[key];
+            if (flow.keywords.some(k => q.includes(k))) {
+                return `Topic: ${flow.title}\nFlow: ${flow.flow}`;
+            }
+        }
+    } catch (e) {
+        console.error('RAG Context Error:', e);
+    }
+    return "";
+};
 
 // ─── CHAT — streams tokens back to frontend ───────────────────────────────────
 router.post('/chat', async (req, res) => {
@@ -43,26 +57,29 @@ router.post('/chat', async (req, res) => {
             return res.status(400).json({ error: 'messages array required' });
         }
 
-        // llama3-chatqa doesn't support 'system' role
-        // Inject as first user/assistant pair instead
+        // 1. Get relevant context from the user's last message
+        const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || "";
+        const context = getRelevantContext(lastUserMessage);
+
+        // 2. Inject context into systemic prompt
+        const dynamicPrompt = SYSTEM_PROMPT.replace('{{CONTEXT}}', context || "No specific flow context found. Answer using your general knowledge of Social Square.");
+
+        // Clean history for the model
         const history = messages.slice(-10).map(m => ({
             role: m.role,
             content: m.content,
         }));
 
-        // ✅ Enforce strict user/assistant alternation required by this model
-        // 1. Prepend system prompt as user + assistant seed pair
-        // 2. Deduplicate consecutive same-role messages by merging them
+        // ✅ Llama3-chatqa forces specific user/assistant alternation
         const raw = [
-            { role: 'user', content: SYSTEM_PROMPT },
-            { role: 'assistant', content: 'Got it! I am SocialBot, ready to help Social Square users.' },
+            { role: 'user', content: dynamicPrompt },
+            { role: 'assistant', content: 'Got it! I am SocialBot, ready to help Social Square users with the provided application context.' },
             ...history,
         ];
 
-        // Merge consecutive messages with the same role into one
+        // Merge consecutive same-role messages
         const fullMessages = raw.reduce((acc, msg) => {
             if (acc.length > 0 && acc[acc.length - 1].role === msg.role) {
-                // Merge into previous message
                 acc[acc.length - 1] = {
                     role: msg.role,
                     content: acc[acc.length - 1].content + '\n' + msg.content,
@@ -73,12 +90,11 @@ router.post('/chat', async (req, res) => {
             return acc;
         }, []);
 
-        // Must start with user and end with user
+        // Ensure starts and ends with user
         if (fullMessages[fullMessages.length - 1]?.role !== 'user') {
             fullMessages.push({ role: 'user', content: 'Please continue.' });
         }
 
-        // ✅ stream: true — model forces it anyway, consume with for-await
         const completion = await client.chat.completions.create({
             model: 'nvidia/llama3-chatqa-1.5-8b',
             messages: fullMessages,
@@ -88,7 +104,6 @@ router.post('/chat', async (req, res) => {
             stream: true,
         });
 
-        // ✅ SSE response so frontend can stream tokens in real time
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
