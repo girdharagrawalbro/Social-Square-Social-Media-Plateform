@@ -73,7 +73,7 @@ const Navbar = () => {
         {isAuthenticated ? (
           <>
             <NotificationBell userId={loggeduser?._id} />
-            {!isAdminUser && (
+            {isAdminUser && (
               <Link to="/admin" className={`border-0 rounded-lg px-2 py-1 text-xs font-semibold no-underline ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`} title="Admin Dashboard">
                 ⚙️
               </Link>
