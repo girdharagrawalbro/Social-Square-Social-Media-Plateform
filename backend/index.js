@@ -139,6 +139,9 @@ async function initPubSubLayer() {
 const postRouter  = require('./routes/post.js');
 const storyRouter = require('./routes/story.js');
 
+const notificationUtils = require('./lib/notification.js');
+notificationUtils.setIo(io);
+
 postRouter.setIo(io);
 storyRouter.setIo(io);
 
@@ -198,7 +201,7 @@ io.on('connection', (socket) => {
         io.emit('userOffline', userId);
     });
 
-    socket.on('sendMessage', ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
+    socket.on('sendMessage', async ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
         const recipientSocketId = onlineUsers.get(recipientId);
         if (recipientSocketId) {
             io.to(recipientSocketId).emit('receiveMessage', {
@@ -206,6 +209,14 @@ io.on('connection', (socket) => {
                 content, recipientId, senderName, conversationId, _id, createdAt, isRead,
             });
         }
+        
+        // Save as notification as well
+        await notificationUtils.createNotification({
+            recipientId,
+            sender: { id: sender, fullname: senderName },
+            type: 'message',
+            message: { id: _id, content: content?.substring(0, 100) },
+        });
     });
 
     socket.on('typing', ({ recipientId, senderName }) => {

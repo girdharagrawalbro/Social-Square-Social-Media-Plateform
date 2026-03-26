@@ -11,6 +11,7 @@ const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
 const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail } = require('../utils/mailer');
 const { getSuggestedUsers } = require('../services/suggestionService');
+const notificationUtils = require('../lib/notification.js');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
 const authRateLimiter = require('../middleware/authRateLimiter');
@@ -151,6 +152,14 @@ router.post('/login', authRateLimiter, [
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
                 .catch(err => console.warn('Alert email failed:', err.message));
         }
+
+        // Notification alert
+        await notificationUtils.createNotification({
+            recipientId: user._id,
+            sender: { id: user._id, fullname: 'Security Alert' },
+            type: 'system',
+            message: { content: `New login detected on ${device.os || 'a new device'} at ${new Date().toLocaleTimeString()}` },
+        });
 
         const accessToken = generateAccessToken(user._id);
         setRefreshTokenCookie(res, refreshToken);

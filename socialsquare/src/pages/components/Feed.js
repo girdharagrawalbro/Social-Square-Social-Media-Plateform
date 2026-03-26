@@ -4,7 +4,7 @@ import SkeletonPost from './ui/SkeletonPost';
 import Like from "./ui/Like";
 import Comment from './ui/Comment';
 import { Dialog } from 'primereact/dialog';
-import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import { confirmDialog } from 'primereact/confirmdialog';
 import ReportDialog from './ui/ReportDialog';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
