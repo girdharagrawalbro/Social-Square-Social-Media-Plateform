@@ -51,7 +51,7 @@ const Home = () => {
             case 'explore': return <Explore />;
             case 'profile': return <Profile />;
             case 'otherUsers': return <OtherUsers />;
-            case 'messages': return <Conversations />;
+            case 'messages': return <div className="h-full flex flex-col"><Conversations /></div>;
             default: return null;
         }
     };
@@ -88,8 +88,10 @@ const Home = () => {
                 </div>
             ) : (
                 /* Mobile */
-                <div className="flex flex-col min-h-[calc(100dvh-64px)] overflow-hidden">
-                    <div className="flex-1 overflow-auto p-2 pb-24">{renderMobileView()}</div>
+                <div className="flex flex-col h-[calc(100dvh-60px)] overflow-hidden">
+                    <div className={`flex-1 p-2 pb-20 ${activeView === 'messages' ? 'overflow-hidden flex flex-col' : 'overflow-auto'}`}>
+                        {renderMobileView()}
+                    </div>
                     <div className={`fixed bottom-2 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md ${cardBg} rounded-full p-2 shadow-md`} style={{ zIndex: 100 }}>
                         <div className="flex justify-around">
                             {navItems.map(item => (

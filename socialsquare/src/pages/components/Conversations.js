@@ -36,7 +36,7 @@ const Conversations = () => {
 
         socket.on('receiveMessage', handleReceiveMessage);
         socket.on('updateUserList', setOnlineUsers);
-        
+
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
             socket.off('updateUserList', setOnlineUsers);
@@ -73,17 +73,17 @@ const Conversations = () => {
     );
 
     return (
-        <div className="p-3 border bg-white rounded conversations ">
+        <div className="p-3 border bg-white rounded conversations flex flex-col h-full">
             <div className="flex justify-between items-center mb-3">
                 <h5 className="font-medium m-0">Messages</h5>
-                    {/* {totalUnread() > 0 && (
+                {/* {totalUnread() > 0 && (
                         <span style={{ background: '#808bf5', color: '#fff', borderRadius: '12px', fontSize: '11px', padding: '2px 8px', fontWeight: 700 }}>
                             {totalUnread()}
                         </span>
                     )} */}
             </div>
 
-            <div className="flex flex-col gap-2 h-[calc(60vh-150px)] overflow-y-auto">
+            <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 md:max-h-[calc(60vh-150px)]">
                 {conversations.length === 0 ? (
                     <p className="text-gray-400 text-sm text-center py-3">No conversations yet</p>
                 ) : conversations.map((conv) => {
