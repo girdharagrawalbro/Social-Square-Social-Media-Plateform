@@ -8,6 +8,8 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 import Comment from './ui/Comment';
 import formatDate from '../../utils/formatDate';
+import { confirmDialog } from 'primereact/confirmdialog';
+import ReportDialog from './ui/ReportDialog';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -123,6 +125,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [isSaved, setIsSaved] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [postLikes, setPostLikes] = useState(post?.likes || []);
+    const [reportVisible, setReportVisible] = useState(false);
     const lastTap = useRef({});
 
     useEffect(() => {
@@ -213,11 +216,18 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     };
 
     const handleDelete = () => {
-        if (!window.confirm('Delete this post?')) return;
-        deleteMutation.mutate({ postId: post._id }, {
-            onSuccess: () => {
-                toast.success('Post deleted');
-                onHide();
+        confirmDialog({
+            message: 'Delete this post?',
+            header: 'Confirmation',
+            icon: 'pi pi-exclamation-triangle',
+            acceptClassName: 'p-button-danger',
+            accept: () => {
+                deleteMutation.mutate({ postId: post._id }, {
+                    onSuccess: () => {
+                        toast.success('Post deleted');
+                        onHide();
+                    }
+                });
             }
         });
     };
@@ -238,13 +248,11 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         else followUser(post.user._id);
     };
 
-    const handleReport = async () => {
-        const reasons = ['spam', 'harassment', 'hate_speech', 'misinformation', 'nudity', 'violence', 'other'];
-        const choice = window.prompt(`Report reason:\n${reasons.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\nEnter number:`);
-        if (!choice || isNaN(choice) || choice < 1 || choice > reasons.length) return;
+    const handleReport = async (reason) => {
         try {
-            await axios.post(`${BASE}/api/post/report`, { postId: post._id, reason: reasons[choice - 1], userId: loggeduser._id });
+            await axios.post(`${BASE}/api/post/report`, { postId: post._id, reason, userId: loggeduser._id });
             toast.success('Report submitted');
+            setReportVisible(false);
         } catch { toast.error('Failed to report'); }
     };
 
@@ -262,6 +270,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             </Helmet>
 
             <ShareDialog post={post} visible={shareVisible} onHide={() => setShareVisible(false)} user={loggeduser} />
+            <ReportDialog visible={reportVisible} onHide={() => setReportVisible(false)} onSubmit={handleReport} />
 
             <div className="flex ">
                 {/* LEFT SIDE - POST */}
@@ -318,7 +327,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     {isFollowing ? 'Following' : 'Follow'}
                                 </button>
                             )}
-                            <PostMenu post={post} user={loggeduser} onEdit={() => setEditingPost(post)} onDelete={handleDelete} onSave={handleSave} isSaved={isSaved} onReport={handleReport} isSaving={isSaving} />
+                            <PostMenu post={post} user={loggeduser} onEdit={() => setEditingPost(post)} onDelete={handleDelete} onSave={handleSave} isSaved={isSaved} onReport={() => setReportVisible(true)} isSaving={isSaving} />
                         </div>
 
                         {/* Actions */}

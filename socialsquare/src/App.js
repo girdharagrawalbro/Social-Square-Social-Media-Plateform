@@ -4,6 +4,9 @@ import { Suspense, lazy, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
+import 'primereact/resources/primereact.min.css';
+import { ConfirmDialog } from 'primereact/confirmdialog';
+import { Toast } from 'primereact/toast';
 
 // ✅ All imports from src/ root — no '../' needed
 import useAuthStore from './store/zustand/useAuthStore';
@@ -77,6 +80,8 @@ function App() {
             <QueryClientProvider client={queryClient}>
                 <DarkModeProvider>
                     <AppInit />
+                    <Toast />
+                    <ConfirmDialog />
                     <Router>
                         <Suspense fallback={<PageLoader />}>
                             <Routes>

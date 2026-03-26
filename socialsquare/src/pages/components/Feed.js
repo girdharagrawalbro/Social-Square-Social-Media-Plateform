@@ -4,6 +4,8 @@ import SkeletonPost from './ui/SkeletonPost';
 import Like from "./ui/Like";
 import Comment from './ui/Comment';
 import { Dialog } from 'primereact/dialog';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import ReportDialog from './ui/ReportDialog';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import formatDate from '../../utils/formatDate';
@@ -195,6 +197,7 @@ const Feed = ({ activeMood = null }) => {
     const [editCaption, setEditCaption] = useState('');
     const [sharePost, setSharePost] = useState(null);
     const [savingPostIds, setSavingPostIds] = useState(new Set());
+    const [reportPost, setReportPost] = useState(null);
     const lastTap = useRef({});
 
     // Infinite scroll sentinel
@@ -266,9 +269,16 @@ const Feed = ({ activeMood = null }) => {
     };
 
     const handleDelete = post => {
-        if (!window.confirm('Delete this post?')) return;
-        deleteMutation.mutate({ postId: post._id }, {
-            onSuccess: () => toast.success('Post deleted'),
+        confirmDialog({
+            message: 'Are you sure you want to delete this post?',
+            header: 'Delete Confirmation',
+            icon: 'pi pi-exclamation-triangle',
+            acceptClassName: 'p-button-danger',
+            accept: () => {
+                deleteMutation.mutate({ postId: post._id }, {
+                    onSuccess: () => toast.success('Post deleted'),
+                });
+            }
         });
     };
 
@@ -285,15 +295,15 @@ const Feed = ({ activeMood = null }) => {
         else followUser(post.user._id);
     };
 
-    const handleReport = async post => {
-        const reasons = ['spam', 'harassment', 'hate_speech', 'misinformation', 'nudity', 'violence', 'other'];
-        const choice = window.prompt(`Report reason:\n${reasons.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\nEnter number:`);
-        if (!choice) return;
-        const idx = parseInt(choice) - 1;
-        if (idx < 0 || idx >= reasons.length) { toast.error('Invalid choice'); return; }
+    const handleReport = (post) => {
+        setReportPost(post);
+    };
+
+    const submitReport = async (reason) => {
         try {
-            await reportMutation.mutateAsync({ postId: post._id, reason: reasons[idx] });
+            await reportMutation.mutateAsync({ postId: reportPost._id, reason });
             toast.success('Report submitted. Thank you!');
+            setReportPost(null);
         } catch (e) { toast.error(e.response?.data?.error || 'Failed'); }
     };
 
@@ -446,6 +456,13 @@ const Feed = ({ activeMood = null }) => {
                 )}
 
                 {sharePost && <ShareDialog post={sharePost} visible={!!sharePost} onHide={() => setSharePost(null)} user={user} />}
+
+                {reportPost && <ReportDialog 
+                    visible={!!reportPost} 
+                    onHide={() => setReportPost(null)} 
+                    onSubmit={submitReport}
+                    loading={reportMutation.isPending}
+                />}
 
                 <Dialog header="Edit Post" visible={!!editingPost} style={{ width: '340px' }} onHide={() => setEditingPost(null)}>
                     {editingPost && (

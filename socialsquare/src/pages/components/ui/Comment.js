@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import useAuthStore from '../../../store/zustand/useAuthStore';
 import { useComments, useCreateComment } from '../../../hooks/queries/usePostQueries';
 import axios from 'axios';
+import { confirmDialog } from 'primereact/confirmdialog';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -159,17 +160,24 @@ const Comment = ({ postId, setVisible }) => {
     };
 
     const handleDelete = async (commentId, parentId) => {
-        if (!window.confirm('Delete this comment?')) return;
-        try {
-            await axios.delete(`${BASE}/api/post/comments/${commentId}`, { data: { userId: loggeduser._id } });
-            if (parentId) {
-                setLocalComments(prev => (prev ?? comments).map(c =>
-                    c._id === parentId ? { ...c, repliesList: c.repliesList.filter(r => r._id !== commentId) } : c
-                ));
-            } else {
-                setLocalComments(prev => (prev ?? comments).filter(c => c._id !== commentId));
+        confirmDialog({
+            message: 'Are you sure you want to delete this comment?',
+            header: 'Delete Confirmation',
+            icon: 'pi pi-exclamation-triangle',
+            acceptClassName: 'p-button-danger',
+            accept: async () => {
+                try {
+                    await axios.delete(`${BASE}/api/post/comments/${commentId}`, { data: { userId: loggeduser._id } });
+                    if (parentId) {
+                        setLocalComments(prev => (prev ?? comments).map(c =>
+                            c._id === parentId ? { ...c, repliesList: c.repliesList.filter(r => r._id !== commentId) } : c
+                        ));
+                    } else {
+                        setLocalComments(prev => (prev ?? comments).filter(c => c._id !== commentId));
+                    }
+                } catch {}
             }
-        } catch {}
+        });
     };
 
     return (
