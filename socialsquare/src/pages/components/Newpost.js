@@ -264,18 +264,24 @@ const NewPost = ({ setnewpostVisible }) => {
             }
 
             addSocketPost(createdPost);
+            const aiData = res.data?.ai;
             setAiLimit(prev => normalizeAiLimit({
                 ...prev,
                 text: {
                     ...prev.text,
-                    remaining: res.data?.ai?.textRemaining ?? prev.text.remaining,
+                    remaining: aiData?.textRemaining ?? prev.text.remaining,
                 },
                 image: {
                     ...prev.image,
-                    remaining: res.data?.ai?.imageRemaining ?? prev.image.remaining,
+                    remaining: aiData?.imageRemaining ?? prev.image.remaining,
                 },
             }));
-            toast.success('✨ AI post generated and published');
+            
+            // Show detailed success message with AI models and remaining usage
+            const successMsg = `✨ Post created! 
+Models: ${aiData?.textModel || 'NVIDIA (text)'} & ${aiData?.imageModel || 'NVIDIA (image)'}
+Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining ?? 0}/2`;
+            toast.success(successMsg, { duration: 4000 });
 
             if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
             images.forEach(img => img.preview && URL.revokeObjectURL(img.preview));

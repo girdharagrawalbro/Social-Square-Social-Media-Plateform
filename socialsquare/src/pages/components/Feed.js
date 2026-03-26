@@ -212,6 +212,9 @@ const Feed = ({ activeMood = null }) => {
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
 
     const handleLikeToggle = (post) => {
+        // ✅ Prevent clicking while request is in progress
+        if (likeMutation.isPending) return;
+        
         const liked = post.likes?.includes(user?._id) || optimisticLikes[post._id]?.has(user?._id);
         likeMutation.mutate({ postId: post._id, isLiked: liked });
     };

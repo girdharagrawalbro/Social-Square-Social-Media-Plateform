@@ -3,7 +3,16 @@ import React from 'react';
 const Like = ({ isliked, loading }) => {
     return (
         <>
-            <div title="Like" className="heart-container">
+            <div 
+                title={loading ? "Updating..." : "Like"}
+                className="heart-container"
+                style={{
+                    opacity: loading ? 0.6 : 1,
+                    pointerEvents: loading ? 'none' : 'auto',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    transition: 'opacity 0.2s ease',
+                }}
+            >
                 <input
                     id="Give-It-An-Id"
                     className="checkbox"
