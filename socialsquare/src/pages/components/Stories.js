@@ -5,7 +5,7 @@ import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '
 import { socket } from '../../socket';
 import toast from 'react-hot-toast';
 
-const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDeleted }) => {
+const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDeleted, onStoryLiked }) => {
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
     const [storyIndex, setStoryIndex] = useState(0);
     const [progress, setProgress] = useState(0);
@@ -14,6 +14,29 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     const group = groups[groupIndex];
     const story = group?.stories[storyIndex];
     const DURATION = story?.media?.type === 'video' ? 15000 : 5000;
+
+    const [isLiked, setIsLiked] = useState(false);
+    const [likesCount, setLikesCount] = useState(0);
+
+    const [isPaused, setIsPaused] = useState(false);
+
+    useEffect(() => {
+        if (story) {
+            setIsLiked(story.likes?.some(id => id.toString() === loggeduser?._id?.toString()));
+            setLikesCount(story.likes?.length || 0);
+        }
+    }, [story, loggeduser?._id]);
+
+    useEffect(() => {
+        const handleStoryUpdate = ({ storyId, likes }) => {
+            if (story?._id === storyId) {
+                setLikesCount(likes.length);
+                setIsLiked(likes.some(id => id.toString() === loggeduser?._id?.toString()));
+            }
+        };
+        socket.on('storyUpdate', handleStoryUpdate);
+        return () => socket.off('storyUpdate', handleStoryUpdate);
+    }, [story?._id, loggeduser?._id]);
 
     const goNext = React.useCallback(() => {
         if (!group) return;
@@ -25,7 +48,11 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     }, [group, storyIndex, groupIndex, groups.length, onClose]);
 
     useEffect(() => {
-        if (!story) return;
+        setProgress(0);
+    }, [story?._id]);
+
+    useEffect(() => {
+        if (!story || isPaused) return;
 
         if (story._id && loggeduser?._id) {
             import('../../store/zustand/useAuthStore').then(({ api }) => {
@@ -33,9 +60,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
             });
         }
 
-        setProgress(0);
         clearInterval(intervalRef.current);
-
         intervalRef.current = setInterval(() => {
             setProgress(prev => {
                 if (prev >= 100) {
@@ -43,16 +68,28 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                     goNext();
                     return 0;
                 }
-                return prev + (100 / (DURATION / 100));
+                return prev + (100 / (DURATION / 50));
             });
-        }, 100);
+        }, 50);
 
         return () => clearInterval(intervalRef.current);
 
-    }, [story, DURATION, loggeduser?._id, goNext]);
+    }, [story?._id, DURATION, loggeduser?._id, goNext, isPaused]);
 
+    const handleLike = async (e) => {
+        e.stopPropagation();
+        if (!story?._id) return;
+        try {
+            const { api } = await import('../../store/zustand/useAuthStore');
+            const res = await api.post(`/api/story/like/${story._id}`);
+            setLikesCount(res.data.likes.length);
+            setIsLiked(res.data.likes.some(id => id.toString() === loggeduser?._id?.toString()));
+            onStoryLiked(story._id, res.data.likes);
+        } catch { toast.error('Failed to like story'); }
+    };
 
-    const goPrev = () => {
+    const goPrev = (e) => {
+        e.stopPropagation();
         if (storyIndex > 0) setStoryIndex(s => s - 1);
         else if (groupIndex > 0) { setGroupIndex(g => g - 1); setStoryIndex(0); }
     };
@@ -60,7 +97,8 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     if (!story || !group) return null;
     const isOwn = group.user._id.toString() === loggeduser?._id?.toString();
 
-    const handleDelete = async () => {
+    const handleDelete = async (e) => {
+        e.stopPropagation();
         try {
             const { api } = await import('../../store/zustand/useAuthStore');
             await api.delete(`/api/story/${story._id}`);
@@ -74,43 +112,84 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ position: 'relative', width: '100%', maxWidth: '400px', height: '100vh', maxHeight: '700px' }}>
-                <div style={{ position: 'absolute', top: 10, left: 10, right: 10, display: 'flex', gap: '4px', zIndex: 10 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.38)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', height: '100vh', maxHeight: '850px', backgroundColor: '#000', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+                {/* Progress Bars */}
+                <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', gap: '6px', zIndex: 20 }}>
                     {group.stories.map((_, i) => (
-                        <div key={i} style={{ flex: 1, height: '3px', background: 'rgba(255,255,255,0.4)', borderRadius: '2px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', background: '#fff', width: i < storyIndex ? '100%' : i === storyIndex ? `${progress}%` : '0%', transition: 'width 0.1s linear' }} />
+                        <div key={i} style={{ flex: 1, height: '2.5px', background: 'rgba(255,255,255,0.25)', borderRadius: '10px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', background: '#fff', width: i < storyIndex ? '100%' : i === storyIndex ? `${progress}%` : '0%', transition: i === storyIndex ? 'width 0.05s linear' : 'none' }} />
                         </div>
                     ))}
                 </div>
-                <div style={{ position: 'absolute', top: 24, left: 12, right: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <img src={group.user.profile_picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff' }} />
-                        <div>
-                            <p style={{ margin: 0, color: '#fff', fontSize: '13px', fontWeight: 600 }}>{group.user.fullname}</p>
+
+                {/* Header */}
+                <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img src={group.user.profile_picture || '/default-profile.png'} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.8)' }} />
+                        <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                            <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
                             <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>
                                 {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 {isOwn && ` · ${story.viewers?.length || 0} views`}
                             </p>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        {isOwn && <button onClick={handleDelete} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '18px' }}>🗑️</button>}
-                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '24px' }}>✕</button>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        {isOwn && (
+                            <button onClick={handleDelete} title='Delete' style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(5px)', border: 'none', color: '#fff', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                                <i className="pi pi-trash" style={{ fontSize: '14px' }}></i>
+                            </button>
+                        )}
+                        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(5px)', border: 'none', color: '#fff', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                            <i className="pi pi-times" style={{ fontSize: '16px' }}></i>
+                        </button>
                     </div>
                 </div>
-                {story.media.type === 'video'
-                    ? <video src={story.media.url} autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <img src={story.media.url} alt="story" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                }
+
+                {/* Media */}
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {story.media.type === 'video'
+                        ? <video src={story.media.url} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <img src={story.media.url} alt="story" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    }
+                </div>
+
+                {/* Overlay Text */}
                 {story.text?.content && (
-                    <div style={{ position: 'absolute', top: story.text.position === 'top' ? '20%' : story.text.position === 'bottom' ? '75%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: story.text.color || '#fff', fontSize: '22px', fontWeight: 700, textShadow: '0 2px 8px rgba(0,0,0,0.8)', textAlign: 'center', padding: '8px 16px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', maxWidth: '80%' }}>
+                    <div style={{ position: 'absolute', top: story.text.position === 'top' ? '25%' : story.text.position === 'bottom' ? '70%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: story.text.color || '#fff', fontSize: '24px', fontWeight: 800, textShadow: '0 4px 12px rgba(0,0,0,0.9)', textAlign: 'center', padding: '10px 20px', borderRadius: '12px', maxWidth: '85%', zIndex: 15 }}>
                         {story.text.content}
                     </div>
                 )}
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 5 }}>
+
+                {/* Interaction Overlay */}
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 10 }}
+                    onMouseDown={() => setIsPaused(true)}
+                    onMouseUp={() => setIsPaused(false)}
+                    onMouseLeave={() => setIsPaused(false)}
+                    onTouchStart={() => setIsPaused(true)}
+                    onTouchEnd={() => setIsPaused(false)}
+                >
                     <div style={{ flex: 1, cursor: 'pointer' }} onClick={goPrev} />
                     <div style={{ flex: 1, cursor: 'pointer' }} onClick={goNext} />
+                </div>
+
+                {/* Footer / Interaction Bar */}
+                <div style={{ position: 'absolute', bottom: 30, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: '15px', zIndex: 25 }}>
+                    <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 15px' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Send message...</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
+                            <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
+                        </button>
+                        {/* {likesCount > 0 && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{likesCount}</span>} */}
+                    </div>
+
+                    <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className="pi pi-send" style={{ fontSize: '20px' }}></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -218,9 +297,26 @@ const Stories = () => {
                 return [...prev, { user: story.user, stories: [story], hasUnviewed: true }];
             });
         };
+        const handleStoryUpdate = ({ storyId, likes }) => {
+            setGroups(prev => prev.map(g => ({
+                ...g,
+                stories: g.stories.map(s => s._id === storyId ? { ...s, likes } : s)
+            })));
+        };
         socket.on('newStory', handleNewStory);
-        return () => socket.off('newStory', handleNewStory);
+        socket.on('storyUpdate', handleStoryUpdate);
+        return () => {
+            socket.off('newStory', handleNewStory);
+            socket.off('storyUpdate', handleStoryUpdate);
+        };
     }, [loggeduser?._id]);
+
+    const handleStoryLiked = (storyId, likes) => {
+        setGroups(prev => prev.map(g => ({
+            ...g,
+            stories: g.stories.map(s => s._id === storyId ? { ...s, likes } : s)
+        })));
+    };
 
     const handleStoryDeleted = (userId, storyId) => {
         setGroups(prev =>
@@ -277,7 +373,7 @@ const Stories = () => {
                 })}
             </div>
             {viewerOpen && groups.length > 0 && (
-                <StoryViewer groups={groups} startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)} onClose={() => setViewerOpen(false)} loggeduser={loggeduser} onStoryDeleted={handleStoryDeleted} />
+                <StoryViewer groups={groups} startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)} onClose={() => setViewerOpen(false)} loggeduser={loggeduser} onStoryDeleted={handleStoryDeleted} onStoryLiked={handleStoryLiked} />
             )}
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
         </>

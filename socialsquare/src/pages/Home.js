@@ -81,8 +81,8 @@ const Home = () => {
                         <MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} />
                         <Feed activeMood={activeMood} />
                     </div>
-                    <div className="w-25 h-full overflow-y-auto">
-                        <Conversations/>
+                    <div className="w-25 h-full flex flex-col gap-3 min-w-0">
+                        <Conversations />
                         <OtherUsers />
                     </div>
                 </div>
