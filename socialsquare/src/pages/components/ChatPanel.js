@@ -219,6 +219,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     const markReadMut = useMarkMessagesRead();
 
     // ✅ Fetch messages from backend directly (no TanStack Query confusion)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const fetchMessages = useCallback(async () => {
         if (!user?._id || !participantId) return;
         setLoading(true);
@@ -238,12 +239,12 @@ const ChatPanel = ({ participantId, lastMessage }) => {
                 .filter(m => (m.sender?.toString?.() || m.senderId) !== user?._id && !m.isRead)
                 .map(m => m._id);
 
-            if (fetchedConversationId && unreadIncomingIds.length) {
-                markReadMut.mutate({
-                    unreadMessageIds: unreadIncomingIds,
-                    lastMessage: unreadIncomingIds[unreadIncomingIds.length - 1],
-                    conversationId: fetchedConversationId,
-                });
+                if (fetchedConversationId && unreadIncomingIds.length) {
+                    markReadMut.mutate({
+                        unreadMessageIds: unreadIncomingIds,
+                        lastMessage: unreadIncomingIds[unreadIncomingIds.length - 1],
+                        conversationId: fetchedConversationId,
+                    });
 
                 setMessages(prev => prev.map(m =>
                     unreadIncomingIds.includes(m._id) ? { ...m, isRead: true } : m
@@ -253,7 +254,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-    }, [user?._id, participantId]); // ✅ FIXED: removed markReadMut from dependency array to prevent infinite loops
+    }, [user?._id, participantId]); // Excluded markReadMut: TanStack Query mutations are stable externally, adding it creates infinite loop
 
     useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
