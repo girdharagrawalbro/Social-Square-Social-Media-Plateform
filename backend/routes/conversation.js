@@ -1,11 +1,11 @@
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const Conversation = require('../models/Conversation');
-const Message      = require('../models/Message');
+const Message = require('../models/Message');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const verifyToken = require('../middleware/Verifytoken');
-const redis = require('../lib/redis'); 
+const redis = require('../lib/redis');
 
 const CACHE_TTL = 60; // 60 seconds
 
@@ -13,10 +13,10 @@ async function getCache(key) {
     try { const v = await redis.get(key); return v ? JSON.parse(v) : null; } catch { return null; }
 }
 async function setCache(key, data, ttl = CACHE_TTL) {
-    try { await redis.set(key, JSON.stringify(data), 'EX', ttl); } catch {}
+    try { await redis.set(key, JSON.stringify(data), 'EX', ttl); } catch { }
 }
 async function delCache(...keys) {
-    try { if (keys.length) await redis.del(keys); } catch {}
+    try { if (keys.length) await redis.del(keys); } catch { }
 }
 
 let _io;
@@ -28,11 +28,11 @@ router.post('/create', verifyToken, async (req, res) => {
         const { recipientId } = req.body;
         const senderId = req.userId;
         if (!recipientId) return res.status(400).json({ error: 'Recipient ID required' });
- 
+
         const participantIds = [senderId, recipientId];
         const existing = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
         if (existing) return res.status(200).json(existing);
- 
+
         const [senderUser, recipientUser] = await Promise.all([
             User.findById(senderId).select('fullname profile_picture').lean(),
             User.findById(recipientId).select('fullname profile_picture').lean(),
@@ -42,13 +42,13 @@ router.post('/create', verifyToken, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const conversation = await Conversation.create({ 
+        const conversation = await Conversation.create({
             participants: [
                 { userId: senderId, fullname: senderUser.fullname, profilePicture: senderUser.profile_picture || '' },
                 { userId: recipientId, fullname: recipientUser.fullname, profilePicture: recipientUser.profile_picture || '' },
-            ] 
+            ]
         });
- 
+
         await delCache(`convs:${senderId}`, `convs:${recipientId}`);
         res.status(201).json(conversation);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -59,14 +59,14 @@ router.get('/', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const cacheKey = `convs:${userId}`;
- 
+
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
- 
+
         const conversations = await Conversation.find({ 'participants.userId': userId })
             .sort({ lastMessageAt: -1 })
             .lean();
- 
+
         await setCache(cacheKey, conversations, 30);
         res.status(200).json(conversations);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -78,20 +78,20 @@ router.post('/messages', verifyToken, async (req, res) => {
         const { recipientId } = req.body;
         const senderId = req.userId;
         if (!recipientId) return res.status(400).json({ error: 'Recipient ID required' });
- 
+
         const participantIds = [senderId, recipientId];
         const cacheKey = `msgs:${participantIds.sort().join(':')}`;
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
- 
+
         const conversation = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
         if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
- 
+
         const messages = await Message.find({
             conversationId: conversation._id,
             deletedAt: null,
         }).sort({ createdAt: 1 }).lean();
- 
+
         const result = { messages, conversation };
         await setCache(cacheKey, result, 15);
         res.status(200).json(result);
@@ -104,7 +104,7 @@ router.get('/messages/search', verifyToken, async (req, res) => {
         const { conversationId, q } = req.query;
         const userId = req.userId;
         if (!conversationId || !q) return res.status(400).json({ error: 'conversationId and q required' });
- 
+
         // Authorization check: User must be part of the conversation
         const conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': userId });
         if (!conv) return res.status(403).json({ error: 'Unauthorized access to conversation' });
@@ -114,7 +114,7 @@ router.get('/messages/search', verifyToken, async (req, res) => {
             deletedAt: null,
             $text: { $search: q },
         }).sort({ score: { $meta: 'textScore' } }).limit(20).lean();
- 
+
         res.json(messages);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -126,26 +126,31 @@ router.post('/messages/create', verifyToken, async (req, res) => {
         const sender = req.userId;
         if (!conversationId || !recipientId)
             return res.status(400).json({ error: 'Required fields missing' });
- 
+
         const message = await Message.create({
             conversationId, sender, content: content || '',
             media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
         });
- 
+
         await Conversation.findByIdAndUpdate(conversationId, {
             lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
             lastMessageAt: new Date(),
             lastMessageBy: sender,
         });
- 
+
+        const senderUser = await User.findById(sender).select('profile_picture');
         const notification = await Notification.create({
             recipient: recipientId,
-            sender: { id: sender, fullname: senderName },
+            sender: {
+                id: sender,
+                fullname: senderName,
+                profile_picture: senderUser?.profile_picture || ''
+            },
             message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
         });
- 
+
         await delCache(`convs:${sender}`, `convs:${recipientId}`, `msgs:${[sender, recipientId].sort().join(':')}`);
- 
+
         if (_io) {
             _io.to(recipientId).emit('receiveMessage', {
                 ...message.toObject(), senderId: sender, senderName,
@@ -163,7 +168,7 @@ router.post('/messages/create', verifyToken, async (req, res) => {
                 read: notification.read,
             });
         }
- 
+
         res.status(201).json(message);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -192,7 +197,7 @@ router.patch('/messages/:messageId', verifyToken, async (req, res) => {
                 });
             });
         }
- 
+
         await delCache(`msgs:${message.conversationId}`);
         res.json(message);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -204,11 +209,11 @@ router.delete('/messages/:messageId', verifyToken, async (req, res) => {
         const userId = req.userId;
         const message = await Message.findOne({ _id: req.params.messageId, sender: userId });
         if (!message) return res.status(404).json({ error: 'Message not found or unauthorized' });
- 
+
         message.deletedAt = new Date();
-        message.content   = '';
+        message.content = '';
         await message.save();
- 
+
         if (_io) {
             const conv = await Conversation.findById(message.conversationId).select('participants').lean();
             conv?.participants?.forEach(p => {
@@ -230,14 +235,14 @@ router.post('/messages/:messageId/react', verifyToken, async (req, res) => {
         const userId = req.userId;
         const message = await Message.findById(req.params.messageId);
         if (!message) return res.status(404).json({ error: 'Not found' });
- 
+
         if (message.reactions.get(userId) === emoji) {
             message.reactions.delete(userId);
         } else {
             message.reactions.set(userId, emoji);
         }
         await message.save();
- 
+
         const reactionsObj = Object.fromEntries(message.reactions);
         if (_io) {
             const conv = await Conversation.findById(message.conversationId).select('participants').lean();
@@ -249,7 +254,7 @@ router.post('/messages/:messageId/react', verifyToken, async (req, res) => {
                 });
             });
         }
- 
+
         await delCache(`msgs:${message.conversationId}`);
         res.json({ reactions: reactionsObj });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -261,9 +266,9 @@ router.post('/messages/mark-read', verifyToken, async (req, res) => {
         const { unreadMessageIds, lastMessage } = req.body;
         const userId = req.userId;
         if (!Array.isArray(unreadMessageIds)) return res.status(400).json({ error: 'Invalid' });
- 
+
         await Message.updateMany({ _id: { $in: unreadMessageIds } }, { $set: { isRead: true } });
- 
+
         if (lastMessage) {
             const msg = await Message.findById(lastMessage).lean();
             if (msg) {
@@ -275,7 +280,7 @@ router.post('/messages/mark-read', verifyToken, async (req, res) => {
                 await delCache(`convs:${msg.sender}`);
             }
         }
- 
+
         res.json({ message: 'Marked as read', unreadMessageIds });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

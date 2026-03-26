@@ -183,14 +183,19 @@ io.on('connection', (socket) => {
     socket.on('registerUser', (userId) => {
         socket.join(userId);
         onlineUsers.set(userId, socket.id);
-        // ✅ Don't broadcast full list to everyone — emit only to the registering socket
-        // Broadcasting getOnlineList() to all users = O(n²) memory at scale
-        socket.emit('updateUserList', [{ userId, socketId: socket.id }]);
+        
+        // 1. Send full list of online users ONLY to the joining user
+        const currentOnlineUsers = Array.from(onlineUsers.entries()).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
+        socket.emit('updateUserList', currentOnlineUsers);
+        
+        // 2. Broadcast ONLY the new user to everyone else (O(n) instead of O(n^2))
+        socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
     });
 
     socket.on('logoutUser', (userId) => {
         onlineUsers.delete(userId);
-        // ✅ Only notify the logging-out user — no broadcast needed
+        // Notify everyone that the user is now offline
+        io.emit('userOffline', userId);
     });
 
     socket.on('sendMessage', ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
@@ -234,10 +239,17 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        let disconnectedUserId = null;
         for (const [userId, socketId] of onlineUsers.entries()) {
-            if (socketId === socket.id) { onlineUsers.delete(userId); break; }
+            if (socketId === socket.id) { 
+                disconnectedUserId = userId;
+                onlineUsers.delete(userId); 
+                break; 
+            }
         }
-        // ✅ No broadcast on disconnect — saves O(n) work per disconnect
+        if (disconnectedUserId) {
+            io.emit('userOffline', disconnectedUserId);
+        }
     });
 });
 

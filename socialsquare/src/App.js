@@ -41,7 +41,7 @@ const queryClient = new QueryClient({
 function AppInit() {
     const initAuth = useAuthStore(s => s.initAuth);
     const user = useAuthStore(s => s.user);
-    const setOnlineUsers = useConversationStore(s => s.setOnlineUsers);
+    const { setOnlineUsers, addOnlineUser, removeOnlineUser } = useConversationStore();
 
     useTokenRefresh(Boolean(user?._id));
 
@@ -57,11 +57,16 @@ function AppInit() {
         socket.emit('registerUser', user._id);
         socket.on('connect', () => localStorage.setItem('socketId', socket.id));
         socket.on('updateUserList', setOnlineUsers);
+        socket.on('userOnline', addOnlineUser);
+        socket.on('userOffline', removeOnlineUser);
+
         return () => {
             socket.off('connect');
             socket.off('updateUserList');
+            socket.off('userOnline');
+            socket.off('userOffline');
         };
-    }, [user?._id, setOnlineUsers]);
+    }, [user?._id, setOnlineUsers, addOnlineUser, removeOnlineUser]);
 
     return null;
 }

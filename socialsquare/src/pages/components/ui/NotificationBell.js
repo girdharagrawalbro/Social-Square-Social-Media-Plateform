@@ -57,13 +57,13 @@ export default function NotificationBell({ userId }) {
     return (
         <div ref={ref}>
             {/* Bell button */}
-            <button onClick={() => setOpen(o => !o)} style={{  cursor: 'pointer', padding: '4px' }} className='text-dark'>
+            <button onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer', padding: '4px' }} className='text-dark'>
                 <i className="pi pi-bell text-xl">
                     {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} severity="danger" />}
                 </i>
             </button>
 
-            <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog">
+            <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '500px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog">
                 <div>
 
                     {/* Tabs */}
@@ -110,7 +110,12 @@ export default function NotificationBell({ userId }) {
                                             style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? '#fff' : '#f5f3ff', borderBottom: '1px solid #f9fafb', transition: 'background 0.2s' }}
                                             onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
                                             onMouseLeave={e => e.currentTarget.style.background = n.read ? '#fff' : '#f5f3ff'}>
-                                            <img src={n.sender?.profile_picture || '/default-profile.png'} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                            <img 
+                                                src={n.sender?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`} 
+                                                alt="" 
+                                                style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #f3f4f6' }} 
+                                                onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`; }}
+                                            />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <p style={{ margin: 0, fontSize: '13px' }}>
                                                     <strong>{n.sender?.fullname}</strong> {getNotificationText(n)}

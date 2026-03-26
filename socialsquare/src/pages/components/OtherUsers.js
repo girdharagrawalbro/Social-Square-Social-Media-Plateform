@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import useConversationStore from '../../store/zustand/useConversationStore';
 import { useOtherUsers, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
 import UserProfile from './UserProfile';
 
 const OtherUsers = () => {
     const user = useAuthStore(s => s.user);
-    
+    const isOnline = useConversationStore(s => s.isOnline);
+
     // ✅ TanStack Query - cached, deduplicated requests
     const { data: users = [], isLoading } = useOtherUsers();
     const followMutation = useFollowUser();
@@ -27,36 +29,48 @@ const OtherUsers = () => {
 
     if (isLoading) return (
         <div className="p-3 bordershadow bg-white rounded mt-3">
-            {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl mb-2 animate-pulse" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl mb-2 animate-pulse" />)}
         </div>
     );
 
     return (
         <>
-            <div className="p-3 border bg-white rounded mt-3">
-                <h5 className="font-medium mb-3">Suggested Users</h5>
-                <div className="flex flex-col gap-2 overflow-y-auto  h-[34vh] sm:h-[50vh]">
+            <div className="flex flex-col flex-1 min-h-0 glass-card rounded-2xl overflow-hidden transition-all duration-300">
+                <div className="px-4 py-3  border-b border-gray-100 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md">
+                    <h5 className="font-semibold m-0 text-gray-800 dark:text-gray-100">Suggested Users</h5>
+                </div>
+
+                <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1 custom-scrollbar scroll-smooth">
                     {users.filter(u => u._id !== user?._id && !user?.following?.some(f => f?.toString() === u._id?.toString())).slice(0, 8).map(u => {
+                        const userIsOnline = isOnline(u._id);
                         const isFollowing = false; // We filtered out already following users
-                        const isThisUserLoading = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) || 
-                                                  (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id);
+                        const isThisUserLoading = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
+                            (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id);
                         const followersCount = typeof u.followersCount === 'number' ? u.followersCount : (u.followers?.length || 0);
                         return (
-                            <div key={u._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-lg p-1 transition"
+                            <div key={u._id} className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-all duration-200"
                                 onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}>
-                                <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                                <div className="relative flex-shrink-0">
+                                    <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-10 h-10 rounded-full object-cover shadow-sm ring-2 ring-white dark:ring-gray-800" />
+                                    {userIsOnline && (
+                                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 shadow-sm" />
+                                    )}
+                                </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="m-0 text-sm font-medium truncate">{u.fullname}</p>
-                                    <p className="m-0 text-xs text-gray-400 truncate">{followersCount} followers{u.reason ? ` • ${u.reason}` : ''}</p>
+                                    <p className="m-0 text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{u.fullname}</p>
+                                    <p className="m-0 text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate">{followersCount} followers</p>
                                 </div>
                                 <button onClick={e => handleFollow(e, u._id)}
                                     disabled={isThisUserLoading}
-                                    className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold flex-shrink-0 transition ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'} ${isThisUserLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    {isThisUserLoading ? 'Loading...' : (isFollowing ? 'Following' : 'Follow')}
+                                    className={`text-[11px] px-3.5 py-1.5 rounded-full border-0 cursor-pointer font-bold flex-shrink-0 transition-all shadow-sm ${isFollowing ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-[#808bf5] text-white hover:bg-[#6c79e0] active:scale-95'} ${isThisUserLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    {isThisUserLoading ? '...' : (isFollowing ? 'Following' : 'Follow')}
                                 </button>
                             </div>
                         );
                     })}
+                    {users.length === 0 && (
+                        <p className="text-gray-400 dark:text-gray-500 text-xs text-center py-6 opacity-60">No suggestions right now</p>
+                    )}
                 </div>
             </div>
 

@@ -43,6 +43,16 @@ const useConversationStore = create(
             setOnlineUsers: (users) => set({
                 onlineUserIds: new Set(users.map(u => u.userId))
             }),
+            addOnlineUser: (user) => set(state => {
+                const next = new Set(state.onlineUserIds);
+                next.add(user.userId);
+                return { onlineUserIds: next };
+            }),
+            removeOnlineUser: (userId) => set(state => {
+                const next = new Set(state.onlineUserIds);
+                next.delete(userId);
+                return { onlineUserIds: next };
+            }),
             isOnline: (userId) => get().onlineUserIds.has(userId),
 
             // ─── Typing ───────────────────────────────────────────────────

@@ -16,6 +16,7 @@ const StorySchema = new mongoose.Schema({
         position: { type: String, default: 'center' }, // top, center, bottom
     },
     viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     expiresAt: {
         type: Date,
         default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours

@@ -84,6 +84,31 @@ router.post('/view/:storyId', verifyToken, async (req, res) => {
     }
 });
 
+// ─── LIKE/UNLIKE STORY (PROTECTED) ───────────────────────────────────────────
+router.post('/like/:storyId', verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const story = await Story.findById(req.params.storyId);
+        if (!story) return res.status(404).json({ message: 'Story not found.' });
+
+        const isLiked = story.likes.includes(userId);
+        if (isLiked) {
+            story.likes = story.likes.filter(id => id.toString() !== userId.toString());
+        } else {
+            story.likes.push(userId);
+        }
+        await story.save();
+
+        if (_io) {
+            _io.emit('storyUpdate', { storyId: story._id, likes: story.likes });
+        }
+
+        res.status(200).json(story);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ─── DELETE STORY (PROTECTED) ─────────────────────────────────────────────────
 router.delete('/:storyId', verifyToken, async (req, res) => {
     try {

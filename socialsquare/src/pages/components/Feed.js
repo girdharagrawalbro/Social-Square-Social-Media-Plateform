@@ -81,7 +81,7 @@ const ShareDialog = ({ post, visible, onHide, user }) => {
     const postUrl = `${window.location.origin}/post/${post?._id}`;
     const { data: conversations = [] } = useConversations(visible ? user?._id : null);
     const sendMessageMut = useSendMessage();
-    
+
     const copyLink = () => { navigator.clipboard.writeText(postUrl); toast.success('Link copied!'); };
     const shareToConv = async (conv) => {
         setSending(conv._id);
@@ -143,7 +143,7 @@ const CollabInviteBanner = ({ post, user }) => {
     const [done, setDone] = useState(false);
     const acceptMut = useAcceptCollaboration();
     const declineMut = useDeclineCollaboration();
-    
+
     if (!collab || done) return null;
     const respond = async (accepted) => {
         try {
@@ -216,7 +216,7 @@ const Feed = ({ activeMood = null }) => {
     const handleLikeToggle = (post) => {
         // ✅ Prevent clicking while request is in progress
         if (likeMutation.isPending) return;
-        
+
         const liked = post.likes?.includes(user?._id) || optimisticLikes[post._id]?.has(user?._id);
         likeMutation.mutate({ postId: post._id, isLiked: liked });
     };
@@ -237,13 +237,13 @@ const Feed = ({ activeMood = null }) => {
     const handleSave = post => {
         // Disable button immediately
         setSavingPostIds(prev => new Set([...prev, post._id]));
-        
+
         // Get current saved state for rollback
         const wasSaved = isSaved(post._id);
-        
+
         // Optimistically update UI
         toggleSaved(post._id, !wasSaved);
-        
+
         // Send request
         saveMutation.mutate({ postId: post._id }, {
             onSuccess: (res) => {
