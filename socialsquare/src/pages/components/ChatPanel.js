@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import  { useEffect, useRef, useState, useCallback } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
 import { uploadToCloudinary, uploadVideoToCloudinary } from '../../utils/cloudinary';
 import toast from 'react-hot-toast';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
+import PostDetail from './PostDetail';
+import { Dialog } from 'primereact/dialog';
 
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
@@ -77,8 +79,19 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [showMenu, setShowMenu] = useState(false);
     const [editing, setEditing] = useState(false);
     const [editText, setEditText] = useState(message.content);
+    const [showPostModal, setShowPostModal] = useState(false);
+    const [selectedPostId, setSelectedPostId] = useState(null);
 
     const isDeleted = !!message.deletedAt;
+
+    // Extract post ID from shared post URL
+    const extractPostId = (text) => {
+        const match = text.match(/\/post\/([a-f0-9]+)/);
+        return match ? match[1] : null;
+    };
+
+    const isSharedPost = message.content && message.content.includes('/post/') && message.content.includes('Shared a post');
+    const sharedPostId = isSharedPost ? extractPostId(message.content) : null;
     const reactions = message.reactions ? Object.entries(message.reactions) : [];
     const reactionGroups = reactions.reduce((acc, [uid, emoji]) => {
         if (!acc[emoji]) acc[emoji] = [];
@@ -115,6 +128,15 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                     <div style={{ background: isOwn ? '#808bf5' : '#f3f4f6', color: isOwn ? '#fff' : '#1f2937', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '10px 14px', fontSize: '14px', lineHeight: 1.5 }}>
                         {isDeleted ? <span style={{ fontStyle: 'italic', opacity: 0.6, fontSize: '12px' }}>🚫 Message deleted</span> : (
                             <>
+                                {isSharedPost ? (
+                                    <div onClick={() => { setSelectedPostId(sharedPostId); setShowPostModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '20px' }}>📤</span>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a post</p>
+                                            <p style={{ margin: 0, fontSize: '11px', opacity: 0.7, wordBreak: 'break-all' }}>Tap to view post details →</p>
+                                        </div>
+                                    </div>
+                                ) : null}
                                 {message.media?.url && (
                                     <div style={{ marginBottom: message.content ? '8px' : 0 }}>
                                         {message.media.type === 'image' && <img src={message.media.url} alt="" style={{
@@ -126,7 +148,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                         {message.media.type === 'file' && <a href={message.media.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isOwn ? '#fff' : '#808bf5', textDecoration: 'none', fontSize: '13px' }}>📎 {message.media.name || 'File'}</a>}
                                     </div>
                                 )}
-                                {message.content && <p style={{ margin: 0 }}>{message.content}</p>}
+                                {!isSharedPost && message.content && <p style={{ margin: 0 }}>{message.content}</p>}
                                 {message.edited && <span style={{ fontSize: '10px', opacity: 0.6 }}> (edited)</span>}
                             </>
                         )}
@@ -161,8 +183,14 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                         <button onClick={() => onDelete(message._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#ef4444', padding: '2px 4px' }}>🗑️</button>
                     </div>
                 )}
-            </div>
-        </div>
+
+                {showPostModal && selectedPostId && (
+                    <Dialog header="Post Detail" visible={showPostModal} style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }} onHide={() => setShowPostModal(false)} modal className="p-0">
+                        <PostDetail postId={selectedPostId} isModal={true} onClose={() => setShowPostModal(false)} />
+                    </Dialog>
+                )}
+            </div>  
+        </div>  
     );
 };
 

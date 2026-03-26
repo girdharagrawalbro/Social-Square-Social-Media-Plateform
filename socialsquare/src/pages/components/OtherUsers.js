@@ -35,7 +35,7 @@ const OtherUsers = () => {
         <>
             <div className="p-3 border bg-white rounded mt-3">
                 <h5 className="font-medium mb-3">Suggested Users</h5>
-                <div className="flex flex-col gap-2 overflow-y-auto  h-[34vh]">
+                <div className="flex flex-col gap-2 overflow-y-auto  h-[34vh] sm:h-[50vh]">
                     {users.filter(u => u._id !== user?._id && !user?.following?.some(f => f?.toString() === u._id?.toString())).slice(0, 8).map(u => {
                         const isFollowing = false; // We filtered out already following users
                         const isThisUserLoading = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) || 

@@ -255,7 +255,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 alt="Post"
                                 onDoubleClick={handleImageDoubleClick}
                                 onTouchEnd={handleImageTap}
-                                className="w-full h-full object-contain cursor-pointer"
+                                
+                                className="h-[45vh] object-contain cursor-pointer"
                             />
                             {/* Heart Animation */}
                             {heartVisible && (

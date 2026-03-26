@@ -32,7 +32,7 @@ const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
     if (!images?.length) return null;
     if (images.length === 1) return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ background: '#000' }}>
-            <img src={images[0]} alt="Post" style={{ width: '100%', aspectRatio: '1/1', maxHeight: '620px', objectFit: 'cover', display: 'block' }} />
+            <img src={images[0]} alt="Post" style={{ width: '100%', aspectRatio: '1/1', maxHeight: '620px', objectFit: 'contain', display: 'block' }} />
         </div>
     );
     return (
