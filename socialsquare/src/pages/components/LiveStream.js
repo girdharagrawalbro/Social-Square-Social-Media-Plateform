@@ -25,7 +25,7 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     setLocalStream(stream);
                     if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-                    
+
                     socket.emit('join-live', streamId);
                 } else {
                     socket.emit('join-live', streamId);
@@ -123,16 +123,16 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                     </div>
                     <div className="flex items-center gap-2">
                         {isHost && (
-                            <Button 
-                                label="End Live" 
-                                className="p-button-danger p-button-sm rounded-full px-4 text-xs font-bold border-none shadow-lg transform hover:scale-105 transition-all" 
-                                onClick={handleEndStream} 
+                            <Button
+                                label="End Live"
+                                className="p-button-danger p-button-sm rounded-full px-4 text-xs font-bold border-none shadow-lg transform hover:scale-105 transition-all"
+                                onClick={handleEndStream}
                             />
                         )}
-                        <Button 
-                            icon="pi pi-times" 
-                            className="p-button-rounded p-button-text p-button-plain text-white bg-white/20 backdrop-blur-md hover:bg-white/30 border-none !w-8 !h-8 transition-colors" 
-                            onClick={onClose} 
+                        <Button
+                            icon="pi pi-times"
+                            className="p-button-rounded p-button-text p-button-plain text-white bg-white/20 backdrop-blur-md hover:bg-white/30 border-none !w-8 !h-8 transition-colors"
+                            onClick={onClose}
                         />
                     </div>
                 </div>
@@ -158,9 +158,9 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                     <div className="flex-1 h-12 bg-black/40 backdrop-blur-md rounded-full border border-white/20 flex items-center px-4 shadow-xl">
                         <input type="text" placeholder="Send a message..." className="bg-transparent border-none outline-none text-white w-full text-sm placeholder:text-white/50" />
                     </div>
-                    <Button 
-                        icon="pi pi-send" 
-                        className="p-button-rounded bg-[#808bf5] border-none !h-12 !w-12 shadow-xl hover:scale-110 active:scale-95 transition-transform" 
+                    <Button
+                        icon="pi pi-send"
+                        className="p-button-rounded bg-[#808bf5] border-none !h-12 !w-12 shadow-xl hover:scale-110 active:scale-95 transition-transform"
                     />
                 </div>
             </div>
