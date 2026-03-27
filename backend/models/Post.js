@@ -13,6 +13,7 @@ const PostSchema = new mongoose.Schema(
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     comments: [],
     category: { type: String, required: true },
+    tags: [{ type: String }],
     location: { name: { type: String, default: null }, lat: { type: Number, default: null }, lng: { type: Number, default: null } },
     music: { title: { type: String, default: null }, artist: { type: String, default: null } },
     score: { type: Number, default: 0 },

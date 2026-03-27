@@ -17,6 +17,9 @@ export const postKeys = {
     confessions: ['posts', 'confessions'],
     trending: ['posts', 'trending'],
     categories: ['posts', 'categories'],
+    recommended: (userId) => ['posts', 'recommended', userId],
+    similar: (postId) => ['posts', 'similar', postId],
+    personalizedSearch: (userId, q) => ['posts', 'search', 'personalized', userId, q],
 };
 
 // ─── FEED (infinite scroll) ───────────────────────────────────────────────────
@@ -140,6 +143,45 @@ export function useCategories() {
         queryKey: postKeys.categories,
         queryFn: async () => { const res = await axios.get(`${BASE}/api/post/categories`); return res.data; },
         staleTime: Infinity, // categories never change
+    });
+}
+
+// ─── RECOMMENDATIONS ──────────────────────────────────────────────────────────
+export function useRecommendedPosts(userId) {
+    return useQuery({
+        queryKey: postKeys.recommended(userId),
+        queryFn: async () => {
+            const res = await api.get(`${BASE}/api/recommendation/posts`);
+            return res.data.items;
+        },
+        enabled: !!userId,
+        staleTime: 1000 * 60 * 5,
+    });
+}
+
+export function useSimilarPosts(postId) {
+    return useQuery({
+        queryKey: postKeys.similar(postId),
+        queryFn: async () => {
+            const res = await api.get(`${BASE}/api/recommendation/similar/${postId}`);
+            return res.data.items;
+        },
+        enabled: !!postId,
+        staleTime: 1000 * 60 * 10,
+    });
+}
+
+export function usePersonalizedSearch(userId, q) {
+    return useQuery({
+        queryKey: postKeys.personalizedSearch(userId, q),
+        queryFn: async () => {
+            const res = await api.get(`${BASE}/api/recommendation/search`, {
+                params: { q }
+            });
+            return res.data.items;
+        },
+        enabled: !!userId && !!q,
+        staleTime: 1000 * 60 * 2,
     });
 }
 

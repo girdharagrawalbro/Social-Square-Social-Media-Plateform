@@ -62,6 +62,7 @@ const Chatbot = () => {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [unread, setUnread] = useState(0);
+    const [userMemory, setUserMemory] = useState(null);
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
@@ -86,6 +87,18 @@ const Chatbot = () => {
         }
     }, [open]);
 
+    // Fetch user memory on mount
+    useEffect(() => {
+        if (user?._id) {
+            fetch(`${BASE}/api/recommendation/memory`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } // Assuming token is in localStorage
+            })
+            .then(res => res.json())
+            .then(data => setUserMemory(data))
+            .catch(() => {});
+        }
+    }, [user?._id]);
+
     const sendMessage = useCallback(async (text) => {
         const content = (text || input).trim();
         if (!content || loading) return;
@@ -102,8 +115,15 @@ const Chatbot = () => {
             const history = [...messages, userMsg].filter(m => !m.loading);
             const response = await fetch(`${BASE}/api/chatbot/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: history, userId: user?._id }),
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ 
+                    messages: history, 
+                    userId: user?._id,
+                    user_memory: userMemory 
+                }),
             });
 
             if (!response.ok) throw new Error('Server error');
@@ -155,7 +175,7 @@ const Chatbot = () => {
             ]);
         }
         setLoading(false);
-    }, [input, loading, messages, open, user?._id]);
+    }, [input, loading, messages, open, user?._id, userMemory]);
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }

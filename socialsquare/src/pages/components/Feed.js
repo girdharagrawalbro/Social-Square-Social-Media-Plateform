@@ -10,16 +10,34 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import formatDate from '../../utils/formatDate';
 
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import {
     useFeed, useMoodFeed,
     useLikePost, useSavePost, useDeletePost, useUpdatePost,
+    useRecommendedPosts,
 } from '../../hooks/queries/usePostQueries';
 import { useAcceptCollaboration, useDeclineCollaboration, useReportPost } from '../../hooks/queries/usePostOperationsQueries';
 import { useConversations, useSendMessage } from '../../hooks/queries/useConversationQueries';
 import usePostStore from '../../store/zustand/usePostStore';
 
 const MOOD_EMOJI = { happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' };
+
+const PostActivityTracker = ({ postId, onDwell }) => {
+    const { ref, inView } = useInView({ threshold: 0.7 });
+    const startTime = useRef(null);
+
+    useEffect(() => {
+        if (inView) {
+            startTime.current = Date.now();
+        } else if (startTime.current && !inView) {
+            const dwellTime = Date.now() - startTime.current;
+            if (dwellTime > 1000) onDwell(postId, dwellTime);
+            startTime.current = null;
+        }
+    }, [inView, postId, onDwell]);
+
+    return <div ref={ref} className="absolute inset-0 pointer-events-none" />;
+};
 
 // ─── HEART BURST ──────────────────────────────────────────────────────────────
 const HeartBurst = ({ visible }) => visible ? (
@@ -182,7 +200,9 @@ const Feed = ({ activeMood = null }) => {
     const optimisticLikes = usePostStore(s => s.optimisticLikes);
 
     // ✅ TanStack Query
+    const [feedMode, setFeedMode] = useState('following'); // 'following' or 'foryou'
     const feedQuery = useFeed(user?._id);
+    const recommendedQuery = useRecommendedPosts(user?._id);
     const moodQuery = useMoodFeed(activeMood, user?._id);
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
@@ -210,9 +230,13 @@ const Feed = ({ activeMood = null }) => {
 
     // Merge pages + socket posts
     const serverPosts = feedQuery.data?.pages?.flatMap(p => p.posts) || [];
+    const recommendedPosts = recommendedQuery.data || [];
+    
     const displayPosts = activeMood
         ? (moodQuery.data || [])
-        : [...socketPosts.filter(sp => !serverPosts.some(p => p._id === sp._id)), ...serverPosts];
+        : feedMode === 'foryou'
+            ? recommendedPosts
+            : [...socketPosts.filter(sp => !serverPosts.some(p => p._id === sp._id)), ...serverPosts];
 
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
 
@@ -315,6 +339,14 @@ const Feed = ({ activeMood = null }) => {
 
     const isLoading = activeMood ? moodQuery.isLoading : (feedQuery.isLoading && displayPosts.length === 0);
 
+    const handleDwell = (postId, dwellTime) => {
+        api.post('/api/recommendation/activity', { 
+            postId, 
+            action: 'dwell', 
+            duration: dwellTime 
+        }).catch(() => {});
+    };
+
     return (
         <>
             <style>{`
@@ -328,6 +360,18 @@ const Feed = ({ activeMood = null }) => {
                     <div className="mt-3 flex flex-col gap-3">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
                 ) : (
                     <div className="mt-3 flex flex-col gap-4">
+                        {!activeMood && (
+                            <div className="flex gap-4 border-b pb-2 mb-2 px-4">
+                                <button 
+                                    onClick={() => setFeedMode('following')}
+                                    className={`pb-2 text-sm font-bold border-b-2 transition-all bg-transparent border-0 cursor-pointer ${feedMode === 'following' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500'}`}
+                                > Following </button>
+                                <button 
+                                    onClick={() => setFeedMode('foryou')}
+                                    className={`pb-2 text-sm font-bold border-b-2 transition-all bg-transparent border-0 cursor-pointer ${feedMode === 'foryou' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500'}`}
+                                > ✨ For You </button>
+                            </div>
+                        )}
                         {displayPosts.length > 0 ? displayPosts.map((post, index) => {
                             const images = getImages(post);
                             const isOwn = !post.isAnonymous && (post.user._id === user?._id || post.user._id?.toString() === user?._id);
@@ -339,6 +383,7 @@ const Feed = ({ activeMood = null }) => {
 
                             return (
                                 <article key={post._id || index} className="relative overflow-hidden w-full rounded-2xl shadow-sm flex flex-col border bg-white">
+                                    <PostActivityTracker postId={post._id} onDwell={handleDwell} />
                                     <CollabInviteBanner post={post} user={user} />
 
                                     {/* Header */}

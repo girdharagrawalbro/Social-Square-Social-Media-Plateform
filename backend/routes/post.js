@@ -6,6 +6,8 @@ const Category = require("../models/Category");
 const { publish } = require('../lib/pubsub');
 const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
+const { publishEvent } = require("../services/recommendationPublisher");
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 
@@ -72,7 +74,7 @@ router.post("/create", verifyToken, async (req, res) => {
         if (!isAnonymous && !unlocksAt && _io && userDetails.followers?.length > 0) {
             userDetails.followers.forEach(async (followerId) => {
                 _io.to(followerId.toString()).emit('newFeedPost', newPost);
-                
+
                 // Also create a notification
                 await notificationUtils.createNotification({
                     recipientId: followerId,
@@ -92,6 +94,21 @@ router.post("/create", verifyToken, async (req, res) => {
             publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category })
                 .catch(err => console.warn('[NATS]:', err.message));
         }
+
+        // ✅ Publish recommendation event
+        await publishEvent("post.created", {
+            postId: newPost._id.toString(),
+            userId: userDetails._id.toString(),
+            caption: newPost.caption || "",
+            category: newPost.category || "",
+            tags: newPost.tags || [],
+            mood: newPost.mood || "",
+            likesCount: 0,
+            savesCount: 0,
+            viewsCount: 0,
+            sharesCount: 0,
+            createdAtTs: Math.floor(new Date(newPost.createdAt).getTime() / 1000),
+        });
 
         res.status(201).json(newPost);
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -239,6 +256,20 @@ router.post("/save", verifyToken, async (req, res) => {
             return res.status(200).json({ saved: false });
         } else {
             await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
+            
+            // ✅ Publish recommendation event
+            const post = await Post.findById(postId).select('category tags');
+            if (post) {
+                await publishEvent("user.activity.save", {
+                    userId,
+                    postId: postId,
+                    action: "save",
+                    category: post.category || "",
+                    tags: post.tags || [],
+                    timestamp: Date.now() / 1000,
+                });
+            }
+
             return res.status(200).json({ saved: true });
         }
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -295,6 +326,16 @@ router.post("/like", verifyToken, async (req, res) => {
                     url: `/post/${post._id}`,
                 });
             }
+
+            // ✅ Publish recommendation event
+            await publishEvent("user.activity.like", {
+                userId,
+                postId: post._id.toString(),
+                action: "like",
+                category: post.category || "",
+                tags: post.tags || [],
+                timestamp: Date.now() / 1000,
+            });
 
             res.status(200).json({ message: "Success" });
         } else { res.status(400).json({ message: "Already liked." }); }
@@ -374,7 +415,7 @@ router.post('/comments/add', async (req, res) => {
 
         // Create notification for post owner or parent comment owner
         const targetRecipientId = parentId ? (await Comment.findById(parentId).select('user')).user?.id : (await Post.findById(postId).select('user')).user?._id;
-        
+
         if (targetRecipientId) {
             await notificationUtils.createNotification({
                 recipientId: targetRecipientId,
@@ -452,6 +493,28 @@ router.get("/detail/:postId", async (req, res) => {
     try {
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
+
+        // ✅ Optional tracking: Extract userId if token exists
+        let userId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                userId = decoded.userId;
+            } catch (err) { /* ignore invalid token for detail view */ }
+        }
+
+        // ✅ Publish recommendation event
+        await publishEvent("user.activity.view", {
+            userId,
+            postId: post._id.toString(),
+            action: "view",
+            category: post.category || "",
+            tags: post.tags || [],
+            timestamp: Date.now() / 1000,
+        });
+
         res.status(200).json(post);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });

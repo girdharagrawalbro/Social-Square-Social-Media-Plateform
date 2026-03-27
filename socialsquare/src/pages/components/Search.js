@@ -2,7 +2,8 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
-import { useCategories } from '../../hooks/queries/usePostQueries';
+import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
+import useAuthStore from "../../store/zustand/useAuthStore";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -19,10 +20,14 @@ const Search = () => {
         catch { return []; }
     });
     const containerRef = useRef(null);
+    const user = useAuthStore(s => s.user);
     const { data: catData = [] } = useCategories();
     const categories = catData;
     const [searchResults, setSearchResults] = useState({ users: [], posts: [] });
     const [searchLoading, setSearchLoading] = useState(false);
+    
+    // AI Recommendations
+    const { data: aiResults = [] } = usePersonalizedSearch(user?._id, searchTerm);
     const loading = { search: searchLoading };
     const doSearch = async (term) => {
         setSearchLoading(true);
@@ -33,8 +38,6 @@ const Search = () => {
         } catch { }
         setSearchLoading(false);
     };
-
-    // categories are loaded automatically by useCategories() above
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -97,7 +100,7 @@ const Search = () => {
     };
 
     const showDropdown = isFocused;
-    const hasResults = searchResults?.users?.length > 0 || searchResults?.posts?.length > 0;
+    const hasResults = searchResults?.users?.length > 0 || searchResults?.posts?.length > 0 || aiResults?.length > 0;
 
     return (
         <>
@@ -188,13 +191,36 @@ const Search = () => {
                                             </div>
                                         )}
 
+                                        {/* AI Recommended results */}
+                                        {aiResults.length > 0 && (
+                                            <div className="mt-3">
+                                                <p className="text-xs font-bold text-indigo-500 mb-3 m-0 uppercase tracking-wider">✨ AI Recommended</p>
+                                                <div className="flex flex-col gap-1">
+                                                    {aiResults.slice(0, 3).map(post => (
+                                                        <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl bg-indigo-50/50">
+                                                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                                                                {(post.image_urls?.[0] || post.image_url)
+                                                                    ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
+                                                                    : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '10px' }}></i></div>
+                                                                }
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="m-0 text-[10px] text-indigo-500 font-bold uppercase">#{post.category}</p>
+                                                                <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Post results */}
                                         {searchResults.posts?.length > 0 && (
-                                            <div>
+                                            <div className="mt-3">
                                                 <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">Posts</p>
                                                 <div className="flex flex-col gap-1">
                                                     {searchResults.posts.slice(0, 4).map(post => (
-                                                        <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl">
+                                                        <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors">
                                                             <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                                                                 {(post.image_urls?.[0] || post.image_url)
                                                                     ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
