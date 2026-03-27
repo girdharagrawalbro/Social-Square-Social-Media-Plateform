@@ -8,14 +8,14 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const connectToMongo = require('./db.js');
-const express        = require('express');
-const cors           = require('cors');
-const http           = require('http');
-const socketIo       = require('socket.io');
-const helmet         = require('helmet');
-const compression    = require('compression');
-const rateLimit      = require('express-rate-limit');
-const cookieParser   = require('cookie-parser');
+const express = require('express');
+const cors = require('cors');
+const http = require('http');
+const socketIo = require('socket.io');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 
 // ✅ NO cluster in single-dyno/512MB deployments
 // Cluster multiplies RAM usage by CPU count — 4 cores = 4x RAM
@@ -24,9 +24,9 @@ const cookieParser   = require('cookie-parser');
 
 connectToMongo();
 
-const app    = express();
+const app = express();
 const server = http.createServer(app);
-const port   = process.env.PORT || 5000;
+const port = process.env.PORT || 5000;
 
 app.set('trust proxy', 1);
 
@@ -63,9 +63,9 @@ const reportLimiter = rateLimit({
     message: { error: 'Too many reports.' },
 });
 
-app.use('/api/auth',         authWriteLimiter);
+app.use('/api/auth', authWriteLimiter);
 app.use('/api/admin/report', reportLimiter);
-app.use('/api',              apiLimiter);
+app.use('/api', apiLimiter);
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -86,10 +86,10 @@ if (process.env.NODE_ENV !== 'production') {
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const io = socketIo(server, {
     cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
-    pingTimeout:       60000,
-    pingInterval:      25000,
-    transports:        ['websocket', 'polling'],
-    allowEIO3:         true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
     maxHttpBufferSize: 1e6,
 
     // ✅ Reduce socket.io memory: don't buffer events for disconnected clients
@@ -103,7 +103,7 @@ async function initRedis() {
         return;
     }
     try {
-        const { createClient }  = require('redis');
+        const { createClient } = require('redis');
         const { createAdapter } = require('@socket.io/redis-adapter');
         const pubClient = createClient({ url: process.env.REDIS_URL });
         pubClient.on('error', err => console.error('[Redis Pub]', err.message));
@@ -136,7 +136,7 @@ async function initPubSubLayer() {
 // By using a getter pattern we defer loading until first request
 // Saves ~20-40MB at startup depending on module sizes
 
-const postRouter  = require('./routes/post.js');
+const postRouter = require('./routes/post.js');
 const storyRouter = require('./routes/story.js');
 
 const notificationUtils = require('./lib/notification.js');
@@ -149,26 +149,27 @@ app.get('/health', (req, res) => {
     const mem = process.memoryUsage();
     res.json({
         status: 'ok',
-        pid:    process.pid,
+        pid: process.pid,
         uptime: Math.floor(process.uptime()),
         memory: {
-            heapUsed:  `${Math.round(mem.heapUsed  / 1024 / 1024)}MB`,
+            heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
             heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
-            rss:       `${Math.round(mem.rss       / 1024 / 1024)}MB`, // actual process RAM
-            external:  `${Math.round(mem.external  / 1024 / 1024)}MB`,
+            rss: `${Math.round(mem.rss / 1024 / 1024)}MB`, // actual process RAM
+            external: `${Math.round(mem.external / 1024 / 1024)}MB`,
         }
     });
 });
 
 // ✅ Lazy route loading — require() only fires when first request hits that path
-app.use('/api/auth',         (req, res, next) => require('./routes/auth.js')(req, res, next));
-app.use('/api/post',         postRouter);
+app.use('/api/auth', (req, res, next) => require('./routes/auth.js')(req, res, next));
+app.use('/api/post', postRouter);
 app.use('/api/conversation', (req, res, next) => require('./routes/conversation.js')(req, res, next));
-app.use('/api/story',        storyRouter);
-app.use('/api/live',         require('./routes/live'));
-app.use('/api/ai',           (req, res, next) => require('./routes/ai.js')(req, res, next));
-app.use('/api/admin',        (req, res, next) => require('./routes/admin.js')(req, res, next));
-app.use('/api/chatbot',      (req, res, next) => require('./routes/chatbot.js')(req, res, next));
+app.use('/api/story', storyRouter);
+app.use('/api/live', require('./routes/live'));
+app.use('/api/ai', (req, res, next) => require('./routes/ai.js')(req, res, next));
+app.use('/api/admin', (req, res, next) => require('./routes/admin.js')(req, res, next));
+app.use('/api/chatbot', (req, res, next) => require('./routes/chatbot.js')(req, res, next));
+app.use("/api/recommendation", require("./routes/recommendation"));
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -188,11 +189,11 @@ io.on('connection', (socket) => {
         socket.userId = userId;
         socket.join(userId);
         onlineUsers.set(userId, socket.id);
-        
+
         // 1. Send full list of online users ONLY to the joining user
         const currentOnlineUsers = Array.from(onlineUsers.entries()).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
         socket.emit('updateUserList', currentOnlineUsers);
-        
+
         // 2. Broadcast ONLY the new user to everyone else (O(n) instead of O(n^2))
         socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
     });
@@ -211,7 +212,7 @@ io.on('connection', (socket) => {
                 content, recipientId, senderName, conversationId, _id, createdAt, isRead,
             });
         }
-        
+
         // Save as notification as well
         await notificationUtils.createNotification({
             recipientId,
@@ -254,10 +255,10 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         let disconnectedUserId = null;
         for (const [userId, socketId] of onlineUsers.entries()) {
-            if (socketId === socket.id) { 
+            if (socketId === socket.id) {
                 disconnectedUserId = userId;
-                onlineUsers.delete(userId); 
-                break; 
+                onlineUsers.delete(userId);
+                break;
             }
         }
         if (disconnectedUserId) {
@@ -298,14 +299,14 @@ if (global.gc) {
 const gracefulShutdown = (signal) => {
     console.log(`[${signal}] Shutting down...`);
     server.close(async () => {
-        try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch {}
+        try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch { }
         process.exit(0);
     });
     setTimeout(() => process.exit(1), 30000);
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // ─── START ────────────────────────────────────────────────────────────────────
 async function bootstrap() {

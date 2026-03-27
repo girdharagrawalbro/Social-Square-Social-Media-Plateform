@@ -3,6 +3,7 @@ const router = express.Router();
 const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
+const { getUserAIProfile } = require('../services/recommendationService');
 
 const client = new OpenAI({
     baseURL: 'https://integrate.api.nvidia.com/v1',
@@ -51,7 +52,7 @@ const getRelevantContext = (query) => {
 // ─── CHAT — streams tokens back to frontend ───────────────────────────────────
 router.post('/chat', async (req, res) => {
     try {
-        const { messages } = req.body;
+        const { messages, userId } = req.body;
 
         if (!messages || !Array.isArray(messages)) {
             return res.status(400).json({ error: 'messages array required' });
@@ -61,8 +62,20 @@ router.post('/chat', async (req, res) => {
         const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || "";
         const context = getRelevantContext(lastUserMessage);
 
-        // 2. Inject context into systemic prompt
-        const dynamicPrompt = SYSTEM_PROMPT.replace('{{CONTEXT}}', context || "No specific flow context found. Answer using your general knowledge of Social Square.");
+        // 2. Fetch User Profile from Recommender (Backend-to-Backend)
+        let memoryContext = "";
+        if (userId) {
+            try {
+                const profile = await getUserAIProfile(userId);
+                memoryContext = `\nUSER INTERESTS & PROFILE:\n- Top Categories: ${profile.top_categories?.join(', ') || 'N/A'}\n- Liked Tags: ${profile.liked_tags?.join(', ') || 'N/A'}\n- Recent Searches: ${profile.recent_searches?.join(', ') || 'N/A'}\n`;
+            } catch (err) {
+                console.error('[Chatbot] Failed to fetch user profile:', err.message);
+            }
+        }
+
+        // 3. Inject context into systemic prompt
+        const combinedContext = (context ? `FLOW CONTEXT:\n${context}\n` : "") + memoryContext;
+        const dynamicPrompt = SYSTEM_PROMPT.replace('{{CONTEXT}}', combinedContext || "No specific flow or user profile context found. Answer using your general knowledge of Social Square.");
 
         // Clean history for the model
         const history = messages.slice(-10).map(m => ({

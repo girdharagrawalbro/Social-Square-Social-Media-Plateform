@@ -14,6 +14,7 @@ const { getSuggestedUsers } = require('../services/suggestionService');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
 const authRateLimiter = require('../middleware/authRateLimiter');
+const { publishEvent } = require("../services/recommendationPublisher");
 
 const router = express.Router();
 
@@ -616,6 +617,26 @@ router.post("/search", async (req, res) => {
             User.find({ fullname: { $regex: escapedQuery, $options: "i" } }).select("-password"),
             Post.find({ category: { $regex: escapedQuery, $options: "i" } }),
         ]);
+
+        // ✅ Optional tracking: Extract userId if token exists
+        let userId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                userId = decoded.userId;
+            } catch (err) { /* ignore invalid token for search tracking */ }
+        }
+
+        // ✅ Publish recommendation event
+        await publishEvent("user.activity.search", {
+            userId,
+            query: query,
+            action: "search",
+            timestamp: Date.now() / 1000,
+        });
+
         res.status(200).json({ users: userResults, posts: postResults });
     } catch (error) {
         logger.error(`Search error for query "${query}":`, error);

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { api } from '../../store/zustand/useAuthStore';
-import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail } from '../../hooks/queries/usePostQueries';
+import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts } from '../../hooks/queries/usePostQueries';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -378,6 +378,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 <div className="w-full h-full md:w-96 flex flex-col bg-gray-50 border-l">
                     <div className="flex-1 overflow-y-auto">
                         <Comment postId={post._id} />
+                        <SimilarPosts postId={post._id} onPostClick={(id) => navigate(`/post/${id}`)} />
                     </div>
                 </div>
             </div>
@@ -389,6 +390,30 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 }
             `}</style>
         </>
+    );
+};
+
+const SimilarPosts = ({ postId, onPostClick }) => {
+    const { data: items = [], isLoading } = useSimilarPosts(postId);
+
+    if (isLoading) return <div className="p-4 text-center text-xs text-gray-400">Loading similar posts...</div>;
+    if (items.length === 0) return null;
+
+    return (
+        <div className="p-4 border-t bg-white">
+            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Similar Posts</h4>
+            <div className="grid grid-cols-3 gap-2">
+                {items.slice(0, 6).map(item => (
+                    <div key={item._id} onClick={() => onPostClick(item._id)} className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
+                        {(item.image_urls?.[0] || item.image_url) ? (
+                            <img src={item.image_urls?.[0] || item.image_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">Post</div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 };
 
