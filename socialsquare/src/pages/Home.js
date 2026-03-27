@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainSkeleton from './components/MainSkeleton';
 import OtherUsers from './components/OtherUsers';
-import Newpost from './components/Newpost';
 import Feed from './components/Feed';
 import Profile from './components/Profile';
 import Conversations from './components/Conversations';
