@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import useAuthStore from '../../../store/zustand/useAuthStore';
-import { useComments, useCreateComment } from '../../../hooks/queries/usePostQueries';
-import axios from 'axios';
+import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
+import { useComments, useCreateComment, useLikeComment } from '../../../hooks/queries/usePostQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
@@ -15,12 +14,20 @@ const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleDateString();
 };
 
+const HeartBurst = ({ visible }) => visible ? (
+    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10, pointerEvents: 'none', animation: 'heartBurst 0.6s ease forwards' }}>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+    </div>
+) : null;
+
 const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
     const [showReply, setShowReply] = useState(false);
     const [replyText, setReplyText] = useState('');
     const [showReplies, setShowReplies] = useState(false);
     const [replies, setReplies] = useState(comment.repliesList || []);
     const [liking, setLiking] = useState(false);
+    const [heartVisible, setHeartVisible] = useState(false);
+    const likeMutation = useLikeComment();
 
     // ✅ Fix: compare as strings to handle ObjectId vs string mismatch
     const loggedUserId = loggeduser._id?.toString();
@@ -29,18 +36,15 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
     const [likeCount, setLikeCount] = useState(comment.likes?.length || 0);
 
     const handleLike = async () => {
-        // ✅ Prevent duplicate requests while liking
         if (liking) return;
         
-        // ✅ Optimistic update first
         const wasLiked = liked;
         setLiked(!wasLiked);
         setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
         setLiking(true);
         try {
-            await axios.post(`${BASE}/api/post/comments/${comment._id}/like`, { userId: loggedUserId });
+            await likeMutation.mutateAsync({ commentId: comment._id, postId });
         } catch {
-            // Rollback on error
             setLiked(wasLiked);
             setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
         } finally {
@@ -48,11 +52,17 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
         }
     };
 
+    const handleDoubleClick = () => {
+        if (!liked) handleLike();
+        setHeartVisible(true);
+        setTimeout(() => setHeartVisible(false), 600);
+    };
+
     const handleReplySubmit = async (e) => {
         e.preventDefault();
         if (!replyText.trim()) return;
         try {
-            const res = await axios.post(`${BASE}/api/post/comments/add`, {
+            const res = await api.post(`${BASE}/api/post/comments/add`, {
                 content: replyText, postId,
                 user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture },
                 parentId: comment._id,
@@ -71,9 +81,13 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
             <div className="flex gap-2 items-start">
                 <img src={comment.user.profile_picture || '/default-profile.png'} alt="" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
                 <div className="flex-1">
-                    <div className="bg-gray-50 rounded-2xl px-3 py-2">
+                    <div 
+                        onDoubleClick={handleDoubleClick}
+                        className="bg-gray-50 rounded-2xl px-3 py-2 relative cursor-pointer select-none"
+                    >
                         <p className="m-0 text-xs font-semibold">{comment.user.fullname}</p>
                         <p className="m-0 text-sm">{comment.content}</p>
+                        <HeartBurst visible={heartVisible} />
                     </div>
                     <div className="flex items-center gap-3 mt-1 px-1">
                         <span className="text-xs text-gray-400">{formatDateTime(comment.createdAt)}</span>
@@ -167,7 +181,7 @@ const Comment = ({ postId, setVisible }) => {
             acceptClassName: 'p-button-danger',
             accept: async () => {
                 try {
-                    await axios.delete(`${BASE}/api/post/comments/${commentId}`, { data: { userId: loggeduser._id } });
+                    await api.delete(`${BASE}/api/post/comments/${commentId}`, { data: { userId: loggeduser._id } });
                     if (parentId) {
                         setLocalComments(prev => (prev ?? comments).map(c =>
                             c._id === parentId ? { ...c, repliesList: c.repliesList.filter(r => r._id !== commentId) } : c
@@ -182,6 +196,13 @@ const Comment = ({ postId, setVisible }) => {
 
     return (
         <div className="comment flex flex-col h-full bg-white">
+            <style>{`
+                @keyframes heartBurst {
+                    0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; }
+                    50% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+                    100% { transform: translate(-50%, -120%) scale(1.5); opacity: 0; }
+                }
+            `}</style>
             {/* Scrollable Comments Section */}
             <div className="flex-1 overflow-y-auto border-b p-3 flex flex-col gap-2 max-h-[600px]">
                 {loading.comments || !displayComments ? (

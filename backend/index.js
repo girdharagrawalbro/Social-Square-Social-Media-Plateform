@@ -185,6 +185,7 @@ const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
     socket.on('registerUser', (userId) => {
+        socket.userId = userId;
         socket.join(userId);
         onlineUsers.set(userId, socket.id);
         
