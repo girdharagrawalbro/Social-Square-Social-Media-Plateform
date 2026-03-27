@@ -114,14 +114,27 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
         <div className="fixed inset-0 bg-black z-[2000] flex flex-col items-center justify-center p-4">
             <div className="relative w-full max-w-lg aspect-[9/16] bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
                 {/* Header */}
-                <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
+                <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-50">
                     <div className="flex items-center gap-2">
-                        <div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold animate-pulse">LIVE</div>
-                        <div className="bg-black/40 backdrop-blur-md text-white px-2 py-1 rounded text-xs">
-                            <i className="pi pi-eye mr-1"></i> {viewersCount}
+                        <div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold animate-pulse shadow-lg">LIVE</div>
+                        <div className="bg-black/40 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-semibold border border-white/10 flex items-center shadow-lg">
+                            <i className="pi pi-eye mr-2 text-[10px]"></i> {viewersCount}
                         </div>
                     </div>
-                    <Button icon="pi pi-times" className="p-button-rounded p-button-text p-button-plain text-white bg-white/10" onClick={onClose} />
+                    <div className="flex items-center gap-2">
+                        {isHost && (
+                            <Button 
+                                label="End Live" 
+                                className="p-button-danger p-button-sm rounded-full px-4 text-xs font-bold border-none shadow-lg transform hover:scale-105 transition-all" 
+                                onClick={handleEndStream} 
+                            />
+                        )}
+                        <Button 
+                            icon="pi pi-times" 
+                            className="p-button-rounded p-button-text p-button-plain text-white bg-white/20 backdrop-blur-md hover:bg-white/30 border-none !w-8 !h-8 transition-colors" 
+                            onClick={onClose} 
+                        />
+                    </div>
                 </div>
 
                 {/* Main Video */}
@@ -141,14 +154,14 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="absolute bottom-6 left-6 right-6 flex items-center gap-4 z-10">
-                    <div className="flex-1 h-12 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center px-4">
-                        <input type="text" placeholder="Say something..." className="bg-transparent border-none outline-none text-white w-full text-sm" />
+                <div className="absolute bottom-6 left-6 right-6 flex items-center gap-3 z-50">
+                    <div className="flex-1 h-12 bg-black/40 backdrop-blur-md rounded-full border border-white/20 flex items-center px-4 shadow-xl">
+                        <input type="text" placeholder="Send a message..." className="bg-transparent border-none outline-none text-white w-full text-sm placeholder:text-white/50" />
                     </div>
-                    <Button icon="pi pi-send" className="p-button-rounded bg-[#808bf5] border-none !h-12 !w-12 shadow-lg" />
-                    {isHost && (
-                        <Button label="End" className="p-button-danger rounded-full px-6" onClick={handleEndStream} />
-                    )}
+                    <Button 
+                        icon="pi pi-send" 
+                        className="p-button-rounded bg-[#808bf5] border-none !h-12 !w-12 shadow-xl hover:scale-110 active:scale-95 transition-transform" 
+                    />
                 </div>
             </div>
         </div>

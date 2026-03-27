@@ -60,10 +60,11 @@ export default function NotificationBell({ userId }) {
     return (
         <div ref={ref}>
             {/* Bell button */}
-            <button onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer', padding: '4px' }} className='text-dark'>
-                <i className="pi pi-bell text-xl">
+            <button onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer', padding: '12px' }} className='text-dark bg-transparent border-none'>
+                <span className="p-overlay-badge">
+                    <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} severity="danger" />}
-                </i>
+                </span>
             </button>
 
             <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '500px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog">

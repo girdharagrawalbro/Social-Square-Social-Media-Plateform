@@ -207,6 +207,17 @@ export function useSavePost() {
     });
 }
 
+export function useLikeComment() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ commentId }) =>
+            api.post(`${BASE}/api/post/comments/${commentId}/like`),
+        onSuccess: (_, { postId }) => {
+            qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
+        },
+    });
+}
+
 export function useCreateComment() {
     const qc = useQueryClient();
     return useMutation({

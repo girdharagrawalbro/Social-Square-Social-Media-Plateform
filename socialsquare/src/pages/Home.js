@@ -47,7 +47,7 @@ const Home = () => {
 
     const renderMobileView = () => {
         switch (activeView) {
-            case 'feed': return <><Stories /><Newpost /><MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} /><Feed activeMood={activeMood} /></>;
+            case 'feed': return <><Stories /><MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} /><Feed activeMood={activeMood} /></>;
             case 'explore': return <Explore />;
             case 'profile': return <Profile />;
             case 'otherUsers': return <OtherUsers />;
