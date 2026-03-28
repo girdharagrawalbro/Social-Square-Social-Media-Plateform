@@ -7,7 +7,7 @@ const Post = require("./models/Post");
 
 dotenv.config();
 
-const NATS_URL = process.env.NATS_URL || "nats://localhost:4222";
+const NATS_URL = process.env.NATS_URL || "nats://nats.railway.internal:4222";
 const MONGO_URI = process.env.MONGO_URI;
 
 let extractor = null;
