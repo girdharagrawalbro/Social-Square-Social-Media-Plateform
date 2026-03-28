@@ -7,7 +7,7 @@ async function initNatsPublisher() {
     if (nc) return nc;
 
     nc = await connect({
-        servers: process.env.NATS_URL || "nats://localhost:4222",
+        servers: process.env.NATS_URL || "nats://nats.railway.internal:4222",
     });
 
     console.log("✅ NATS publisher connected");
