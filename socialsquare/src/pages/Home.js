@@ -31,6 +31,8 @@ const Home = () => {
     const initialized = useAuthStore(s => s.initialized);
     const postDetailId = usePostStore(s => s.postDetailId);
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
+    const resendVerification = useAuthStore(s => s.resendVerification);
+    const [isResending, setIsResending] = useState(false);
 
     // ✅ Redirect to landing only after auth check is complete and no user found
     useEffect(() => {
@@ -63,11 +65,6 @@ const Home = () => {
         { key: 'messages', icon: 'pi-envelope' },
         { key: 'profile', icon: 'pi-user' },
     ];
-
-    
-
-    const resendVerification = useAuthStore(s => s.resendVerification);
-    const [isResending, setIsResending] = useState(false);
 
     const handleResend = async () => {
         setIsResending(true);
