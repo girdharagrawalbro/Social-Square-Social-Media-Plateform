@@ -6,19 +6,19 @@ const {
     getRecommendedPosts,
     getRecommendedUsers,
     getSimilarPosts,
-    getPersonalizedTrending,
     getPersonalizedSearch,
     getUserMemory
 } = require("../services/recommendationService");
+const Post = require("../models/Post");
 
 router.get("/posts", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.userId;
         const { UserInterest, PostVector } = require("../models/Recommendation");
-        
+
         // 1. Get User Interest Profile
         const interest = await UserInterest.findOne({ userId });
-        
+
         // 2. Fetch candidate posts (exclude own, skip 0-vector if possible)
         // For simplicity, we'll take the last 200 posts
         const candidates = await Post.find({ "user._id": { $ne: userId } })
@@ -35,11 +35,11 @@ router.get("/posts", verifyToken, async (req, res) => {
 
         // 4. Rank using formula: score = 0.5*sim + 0.3*recency + 0.2*popularity
         const userVec = interest.interestVector;
-        
+
         const ranked = candidates.map(post => {
             const postVec = vecMap.get(post._id.toString());
             let similarity = 0;
-            
+
             if (postVec) {
                 // Cosine Similarity
                 const dotProduct = userVec.reduce((sum, val, i) => sum + val * postVec[i], 0);
@@ -70,7 +70,7 @@ router.get("/posts", verifyToken, async (req, res) => {
 
 router.get("/users", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.userId;
         const items = await getRecommendedUsers(userId);
         res.json({ items });
     } catch (err) {
@@ -91,7 +91,7 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
 
 router.get("/trending", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.userId;
         const items = await getPersonalizedTrending(userId);
         res.json({ items });
     } catch (err) {
@@ -102,7 +102,7 @@ router.get("/trending", verifyToken, async (req, res) => {
 
 router.get("/search", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.userId;
         const q = req.query.q || "";
         const items = await getPersonalizedSearch(userId, q);
         res.json({ items });
@@ -114,10 +114,9 @@ router.get("/search", verifyToken, async (req, res) => {
 
 router.post("/activity", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.userId;
         const { postId, action, duration } = req.body;
         const { publishEvent } = require("../services/recommendationPublisher");
-        const Post = require("../models/Post");
 
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: "Post not found" });
@@ -141,7 +140,7 @@ router.post("/activity", verifyToken, async (req, res) => {
 
 router.get("/memory", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.userId;
         const { UserInterest } = require("../models/Recommendation");
         const interest = await UserInterest.findOne({ userId });
 

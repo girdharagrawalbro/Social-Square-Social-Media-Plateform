@@ -29,9 +29,9 @@ const usePostStore = create(
             closeComment: () => set({ openCommentPostId: null }),
 
             // ─── Optimistic like toggle ────────────────────────────────────
-            optimisticLike: (postId, userId) => {
+            optimisticLike: (postId, userId, initialLikes = []) => {
                 set(state => {
-                    const current = new Set(state.optimisticLikes[postId] || []);
+                    const current = new Set(state.optimisticLikes[postId] || initialLikes);
                     if (current.has(userId)) current.delete(userId);
                     else current.add(userId);
                     return { optimisticLikes: { ...state.optimisticLikes, [postId]: current } };

@@ -225,8 +225,8 @@ export function useLikePost() {
     return useMutation({
         mutationFn: ({ postId, isLiked }) =>
             api.post(`${BASE}/api/post/${isLiked ? 'unlike' : 'like'}`, { postId }),
-        onMutate: ({ postId, isLiked }) => {
-            optimisticLike(postId, user._id);
+        onMutate: ({ postId, isLiked, likes = [] }) => {
+            optimisticLike(postId, user._id, likes);
             return { postId, wasLiked: isLiked };
         },
         onError: (_, __, ctx) => {
