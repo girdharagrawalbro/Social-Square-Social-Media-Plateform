@@ -17,7 +17,7 @@ const VerifyEmail = () => {
                 // Determine API URL based on environment
                 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
                 const response = await axios.get(`${API_BASE_URL}/auth/verify-email/${token}`);
-                
+
                 setStatus('success');
                 setMessage(response.data.message || 'Email verified successfully!');
                 verifyEmailLocally(); // Sync the local user state if they are already logged in
@@ -35,14 +35,14 @@ const VerifyEmail = () => {
             setStatus('error');
             setMessage('No verification token provided.');
         }
-    }, [token]);
+    }, [token, verifyEmailLocally]);
 
     return (
         <>
             <Bg>
                 <div className="w-full max-w-md mx-auto p-8 text-center">
                     <h2 className="font-pacifico text-3xl mb-6 text-themeAccent">Social Square</h2>
-                    
+
                     <div className="my-8">
                         {status === 'verifying' && (
                             <div className="flex flex-col items-center">
@@ -60,8 +60,8 @@ const VerifyEmail = () => {
                                 </div>
                                 <h3 className="text-2xl font-bold text-gray-800 mb-2">Verified!</h3>
                                 <p className="text-gray-600 mb-8">{message}</p>
-                                <Link 
-                                    to="/login" 
+                                <Link
+                                    to="/login"
                                     className="w-full py-3 bg-gradient-to-r from-themeAccent to-blue-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95"
                                 >
                                     Proceed to Login
@@ -78,8 +78,8 @@ const VerifyEmail = () => {
                                 </div>
                                 <h3 className="text-2xl font-bold text-gray-800 mb-2">Oops!</h3>
                                 <p className="text-gray-600 mb-8">{message}</p>
-                                <Link 
-                                    to="/signup" 
+                                <Link
+                                    to="/signup"
                                     className="w-full py-3 border-2 border-themeAccent text-themeAccent rounded-xl font-bold hover:bg-themeAccent hover:text-white transition-all active:scale-95"
                                 >
                                     Back to Signup
