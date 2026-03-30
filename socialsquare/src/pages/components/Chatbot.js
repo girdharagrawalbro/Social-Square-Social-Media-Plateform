@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -87,11 +87,13 @@ const Chatbot = () => {
         }
     }, [open]);
 
-    // Fetch user memory on mount
     useEffect(() => {
         if (user?._id) {
+            const token = getToken();
+            if (!token) return;
+
             fetch(`${BASE}/api/recommendation/memory`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } // Assuming token is in localStorage
+                headers: { 'Authorization': `Bearer ${token}` }
             })
             .then(res => res.json())
             .then(data => setUserMemory(data))
@@ -112,12 +114,13 @@ const Chatbot = () => {
         setLoading(true);
 
         try {
+            const token = getToken();
             const history = [...messages, userMsg].filter(m => !m.loading);
             const response = await fetch(`${BASE}/api/chatbot/chat`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': token ? `Bearer ${token}` : ''
                 },
                 body: JSON.stringify({ 
                     messages: history, 
