@@ -29,6 +29,10 @@ const UserSchema = new mongoose.Schema({
   banReason: { type: String, default: null },
   bannedAt: { type: Date, default: null },
 
+  // Verification
+  isEmailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String, default: null },
+
   created_at: { type: Date, default: Date.now },
 });
 

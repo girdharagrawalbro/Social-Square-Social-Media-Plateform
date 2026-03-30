@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
+import Navbar from './components/Navbar';
 
 const Forgot = () => {
   const [email, setEmail] = useState('');
@@ -31,6 +32,7 @@ const Forgot = () => {
 
   return (
     <>
+      <Navbar />
       <div className="max-w-md mx-auto bg-white border p-6 rounded shadow text-center mt-20">
         <h3 className="font-pacifico text-2xl mb-4">Social Square</h3>
         {sent ? (
