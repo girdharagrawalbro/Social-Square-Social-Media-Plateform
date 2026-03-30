@@ -560,6 +560,32 @@ router.get('/verify-email/:token', async (req, res) => {
     }
 });
 
+router.post('/resend-verification', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (user.isEmailVerified) return res.status(400).json({ error: 'Email already verified' });
+
+        // Cooldown check (5 mins)
+        const lastSent = user.emailVerificationTokenSentAt || 0;
+        if (Date.now() - lastSent < 5 * 60 * 1000) {
+            return res.status(429).json({ error: 'Please wait 5 minutes before resending.' });
+        }
+
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        user.emailVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+        user.emailVerificationTokenSentAt = Date.now();
+        await user.save();
+
+        const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
+        await sendVerificationEmail(user.email, verificationUrl);
+        return res.status(200).json({ message: 'Verification link sent and delivered to your inbox.' });
+    } catch (error) {
+        console.error('Resend verification error:', error);
+        return res.status(500).json({ error: 'Failed to resend verification email.' });
+    }
+});
+
 // ─── GET LOGGED USER + OTHER ROUTES ──────────────────────────────────────────
 
 router.get('/get', async (req, res) => {

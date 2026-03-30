@@ -16,6 +16,7 @@ import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
+import toast from 'react-hot-toast';
 
 const Home = () => {
     const [activeView, setActiveView] = useState('feed');
@@ -65,9 +66,42 @@ const Home = () => {
 
     
 
+    const resendVerification = useAuthStore(s => s.resendVerification);
+    const [isResending, setIsResending] = useState(false);
+
+    const handleResend = async () => {
+        setIsResending(true);
+        const result = await resendVerification();
+        setIsResending(false);
+        if (result.success) {
+            toast.success(result.message);
+        } else {
+            toast.error(result.error);
+        }
+    };
+
+    const VerificationBanner = () => {
+        if (!loggeduser || loggeduser.isEmailVerified) return null;
+        return (
+            <div className="w-full bg-themeAccent/10 border-b border-themeAccent/20 py-3 px-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 animate-in slide-in-from-top-4 duration-500">
+                <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                    📧 Your email is not verified. Please check your inbox.
+                </p>
+                <button 
+                    onClick={handleResend}
+                    disabled={isResending}
+                    className="text-xs font-bold bg-themeAccent text-white px-4 py-1.5 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                >
+                    {isResending ? 'Sending...' : 'Resend Link'}
+                </button>
+            </div>
+        );
+    };
+    
     return (
         <section className={`min-h-[100dvh] w-full overflow-x-hidden ${bg} transition-colors duration-200`}>
             <Navbar />
+            <VerificationBanner />
 
             {/* Desktop */}
             {isDesktop ? (
