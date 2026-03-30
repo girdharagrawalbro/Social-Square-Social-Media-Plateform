@@ -226,6 +226,23 @@ const useAuthStore = create(
                     return { error: err.response?.data?.message };
                 }
             },
+
+            // ── Verification ──────────────────────────────────────────────────
+            resendVerification: async () => {
+                try {
+                    const res = await api.post('/api/auth/resend-verification');
+                    return { success: true, message: res.data.message };
+                } catch (err) {
+                    return { success: false, error: err.response?.data?.error || 'Failed to resend' };
+                }
+            },
+
+            verifyEmailLocally: () => {
+                const user = get().user;
+                if (user) {
+                    set({ user: { ...user, isEmailVerified: true } });
+                }
+            },
         }),
         { name: 'AuthStore' }
     )

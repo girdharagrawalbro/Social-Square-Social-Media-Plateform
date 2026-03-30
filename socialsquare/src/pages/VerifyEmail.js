@@ -3,11 +3,13 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import Bg from './components/Bg';
 import { Toaster, toast } from 'react-hot-toast';
+import useAuthStore from '../store/zustand/useAuthStore';
 
 const VerifyEmail = () => {
     const { token } = useParams();
     const [status, setStatus] = useState('verifying'); // verifying, success, error
     const [message, setMessage] = useState('Verifying your email address...');
+    const verifyEmailLocally = useAuthStore(s => s.verifyEmailLocally);
 
     useEffect(() => {
         const verify = async () => {
@@ -18,6 +20,7 @@ const VerifyEmail = () => {
                 
                 setStatus('success');
                 setMessage(response.data.message || 'Email verified successfully!');
+                verifyEmailLocally(); // Sync the local user state if they are already logged in
                 toast.success('Verification complete!');
             } catch (error) {
                 setStatus('error');
