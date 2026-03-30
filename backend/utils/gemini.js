@@ -81,6 +81,8 @@ const MOOD_PROMPT = (caption) =>
     `Analyze the mood of this social media post caption and return ONLY one word from this list: happy, sad, excited, angry, calm, romantic, funny, inspirational, nostalgic, neutral\n\nCaption: "${caption}"\n\nReturn only the single mood word, nothing else.`;
 
 async function detectMoodFromCaption(caption) {
+    if (!caption || !String(caption).trim()) return 'neutral';
+    
     // ── Primary: Gemini ──────────────────────────────────────────────────────
     try {
         const model  = genAI.getGenerativeModel({ model: GEMINI_MODEL });

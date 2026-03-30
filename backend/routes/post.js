@@ -34,7 +34,7 @@ router.post("/create", verifyToken, async (req, res) => {
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
 
-        if (!caption || !loggedUserId || !category) return res.status(400).json({ message: "All fields are required." });
+        if (!loggedUserId || !category) return res.status(400).json({ message: "loggedUserId and category are required." });
 
         const userDetails = await User.findById(loggedUserId).select('username fullname profile_picture followers');
         if (!userDetails) return res.status(404).json({ message: "User not found." });
