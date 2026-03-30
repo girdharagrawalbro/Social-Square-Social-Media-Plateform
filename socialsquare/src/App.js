@@ -28,6 +28,7 @@ const Landing = lazy(() => import('./pages/Landing'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 
 const PageLoader = () => (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
@@ -145,6 +146,7 @@ function App() {
                                 <Route path="/reset-password" element={<ResetPassword />} />
                                 <Route path="/verify-otp" element={<VerifyOtp />} />
                                 <Route path="/admin" element={<AdminDashboard />} />
+                                <Route path="/verify-email/:token" element={<VerifyEmail />} />
                                 <Route path="/" element={<Home />} />
                             </Routes>
                         </Suspense>

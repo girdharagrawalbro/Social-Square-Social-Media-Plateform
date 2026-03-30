@@ -9,7 +9,7 @@ const Post = require('../models/Post');
 const LoginSession = require('../models/LoginSession');
 const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
-const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail } = require('../utils/mailer');
+const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail } = require('../utils/mailer');
 const { getSuggestedUsers } = require('../services/suggestionService');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
@@ -273,9 +273,22 @@ router.post('/add', authRateLimiter, [
         const existing = await User.findOne({ email: email.toLowerCase().trim() });
         if (existing) return res.status(400).json({ message: 'User already exists with this email.' });
 
-        const hashedPassword = await bcrypt.hash(decryptedPassword, 12);
-        const newUser = new User({ fullname: fullname.trim(), email: email.toLowerCase().trim(), password: hashedPassword, authProvider: 'local' });
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const hashedVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+        const newUser = new User({
+            fullname: fullname.trim(),
+            email: email.toLowerCase().trim(),
+            password: hashedPassword,
+            authProvider: 'local',
+            emailVerificationToken: hashedVerificationToken,
+            isEmailVerified: false,
+        });
         await newUser.save();
+
+        // Send verification email
+        const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
+        sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
 
         const family = generateFamily();
         const refreshToken = generateRefreshToken(newUser._id, family);
@@ -516,6 +529,33 @@ router.post('/reset-password', [body('token').notEmpty(), body('email').isEmail(
         return res.status(200).json({ message: 'Password reset successful. Please log in.' });
     } catch (error) {
         console.error('Reset password error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ─── EMAIL VERIFICATION ───────────────────────────────────────────────────────
+
+router.get('/verify-email/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        const user = await User.findOne({ 
+            emailVerificationToken: hashedToken,
+            isEmailVerified: false 
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid or expired verification token.' });
+        }
+
+        user.isEmailVerified = true;
+        user.emailVerificationToken = null;
+        await user.save();
+
+        return res.status(200).json({ message: 'Email verified successfully! You can now log in.' });
+    } catch (error) {
+        console.error('Email verification error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

@@ -153,6 +153,22 @@ async function sendDigestEmail(user, stats) {
     });
 }
 
+async function sendVerificationEmail(email, verificationUrl) {
+    return sendEmail({
+        to: email,
+        subject: 'Verify your Social Square account',
+        html: `
+        <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
+        <div style="max-width:400px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;text-align:center;box-shadow:0 10px 30px rgba(128,139,245,0.1)">
+            <h1 style="color:#808bf5;margin:0;font-size:24px">Social Square</h1>
+            <p style="color:#374151;margin:20px 0 10px;font-weight:600">Verification Required</p>
+            <p style="color:#6b7280;font-size:14px;margin-bottom:24px">Welcome! Please click the button below to verify your email address and unlock all features.</p>
+            <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;border-radius:12px;font-weight:700;box-shadow:0 4px 15px rgba(128,139,245,0.3)">Verify Email</a>
+            <p style="color:#9ca3af;font-size:11px;margin-top:24px">This link will expire in 24 hours. If you did not sign up for Social Square, please ignore this email.</p>
+        </div></body></html>`
+    });
+}
+
 module.exports = {
     sendEmail,
     sendOtpEmail,
@@ -160,4 +176,5 @@ module.exports = {
     sendNewDeviceAlert,
     sendLockoutEmail,
     sendDigestEmail,
+    sendVerificationEmail,
 };
