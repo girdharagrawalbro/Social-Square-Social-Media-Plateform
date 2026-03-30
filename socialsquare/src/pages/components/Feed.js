@@ -244,13 +244,29 @@ const Feed = ({ activeMood = null }) => {
         // ✅ Prevent clicking while request is in progress
         if (likeMutation.isPending) return;
 
-        const liked = post.likes?.includes(user?._id) || optimisticLikes[post._id]?.has(user?._id);
-        likeMutation.mutate({ postId: post._id, isLiked: liked });
+        const optimisticSet = optimisticLikes[post._id];
+        const liked = optimisticSet 
+            ? optimisticSet.has(user?._id) 
+            : post.likes?.includes(user?._id);
+
+        likeMutation.mutate({ 
+            postId: post._id, 
+            isLiked: liked, 
+            likes: post.likes || [] 
+        });
     };
 
     const handleImageDoubleClick = post => {
-        const liked = post.likes?.includes(user?._id);
-        if (!liked) likeMutation.mutate({ postId: post._id, isLiked: false });
+        const optimisticSet = optimisticLikes[post._id];
+        const liked = optimisticSet 
+            ? optimisticSet.has(user?._id) 
+            : post.likes?.includes(user?._id);
+
+        if (!liked) likeMutation.mutate({ 
+            postId: post._id, 
+            isLiked: false, 
+            likes: post.likes || [] 
+        });
         setHeartVisible(p => ({ ...p, [post._id]: true }));
         setTimeout(() => setHeartVisible(p => ({ ...p, [post._id]: false })), 800);
     };

@@ -14,7 +14,9 @@ const Login = () => {
   const loading = useAuthStore(s => s.loading);
 
   useEffect(() => {
-    if (user) {
+    // Only show "Already logged in" if user was already present on initial mount
+    const isInitialMount = !window.sessionStorage.getItem('just_logged_in');
+    if (user && isInitialMount) {
       toast.success('You are already logged in..');
       navigate('/');
     }
@@ -46,7 +48,9 @@ const Login = () => {
         navigate('/verify-otp', { state: { userId: result.userId } });
         return;
       } else if (result?.success) {
+        window.sessionStorage.setItem('just_logged_in', 'true');
         toast.success('Login successful! Redirecting...');
+        setTimeout(() => window.sessionStorage.removeItem('just_logged_in'), 2000);
         navigate('/');
       } else {
         toast.error(result?.error || 'Login failed');
