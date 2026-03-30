@@ -42,8 +42,8 @@ async function sendEmail({ to, subject, html, text }) {
                 throw new Error(`Mail API send failed after retry: ${retryReason}`);
             }
         }
-        const reason = error.response?.data?.message || error.message;
-        throw new Error(`Mail API send failed: ${reason}`);
+        const reason = error.response?.data?.message || (error.response?.data?.error) || error.message;
+        throw new Error(`Mail API send failed [Source: ${MAIL_SERVICE_BASE_URL}]: ${reason}`);
     }
 }
 
