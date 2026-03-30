@@ -273,9 +273,8 @@ router.get('/mood-feed', verifyToken, async (req, res) => {
 router.post('/detect-mood', verifyToken, async (req, res) => {
     try {
         const { caption } = req.body;
-        if (!caption) return res.status(400).json({ error: 'caption is required' });
-
-        const mood = await detectMoodFromCaption(caption);
+        // If no caption, default to neutral instead of 400
+        const mood = await detectMoodFromCaption(caption || '');
         res.status(200).json({ mood });
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
@@ -287,7 +286,13 @@ router.post('/suggest-meta', verifyToken, async (req, res) => {
     try {
         const { caption = '', prompt = '' } = req.body;
         const sourceText = String(caption || prompt || '').trim();
-        if (!sourceText) return res.status(400).json({ error: 'caption or prompt is required' });
+        // If still empty after trim, we can't suggest tags/category really, but we should handle it
+        if (!sourceText) return res.status(200).json({ 
+            improvedCaption: '', 
+            hashtags: [], 
+            category: 'Default', 
+            mood: 'neutral' 
+        });
 
         const categories = await Category.find().select('category -_id').lean();
         const categoryList = categories.map(c => c.category).filter(Boolean);
