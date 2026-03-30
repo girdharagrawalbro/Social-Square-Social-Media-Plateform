@@ -37,7 +37,7 @@ function generateRefreshToken(userId, family) {
     return jwt.sign({ userId, family }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
 }
 
-function getRefreshCookieOptions() {
+function getRefreshCookieOptions(isForClear = false) {
     const fromEnvSecure = process.env.COOKIE_SECURE;
     const inferredSecure = process.env.NODE_ENV === 'production'
         || (/^https:\/\//i.test(CLIENT_URL) && !/localhost|127\.0\.0\.1/i.test(CLIENT_URL));
@@ -47,14 +47,19 @@ function getRefreshCookieOptions() {
     const sameSite = fromEnvSameSite || (secure ? 'none' : 'lax');
     const domain = process.env.COOKIE_DOMAIN?.trim();
 
-    return {
+    const options = {
         httpOnly: true,
         secure,
         sameSite,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/',
         ...(domain ? { domain } : {}),
     };
+
+    if (!isForClear) {
+        options.maxAge = 7 * 24 * 60 * 60 * 1000;
+    }
+
+    return options;
 }
 
 function setRefreshTokenCookie(res, token) {
@@ -62,7 +67,7 @@ function setRefreshTokenCookie(res, token) {
 }
 
 function clearRefreshTokenCookie(res) {
-    res.clearCookie('refreshToken', getRefreshCookieOptions());
+    res.clearCookie('refreshToken', getRefreshCookieOptions(true));
 }
 function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP

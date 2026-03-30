@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import useAuthStore, { api } from '../../store/zustand/useAuthStore';
+import useAuthStore, { api, getToken } from '../../store/zustand/useAuthStore';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -59,9 +59,13 @@ export function useToggle2FA() {
 export function useChatbot() {
     return useMutation({
         mutationFn: async ({ prompt, conversationHistory }) => {
+            const token = getToken();
             const res = await fetch(`${BASE}/api/chatbot/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
                 body: JSON.stringify({ prompt, conversationHistory }),
             });
             if (!res.ok) throw new Error('Chatbot error');
