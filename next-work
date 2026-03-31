@@ -1,0 +1,10 @@
+bug fixing 
+
+after creation of post (post creating succesfully but )showing error message in toast only 
+
+after creation of post popupmust close 
+
+verfy email (triggeriung to localhost 
+http://localhost:5000/api/auth/verify-email/281d11f0a99408a79b084de0aa8099eb523ce7f051e0ef2407f094d53fb1068b
+Referrer Policy
+strict-origin-when-cross-origin)

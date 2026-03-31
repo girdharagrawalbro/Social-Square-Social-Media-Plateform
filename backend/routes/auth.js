@@ -276,6 +276,8 @@ router.post('/add', authRateLimiter, [
         const verificationToken = crypto.randomBytes(32).toString('hex');
         const hashedVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
+        const hashedPassword = await bcrypt.hash(decryptedPassword, 12);
+
         const newUser = new User({
             fullname: fullname.trim(),
             email: email.toLowerCase().trim(),
