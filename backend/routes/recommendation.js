@@ -81,8 +81,55 @@ router.get("/users", verifyToken, async (req, res) => {
 
 router.get("/similar/:postId", verifyToken, async (req, res) => {
     try {
-        const items = await getSimilarPosts(req.params.postId);
-        res.json({ items });
+        const { postId } = req.params;
+        const { PostVector } = require("../models/Recommendation");
+
+        // 1. Get Target Post Vector
+        const targetPostVecDoc = await PostVector.findOne({ postId });
+        if (!targetPostVecDoc || !targetPostVecDoc.vector || targetPostVecDoc.vector.length === 0) {
+            // Fallback: Return recent posts with same category/tags or just recent
+            const targetPost = await Post.findById(postId);
+            if (!targetPost) return res.status(404).json({ message: "Post not found" });
+
+            const fallbackPosts = await Post.find({
+                _id: { $ne: postId },
+                $or: targetPost.category ? [{ category: targetPost.category }, { tags: { $in: targetPost.tags || [] } }] : [{}]
+            }).sort({ createdAt: -1 }).limit(15);
+            return res.json({ items: fallbackPosts });
+        }
+
+        const targetVec = targetPostVecDoc.vector;
+
+        // 2. Fetch candidates (exclude the target post)
+        const candidates = await Post.find({ _id: { $ne: postId } })
+            .sort({ createdAt: -1 })
+            .limit(200);
+
+        // 3. Get vectors for candidates
+        const candidateVecs = await PostVector.find({ postId: { $in: candidates.map(c => c._id) } });
+        const vecMap = new Map(candidateVecs.map(v => [v.postId.toString(), v.vector]));
+
+        // 4. Calculate similarity
+        const targetMag = Math.sqrt(targetVec.reduce((sum, val) => sum + val * val, 0));
+
+        const ranked = candidates.map(post => {
+            const postVec = vecMap.get(post._id.toString());
+            let similarity = 0;
+
+            if (postVec && targetMag) {
+                const dotProduct = targetVec.reduce((sum, val, i) => sum + val * postVec[i], 0);
+                const postMag = Math.sqrt(postVec.reduce((sum, val) => sum + val * val, 0));
+                similarity = postMag ? dotProduct / (targetMag * postMag) : 0;
+            }
+
+            return { post, similarity };
+        });
+
+        // 5. Sort by similarity descending
+        ranked.sort((a, b) => b.similarity - a.similarity);
+
+        // Return top 15 similar posts
+        res.json({ items: ranked.slice(0, 15).map(r => r.post) });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Failed to fetch similar posts" });

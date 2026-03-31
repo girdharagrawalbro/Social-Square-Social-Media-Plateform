@@ -95,10 +95,9 @@ p-3 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
                                 src={loggeduser?.profile_picture}
                                 zoomSrc={loggeduser?.profile_picture}
                                 alt="Profile"
-                                className="rounded-full overflow-hidden border-4 border-indigo-100"
+                                className="profile-image-square overflow-hidden border-4 border-indigo-100"
+                                style={{ '--size': '80px' }}
                                 preview
-                                width="80"
-                                height="80"
                             />
                             <button
                                 className="absolute bottom-1 right-1 w-7 h-7 rounded-full border-0 cursor-pointer bg-[#4f46e5] text-white flex items-center justify-center"

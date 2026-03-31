@@ -55,3 +55,22 @@ code {
   70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
+
+/* Global Profile Picture Styles to ensure perfect circles */
+.p-image.profile-image-square, 
+.profile-image-square {
+  display: inline-flex !important;
+  aspect-ratio: 1 / 1 !important;
+  width: var(--size, 80px) !important;
+  height: var(--size, 80px) !important;
+  border-radius: 50% !important;
+}
+
+.profile-image-square img,
+.p-image.profile-image-square img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+

@@ -180,7 +180,9 @@ const Search = () => {
                                                     {searchResults.users.map(user => (
                                                         <button key={user._id} onClick={() => handleUserClick(user._id, user.fullname)}
                                                             className="flex items-center gap-3 px-2 py-2 rounded-xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-gray-50">
-                                                            <img src={user.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                                                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
+                                                                <img src={user.profile_picture} alt="" className="w-full h-full object-cover" />
+                                                            </div>
                                                             <div>
                                                                 <p className="m-0 text-sm font-medium">{user.fullname}</p>
                                                                 <p className="m-0 text-xs text-gray-400">{user.followers?.length || 0} followers</p>

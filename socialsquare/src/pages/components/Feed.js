@@ -8,6 +8,7 @@ import { confirmDialog } from 'primereact/confirmdialog';
 import ReportDialog from './ui/ReportDialog';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
 
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
@@ -218,6 +219,8 @@ const Feed = ({ activeMood = null }) => {
     const [sharePost, setSharePost] = useState(null);
     const [savingPostIds, setSavingPostIds] = useState(new Set());
     const [reportPost, setReportPost] = useState(null);
+    const [profileVisible, setProfileVisible] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState(null);
     const lastTap = useRef({});
 
     // Infinite scroll sentinel
@@ -231,7 +234,7 @@ const Feed = ({ activeMood = null }) => {
     // Merge pages + socket posts
     const serverPosts = feedQuery.data?.pages?.flatMap(p => p.posts) || [];
     const recommendedPosts = recommendedQuery.data || [];
-    
+
     const displayPosts = activeMood
         ? (moodQuery.data || [])
         : feedMode === 'foryou'
@@ -245,27 +248,27 @@ const Feed = ({ activeMood = null }) => {
         if (likeMutation.isPending) return;
 
         const optimisticSet = optimisticLikes[post._id];
-        const liked = optimisticSet 
-            ? optimisticSet.has(user?._id) 
+        const liked = optimisticSet
+            ? optimisticSet.has(user?._id)
             : post.likes?.includes(user?._id);
 
-        likeMutation.mutate({ 
-            postId: post._id, 
-            isLiked: liked, 
-            likes: post.likes || [] 
+        likeMutation.mutate({
+            postId: post._id,
+            isLiked: liked,
+            likes: post.likes || []
         });
     };
 
     const handleImageDoubleClick = post => {
         const optimisticSet = optimisticLikes[post._id];
-        const liked = optimisticSet 
-            ? optimisticSet.has(user?._id) 
+        const liked = optimisticSet
+            ? optimisticSet.has(user?._id)
             : post.likes?.includes(user?._id);
 
-        if (!liked) likeMutation.mutate({ 
-            postId: post._id, 
-            isLiked: false, 
-            likes: post.likes || [] 
+        if (!liked) likeMutation.mutate({
+            postId: post._id,
+            isLiked: false,
+            likes: post.likes || []
         });
         setHeartVisible(p => ({ ...p, [post._id]: true }));
         setTimeout(() => setHeartVisible(p => ({ ...p, [post._id]: false })), 800);
@@ -339,6 +342,11 @@ const Feed = ({ activeMood = null }) => {
         setReportPost(post);
     };
 
+    const handleProfileClick = (userId) => {
+        setSelectedProfileId(userId);
+        setProfileVisible(true);
+    };
+
     const submitReport = async (reason) => {
         try {
             await reportMutation.mutateAsync({ postId: reportPost._id, reason });
@@ -356,11 +364,11 @@ const Feed = ({ activeMood = null }) => {
     const isLoading = activeMood ? moodQuery.isLoading : (feedQuery.isLoading && displayPosts.length === 0);
 
     const handleDwell = (postId, dwellTime) => {
-        api.post('/api/recommendation/activity', { 
-            postId, 
-            action: 'dwell', 
-            duration: dwellTime 
-        }).catch(() => {});
+        api.post('/api/recommendation/activity', {
+            postId,
+            action: 'dwell',
+            duration: dwellTime
+        }).catch(() => { });
     };
 
     return (
@@ -378,11 +386,11 @@ const Feed = ({ activeMood = null }) => {
                     <div className="mt-3 flex flex-col gap-4">
                         {!activeMood && (
                             <div className="flex gap-4 border-b pb-2 mb-2 px-4">
-                                <button 
+                                <button
                                     onClick={() => setFeedMode('following')}
                                     className={`pb-2 text-sm font-bold border-b-2 transition-all bg-transparent border-0 cursor-pointer ${feedMode === 'following' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500'}`}
                                 > Following </button>
-                                <button 
+                                <button
                                     onClick={() => setFeedMode('foryou')}
                                     className={`pb-2 text-sm font-bold border-b-2 transition-all bg-transparent border-0 cursor-pointer ${feedMode === 'foryou' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500'}`}
                                 > ✨ For You </button>
@@ -405,10 +413,24 @@ const Feed = ({ activeMood = null }) => {
                                     {/* Header */}
                                     <div className="flex items-start justify-between px-4 py-3">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <img src={post.user.profile_picture} alt="Profile" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                            <div 
+                                                className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border border-gray-100"
+                                                onClick={() => handleProfileClick(post.user._id)} 
+                                            >
+                                                <img 
+                                                    src={post.user.profile_picture} 
+                                                    alt="Profile" 
+                                                    className="w-full h-full object-cover" 
+                                                />
+                                            </div>
                                             <div>
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h6 className="m-0 font-semibold text-sm leading-tight">{post.user.fullname}</h6>
+                                                    <h6 
+                                                        className="m-0 font-semibold text-sm leading-tight cursor-pointer hover:text-indigo-600 transition"
+                                                        onClick={() => handleProfileClick(post.user._id)}
+                                                    >
+                                                        {post.user.fullname}
+                                                    </h6>
                                                     {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }}>🎭 Anonymous</span>}
                                                     {post.isCollaborative && post.collaborators?.some(c => c.status === 'accepted') && <span style={{ fontSize: '10px', background: '#d1fae5', color: '#059669', borderRadius: '10px', padding: '1px 6px' }}>🤝 Collab</span>}
                                                     {!isOwn && (
@@ -491,14 +513,22 @@ const Feed = ({ activeMood = null }) => {
                                                     </button>
                                                 </div>
                                                 <p className="m-0 mt-2 text-sm font-semibold">{likes.length.toLocaleString()} likes</p>
-                                                <p className="m-0 mt-1 text-sm leading-relaxed"><span className="font-semibold mr-1">{post.user.username || post.user.fullname}</span>{renderCaption(post.caption || '')}</p>
+                                                <p className="m-0 mt-1 text-sm leading-relaxed">
+                                                    <span 
+                                                        className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
+                                                        onClick={() => handleProfileClick(post.user._id)}
+                                                    >
+                                                        {post.user.username || post.user.fullname}
+                                                    </span>
+                                                    {renderCaption(post.caption || '')}
+                                                </p>
                                                 <p className="m-0 mt-1 text-xs text-gray-500 cursor-pointer" onClick={() => setVisiblePostId(p => p === post._id ? null : post._id)}>View all {post.comments?.length || 0} comments</p>
                                                 <p className="m-0 mt-2 text-[10px] text-gray-400 uppercase tracking-wide">{formatDate(post.updatedAt)}</p>
                                             </div>
                                         </div>
                                     )}
 
-                                    {visiblePostId === post._id && <Comment postId={post._id} setVisible={() => setVisiblePostId(null)} />}
+                                    {visiblePostId === post._id && <Comment postId={post._id} setVisible={() => setVisiblePostId(null)} onProfileClick={handleProfileClick} />}
                                 </article>
                             );
                         }) : (
@@ -518,9 +548,9 @@ const Feed = ({ activeMood = null }) => {
 
                 {sharePost && <ShareDialog post={sharePost} visible={!!sharePost} onHide={() => setSharePost(null)} user={user} />}
 
-                {reportPost && <ReportDialog 
-                    visible={!!reportPost} 
-                    onHide={() => setReportPost(null)} 
+                {reportPost && <ReportDialog
+                    visible={!!reportPost}
+                    onHide={() => setReportPost(null)}
                     onSubmit={submitReport}
                     loading={reportMutation.isPending}
                 />}
@@ -535,6 +565,10 @@ const Feed = ({ activeMood = null }) => {
                             </div>
                         </div>
                     )}
+                </Dialog>
+
+                <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
+                    <UserProfile id={selectedProfileId} />
                 </Dialog>
             </div>
         </>
