@@ -41,9 +41,14 @@ function buildDigestEmail(user, stats) {
 
             <!-- Greeting -->
             <div style="padding: 28px 28px 0;">
-                <p style="font-size: 16px; color: #374151; margin: 0;">Hi <strong>${user.fullname}</strong> 👋</p>
-                <p style="font-size: 14px; color: #6b7280; margin: 8px 0 0;">Here's what happened on Social Square yesterday.</p>
+                <p style="font-size: 16px; color: #374151; margin: 0;">Hi <strong>${user.fullname}</strong> 👋${user.isAdmin ? ' (Admin)' : ''}</p>
+                <p style="font-size: 14px; color: #6b7280; margin: 8px 0 0;">
+                    ${(newFollowers + newLikes + newComments) > 0 
+                        ? "Here's what happened on Social Square yesterday." 
+                        : "Everything is running smoothly! No new personal activity to report for yesterday."}
+                </p>
             </div>
+
 
             <!-- Stats -->
             <div style="padding: 20px 28px; display: flex; gap: 12px;">
@@ -109,7 +114,8 @@ const worker = new Worker('emailDigest', async (job) => {
         'notificationSettings.emailDigest': true,
         isBanned: { $ne: true },
         email: { $exists: true },
-    }).select('fullname email _id').lean();
+    }).select('fullname email _id isAdmin').lean();
+
 
     console.log(`[Digest] Sending to ${users.length} users`);
 
@@ -127,8 +133,9 @@ const worker = new Worker('emailDigest', async (job) => {
             const newLikes    = notifications.filter(n => n.type === 'like').length;
             const newComments = notifications.filter(n => n.type === 'comment').length;
 
-            // Skip if nothing happened
-            if (newFollowers === 0 && newLikes === 0 && newComments === 0) continue;
+            // Skip if nothing happened (Admins always receive it if enabled for verification)
+            if (newFollowers === 0 && newLikes === 0 && newComments === 0 && !user.isAdmin) continue;
+
 
             await sendEmail({
                 to:      user.email,

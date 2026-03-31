@@ -49,7 +49,14 @@ const UserSchema = new mongoose.Schema({
   // Analytics
   profileViews: { type: Number, default: 0 },
 
+  // User Preferences
+  notificationSettings: {
+    emailDigest: { type: Boolean, default: false },
+    pushEnabled: { type: Boolean, default: true },
+  },
+
   created_at: { type: Date, default: Date.now },
 });
+
 
 module.exports = mongoose.model('User', UserSchema);
