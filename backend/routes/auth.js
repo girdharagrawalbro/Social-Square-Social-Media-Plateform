@@ -542,9 +542,9 @@ router.get('/verify-email/:token', async (req, res) => {
         const { token } = req.params;
         const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-        const user = await User.findOne({ 
+        const user = await User.findOne({
             emailVerificationToken: hashedToken,
-            isEmailVerified: false 
+            isEmailVerified: false
         });
 
         if (!user) {

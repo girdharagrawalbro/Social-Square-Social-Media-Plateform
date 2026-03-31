@@ -18,6 +18,10 @@ const usePostStore = create(
             liveStreamId: null,
             isLiveHost: false,
 
+            // ─── Socket Data ─────────────────────────────────────────────
+            socketPosts: [],
+            socketConfessions: [],
+
             // ─── Setters ──────────────────────────────────────────────────
             setActiveMood: (mood) => set({ activeMood: mood }),
             setPostDetailId: (id) => set({ postDetailId: id }),
