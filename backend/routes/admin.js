@@ -4,6 +4,8 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Report = require('../models/Report');
 const jwt = require('jsonwebtoken');
+const { digestQueue } = require('../queues/digestQueue');
+
 
 // ─── SIMPLE IN-MEMORY CACHE FOR ANALYTICS ────────────────────────────────────
 // Prevents hammering DB on every admin page load — invalidated every 5 minutes
@@ -351,4 +353,19 @@ router.post('/report', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-module.exports = router;
+// ─── DEBUG / VERIFICATION ─────────────────────────────────────────────────────
+router.post('/debug/digest', requireAdmin, async (req, res) => {
+    try {
+        const job = await digestQueue.add('daily-digest', { manual: true });
+        const repeatable = await digestQueue.getRepeatableJobs();
+        res.json({
+            message: 'Daily digest job triggered successfully',
+            jobId: job.id,
+            repeatableJobs: repeatable,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+module.exports = router;

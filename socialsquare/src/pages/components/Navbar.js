@@ -12,7 +12,7 @@ import { Dialog } from "primereact/dialog";
 
 const Navbar = () => {
   const location = useLocation();
-  const isLandingPage = location.pathname === "/";
+  const isLandingPage = ['/', '/help', '/contact'].includes(location.pathname);
   const { user: loggeduser, logout } = useAuthStore();
   const isAdminUser = Boolean(loggeduser?.isAdmin || loggeduser?.role === 'admin');
   const isAuthenticated = Boolean(loggeduser?._id || getToken());
@@ -20,6 +20,7 @@ const Navbar = () => {
   const [newpostVisible, setnewpostVisible] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef(null);
+
 
   // Request push notification permission on first login
   useEffect(() => {
@@ -55,6 +56,7 @@ const Navbar = () => {
       <div className="hidden md:block mx-auto max-w-4xl w-full px-8">
         {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)}
       </div>
+
 
       <div className="hidden md:flex items-center justify-end gap-3 flex-1">
         {isAuthenticated && !isLandingPage ? (
@@ -128,47 +130,50 @@ const Navbar = () => {
           {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)}
         </div>
 
-          {isAuthenticated && (
-            <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
 
 
-              {isAdminUser && (
-                <Link
-                  to="/admin"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`p-2 rounded-lg no-underline flex items-center gap-2 ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
-                >
-                  <span>⚙️</span> Admin Dashboard
-                </Link>
-              )}
 
-              <button
-                onClick={() => { toggle(); setMobileMenuOpen(false); }}
-                className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
-              >
-                <span>{isDark ? '☀️' : '🌙'}</span> {isDark ? 'Light Mode' : 'Dark Mode'}
-              </button>
+        {isAuthenticated && (
+          <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
 
-              <button
-                onClick={() => { logout(); setMobileMenuOpen(false); }}
-                className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10`}
-              >
-                <span>🚪</span> Logout
-              </button>
-            </div>
-          )}
 
-          {!isAuthenticated && (
-            <div className="flex justify-end">
+            {isAdminUser && (
               <Link
-                to="/login"
+                to="/admin"
                 onClick={() => setMobileMenuOpen(false)}
-                className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline"
+                className={`p-2 rounded-lg no-underline flex items-center gap-2 ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
               >
-                Login
+                <span>⚙️</span> Admin Dashboard
               </Link>
-            </div>
-          )}
+            )}
+
+            <button
+              onClick={() => { toggle(); setMobileMenuOpen(false); }}
+              className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
+            >
+              <span>{isDark ? '☀️' : '🌙'}</span> {isDark ? 'Light Mode' : 'Dark Mode'}
+            </button>
+
+            <button
+              onClick={() => { logout(); setMobileMenuOpen(false); }}
+              className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10`}
+            >
+              <span>🚪</span> Logout
+            </button>
+          </div>
+        )}
+
+        {!isAuthenticated && (
+          <div className="flex justify-end">
+            <Link
+              to="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline"
+            >
+              Login
+            </Link>
+          </div>
+        )}
       </div>
 
       <Dialog header="New Post" visible={newpostVisible} modal position="center" style={{ width: '500px', maxHeight: '600px' }} onHide={() => setnewpostVisible(false)}>
