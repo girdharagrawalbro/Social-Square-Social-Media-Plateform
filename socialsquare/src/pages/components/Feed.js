@@ -6,7 +6,7 @@ import Comment from './ui/Comment';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import ReportDialog from './ui/ReportDialog';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
@@ -196,7 +196,8 @@ const Feed = ({ activeMood = null }) => {
     const user = useAuthStore(s => s.user);
     const followUser = useAuthStore(s => s.followUser);
     const unfollowUser = useAuthStore(s => s.unfollowUser);
-    const socketPosts = usePostStore(s => s.socketPosts) || [];
+    const rawSocketPosts = usePostStore(s => s.socketPosts);
+    const socketPosts = useMemo(() => rawSocketPosts || [], [rawSocketPosts]);
     const isSaved = usePostStore(s => s.isSaved);
     const toggleSaved = usePostStore(s => s.toggleSaved);
     const optimisticLikes = usePostStore(s => s.optimisticLikes);
@@ -233,9 +234,9 @@ const Feed = ({ activeMood = null }) => {
     }, [inView, activeMood, feedQuery]);
 
     // Merge pages + socket posts
-    const serverPosts = feedQuery.data?.pages?.flatMap(p => p.posts) || [];
-    const recommendedPosts = (recommendedQuery.data || []).map(p => ({ ...p, isRecommended: true }));
-    const moodPosts = (moodQuery.data || []).map(p => ({ ...p, isMoodMatch: true }));
+    const serverPosts = useMemo(() => feedQuery.data?.pages?.flatMap(p => p.posts) || [], [feedQuery.data?.pages]);
+    const recommendedPosts = useMemo(() => (recommendedQuery.data || []).map(p => ({ ...p, isRecommended: true })), [recommendedQuery.data]);
+    const moodPosts = useMemo(() => (moodQuery.data || []).map(p => ({ ...p, isMoodMatch: true })), [moodQuery.data]);
 
     const displayPosts = useMemo(() => {
         let all = [...serverPosts, ...recommendedPosts, ...moodPosts];
