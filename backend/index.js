@@ -131,6 +131,15 @@ async function initPubSubLayer() {
     }
 }
 
+async function initCleanupJobs() {
+    try {
+        const { scheduleCleanup } = require('./queues/cleanupQueue');
+        await scheduleCleanup();
+    } catch (err) {
+        console.warn('[Cleanup] Failed to schedule:', err.message);
+    }
+}
+
 // ─── ROUTES (lazy-loaded to reduce startup memory) ────────────────────────────
 // Each require() loads the module + its dependencies into memory
 // By using a getter pattern we defer loading until first request
@@ -181,31 +190,51 @@ app.use((err, req, res, next) => {
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
 // ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
-// ✅ Map is O(1) — critical at scale
-const onlineUsers = new Map();
+// ✅ Redis-backed online status for distributed stability
+// replaced Map with direct redis calls in socket handlers
 
 io.on('connection', (socket) => {
-    socket.on('registerUser', (userId) => {
+    socket.on('registerUser', async (userId) => {
         socket.userId = userId;
         socket.join(userId);
-        onlineUsers.set(userId, socket.id);
+        
+        try {
+            const { getRedis } = require('./lib/redis');
+            const redis = getRedis();
+            if (!redis) return;
 
-        // 1. Send full list of online users ONLY to the joining user
-        const currentOnlineUsers = Array.from(onlineUsers.entries()).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
-        socket.emit('updateUserList', currentOnlineUsers);
+            await redis.hset('online_users', userId, socket.id);
 
-        // 2. Broadcast ONLY the new user to everyone else (O(n) instead of O(n^2))
-        socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
+            // 1. Send list of online users
+            const onlineMap = await redis.hgetall('online_users');
+            const currentOnlineUsers = Object.entries(onlineMap).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
+            socket.emit('updateUserList', currentOnlineUsers);
+
+            // 2. Broadcast new user
+            socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
+        } catch (err) {
+            console.error('[Socket] Redis error (registerUser):', err.message);
+        }
     });
 
-    socket.on('logoutUser', (userId) => {
-        onlineUsers.delete(userId);
-        // Notify everyone that the user is now offline
-        io.emit('userOffline', userId);
+    socket.on('logoutUser', async (userId) => {
+        try {
+            const { getRedis } = require('./lib/redis');
+            const redis = getRedis();
+            if (redis) {
+                await redis.hdel('online_users', userId);
+                io.emit('userOffline', userId);
+            }
+        } catch (err) {
+            console.error('[Socket] Redis error (logoutUser):', err.message);
+        }
     });
 
     socket.on('sendMessage', async ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
-        const recipientSocketId = onlineUsers.get(recipientId);
+        const { getRedis } = require('./lib/redis');
+        const redis = getRedis();
+        const recipientSocketId = redis ? await redis.hget('online_users', recipientId) : null;
+        
         if (recipientSocketId) {
             io.to(recipientSocketId).emit('receiveMessage', {
                 senderId: sender, socketId: socket.id,
@@ -222,13 +251,17 @@ io.on('connection', (socket) => {
         });
     });
 
-    socket.on('typing', ({ recipientId, senderName }) => {
-        const sid = onlineUsers.get(recipientId);
+    socket.on('typing', async ({ recipientId, senderName }) => {
+        const { getRedis } = require('./lib/redis');
+        const redis = getRedis();
+        const sid = redis ? await redis.hget('online_users', recipientId) : null;
         if (sid) io.to(sid).emit('userTyping', { senderName });
     });
 
-    socket.on('stopTyping', ({ recipientId }) => {
-        const sid = onlineUsers.get(recipientId);
+    socket.on('stopTyping', async ({ recipientId }) => {
+        const { getRedis } = require('./lib/redis');
+        const redis = getRedis();
+        const sid = redis ? await redis.hget('online_users', recipientId) : null;
         if (sid) io.to(sid).emit('userStoppedTyping');
     });
 
@@ -252,17 +285,22 @@ io.on('connection', (socket) => {
         if (recipientId) io.to(recipientId).emit('messageReaction', { messageId, conversationId, reactions });
     });
 
-    socket.on('disconnect', () => {
-        let disconnectedUserId = null;
-        for (const [userId, socketId] of onlineUsers.entries()) {
-            if (socketId === socket.id) {
-                disconnectedUserId = userId;
-                onlineUsers.delete(userId);
-                break;
+    socket.on('disconnect', async () => {
+        const userId = socket.userId;
+        if (userId) {
+            try {
+                const { getRedis } = require('./lib/redis');
+                const redis = getRedis();
+                if (redis) {
+                    const currentSid = await redis.hget('online_users', userId);
+                    if (currentSid === socket.id) {
+                        await redis.hdel('online_users', userId);
+                        io.emit('userOffline', userId);
+                    }
+                }
+            } catch (err) {
+                console.error('[Socket] Redis error (disconnect):', err.message);
             }
-        }
-        if (disconnectedUserId) {
-            io.emit('userOffline', disconnectedUserId);
         }
     });
 
@@ -312,6 +350,9 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 async function bootstrap() {
     await initRedis();
     await initPubSubLayer();
+    await initCleanupJobs();
+    const { scheduleDailyDigest } = require('./queues/digestQueue');
+    await scheduleDailyDigest();
     server.listen(port, () => console.log(`[Server] Running on port ${port} (PID: ${process.pid})`));
 }
 

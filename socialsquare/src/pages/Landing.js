@@ -7,7 +7,7 @@ const Landing = () => {
         <div className="min-h-screen flex flex-col bg-gradient-to-r from-themeStart to-themeEnd text-white">
             <Navbar />
             <div className="flex-grow">
-                <section className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between px-5 md:px-12 py-20 gap-12">
+                <section className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between px-5 md:px-12 py-20 gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">
                     <div className="flex-1 max-w-xl">
                         <h1 className="font-pacifico text-6xl md:text-7xl mb-4">Social Square</h1>
                         <p className="text-2xl font-semibold mb-4">Connect, Share, and Engage with Your Community</p>
@@ -16,8 +16,8 @@ const Landing = () => {
                             and building meaningful relationships in a safe and vibrant social space.
                         </p>
                         <div className="flex gap-4 flex-wrap">
-                            <Link to="/signup" className="bg-white text-[#667eea] border-2 border-white px-6 py-3 rounded-lg font-semibold transition transform hover:-translate-y-1 hover:bg-[#667eea] hover:text-white">Get Started</Link>
-                            <Link to="/login" className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold transition hover:bg-white hover:text-[#667eea]">Sign In</Link>
+                            <Link to="/signup" className="bg-white text-[#667eea] border-2 border-white px-6 py-3 rounded-lg font-semibold transition transform hover:-translate-y-1 hover:bg-[#667eea]">Get Started</Link>
+                            <Link to="/login" className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold transition transform hover:-translate-y-1 hover:bg-[#667eea]">Sign In</Link>
                         </div>
 
                     </div>

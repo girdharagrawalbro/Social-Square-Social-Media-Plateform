@@ -81,6 +81,7 @@ router.post("/create", verifyToken, async (req, res) => {
                     sender: { id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
                     type: 'new_post',
                     postId: newPost._id,
+                    thumbnail: newPost.image_urls?.[0],
                     url: `/post/${newPost._id}`,
                 });
             });
@@ -323,6 +324,7 @@ router.post("/like", verifyToken, async (req, res) => {
                     sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
                     type: 'like',
                     postId: post._id,
+                    thumbnail: post.image_urls?.[0],
                     url: `/post/${post._id}`,
                 });
             }
@@ -417,11 +419,13 @@ router.post('/comments/add', async (req, res) => {
         const targetRecipientId = parentId ? (await Comment.findById(parentId).select('user')).user?.id : (await Post.findById(postId).select('user')).user?._id;
 
         if (targetRecipientId) {
+            const postForThumb = await Post.findById(postId).select('image_urls').lean();
             await notificationUtils.createNotification({
                 recipientId: targetRecipientId,
                 sender: { id: user.id || user._id, fullname: user.fullname, profile_picture: user.profile_picture },
                 type: 'comment',
                 postId: postId,
+                thumbnail: postForThumb?.image_urls?.[0],
                 message: { content: content.substring(0, 50) },
                 url: `/post/${postId}`,
             });

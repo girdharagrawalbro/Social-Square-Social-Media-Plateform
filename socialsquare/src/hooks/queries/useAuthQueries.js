@@ -159,8 +159,19 @@ export function useAcceptFollowRequest() {
     return useMutation({
         mutationFn: ({ requesterId }) =>
             api.post(`/api/auth/follow-request/accept`, { userId: user?._id, requesterId }),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['notifications'] });
+        onMutate: async ({ requesterId }) => {
+            await qc.cancelQueries({ queryKey: ['notifications', user?._id] });
+            const previousNotifications = qc.getQueryData(['notifications', user?._id]);
+            qc.setQueryData(['notifications', user?._id], (old) => 
+                old ? old.filter(n => n.sender?.id !== requesterId) : []
+            );
+            return { previousNotifications };
+        },
+        onError: (err, newTodo, context) => {
+            qc.setQueryData(['notifications', user?._id], context.previousNotifications);
+        },
+        onSettled: () => {
+            qc.invalidateQueries({ queryKey: ['notifications', user?._id] });
             qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
         },
     });
@@ -172,8 +183,19 @@ export function useDeclineFollowRequest() {
     return useMutation({
         mutationFn: ({ requesterId }) =>
             api.post(`/api/auth/follow-request/decline`, { userId: user?._id, requesterId }),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['notifications'] });
+        onMutate: async ({ requesterId }) => {
+            await qc.cancelQueries({ queryKey: ['notifications', user?._id] });
+            const previousNotifications = qc.getQueryData(['notifications', user?._id]);
+            qc.setQueryData(['notifications', user?._id], (old) => 
+                old ? old.filter(n => n.sender?.id !== requesterId) : []
+            );
+            return { previousNotifications };
+        },
+        onError: (err, newTodo, context) => {
+            qc.setQueryData(['notifications', user?._id], context.previousNotifications);
+        },
+        onSettled: () => {
+            qc.invalidateQueries({ queryKey: ['notifications', user?._id] });
         },
     });
 }

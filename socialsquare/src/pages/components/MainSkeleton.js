@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from './Navbar';
 import SkeletonPost from './ui/SkeletonPost';
+import SkeletonStory from './ui/SkeletonStory';
 
 const MainSkeleton = () => {
   return (
@@ -44,9 +45,9 @@ const MainSkeleton = () => {
           {/* Middle Column - Feed (50%) */}
           <div className="w-1/2 overflow-y-auto h-[calc(100vh-100px)]">
             {/* Stories */}
-            <div className="flex gap-2 mb-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="skeleton skeleton-avatar w-16 h-24 rounded-lg flex-shrink-0"></div>
+            <div className="flex gap-3 mb-6 p-1 overflow-x-hidden">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <SkeletonStory key={i} />
               ))}
             </div>
 

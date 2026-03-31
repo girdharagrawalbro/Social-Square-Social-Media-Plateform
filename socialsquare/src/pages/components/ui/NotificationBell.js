@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Badge } from 'primereact/badge';
 import { useNotifications } from '../../../hooks/useNotifications';
-import { useCollabInvites } from '../../../hooks/queries/useAuthQueries';
+import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } from '../../../hooks/queries/useAuthQueries';
 import CollabManager from '../CollabManager';
 import usePostStore from '../../../store/zustand/usePostStore';
 import useConversationStore from '../../../store/zustand/useConversationStore';
@@ -13,11 +13,13 @@ export default function NotificationBell({ userId }) {
     const ref = useRef(null);
 
     // ✅ TanStack Query - cached, deduplicated requests
-    const { data: notifications = [], markRead, unreadCount } = useNotifications(userId);
+    const { data: notifications = [], markRead, unreadCount, loadMore, hasMore, isLoading } = useNotifications(userId);
     const { data: collabInvites = [] } = useCollabInvites(userId);
 
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     const openChat = useConversationStore(s => s.openChat);
+    const acceptMutation = useAcceptFollowRequest();
+    const declineMutation = useDeclineFollowRequest();
     const pendingCollabCount = collabInvites.length;
 
     // Close on outside click
@@ -35,6 +37,22 @@ export default function NotificationBell({ userId }) {
     const handleMarkRead = (id) => markRead.mutate([id]);
     const handleMarkAllRead = () => { const ids = notifications.map(n => n._id); if (ids.length) markRead.mutate(ids); };
 
+    const handleAccept = async (e, requesterId, notificationId) => {
+        e.stopPropagation();
+        try {
+            await acceptMutation.mutateAsync({ requesterId });
+            handleMarkRead(notificationId);
+        } catch {}
+    };
+
+    const handleDecline = async (e, requesterId, notificationId) => {
+        e.stopPropagation();
+        try {
+            await declineMutation.mutateAsync({ requesterId });
+            handleMarkRead(notificationId);
+        } catch {}
+    };
+
     const formatTime = (dateString) => {
         const diff = Date.now() - new Date(dateString);
         const mins = Math.floor(diff / 60000);
@@ -51,6 +69,7 @@ export default function NotificationBell({ userId }) {
         if (n.type === 'like') return n.url?.includes('stories') ? 'liked your story' : 'liked your post';
         if (n.type === 'comment') return 'commented on your post';
         if (n.type === 'follow') return 'started following you';
+        if (n.type === 'follow_request') return 'sent you a follow request';
         if (n.type === 'system') return n.message?.content || 'Security alert';
         return 'sent a notification';
     };
@@ -131,11 +150,45 @@ export default function NotificationBell({ userId }) {
                                                     <strong>{n.sender?.fullname}</strong> {getNotificationText(n)}
                                                 </p>
                                                 <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#9ca3af' }}>{formatTime(n.createdAt)}</p>
+                                                {n.type === 'follow_request' && !n.read && (
+                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                                        <button 
+                                                            onClick={(e) => handleAccept(e, n.sender.id, n._id)}
+                                                            disabled={acceptMutation.isPending}
+                                                            style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                                                            {acceptMutation.isPending ? 'Accepting...' : 'Accept'}
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => handleDecline(e, n.sender.id, n._id)}
+                                                            disabled={declineMutation.isPending}
+                                                            style={{ background: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                                                            Decline
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
+                                            {n.thumbnail && (
+                                                <img 
+                                                    src={n.thumbnail} 
+                                                    alt="" 
+                                                    style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid #f3f4f6' }}
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
+                                            )}
                                             {!n.read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
                                         </div>
                                     ))
                                 )}
+                                {hasMore && (
+                                     <div style={{ padding: '12px', textAlign: 'center', borderTop: '1px solid #f3f4f6' }}>
+                                         <button 
+                                             onClick={(e) => { e.stopPropagation(); loadMore(); }} 
+                                             disabled={isLoading}
+                                             style={{ background: 'none', border: 'none', color: '#808bf5', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                                             {isLoading ? 'Loading...' : 'Load more history'}
+                                         </button>
+                                     </div>
+                                 )}
                             </div>
                         </>
                     )}

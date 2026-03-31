@@ -46,6 +46,9 @@ const UserSchema = new mongoose.Schema({
   emailVerificationToken: { type: String, default: null },
   emailVerificationTokenSentAt: { type: Date, default: null },
 
+  // Analytics
+  profileViews: { type: Number, default: 0 },
+
   created_at: { type: Date, default: Date.now },
 });
 

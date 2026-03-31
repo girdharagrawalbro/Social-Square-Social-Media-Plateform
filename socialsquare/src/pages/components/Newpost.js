@@ -6,6 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import axios from "axios";
+import ImageCropper from "./ui/ImageCropper";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😅', '🥳', '❤️', '🔥', '✨', '🎉', '👍', '🙌', '💯', '🌟', '😭', '🤣', '😊', '🥹', '💪', '🎵', '📍', '🌍', '🍕', '☕', '🌸', '🌈', '👀', '💬'];
@@ -88,6 +89,13 @@ const NewPost = ({ setnewpostVisible }) => {
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [aiLimit, setAiLimit] = useState(defaultAiLimit);
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
+
+    // Cropping
+    const [croppingState, setCroppingState] = useState({
+        visible: false,
+        imageSrc: null,
+        pendingFiles: []
+    });
 
     useEffect(() => {
         if (loggeduser?._id) {
@@ -337,18 +345,54 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
         setCollabResults([]);
     };
 
-    // ── File Select ───────────────────────────────────────────────────────────
+    // ── File Select & Crop ───────────────────────────────────────────────────
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
         if (images.length + files.length > 5) { toast.error('Max 5 images'); return; }
-        const newImages = [];
-        for (const file of files) {
-            const err = validateImageFile(file);
-            if (err) { toast.error(err); continue; }
-            newImages.push({ file, preview: URL.createObjectURL(file), url: null, progress: 0, uploaded: false, id: Math.random().toString(36).slice(2) });
-        }
-        setImages(prev => [...prev, ...newImages]);
+        
+        const validFiles = files.filter(f => !validateImageFile(f));
+        if (validFiles.length === 0) return;
+
+        // Start cropping the first file
+        const first = validFiles[0];
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCroppingState({
+                visible: true,
+                imageSrc: reader.result,
+                pendingFiles: validFiles.slice(1)
+            });
+        };
+        reader.readAsDataURL(first);
         e.target.value = '';
+    };
+
+    const handleCropComplete = (croppedFile) => {
+        const newImg = {
+            file: croppedFile,
+            preview: URL.createObjectURL(croppedFile),
+            url: null,
+            progress: 0,
+            uploaded: false,
+            id: Math.random().toString(36).slice(2)
+        };
+        setImages(prev => [...prev, newImg]);
+
+        // Process next file if any
+        if (croppingState.pendingFiles.length > 0) {
+            const next = croppingState.pendingFiles[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                setCroppingState({
+                    visible: true,
+                    imageSrc: reader.result,
+                    pendingFiles: croppingState.pendingFiles.slice(1)
+                });
+            };
+            reader.readAsDataURL(next);
+        } else {
+            setCroppingState({ visible: false, imageSrc: null, pendingFiles: [] });
+        }
     };
 
     const removeImage = (id) => {
@@ -786,6 +830,12 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                     {voicePreviewUrl && <span style={{ fontSize: '11px', background: '#dbeafe', color: '#2563eb', borderRadius: '12px', padding: '2px 8px' }}>🎤 Voice note</span>}
                 </div>
             </div>
+            <ImageCropper 
+                visible={croppingState.visible}
+                image={croppingState.imageSrc}
+                onCropComplete={handleCropComplete}
+                onCancel={() => setCroppingState({ visible: false, imageSrc: null, pendingFiles: [] })}
+            />
             <Toaster />
         </>
     );

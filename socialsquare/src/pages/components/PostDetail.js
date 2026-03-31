@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { api } from '../../store/zustand/useAuthStore';
 import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts } from '../../hooks/queries/usePostQueries';
+import { useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -10,8 +11,9 @@ import Comment from './ui/Comment';
 import formatDate from '../../utils/formatDate';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
-import UserProfile from './UserProfile';
 import ReportDialog from './ui/ReportDialog';
+
+const UserProfile = lazy(() => import('./UserProfile'));
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -109,15 +111,25 @@ const ShareDialog = ({ post, visible, onHide, user }) => {
 const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const navigate = useNavigate();
     const loggeduser = useAuthStore(s => s.user);
-    const followUser = useAuthStore(s => s.followUser);
-    const unfollowUser = useAuthStore(s => s.unfollowUser);
-    const { data: fetchedPost, isLoading: isPostLoading } = usePostDetail(!initialPost && postId ? postId : null);
-    const post = initialPost || fetchedPost;
+    const [activePostId, setActivePostId] = useState(postId || initialPost?._id);
+
+    // Sync with prop if it changes from outside
+    useEffect(() => {
+        if (postId) setActivePostId(postId);
+        else if (initialPost?._id) setActivePostId(initialPost._id);
+    }, [postId, initialPost?._id]);
+
+    const { data: fetchedPost, isLoading: isPostLoading } = usePostDetail(activePostId);
+
+    // Use initialPost only if it matches our active ID, otherwise use fetchedPost
+    const post = (initialPost && initialPost._id === activePostId) ? initialPost : fetchedPost;
 
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
     const deleteMutation = useDeletePost();
     const updateMutation = useUpdatePost();
+    const followMutation = useFollowUser();
+    const unfollowMutation = useUnfollowUser();
 
     const [currentImage, setCurrentImage] = useState(0);
     const [heartVisible, setHeartVisible] = useState(false);
@@ -163,7 +175,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const handleLikeToggle = () => {
         // ✅ Prevent clicking while request is in progress
         if (likeMutation.isPending) return;
-        
+
         // Optimistic update
         if (isLiked) {
             setPostLikes(prev => prev.filter(id => id?.toString() !== loggeduser?._id?.toString()));
@@ -176,7 +188,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const handleImageDoubleClick = () => {
         // ✅ Prevent clicking while request is in progress
         if (likeMutation.isPending) return;
-        
+
         if (!isLiked) {
             // Optimistic update for double-click like
             setPostLikes(prev => [...prev, loggeduser._id]);
@@ -195,13 +207,13 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const handleSave = () => {
         // Disable button immediately
         setIsSaving(true);
-        
+
         // Get current state for rollback
         const wasSaved = isSaved;
-        
+
         // Optimistically update UI
         setIsSaved(!wasSaved);
-        
+
         // Send request
         saveMutation.mutate({ postId: post._id }, {
             onSuccess: (res) => {
@@ -248,8 +260,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     };
 
     const handleFollow = () => {
-        if (isFollowing) unfollowUser(post.user._id);
-        else followUser(post.user._id);
+        if (isFollowing) unfollowMutation.mutate({ targetUserId: post.user._id });
+        else followMutation.mutate({ targetUserId: post.user._id });
     };
 
     const handleReport = async (reason) => {
@@ -292,7 +304,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 alt="Post"
                                 onDoubleClick={handleImageDoubleClick}
                                 onTouchEnd={handleImageTap}
-                                
+
                                 className="h-[45vh] object-contain cursor-pointer"
                             />
                             {/* Heart Animation */}
@@ -325,24 +337,50 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                         {/* Header */}
                         <div className="flex items-center justify-between p-4">
                             <div className="flex items-center gap-3 flex-1">
-                                <div 
-                                    className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border border-gray-100"
-                                    onClick={() => handleProfileClick(post.user._id)} 
-                                >
-                                    <img 
-                                        src={post.user?.profile_picture} 
-                                        alt="Profile" 
-                                        className="w-full h-full object-cover" 
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <p 
-                                        className="m-0 font-semibold text-sm cursor-pointer hover:text-indigo-600 transition"
+                                <div className="flex items-center">
+                                    <div
+                                        className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border-2 border-white shadow-sm z-30"
                                         onClick={() => handleProfileClick(post.user._id)}
                                     >
-                                        {post.user?.fullname}
-                                    </p>
-                                    <p className="text-xs text-gray-500 m-0">{formatDate(post.createdAt)}</p>
+                                        <img src={post.user?.profile_picture} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                    {post.collaborators?.slice(0, 2).map((c, i) => (
+                                        <div
+                                            key={c._id}
+                                            className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border-2 border-white shadow-sm -ml-4"
+                                            style={{ zIndex: 20 - i }}
+                                            onClick={() => handleProfileClick(c._id)}
+                                        >
+                                            <img src={c.profile_picture} alt="" className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                    {post.collaborators?.length > 2 && (
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white shadow-sm -ml-4 z-0">
+                                            +{post.collaborators.length - 2}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="flex flex-wrap items-center gap-1">
+                                        <span 
+                                            className="font-bold text-sm cursor-pointer hover:text-indigo-600 transition"
+                                            onClick={() => handleProfileClick(post.user?._id)}
+                                        >
+                                            {post.user?.fullname}
+                                        </span>
+                                        {post.collaborators?.length > 0 && post.collaborators.map(c => (
+                                            <React.Fragment key={c._id}>
+                                                <span className="text-gray-400 text-sm">&</span>
+                                                <span 
+                                                    className="font-bold text-sm cursor-pointer hover:text-indigo-600 transition"
+                                                    onClick={() => handleProfileClick(c._id)}
+                                                >
+                                                    {c.fullname || 'Ghost'}
+                                                </span>
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 m-0 uppercase tracking-wider font-bold">{formatDate(post.createdAt)}</p>
                                 </div>
                             </div>
                             {!isOwner && (
@@ -387,7 +425,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 </div>
                             ) : (
                                 <p className="text-sm leading-5 m-0">
-                                    <span 
+                                    <span
                                         className="font-semibold cursor-pointer hover:text-indigo-600 transition"
                                         onClick={() => handleProfileClick(post.user._id)}
                                     >
@@ -406,14 +444,18 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 <div className="w-full h-full md:w-96 flex flex-col bg-gray-50 border-l">
                     <div className="flex-1 overflow-y-auto">
                         <Comment postId={post._id} onProfileClick={handleProfileClick} />
-                        <SimilarPosts postId={post._id} onPostClick={(id) => navigate(`/post/${id}`)} />
+                        <SimilarPosts postId={post._id} onPostClick={(id) => setActivePostId(id)} />
                     </div>
                 </div>
             </div>
 
             <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
-                <UserProfile id={selectedProfileId} />
+                <Suspense fallback={<div className="p-4 text-center">Loading Profile...</div>}>
+                    <UserProfile id={selectedProfileId} />
+                </Suspense>
             </Dialog>
+
+
 
             <style>{`
                 @keyframes heartBurst {

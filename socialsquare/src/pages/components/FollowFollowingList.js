@@ -9,10 +9,10 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
     const user = useAuthStore(s => s.user);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
-    
+
     // ✅ TanStack Query for fetching user details
     const { data: users = [], isLoading } = useUserDetails(ids);
-    
+
     // ✅ Mutations for follow/unfollow
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
@@ -46,7 +46,7 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
 
     if (isLoading) return (
         <div className="flex flex-col gap-2 p-2">
-            {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
     );
 
@@ -94,7 +94,7 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                                                 disabled={removeFollowerMutation.isPending}
                                                 className="text-[10px] sm:text-xs px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 cursor-pointer font-semibold hover:bg-gray-50 transition min-w-[60px]"
                                             >
-                                                {(removeFollowerMutation.isPending && removeFollowerMutation.variables?.followerId === u._id) ? 'Removing...' : 'Remove'}
+                                                {(removeFollowerMutation.isPending && removeFollowerMutation.variables?.followerId === u._id) ? 'Removing...' : "Remove"}
                                             </button>
                                         )}
 

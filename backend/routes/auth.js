@@ -9,7 +9,7 @@ const Post = require('../models/Post');
 const LoginSession = require('../models/LoginSession');
 const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
-const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail } = require('../utils/mailer');
+const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail, sendSessionRevokedEmail, sendEmail } = require('../utils/mailer');
 const { getSuggestedUsers } = require('../services/suggestionService');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
@@ -512,6 +512,17 @@ router.delete('/sessions/:sessionId', async (req, res) => {
             { isRevoked: true }
         );
         if (!session) return res.status(404).json({ error: 'Session not found' });
+
+        // ✅ Security Alert: Send email about revoked session
+        const user = await User.findById(decoded.userId).select('email');
+        if (user?.email) {
+            sendSessionRevokedEmail(user.email, {
+                device: session.deviceName,
+                location: session.location,
+                ip: session.ip
+            }).catch(err => console.error('[Security] Failed to send revocation email:', err.message));
+        }
+
         return res.status(200).json({ message: 'Session revoked' });
     } catch { return res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -527,6 +538,21 @@ router.delete('/sessions/all/revoke', async (req, res) => {
             { userId: decoded.userId, tokenFamily: { $ne: decoded.family } },
             { isRevoked: true }
         );
+
+        // ✅ Security Alert: Notify user that other sessions were cleared
+        const user = await User.findById(decoded.userId).select('email');
+        if (user?.email) {
+            sendEmail({
+                to: user.email,
+                subject: '🛡️ Other sessions terminated — Social Square',
+                html: `
+                <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+                    <h2 style="color:#6366f1">Security Cleanup</h2>
+                    <p>As requested, all other active sessions for your account have been terminated.</p>
+                    <p style="color:#6b7280;font-size:12px">If this wasn't you, your account may be compromised. Please change your password immediately.</p>
+                </div>`
+            }).catch(err => console.error('[Security] Failed to send bulk revocation email:', err.message));
+        }
 
         return res.status(200).json({ message: 'Other sessions revoked' });
     } catch (error) {
@@ -759,9 +785,12 @@ router.post('/follow-request/accept', async (req, res) => {
             $addToSet: { followers: requesterId }
         });
         
-        // Add to requester's following
-        await User.findByIdAndUpdate(requesterId, { 
-            $addToSet: { following: userId }
+        // Create notification for the requester
+        const sender = await User.findById(userId).select('fullname profile_picture');
+        await require('../lib/notification.js').createNotification({
+            recipientId: requesterId,
+            sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+            type: 'follow', // Person is now following
         });
 
         res.status(200).json({ message: 'Accepted' });
@@ -801,10 +830,35 @@ router.post('/remove-follower', async (req, res) => {
 
 router.get('/other-user/view/:id', verifyToken, async (req, res) => {
     try {
-        const userId = req.params.id;
-        const user = await User.findById(userId).select('-password');
-        if (!user) return res.status(404).json({ message: 'User not found.' });
-        return res.status(200).json(user);
+        const targetUserId = req.params.id;
+        const loggedUserId = req.userId;
+
+        const [targetUser, loggedUser] = await Promise.all([
+            User.findById(targetUserId).select('-password').lean(),
+            User.findById(loggedUserId).select('following').lean()
+        ]);
+
+        if (!targetUser) return res.status(404).json({ message: 'User not found.' });
+
+        // Increment views if someone else views the profile
+        if (loggedUserId.toString() !== targetUserId.toString()) {
+            User.findByIdAndUpdate(targetUserId, { $inc: { profileViews: 1 } }).catch(e => console.error('[Analytics] View increment failed:', e));
+        }
+
+        // Mutual followers: Intersect (My Following) with (Target Followers)
+        const targetFollowerIds = (targetUser.followers || []).map(f => f.toString());
+        const myFollowingIds = (loggedUser?.following || []).map(f => f.toString());
+        const mutualIds = myFollowingIds.filter(id => targetFollowerIds.includes(id));
+
+        const mutualDetails = mutualIds.length > 0 
+            ? await User.find({ _id: { $in: mutualIds.slice(0, 3) } }).select('fullname profile_picture username').lean()
+            : [];
+
+        return res.status(200).json({
+            ...targetUser,
+            mutualFollowers: mutualDetails,
+            mutualCount: mutualIds.length
+        });
     } catch (error) {
         logger.error('[OTHER_USER_VIEW] Error:', error);
         return res.status(500).json({ message: "Internal server error" });

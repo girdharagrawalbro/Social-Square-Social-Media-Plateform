@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
-import UserProfile from './UserProfile';
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
+
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
 import LiveStream from './LiveStream';
 import toast from 'react-hot-toast';
+
+const UserProfile = React.lazy(() => import('./UserProfile'));
 
 const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDeleted, onStoryLiked }) => {
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
@@ -24,6 +26,8 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     const [likesCount, setLikesCount] = useState(0);
 
     const [isPaused, setIsPaused] = useState(false);
+    const [viewers, setViewers] = useState([]);
+    const [viewersVisible, setViewersVisible] = useState(false);
 
     useEffect(() => {
         if (story) {
@@ -186,36 +190,54 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
 
                 {/* Footer / Interaction Bar */}
                 <div style={{ position: 'absolute', bottom: 30, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: '15px', zIndex: 25 }}>
-                    <form 
-                        onSubmit={async (e) => {
-                            e.preventDefault();
-                            const reply = e.target.reply.value;
-                            if (!reply.trim() || !story?._id) return;
-                            try {
-                                const { api } = await import('../../store/zustand/useAuthStore');
-                                await api.post(`/api/story/reply/${story._id}`, { content: reply });
-                                toast.success('Reply sent!');
-                                e.target.reply.value = '';
-                                setIsPaused(false);
-                            } catch { toast.error('Failed to send reply'); }
-                        }}
-                        style={{ flex: 1, display: 'flex' }}
-                    >
-                        <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
-                            <input 
-                                name="reply"
-                                type="text"
-                                placeholder="Send message..."
-                                onFocus={() => setIsPaused(true)}
-                                onBlur={() => setIsPaused(false)}
-                                autoComplete="off"
-                                style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '13px', padding: '0-12px', outline: 'none' }}
-                            />
-                            <button type="submit" style={{ background: '#808bf5', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '2px' }}>
-                                <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
-                            </button>
+                    {isOwn ? (
+                        <div 
+                            onClick={async () => {
+                                setIsPaused(true);
+                                try {
+                                    const { api } = await import('../../store/zustand/useAuthStore');
+                                    const res = await api.get(`/api/story/viewers/${story._id}`);
+                                    setViewers(res.data);
+                                    setViewersVisible(true);
+                                } catch { toast.error('Failed to load viewers'); setIsPaused(false); }
+                            }}
+                            style={{ flex: 1, height: 44, borderRadius: '22px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 16px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontWeight: 600 }}
+                        >
+                            <i className="pi pi-eye mr-2"></i>
+                            {story.viewers?.length || 0} Views
                         </div>
-                    </form>
+                    ) : (
+                        <form 
+                            onSubmit={async (e) => {
+                                e.preventDefault();
+                                const reply = e.target.reply.value;
+                                if (!reply.trim() || !story?._id) return;
+                                try {
+                                    const { api } = await import('../../store/zustand/useAuthStore');
+                                    await api.post(`/api/story/reply/${story._id}`, { content: reply });
+                                    toast.success('Reply sent!');
+                                    e.target.reply.value = '';
+                                    setIsPaused(false);
+                                } catch { toast.error('Failed to send reply'); }
+                            }}
+                            style={{ flex: 1, display: 'flex' }}
+                        >
+                            <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+                                <input 
+                                    name="reply"
+                                    type="text"
+                                    placeholder="Send message..."
+                                    onFocus={() => setIsPaused(true)}
+                                    onBlur={() => setIsPaused(false)}
+                                    autoComplete="off"
+                                    style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '13px', padding: '0 12px', outline: 'none' }}
+                                />
+                                <button type="submit" style={{ background: '#808bf5', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '2px' }}>
+                                    <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
+                                </button>
+                            </div>
+                        </form>
+                    )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                         <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
@@ -224,7 +246,36 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                         {likesCount > 0 && <span style={{ color: '#fff', fontSize: '8px', fontWeight: 700 }}>{likesCount}</span>}
                     </div>
                 </div>
+
+                {/* Viewers Overlay */}
+                {viewersVisible && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', flexDirection: 'column', padding: '60px 20px 20px', animation: 'slideUp 0.3s ease-out' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>Viewers ({viewers.length})</h3>
+                            <button onClick={() => { setViewersVisible(false); setIsPaused(false); }} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '20px' }}>✕</button>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {viewers.length === 0 ? (
+                                <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: '40px' }}>No views yet</p>
+                            ) : viewers.map(v => (
+                                <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <img src={v.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                    <div>
+                                        <p style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: 600 }}>{v.fullname}</p>
+                                        <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '12px' }}>@{v.username}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
+            <style>{`
+                @keyframes slideUp {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 };
@@ -316,8 +367,12 @@ const Stories = () => {
 
     // Sync TanStack Query data with local state
     useEffect(() => {
-        setGroups(storyFeed);
-    }, [storyFeed]);
+        if (storyFeed && storyFeed.length > 0) {
+            setGroups(storyFeed);
+        } else if (storyFeed && storyFeed.length === 0 && groups.length > 0) {
+            setGroups([]);
+        }
+    }, [storyFeed, groups.length]);
 
     const { storyDetailUserId, setStoryDetailUserId, liveStreamId, isLiveHost, setLiveStream, clearLiveStream } = usePostStore();
     const [activeLiveStreams, setActiveLiveStreams] = useState([]);
@@ -496,7 +551,9 @@ const Stories = () => {
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
             
             <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
-                <UserProfile id={selectedProfileId} />
+                <React.Suspense fallback={<div className="p-4 text-center">Loading Profile...</div>}>
+                    <UserProfile id={selectedProfileId} />
+                </React.Suspense>
             </Dialog>
             
             {liveStreamId && (

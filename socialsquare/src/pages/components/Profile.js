@@ -133,20 +133,24 @@ p-3 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
                     </div>
 
                     {/* Stats tiles */}
-                    <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-3 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-4 gap-1.5 sm:gap-3">
                         <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer"
                             onClick={() => setShowFollowersList(true)}>
                             <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(loggeduser?.followers?.length || 0)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Followers</span>
+                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center block">Followers</span>
                         </div>
                         <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer"
                             onClick={() => setShowFollowingList(true)}>
                             <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(loggeduser?.following?.length || 0)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Following</span>
+                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center block">Following</span>
                         </div>
                         <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center">
                             <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userPostsList.length)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Posts</span>
+                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center block">Posts</span>
+                        </div>
+                        <div className="rounded-xl bg-indigo-50 border border-indigo-100 py-3 text-center" title="Total profile views">
+                            <h6 className="m-0 font-extrabold text-base leading-5 text-indigo-700">{formatCount(loggeduser?.profileViews || 0)}</h6>
+                            <span className="text-[10px] uppercase tracking-wider text-indigo-500 font-semibold text-center block">Views</span>
                         </div>
                     </div>
 
