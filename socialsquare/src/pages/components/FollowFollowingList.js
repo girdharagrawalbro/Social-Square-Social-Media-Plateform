@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useUserDetails, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
+import { useUserDetails, useFollowUser, useUnfollowUser, useRemoveFollower } from '../../hooks/queries/useAuthQueries';
+import { confirmDialog } from 'primereact/confirmdialog';
 import UserProfile from './UserProfile';
 
 const FollowFollowingList = ({ ids = [], isfollowing }) => {
@@ -15,6 +16,7 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
     // ✅ Mutations for follow/unfollow
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
+    const removeFollowerMutation = useRemoveFollower();
 
     const handleFollow = (targetUserId) => {
         const isFollowing = user?.following?.some(f => f?.toString() === targetUserId?.toString());
@@ -23,6 +25,18 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
         } else {
             followMutation.mutate({ targetUserId });
         }
+    };
+
+    const handleRemoveFollower = (followerId) => {
+        confirmDialog({
+            message: 'Are you sure you want to remove this person from your followers?',
+            header: 'Remove Follower',
+            icon: 'pi pi-user-minus',
+            acceptClassName: 'p-button-danger',
+            accept: () => {
+                removeFollowerMutation.mutate({ followerId });
+            }
+        });
     };
 
     const openUserProfile = (targetUserId) => {
@@ -65,16 +79,36 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                                 className="flex-1 min-w-0 p-0 border-0 bg-transparent text-left cursor-pointer"
                                 title={`Open ${u.fullname} profile`}
                             >
-                                <p className="m-0 text-sm font-semibold truncate">{u.fullname}</p>
-                                <p className="m-0 text-xs text-gray-400">{u.followers?.length || 0} followers</p>
+                                <p className="m-0 text-sm font-semibold truncate text-gray-800">{u.fullname}</p>
+                                {u.username && <p className="m-0 text-[11px] text-indigo-500 font-medium">@{u.username}</p>}
                             </button>
-                            {u._id !== user?._id && (
-                                <button onClick={() => handleFollow(u._id)}
-                                    disabled={followMutation.isPending || unfollowMutation.isPending}
-                                    className={`text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold transition ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-[#808bf5] text-white'} ${(followMutation.isPending || unfollowMutation.isPending) ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    {followMutation.isPending || unfollowMutation.isPending ? 'Loading...' : (isFollowing ? 'Unfollow' : 'Follow')}
-                                </button>
-                            )}
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
+                                {u._id !== user?._id && (
+                                    <>
+                                        {/* If it's followers list, show Remove button */}
+                                        {!isfollowing && (
+                                            <button
+                                                onClick={() => handleRemoveFollower(u._id)}
+                                                disabled={removeFollowerMutation.isPending}
+                                                className="text-[10px] sm:text-xs px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 cursor-pointer font-semibold hover:bg-gray-50 transition min-w-[60px]"
+                                            >
+                                                {(removeFollowerMutation.isPending && removeFollowerMutation.variables?.followerId === u._id) ? 'Removing...' : 'Remove'}
+                                            </button>
+                                        )}
+
+                                        {/* Always show follow/unfollow unless it's yourself */}
+                                        <button onClick={() => handleFollow(u._id)}
+                                            disabled={followMutation.isPending || unfollowMutation.isPending}
+                                            className={`text-[10px] sm:text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-semibold transition min-w-[75px] ${isFollowing ? 'bg-indigo-50 text-indigo-600' : 'bg-[#808bf5] text-white shadow-sm hover:shadow-md'}`}>
+                                            {(followMutation.isPending && followMutation.variables?.targetUserId === u._id) || (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id)
+                                                ? 'Loading...'
+                                                : (isFollowing ? 'Unfollow' : 'Follow')}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     );
                 })}

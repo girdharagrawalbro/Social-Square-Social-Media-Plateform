@@ -201,7 +201,7 @@ const Chatbot = () => {
             `}</style>
 
             {/* ── Floating Bubble ── */}
-            <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}>
+            <div className="fixed bottom-[85px] md:bottom-6 right-6 z-[9999]">
 
                 {/* Chat window */}
                 {open && (

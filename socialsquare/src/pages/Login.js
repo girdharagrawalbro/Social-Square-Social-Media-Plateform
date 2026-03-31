@@ -18,7 +18,7 @@ const Login = () => {
     const isInitialMount = !window.sessionStorage.getItem('just_logged_in');
     if (user && isInitialMount) {
       toast.success('You are already logged in..');
-      navigate('/');
+      navigate(`/${user.username}`);
     }
   }, [user, navigate]);
 
@@ -51,7 +51,7 @@ const Login = () => {
         window.sessionStorage.setItem('just_logged_in', 'true');
         toast.success('Login successful! Redirecting...');
         setTimeout(() => window.sessionStorage.removeItem('just_logged_in'), 2000);
-        navigate('/');
+        navigate(`/${result.user.username}`);
       } else {
         toast.error(result?.error || 'Login failed');
       }

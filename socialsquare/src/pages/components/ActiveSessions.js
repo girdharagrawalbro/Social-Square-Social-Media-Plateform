@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import { api } from '../../store/zustand/useAuthStore';
+import { confirmDialog } from 'primereact/confirmdialog';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 
 const deviceIcon = (device = '') => {
   const d = device.toLowerCase();
@@ -14,6 +15,8 @@ const ActiveSessions = () => {
   const [loading, setLoading] = useState(true);
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
   const [toggling2FA, setToggling2FA] = useState(false);
+  const [revokingAll, setRevokingAll] = useState(false);
+  const logout = useAuthStore(s => s.logout);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -53,6 +56,27 @@ const ActiveSessions = () => {
     setToggling2FA(false);
   };
 
+  const revokeAllSessions = () => {
+    confirmDialog({
+        message: 'This will log you out from all OTHER devices. Your current session will remain active. Continue?',
+        header: 'Revoke Other Sessions',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClassName: 'p-button-danger',
+        accept: async () => {
+            setRevokingAll(true);
+            try {
+              await api.delete(`/api/auth/sessions/all/revoke`);
+              toast.success('Other sessions revoked');
+              fetchSessions(); // Refresh the list
+            } catch { 
+              toast.error('Failed to revoke other sessions'); 
+            } finally {
+              setRevokingAll(false);
+            }
+        }
+    });
+  };
+
   const formatDate = (d) => new Date(d).toLocaleString();
 
   return (
@@ -81,7 +105,18 @@ const ActiveSessions = () => {
         </div>
 
         {/* Sessions header */}
-        <h3 className="text-sm font-bold mb-3">Active Sessions ({sessions.length})</h3>
+        <div className="flex items-center justify-between mb-3 mt-6">
+          <h3 className="text-sm font-bold m-0">Active Sessions ({sessions.length})</h3>
+          {sessions.length > 0 && (
+            <button
+              onClick={revokeAllSessions}
+              disabled={revokingAll}
+              className="text-red-500 bg-transparent border-0 text-xs font-semibold cursor-pointer hover:underline disabled:opacity-50"
+            >
+              {revokingAll ? 'Revoking...' : 'Logout from other devices'}
+            </button>
+          )}
+        </div>
 
         {/* Sessions list */}
         {loading ? (

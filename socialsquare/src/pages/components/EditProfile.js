@@ -3,11 +3,23 @@ import useAuthStore from '../../store/zustand/useAuthStore';
 import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import toast from 'react-hot-toast';
 
+const MOODS = [
+    { key: null, label: 'None (Default Feed)' },
+    { key: 'happy', emoji: '😊', label: 'Happy' },
+    { key: 'excited', emoji: '🤩', label: 'Excited' },
+    { key: 'funny', emoji: '😂', label: 'Funny' },
+    { key: 'romantic', emoji: '❤️', label: 'Romantic' },
+    { key: 'inspirational', emoji: '💪', label: 'Inspire' },
+    { key: 'calm', emoji: '😌', label: 'Calm' },
+    { key: 'nostalgic', emoji: '🥹', label: 'Nostalgia' },
+    { key: 'sad', emoji: '😢', label: 'Sad' },
+];
+
 const EditProfile = ({ users, closeSidebar }) => {
     const updateProfile = useAuthStore(s => s.updateProfile);
     const fileInputRef = useRef(null);
 
-    const [formData, setFormData] = useState({ fullname: "", email: "", profile_picture: "", bio: "" });
+    const [formData, setFormData] = useState({ fullname: "", email: "", profile_picture: "", bio: "", preferredMood: null, isPrivate: false });
     const [preview, setPreview] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -19,14 +31,18 @@ const EditProfile = ({ users, closeSidebar }) => {
                 email: users.email || "",
                 profile_picture: users.profile_picture || "",
                 bio: users.bio || "",
+                preferredMood: users.preferredMood ?? null,
+                isPrivate: users.isPrivate || false,
             });
             setPreview(users.profile_picture || null);
         }
     }, [users]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        // Convert empty string back to null for the mood select
+        const finalValue = (name === 'preferredMood' && value === "") ? null : value;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : finalValue }));
     };
 
     const handleFileSelect = async (e) => {
@@ -71,7 +87,7 @@ const EditProfile = ({ users, closeSidebar }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="w-full h-full py-3">
+        <form onSubmit={handleSubmit} className="w-full h-full">
 
             {/* Profile Picture Upload */}
             <div className="mb-4 flex flex-col items-center gap-2">
@@ -131,6 +147,43 @@ const EditProfile = ({ users, closeSidebar }) => {
             <div className="mb-3">
                 <label htmlFor="bio" className="block mb-1">Bio</label>
                 <textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} className="w-full border px-3 py-2 rounded" rows={3} />
+            </div>
+
+            <div className="mb-4">
+                <label htmlFor="preferredMood" className="block mb-1 text-sm font-medium text-gray-700">Preferred Feed Mood</label>
+                <select 
+                    id="preferredMood" 
+                    name="preferredMood" 
+                    value={formData.preferredMood} 
+                    onChange={handleChange} 
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg bg-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                    {MOODS.map(mood => (
+                        <option key={mood.key} value={mood.key}>
+                            {mood.emoji ? `${mood.emoji} ` : ''}{mood.label}
+                        </option>
+                    ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Choosing a mood will automatically blend related posts into your main feed.</p>
+            </div>
+
+            <div className="mb-6 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h4 className="m-0 text-sm font-bold text-indigo-900">Private Account</h4>
+                        <p className="m-0 text-[11px] text-indigo-600 mt-0.5">Only people you approve can see your posts and stories.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="isPrivate"
+                            checked={formData.isPrivate}
+                            onChange={handleChange}
+                            className="sr-only peer" 
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
             </div>
 
             <button

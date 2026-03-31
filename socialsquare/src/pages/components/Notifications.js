@@ -1,10 +1,33 @@
 import React from 'react'
 import useConversationStore from '../../store/zustand/useConversationStore';
+import { useAcceptFollowRequest, useDeclineFollowRequest } from '../../hooks/queries/useAuthQueries';
+import toast from 'react-hot-toast';
 
 const Notification = () => {
     const { notifications, unreadNotificationsCount } = useConversationStore();
     const loading = false; // Zustand state is sync for now
     const error = null;
+
+    const acceptMutation = useAcceptFollowRequest();
+    const declineMutation = useDeclineFollowRequest();
+
+    const handleAccept = async (requesterId) => {
+        try {
+            await acceptMutation.mutateAsync({ requesterId });
+            toast.success('Follow request accepted');
+        } catch {
+            toast.error('Failed to accept request');
+        }
+    };
+
+    const handleDecline = async (requesterId) => {
+        try {
+            await declineMutation.mutateAsync({ requesterId });
+            toast.success('Follow request declined');
+        } catch {
+            toast.error('Failed to decline request');
+        }
+    };
 
     const formatDateTime = (dateString) => {
         const date = new Date(dateString);
@@ -42,10 +65,30 @@ const Notification = () => {
                                                 {notification.type === 'like' && ' liked your post'}
                                                 {notification.type === 'comment' && ' commented on your post'}
                                                 {notification.type === 'new_post' && ' shared a new post'}
+                                                {notification.type === 'follow' && ' started following you'}
+                                                {notification.type === 'follow_request' && ' sent you a follow request'}
                                                 {notification.type === 'message' && ` sent a message: "${notification.message?.content?.substring(0, 30)}..."`}
                                                 {notification.type === 'system' && ` - ${notification.message?.content}`}
                                             </span>
                                         </h6>
+                                        {notification.type === 'follow_request' && (
+                                            <div className="d-flex gap-2 mt-1 ms-3">
+                                                <button 
+                                                    onClick={() => handleAccept(notification.sender.id)}
+                                                    className="btn btn-sm btn-primary py-0 px-2" 
+                                                    style={{ fontSize: '11px', borderRadius: '4px' }}
+                                                >
+                                                    Accept
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDecline(notification.sender.id)}
+                                                    className="btn btn-sm btn-outline-secondary py-0 px-2" 
+                                                    style={{ fontSize: '11px', borderRadius: '4px' }}
+                                                >
+                                                    Decline
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                     <p className='text-secondary m-0' style={{ fontSize: "12px" }}>{formatDateTime(notification.createdAt)}</p>
                                 </div>

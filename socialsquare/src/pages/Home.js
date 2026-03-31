@@ -11,7 +11,6 @@ import Navbar from './components/Navbar';
 import { useDarkMode } from '../context/DarkModeContext';
 import useAuthStore from '../store/zustand/useAuthStore';
 import Chatbot from './components/Chatbot';
-import MoodFeedToggle from './components/MoodFeedToggle';
 import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 import { Dialog } from 'primereact/dialog';
@@ -22,7 +21,6 @@ const Home = () => {
     const [activeView, setActiveView] = useState('feed');
     const navigate = useNavigate();
     const { isDark } = useDarkMode();
-    const [activeMood, setActiveMood] = useState(null);
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
 
@@ -37,7 +35,7 @@ const Home = () => {
     // ✅ Redirect to landing only after auth check is complete and no user found
     useEffect(() => {
         if (initialized && !loading && !loggeduser) {
-            navigate('/landing');
+            navigate('/');
         }
     }, [initialized, loading, loggeduser, navigate]);
 
@@ -49,7 +47,7 @@ const Home = () => {
 
     const renderMobileView = () => {
         switch (activeView) {
-            case 'feed': return <><Stories /><MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} /><Feed activeMood={activeMood} /></>;
+            case 'feed': return <><Stories /><Feed activeMood={null} /></>;
             case 'explore': return <Explore />;
             case 'profile': return <Profile />;
             case 'otherUsers': return <OtherUsers />;
@@ -108,8 +106,7 @@ const Home = () => {
                     </div>
                     <div className="w-50 overflow-y-auto h-full px-3">
                         <Stories />
-                        <MoodFeedToggle activeMood={activeMood} onMoodSelect={setActiveMood} onClear={() => setActiveMood(null)} />
-                        <Feed activeMood={activeMood} />
+                        <Feed activeMood={null} />
                     </div>
                     <div className="w-25 h-full flex flex-col gap-3 min-w-0">
                         <Conversations />

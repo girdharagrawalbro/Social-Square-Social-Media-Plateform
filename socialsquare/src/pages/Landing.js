@@ -16,8 +16,8 @@ const Landing = () => {
                             and building meaningful relationships in a safe and vibrant social space.
                         </p>
                         <div className="flex gap-4 flex-wrap">
-                            <Link to="/signup" className="bg-white text-themeStart border-2 border-white px-6 py-3 rounded-lg font-semibold transition transform hover:-translate-y-1 hover:bg-themeStart hover:text-white">Get Started</Link>
-                            <Link to="/login" className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold transition hover:bg-white hover:text-themeStart">Sign In</Link>
+                            <Link to="/signup" className="bg-white text-[#667eea] border-2 border-white px-6 py-3 rounded-lg font-semibold transition transform hover:-translate-y-1 hover:bg-[#667eea] hover:text-white">Get Started</Link>
+                            <Link to="/login" className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold transition hover:bg-white hover:text-[#667eea]">Sign In</Link>
                         </div>
 
                     </div>

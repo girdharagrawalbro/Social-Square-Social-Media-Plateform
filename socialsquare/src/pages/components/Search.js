@@ -25,7 +25,7 @@ const Search = () => {
     const categories = catData;
     const [searchResults, setSearchResults] = useState({ users: [], posts: [] });
     const [searchLoading, setSearchLoading] = useState(false);
-    
+
     // AI Recommendations
     const { data: aiResults = [] } = usePersonalizedSearch(user?._id, searchTerm);
     const loading = { search: searchLoading };
@@ -107,10 +107,10 @@ const Search = () => {
             <div ref={containerRef} className="relative w-full">
                 {/* Search input */}
                 <div className="relative flex items-center">
-                    <i className="pi pi-search absolute left-3 text-gray-400" style={{ fontSize: '14px' }}></i>
+                    <i className="pi pi-search absolute left-4 text-gray-400" style={{ fontSize: '15px' }}></i>
                     <input
                         placeholder="Search users, posts, categories..."
-                        className="py-2 pl-9 pr-9 rounded-full bg-gray-100 w-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-200 transition-all"
+                        className="py-2.5 pl-11 pr-11 rounded-full bg-gray-50 border border-gray-100 w-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 placeholder:text-gray-400 transition-all shadow-sm"
                         type="text"
                         value={searchTerm}
                         onChange={handleInputChange}
@@ -149,7 +149,7 @@ const Search = () => {
                         {/* Categories — always show when no search term */}
                         {!searchTerm && categories.length > 0 && (
                             <div className="px-3 pb-3">
-                                <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">Categories</p>
+                                <p className="text-xs font-bold text-gray-500 my-2 m-0 uppercase tracking-wider">Categories</p>
                                 <div className="flex gap-2 flex-wrap">
                                     {categories.slice(0, 8).map((cat, i) => (
                                         <button key={i} onClick={() => handleCategoryClick(cat.category)}
@@ -177,15 +177,22 @@ const Search = () => {
                                             <div className="mb-3">
                                                 <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">People</p>
                                                 <div className="flex flex-col gap-1">
-                                                    {searchResults.users.map(user => (
-                                                        <button key={user._id} onClick={() => handleUserClick(user._id, user.fullname)}
+                                                    {searchResults.users.map(u => (
+                                                        <button key={u._id} onClick={() => handleUserClick(u._id, u.fullname)}
                                                             className="flex items-center gap-3 px-2 py-2 rounded-xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-gray-50">
                                                             <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
-                                                                <img src={user.profile_picture} alt="" className="w-full h-full object-cover" />
+                                                                <img src={u.profile_picture} alt="" className="w-full h-full object-cover" />
                                                             </div>
-                                                            <div>
-                                                                <p className="m-0 text-sm font-medium">{user.fullname}</p>
-                                                                <p className="m-0 text-xs text-gray-400">{user.followers?.length || 0} followers</p>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="m-0 text-sm font-medium truncate">{u.fullname}</p>
+                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                    {u.username && <p className="m-0 text-[11px] text-indigo-500 font-medium">@{u.username}</p>}
+                                                                    <span className="text-[10px] text-gray-300">•</span>
+                                                                    <p className="m-0 text-[11px] text-gray-500">{u.followers?.length || 0} followers</p>
+                                                                    {user?.following?.some(id => id?.toString() === u._id?.toString()) && (
+                                                                        <span className="text-[10px] bg-green-50 text-green-600 px-1.5 rounded-md font-semibold border border-green-100">Following</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </button>
                                                     ))}
