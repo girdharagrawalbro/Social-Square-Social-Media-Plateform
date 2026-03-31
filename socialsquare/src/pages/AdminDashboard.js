@@ -1,4 +1,4 @@
-    import  { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import useAuthStore, { api, getToken } from '../store/zustand/useAuthStore';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -27,7 +27,7 @@ const PasswordGate = ({ onSuccess }) => {
         try {
             const token = getToken();
             // Re-verify password via auth endpoint
-            await api.post('/api/auth/verify-password', { password }, {
+            await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/auth/verify-password`, { password }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             onSuccess();
@@ -216,11 +216,11 @@ const UsersTab = () => {
 
     const banUser = async () => {
         if (!banData.reason.trim()) return;
-        try { 
-            await api.patch(`/api/admin/users/${banData.userId}/ban`, { reason: banData.reason }, { headers }); 
-            toast.success('User banned'); 
+        try {
+            await api.patch(`/api/admin/users/${banData.userId}/ban`, { reason: banData.reason }, { headers });
+            toast.success('User banned');
             setBanData({ visible: false, userId: null, reason: '' });
-            fetchUsers(); 
+            fetchUsers();
         }
         catch { toast.error('Failed'); }
     };
@@ -494,7 +494,7 @@ const ReportsTab = () => {
                                     </div>
                                 </div>
                                 {report.description && <p className="text-xs text-gray-500 mt-2 mb-0 italic">"{report.description}"</p>}
-                                
+
                                 {/* Target Context */}
                                 <div className="mt-3 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200">
                                     {report.targetType === 'post' && report.targetPost && (
