@@ -121,12 +121,17 @@ export function useFollowUser() {
     const user = useAuthStore(s => s.user);
 
     return useMutation({
-        mutationFn: ({ targetUserId }) =>
-            api.post(`/api/auth/follow`, { targetUserId }),
-        onSuccess: (_, { targetUserId }) => {
-            followUser(targetUserId);
-            qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
-            qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
+        mutationFn: async ({ targetUserId }) => {
+            const res = await api.post(`/api/auth/follow`, { userId: user._id, followUserId: targetUserId });
+            return res.data;
+        },
+        onSuccess: (data, { targetUserId }) => {
+            if (!data.requested) {
+                followUser(targetUserId);
+                qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
+                qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
+            }
+            qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
         },
     });
 }
@@ -138,11 +143,56 @@ export function useUnfollowUser() {
 
     return useMutation({
         mutationFn: ({ targetUserId }) =>
-            api.post(`/api/auth/unfollow`, { targetUserId }),
+            api.post(`/api/auth/unfollow`, { userId: user._id, unfollowUserId: targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             unfollowUser(targetUserId);
             qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
             qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
+            qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
+        },
+    });
+}
+
+export function useAcceptFollowRequest() {
+    const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
+    return useMutation({
+        mutationFn: ({ requesterId }) =>
+            api.post(`/api/auth/follow-request/accept`, { userId: user?._id, requesterId }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['notifications'] });
+            qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
+        },
+    });
+}
+
+export function useDeclineFollowRequest() {
+    const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
+    return useMutation({
+        mutationFn: ({ requesterId }) =>
+            api.post(`/api/auth/follow-request/decline`, { userId: user?._id, requesterId }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['notifications'] });
+        },
+    });
+}
+
+export function useRemoveFollower() {
+    const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
+    const setUser = useAuthStore(s => s.setUser);
+
+    return useMutation({
+        mutationFn: ({ followerId }) =>
+            api.post(`/api/auth/remove-follower`, { userId: user._id, followerId }),
+        onSuccess: (_, { followerId }) => {
+            // Update local state is optional but good for immediate feedback
+            if (user) {
+                const newFollowers = (user.followers || []).filter(f => f?.toString() !== followerId?.toString());
+                setUser({ ...user, followers: newFollowers });
+            }
+            qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
         },
     });
 }

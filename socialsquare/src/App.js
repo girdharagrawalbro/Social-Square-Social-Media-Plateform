@@ -137,7 +137,6 @@ function App() {
                     <Router>
                         <Suspense fallback={<PageLoader />}>
                             <Routes>
-                                <Route path="/landing" element={<Landing />} />
                                 <Route path="/signup" element={<Signup />} />
                                 <Route path="/forgot" element={<Forgot />} />
                                 <Route path="/contact" element={<Contact />} />
@@ -147,7 +146,8 @@ function App() {
                                 <Route path="/verify-otp" element={<VerifyOtp />} />
                                 <Route path="/admin" element={<AdminDashboard />} />
                                 <Route path="/verify-email/:token" element={<VerifyEmail />} />
-                                <Route path="/" element={<Home />} />
+                                <Route path="/" element={<Landing />} />
+                                <Route path="/:username" element={<Home />} />
                             </Routes>
                         </Suspense>
                     </Router>

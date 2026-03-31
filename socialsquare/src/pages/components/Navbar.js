@@ -12,7 +12,7 @@ import { Dialog } from "primereact/dialog";
 
 
 const Navbar = () => {
-  const loggeduser = useAuthStore(s => s.user);
+  const { user: loggeduser, logout } = useAuthStore();
   const isAdminUser = Boolean(loggeduser?.isAdmin || loggeduser?.role === 'admin');
   const isAuthenticated = Boolean(loggeduser?._id || getToken());
   const { isDark, toggle } = useDarkMode();
@@ -42,53 +42,56 @@ const Navbar = () => {
 
   return (
     <div ref={mobileMenuRef} className={`sticky top-0 z-50 md:relative md:top-auto w-full shadow-md border-b max-w-8xl mx-auto flex items-center justify-between px-4 py-2 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <div className="flex items-center gap-3 w-25">
-        <Link to="/landing">
-          <i className="pi pi-home text-2xl text-black"></i>
+      <div className="flex items-center gap-3 flex-1">
+        <Link to={"/"} className="flex items-center">
+          <i className={`pi pi-home text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
         </Link>
-        <Link to="/" className={`no-underline flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
-          <h1 className="font-pacifico text-2xl m-0">Social Square</h1>
+        <Link to={isAuthenticated ? `/${loggeduser?.username}` : "/"} className={`no-underline flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
+          <h1 className="font-pacifico text-2xl m-0 whitespace-nowrap">Social Square</h1>
         </Link>
       </div>
 
-      <div className="hidden md:block flex-1 mx-4 relative w-50">
+      <div className="hidden md:block mx-auto max-w-4xl w-full px-8">
         {isAuthenticated ? <Search /> : <Authnav />}
       </div>
 
-      <div className="hidden md:flex items-center justify-end gap-3 w-25">
-         {isAuthenticated ? (
-        <button onClick={() => setnewpostVisible(true)} className={`border-0 rounded-full w-9 h-9 bg-primary text-white flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}>
-          +</button>
-         ) : null}
+      <div className="hidden md:flex items-center justify-end gap-3 flex-1">
+        {isAuthenticated ? (
+          <button
+            onClick={() => setnewpostVisible(true)}
+            className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+            title="Create post"
+          >
+            <i className="pi pi-plus"></i>
+          </button>
+        ) : null}
 
+        {isAuthenticated ? (
+          <>
+            <NotificationBell userId={loggeduser?._id} />
+          </>
+        ) : (
+          <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline">Login</Link>
+        )}
         {/* Dark mode toggle */}
         <button
           onClick={toggle}
           className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        > 
+        >
           {isDark ? '☀️' : '🌙'}
         </button>
 
-        {isAuthenticated ? (
-          <>
-            <NotificationBell userId={loggeduser?._id} />
-            {isAdminUser && (
-              <Link to="/admin" className={`border-0 rounded-lg px-2 py-1 text-xs font-semibold no-underline ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`} title="Admin Dashboard">
-                ⚙️
-              </Link>
 
-              
-            )}
-            <img
-              src={loggeduser?.profile_picture || "default-profile.png"}
-              alt="Profile"
-              className="w-9 h-9 rounded-full object-cover cursor-pointer flex-shrink-0"
-              style={{ aspectRatio: '1/1' }}
-            />
-          </>
-        ) : (
-          <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline">Login</Link>
+        {isAdminUser && (
+          <Link
+            to="/admin"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+
+          >
+            <span>⚙️</span>
+          </Link>
         )}
       </div>
 
@@ -104,34 +107,10 @@ const Navbar = () => {
             </button>
 
             <NotificationBell userId={loggeduser?._id} />
-
-            {isAdminUser && (
-              <Link
-                to="/admin"
-                className={`border-0 rounded-lg px-2 py-1 text-xs font-semibold no-underline flex items-center gap-1 ${isDark ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}
-                title="Admin Dashboard"
-              >
-                <span>⚙️</span>
-              </Link>
-            )}
-
-            <img
-              src={loggeduser?.profile_picture || "default-profile.png"}
-              alt="Profile"
-              className="w-9 h-9 rounded-full object-cover"
-            />
           </>
         ) : (
           <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm">Login</Link>
         )}
-
-        <button
-          onClick={toggle}
-          className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {isDark ? '☀️' : '🌙'}
-        </button>
 
         <button
           onClick={() => setMobileMenuOpen(v => !v)}
@@ -145,10 +124,40 @@ const Navbar = () => {
       </div>
 
       {mobileMenuOpen && (
-        <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 flex flex-col gap-3 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className={isAuthenticated ? '' : 'mb-3'}>
             {isAuthenticated ? <Search /> : <Authnav />}
           </div>
+
+          {isAuthenticated && (
+            <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+
+
+              {isAdminUser && (
+                <Link
+                  to="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`p-2 rounded-lg no-underline flex items-center gap-2 ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
+                >
+                  <span>⚙️</span> Admin Dashboard
+                </Link>
+              )}
+
+              <button
+                onClick={() => { toggle(); setMobileMenuOpen(false); }}
+                className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
+              >
+                <span>{isDark ? '☀️' : '🌙'}</span> {isDark ? 'Light Mode' : 'Dark Mode'}
+              </button>
+
+              <button
+                onClick={() => { logout(); setMobileMenuOpen(false); }}
+                className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10`}
+              >
+                <span>🚪</span> Logout
+              </button>
+            </div>
+          )}
 
           {!isAuthenticated && (
             <div className="flex justify-end">

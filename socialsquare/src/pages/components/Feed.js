@@ -20,6 +20,7 @@ import {
 import { useAcceptCollaboration, useDeclineCollaboration, useReportPost } from '../../hooks/queries/usePostOperationsQueries';
 import { useConversations, useSendMessage } from '../../hooks/queries/useConversationQueries';
 import usePostStore from '../../store/zustand/usePostStore';
+import { useMemo } from 'react';
 
 const MOOD_EMOJI = { happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' };
 
@@ -201,10 +202,9 @@ const Feed = ({ activeMood = null }) => {
     const optimisticLikes = usePostStore(s => s.optimisticLikes);
 
     // ✅ TanStack Query
-    const [feedMode, setFeedMode] = useState('following'); // 'following' or 'foryou'
     const feedQuery = useFeed(user?._id);
     const recommendedQuery = useRecommendedPosts(user?._id);
-    const moodQuery = useMoodFeed(activeMood, user?._id);
+    const moodQuery = useMoodFeed(user?.preferredMood || '', user?._id);
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
     const deleteMutation = useDeletePost();
@@ -212,6 +212,7 @@ const Feed = ({ activeMood = null }) => {
     const reportMutation = useReportPost();
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
 
+    const [liveInjectedPosts, setLiveInjectedPosts] = useState({});
     const [visiblePostId, setVisiblePostId] = useState(null);
     const [heartVisible, setHeartVisible] = useState({});
     const [editingPost, setEditingPost] = useState(null);
@@ -233,17 +234,49 @@ const Feed = ({ activeMood = null }) => {
 
     // Merge pages + socket posts
     const serverPosts = feedQuery.data?.pages?.flatMap(p => p.posts) || [];
-    const recommendedPosts = recommendedQuery.data || [];
+    const recommendedPosts = (recommendedQuery.data || []).map(p => ({ ...p, isRecommended: true }));
+    const moodPosts = (moodQuery.data || []).map(p => ({ ...p, isMoodMatch: true }));
 
-    const displayPosts = activeMood
-        ? (moodQuery.data || [])
-        : feedMode === 'foryou'
-            ? recommendedPosts
-            : [...socketPosts.filter(sp => !serverPosts.some(p => p._id === sp._id)), ...serverPosts];
+    const displayPosts = useMemo(() => {
+        let all = [...serverPosts, ...recommendedPosts, ...moodPosts];
+        
+        // prepend socket posts
+        const socketNew = socketPosts.filter(sp => !all.some(p => p._id === sp._id));
+        all = [...socketNew, ...all];
+
+        // Deduplicate
+        const unique = new Map();
+        all.forEach(p => {
+            if (!unique.has(p._id)) unique.set(p._id, p);
+        });
+
+        // Sort by date desc
+        let finalArray = Array.from(unique.values()).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // Inject live recommendations
+        let withInjections = [];
+        let seen = new Set();
+        finalArray.forEach(p => {
+            if (seen.has(p._id)) return;
+            seen.add(p._id);
+            withInjections.push(p);
+
+            if (liveInjectedPosts[p._id]) {
+                liveInjectedPosts[p._id].forEach(ip => {
+                    if (!seen.has(ip._id)) {
+                        seen.add(ip._id);
+                        withInjections.push({ ...ip, isLiveInjected: true });
+                    }
+                });
+            }
+        });
+
+        return withInjections;
+    }, [serverPosts, recommendedPosts, moodPosts, socketPosts, liveInjectedPosts]);
 
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
 
-    const handleLikeToggle = (post) => {
+    const handleLikeToggle = async (post) => {
         // ✅ Prevent clicking while request is in progress
         if (likeMutation.isPending) return;
 
@@ -257,19 +290,44 @@ const Feed = ({ activeMood = null }) => {
             isLiked: liked,
             likes: post.likes || []
         });
+
+        if (!liked) {
+            try {
+                const res = await api.get(`/api/recommendation/similar/${post._id}`);
+                const simPosts = res.data?.items || [];
+                if (simPosts.length > 0) {
+                    setLiveInjectedPosts(prev => ({
+                        ...prev,
+                        [post._id]: simPosts.slice(0, 4)
+                    }));
+                }
+            } catch (err) {}
+        }
     };
 
-    const handleImageDoubleClick = post => {
+    const handleImageDoubleClick = async post => {
         const optimisticSet = optimisticLikes[post._id];
         const liked = optimisticSet
             ? optimisticSet.has(user?._id)
             : post.likes?.includes(user?._id);
 
-        if (!liked) likeMutation.mutate({
-            postId: post._id,
-            isLiked: false,
-            likes: post.likes || []
-        });
+        if (!liked) {
+            likeMutation.mutate({
+                postId: post._id,
+                isLiked: false,
+                likes: post.likes || []
+            });
+            try {
+                const res = await api.get(`/api/recommendation/similar/${post._id}`);
+                const simPosts = res.data?.items || [];
+                if (simPosts.length > 0) {
+                    setLiveInjectedPosts(prev => ({
+                        ...prev,
+                        [post._id]: simPosts.slice(0, 4)
+                    }));
+                }
+            } catch (err) {}
+        }
         setHeartVisible(p => ({ ...p, [post._id]: true }));
         setTimeout(() => setHeartVisible(p => ({ ...p, [post._id]: false })), 800);
     };
@@ -361,7 +419,7 @@ const Feed = ({ activeMood = null }) => {
         return <span key={i}>{token}</span>;
     });
 
-    const isLoading = activeMood ? moodQuery.isLoading : (feedQuery.isLoading && displayPosts.length === 0);
+    const isLoading = feedQuery.isLoading && displayPosts.length === 0;
 
     const handleDwell = (postId, dwellTime) => {
         api.post('/api/recommendation/activity', {
@@ -384,18 +442,7 @@ const Feed = ({ activeMood = null }) => {
                     <div className="mt-3 flex flex-col gap-3">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
                 ) : (
                     <div className="mt-3 flex flex-col gap-4">
-                        {!activeMood && (
-                            <div className="flex gap-4 border-b pb-2 mb-2 px-4">
-                                <button
-                                    onClick={() => setFeedMode('following')}
-                                    className={`pb-2 text-sm font-bold border-b-2 transition-all bg-transparent border-0 cursor-pointer ${feedMode === 'following' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500'}`}
-                                > Following </button>
-                                <button
-                                    onClick={() => setFeedMode('foryou')}
-                                    className={`pb-2 text-sm font-bold border-b-2 transition-all bg-transparent border-0 cursor-pointer ${feedMode === 'foryou' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-gray-500'}`}
-                                > ✨ For You </button>
-                            </div>
-                        )}
+                        {/* Removed unused feed toggle UI */}
                         {displayPosts.length > 0 ? displayPosts.map((post, index) => {
                             const images = getImages(post);
                             const isOwn = !post.isAnonymous && (post.user._id === user?._id || post.user._id?.toString() === user?._id);
@@ -442,6 +489,9 @@ const Feed = ({ activeMood = null }) => {
                                                 <div className="flex items-center gap-2">
                                                     {post.location?.name && <span className="text-xs text-gray-500">{post.location.name}</span>}
                                                     {post.mood && <span className="text-xs text-gray-500">{MOOD_EMOJI[post.mood]} {post.mood}</span>}
+                                                    {post.isRecommended && <span className="text-xs text-indigo-500 font-medium">✨ Recommended</span>}
+                                                    {post.isMoodMatch && <span className="text-xs text-indigo-500 font-medium">{user.preferredMood ? MOOD_EMOJI[user.preferredMood] : ''} Based on your mood</span>}
+                                                    {post.isLiveInjected && <span className="text-xs text-pink-500 font-medium">🔥 Highly Related</span>}
                                                 </div>
                                             </div>
                                         </div>

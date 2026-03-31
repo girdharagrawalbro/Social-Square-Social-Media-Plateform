@@ -3,6 +3,7 @@ import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
+import { useUserDetails, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
 import ChatPanel from './ChatPanel';
 import PostDetail from './PostDetail';
 import toast from 'react-hot-toast';
@@ -73,14 +74,15 @@ const UserProfile = ({ id }) => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('posts');
     const [chatVisible, setChatVisible] = useState(false);
-    const [followersList, setFollowersList] = useState([]);
-    const [followingList, setFollowingList] = useState([]);
-    const [listLoading, setListLoading] = useState(false);
-
     const loggeduser = useAuthStore(s => s.user);
-    const followUser = useAuthStore(s => s.followUser);
-    const unfollowUser = useAuthStore(s => s.unfollowUser);
     const createConvMutation = useCreateConversation();
+
+    // ✅ Use TanStack hooks for followers/following (provides automatic caching)
+    const { data: followersList = [], isLoading: followersLoading } = useUserDetails(userDetails?.followers);
+    const { data: followingList = [], isLoading: followingLoading } = useUserDetails(userDetails?.following);
+    
+    const followMutation = useFollowUser();
+    const unfollowMutation = useUnfollowUser();
 
     useEffect(() => {
         if (!id || !loggeduser?._id) return;
@@ -91,38 +93,22 @@ const UserProfile = ({ id }) => {
             .catch(() => setLoading(false));
     }, [id, loggeduser?._id]);
 
-    useEffect(() => {
-        if (!userDetails || !id) return;
-        
-        if (activeTab === 'followers' && userDetails.followers?.length > 0) {
-            setListLoading(true);
-            fetch(`${BASE}/api/auth/users/details`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: userDetails.followers })
-            })
-                .then(r => r.json())
-                .then(data => { setFollowersList(data.users || []); setListLoading(false); })
-                .catch(() => setListLoading(false));
-        }
-        
-        if (activeTab === 'following' && userDetails.following?.length > 0) {
-            setListLoading(true);
-            fetch(`${BASE}/api/auth/users/details`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: userDetails.following })
-            })
-                .then(r => r.json())
-                .then(data => { setFollowingList(data.users || []); setListLoading(false); })
-                .catch(() => setListLoading(false));
-        }
-    }, [activeTab, userDetails, id]);
-
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === id?.toString());
+    const isRequested = userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
+    const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id;
 
-    const handleFollow = () => followUser(id);
-    const handleUnfollow = () => unfollowUser(id);
+    const handleFollow = async () => {
+        try {
+            const res = await followMutation.mutateAsync({ targetUserId: id });
+            if (res.requested) {
+                setUserDetails(prev => ({ ...prev, followRequests: [...(prev.followRequests || []), loggeduser._id] }));
+                toast.success('Follow request sent');
+            }
+        } catch (err) {
+            toast.error('Failed to send follow request');
+        }
+    };
+    const handleUnfollow = () => unfollowMutation.mutate({ targetUserId: id });
 
     const handleMessage = async () => {
         try {
@@ -162,7 +148,7 @@ const UserProfile = ({ id }) => {
     return (
         <>
             <div className="w-full max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl">
-                <div className="border-gray-100 flex flex-col gap-4">
+                <div className="flex flex-col gap-4">
 
                     {/* Avatar + Identity */}
                     <div className="flex items-center justify-center text-center flex-col gap-1">
@@ -177,6 +163,9 @@ const UserProfile = ({ id }) => {
                             />
                         </div>
                         <h3 className="m-0 text-lg sm:text-xl lg:text-2xl font-semibold">{userDetails?.fullname}</h3>
+                        {userDetails?.username && (
+                            <p className="m-0 text-sm font-medium text-indigo-600">@{userDetails.username}</p>
+                        )}
                         {userDetails?.bio && (
                             <p className="text-sm text-gray-500 m-0 max-w-[260px] leading-6">{userDetails.bio}</p>
                         )}
@@ -187,9 +176,12 @@ const UserProfile = ({ id }) => {
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={isFollowing ? handleUnfollow : handleFollow}
-                                className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:opacity-95'}`}
+                                disabled={(isRequested && !isFollowing) || followMutation.isPending || unfollowMutation.isPending}
+                                className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : isRequested ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-default' : 'border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:opacity-95'}`}
                             >
-                                {isFollowing ? 'Following' : 'Follow'}
+                                {((followMutation.isPending && followMutation.variables?.targetUserId === id) || (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === id)) 
+                                    ? '...' 
+                                    : (isFollowing ? 'Following' : isRequested ? 'Requested' : 'Follow')}
                             </button>
                             <button
                                 onClick={handleMessage}
@@ -218,8 +210,7 @@ const UserProfile = ({ id }) => {
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500'
-                                    }`}
+                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500'}`}
                                 style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
                             >
                                 {tab.label}
@@ -229,40 +220,58 @@ const UserProfile = ({ id }) => {
 
                     {/* Tab content */}
                     <div>
-                        {activeTab === 'posts' && <PostGrid userId={id} />}
-
-                        {activeTab === 'followers' && (
-                            <div className="flex flex-col gap-3 mt-3">
-                                {listLoading ? (
-                                    <p className="text-center text-gray-400 text-sm py-4">Loading followers...</p>
-                                ) : userDetails.followers?.length === 0 ? (
-                                    <p className="text-center text-gray-400 text-sm py-4">No followers yet</p>
-                                ) : (
-                                    followersList.map(user => (
-                                        <div key={user._id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                            <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                                            <p className="m-0 text-sm font-semibold text-gray-700">{user.fullname}</p>
-                                        </div>
-                                    ))
-                                )}
+                        {isPrivateAndNotFollowing ? (
+                            <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                                    <i className="pi pi-lock text-2xl text-gray-400"></i>
+                                </div>
+                                <h4 className="m-0 text-gray-800 font-bold mb-1">This Account is Private</h4>
+                                <p className="m-0 text-sm text-gray-500">Follow this account to see their posts and stories.</p>
                             </div>
-                        )}
+                        ) : (
+                            <>
+                                {activeTab === 'posts' && <PostGrid userId={id} />}
 
-                        {activeTab === 'following' && (
-                            <div className="flex flex-col gap-3 mt-3">
-                                {listLoading ? (
-                                    <p className="text-center text-gray-400 text-sm py-4">Loading following...</p>
-                                ) : userDetails.following?.length === 0 ? (
-                                    <p className="text-center text-gray-400 text-sm py-4">Not following anyone yet</p>
-                                ) : (
-                                    followingList.map(user => (
-                                        <div key={user._id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                            <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                                            <p className="m-0 text-sm font-semibold text-gray-700">{user.fullname}</p>
-                                        </div>
-                                    ))
+                                {activeTab === 'followers' && (
+                                    <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
+                                        {followersLoading ? (
+                                            <p className="text-center text-gray-400 text-sm py-4">Loading followers...</p>
+                                        ) : userDetails.followers?.length === 0 ? (
+                                            <p className="text-center text-gray-400 text-sm py-4">No followers yet</p>
+                                        ) : (
+                                            followersList.map(user => (
+                                                <div key={user._id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                                                    <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <p className="m-0 text-sm font-semibold text-gray-700 truncate">{user.fullname}</p>
+                                                        {user.username && <p className="m-0 text-[11px] text-indigo-500">@{user.username}</p>}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 )}
-                            </div>
+
+                                {activeTab === 'following' && (
+                                    <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
+                                        {followingLoading ? (
+                                            <p className="text-center text-gray-400 text-sm py-4">Loading following...</p>
+                                        ) : userDetails.following?.length === 0 ? (
+                                            <p className="text-center text-gray-400 text-sm py-4">Not following anyone yet</p>
+                                        ) : (
+                                            followingList.map(user => (
+                                                <div key={user._id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                                                    <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <p className="m-0 text-sm font-semibold text-gray-700 truncate">{user.fullname}</p>
+                                                        {user.username && <p className="m-0 text-[11px] text-indigo-500">@{user.username}</p>}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -270,7 +279,7 @@ const UserProfile = ({ id }) => {
 
             {/* Chat Dialog */}
             <Dialog header={`Chat with ${userDetails.fullname}`} visible={chatVisible}
-             style={{ width: '95vw', maxWidth: '500px', height: '90vh' }}  position="center" onHide={() => setChatVisible(false)}>
+                style={{ width: '95vw', maxWidth: '500px', height: '90vh' }} position="center" onHide={() => setChatVisible(false)}>
                 <ChatPanel participantId={id} />
             </Dialog>
         </>

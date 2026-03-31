@@ -30,11 +30,11 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateAccessToken(userId) {
-    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '15m' });
+function generateAccessToken(userId, family) {
+    return jwt.sign({ userId, family }, JWT_SECRET, { expiresIn: '15m' });
 }
 function generateRefreshToken(userId, family) {
-    return jwt.sign({ userId, family }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+    return jwt.sign({ userId, family }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 }
 
 function getRefreshCookieOptions(isForClear = false) {
@@ -56,7 +56,7 @@ function getRefreshCookieOptions(isForClear = false) {
     };
 
     if (!isForClear) {
-        options.maxAge = 7 * 24 * 60 * 60 * 1000;
+        options.maxAge = 30 * 24 * 60 * 60 * 1000;
     }
 
     return options;
@@ -71,6 +71,21 @@ function clearRefreshTokenCookie(res) {
 }
 function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+}
+
+async function generateUniqueUsername(fullname) {
+    let base = fullname.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15);
+    if (!base) base = 'user';
+    let username = base;
+    let exists = await User.findOne({ username });
+    let counter = 1;
+
+    while (exists) {
+        username = `${base}${counter}`;
+        exists = await User.findOne({ username });
+        counter++;
+    }
+    return username;
 }
 
 // verifyToken middleware imported from ../middleware/Verifytoken
@@ -130,6 +145,8 @@ router.post('/login', authRateLimiter, [
             return res.status(200).json({ requiresOtp: true, userId: user._id });
         }
 
+        // Safety fix for corrupted preferredMood (empty string)
+        if (user.preferredMood === "") user.preferredMood = null;
         await user.save();
 
         // ── SESSION CREATION ──
@@ -149,7 +166,7 @@ router.post('/login', authRateLimiter, [
             fingerprint: hashedFingerprint,
             ip, userAgent: req.headers['user-agent'] || '',
             device, location, isNewDevice,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
 
         if (isNewDevice) {
@@ -157,7 +174,7 @@ router.post('/login', authRateLimiter, [
                 .catch(err => console.warn('Alert email failed:', err.message));
         }
 
-        const accessToken = generateAccessToken(user._id);
+        const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -214,7 +231,7 @@ router.post('/verify-otp', [
             fingerprint: hashedFingerprint,
             ip, userAgent: req.headers['user-agent'] || '',
             device, location, isNewDevice,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
 
         if (isNewDevice) {
@@ -222,7 +239,7 @@ router.post('/verify-otp', [
                 .catch(() => { });
         }
 
-        const accessToken = generateAccessToken(user._id);
+        const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -278,8 +295,11 @@ router.post('/add', authRateLimiter, [
 
         const hashedPassword = await bcrypt.hash(decryptedPassword, 12);
 
+        const username = await generateUniqueUsername(fullname);
+
         const newUser = new User({
             fullname: fullname.trim(),
+            username,
             email: email.toLowerCase().trim(),
             password: hashedPassword,
             authProvider: 'local',
@@ -304,10 +324,10 @@ router.post('/add', authRateLimiter, [
             fingerprint: hashValue(fingerprint),
             ip, userAgent: req.headers['user-agent'] || '',
             device, location, isNewDevice: true,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
 
-        const accessToken = generateAccessToken(newUser._id);
+        const accessToken = generateAccessToken(newUser._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -334,9 +354,11 @@ router.post('/google', async (req, res) => {
 
         let user = await User.findOne({ $or: [{ googleId }, { email }] });
         if (!user) {
-            user = new User({ fullname: name, email, profile_picture: picture, googleId, authProvider: 'google' });
+            const username = await generateUniqueUsername(name);
+            user = new User({ fullname: name, username, email, profile_picture: picture, googleId, authProvider: 'google' });
         } else {
             user.googleId = googleId;
+            if (!user.username) user.username = await generateUniqueUsername(name);
             if (!user.profile_picture || user.profile_picture.includes('OIP')) user.profile_picture = picture;
         }
         await user.save();
@@ -356,7 +378,7 @@ router.post('/google', async (req, res) => {
             fingerprint: hashedFingerprint,
             ip, userAgent: req.headers['user-agent'] || '',
             device, location, isNewDevice,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
 
         if (isNewDevice) {
@@ -364,7 +386,7 @@ router.post('/google', async (req, res) => {
                 .catch(() => { });
         }
 
-        const accessToken = generateAccessToken(user._id);
+        const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -414,10 +436,10 @@ router.post('/refresh', async (req, res) => {
         await LoginSession.findByIdAndUpdate(session._id, {
             refreshToken: hashValue(newRefreshToken),
             lastUsedAt: new Date(),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
 
-        const accessToken = generateAccessToken(decoded.userId);
+        const accessToken = generateAccessToken(decoded.userId, decoded.family);
         setRefreshTokenCookie(res, newRefreshToken);
 
         // ✅ Return user data alongside token so frontend can restore session
@@ -492,6 +514,25 @@ router.delete('/sessions/:sessionId', async (req, res) => {
         if (!session) return res.status(404).json({ error: 'Session not found' });
         return res.status(200).json({ message: 'Session revoked' });
     } catch { return res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// ─── REVOKE ALL SESSIONS ──────────────────────────────────────────────────────
+router.delete('/sessions/all/revoke', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
+        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+
+        await LoginSession.updateMany(
+            { userId: decoded.userId, tokenFamily: { $ne: decoded.family } },
+            { isRevoked: true }
+        );
+
+        return res.status(200).json({ message: 'Other sessions revoked' });
+    } catch (error) {
+        console.error('Revoke all error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // ─── FORGOT / RESET PASSWORD ──────────────────────────────────────────────────
@@ -632,16 +673,25 @@ router.get("/other-users", verifyToken, async (req, res) => {
 
 router.post('/users/details', async (req, res) => {
     try {
-        const users = await User.find({ _id: { $in: req.body.ids } }).select('fullname profile_picture');
+        const users = await User.find({ _id: { $in: req.body.ids } }).select('fullname username profile_picture');
         res.status(200).json({ users });
     } catch { res.status(500).json({ error: 'Failed to fetch user details' }); }
 });
 
 router.put('/update-profile', async (req, res) => {
     try {
-        const { userId, fullname, email, profile_picture, bio } = req.body;
+        const { userId, fullname, username, email, profile_picture, bio, preferredMood, isPrivate } = req.body;
         if (!userId) return res.status(400).json({ message: 'User ID is required.' });
-        const updatedUser = await User.findByIdAndUpdate(userId, { fullname, email, profile_picture, bio }, { new: true }).select('-password');
+
+        if (username) {
+            const exists = await User.findOne({ username, _id: { $ne: userId } });
+            if (exists) return res.status(400).json({ message: 'Username is already taken.' });
+        }
+
+        const updateData = { fullname, username, email, profile_picture, bio, preferredMood };
+        if (typeof isPrivate === 'boolean') updateData.isPrivate = isPrivate;
+
+        const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
         if (!updatedUser) return res.status(404).json({ message: 'User not found.' });
         res.status(200).json(updatedUser);
     } catch { res.status(500).json({ message: 'Failed to update profile.' }); }
@@ -650,10 +700,80 @@ router.put('/update-profile', async (req, res) => {
 router.post('/follow', async (req, res) => {
     try {
         const { userId, followUserId } = req.body;
+        if (!userId || !followUserId) return res.status(400).json({ message: 'Empty IDs' });
+
+        const targetUser = await User.findById(followUserId);
+        if (!targetUser) return res.status(404).json({ message: 'Target user not found' });
+
+        // If target is private, add to followRequests instead of followers
+        if (targetUser.isPrivate) {
+            // Already following?
+            if (targetUser.followers.includes(userId)) return res.status(200).json(targetUser);
+            
+            // Already requested?
+            if (targetUser.followRequests.includes(userId)) return res.status(200).json(targetUser);
+
+            const updatedTarget = await User.findByIdAndUpdate(
+                followUserId, 
+                { $addToSet: { followRequests: userId } }, 
+                { new: true }
+            ).select("-password");
+
+            // Create notification for follow request
+            const sender = await User.findById(userId).select('fullname profile_picture');
+            await require('../lib/notification.js').createNotification({
+                recipientId: followUserId,
+                sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+                type: 'follow_request',
+            });
+
+            return res.status(200).json({ ...updatedTarget.toObject(), requested: true });
+        }
+
+        // Public account logic
         await User.findByIdAndUpdate(userId, { $addToSet: { following: followUserId } });
-        const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } }).select("-password");
+        const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } }, { new: true }).select("-password");
+        
+        // Notification for immediate follow
+        const sender = await User.findById(userId).select('fullname profile_picture');
+        await require('../lib/notification.js').createNotification({
+            recipientId: followUserId,
+            sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+            type: 'follow',
+        });
+
         res.status(200).json(user);
-    } catch { res.status(500).json({ message: 'Failed to follow user.' }); }
+    } catch (error) { 
+        console.error(error);
+        res.status(500).json({ message: 'Failed to follow user.' }); 
+    }
+});
+
+router.post('/follow-request/accept', async (req, res) => {
+    try {
+        const { userId, requesterId } = req.body; // userId is ME (the one accepting)
+        
+        // Remove from requests, add to followers
+        await User.findByIdAndUpdate(userId, { 
+            $pull: { followRequests: requesterId },
+            $addToSet: { followers: requesterId }
+        });
+        
+        // Add to requester's following
+        await User.findByIdAndUpdate(requesterId, { 
+            $addToSet: { following: userId }
+        });
+
+        res.status(200).json({ message: 'Accepted' });
+    } catch { res.status(500).json({ message: 'Failed to accept request' }); }
+});
+
+router.post('/follow-request/decline', async (req, res) => {
+    try {
+        const { userId, requesterId } = req.body; // userId is ME
+        await User.findByIdAndUpdate(userId, { $pull: { followRequests: requesterId } });
+        res.status(200).json({ message: 'Declined' });
+    } catch { res.status(500).json({ message: 'Failed to decline request' }); }
 });
 
 router.post('/unfollow', async (req, res) => {
@@ -663,6 +783,20 @@ router.post('/unfollow', async (req, res) => {
         const user = await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } }).select("-password");
         res.status(200).json(user);
     } catch { res.status(500).json({ message: 'Failed to unfollow user.' }); }
+});
+
+router.post('/remove-follower', async (req, res) => {
+    try {
+        const { userId, followerId } = req.body; // userId is ME, followerId is the one to remove
+        if (!userId || !followerId) return res.status(400).json({ message: 'Empty IDs' });
+
+        // Remove follower from MY followers list
+        await User.findByIdAndUpdate(userId, { $pull: { followers: followerId } });
+        // Remove ME from THEIR following list
+        await User.findByIdAndUpdate(followerId, { $pull: { following: userId } });
+
+        res.status(200).json({ message: 'Follower removed' });
+    } catch { res.status(500).json({ message: 'Failed to remove follower.' }); }
 });
 
 router.get('/other-user/view/:id', verifyToken, async (req, res) => {
@@ -684,9 +818,15 @@ router.post("/search", async (req, res) => {
     try {
         // Escape special regex characters to prevent crashes
         const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const normalizedQuery = escapedQuery.startsWith('@') ? escapedQuery.slice(1) : escapedQuery;
 
         const [userResults, postResults] = await Promise.all([
-            User.find({ fullname: { $regex: escapedQuery, $options: "i" } }).select("-password"),
+            User.find({ 
+                $or: [
+                    { fullname: { $regex: escapedQuery, $options: "i" } },
+                    { username: { $regex: normalizedQuery, $options: "i" } }
+                ]
+            }).select("-password"),
             Post.find({ category: { $regex: escapedQuery, $options: "i" } }),
         ]);
         res.status(200).json({ users: userResults, posts: postResults });

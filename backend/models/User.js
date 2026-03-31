@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
   fullname: { type: String, required: true },
+  username: { type: String, unique: true, sparse: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: false },
   profile_picture: {
@@ -28,6 +29,17 @@ const UserSchema = new mongoose.Schema({
   isBanned: { type: Boolean, default: false },
   banReason: { type: String, default: null },
   bannedAt: { type: Date, default: null },
+
+  // User Preferences
+  preferredMood: { 
+    type: String, 
+    default: null, 
+    trim: true,
+    set: v => (v === "" ? null : v),
+    enum: ['happy', 'excited', 'funny', 'romantic', 'inspirational', 'calm', 'nostalgic', 'sad', null] 
+  },
+  isPrivate: { type: Boolean, default: false },
+  followRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   // Verification
   isEmailVerified: { type: Boolean, default: false },

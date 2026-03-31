@@ -15,7 +15,7 @@ const Signup = () => {
   const loading = useAuthStore(s => s.loading);
 
   useEffect(() => {
-    if (user) { toast.success("You are already logged in.."); navigate('/'); }
+    if (user) { toast.success("You are already logged in.."); navigate(`/${user.username}`); }
   }, [user, navigate]);
 
   const handleChange = (e) => {
@@ -44,7 +44,7 @@ const Signup = () => {
 
       if (result?.success) {
         toast.success("Signup successful! Redirecting...");
-        navigate('/');
+        navigate(`/${result.user.username}`);
       } else { toast.error(result.message || result.error || "Something went wrong!"); }
     } catch { toast.error("Network error! Please try again."); }
   };

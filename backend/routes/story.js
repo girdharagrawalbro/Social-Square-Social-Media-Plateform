@@ -78,6 +78,15 @@ router.get('/feed', verifyToken, async (req, res) => {
 router.post('/view/:storyId', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
+        const story = await Story.findById(req.params.storyId);
+        if (!story) return res.status(404).json({ message: 'Story not found.' });
+
+        // Privacy check
+        const owner = await User.findById(story.user._id).select('isPrivate followers');
+        if (owner.isPrivate && owner._id.toString() !== userId && !owner.followers.includes(userId)) {
+            return res.status(403).json({ message: 'This story is private.' });
+        }
+
         await Story.findByIdAndUpdate(req.params.storyId, { $addToSet: { viewers: userId } });
         res.status(200).json({ message: 'Viewed' });
     } catch (error) {
@@ -93,6 +102,13 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
         if (!story) return res.status(404).json({ message: 'Story not found.' });
 
         const isLiked = story.likes.includes(userId);
+        
+        // Privacy check
+        const owner = await User.findById(story.user._id).select('isPrivate followers');
+        if (owner.isPrivate && owner._id.toString() !== userId && !owner.followers.includes(userId)) {
+            return res.status(403).json({ message: 'This story is private.' });
+        }
+
         if (isLiked) {
             story.likes = story.likes.filter(id => id.toString() !== userId.toString());
         } else {
@@ -144,6 +160,12 @@ router.post('/reply/:storyId', verifyToken, async (req, res) => {
         const userId = req.userId;
         const story = await Story.findById(req.params.storyId);
         if (!story) return res.status(404).json({ message: 'Story not found.' });
+
+        // Privacy check
+        const owner = await User.findById(story.user._id).select('isPrivate followers');
+        if (owner.isPrivate && owner._id.toString() !== userId && !owner.followers.includes(userId)) {
+            return res.status(403).json({ message: 'This story is private.' });
+        }
 
         const sender = await User.findById(userId).select('fullname profile_picture').lean();
 
