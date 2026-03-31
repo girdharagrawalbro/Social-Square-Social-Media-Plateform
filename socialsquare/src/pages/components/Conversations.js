@@ -5,6 +5,7 @@ import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { useConversations } from '../../hooks/queries/useConversationQueries';
 import ChatPanel from './ChatPanel';
+import UserProfile from './UserProfile';
 
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
@@ -17,6 +18,8 @@ const Conversations = () => {
     const [visible, setVisible] = useState(false);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [lastMessageId, setLastMessageId] = useState(null);
+    const [profileVisible, setProfileVisible] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState(null);
 
     const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
 
@@ -46,6 +49,11 @@ const Conversations = () => {
         clearUnread(participant.conversationId);
     };
 
+    const handleProfileClick = (userId) => {
+        setSelectedUserId(userId);
+        setProfileVisible(true);
+    };
+
     const formatDateTime = (dateString) => {
         if (!dateString) return '';
         const diff = Date.now() - new Date(dateString);
@@ -54,7 +62,10 @@ const Conversations = () => {
     };
 
     const headerElement = selectedParticipant && (
-        <div className="flex items-center gap-2">
+        <div 
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition"
+            onClick={() => handleProfileClick(selectedParticipant.userId)}
+        >
             <div className="relative">
                 <img src={selectedParticipant.profilePicture || '/default-profile.png'} className="w-8 h-8 rounded-full object-cover" alt="" />
                 {isOnline(selectedParticipant.userId) && (
@@ -132,6 +143,10 @@ const Conversations = () => {
                 {selectedParticipant && (
                     <ChatPanel participantId={selectedParticipant.userId} lastMessage={lastMessageId} />
                 )}
+            </Dialog>
+
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
+                <UserProfile id={selectedUserId} />
             </Dialog>
         </div>
     );

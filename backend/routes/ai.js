@@ -145,7 +145,7 @@ router.post('/generate-text', verifyToken, async (req, res) => {
         await consumeAiUsage(userId, 'text');
 
         const textRemaining = getRemaining(DAILY_TEXT_LIMIT, textCount + 1);
-        res.status(200).json({ text, model, remaining: textRemaining, textRemaining });
+        res.status(200).json({ text, remaining: textRemaining, textRemaining });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -183,7 +183,6 @@ router.post('/generate-image', verifyToken, async (req, res) => {
         res.status(200).json({
             imageUrl,
             imageStorage,
-            model,
             seed,
             finishReason,
             remaining: imageRemaining,
@@ -287,11 +286,11 @@ router.post('/suggest-meta', verifyToken, async (req, res) => {
         const { caption = '', prompt = '' } = req.body;
         const sourceText = String(caption || prompt || '').trim();
         // If still empty after trim, we can't suggest tags/category really, but we should handle it
-        if (!sourceText) return res.status(200).json({ 
-            improvedCaption: '', 
-            hashtags: [], 
-            category: 'Default', 
-            mood: 'neutral' 
+        if (!sourceText) return res.status(200).json({
+            improvedCaption: '',
+            hashtags: [],
+            category: 'Default',
+            mood: 'neutral'
         });
 
         const categories = await Category.find().select('category -_id').lean();
@@ -419,8 +418,6 @@ router.post('/generate-and-post', verifyToken, async (req, res) => {
             message: 'AI post created successfully',
             post,
             ai: {
-                textModel: textResult.model,
-                imageModel: imageResult.model,
                 remaining: Math.min(textRemaining, imageRemaining),
                 textRemaining,
                 imageRemaining,

@@ -31,13 +31,13 @@ async function generateNvidiaText(prompt) {
         });
         return {
             text: completion.choices[0]?.message?.content || '',
-            model: 'NVIDIA (llama3)'
+            model: 'Social Square AI'
         };
     } catch (error) {
         console.warn('[NVIDIA Text Error] Falling back to Gemini:', error.message);
         try {
             const text = await generateText(prompt);
-            return { text, model: 'Gemini (Backup)' };
+            return { text, model: 'Social Square AI' };
         } catch (geminiError) {
             console.error('[Fallback Error]:', geminiError.message);
             throw new Error('AI Text generation failed on all providers.');
@@ -99,7 +99,7 @@ async function generateNvidiaImage(prompt) {
         return {
             buffer,
             imageBase64: cleaned,
-            model: 'NVIDIA (stable-diffusion-3-medium)',
+            model: 'Social Square AI',
             seed: response_body?.seed,
             finishReason,
         };

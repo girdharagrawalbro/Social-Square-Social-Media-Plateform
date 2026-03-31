@@ -9,6 +9,8 @@ import axios from 'axios';
 import Comment from './ui/Comment';
 import formatDate from '../../utils/formatDate';
 import { confirmDialog } from 'primereact/confirmdialog';
+import { Dialog } from 'primereact/dialog';
+import UserProfile from './UserProfile';
 import ReportDialog from './ui/ReportDialog';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
@@ -126,6 +128,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [postLikes, setPostLikes] = useState(post?.likes || []);
     const [reportVisible, setReportVisible] = useState(false);
+    const [profileVisible, setProfileVisible] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState(null);
     const lastTap = useRef({});
 
     useEffect(() => {
@@ -256,6 +260,11 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         } catch { toast.error('Failed to report'); }
     };
 
+    const handleProfileClick = (userId) => {
+        setSelectedProfileId(userId);
+        setProfileVisible(true);
+    };
+
     return (
         <>
             <Helmet>
@@ -316,9 +325,23 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                         {/* Header */}
                         <div className="flex items-center justify-between p-4">
                             <div className="flex items-center gap-3 flex-1">
-                                <img src={post.user?.profile_picture} alt="" className="w-12 h-12 rounded-full object-cover" />
+                                <div 
+                                    className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border border-gray-100"
+                                    onClick={() => handleProfileClick(post.user._id)} 
+                                >
+                                    <img 
+                                        src={post.user?.profile_picture} 
+                                        alt="Profile" 
+                                        className="w-full h-full object-cover" 
+                                    />
+                                </div>
                                 <div className="flex-1">
-                                    <p className="m-0 font-semibold text-sm">{post.user?.fullname}</p>
+                                    <p 
+                                        className="m-0 font-semibold text-sm cursor-pointer hover:text-indigo-600 transition"
+                                        onClick={() => handleProfileClick(post.user._id)}
+                                    >
+                                        {post.user?.fullname}
+                                    </p>
                                     <p className="text-xs text-gray-500 m-0">{formatDate(post.createdAt)}</p>
                                 </div>
                             </div>
@@ -364,7 +387,12 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 </div>
                             ) : (
                                 <p className="text-sm leading-5 m-0">
-                                    <span className="font-semibold">{post.user?.fullname}</span> {post.caption}
+                                    <span 
+                                        className="font-semibold cursor-pointer hover:text-indigo-600 transition"
+                                        onClick={() => handleProfileClick(post.user._id)}
+                                    >
+                                        {post.user?.fullname}
+                                    </span> {post.caption}
                                 </p>
                             )}
                             {post.music?.title && (
@@ -377,11 +405,15 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 {/* RIGHT SIDE - COMMENTS */}
                 <div className="w-full h-full md:w-96 flex flex-col bg-gray-50 border-l">
                     <div className="flex-1 overflow-y-auto">
-                        <Comment postId={post._id} />
+                        <Comment postId={post._id} onProfileClick={handleProfileClick} />
                         <SimilarPosts postId={post._id} onPostClick={(id) => navigate(`/post/${id}`)} />
                     </div>
                 </div>
             </div>
+
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
+                <UserProfile id={selectedProfileId} />
+            </Dialog>
 
             <style>{`
                 @keyframes heartBurst {

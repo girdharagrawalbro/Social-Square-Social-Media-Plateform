@@ -55,7 +55,9 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                                 className="p-0 border-0 bg-transparent cursor-pointer"
                                 title={`Open ${u.fullname} profile`}
                             >
-                                <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
+                                    <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-full h-full object-cover" />
+                                </div>
                             </button>
                             <button
                                 type="button"

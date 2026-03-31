@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed } from '../../hooks/queries/useAuthQueries';
+import { Dialog } from 'primereact/dialog';
+import UserProfile from './UserProfile';
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -12,6 +14,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     const [storyIndex, setStoryIndex] = useState(0);
     const [progress, setProgress] = useState(0);
     const intervalRef = useRef(null);
+    const markGroupAsViewed = usePostStore(s => s.markGroupAsViewed);
 
     const group = groups[groupIndex];
     const story = group?.stories[storyIndex];
@@ -43,11 +46,14 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     const goNext = React.useCallback(() => {
         if (!group) return;
         if (storyIndex < group.stories.length - 1) setStoryIndex(s => s + 1);
-        else if (groupIndex < groups.length - 1) {
-            setGroupIndex(g => g + 1);
-            setStoryIndex(0);
-        } else onClose();
-    }, [group, storyIndex, groupIndex, groups.length, onClose]);
+        else {
+            markGroupAsViewed(group.user._id);
+            if (groupIndex < groups.length - 1) {
+                setGroupIndex(g => g + 1);
+                setStoryIndex(0);
+            } else onClose();
+        }
+    }, [group, storyIndex, groupIndex, groups.length, onClose, markGroupAsViewed]);
 
     useEffect(() => {
         setProgress(0);
@@ -128,7 +134,9 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                 {/* Header */}
                 <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <img src={group.user.profile_picture || '/default-profile.png'} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.8)' }} />
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '1.5px solid rgba(255,255,255,0.8)', flexShrink: 0 }}>
+                            <img src={group.user.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
                         <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
                             <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
                             <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>
@@ -298,6 +306,10 @@ const Stories = () => {
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerGroupIndex, setViewerGroupIndex] = useState(0);
     const [createOpen, setCreateOpen] = useState(false);
+    const [profileVisible, setProfileVisible] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState(null);
+    const viewedStoryGroups = usePostStore(s => s.viewedStoryGroups);
+    const markGroupAsViewed = usePostStore(s => s.markGroupAsViewed);
 
     // ✅ TanStack Query - cached, deduplicated requests
     const { data: storyFeed = [] } = useStoryFeed(loggeduser?._id);
@@ -404,7 +416,19 @@ const Stories = () => {
         });
     };
 
-    const openViewer = (index) => { setViewerGroupIndex(index); setViewerOpen(true); };
+    const openViewer = (index) => {
+        const group = groups[index];
+        if (group) markGroupAsViewed(group.user._id);
+        setViewerGroupIndex(index);
+        setViewerOpen(true);
+    };
+    
+    const handleProfileClick = (e, userId) => {
+        e.stopPropagation();
+        setSelectedProfileId(userId);
+        setProfileVisible(true);
+    };
+
     const ownGroup = groups.find(g => g.user._id.toString() === loggeduser?._id?.toString());
     const otherGroups = groups.filter(g => g.user._id.toString() !== loggeduser?._id?.toString());
 
@@ -441,13 +465,25 @@ const Stories = () => {
                 </div>
                 {otherGroups.map(group => {
                     const realIndex = groups.findIndex(g => g.user._id.toString() === group.user._id.toString());
-                    const allViewed = !group.hasUnviewed;
+                    const allViewed = !group.hasUnviewed || viewedStoryGroups.has(group.user._id.toString());
                     return (
-                        <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={() => openViewer(realIndex)}>
-                            <div style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? '#e5e7eb' : 'linear-gradient(135deg, #808bf5, #ec4899)' }}>
-                                <img src={group.user.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff' }} />
+                        <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}>
+                            <div 
+                                onClick={() => openViewer(realIndex)}
+                                style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? '#e5e7eb' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
+                            >
+                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid #fff' }}>
+                                    <img 
+                                        src={group.user.profile_picture} 
+                                        alt="" 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                    />
+                                </div>
                             </div>
-                            <span style={{ fontSize: '11px', color: '#374151', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span 
+                                onClick={(e) => handleProfileClick(e, group.user._id)}
+                                style={{ fontSize: '11px', color: '#374151', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', hover: { color: '#808bf5' } }}
+                            >
                                 {group.user.fullname.split(' ')[0]}
                             </span>
                         </div>
@@ -458,6 +494,11 @@ const Stories = () => {
                 <StoryViewer groups={groups} startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)} onClose={() => setViewerOpen(false)} loggeduser={loggeduser} onStoryDeleted={handleStoryDeleted} onStoryLiked={handleStoryLiked} />
             )}
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
+            
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
+                <UserProfile id={selectedProfileId} />
+            </Dialog>
+            
             {liveStreamId && (
                 <LiveStream 
                     streamId={liveStreamId} 

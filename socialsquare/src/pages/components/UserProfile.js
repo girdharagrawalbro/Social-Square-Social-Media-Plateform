@@ -171,10 +171,9 @@ const UserProfile = ({ id }) => {
                                 src={userDetails?.profile_picture}
                                 zoomSrc={userDetails?.profile_picture}
                                 alt="Profile"
-                                className="rounded-full overflow-hidden border-4 border-indigo-100"
+                                className="profile-image-square overflow-hidden border-4 border-indigo-100"
+                                style={{ '--size': '80px' }}
                                 preview
-                                width="80"
-                                height="80"
                             />
                         </div>
                         <h3 className="m-0 text-lg sm:text-xl lg:text-2xl font-semibold">{userDetails?.fullname}</h3>

@@ -84,6 +84,17 @@ const usePostStore = create(
                 }));
             },
 
+            // ─── Story View State ─────────────────────────────────────────
+            viewedStoryGroups: new Set(),
+            markGroupAsViewed: (userId) => {
+                set(state => {
+                    const next = new Set(state.viewedStoryGroups);
+                    next.add(userId?.toString());
+                    return { viewedStoryGroups: next };
+                });
+            },
+            resetViewedGroups: () => set({ viewedStoryGroups: new Set() }),
+
             syncLikeFromSocket: (postId, userId, liked) => {
                 set(state => {
                     const current = new Set(state.optimisticLikes[postId] || []);

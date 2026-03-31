@@ -51,7 +51,9 @@ const OtherUsers = () => {
                             <div key={u._id} className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-all duration-200"
                                 onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}>
                                 <div className="relative flex-shrink-0">
-                                    <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-10 h-10 rounded-full object-cover shadow-sm ring-2 ring-white dark:ring-gray-800" />
+                                    <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm ring-2 ring-white dark:ring-gray-800">
+                                        <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-full h-full object-cover" />
+                                    </div>
                                     {userIsOnline && (
                                         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 shadow-sm" />
                                     )}

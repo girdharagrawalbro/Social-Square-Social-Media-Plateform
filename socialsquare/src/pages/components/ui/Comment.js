@@ -20,7 +20,7 @@ const HeartBurst = ({ visible }) => visible ? (
     </div>
 ) : null;
 
-const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
+const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, depth = 0 }) => {
     const [showReply, setShowReply] = useState(false);
     const [replyText, setReplyText] = useState('');
     const [showReplies, setShowReplies] = useState(false);
@@ -79,13 +79,28 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
     return (
         <div style={{ marginLeft: depth > 0 ? '40px' : '0', marginBottom: '8px' }}>
             <div className="flex gap-2 items-start">
-                <img src={comment.user.profile_picture || '/default-profile.png'} alt="" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
+                <div 
+                    className="rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition" 
+                    style={{ width: 32, height: 32, border: '1px solid #f3f4f6' }}
+                    onClick={() => onProfileClick?.(comment.user._id)}
+                >
+                    <img 
+                        src={comment.user.profile_picture || '/default-profile.png'} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                    />
+                </div>
                 <div className="flex-1">
                     <div 
                         onDoubleClick={handleDoubleClick}
                         className="bg-gray-50 rounded-2xl px-3 py-2 relative cursor-pointer select-none"
                     >
-                        <p className="m-0 text-xs font-semibold">{comment.user.fullname}</p>
+                        <p 
+                            className="m-0 text-xs font-semibold cursor-pointer hover:text-indigo-600 transition"
+                            onClick={() => onProfileClick?.(comment.user._id)}
+                        >
+                            {comment.user.fullname}
+                        </p>
                         <p className="m-0 text-sm">{comment.content}</p>
                         <HeartBurst visible={heartVisible} />
                     </div>
@@ -136,7 +151,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
                     )}
 
                     {showReplies && replies.map(reply => (
-                        <CommentItem key={reply._id} comment={reply} postId={postId} loggeduser={loggeduser} onDelete={onDelete} depth={depth + 1} />
+                        <CommentItem key={reply._id} comment={reply} postId={postId} loggeduser={loggeduser} onDelete={onDelete} onProfileClick={onProfileClick} depth={depth + 1} />
                     ))}
                 </div>
             </div>
@@ -144,7 +159,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, depth = 0 }) => {
     );
 };
 
-const Comment = ({ postId, setVisible }) => {
+const Comment = ({ postId, setVisible, onProfileClick }) => {
     const user = useAuthStore(s => s.user);
     const loggeduser = user;
     const [formData, setFormData] = useState({ content: '' });
@@ -209,7 +224,7 @@ const Comment = ({ postId, setVisible }) => {
                     <p className="text-gray-400 text-xs text-center">Loading...</p>
                 ) : displayComments.length > 0 ? (
                     displayComments.map(comment => (
-                        <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} />
+                        <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} onProfileClick={onProfileClick} />
                     ))
                 ) : (
                     <p className="text-gray-400 text-xs text-center">No comments yet. Be the first!</p>

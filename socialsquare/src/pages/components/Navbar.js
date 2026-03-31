@@ -83,7 +83,8 @@ const Navbar = () => {
             <img
               src={loggeduser?.profile_picture || "default-profile.png"}
               alt="Profile"
-              className="w-9 h-9 rounded-full object-cover cursor-pointer"
+              className="w-9 h-9 rounded-full object-cover cursor-pointer flex-shrink-0"
+              style={{ aspectRatio: '1/1' }}
             />
           </>
         ) : (
