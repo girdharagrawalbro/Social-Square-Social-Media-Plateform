@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useInView } from 'react-intersection-observer';
 import SkeletonPost from './ui/SkeletonPost';
 import Like from "./ui/Like";
@@ -6,7 +6,7 @@ import Comment from './ui/Comment';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import ReportDialog from './ui/ReportDialog';
-import { useState, useMemo } from 'react';
+
 import toast from 'react-hot-toast';
 import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
@@ -20,7 +20,7 @@ import {
 import { useAcceptCollaboration, useDeclineCollaboration, useReportPost } from '../../hooks/queries/usePostOperationsQueries';
 import { useConversations, useSendMessage } from '../../hooks/queries/useConversationQueries';
 import usePostStore from '../../store/zustand/usePostStore';
-import { useMemo } from 'react';
+
 
 const MOOD_EMOJI = { happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' };
 
