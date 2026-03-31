@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { confirmDialog } from 'primereact/confirmdialog';
-import useAuthStore, { api } from '../../store/zustand/useAuthStore';
+import { api } from '../../store/zustand/useAuthStore';
 
 const deviceIcon = (device = '') => {
   const d = device.toLowerCase();
@@ -16,7 +16,7 @@ const ActiveSessions = () => {
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
   const [toggling2FA, setToggling2FA] = useState(false);
   const [revokingAll, setRevokingAll] = useState(false);
-  const logout = useAuthStore(s => s.logout);
+
 
   const fetchSessions = useCallback(async () => {
     try {
