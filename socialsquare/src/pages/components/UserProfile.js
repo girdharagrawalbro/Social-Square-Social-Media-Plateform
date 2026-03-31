@@ -1,30 +1,29 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
 import { useUserDetails, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
+import { useUserPosts } from '../../hooks/queries/usePostQueries';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
-import PostDetail from './PostDetail';
 import toast from 'react-hot-toast';
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
+const PostDetail = lazy(() => import('./PostDetail'));
+
 
 const PostGrid = ({ userId }) => {
-    const [posts, setPosts] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
 
-    useEffect(() => {
-        if (!userId) return;
-        fetch(`${BASE}/api/post/user/${userId}?limit=12`)
-            .then(r => r.json())
-            .then(data => { setPosts(data.posts || []); setLoading(false); })
-            .catch(() => setLoading(false));
-    }, [userId]);
+    const { 
+        data, 
+        isLoading 
+    } = useUserPosts(userId);
 
-    if (loading) return (
+    const posts = data?.pages.flatMap(page => page.posts) || [];
+
+    if (isLoading && posts.length === 0) return (
         <div className="grid grid-cols-3 gap-2">
             {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="bg-gray-100 rounded-lg animate-pulse" style={{ aspectRatio: '1' }} />)}
         </div>
@@ -63,35 +62,36 @@ const PostGrid = ({ userId }) => {
             </div>
 
             <Dialog visible={postDetailVisible} style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }} onHide={() => setPostDetailVisible(false)} modal header="Post Detail" className="p-0">
-                <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
+                <Suspense fallback={<div className="p-4 text-center">Loading Post Details...</div>}>
+                    <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
+                </Suspense>
             </Dialog>
         </>
     );
 };
 
 const UserProfile = ({ id }) => {
-    const [userDetails, setUserDetails] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('posts');
     const [chatVisible, setChatVisible] = useState(false);
     const loggeduser = useAuthStore(s => s.user);
     const createConvMutation = useCreateConversation();
-
-    // ✅ Use TanStack hooks for followers/following (provides automatic caching)
-    const { data: followersList = [], isLoading: followersLoading } = useUserDetails(userDetails?.followers);
-    const { data: followingList = [], isLoading: followingLoading } = useUserDetails(userDetails?.following);
+    const queryClient = useQueryClient();
     
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
 
-    useEffect(() => {
-        if (!id || !loggeduser?._id) return;
-        setLoading(true);
-        api.get(`/api/auth/other-user/view/${id}`)
-            .then(r => r.data)
-            .then(data => { setUserDetails(data); setLoading(false); })
-            .catch(() => setLoading(false));
-    }, [id, loggeduser?._id]);
+    const { data: userDetails, isLoading: userLoading } = useQuery({
+        queryKey: ['user', 'profile', id],
+        queryFn: async () => {
+            const res = await api.get(`/api/auth/other-user/view/${id}`);
+            return res.data;
+        },
+        enabled: !!id && !!loggeduser?._id,
+        staleTime: 1000 * 60 * 2
+    });
+
+    const followersList = useUserDetails(userDetails?.followers?.length > 0 ? userDetails.followers : null).data || [];
+    const followingList = useUserDetails(userDetails?.following?.length > 0 ? userDetails.following : null).data || [];
 
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === id?.toString());
     const isRequested = userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
@@ -101,7 +101,10 @@ const UserProfile = ({ id }) => {
         try {
             const res = await followMutation.mutateAsync({ targetUserId: id });
             if (res.requested) {
-                setUserDetails(prev => ({ ...prev, followRequests: [...(prev.followRequests || []), loggeduser._id] }));
+                queryClient.setQueryData(['user', 'profile', id], prev => ({ 
+                    ...prev, 
+                    followRequests: [...(prev.followRequests || []), loggeduser._id] 
+                }));
                 toast.success('Follow request sent');
             }
         } catch (err) {
@@ -126,13 +129,13 @@ const UserProfile = ({ id }) => {
     };
 
     if (!id) return null;
-    if (loading) return (
-        <div className="w-full max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl">
-            <div className="border shadow rounded-2xl bg-white border-gray-100 p-3 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse" />
-                    <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-                    <div className="h-3 w-48 bg-gray-200 rounded animate-pulse" />
+    if (userLoading) return (
+        <div className="w-full max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl p-4">
+            <div className="border shadow rounded-2xl bg-white border-gray-100 p-8 flex flex-col gap-6 items-center">
+                <div className="w-24 h-24 rounded-full bg-gray-100 animate-pulse" />
+                <div className="flex flex-col items-center gap-2">
+                    <div className="h-5 w-40 bg-gray-100 rounded animate-pulse" />
+                    <div className="h-4 w-28 bg-gray-50 rounded animate-pulse" />
                 </div>
             </div>
         </div>
@@ -149,8 +152,6 @@ const UserProfile = ({ id }) => {
         <>
             <div className="w-full max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl">
                 <div className="flex flex-col gap-4">
-
-                    {/* Avatar + Identity */}
                     <div className="flex items-center justify-center text-center flex-col gap-1">
                         <div className="relative">
                             <Image
@@ -169,9 +170,28 @@ const UserProfile = ({ id }) => {
                         {userDetails?.bio && (
                             <p className="text-sm text-gray-500 m-0 max-w-[260px] leading-6">{userDetails.bio}</p>
                         )}
+
+                        {userDetails?.mutualCount > 0 && (
+                            <div className="flex items-center gap-2 mt-1">
+                                <div className="flex -space-x-2">
+                                    {userDetails.mutualFollowers.map((m, idx) => (
+                                        <img 
+                                            key={m._id} 
+                                            src={m.profile_picture} 
+                                            alt={m.fullname} 
+                                            className="w-6 h-6 rounded-full border-2 border-white object-cover"
+                                            style={{ zIndex: 3 - idx }}
+                                        />
+                                    ))}
+                                </div>
+                                <p className="text-[11px] text-gray-400 m-0">
+                                    Followed by <strong>{userDetails.mutualFollowers[0]?.fullname}</strong> 
+                                    {userDetails.mutualCount > 1 ? ` and ${userDetails.mutualCount - 1} other${userDetails.mutualCount > 2 ? 's' : ''}` : ''}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Action buttons */}
                     {loggeduser?._id !== id && (
                         <div className="grid grid-cols-2 gap-3">
                             <button
@@ -192,7 +212,6 @@ const UserProfile = ({ id }) => {
                         </div>
                     )}
 
-                    {/* Stats tiles */}
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center">
                             <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followers?.length || 0)}</h6>
@@ -204,7 +223,6 @@ const UserProfile = ({ id }) => {
                         </div>
                     </div>
 
-                    {/* Tabs */}
                     <div className="flex border-b border-gray-100">
                         {TABS.map(tab => (
                             <button
@@ -218,7 +236,6 @@ const UserProfile = ({ id }) => {
                         ))}
                     </div>
 
-                    {/* Tab content */}
                     <div>
                         {isPrivateAndNotFollowing ? (
                             <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
@@ -234,9 +251,7 @@ const UserProfile = ({ id }) => {
 
                                 {activeTab === 'followers' && (
                                     <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
-                                        {followersLoading ? (
-                                            <p className="text-center text-gray-400 text-sm py-4">Loading followers...</p>
-                                        ) : userDetails.followers?.length === 0 ? (
+                                        {userDetails.followers?.length === 0 ? (
                                             <p className="text-center text-gray-400 text-sm py-4">No followers yet</p>
                                         ) : (
                                             followersList.map(user => (
@@ -254,9 +269,7 @@ const UserProfile = ({ id }) => {
 
                                 {activeTab === 'following' && (
                                     <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
-                                        {followingLoading ? (
-                                            <p className="text-center text-gray-400 text-sm py-4">Loading following...</p>
-                                        ) : userDetails.following?.length === 0 ? (
+                                        {userDetails.following?.length === 0 ? (
                                             <p className="text-center text-gray-400 text-sm py-4">Not following anyone yet</p>
                                         ) : (
                                             followingList.map(user => (
@@ -277,7 +290,6 @@ const UserProfile = ({ id }) => {
                 </div>
             </div>
 
-            {/* Chat Dialog */}
             <Dialog header={`Chat with ${userDetails.fullname}`} visible={chatVisible}
                 style={{ width: '95vw', maxWidth: '500px', height: '90vh' }} position="center" onHide={() => setChatVisible(false)}>
                 <ChatPanel participantId={id} />

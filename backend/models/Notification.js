@@ -13,7 +13,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['like', 'comment', 'follow', 'message', 'system', 'new_post'],  // added new_post
+    enum: ['like', 'comment', 'follow', 'follow_request', 'message', 'system', 'new_post'],  // added follow_request
     default: 'message'
   },
   // Optional — only for message notifications
@@ -27,6 +27,7 @@ const notificationSchema = new mongoose.Schema({
     ref: 'Post',
     default: null,
   },
+  thumbnail: { type: String, required: false },
   url: { type: String, required: false },
   read: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },

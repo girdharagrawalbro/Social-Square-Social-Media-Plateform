@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
 import Search from "./Search";
 import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
-
-import { Link } from "react-router-dom";
 import Authnav from "./Authnav";
 import NotificationBell from "./ui/NotificationBell";
 import { useDarkMode } from '../../context/DarkModeContext';
@@ -12,6 +11,8 @@ import { Dialog } from "primereact/dialog";
 
 
 const Navbar = () => {
+  const location = useLocation();
+  const isLandingPage = location.pathname === "/";
   const { user: loggeduser, logout } = useAuthStore();
   const isAdminUser = Boolean(loggeduser?.isAdmin || loggeduser?.role === 'admin');
   const isAuthenticated = Boolean(loggeduser?._id || getToken());
@@ -41,7 +42,7 @@ const Navbar = () => {
 
 
   return (
-    <div ref={mobileMenuRef} className={`sticky top-0 z-50 md:relative md:top-auto w-full shadow-md border-b max-w-8xl mx-auto flex items-center justify-between px-4 py-2 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+    <div ref={mobileMenuRef} className={`sticky top-0 z-50 w-full backdrop-blur-md shadow-sm border-b max-w-8xl mx-auto flex items-center justify-between px-4 py-2 transition-all duration-300 ${isDark ? 'bg-gray-900/80 border-gray-700' : 'bg-white/80 border-gray-200'}`}>
       <div className="flex items-center gap-3 flex-1">
         <Link to={"/"} className="flex items-center">
           <i className={`pi pi-home text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
@@ -52,11 +53,11 @@ const Navbar = () => {
       </div>
 
       <div className="hidden md:block mx-auto max-w-4xl w-full px-8">
-        {isAuthenticated ? <Search /> : <Authnav />}
+        {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)}
       </div>
 
       <div className="hidden md:flex items-center justify-end gap-3 flex-1">
-        {isAuthenticated ? (
+        {isAuthenticated && !isLandingPage ? (
           <button
             onClick={() => setnewpostVisible(true)}
             className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
@@ -67,9 +68,7 @@ const Navbar = () => {
         ) : null}
 
         {isAuthenticated ? (
-          <>
-            <NotificationBell userId={loggeduser?._id} />
-          </>
+          !isLandingPage && <NotificationBell userId={loggeduser?._id} />
         ) : (
           <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline">Login</Link>
         )}
@@ -96,7 +95,7 @@ const Navbar = () => {
       </div>
 
       <div className="md:hidden flex items-center gap-2">
-        {isAuthenticated ? (
+        {isAuthenticated && !isLandingPage ? (
           <>
             <button
               onClick={() => setnewpostVisible(true)}
@@ -109,7 +108,7 @@ const Navbar = () => {
             <NotificationBell userId={loggeduser?._id} />
           </>
         ) : (
-          <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm">Login</Link>
+          !isAuthenticated && <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm">Login</Link>
         )}
 
         <button
@@ -123,11 +122,11 @@ const Navbar = () => {
         </button>
       </div>
 
-      {mobileMenuOpen && (
-        <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 flex flex-col gap-3 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className={isAuthenticated ? '' : 'mb-3'}>
-            {isAuthenticated ? <Search /> : <Authnav />}
-          </div>
+      <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 flex flex-col gap-3 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
+        } ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className={isAuthenticated ? '' : 'mb-3'}>
+          {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)}
+        </div>
 
           {isAuthenticated && (
             <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
@@ -170,8 +169,7 @@ const Navbar = () => {
               </Link>
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       <Dialog header="New Post" visible={newpostVisible} modal position="center" style={{ width: '500px', maxHeight: '600px' }} onHide={() => setnewpostVisible(false)}>
         <NewPost setnewpostVisible={setnewpostVisible} />

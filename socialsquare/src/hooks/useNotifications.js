@@ -1,12 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { socket } from '../socket';
 import { api } from '../store/zustand/useAuthStore';
 
 // Fetch notifications
-const fetchNotifications = async (userId) => {
-    const res = await api.get(`/api/conversation/notifications`);
-    return res.data;
+const fetchNotifications = async (userId, page = 1) => {
+    const res = await api.get(`/api/conversation/notifications?page=${page}&limit=20`);
+    return res.data; // { notifications, total, page, hasNextPage }
 };
 
 // Mark notifications as read
@@ -16,37 +16,56 @@ const markAsRead = async (Ids) => {
 };
 
 export function useNotifications(userId) {
-    const queryClient = useQueryClient();
+    const [allNotifications, setAllNotifications] = useState([]);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
 
     const query = useQuery({
-        queryKey: ['notifications', userId],
-        queryFn: () => fetchNotifications(userId),
+        queryKey: ['notifications', userId, page],
+        queryFn: () => fetchNotifications(userId, page),
         enabled: !!userId,
-        staleTime: 1000 * 60, // 1 minute
+        staleTime: 1000 * 60,
     });
+
+    useEffect(() => {
+        if (query.data?.notifications) {
+            const { notifications, hasNextPage } = query.data;
+            setAllNotifications(prev => {
+                const existingIds = new Set(prev.map(n => n._id));
+                const uniqueNew = notifications.filter(n => !existingIds.has(n._id));
+                return [...prev, ...uniqueNew];
+            });
+            setHasMore(hasNextPage);
+        }
+    }, [query.data]);
 
     // Real-time: listen for new notifications via socket
     useEffect(() => {
         if (!userId) return;
-
         const handleNewNotification = (notification) => {
-            queryClient.setQueryData(['notifications', userId], (old = []) => [notification, ...old]);
+            setAllNotifications(prev => [notification, ...prev]);
         };
-
         socket.on('newNotification', handleNewNotification);
         return () => socket.off('newNotification', handleNewNotification);
-    }, [userId, queryClient]);
+    }, [userId]);
 
     const markRead = useMutation({
         mutationFn: markAsRead,
         onSuccess: (_, Ids) => {
-            queryClient.setQueryData(['notifications', userId], (old = []) =>
-                old.filter(n => !Ids.includes(n._id))
+            setAllNotifications(prev =>
+                prev.map(n => Ids.includes(n._id) ? { ...n, read: true } : n)
             );
         },
     });
 
-    const unreadCount = query.data?.length || 0;
+    const unreadCount = allNotifications.filter(n => !n.read).length;
 
-    return { ...query, markRead, unreadCount };
+    return {
+        data: allNotifications,
+        markRead,
+        unreadCount,
+        isLoading: query.isLoading,
+        loadMore: () => setPage(p => p + 1),
+        hasMore
+    };
 }

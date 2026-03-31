@@ -94,6 +94,25 @@ router.post('/view/:storyId', verifyToken, async (req, res) => {
     }
 });
 
+// ─── GET VIEWERS (PROTECTED - OWNER ONLY) ─────────────────────────────────────
+router.get('/viewers/:storyId', verifyToken, async (req, res) => {
+    try {
+        const story = await Story.findById(req.params.storyId)
+            .populate('viewers', 'fullname profile_picture username');
+        
+        if (!story) return res.status(404).json({ message: 'Story not found.' });
+        
+        // Ownership check
+        if (story.user._id.toString() !== req.userId) {
+            return res.status(403).json({ message: 'Unauthorized to view story analytics.' });
+        }
+        
+        res.status(200).json(story.viewers || []);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ─── LIKE/UNLIKE STORY (PROTECTED) ───────────────────────────────────────────
 router.post('/like/:storyId', verifyToken, async (req, res) => {
     try {
@@ -128,6 +147,7 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
                     recipientId: story.user._id,
                     sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
                     type: 'like',
+                    thumbnail: story.media?.url,
                     url: `/stories?user=${story.user._id}`,
                 });
             }
@@ -173,6 +193,7 @@ router.post('/reply/:storyId', verifyToken, async (req, res) => {
             recipientId: story.user._id,
             sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
             type: 'message',
+            thumbnail: story.media?.url,
             message: { content: `Replied: "${text}"` },
             url: `/stories?user=${story.user._id}`,
         });

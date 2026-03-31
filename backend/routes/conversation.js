@@ -289,9 +289,25 @@ router.post('/messages/mark-read', verifyToken, async (req, res) => {
 router.get('/notifications', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        const notifications = await Notification.find({ recipient: userId, read: false })
-            .sort({ createdAt: -1 }).lean();
-        res.status(200).json(notifications);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const [notifications, total] = await Promise.all([
+            Notification.find({ recipient: userId })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Notification.countDocuments({ recipient: userId })
+        ]);
+
+        res.status(200).json({
+            notifications,
+            total,
+            page,
+            hasNextPage: total > skip + notifications.length
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

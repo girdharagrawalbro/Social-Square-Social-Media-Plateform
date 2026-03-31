@@ -12,6 +12,31 @@ const useAdmin = () => {
     return useMemo(() => ({ headers: { Authorization: `Bearer ${token}` } }), [token]);
 };
 
+const Header = ({ user, onLock, onHome }) => (
+    <div className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/70 border-b border-gray-100 px-6 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-4">
+            <button onClick={onHome} className="p-2 hover:bg-gray-100 rounded-full transition-colors border-0 bg-transparent cursor-pointer text-gray-500">
+                <i className="pi pi-arrow-left text-lg"></i>
+            </button>
+            <div className="flex flex-col">
+                <h1 className="text-xl font-extrabold tracking-tight text-gray-900 m-0 flex items-center gap-2">
+                    <span className="text-2xl">⚙️</span> Control Center
+                </h1>
+                <p className="text-[10px] uppercase tracking-widest text-indigo-500 font-bold m-0">Social Square Admin</p>
+            </div>
+        </div>
+        <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-100">
+                <img src={user?.profile_picture} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-white shadow-sm" />
+                <span className="text-xs font-bold text-gray-700">{user?.fullname}</span>
+            </div>
+            <button onClick={onLock} className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-xs font-bold transition-all border-0 cursor-pointer shadow-sm active:scale-95">
+                <i className="pi pi-lock"></i> Lock
+            </button>
+        </div>
+    </div>
+);
+
 // ─── PASSWORD GATE ────────────────────────────────────────────────────────────
 const PasswordGate = ({ onSuccess }) => {
     const [password, setPassword] = useState('');
@@ -101,15 +126,29 @@ const PasswordGate = ({ onSuccess }) => {
 };
 
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
-const StatCard = ({ label, value, sub, color = '#808bf5', icon }) => (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
-        <div style={{ width: 48, height: 48, borderRadius: '12px', background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-            {icon}
-        </div>
-        <div>
-            <p className="text-2xl font-bold m-0">{value?.toLocaleString()}</p>
-            <p className="text-sm text-gray-500 m-0">{label}</p>
-            {sub && <p className="text-xs text-green-500 m-0">{sub}</p>}
+const StatCard = ({ label, value, sub, color = '#6366f1', icon }) => (
+    <div className="group relative overflow-hidden bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+        <div 
+            className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10 group-hover:scale-110 transition-transform duration-500" 
+            style={{ background: color }}
+        />
+        <div className="relative flex items-start justify-between">
+            <div>
+                <p className="text-3xl font-black text-gray-800 m-0 tracking-tight">{value?.toLocaleString()}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mt-1 m-0">{label}</p>
+                {sub && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 px-2 py-0.5 bg-green-50 rounded-full">
+                        <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span>
+                        <p className="text-[10px] font-black text-green-600 m-0">{sub}</p>
+                    </div>
+                )}
+            </div>
+            <div 
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner transition-transform group-hover:rotate-12"
+                style={{ background: `${color}10`, color: color }}
+            >
+                {icon}
+            </div>
         </div>
     </div>
 );
@@ -598,45 +637,47 @@ const AdminDashboard = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <ConfirmDialog />
-            {/* Header */}
-            <div className="bg-white border-b shadow-sm px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/')} className="text-gray-400 border-0 bg-transparent cursor-pointer p-0 mr-2">
-                        <i className="pi pi-arrow-left"></i>
-                    </button>
-                    <h1 className="text-xl font-bold m-0">⚙️ Admin Dashboard</h1>
-                    <span style={{ fontSize: '11px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '2px 8px' }}>Social Square</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <img src={loggeduser.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover" />
-                    <span className="text-sm font-medium">{loggeduser.fullname}</span>
-                    <button onClick={() => setVerified(false)} title="Lock dashboard"
-                        style={{ background: '#fee2e2', border: 'none', borderRadius: '8px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', color: '#ef4444', fontWeight: 600 }}>
-                        🔒 Lock
-                    </button>
-                </div>
-            </div>
+            <Header 
+                user={loggeduser} 
+                onLock={() => setVerified(false)} 
+                onHome={() => navigate('/')} 
+            />
 
-            <div className="flex" style={{ minHeight: 'calc(100vh - 65px)' }}>
+            <div className="flex" style={{ minHeight: 'calc(100vh - 73px)' }}>
                 {/* Sidebar */}
-                <div className="bg-white border-r w-48 flex-shrink-0 p-3">
-                    <div className="flex flex-col gap-1 mt-2">
+                <div className="bg-white border-r w-64 flex-shrink-0 p-6 flex flex-col justify-between">
+                    <div className="flex flex-col gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4 px-4">Menu</p>
                         {tabs.map(tab => (
-                            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border-0 cursor-pointer text-left w-full transition-all"
-                                style={{ background: activeTab === tab.key ? '#ede9fe' : 'transparent', color: activeTab === tab.key ? '#6366f1' : '#6b7280' }}>
-                                <span>{tab.icon}</span> {tab.label}
+                            <button 
+                                key={tab.key} 
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl text-xs font-bold border-0 cursor-pointer text-left w-full transition-all duration-200 ${
+                                    activeTab === tab.key 
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 translate-x-1' 
+                                    : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                                }`}
+                            >
+                                <span className="text-lg">{tab.icon}</span> 
+                                <span className="tracking-wide">{tab.label}</span>
                             </button>
                         ))}
+                    </div>
+
+                    <div className="bg-indigo-50 rounded-3xl p-5 border border-indigo-100">
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest m-0 mb-1">System Version</p>
+                        <p className="text-xs font-bold text-indigo-700 m-0">v2.4.0-Stable</p>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 p-6 overflow-auto">
-                    {activeTab === 'analytics' && <AnalyticsTab />}
-                    {activeTab === 'users' && <UsersTab />}
-                    {activeTab === 'posts' && <PostsTab />}
-                    {activeTab === 'reports' && <ReportsTab />}
+                <div className="flex-1 p-8 bg-[#fdfdff] overflow-auto">
+                    <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {activeTab === 'analytics' && <AnalyticsTab />}
+                        {activeTab === 'users' && <UsersTab />}
+                        {activeTab === 'posts' && <PostsTab />}
+                        {activeTab === 'reports' && <ReportsTab />}
+                    </div>
                 </div>
             </div>
         </div>

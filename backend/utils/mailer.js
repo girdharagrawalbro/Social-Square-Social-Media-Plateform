@@ -109,6 +109,24 @@ async function sendLockoutEmail(email, unlockTime) {
     });
 }
 
+async function sendSessionRevokedEmail(email, { device, location, ip }) {
+    return sendEmail({
+        to: email,
+        subject: '🛑 A session was revoked — Social Square security',
+        html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#374151">Session Logged Out</h2>
+            <p>A session was recently terminated from your account:</p>
+            <div style="background:#f9fafb;padding:16px;border-radius:12px;margin:16px 0;border:1px solid #f3f4f6">
+                <p style="margin:0 0 8px;font-size:14px"><strong>Device:</strong> ${device || 'Unknown'}</p>
+                <p style="margin:0 0 8px;font-size:14px"><strong>Location:</strong> ${location || 'Unknown'}</p>
+                <p style="margin:0;font-size:14px"><strong>IP:</strong> ${ip || 'Unknown'}</p>
+            </div>
+            <p style="color:#6b7280;font-size:12px">If this was you (e.g. you logged out on another device), no action needed. If not, change your password immediately.</p>
+        </div>`
+    });
+}
+
 // ─── DAILY DIGEST EMAIL ───────────────────────────────────────────────────────
 async function sendDigestEmail(user, stats) {
     const { newFollowers, newLikes, newComments, trendingPosts = [] } = stats;
@@ -177,4 +195,5 @@ module.exports = {
     sendLockoutEmail,
     sendDigestEmail,
     sendVerificationEmail,
+    sendSessionRevokedEmail,
 };
