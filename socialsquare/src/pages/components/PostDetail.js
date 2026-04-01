@@ -293,158 +293,165 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             <ShareDialog post={post} visible={shareVisible} onHide={() => setShareVisible(false)} user={loggeduser} />
             <ReportDialog visible={reportVisible} onHide={() => setReportVisible(false)} onSubmit={handleReport} />
 
-            <div className="flex ">
-                {/* LEFT SIDE - POST */}
-                <div className="flex-1 flex flex-col bg-black md:max-w-2xl">
-                    {/* Images */}
-                    {images.length > 0 && (
-                        <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+            <div className="flex flex-col h-full bg-white overflow-hidden" style={{ borderRadius: '12px' }}>
+                {/* GLOBAL HEADER */}
+                <div className="flex items-center justify-between p-4 border-b">
+                    <div className="flex items-center gap-3">
+                        <img 
+                            src={post.user?.profile_picture} 
+                            alt="" 
+                            className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition"
+                            onClick={() => handleProfileClick(post.user?._id)}
+                        />
+                        <div className="flex flex-col">
+                            <span 
+                                className="font-bold text-sm cursor-pointer hover:text-indigo-600 transition"
+                                onClick={() => handleProfileClick(post.user?._id)}
+                            >
+                                {post.user?.fullname}
+                            </span>
+                            <span className="text-[11px] text-gray-400 font-medium">
+                                {formatDate(post.createdAt)}
+                            </span>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onHide}
+                        className="bg-transparent border-0 cursor-pointer text-gray-400 hover:text-gray-600 transition p-2"
+                    >
+                        <i className="pi pi-times text-lg"></i>
+                    </button>
+                </div>
+
+                <div className="flex flex-1 overflow-hidden">
+                    {/* LEFT COLUMN - IMAGE */}
+                    <div className="hidden md:flex flex-1 bg-[#F8F9FA] items-center justify-center p-6 relative overflow-hidden">
+                        <div className="relative w-full h-full flex items-center justify-center">
                             <img
                                 src={images[currentImage]}
                                 alt="Post"
                                 onDoubleClick={handleImageDoubleClick}
                                 onTouchEnd={handleImageTap}
-
-                                className="h-[45vh] object-contain cursor-pointer"
+                                className="max-w-full max-h-full object-contain shadow-2xl rounded-lg cursor-pointer"
                             />
-                            {/* Heart Animation */}
                             {heartVisible && (
-                                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10, pointerEvents: 'none', animation: 'heartBurst 0.8s ease forwards' }}>
-                                    <span style={{ fontSize: '80px' }}>❤️</span>
+                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none animate-heartBurst">
+                                    <span className="text-8xl">❤️</span>
                                 </div>
                             )}
-                            {/* Image Controls */}
+                            
                             {images.length > 1 && (
                                 <>
                                     {currentImage > 0 && (
-                                        <button onClick={() => setCurrentImage(c => c - 1)} className="absolute left-3 top-1/2 transform -translate-y-1/2 z-5 bg-white/30 hover:bg-white/50 text-white rounded-full w-10 h-10 flex items-center justify-center border-0 cursor-pointer font-bold text-xl">‹</button>
+                                        <button onClick={() => setCurrentImage(c => c - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/50 hover:bg-white text-gray-800 rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
+                                            <i className="pi pi-chevron-left"></i>
+                                        </button>
                                     )}
                                     {currentImage < images.length - 1 && (
-                                        <button onClick={() => setCurrentImage(c => c + 1)} className="absolute right-3 top-1/2 transform -translate-y-1/2 z-5 bg-white/30 hover:bg-white/50 text-white rounded-full w-10 h-10 flex items-center justify-center border-0 cursor-pointer font-bold text-xl">›</button>
+                                        <button onClick={() => setCurrentImage(c => c + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/50 hover:bg-white text-gray-800 rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
+                                            <i className="pi pi-chevron-right"></i>
+                                        </button>
                                     )}
-                                    <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 z-5 flex gap-1">
+                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-sm p-1.5 rounded-full">
                                         {images.map((_, i) => (
-                                            <button key={i} onClick={() => setCurrentImage(i)} className={`rounded-full border-0 cursor-pointer transition-all ${i === currentImage ? 'w-4 h-2 bg-white' : 'w-2 h-2 bg-white/50 hover:bg-white/70'}`} />
+                                            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
                                         ))}
                                     </div>
                                 </>
                             )}
                         </div>
-                    )}
+                    </div>
 
-                    {/* Post Info */}
-                    <div className="bg-white border-t">
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-4">
-                            <div className="flex items-center gap-3 flex-1">
-                                <div className="flex items-center">
-                                    <div
-                                        className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border-2 border-white shadow-sm z-30"
-                                        onClick={() => handleProfileClick(post.user._id)}
-                                    >
-                                        <img src={post.user?.profile_picture} alt="" className="w-full h-full object-cover" />
-                                    </div>
-                                    {post.collaborators?.slice(0, 2).map((c, i) => (
-                                        <div
-                                            key={c._id}
-                                            className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border-2 border-white shadow-sm -ml-4"
-                                            style={{ zIndex: 20 - i }}
-                                            onClick={() => handleProfileClick(c._id)}
-                                        >
-                                            <img src={c.profile_picture} alt="" className="w-full h-full object-cover" />
-                                        </div>
-                                    ))}
-                                    {post.collaborators?.length > 2 && (
-                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 border-2 border-white shadow-sm -ml-4 z-0">
-                                            +{post.collaborators.length - 2}
-                                        </div>
+                    {/* RIGHT COLUMN - ACTIONS & COMMENTS */}
+                    <div className="w-full md:w-[450px] flex flex-col border-l bg-white">
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            {/* Author & Caption */}
+                            <div className="p-4 border-b">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <img 
+                                        src={post.user?.profile_picture} 
+                                        alt="" 
+                                        className="w-8 h-8 rounded-full object-cover"
+                                    />
+                                    <span className="font-bold text-sm">{post.user?.fullname}</span>
+                                    {post.collaborators?.length > 0 && (
+                                         <span className="text-gray-400 text-xs">Collaborators: {post.collaborators.length}</span>
                                     )}
                                 </div>
-                                <div className="flex flex-col gap-0.5">
-                                    <div className="flex flex-wrap items-center gap-1">
-                                        <span 
-                                            className="font-bold text-sm cursor-pointer hover:text-indigo-600 transition"
-                                            onClick={() => handleProfileClick(post.user?._id)}
-                                        >
-                                            {post.user?.fullname}
-                                        </span>
-                                        {post.collaborators?.length > 0 && post.collaborators.map(c => (
-                                            <React.Fragment key={c._id}>
-                                                <span className="text-gray-400 text-sm">&</span>
-                                                <span 
-                                                    className="font-bold text-sm cursor-pointer hover:text-indigo-600 transition"
-                                                    onClick={() => handleProfileClick(c._id)}
-                                                >
-                                                    {c.fullname || 'Ghost'}
-                                                </span>
-                                            </React.Fragment>
-                                        ))}
+                                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                    {post.caption}
+                                </div>
+                                {post.music?.title && (
+                                    <div className="mt-3 flex items-center gap-2 text-xs text-indigo-500 font-medium">
+                                        <i className="pi pi-music"></i>
+                                        <span>{post.music.title} {post.music.artist && `• ${post.music.artist}`}</span>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 m-0 uppercase tracking-wider font-bold">{formatDate(post.createdAt)}</p>
+                                )}
+                            </div>
+
+                            {/* Comments Section */}
+                            <div className="p-4">
+                                <Comment postId={post._id} onProfileClick={handleProfileClick} />
+                            </div>
+
+                            {/* Similar Posts */}
+                            <div className="mt-4">
+                                <SimilarPosts postId={post._id} onPostClick={(id) => setActivePostId(id)} />
+                            </div>
+                        </div>
+
+                        {/* Sticky Bottom Actions */}
+                        <div className="border-t bg-white">
+                            {/* Comment Input Mockup/Usage */}
+                            <div className="p-4 flex items-center gap-3 border-b">
+                                <img src={loggeduser?.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                <div className="flex-1 relative">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Add a comment..." 
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-full py-2.5 px-4 pr-10 text-sm focus:outline-none focus:border-indigo-300 transition"
+                                    />
+                                    <i className="pi pi-face-smile absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer hover:text-gray-600"></i>
+                                </div>
+                                <button className="bg-indigo-400 text-white px-5 py-2 rounded-full text-sm font-bold border-0 cursor-pointer hover:bg-indigo-500 transition shadow-sm active:scale-95">
+                                    Comment
+                                </button>
+                            </div>
+
+                            {/* ENGAGEMENT BAR (As per screenshot) */}
+                            <div className="flex items-center justify-around py-3 px-4 bg-white">
+                                <div className="flex flex-col items-center gap-1 group cursor-pointer">
+                                    <i className="pi pi-eye text-xl text-red-400 group-hover:scale-110 transition-transform"></i>
+                                    <span className="text-[10px] font-bold text-gray-500">{post.views || 7}</span>
+                                </div>
+                                <div 
+                                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    onClick={handleLikeToggle}
+                                >
+                                    <i className={`pi ${isLiked ? 'pi-thumbs-up-fill text-indigo-500' : 'pi-thumbs-up'} text-xl text-indigo-400 group-hover:scale-110 transition-transform`}></i>
+                                    <span className="text-[10px] font-bold text-gray-500">{postLikes?.length || 0}</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-1 group cursor-pointer">
+                                    <i className="pi pi-comment text-xl text-gray-400 group-hover:scale-110 transition-transform"></i>
+                                    <span className="text-[10px] font-bold text-gray-500">0</span>
+                                </div>
+                                <div 
+                                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    onClick={() => setShareVisible(true)}
+                                >
+                                    <i className="pi pi-megaphone text-xl text-gray-400 group-hover:scale-110 transition-transform rotate-[330deg]"></i>
+                                    <span className="text-[10px] font-bold text-gray-500">0</span>
+                                </div>
+                                <div 
+                                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    onClick={handleSave}
+                                >
+                                    <i className={`pi ${isSaved ? 'pi-star-fill text-yellow-400' : 'pi-star'} text-xl text-gray-400 group-hover:scale-110 transition-transform`}></i>
+                                    <span className="text-[10px] font-bold text-gray-500"></span>
                                 </div>
                             </div>
-                            {!isOwner && (
-                                <button onClick={handleFollow} className={`px-4 py-1 rounded-full border-0 font-semibold text-sm cursor-pointer ${isFollowing ? 'bg-gray-200 text-gray-700' : 'bg-[#808bf5] text-white'}`}>
-                                    {isFollowing ? 'Following' : 'Follow'}
-                                </button>
-                            )}
-                            <PostMenu post={post} user={loggeduser} onEdit={() => setEditingPost(post)} onDelete={handleDelete} onSave={handleSave} isSaved={isSaved} onReport={() => setReportVisible(true)} isSaving={isSaving} />
                         </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-4 px-4 py-3 border-b">
-                            <button onClick={handleLikeToggle} className="bg-transparent border-0 cursor-pointer p-0">
-                                <span className="text-2xl">{isLiked ? '❤️' : '🤍'}</span>
-                            </button>
-                            <button className="bg-transparent border-0 cursor-pointer p-0">
-                                <i className="pi pi-comment text-xl text-gray-700"></i>
-                            </button>
-                            <button onClick={() => setShareVisible(true)} className="bg-transparent border-0 cursor-pointer p-0">
-                                <i className="pi pi-send text-xl text-gray-700"></i>
-                            </button>
-                            <button onClick={handleSave} disabled={isSaving} className="ml-auto bg-transparent border-0 cursor-pointer p-0" style={{ opacity: isSaving ? 0.5 : 1, pointerEvents: isSaving ? 'none' : 'auto' }}>
-                                <i className={`pi text-xl ${isSaved ? 'pi-bookmark-fill text-[#808bf5]' : 'pi-bookmark text-gray-700'}`}></i>
-                            </button>
-                        </div>
-
-                        {/* Caption */}
-                        <div className="px-4 py-3">
-                            <p className="text-sm font-semibold mb-2">{postLikes?.length || 0} likes</p>
-                            {editingPost ? (
-                                <div className="flex gap-2 mb-3">
-                                    <textarea
-                                        value={editCaption}
-                                        onChange={e => setEditCaption(e.target.value)}
-                                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm resize-none"
-                                        rows="3"
-                                    />
-                                    <div className="flex flex-col gap-2">
-                                        <button onClick={handleEditSubmit} className="px-3 py-1 bg-[#808bf5] text-white rounded border-0 cursor-pointer text-sm font-semibold">Save</button>
-                                        <button onClick={() => setEditingPost(null)} className="px-3 py-1 bg-gray-300 text-gray-700 rounded border-0 cursor-pointer text-sm font-semibold">Cancel</button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="text-sm leading-5 m-0">
-                                    <span
-                                        className="font-semibold cursor-pointer hover:text-indigo-600 transition"
-                                        onClick={() => handleProfileClick(post.user._id)}
-                                    >
-                                        {post.user?.fullname}
-                                    </span> {post.caption}
-                                </p>
-                            )}
-                            {post.music?.title && (
-                                <p className="text-xs text-pink-500 mt-2 m-0">🎵 {post.music.title}{post.music.artist ? ` — ${post.music.artist}` : ''}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* RIGHT SIDE - COMMENTS */}
-                <div className="w-full h-full md:w-96 flex flex-col bg-gray-50 border-l">
-                    <div className="flex-1 overflow-y-auto">
-                        <Comment postId={post._id} onProfileClick={handleProfileClick} />
-                        <SimilarPosts postId={post._id} onPostClick={(id) => setActivePostId(id)} />
                     </div>
                 </div>
             </div>
@@ -458,9 +465,27 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
 
             <style>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e5e7eb;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #d1d5db;
+                }
+                
                 @keyframes heartBurst {
-                    0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; }
-                    100% { transform: translate(-50%, -150%) scale(1.5); opacity: 0; }
+                    0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; filter: drop-shadow(0 0 10px rgba(255,0,0,0.5)); }
+                    50% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+                    100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+                }
+                .animate-heartBurst {
+                    animation: heartBurst 0.8s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
                 }
             `}</style>
         </>

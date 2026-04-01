@@ -75,24 +75,38 @@ router.get('/', verifyToken, async (req, res) => {
 // ─── FETCH MESSAGES (PROTECTED) ───────────────────────────────────────────────
 router.post('/messages', verifyToken, async (req, res) => {
     try {
-        const { recipientId } = req.body;
+        const { recipientId, before, limit = 20 } = req.body;
         const senderId = req.userId;
         if (!recipientId) return res.status(400).json({ error: 'Recipient ID required' });
 
         const participantIds = [senderId, recipientId];
-        const cacheKey = `msgs:${participantIds.sort().join(':')}`;
+        const cacheKey = `msgs:${participantIds.sort().join(':')}:${before || 'latest'}:${limit}`;
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
 
         const conversation = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
         if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
 
-        const messages = await Message.find({
+        const query = {
             conversationId: conversation._id,
             deletedAt: null,
-        }).sort({ createdAt: 1 }).lean();
+        };
 
-        const result = { messages, conversation };
+        if (before) {
+            query.createdAt = { $lt: new Date(before) };
+        }
+
+        const messages = await Message.find(query)
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .lean();
+
+        // Reverse to maintain chronological order for the frontend
+        messages.reverse();
+
+        const hasMore = messages.length === limit;
+        const result = { messages, conversation, hasMore };
+        
         await setCache(cacheKey, result, 15);
         res.status(200).json(result);
     } catch (err) { res.status(500).json({ error: err.message }); }

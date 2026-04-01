@@ -96,7 +96,7 @@ const Home = () => {
     return (
         <section className={`min-h-[100dvh] w-full overflow-x-hidden ${bg} transition-colors duration-200`}>
             <Navbar />
-            <VerificationBanner />
+            {/* <VerificationBanner /> */}
 
             {/* Desktop */}
             {isDesktop ? (

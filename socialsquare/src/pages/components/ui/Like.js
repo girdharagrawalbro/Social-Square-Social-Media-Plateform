@@ -1,11 +1,12 @@
 import React from 'react';
 
-const Like = ({ isliked, loading }) => {
+const Like = ({ id, isliked, loading }) => {
     return (
         <>
             <div 
                 title={loading ? "Updating..." : "Like"}
                 className="heart-container"
+                id={id ? `container-${id}` : undefined}
                 style={{
                     opacity: loading ? 0.6 : 1,
                     pointerEvents: loading ? 'none' : 'auto',
@@ -14,7 +15,7 @@ const Like = ({ isliked, loading }) => {
                 }}
             >
                 <input
-                    id="Give-It-An-Id"
+                    id={id || "Give-It-An-Id"}
                     className="checkbox"
                     type="checkbox"
                     checked={isliked}

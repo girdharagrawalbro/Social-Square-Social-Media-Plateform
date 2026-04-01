@@ -1,4 +1,4 @@
-import  { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
@@ -129,6 +129,53 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                     <div style={{ background: isOwn ? '#808bf5' : '#f3f4f6', color: isOwn ? '#fff' : '#1f2937', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '10px 14px', fontSize: '14px', lineHeight: 1.5 }}>
                         {isDeleted ? <span style={{ fontStyle: 'italic', opacity: 0.6, fontSize: '12px' }}>🚫 Message deleted</span> : (
                             <>
+                                {message.storyReply && (
+                                    <div style={{
+                                        padding: '10px',
+                                        background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)',
+                                        borderRadius: '12px',
+                                        marginBottom: '8px',
+                                        border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)',
+                                        display: 'flex',
+                                        gap: '10px',
+                                        alignItems: 'center',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        maxWidth: '240px'
+                                    }}
+                                        onMouseEnter={e => e.currentTarget.style.background = isOwn ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.1)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)'}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (typeof window.onViewStory === 'function') {
+                                                const senderId = message.sender?._id || message.senderId;
+                                                // For shares, we need the owner of the story, not the sender
+                                                // Assuming the share link or object has the userId
+                                                const match = message.content?.match(/user=([a-f0-9]+)/);
+                                                const userId = match ? match[1] : senderId;
+                                                window.onViewStory(userId, message.storyReply.storyId);
+                                            } else {
+                                                window.location.href = `/stories?user=${message.sender?._id || message.senderId}`;
+                                            }
+                                        }}>
+                                        {message.storyReply.mediaUrl ? (
+                                            <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
+                                                <img src={message.storyReply.mediaUrl} style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} alt="" />
+                                                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <i className="pi pi-play" style={{ color: '#fff', fontSize: '12px' }}></i>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ width: 44, height: 44, borderRadius: '8px', background: '#808bf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <i className="pi pi-bolt" style={{ color: '#fff' }}></i>
+                                            </div>
+                                        )}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, opacity: 0.9 }}>{message.storyReply.isShare ? 'Shared a story' : 'Replied to story'}</p>
+                                            <p style={{ margin: 0, fontSize: '10px', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Tap to view ✨</p>
+                                        </div>
+                                    </div>
+                                )}
                                 {isSharedPost ? (
                                     <div onClick={() => { setSelectedPostId(sharedPostId); setShowPostModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '20px' }}>📤</span>
@@ -190,25 +237,29 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                         <PostDetail postId={selectedPostId} isModal={true} onClose={() => setShowPostModal(false)} />
                     </Dialog>
                 )}
-            </div>  
-        </div>  
+            </div>
+        </div>
     );
 };
 
 // ─── CHAT PANEL ───────────────────────────────────────────────────────────────
-const ChatPanel = ({ participantId, lastMessage }) => {
+const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) => {
     const user = useAuthStore(s => s.user);
-    const store = useConversationStore();
+    const setTyping = useConversationStore(s => s.setTyping);
+    const clearTyping = useConversationStore(s => s.clearTyping);
+    const isTyping = useConversationStore(s => s.isTyping);
+    const getTypingName = useConversationStore(s => s.getTypingName);
     const chatRef = useRef(null);
     const fileInputRef = useRef(null);
     const typingTimer = useRef(null);
     const conversationIdRef = useRef(null);
 
     const [text, setText] = useState('');
-    const [showSearch, setShowSearch] = useState(false);
     const [searchQ, setSearchQ] = useState('');
     const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
     const [messages, setMessages] = useState([]);
     const [conversationId, setConversationId] = useState(null);
 
@@ -217,21 +268,24 @@ const ChatPanel = ({ participantId, lastMessage }) => {
     const editMessageMut = useEditMessage();
     const deleteMessageMut = useDeleteMessage();
     const reactToMessageMut = useReactToMessage();
-    const markReadMut = useMarkMessagesRead();
+    const { mutate: markRead } = useMarkMessagesRead();
 
-    // ✅ Fetch messages from backend directly (no TanStack Query confusion)
+    // ✅ Fetch messages from backend directly
     const fetchMessages = useCallback(async () => {
         if (!user?._id || !participantId) return;
         setLoading(true);
         try {
             const res = await api.post(`/api/conversation/messages`, {
-                recipientId: participantId
+                recipientId: participantId,
+                limit: 30
             });
             const fetchedMessages = res.data.messages || [];
             const fetchedConversationId = res.data.conversation?._id || null;
+            const fetchedHasMore = res.data.hasMore || false;
 
             setMessages(fetchedMessages);
             setConversationId(fetchedConversationId);
+            setHasMore(fetchedHasMore);
             conversationIdRef.current = fetchedConversationId;
 
             // When opening chat, mark any existing incoming unread messages as read.
@@ -239,12 +293,12 @@ const ChatPanel = ({ participantId, lastMessage }) => {
                 .filter(m => (m.sender?.toString?.() || m.senderId) !== user?._id && !m.isRead)
                 .map(m => m._id);
 
-                if (fetchedConversationId && unreadIncomingIds.length) {
-                    markReadMut.mutate({
-                        unreadMessageIds: unreadIncomingIds,
-                        lastMessage: unreadIncomingIds[unreadIncomingIds.length - 1],
-                        conversationId: fetchedConversationId,
-                    });
+            if (fetchedConversationId && unreadIncomingIds.length) {
+                markRead({
+                    unreadMessageIds: unreadIncomingIds,
+                    lastMessage: unreadIncomingIds[unreadIncomingIds.length - 1],
+                    conversationId: fetchedConversationId,
+                });
 
                 setMessages(prev => prev.map(m =>
                     unreadIncomingIds.includes(m._id) ? { ...m, isRead: true } : m
@@ -254,17 +308,59 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?._id, participantId]);
+    }, [user?._id, participantId, markRead]);
+
+    const fetchMoreMessages = useCallback(async () => {
+        if (loadingMore || !hasMore || !messages.length || !participantId) return;
+
+        setLoadingMore(true);
+        const before = messages[0].createdAt;
+        const oldScrollHeight = chatRef.current?.scrollHeight;
+
+        try {
+            const res = await api.post(`/api/conversation/messages`, {
+                recipientId: participantId,
+                before,
+                limit: 30
+            });
+
+            const olderMessages = res.data.messages || [];
+            const fetchedHasMore = res.data.hasMore || false;
+
+            if (olderMessages.length > 0) {
+                setMessages(prev => [...olderMessages, ...prev]);
+                setHasMore(fetchedHasMore);
+
+                // Preserve scroll position
+                setTimeout(() => {
+                    if (chatRef.current) {
+                        chatRef.current.scrollTop = chatRef.current.scrollHeight - oldScrollHeight;
+                    }
+                }, 0);
+            } else {
+                setHasMore(false);
+            }
+        } catch (err) {
+            console.error('Failed to fetch more messages', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, hasMore, messages, participantId]);
+
+    const handleScroll = (e) => {
+        if (e.target.scrollTop === 0 && hasMore && !loadingMore) {
+            fetchMoreMessages();
+        }
+    };
 
     useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-    // ✅ Scroll to bottom whenever messages change
+    // ✅ Scroll to bottom on initial load only
     useEffect(() => {
-        if (chatRef.current) {
+        if (chatRef.current && !loadingMore) {
             chatRef.current.scrollTop = chatRef.current.scrollHeight;
         }
-    }, [messages]);
+    }, [loading, conversationId]); // Only scroll to bottom when switching conversations or initial load
 
     // ✅ Socket listeners with stable ref — no stale closure issues
     useEffect(() => {
@@ -280,7 +376,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
 
             // Mark as read
             if (conversationIdRef.current) {
-                markReadMut.mutate({
+                markRead({
                     unreadMessageIds: [message._id],
                     lastMessage: message._id,
                     conversationId: conversationIdRef.current,
@@ -306,11 +402,11 @@ const ChatPanel = ({ participantId, lastMessage }) => {
         };
 
         const handleTyping = ({ senderName }) => {
-            if (conversationIdRef.current) store.setTyping(conversationIdRef.current, senderName);
+            if (conversationIdRef.current) setTyping(conversationIdRef.current, senderName);
         };
 
         const handleStopTyping = () => {
-            if (conversationIdRef.current) store.clearTyping(conversationIdRef.current);
+            if (conversationIdRef.current) clearTyping(conversationIdRef.current);
         };
 
         socket.on('receiveMessage', handleReceive);
@@ -330,7 +426,7 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             socket.off('userTyping', handleTyping);
             socket.off('userStoppedTyping', handleStopTyping);
         };
-    }, [participantId, markReadMut, store]); // ✅ only re-run when participantId changes
+    }, [participantId, markRead, setTyping, clearTyping]); // ✅ only re-run when participantId or stable handlers change
 
     // ─── SEND ────────────────────────────────────────────────────────────────
     const handleSend = async (e) => {
@@ -483,8 +579,8 @@ const ChatPanel = ({ participantId, lastMessage }) => {
         e.target.value = '';
     };
 
-    const isTypingOther = conversationId && store.isTyping(conversationId);
-    const typingName = conversationId ? store.getTypingName(conversationId) : null;
+    const isTypingOther = conversationId && isTyping(conversationId);
+    const typingName = conversationId ? getTypingName(conversationId) : null;
 
     const displayMessages = messages.filter(m =>
         !searchQ || m.content?.toLowerCase().includes(searchQ.toLowerCase())
@@ -498,16 +594,16 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             position: 'relative'
         }}>
 
-            {showSearch && (
+            {isSearching && (
                 <div style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', display: 'flex', gap: '8px' }}>
                     <input type="text" placeholder="Search messages..." value={searchQ} onChange={e => setSearchQ(e.target.value)} autoFocus
                         style={{ flex: 1, padding: '6px 12px', borderRadius: '20px', border: '1px solid #e5e7eb', fontSize: '13px', outline: 'none' }} />
-                    <button onClick={() => { setShowSearch(false); setSearchQ(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+                    <button onClick={() => { setIsSearching(false); setSearchQ(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
                 </div>
             )}
 
             {/* Messages */}
-            <div ref={chatRef} style={{
+            <div ref={chatRef} onScroll={handleScroll} style={{
                 flex: 1,
                 overflowY: 'auto',
                 padding: '12px',
@@ -518,18 +614,30 @@ const ChatPanel = ({ participantId, lastMessage }) => {
             }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading...</div>
-                ) : displayMessages.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', fontSize: '13px' }}>No messages yet. Say hi! 👋</div>
-                ) : displayMessages.map(message => (
-                    <MessageBubble key={message._id} message={message}
-                        isOwn={message.sender?.toString() === user?._id?.toString() || message.senderId === user?._id}
-                        conversationId={conversationId}
-                        loggeduser={user}
-                        onReact={handleReact}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                    />
-                ))}
+                ) : (
+                    <>
+                        {loadingMore && (
+                            <div style={{ textAlign: 'center', padding: '10px', color: '#808bf5' }}>
+                                <i className="pi pi-spin pi-spinner" style={{ fontSize: '14px' }}></i>
+                            </div>
+                        )}
+                        {!hasMore && (
+                            <div style={{ textAlign: 'center', padding: '10px 20px', opacity: 0.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#808bf5', marginTop: '12px' }}>✨ Reached the start of the chat ✨</p>
+                            </div>
+                        )}
+                        {displayMessages.map(message => (
+                            <MessageBubble key={message._id} message={message}
+                                isOwn={message.sender?.toString() === user?._id?.toString() || message.senderId === user?._id}
+                                conversationId={conversationId}
+                                loggeduser={user}
+                                onReact={handleReact}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
+                            />
+                        ))}
+                    </>
+                )}
 
                 {isTypingOther && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
@@ -552,8 +660,6 @@ const ChatPanel = ({ participantId, lastMessage }) => {
                 zIndex: 10
             }}>
                 <form onSubmit={handleSend} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button type="button" onClick={() => setShowSearch(v => !v)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: showSearch ? '#808bf5' : '#9ca3af', fontSize: '16px', padding: '4px', flexShrink: 0 }}>🔍</button>
                     <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '18px', padding: '4px', flexShrink: 0 }}>
                         {uploading ? '⏳' : '📎'}

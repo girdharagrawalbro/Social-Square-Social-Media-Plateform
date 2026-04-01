@@ -16,6 +16,9 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const redis = require('./lib/redis');
+const User = require('./models/User'); // Update: Import User for presence
+
 
 // ✅ NO cluster in single-dyno/512MB deployments
 // Cluster multiplies RAM usage by CPU count — 4 cores = 4x RAM
@@ -199,9 +202,8 @@ io.on('connection', (socket) => {
         socket.join(userId);
         
         try {
-            const { getRedis } = require('./lib/redis');
-            const redis = getRedis();
             if (!redis) return;
+
 
             await redis.hset('online_users', userId, socket.id);
 
@@ -212,6 +214,9 @@ io.on('connection', (socket) => {
 
             // 2. Broadcast new user
             socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
+
+            // 3. Update MongoDB
+            await User.findByIdAndUpdate(userId, { isOnline: true });
         } catch (err) {
             console.error('[Socket] Redis error (registerUser):', err.message);
         }
@@ -219,11 +224,11 @@ io.on('connection', (socket) => {
 
     socket.on('logoutUser', async (userId) => {
         try {
-            const { getRedis } = require('./lib/redis');
-            const redis = getRedis();
             if (redis) {
+
                 await redis.hdel('online_users', userId);
                 io.emit('userOffline', userId);
+                await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
             }
         } catch (err) {
             console.error('[Socket] Redis error (logoutUser):', err.message);
@@ -231,9 +236,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sendMessage', async ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
-        const { getRedis } = require('./lib/redis');
-        const redis = getRedis();
         const recipientSocketId = redis ? await redis.hget('online_users', recipientId) : null;
+
         
         if (recipientSocketId) {
             io.to(recipientSocketId).emit('receiveMessage', {
@@ -252,16 +256,14 @@ io.on('connection', (socket) => {
     });
 
     socket.on('typing', async ({ recipientId, senderName }) => {
-        const { getRedis } = require('./lib/redis');
-        const redis = getRedis();
         const sid = redis ? await redis.hget('online_users', recipientId) : null;
+
         if (sid) io.to(sid).emit('userTyping', { senderName });
     });
 
     socket.on('stopTyping', async ({ recipientId }) => {
-        const { getRedis } = require('./lib/redis');
-        const redis = getRedis();
         const sid = redis ? await redis.hget('online_users', recipientId) : null;
+
         if (sid) io.to(sid).emit('userStoppedTyping');
     });
 
@@ -289,13 +291,13 @@ io.on('connection', (socket) => {
         const userId = socket.userId;
         if (userId) {
             try {
-                const { getRedis } = require('./lib/redis');
-                const redis = getRedis();
                 if (redis) {
+
                     const currentSid = await redis.hget('online_users', userId);
                     if (currentSid === socket.id) {
                         await redis.hdel('online_users', userId);
                         io.emit('userOffline', userId);
+                        await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
                     }
                 }
             } catch (err) {

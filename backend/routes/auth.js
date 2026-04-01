@@ -304,13 +304,13 @@ router.post('/add', authRateLimiter, [
             password: hashedPassword,
             authProvider: 'local',
             emailVerificationToken: hashedVerificationToken,
-            isEmailVerified: false,
+            isEmailVerified: true,
         });
         await newUser.save();
 
         // Send verification email
         const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
-        sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
+        // sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
 
         const family = generateFamily();
         const refreshToken = generateRefreshToken(newUser._id, family);
@@ -929,6 +929,19 @@ router.post('/verify-password', async (req, res) => {
         res.status(200).json({ message: 'Verified' });
     } catch (err) {
         res.status(401).json({ message: 'Invalid token' });
+    }
+});
+
+router.post('/dismiss-user', verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { targetUserId } = req.body;
+        if (!targetUserId) return res.status(400).json({ error: 'Target user ID required' });
+
+        await User.findByIdAndUpdate(userId, { $addToSet: { dismissedUsers: targetUserId } });
+        res.status(200).json({ message: 'User dismissed' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

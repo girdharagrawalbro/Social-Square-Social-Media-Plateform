@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
+const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL?.trim();
 const MAIL_SERVICE_TIMEOUT_MS = Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 30000);
 
 function shouldRetry(error) {

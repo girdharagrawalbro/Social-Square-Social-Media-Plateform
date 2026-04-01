@@ -22,6 +22,11 @@ const MessageSchema = new mongoose.Schema({
     deletedAt: { type: Date,    default: null }, // soft delete
 
     isRead: { type: Boolean, default: false },
+    storyReply: {
+        storyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story' },
+        mediaUrl: String,
+        mediaType: String,
+    },
 }, { timestamps: true });
 
 MessageSchema.index({ conversationId: 1, createdAt: 1 });

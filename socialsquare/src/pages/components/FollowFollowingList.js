@@ -11,13 +11,19 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
     const [selectedUserId, setSelectedUserId] = useState(null);
 
     // ✅ TanStack Query for fetching user details
+    const [searchQuery, setSearchQuery] = useState('');
     const { data: users = [], isLoading } = useUserDetails(ids);
 
-    // ✅ Mutations for follow/unfollow
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
     const removeFollowerMutation = useRemoveFollower();
 
+    const filteredUsers = users.filter(u =>
+        u.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.username?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // ... handleFollow, handleRemoveFollower, openUserProfile ...
     const handleFollow = (targetUserId) => {
         const isFollowing = user?.following?.some(f => f?.toString() === targetUserId?.toString());
         if (isFollowing) {
@@ -50,16 +56,36 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
         </div>
     );
 
-    if (!users.length) return (
-        <p className="text-center text-gray-400 text-sm py-6">
-            {isfollowing ? 'Not following anyone yet' : 'No followers yet'}
-        </p>
-    );
-
     return (
         <>
-            <div className="flex flex-col gap-2 p-2">
-                {users.map(u => {
+            <div className="p-2 sticky top-0 bg-white z-10 border-b border-gray-50 mb-2">
+                <div className="relative">
+                    <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                    <input
+                        type="text"
+                        placeholder="Search people..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-gray-50 border-0 rounded-xl text-sm focus:ring-2 focus:ring-indigo-200 outline-none transition-all placeholder:text-gray-400"
+                    />
+                    {searchQuery && (
+                        <button 
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 border-0 bg-transparent text-gray-400 hover:text-gray-600 cursor-pointer p-0"
+                        >
+                            <i className="pi pi-times-circle text-xs"></i>
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-1 p-2">
+                {filteredUsers.length === 0 ? (
+                    <div className="text-center py-8 opacity-60">
+                        <i className="pi pi-users text-2xl text-gray-300 mb-2"></i>
+                        <p className="text-sm m-0">No one found matching "{searchQuery}"</p>
+                    </div>
+                ) : filteredUsers.map(u => {
                     const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
                     return (
                         <div key={u._id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50">

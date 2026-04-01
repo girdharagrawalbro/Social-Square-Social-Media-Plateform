@@ -20,6 +20,7 @@ import {
 import { useAcceptCollaboration, useDeclineCollaboration, useReportPost } from '../../hooks/queries/usePostOperationsQueries';
 import { useConversations, useSendMessage } from '../../hooks/queries/useConversationQueries';
 import usePostStore from '../../store/zustand/usePostStore';
+import SharePostDialog from './ui/SharePostDialog';
 
 
 const MOOD_EMOJI = { happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' };
@@ -71,7 +72,7 @@ const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
 };
 
 // ─── POST MENU ────────────────────────────────────────────────────────────────
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving }) => {
+const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
     const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
@@ -89,6 +90,7 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
                     {!isOwner && <button onClick={() => { onReport(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-red-50 text-red-400">🚩 Report post</button>}
                     {isOwner && <>
                         <button onClick={() => { onEdit(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">✏️ Edit post</button>
+                        <button onClick={() => { onShareToStory(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-indigo-50 text-indigo-600">✨ Share to Story</button>
                         <button onClick={() => { onDelete(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm text-red-500 hover:bg-red-50">🗑️ Delete post</button>
                     </>}
                 </div>
@@ -97,45 +99,6 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
     );
 };
 
-// ─── SHARE DIALOG ─────────────────────────────────────────────────────────────
-const ShareDialog = ({ post, visible, onHide, user }) => {
-    const [sending, setSending] = useState(null);
-    const postUrl = `${window.location.origin}/post/${post?._id}`;
-    const { data: conversations = [] } = useConversations(visible ? user?._id : null);
-    const sendMessageMut = useSendMessage();
-
-    const copyLink = () => { navigator.clipboard.writeText(postUrl); toast.success('Link copied!'); };
-    const shareToConv = async (conv) => {
-        setSending(conv._id);
-        const other = conv.participants.find(p => p.userId !== user._id);
-        try {
-            await sendMessageMut.mutateAsync({
-                conversationId: conv._id,
-                content: `🔗 Shared a post: ${postUrl}`,
-                recipientId: other?.userId,
-            });
-            toast.success(`Shared to ${other?.fullname || 'conversation'}`);
-        } catch { toast.error('Failed to share'); }
-        setSending(null);
-    };
-    return (
-        <Dialog header="Share post" visible={visible} style={{ width: '320px' }} onHide={onHide}>
-            <div className="flex flex-col gap-3">
-                <button onClick={copyLink} className="flex items-center gap-3 p-3 bg-gray-100 border-0 rounded-xl cursor-pointer font-semibold text-sm">🔗 Copy link</button>
-                {conversations.map(conv => {
-                    const other = conv.participants.find(p => p.userId !== user._id);
-                    return (
-                        <button key={conv._id} onClick={() => shareToConv(conv)} disabled={sending === conv._id} className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer text-left">
-                            <img src={other?.profilePicture || '/default-profile.png'} alt="" className="w-8 h-8 rounded-full object-cover" />
-                            <span className="text-sm font-medium">{other?.fullname || 'Unknown'}</span>
-                            {sending === conv._id && <span className="ml-auto text-xs text-indigo-500">Sending...</span>}
-                        </button>
-                    );
-                })}
-            </div>
-        </Dialog>
-    );
-};
 
 // ─── TIME LOCK OVERLAY ────────────────────────────────────────────────────────
 const TimeLockOverlay = ({ unlocksAt }) => {
@@ -221,6 +184,7 @@ const Feed = ({ activeMood = null }) => {
     const [sharePost, setSharePost] = useState(null);
     const [savingPostIds, setSavingPostIds] = useState(new Set());
     const [reportPost, setReportPost] = useState(null);
+    const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const lastTap = useRef({});
@@ -278,13 +242,14 @@ const Feed = ({ activeMood = null }) => {
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
 
     const handleLikeToggle = async (post) => {
-        // ✅ Prevent clicking while request is in progress
         if (likeMutation.isPending) return;
-
+        
+        const loggedUserId = user?._id?.toString();
         const optimisticSet = optimisticLikes[post._id];
+        
         const liked = optimisticSet
-            ? optimisticSet.has(user?._id)
-            : post.likes?.includes(user?._id);
+            ? Array.from(optimisticSet).some(id => id?.toString() === loggedUserId)
+            : (post.likes || []).some(id => id?.toString() === loggedUserId);
 
         likeMutation.mutate({
             postId: post._id,
@@ -451,7 +416,12 @@ const Feed = ({ activeMood = null }) => {
                             const postIsSaved = isSaved(post._id);
                             const locked = post.unlocksAt && new Date(post.unlocksAt) > Date.now() && !isOwn;
                             const expiryRemaining = post.expiresAt ? Math.max(0, new Date(post.expiresAt) - Date.now()) : null;
-                            const likes = optimisticLikes[post._id] ? [...(optimisticLikes[post._id])] : (post.likes || []);
+                            const currentLoggedUserId = user?._id?.toString();
+                            const optimisticSet = optimisticLikes[post._id];
+                            const likesArray = optimisticSet 
+                                ? Array.from(optimisticSet) 
+                                : (post.likes || []);
+                            const isLikedByMe = likesArray.some(id => id?.toString() === currentLoggedUserId);
 
                             return (
                                 <article key={post._id || index} className="relative overflow-hidden w-full rounded-2xl shadow-sm flex flex-col border bg-white">
@@ -504,6 +474,7 @@ const Feed = ({ activeMood = null }) => {
                                                 onEdit={() => { setEditingPost(post); setEditCaption(post.caption) }}
                                                 onDelete={() => handleDelete(post)}
                                                 onReport={() => handleReport(post)}
+                                                onShareToStory={() => setSharingPostToStory(post)}
                                                 isSaving={savingPostIds.has(post._id)}
                                             />
                                         </div>
@@ -548,7 +519,7 @@ const Feed = ({ activeMood = null }) => {
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-4">
                                                     <div onClick={(e) => { e.stopPropagation(); handleLikeToggle(post); }} className="flex items-center gap-2 cursor-pointer">
-                                                        <Like isliked={likes.includes(user?._id) || likes.some(id => id?.toString() === user?._id)} loading={likeMutation.isPending} />
+                                                        <Like id={`like-${post._id}`} isliked={isLikedByMe} loading={likeMutation.isPending} />
                                                     </div>
                                                     <button onClick={(e) => { e.stopPropagation(); setVisiblePostId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
                                                         <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i>
@@ -563,7 +534,7 @@ const Feed = ({ activeMood = null }) => {
                                                         <i className={`pi ${postIsSaved ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: postIsSaved ? '#808bf5' : 'currentColor' }}></i>
                                                     </button>
                                                 </div>
-                                                <p className="m-0 mt-2 text-sm font-semibold">{likes.length.toLocaleString()} likes</p>
+                                                <p className="m-0 mt-2 text-sm font-semibold">{likesArray.length.toLocaleString()} likes</p>
                                                 <p className="m-0 mt-1 text-sm leading-relaxed">
                                                     <span 
                                                         className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
@@ -597,7 +568,13 @@ const Feed = ({ activeMood = null }) => {
                     </div>
                 )}
 
-                {sharePost && <ShareDialog post={sharePost} visible={!!sharePost} onHide={() => setSharePost(null)} user={user} />}
+                {sharePost && <SharePostDialog 
+                    visible={!!sharePost} 
+                    onHide={() => setSharePost(null)} 
+                    post={sharePost}
+                    user={user} 
+                    onShareToStory={() => setSharingPostToStory(sharePost)} 
+                />}
 
                 {reportPost && <ReportDialog
                     visible={!!reportPost}
@@ -606,13 +583,31 @@ const Feed = ({ activeMood = null }) => {
                     loading={reportMutation.isPending}
                 />}
 
-                <Dialog header="Edit Post" visible={!!editingPost} style={{ width: '340px' }} onHide={() => setEditingPost(null)}>
+                <Dialog header={false} visible={!!editingPost} style={{ width: '95vw', maxWidth: '420px', borderRadius: '24px' }} onHide={() => setEditingPost(null)} closable={false}>
                     {editingPost && (
-                        <div className="flex flex-col gap-3">
-                            <textarea value={editCaption} onChange={e => setEditCaption(e.target.value)} rows={4} className="w-full border border-gray-200 rounded-lg p-3 text-sm resize-y" />
-                            <div className="flex gap-2 justify-end">
-                                <button onClick={() => setEditingPost(null)} className="px-4 py-1.5 border border-gray-200 rounded-lg bg-transparent cursor-pointer text-sm">Cancel</button>
-                                <button onClick={handleEditSubmit} className="px-4 py-1.5 bg-[#808bf5] text-white border-0 rounded-lg cursor-pointer text-sm font-semibold">Save</button>
+                        <div className="p-4 flex flex-col gap-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="m-0 text-xl font-bold text-gray-900 font-outfit">Edit Post</h3>
+                                <button onClick={() => setEditingPost(null)} className="bg-gray-100 border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-gray-200">✕</button>
+                            </div>
+                            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl">
+                                <img src={editingPost.user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover" />
+                                <span className="font-semibold text-sm">{editingPost.user.fullname}</span>
+                            </div>
+                            <div className="relative">
+                                <textarea 
+                                    value={editCaption} 
+                                    onChange={e => setEditCaption(e.target.value)} 
+                                    rows={6} 
+                                    placeholder="Write your new caption..."
+                                    className="w-full border-2 border-gray-100 rounded-2xl p-4 text-sm resize-none focus:border-indigo-400 outline-none transition font-medium" 
+                                />
+                            </div>
+                            <div className="flex gap-3 mt-2">
+                                <button onClick={() => setEditingPost(null)} className="flex-1 py-3 border-2 border-gray-100 rounded-2xl bg-white cursor-pointer text-sm font-bold text-gray-500 hover:bg-gray-50 transition">Cancel</button>
+                                <button onClick={handleEditSubmit} disabled={updateMutation.isPending} className="flex-1 py-3 bg-[#808bf5] text-white border-0 rounded-2xl cursor-pointer text-sm font-bold shadow-lg shadow-indigo-200 hover:opacity-90 transition disabled:opacity-50">
+                                    {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                                </button>
                             </div>
                         </div>
                     )}

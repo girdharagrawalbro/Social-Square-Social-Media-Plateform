@@ -31,22 +31,30 @@ const usePostStore = create(
             clearMood: () => set({ activeMood: null }),
             setOpenComment: (postId) => set({ openCommentPostId: postId }),
             closeComment: () => set({ openCommentPostId: null }),
+            setSharingPostToStory: (post) => set({ sharingPostToStory: post }),
+            clearSharingPostToStory: () => set({ sharingPostToStory: null }),
 
             // ─── Optimistic like toggle ────────────────────────────────────
             optimisticLike: (postId, userId, initialLikes = []) => {
+                const uid = userId?.toString();
                 set(state => {
-                    const current = new Set(state.optimisticLikes[postId] || initialLikes);
-                    if (current.has(userId)) current.delete(userId);
-                    else current.add(userId);
+                    const current = new Set(
+                        (state.optimisticLikes[postId] || initialLikes).map(id => id?.toString())
+                    );
+                    if (current.has(uid)) current.delete(uid);
+                    else current.add(uid);
                     return { optimisticLikes: { ...state.optimisticLikes, [postId]: current } };
                 });
             },
 
             rollbackLike: (postId, userId, wasLiked) => {
+                const uid = userId?.toString();
                 set(state => {
-                    const current = new Set(state.optimisticLikes[postId] || []);
-                    if (wasLiked) current.add(userId);
-                    else current.delete(userId);
+                    const current = new Set(
+                        (state.optimisticLikes[postId] || []).map(id => id?.toString())
+                    );
+                    if (wasLiked) current.add(uid);
+                    else current.delete(uid);
                     return { optimisticLikes: { ...state.optimisticLikes, [postId]: current } };
                 });
             },

@@ -716,15 +716,14 @@ const SystemTab = () => {
                     <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                         <p className="text-sm font-bold text-gray-700 mb-2 m-0">Manual Trigger</p>
                         <p className="text-xs text-gray-500 mb-4 m-0 leading-relaxed">
-                            Immediately add a 'daily-digest' job to the processing queue. This will send emails to all eligible users 
+                            Immediately add a 'daily-digest' job to the processing queue. This will send emails to all eligible users
                             (and administrators) immediately. Use this to verify the mailer and template logic.
                         </p>
-                        <button 
+                        <button
                             onClick={triggerDigest}
                             disabled={loading}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all border-0 cursor-pointer shadow-sm active:scale-95 ${
-                                loading ? 'bg-gray-200 text-gray-400' : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                            }`}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all border-0 cursor-pointer shadow-sm active:scale-95 ${loading ? 'bg-gray-200 text-gray-400' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                }`}
                         >
                             {loading ? <i className="pi pi-spin pi-spinner"></i> : <i className="pi pi-bolt"></i>}
                             {loading ? 'Triggering...' : 'Trigger Daily Digest Now'}

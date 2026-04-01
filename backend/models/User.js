@@ -40,9 +40,10 @@ const UserSchema = new mongoose.Schema({
   },
   isPrivate: { type: Boolean, default: false },
   followRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  dismissedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   // Verification
-  isEmailVerified: { type: Boolean, default: false },
+  isEmailVerified: { type: Boolean, default: true },
   emailVerificationToken: { type: String, default: null },
   emailVerificationTokenSentAt: { type: Date, default: null },
 
@@ -54,6 +55,10 @@ const UserSchema = new mongoose.Schema({
     emailDigest: { type: Boolean, default: false },
     pushEnabled: { type: Boolean, default: true },
   },
+
+  // Presence
+  isOnline: { type: Boolean, default: false },
+  lastSeen: { type: Date, default: Date.now },
 
   created_at: { type: Date, default: Date.now },
 });

@@ -191,6 +191,7 @@ const useAuthStore = create(
                 clearToken();
                 localStorage.removeItem('socketId');
                 set({ user: null, initialized: true });
+                window.location.href = '/'; // Update: Redirect to home on logout
             },
 
             // ── Follow / Unfollow ─────────────────────────────────────────────
