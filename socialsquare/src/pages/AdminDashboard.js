@@ -677,7 +677,14 @@ const ReportsTab = () => {
                 <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="px-6 py-2.5 text-xs font-bold text-gray-600 border border-gray-100 rounded-2xl bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40 transition-all shadow-sm">Next →</button>
             </div>
 
-            <Dialog header="Post Detail" visible={postPreview.visible} style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }} onHide={() => setPostPreview({ visible: false, postId: null })} modal className="p-0">
+            <Dialog 
+                header="Post Detail"
+                visible={postPreview.visible} 
+                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }} 
+                onHide={() => setPostPreview({ visible: false, postId: null })} 
+                modal 
+                className="p-0 overflow-hidden post-detail-dialog"
+            >
                 {postPreview.postId && <PostDetail postId={postPreview.postId} isModal={true} onClose={() => setPostPreview({ visible: false, postId: null })} />}
             </Dialog>
         </div>

@@ -136,11 +136,12 @@ const Home = () => {
             <Chatbot />
 
             <Dialog 
-                header="Post Detail" 
+                header="Post Detail"
                 visible={!!postDetailId} 
-                style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }}
+                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
                 onHide={() => setPostDetailId(null)} 
                 blockScroll
+                className="p-0 overflow-hidden post-detail-dialog"
             >
                 {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)}  />}
             </Dialog>

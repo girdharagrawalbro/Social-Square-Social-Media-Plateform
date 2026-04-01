@@ -61,7 +61,14 @@ const PostGrid = ({ userId }) => {
                 })}
             </div>
 
-            <Dialog visible={postDetailVisible} style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }} onHide={() => setPostDetailVisible(false)} modal header="Post Detail" className="p-0">
+            <Dialog 
+                header="Post Detail"
+                visible={postDetailVisible} 
+                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }} 
+                onHide={() => setPostDetailVisible(false)} 
+                modal 
+                className="p-0 overflow-hidden post-detail-dialog"
+            >
                 <Suspense fallback={<div className="p-4 text-center">Loading Post Details...</div>}>
                     <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
                 </Suspense>

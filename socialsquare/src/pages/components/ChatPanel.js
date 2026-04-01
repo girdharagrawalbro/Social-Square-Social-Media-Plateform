@@ -233,7 +233,14 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                 )}
 
                 {showPostModal && selectedPostId && (
-                    <Dialog header="Post Detail" visible={showPostModal} style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }} onHide={() => setShowPostModal(false)} modal className="p-0">
+                    <Dialog 
+                        header="Post Detail"
+                        visible={showPostModal} 
+                        style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }} 
+                        onHide={() => setShowPostModal(false)} 
+                        modal 
+                        className="p-0 overflow-hidden post-detail-dialog"
+                    >
                         <PostDetail postId={selectedPostId} isModal={true} onClose={() => setShowPostModal(false)} />
                     </Dialog>
                 )}

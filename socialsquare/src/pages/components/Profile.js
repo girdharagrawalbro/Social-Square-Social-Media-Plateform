@@ -206,7 +206,14 @@ p-3 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
             <Dialog header="Following" visible={showFollowingList} style={{ width: '90vw', maxWidth: '500px', height: '80vh' }} onHide={() => setShowFollowingList(false)}>
                 <FollowFollowingList isfollowing={true} ids={loggeduser?.following} />
             </Dialog>
-            <Dialog header="Post Detail" visible={postDetailVisible} style={{ width: '95vw', maxWidth: '1000px', height: '80vh' }} onHide={() => setPostDetailVisible(false)} modal className="p-0">
+            <Dialog 
+                header="Post Detail"
+                visible={postDetailVisible} 
+                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }} 
+                onHide={() => setPostDetailVisible(false)} 
+                modal 
+                className="p-0 overflow-hidden post-detail-dialog"
+            >
                 <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
             </Dialog>
 
