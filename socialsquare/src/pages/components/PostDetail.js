@@ -4,10 +4,13 @@ import useAuthStore from '../../store/zustand/useAuthStore';
 import { api } from '../../store/zustand/useAuthStore';
 import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts } from '../../hooks/queries/usePostQueries';
 import { useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
+import usePostStore from '../../store/zustand/usePostStore';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import Comment from './ui/Comment';
+import SharePostDialog from './ui/SharePostDialog';
+import Like from './ui/Like';
 import formatDate from '../../utils/formatDate';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
@@ -46,67 +49,6 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
     );
 };
 
-// ─── SHARE DIALOG ─────────────────────────────────────────────────────────────
-const ShareDialog = ({ post, visible, onHide, user }) => {
-    const [conversations, setConversations] = useState([]);
-    const [sending, setSending] = useState(null);
-    const postUrl = `${window.location.origin}/post/${post?._id}`;
-
-    useEffect(() => {
-        if (!visible || !user?._id) return;
-        api.get(`/api/conversation/${user._id}`)
-            .then(({ data }) => {
-                const normalized = Array.isArray(data)
-                    ? data
-                    : Array.isArray(data?.conversations)
-                        ? data.conversations
-                        : [];
-                setConversations(normalized);
-            })
-            .catch(() => setConversations([]));
-    }, [visible, user]);
-
-    const copyLink = () => { navigator.clipboard.writeText(postUrl); toast.success('Link copied!'); };
-    const shareToConv = async (conv) => {
-        setSending(conv._id);
-        const other = conv.participants.find(p => p.userId !== user._id);
-        try {
-            await api.post('/api/conversation/messages/create', {
-                conversationId: conv._id,
-                sender: user._id,
-                senderName: user.fullname,
-                content: `🔗 Shared a post: ${postUrl}`,
-                recipientId: other?.userId,
-            });
-            toast.success(`Shared to ${other?.fullname || 'conversation'}`);
-        } catch { toast.error('Failed to share'); }
-        setSending(null);
-    };
-
-    if (!visible) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-                <h3 className="text-lg font-semibold mb-4">Share post</h3>
-                <div className="flex flex-col gap-3">
-                    <button onClick={copyLink} className="flex items-center gap-3 p-3 bg-gray-100 border-0 rounded-xl cursor-pointer font-semibold text-sm hover:bg-gray-200">🔗 Copy link</button>
-                    {Array.isArray(conversations) && conversations.map(conv => {
-                        const other = conv.participants.find(p => p.userId !== user._id);
-                        return (
-                            <button key={conv._id} onClick={() => shareToConv(conv)} disabled={sending === conv._id} className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer text-left hover:bg-gray-100">
-                                <img src={other?.profilePicture || '/default-profile.png'} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                <span className="text-sm font-medium">{other?.fullname || 'Unknown'}</span>
-                                {sending === conv._id && <span className="ml-auto text-xs text-indigo-500">Sending...</span>}
-                            </button>
-                        );
-                    })}
-                </div>
-                <button onClick={onHide} className="mt-4 w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-xl border-0 cursor-pointer font-medium hover:bg-gray-300">Close</button>
-            </div>
-        </div>
-    );
-};
 
 const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const navigate = useNavigate();
@@ -142,6 +84,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [reportVisible, setReportVisible] = useState(false);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
+    const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
     const lastTap = useRef({});
 
     useEffect(() => {
@@ -290,7 +233,13 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 <meta name="twitter:card" content="summary_large_image" />
             </Helmet>
 
-            <ShareDialog post={post} visible={shareVisible} onHide={() => setShareVisible(false)} user={loggeduser} />
+            <SharePostDialog 
+                post={post} 
+                visible={shareVisible} 
+                onHide={() => setShareVisible(false)} 
+                user={loggeduser}
+                onShareToStory={() => setSharingPostToStory(post)}
+            />
             <ReportDialog visible={reportVisible} onHide={() => setReportVisible(false)} onSubmit={handleReport} />
 
             <div className="flex flex-col h-full bg-white overflow-hidden" style={{ borderRadius: '12px' }}>
@@ -315,12 +264,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                             </span>
                         </div>
                     </div>
-                    <button 
-                        onClick={onHide}
-                        className="bg-transparent border-0 cursor-pointer text-gray-400 hover:text-gray-600 transition p-2"
-                    >
-                        <i className="pi pi-times text-lg"></i>
-                    </button>
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
@@ -421,34 +364,35 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                             {/* ENGAGEMENT BAR (As per screenshot) */}
                             <div className="flex items-center justify-around py-3 px-4 bg-white">
-                                <div className="flex flex-col items-center gap-1 group cursor-pointer">
-                                    <i className="pi pi-eye text-xl text-red-400 group-hover:scale-110 transition-transform"></i>
-                                    <span className="text-[10px] font-bold text-gray-500">{post.views || 7}</span>
+                                <div className="flex flex-col items-center gap-1 cursor-default">
+                                    <i className="pi pi-eye text-lg text-gray-400"></i>
+                                    <span className="text-[10px] font-bold text-gray-400">{post.views || 0}</span>
                                 </div>
                                 <div 
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
                                     onClick={handleLikeToggle}
                                 >
-                                    <i className={`pi ${isLiked ? 'pi-thumbs-up-fill text-indigo-500' : 'pi-thumbs-up'} text-xl text-indigo-400 group-hover:scale-110 transition-transform`}></i>
+                                    <Like id={`pd-like-${post._id}`} isliked={isLiked} loading={likeMutation.isPending} />
                                     <span className="text-[10px] font-bold text-gray-500">{postLikes?.length || 0}</span>
                                 </div>
                                 <div className="flex flex-col items-center gap-1 group cursor-pointer">
-                                    <i className="pi pi-comment text-xl text-gray-400 group-hover:scale-110 transition-transform"></i>
-                                    <span className="text-[10px] font-bold text-gray-500">0</span>
+                                    <i className="pi pi-comment text-xl text-gray-900 group-hover:scale-110 transition-transform"></i>
+                                    <span className="text-[10px] font-bold text-gray-500">{post.comments?.length || 0}</span>
                                 </div>
                                 <div 
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
                                     onClick={() => setShareVisible(true)}
                                 >
-                                    <i className="pi pi-megaphone text-xl text-gray-400 group-hover:scale-110 transition-transform rotate-[330deg]"></i>
-                                    <span className="text-[10px] font-bold text-gray-500">0</span>
+                                    <i className="pi pi-send text-xl text-gray-900 group-hover:scale-110 transition-transform -rotate-12"></i>
+                                    <span className="text-[10px] font-bold text-gray-500">Share</span>
                                 </div>
                                 <div 
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
                                     onClick={handleSave}
+                                    style={{ opacity: isSaving ? 0.5 : 1 }}
                                 >
-                                    <i className={`pi ${isSaved ? 'pi-star-fill text-yellow-400' : 'pi-star'} text-xl text-gray-400 group-hover:scale-110 transition-transform`}></i>
-                                    <span className="text-[10px] font-bold text-gray-500"></span>
+                                    <i className={`pi ${isSaved ? 'pi-bookmark-fill' : 'pi-bookmark'} text-xl ${isSaved ? 'text-indigo-500' : 'text-gray-900'} group-hover:scale-110 transition-transform`}></i>
+                                    <span className="text-[10px] font-bold text-gray-500">{isSaved ? 'Saved' : 'Save'}</span>
                                 </div>
                             </div>
                         </div>
