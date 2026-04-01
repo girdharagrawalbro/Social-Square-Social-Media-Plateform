@@ -8,4 +8,7 @@ const redis = new IORedis(redisUrl, {
 
 console.log(`[Redis] Initialized with URL: ${redisUrl.split('@')[1] || '(local)'} (PID: ${process.pid})`);
 
+redis.getRedis = () => redis;
+redis.redis = redis;
+
 module.exports = redis;

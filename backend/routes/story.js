@@ -1,6 +1,8 @@
 const express = require('express');
 const Story = require('../models/Story');
 const User = require('../models/User');
+const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
 const router = express.Router();
@@ -11,7 +13,7 @@ function setIo(io) { _io = io; }
 // ─── CREATE STORY (PROTECTED) ─────────────────────────────────────────────────
 router.post('/create', verifyToken, async (req, res) => {
     try {
-        const { mediaUrl, mediaType, text } = req.body;
+        const { mediaUrl, mediaType, text, sharedPostId } = req.body;
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
 
@@ -22,6 +24,7 @@ router.post('/create', verifyToken, async (req, res) => {
             user: { _id: user._id, fullname: user.fullname, profile_picture: user.profile_picture },
             media: { url: mediaUrl, type: mediaType },
             text: text || {},
+            sharedPostId: sharedPostId || null,
         });
         await story.save();
 
@@ -48,7 +51,9 @@ router.get('/feed', verifyToken, async (req, res) => {
         const stories = await Story.find({
             'user._id': { $in: userIds },
             expiresAt: { $gt: new Date() },
-        }).sort({ createdAt: -1 });
+        })
+        .populate('sharedPostId')
+        .sort({ createdAt: -1 });
 
         const grouped = {};
         stories.forEach(story => {
@@ -99,14 +104,14 @@ router.get('/viewers/:storyId', verifyToken, async (req, res) => {
     try {
         const story = await Story.findById(req.params.storyId)
             .populate('viewers', 'fullname profile_picture username');
-        
+
         if (!story) return res.status(404).json({ message: 'Story not found.' });
-        
+
         // Ownership check
         if (story.user._id.toString() !== req.userId) {
             return res.status(403).json({ message: 'Unauthorized to view story analytics.' });
         }
-        
+
         res.status(200).json(story.viewers || []);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -121,7 +126,7 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
         if (!story) return res.status(404).json({ message: 'Story not found.' });
 
         const isLiked = story.likes.includes(userId);
-        
+
         // Privacy check
         const owner = await User.findById(story.user._id).select('isPrivate followers');
         if (owner.isPrivate && owner._id.toString() !== userId && !owner.followers.includes(userId)) {
@@ -176,27 +181,57 @@ router.delete('/:storyId', verifyToken, async (req, res) => {
 // ─── REPLY TO STORY (PROTECTED) ───────────────────────────────────────────────
 router.post('/reply/:storyId', verifyToken, async (req, res) => {
     try {
-        const { text } = req.body;
-        const userId = req.userId;
-        const story = await Story.findById(req.params.storyId);
-        if (!story) return res.status(404).json({ message: 'Story not found.' });
+        const textContent = text || req.body.content || '';
 
-        // Privacy check
-        const owner = await User.findById(story.user._id).select('isPrivate followers');
-        if (owner.isPrivate && owner._id.toString() !== userId && !owner.followers.includes(userId)) {
-            return res.status(403).json({ message: 'This story is private.' });
-        }
-
-        const sender = await User.findById(userId).select('fullname profile_picture').lean();
-
+        // 1. Send Notification
         await notificationUtils.createNotification({
             recipientId: story.user._id,
             sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
             type: 'message',
             thumbnail: story.media?.url,
-            message: { content: `Replied: "${text}"` },
+            message: { content: `Replied: "${textContent}"` },
             url: `/stories?user=${story.user._id}`,
         });
+
+        // 2. Create actual DM message
+        let conversation = await Conversation.findOne({
+            'participants.userId': { $all: [userId, story.user._id] }
+        });
+
+        if (!conversation) {
+            const recipient = await User.findById(story.user._id).select('fullname profile_picture').lean();
+            conversation = await Conversation.create({
+                participants: [
+                    { userId: userId, fullname: sender.fullname, profilePicture: sender.profile_picture || '' },
+                    { userId: story.user._id, fullname: recipient.fullname, profilePicture: recipient.profile_picture || '' },
+                ]
+            });
+        }
+
+        const message = await Message.create({
+            conversationId: conversation._id,
+            sender: userId,
+            content: textContent,
+            storyReply: {
+                storyId: story._id,
+                mediaUrl: story.media?.url,
+                mediaType: story.media?.type || 'image',
+            }
+        });
+
+        // Update conversation
+        await Conversation.findByIdAndUpdate(conversation._id, {
+            lastMessage: textContent,
+            lastMessageAt: new Date()
+        });
+
+        // 3. Emit real-time message if possible
+        if (_io) {
+            _io.to(story.user._id.toString()).emit('receiveMessage', {
+                ...message.toObject(),
+                senderName: sender.fullname
+            });
+        }
 
         res.status(200).json({ message: 'Reply sent' });
     } catch (error) {

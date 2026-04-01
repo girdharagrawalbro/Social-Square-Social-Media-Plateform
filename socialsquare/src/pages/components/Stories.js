@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
-import { useStoryFeed } from '../../hooks/queries/useAuthQueries';
+import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 
@@ -8,15 +9,35 @@ import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
 import LiveStream from './LiveStream';
 import toast from 'react-hot-toast';
+import ImageCropper from './ui/ImageCropper';
 
 const UserProfile = React.lazy(() => import('./UserProfile'));
+const PostDetail = React.lazy(() => import('./PostDetail'));
 
-const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDeleted, onStoryLiked }) => {
+const StoryViewer = ({ 
+    groups, 
+    startGroupIndex, 
+    onClose, 
+    loggeduser, 
+    onStoryDeleted, 
+    onStoryLiked, 
+    onOpenPostDetail,
+    onShareStory,
+    initialStoryId = null
+}) => {
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
     const [storyIndex, setStoryIndex] = useState(0);
     const [progress, setProgress] = useState(0);
     const intervalRef = useRef(null);
     const markGroupAsViewed = usePostStore(s => s.markGroupAsViewed);
+
+    // If initialStoryId is provided, find its index in the current group
+    useEffect(() => {
+        if (initialStoryId && groups[groupIndex]) {
+            const idx = groups[groupIndex].stories.findIndex(s => s._id === initialStoryId);
+            if (idx !== -1) setStoryIndex(idx);
+        }
+    }, [initialStoryId, groupIndex, groups]);
 
     const group = groups[groupIndex];
     const story = group?.stories[storyIndex];
@@ -161,12 +182,62 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                     </div>
                 </div>
 
-                {/* Media */}
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#1a1a1a' }}>
                     {story.media.type === 'video'
                         ? <video src={story.media.url} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <img src={story.media.url} alt="story" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        : <img src={story.media.url} alt="story" style={{ width: '100%', height: '100%', objectFit: story.sharedPostId ? 'cover' : 'contain', filter: story.sharedPostId ? 'blur(10px) brightness(0.6)' : 'none', opacity: story.sharedPostId ? 0.8 : 1 }} />
                     }
+
+                    {/* Shared Post Overlay (Sticker) */}
+                    {story.sharedPostId && (
+                        <div
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsPaused(true);
+                                onOpenPostDetail(story.sharedPostId._id);
+                            }}
+                            style={{
+                                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                                background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)',
+                                padding: '12px', borderRadius: '24px',
+                                width: '280px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', cursor: 'pointer',
+                                display: 'flex', flexDirection: 'column', gap: '10px',
+                                border: '1px solid rgba(255,255,255,0.3)',
+                                transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                            }}
+                            className="shared-post-sticker"
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 4px' }}>
+                                <img 
+                                    src={story.sharedPostId.user?.profile_picture ? (story.sharedPostId.user.profile_picture.startsWith('http') ? story.sharedPostId.user.profile_picture : `${process.env.REACT_APP_BACKEND_URL}${story.sharedPostId.user.profile_picture}`) : '/default-profile.png'} 
+                                    style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #fff', objectFit: 'cover' }} 
+                                    alt="" 
+                                />
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>{story.sharedPostId.user?.fullname}</span>
+                            </div>
+                            {story.sharedPostId.image_url ? (
+                                <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', borderRadius: '16px' }}>
+                                    <img src={story.sharedPostId.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                </div>
+                            ) : (
+                                <div style={{ padding: '24px 16px', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', borderRadius: '16px', minHeight: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <p style={{ color: '#fff', fontSize: '15px', fontWeight: 600, textAlign: 'center', margin: 0, lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                        {story.sharedPostId.caption || 'Shared a post'}
+                                    </p>
+                                </div>
+                            )}
+                            {story.sharedPostId.image_url && story.sharedPostId.caption && (
+                                <div style={{ padding: '0 4px' }}>
+                                    <p style={{ margin: 0, fontSize: '12px', color: '#374151', lineHeight: '1.4', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                        {story.sharedPostId.caption}
+                                    </p>
+                                </div>
+                            )}
+                            <div style={{ marginTop: '4px', textAlign: 'center' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>View Post <i className="pi pi-chevron-right" style={{ fontSize: '8px' }}></i></span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Overlay Text */}
@@ -191,7 +262,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                 {/* Footer / Interaction Bar */}
                 <div style={{ position: 'absolute', bottom: 30, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: '15px', zIndex: 25 }}>
                     {isOwn ? (
-                        <div 
+                        <div
                             onClick={async () => {
                                 setIsPaused(true);
                                 try {
@@ -207,7 +278,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                             {story.viewers?.length || 0} Views
                         </div>
                     ) : (
-                        <form 
+                        <form
                             onSubmit={async (e) => {
                                 e.preventDefault();
                                 const reply = e.target.reply.value;
@@ -223,7 +294,7 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                             style={{ flex: 1, display: 'flex' }}
                         >
                             <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
-                                <input 
+                                <input
                                     name="reply"
                                     type="text"
                                     placeholder="Send message..."
@@ -244,6 +315,18 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
                             <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
                         </button>
                         {likesCount > 0 && <span style={{ color: '#fff', fontSize: '8px', fontWeight: 700 }}>{likesCount}</span>}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <button 
+                            onClick={() => {
+                                setIsPaused(true);
+                                onShareStory(story);
+                            }} 
+                            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <i className="pi pi-send" style={{ fontSize: '22px' }}></i>
+                        </button>
                     </div>
                 </div>
 
@@ -280,58 +363,271 @@ const StoryViewer = ({ groups, startGroupIndex, onClose, loggeduser, onStoryDele
     );
 };
 
-const CreateStoryModal = ({ onClose, onCreated, loggeduser }) => {
+const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sendingUsers, setSendingUsers] = useState([]);
+    
+    // Use user's followers/following to share
+    const followerIds = (loggeduser?.followers || []).map(f => f.toString());
+    const followingIds = (loggeduser?.following || []).map(f => f.toString());
+    const allUniqueIds = [...new Set([...followerIds, ...followingIds])];
+    
+    const { data: users = [], isLoading } = useUserDetails(allUniqueIds);
+
+    const filteredUsers = users.filter(u => 
+        u.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.username?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const handleShare = async (targetUser) => {
+        if (!story?._id || !targetUser?._id) return;
+        setSendingUsers(prev => [...prev, targetUser._id]);
+        try {
+            // Share as a message with a special flag/link
+            // The link format: /stories?user=STORY_USER_ID&story=STORY_ID
+            const storyLink = `/stories?user=${story.user._id || story.user}&story=${story._id}`;
+            const content = `Shared a story: ${storyLink}`;
+            
+            // Create or get conversation
+            const convRes = await api.post('/api/conversation/messages', { recipientId: targetUser._id });
+            const conversationId = convRes.data.conversation?._id;
+            
+            if (conversationId) {
+                await api.post('/api/conversation/send', {
+                    conversationId,
+                    recipientId: targetUser._id,
+                    content,
+                    storyReply: {
+                        storyId: story._id,
+                        mediaUrl: story.media?.url,
+                        isShare: true
+                    }
+                });
+                toast.success(`Shared with ${targetUser.fullname}`);
+            }
+        } catch (err) {
+            console.error('Share failed', err);
+            toast.error('Failed to share');
+        } finally {
+            setSendingUsers(prev => prev.filter(id => id !== targetUser._id));
+        }
+    };
+
+    return (
+        <Dialog 
+            header="Share Story" 
+            visible={visible} 
+            onHide={onHide} 
+            style={{ width: '95vw', maxWidth: '450px' }} 
+            breakpoints={{ '640px': '100vw' }}
+        >
+            <div className="flex flex-col gap-3">
+                <div className="relative">
+                    <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input 
+                        type="text" 
+                        placeholder="Search people..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-0 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                    />
+                </div>
+                
+                <div className="max-h-[350px] overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-1">
+                    {isLoading ? (
+                        [1,2,3].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse w-full mb-1" />)
+                    ) : filteredUsers.length === 0 ? (
+                        <p className="text-center py-8 text-gray-400 text-sm">No users found</p>
+                    ) : filteredUsers.map(u => (
+                        <div key={u._id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition">
+                            <div className="flex items-center gap-3">
+                                <img src={u.profile_picture || '/default-profile.png'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
+                                <div>
+                                    <p className="m-0 text-sm font-semibold text-gray-800">{u.fullname}</p>
+                                    <p className="m-0 text-[11px] text-gray-400">@{u.username}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => handleShare(u)}
+                                disabled={sendingUsers.includes(u._id)}
+                                className={`px-4 py-1.5 rounded-full text-xs font-bold border-0 cursor-pointer shadow-sm transition-all ${sendingUsers.includes(u._id) ? 'bg-gray-100 text-gray-400' : 'bg-indigo-500 text-white hover:bg-indigo-600'}`}
+                            >
+                                {sendingUsers.includes(u._id) ? 'Sending...' : 'Send'}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </Dialog>
+    );
+};
+
+const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null }) => {
     const fileInputRef = useRef(null);
-    const [preview, setPreview] = useState(null);
-    const [file, setFile] = useState(null);
-    const [mediaType, setMediaType] = useState('image');
+    const [previews, setPreviews] = useState([]); // [{url, type, file}]
+    const [currentIndex, setCurrentIndex] = useState(0);
     const [text, setText] = useState('');
     const [textColor, setTextColor] = useState('#ffffff');
     const [textPosition, setTextPosition] = useState('center');
     const [uploading, setUploading] = useState(false);
+    const [croppingState, setCroppingState] = useState({ visible: false, imageSrc: null, pendingFiles: [] });
 
     const handleFileSelect = (e) => {
-        const f = e.target.files[0];
-        if (!f) return;
-        const isVideo = f.type.startsWith('video/');
-        if (!isVideo) { const err = validateImageFile(f); if (err) { toast.error(err); return; } }
-        setFile(f); setMediaType(isVideo ? 'video' : 'image'); setPreview(URL.createObjectURL(f));
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+
+        const validVideos = [];
+        const itemsToCrop = [];
+
+        files.forEach(f => {
+            const isVideo = f.type.startsWith('video/');
+            if (isVideo) {
+                validVideos.push({ url: URL.createObjectURL(f), type: 'video', file: f });
+            } else {
+                const err = validateImageFile(f);
+                if (err) toast.error(err);
+                else itemsToCrop.push(f);
+            }
+        });
+
+        if (itemsToCrop.length > 0) {
+            const first = itemsToCrop[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                setCroppingState({
+                    visible: true,
+                    imageSrc: reader.result,
+                    pendingFiles: itemsToCrop.slice(1),
+                    currentValidOnes: validVideos
+                });
+            };
+            reader.readAsDataURL(first);
+        } else {
+            setPreviews(prev => [...prev, ...validVideos]);
+        }
+        e.target.value = '';
+    };
+
+    const handleCropComplete = (croppedFile) => {
+        const newPreview = { url: URL.createObjectURL(croppedFile), type: 'image', file: croppedFile };
+
+        if (croppingState.pendingFiles.length > 0) {
+            const next = croppingState.pendingFiles[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                setPreviews(prev => [...prev, newPreview]);
+                setCroppingState({
+                    ...croppingState,
+                    imageSrc: reader.result,
+                    pendingFiles: croppingState.pendingFiles.slice(1)
+                });
+            };
+            reader.readAsDataURL(next);
+        } else {
+            setPreviews(prev => [...prev, ...(croppingState.currentValidOnes || []), newPreview]);
+            setCroppingState({ visible: false, imageSrc: null, pendingFiles: [], currentValidOnes: [] });
+        }
+    };
+
+    const removePreview = (idx) => {
+        setPreviews(prev => {
+            const updated = [...prev];
+            URL.revokeObjectURL(updated[idx].url);
+            updated.splice(idx, 1);
+            return updated;
+        });
+        if (currentIndex >= previews.length - 1) setCurrentIndex(Math.max(0, previews.length - 2));
     };
 
     const handleSubmit = async () => {
-        if (!file) { toast.error('Please select an image or video'); return; }
+        if (previews.length === 0 && !sharedPost) { toast.error('Please select an image or video'); return; }
         setUploading(true);
         try {
-            let mediaUrl;
-            if (mediaType === 'video') {
-                mediaUrl = await uploadVideoToCloudinary(file);
-            } else { mediaUrl = await uploadToCloudinary(file); }
-
             const { api } = await import('../../store/zustand/useAuthStore');
-            const res = await api.post(`/api/story/create`, {
-                mediaUrl, mediaType,
-                text: text ? { content: text, color: textColor, position: textPosition } : null
-            });
-            const newStory = res.data;
-            toast.success('Story created!');
-            onCreated(newStory);
+
+            if (sharedPost) {
+                // Special case for sharing a post
+                const res = await api.post(`/api/story/create`, {
+                    mediaUrl: sharedPost.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
+                    mediaType: 'image',
+                    text: text ? { content: text, color: textColor, position: textPosition } : { content: 'Tap to view post', color: '#ffffff', position: 'bottom' },
+                    sharedPostId: sharedPost._id
+                });
+                onCreated(res.data);
+            } else {
+                for (const item of previews) {
+                    let mediaUrl;
+                    if (item.type === 'video') {
+                        mediaUrl = await uploadVideoToCloudinary(item.file);
+                    } else {
+                        mediaUrl = await uploadToCloudinary(item.file);
+                    }
+
+                    const res = await api.post(`/api/story/create`, {
+                        mediaUrl, mediaType: item.type,
+                        text: text ? { content: text, color: textColor, position: textPosition } : null
+                    });
+                    onCreated(res.data);
+                }
+            }
+            toast.success(sharedPost ? 'Post shared to story!' : `${previews.length} stories created!`);
             onClose();
         } catch { toast.error('Failed to create story'); }
         setUploading(false);
     };
 
+    const currentMedia = previews[currentIndex];
+
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.25)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', width: '360px', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Create Story</h3>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Create Story {previews.length > 0 && `(${previews.length})`}</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
                 </div>
-                <div onClick={() => fileInputRef.current?.click()} style={{ border: '2px dashed #e5e7eb', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px', background: '#f9fafb', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-                    {preview ? (mediaType === 'video' ? <video src={preview} style={{ width: '100%', borderRadius: '8px', maxHeight: '200px' }} controls /> : <img src={preview} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'cover' }} />) : <div><p style={{ fontSize: '32px', margin: 0 }}>📷</p><p style={{ color: '#9ca3af', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p></div>}
-                    {preview && text && <div style={{ position: 'absolute', top: textPosition === 'top' ? '15%' : textPosition === 'bottom' ? '75%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: textColor, fontSize: '18px', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)', pointerEvents: 'none' }}>{text}</div>}
+
+                <div style={{ position: 'relative', marginBottom: '16px' }}>
+                    <div onClick={() => !sharedPost && fileInputRef.current?.click()} style={{ border: '2px dashed #e5e7eb', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: sharedPost ? 'default' : 'pointer', background: '#f9fafb', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                        {sharedPost ? (
+                            <div style={{ width: '100%', padding: '10px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                    <img src={sharedPost.user?.profile_picture} style={{ width: 24, height: 24, borderRadius: '50%' }} alt="" />
+                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{sharedPost.user?.fullname}</span>
+                                </div>
+                                {sharedPost.image_url && <img src={sharedPost.image_url} style={{ width: '100%', borderRadius: '8px', aspectRatio: '1/1', objectFit: 'cover' }} alt="" />}
+                                <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }} className="truncate">{sharedPost.caption}</p>
+                            </div>
+                        ) : currentMedia ? (
+                            currentMedia.type === 'video'
+                                ? <video src={currentMedia.url} style={{ width: '100%', borderRadius: '8px', maxHeight: '200px' }} controls />
+                                : <img src={currentMedia.url} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'cover' }} />
+                        ) : (
+                            <div><p style={{ fontSize: '32px', margin: 0 }}>📷</p><p style={{ color: '#9ca3af', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p></div>
+                        )}
+                        {(currentMedia || sharedPost) && text && (
+                            <div style={{ position: 'absolute', top: textPosition === 'top' ? '15%' : textPosition === 'bottom' ? '75%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: textColor, fontSize: '18px', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)', pointerEvents: 'none', width: '90%', textAlign: 'center', zIndex: 10 }}>
+                                {text}
+                            </div>
+                        )}
+                    </div>
+                    {previews.length > 1 && (
+                        <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', marginTop: '8px', paddingBottom: '4px' }}>
+                            {previews.map((p, i) => (
+                                <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                                    <img
+                                        src={p.url}
+                                        onClick={() => setCurrentIndex(i)}
+                                        style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid #808bf5' : '1px solid #e5e7eb', cursor: 'pointer' }}
+                                        alt=""
+                                    />
+                                    <button onClick={(e) => { e.stopPropagation(); removePreview(i); }} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
-                <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} />
+
+                <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
                 <input type="text" placeholder="Add text overlay (optional)" value={text} onChange={e => setText(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px' }} />
                 {text && (
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -343,39 +639,61 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser }) => {
                         </select>
                     </div>
                 )}
-                <button onClick={handleSubmit} disabled={uploading || !file} style={{ width: '100%', padding: '10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: !file ? 0.6 : 1 }}>
-                    {uploading ? 'Uploading...' : 'Share Story'}
+                <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost)} style={{ width: '100%', padding: '10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost) ? 0.6 : 1 }}>
+                    {uploading ? 'Uploading...' : sharedPost ? 'Share Post to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
                 </button>
             </div>
+            {croppingState.visible && (
+                <ImageCropper
+                    image={croppingState.imageSrc}
+                    visible={croppingState.visible}
+                    onCropComplete={handleCropComplete}
+                    onCancel={() => setCroppingState({ visible: false, imageSrc: null, pendingFiles: [] })}
+                />
+            )}
         </div>
     );
 };
 
 const Stories = () => {
+    const queryClient = useQueryClient();
     const loggeduser = useAuthStore(s => s.user);
+    const { data: storyFeed } = useStoryFeed(loggeduser?._id);
     const [groups, setGroups] = useState([]);
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerGroupIndex, setViewerGroupIndex] = useState(0);
     const [createOpen, setCreateOpen] = useState(false);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
-    const viewedStoryGroups = usePostStore(s => s.viewedStoryGroups);
-    const markGroupAsViewed = usePostStore(s => s.markGroupAsViewed);
-
-    // ✅ TanStack Query - cached, deduplicated requests
-    const { data: storyFeed = [] } = useStoryFeed(loggeduser?._id);
-
-    // Sync TanStack Query data with local state
-    useEffect(() => {
-        if (storyFeed && storyFeed.length > 0) {
-            setGroups(storyFeed);
-        } else if (storyFeed && storyFeed.length === 0 && groups.length > 0) {
-            setGroups([]);
-        }
-    }, [storyFeed, groups.length]);
-
-    const { storyDetailUserId, setStoryDetailUserId, liveStreamId, isLiveHost, setLiveStream, clearLiveStream } = usePostStore();
+    const [postVisible, setPostVisible] = useState(false);
+    const [selectedPostId, setSelectedPostId] = useState(null);
+    const [shareOpen, setShareOpen] = useState(false);
+    const [sharingStory, setSharingStory] = useState(null);
+    const [initialStoryId, setInitialStoryId] = useState(null);
+    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, setStoryDetailUserId, liveStreamId, isLiveHost, setLiveStream, clearLiveStream } = usePostStore();
     const [activeLiveStreams, setActiveLiveStreams] = useState([]);
+
+    // ✅ Sync story feed to local groups state
+    useEffect(() => {
+        if (storyFeed) {
+            setGroups(storyFeed);
+        }
+    }, [storyFeed]);
+
+    // ✅ Global trigger for viewing stories (from chat links, etc)
+    useEffect(() => {
+        window.onViewStory = (userId, storyId) => {
+            const index = groups.findIndex(g => g.user._id.toString() === userId.toString());
+            if (index !== -1) {
+                setViewerGroupIndex(index);
+                setInitialStoryId(storyId || null);
+                setViewerOpen(true);
+            } else {
+                toast.error('Story no longer available');
+            }
+        };
+        return () => delete window.onViewStory;
+    }, [groups]);
 
     const fetchActiveLives = async () => {
         try {
@@ -460,6 +778,7 @@ const Stories = () => {
 
     const handleStoryCreated = (newStory) => {
         const myId = loggeduser?._id?.toString();
+        // Optimistically update the list
         setGroups(prev => {
             const idx = prev.findIndex(g => g.user._id.toString() === myId);
             if (idx !== -1) {
@@ -469,6 +788,8 @@ const Stories = () => {
             }
             return [{ user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }, stories: [newStory], hasUnviewed: false }, ...prev];
         });
+        // Refetch in background, but we already updated local state
+        queryClient.invalidateQueries(['story-feed']);
     };
 
     const openViewer = (index) => {
@@ -477,7 +798,7 @@ const Stories = () => {
         setViewerGroupIndex(index);
         setViewerOpen(true);
     };
-    
+
     const handleProfileClick = (e, userId) => {
         e.stopPropagation();
         setSelectedProfileId(userId);
@@ -508,11 +829,30 @@ const Stories = () => {
                     </div>
                 ))}
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}
-                    onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}>
                     <div style={{ position: 'relative', width: 60, height: 60 }}>
-                        <img src={loggeduser?.profile_picture} alt="" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: ownGroup ? '3px solid #808bf5' : '3px solid #e5e7eb' }} />
-                        {!ownGroup && <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, background: '#808bf5', borderRadius: '50%', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 700 }}>+</div>}
+                        <div
+                            onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}
+                            style={{ 
+                                width: 60, height: 60, borderRadius: '50%', padding: '2px', 
+                                background: ownGroup ? (viewedStoryGroups.has(loggeduser?._id?.toString()) ? '#e5e7eb' : 'linear-gradient(135deg, #808bf5, #ec4899)') : '#e5e7eb',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid #fff' }}>
+                                <img
+                                    src={loggeduser?.profile_picture}
+                                    alt=""
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            </div>
+                        </div>
+                        <div
+                            onClick={(e) => { e.stopPropagation(); setCreateOpen(true); }}
+                            style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, background: '#808bf5', borderRadius: '50%', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 700, zIndex: 5 }}
+                        >
+                            +
+                        </div>
                     </div>
                     <span style={{ fontSize: '11px', color: '#374151', fontWeight: 500, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {ownGroup ? 'Your story' : 'Add story'}
@@ -523,19 +863,19 @@ const Stories = () => {
                     const allViewed = !group.hasUnviewed || viewedStoryGroups.has(group.user._id.toString());
                     return (
                         <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}>
-                            <div 
+                            <div
                                 onClick={() => openViewer(realIndex)}
                                 style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? '#e5e7eb' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
                             >
                                 <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid #fff' }}>
-                                    <img 
-                                        src={group.user.profile_picture} 
-                                        alt="" 
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                    <img
+                                        src={group.user.profile_picture}
+                                        alt=""
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
                                 </div>
                             </div>
-                            <span 
+                            <span
                                 onClick={(e) => handleProfileClick(e, group.user._id)}
                                 style={{ fontSize: '11px', color: '#374151', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', hover: { color: '#808bf5' } }}
                             >
@@ -546,21 +886,61 @@ const Stories = () => {
                 })}
             </div>
             {viewerOpen && groups.length > 0 && (
-                <StoryViewer groups={groups} startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)} onClose={() => setViewerOpen(false)} loggeduser={loggeduser} onStoryDeleted={handleStoryDeleted} onStoryLiked={handleStoryLiked} />
+                <StoryViewer
+                    groups={groups}
+                    startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)}
+                    onClose={() => {
+                        setViewerOpen(false);
+                        setInitialStoryId(null);
+                    }}
+                    loggeduser={loggeduser}
+                    onStoryDeleted={handleStoryDeleted}
+                    onStoryLiked={handleStoryLiked}
+                    onOpenPostDetail={(id) => {
+                        setSelectedPostId(id);
+                        setPostVisible(true);
+                    }}
+                    onShareStory={(s) => {
+                        setSharingStory(s);
+                        setShareOpen(true);
+                    }}
+                    initialStoryId={initialStoryId}
+                />
             )}
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
-            
+            {sharingPostToStory && (
+                <CreateStoryModal
+                    onClose={clearSharingPostToStory}
+                    onCreated={handleStoryCreated}
+                    loggeduser={loggeduser}
+                    sharedPost={sharingPostToStory}
+                />
+            )}
+
             <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
                 <React.Suspense fallback={<div className="p-4 text-center">Loading Profile...</div>}>
                     <UserProfile id={selectedProfileId} />
                 </React.Suspense>
             </Dialog>
-            
+
+            <Dialog header="Post Details" visible={postVisible} style={{ width: '95vw', maxWidth: '700px' }} onHide={() => setPostVisible(false)}>
+                <React.Suspense fallback={<div className="p-4 text-center">Loading Post...</div>}>
+                    <PostDetail postId={selectedPostId} onHide={() => setPostVisible(false)} />
+                </React.Suspense>
+            </Dialog>
+
+            <ShareStoryDialog 
+                visible={shareOpen} 
+                onHide={() => setShareOpen(false)} 
+                story={sharingStory} 
+                loggeduser={loggeduser} 
+            />
+
             {liveStreamId && (
-                <LiveStream 
-                    streamId={liveStreamId} 
-                    isHost={isLiveHost} 
-                    onClose={clearLiveStream} 
+                <LiveStream
+                    streamId={liveStreamId}
+                    isHost={isLiveHost}
+                    onClose={clearLiveStream}
                 />
             )}
         </>

@@ -86,28 +86,40 @@ const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
   ];
 
   return (
-    <Dialog 
-      header="Crop Image" 
-      visible={visible} 
-      onHide={onCancel} 
+    <Dialog
+      header="Crop Image"
+      visible={visible}
+      onHide={onCancel}
       style={{ width: '90vw', maxWidth: '600px' }}
       modal
       footer={
-        <div className="flex justify-between items-center w-full">
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row justify-between items-center w-full gap-2 p-2">
+          <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto items-center">
             {aspectPresets.map((preset) => (
-              <Button 
+              <Button
                 key={preset.label}
-                label={preset.label} 
+                label={preset.label.split(' ')[0]}
                 onClick={() => setAspect(preset.value)}
-                className={`p-button-text p-button-sm ${aspect === preset.value ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500'}`}
-                style={{ fontSize: '10px' }}
+                className={`p-button-text p-button-sm whitespace-nowrap ${aspect === preset.value ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-gray-500'}`}
+                style={{ fontSize: '11px', padding: '6px 10px' }}
               />
             ))}
+            <div className="h-4 w-px bg-gray-200 mx-1 hidden sm:block"></div>
+            <Button 
+                label="No Crop" 
+                onClick={async () => {
+                   const response = await fetch(image);
+                   const blob = await response.blob();
+                   const file = new File([blob], 'original-image.jpg', { type: blob.type });
+                   onCropComplete(file);
+                }} 
+                className="p-button-text p-button-sm text-indigo-600 font-bold whitespace-nowrap" 
+                style={{ fontSize: '11px', padding: '6px 10px' }}
+            />
           </div>
-          <div className="flex gap-2">
-            <Button label="Cancel" onClick={onCancel} className="p-button-text text-gray-500" />
-            <Button label="Apply" onClick={handleApplyCrop} loading={loading} className="bg-indigo-600 text-white border-0" />
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Button label="Cancel" onClick={onCancel} className="p-button-text text-gray-500 flex-1 sm:flex-none font-bold" />
+            <Button label="Apply Crop" onClick={handleApplyCrop} loading={loading} className="bg-indigo-600 text-white border-0 flex-1 sm:flex-none font-bold px-6 py-2 rounded-xl shadow-lg shadow-indigo-100" />
           </div>
         </div>
       }

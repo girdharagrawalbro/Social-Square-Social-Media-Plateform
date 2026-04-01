@@ -5,7 +5,7 @@ const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const logger = require('../utils/logger');
 
-const PYTHON_ENABLED = (process.env.SUGGESTIONS_PYTHON_ENABLED || 'true').toLowerCase() !== 'false';
+const PYTHON_ENABLED = (process.env.SUGGESTIONS_PYTHON_ENABLED || 'false').toLowerCase() !== 'false';
 const PYTHON_EXECUTABLE = process.env.SUGGESTIONS_PYTHON_EXECUTABLE || 'python';
 const PYTHON_TIMEOUT_MS = Number(process.env.SUGGESTIONS_PYTHON_TIMEOUT_MS || 2000);
 const PYTHON_SCRIPT = path.join(__dirname, '..', 'ml', 'suggestion_rerank.py');

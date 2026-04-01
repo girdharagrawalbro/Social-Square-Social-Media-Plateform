@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { useOtherUsers, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
 import UserProfile from './UserProfile';
@@ -16,6 +16,17 @@ const OtherUsers = () => {
 
     const [selectedId, setSelectedId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
+    const [localDismissed, setLocalDismissed] = useState([]);
+
+    const handleDismiss = async (e, targetUserId) => {
+        e.stopPropagation();
+        setLocalDismissed(prev => [...prev, targetUserId]);
+        try {
+            await api.post('/api/auth/dismiss-user', { targetUserId });
+        } catch (err) {
+            console.error('Failed to dismiss user:', err);
+        }
+    };
 
     const handleFollow = (e, userId) => {
         e.stopPropagation();
@@ -41,7 +52,12 @@ const OtherUsers = () => {
                 </div>
 
                 <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1 custom-scrollbar scroll-smooth">
-                    {users.filter(u => u._id !== user?._id && !user?.following?.some(f => f?.toString() === u._id?.toString())).slice(0, 8).map(u => {
+                    {users.filter(u => 
+                        u._id !== user?._id && 
+                        !user?.following?.some(f => f?.toString() === u._id?.toString()) &&
+                        !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString()) &&
+                        !localDismissed.includes(u._id)
+                    ).slice(0, 8).map(u => {
                         const userIsOnline = isOnline(u._id);
                         const isFollowing = false; // We filtered out already following users
                         const isThisUserLoading = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
@@ -60,13 +76,22 @@ const OtherUsers = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="m-0 text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{u.fullname}</p>
-                                    <p className="m-0 text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate">{followersCount} followers</p>
+                                    <p className="m-0 text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate">
+                                        {u.reason || `${followersCount} followers`}
+                                    </p>
                                 </div>
-                                <button onClick={e => handleFollow(e, u._id)}
-                                    disabled={isThisUserLoading}
-                                    className={`text-[11px] px-3.5 py-1.5 rounded-full border-0 cursor-pointer font-bold flex-shrink-0 transition-all shadow-sm ${isFollowing ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-[#808bf5] text-white hover:bg-[#6c79e0] active:scale-95'} ${isThisUserLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    {isThisUserLoading ? '...' : (isFollowing ? 'Following' : 'Follow')}
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button onClick={e => handleDismiss(e, u._id)}
+                                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-400 hover:text-gray-600 transition-colors border-0 bg-transparent flex items-center justify-center"
+                                        title="Dismiss suggestion">
+                                        <i className="pi pi-times" style={{ fontSize: '10px' }}></i>
+                                    </button>
+                                    <button onClick={e => handleFollow(e, u._id)}
+                                        disabled={isThisUserLoading}
+                                        className={`text-[11px] px-3.5 py-1.5 rounded-full border-0 cursor-pointer font-bold flex-shrink-0 transition-all shadow-sm ${isFollowing ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-[#808bf5] text-white hover:bg-[#6c79e0] active:scale-95'} ${isThisUserLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        {isThisUserLoading ? '...' : (isFollowing ? 'Following' : 'Follow')}
+                                    </button>
+                                </div>
                             </div>
                         );
                     })}

@@ -6,10 +6,12 @@ import useConversationStore from '../../store/zustand/useConversationStore';
 import { useConversations } from '../../hooks/queries/useConversationQueries';
 import ChatPanel from './ChatPanel';
 import UserProfile from './UserProfile';
+import formatDate from '../../utils/formatDate';
 
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
     const isOnline = useConversationStore(s => s.isOnline);
+    const getLastSeen = useConversationStore(s => s.getLastSeen);
     const incrementUnread = useConversationStore(s => s.incrementUnread);
     const clearUnread = useConversationStore(s => s.clearUnread);
     const unreadCounts = useConversationStore(s => s.unreadCounts);
@@ -61,21 +63,38 @@ const Conversations = () => {
         return new Date(dateString).toLocaleDateString();
     };
 
+    const [isSearching, setIsSearching] = useState(false);
+
     const headerElement = selectedParticipant && (
-        <div 
-            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition"
-            onClick={() => handleProfileClick(selectedParticipant.userId)}
-        >
-            <div className="relative">
-                <img src={selectedParticipant.profilePicture || '/default-profile.png'} className="w-8 h-8 rounded-full object-cover" alt="" />
-                {isOnline(selectedParticipant.userId) && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
-                )}
+        <div className="flex items-center justify-between w-full pr-4">
+            <div
+                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition"
+                onClick={() => handleProfileClick(selectedParticipant.userId)}
+            >
+                <div className="relative">
+                    <img src={selectedParticipant.profilePicture || '/default-profile.png'} className="w-8 h-8 rounded-full object-cover" alt="" />
+                    {isOnline(selectedParticipant.userId) && (
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+                    )}
+                </div>
+                <div>
+                    <span className="font-semibold text-sm">{selectedParticipant.fullname}</span>
+                    <p className="m-0 text-[10px] text-gray-400">
+                        {isOnline(selectedParticipant.userId)
+                            ? <><span className="text-green-500">🟢</span> Online</>
+                            : `Last seen ${formatDate(getLastSeen(selectedParticipant.userId)) || 'recently'}`
+                        }
+                    </p>
+                </div>
             </div>
-            <div>
-                <span className="font-semibold text-sm">{selectedParticipant.fullname}</span>
-                <p className="m-0 text-xs text-gray-400">{isOnline(selectedParticipant.userId) ? '🟢 Online' : 'Offline'}</p>
-            </div>
+
+            <button
+                onClick={(e) => { e.stopPropagation(); setIsSearching(prev => !prev); }}
+                className={`p-2 rounded-full border-0 cursor-pointer transition-all ${isSearching ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                title="Search in conversation"
+            >
+                <i className={`pi ${isSearching ? 'pi-times' : 'pi-search'}`} style={{ fontSize: '13px' }}></i>
+            </button>
         </div>
     );
 
@@ -136,12 +155,17 @@ const Conversations = () => {
 
             {/* Chat Dialog */}
             <Dialog header={headerElement} visible={visible} style={{ width: '95vw', maxWidth: '500px', height: '90vh' }}
-                breakpoints={{ '768px': '100vw' }} position="center" onHide={() => setVisible(false)}
+                breakpoints={{ '768px': '100vw' }} position="center" onHide={() => { setVisible(false); setIsSearching(false); }}
                 className="glass-card rounded-3xl"
                 headerClassName="border-b border-gray-100 dark:border-gray-800"
             >
                 {selectedParticipant && (
-                    <ChatPanel participantId={selectedParticipant.userId} lastMessage={lastMessageId} />
+                    <ChatPanel
+                        participantId={selectedParticipant.userId}
+                        lastMessage={lastMessageId}
+                        isSearching={isSearching}
+                        setIsSearching={setIsSearching}
+                    />
                 )}
             </Dialog>
 

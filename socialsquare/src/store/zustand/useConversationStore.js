@@ -10,6 +10,7 @@ const useConversationStore = create(
 
             // ─── Online users ─────────────────────────────────────────────
             onlineUserIds: new Set(),
+            lastSeenMap: {}, // userId → Date string
 
             // ─── Typing indicators ────────────────────────────────────────
             typingUsers: {}, // conversationId → { senderName, ts }
@@ -50,11 +51,18 @@ const useConversationStore = create(
                 next.add(user.userId);
                 return { onlineUserIds: next };
             }),
-            removeOnlineUser: (userId) => set(state => {
+            removeOnlineUser: (userId, lastSeen) => set(state => {
                 const next = new Set(state.onlineUserIds);
                 next.delete(userId);
-                return { onlineUserIds: next };
+                return { 
+                    onlineUserIds: next,
+                    lastSeenMap: { ...state.lastSeenMap, [userId]: lastSeen || new Date().toISOString() }
+                };
             }),
+            setLastSeen: (userId, date) => set(state => ({
+                lastSeenMap: { ...state.lastSeenMap, [userId]: date }
+            })),
+            getLastSeen: (userId) => get().lastSeenMap[userId],
             isOnline: (userId) => get().onlineUserIds.has(userId),
 
             // ─── Typing ───────────────────────────────────────────────────
