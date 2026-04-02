@@ -20,7 +20,7 @@ const MessageBubble = ({ msg }) => {
 
     if (isSystem) return (
         <div style={{ textAlign: 'center', padding: '4px 8px' }}>
-            <span style={{ fontSize: '11px', color: '#9ca3af', background: '#f3f4f6', borderRadius: '10px', padding: '2px 10px' }}>{msg.content}</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-sub)', background: 'var(--surface-2)', borderRadius: '10px', padding: '2px 10px' }}>{msg.content}</span>
         </div>
     );
 
@@ -35,8 +35,8 @@ const MessageBubble = ({ msg }) => {
                 maxWidth: '78%',
                 padding: '10px 13px',
                 borderRadius: isBot ? '18px 18px 18px 4px' : '18px 18px 4px 18px',
-                background: isBot ? '#f3f4f6' : 'linear-gradient(135deg, #808bf5, #6366f1)',
-                color: isBot ? '#1f2937' : '#fff',
+                background: isBot ? 'var(--surface-2)' : 'linear-gradient(135deg, var(--primary), #6366f1)',
+                color: isBot ? 'var(--text-main)' : '#fff',
                 fontSize: '13px',
                 lineHeight: 1.5,
                 whiteSpace: 'pre-wrap',
@@ -46,7 +46,7 @@ const MessageBubble = ({ msg }) => {
                 {msg.loading && (
                     <span style={{ display: 'inline-flex', gap: '3px', marginLeft: '4px' }}>
                         {[0, 1, 2].map(i => (
-                            <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#9ca3af', display: 'inline-block', animation: `typingDot 1s ${i * 0.2}s infinite` }} />
+                            <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-sub)', display: 'inline-block', animation: `typingDot 1s ${i * 0.2}s infinite` }} />
                         ))}
                     </span>
                 )}
@@ -208,9 +208,9 @@ const Chatbot = () => {
                     <div className="chatbot-window" style={{
                         position: 'absolute', bottom: '68px', right: 0,
                         width: '340px', height: '520px',
-                        background: '#fff', borderRadius: '20px',
+                        background: 'var(--surface-1)', borderRadius: '20px',
                         boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
-                        border: '1px solid #e5e7eb',
+                        border: '1px solid var(--border-color)',
                         display: 'flex', flexDirection: 'column',
                         overflow: 'hidden',
                     }}>
@@ -222,15 +222,15 @@ const Chatbot = () => {
                             <div style={{ flex: 1 }}>
                                 <p style={{ margin: 0, fontWeight: 700, color: '#fff', fontSize: '14px' }}>SocialBot</p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />
-                                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '11px' }}>Online · Powered by Mistral AI</p>
+                                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />
+                                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '11px' }}>Online · Powered by Mistral AI</p>
                                 </div>
                             </div>
-                            <button onClick={clearChat} title="Clear chat"
+                            <button type="button" onClick={clearChat} aria-label="Clear chat" title="Clear chat"
                                 style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', padding: '4px 8px', cursor: 'pointer', color: '#fff', fontSize: '11px' }}>
                                 🗑️
                             </button>
-                            <button onClick={() => setOpen(false)}
+                            <button type="button" aria-label="Close chat" onClick={() => setOpen(false)}
                                 style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', width: 28, height: 28, cursor: 'pointer', color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 ✕
                             </button>
@@ -246,10 +246,10 @@ const Chatbot = () => {
                         {messages.length <= 2 && (
                             <div style={{ padding: '0 12px 8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {QUICK_ACTIONS.map((action, i) => (
-                                    <button key={i} onClick={() => sendMessage(action.message)}
-                                        style={{ padding: '4px 10px', borderRadius: '14px', border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: '11px', fontWeight: 500, color: '#374151', transition: 'all 0.15s' }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = '#ede9fe'; e.currentTarget.style.borderColor = '#808bf5'; e.currentTarget.style.color = '#6366f1'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#374151'; }}>
+                                    <button key={i} type="button" aria-label={`Quick action: ${action.label}`} onClick={() => sendMessage(action.message)}
+                                        style={{ padding: '4px 10px', borderRadius: '14px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', cursor: 'pointer', fontSize: '11px', fontWeight: 500, color: 'var(--text-main)', transition: 'all 0.15s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = '#fff'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-main)'; }}>
                                         {action.label}
                                     </button>
                                 ))}
@@ -257,7 +257,7 @@ const Chatbot = () => {
                         )}
 
                         {/* Input */}
-                        <div style={{ borderTop: '1px solid #f3f4f6', padding: '10px 12px', display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                        <div style={{ borderTop: '1px solid var(--border-color)', padding: '10px 12px', display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                             <textarea
                                 ref={inputRef}
                                 value={input}
@@ -267,28 +267,30 @@ const Chatbot = () => {
                                 rows={1}
                                 disabled={loading}
                                 style={{
-                                    flex: 1, border: '1px solid #e5e7eb', borderRadius: '14px',
+                                    flex: 1, border: '1px solid var(--border-color)', borderRadius: '14px',
                                     padding: '8px 12px', fontSize: '13px', outline: 'none',
                                     resize: 'none', fontFamily: 'inherit', lineHeight: 1.4,
-                                    maxHeight: '80px', overflowY: 'auto', background: '#f9fafb',
+                                    maxHeight: '80px', overflowY: 'auto', background: 'var(--surface-2)', color: 'var(--text-main)',
                                     transition: 'border-color 0.2s',
                                 }}
-                                onFocus={e => e.target.style.borderColor = '#808bf5'}
-                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                                onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
                             />
                             <button
+                                type="button"
+                                aria-label="Send message"
                                 onClick={() => sendMessage()}
                                 disabled={!input.trim() || loading}
                                 style={{
                                     width: 36, height: 36, borderRadius: '50%',
-                                    background: input.trim() && !loading ? 'linear-gradient(135deg, #808bf5, #6366f1)' : '#e5e7eb',
+                                    background: input.trim() && !loading ? 'linear-gradient(135deg, var(--primary), #6366f1)' : 'var(--border-color)',
                                     border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'default',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     flexShrink: 0, transition: 'all 0.2s',
                                 }}>
                                 {loading
-                                    ? <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: input.trim() ? '#fff' : '#9ca3af', borderRadius: '50%', animation: 'typingDot 0.7s linear infinite' }} />
-                                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={input.trim() ? '#fff' : '#9ca3af'} strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                                    ? <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: input.trim() ? '#fff' : 'var(--text-sub)', borderRadius: '50%', animation: 'typingDot 0.7s linear infinite' }} />
+                                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={input.trim() ? '#fff' : 'var(--text-sub)'} strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                                 }
                             </button>
                         </div>
@@ -297,6 +299,9 @@ const Chatbot = () => {
 
                 {/* Bubble button */}
                 <button
+                    type="button"
+                    aria-pressed={open}
+                    aria-label={open ? 'Close SocialBot' : 'Open SocialBot'}
                     onClick={() => setOpen(v => !v)}
                     style={{
                         width: 56, height: 56, borderRadius: '50%',

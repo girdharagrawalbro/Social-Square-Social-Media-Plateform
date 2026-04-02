@@ -1,6 +1,6 @@
 import './App.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
@@ -126,8 +126,40 @@ function AppInit() {
 }
 
 function App() {
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
     return (
         <HelmetProvider>
+            {isOffline && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 9999,
+                    backgroundColor: '#f59e0b',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    padding: '8px',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase'
+                }}>
+                    📶 You are currently offline. Some features may be limited.
+                </div>
+            )}
             <QueryClientProvider client={queryClient}>
                 <DarkModeProvider>
                     <AppInit />

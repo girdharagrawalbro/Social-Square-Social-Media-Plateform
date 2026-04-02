@@ -53,7 +53,7 @@ router.get('/feed', verifyToken, async (req, res) => {
             expiresAt: { $gt: new Date() },
         })
         .populate('sharedPostId')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: 1 });
 
         const grouped = {};
         stories.forEach(story => {

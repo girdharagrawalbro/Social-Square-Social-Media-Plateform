@@ -492,3 +492,25 @@ ul {
   object-fit: cover;
   border-radius: 50%;
 }
+
+/* Accessibility: visible focus outlines for keyboard users */
+:focus-visible {
+  outline: 3px solid rgba(128,139,245,0.6);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid rgba(128,139,245,0.6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Make keyboard-only focus rings less intrusive for mouse users */
+body:not(.keyboard-nav) button:focus,
+body:not(.keyboard-nav) a:focus {
+  outline: none;
+}

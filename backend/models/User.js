@@ -26,6 +26,8 @@ const UserSchema = new mongoose.Schema({
 
   // Admin
   isAdmin: { type: Boolean, default: false },
+  isVerified: { type: Boolean, default: false },
+  creatorTier: { type: String, enum: ['none', 'creator', 'pro'], default: 'none' },
   isBanned: { type: Boolean, default: false },
   banReason: { type: String, default: null },
   bannedAt: { type: Date, default: null },
@@ -41,6 +43,8 @@ const UserSchema = new mongoose.Schema({
   isPrivate: { type: Boolean, default: false },
   followRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   dismissedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  mutedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   // Verification
   isEmailVerified: { type: Boolean, default: true },
@@ -59,6 +63,14 @@ const UserSchema = new mongoose.Schema({
   // Presence
   isOnline: { type: Boolean, default: false },
   lastSeen: { type: Date, default: Date.now },
+
+  // Gamification
+  streak: {
+    count: { type: Number, default: 0 },
+    lastPostDate: { type: Date, default: null }
+  },
+  xp: { type: Number, default: 0 },
+  level: { type: Number, default: 1 },
 
   created_at: { type: Date, default: Date.now },
 });

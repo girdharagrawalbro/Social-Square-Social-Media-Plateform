@@ -7,6 +7,7 @@ import Profile from './components/Profile';
 import Conversations from './components/Conversations';
 import Stories from './components/Stories';
 import Explore from './components/Explore';
+import Groups from './components/Groups';
 import Navbar from './components/Navbar';
 import { useDarkMode } from '../context/DarkModeContext';
 import useAuthStore from '../store/zustand/useAuthStore';
@@ -19,6 +20,7 @@ import toast from 'react-hot-toast';
 
 const Home = () => {
     const [activeView, setActiveView] = useState('feed');
+    const [desktopView, setDesktopView] = useState('profile'); // 'profile' or 'communities'
     const navigate = useNavigate();
     const { isDark } = useDarkMode();
     const windowWidth = useWindowWidth();
@@ -49,6 +51,7 @@ const Home = () => {
         switch (activeView) {
             case 'feed': return <><Stories /><Feed activeMood={null} /></>;
             case 'explore': return <Explore />;
+            case 'communities': return <Groups />;
             case 'profile': return <Profile />;
             case 'otherUsers': return <OtherUsers />;
             case 'messages': return <div className="h-full flex flex-col"><Conversations /></div>;
@@ -59,7 +62,7 @@ const Home = () => {
     const navItems = [
         { key: 'feed', icon: 'pi-home' },
         { key: 'explore', icon: 'pi-compass' },
-        { key: 'otherUsers', icon: 'pi-users' },
+        { key: 'communities', icon: 'pi-users' },
         { key: 'messages', icon: 'pi-envelope' },
         { key: 'profile', icon: 'pi-user' },
     ];
@@ -101,8 +104,22 @@ const Home = () => {
             {/* Desktop */}
             {isDesktop ? (
                 <div className="flex gap-3 w-full max-w-8xl mx-auto p-3 h-[calc(100dvh-64px)]">
-                    <div className="w-25 h-full overflow-y-auto">
-                        <Profile />
+                    <div className="w-25 h-full overflow-y-auto flex flex-col">
+                        <div className="flex gap-2 mb-3">
+                            <button
+                                onClick={() => setDesktopView('profile')}
+                                className={`flex-1 px-3 py-2 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${desktopView === 'profile' ? 'bg-[#808bf5] text-white' : `${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}`}
+                            >
+                                👤 Profile
+                            </button>
+                            <button
+                                onClick={() => setDesktopView('communities')}
+                                className={`flex-1 px-3 py-2 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${desktopView === 'communities' ? 'bg-[#808bf5] text-white' : `${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}`}
+                            >
+                                👥 Communities
+                            </button>
+                        </div>
+                        {desktopView === 'profile' ? <Profile /> : <Groups />}
                     </div>
                     <div className="w-50 overflow-y-auto h-full px-3">
                         <Stories />

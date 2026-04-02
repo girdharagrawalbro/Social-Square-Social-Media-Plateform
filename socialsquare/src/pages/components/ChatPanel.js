@@ -41,7 +41,7 @@ const VoiceNotePlayer = ({ url, duration }) => {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', minWidth: '180px' }}>
             <audio ref={audioRef} src={url} preload="metadata" style={{ display: 'none' }} />
-            <button onClick={toggle} style={{ width: 28, height: 28, borderRadius: '50%', background: '#808bf5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <button type="button" onClick={toggle} aria-pressed={playing} aria-label={playing ? 'Pause voice note' : 'Play voice note'} style={{ width: 28, height: 28, borderRadius: '50%', background: '#808bf5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {playing
                     ? <svg width="10" height="10" fill="#fff"><rect x="1" y="0" width="3" height="10" /><rect x="6" y="0" width="3" height="10" /></svg>
                     : <svg width="10" height="10" fill="#fff"><polygon points="2,0 10,5 2,10" /></svg>}
@@ -57,18 +57,50 @@ const VoiceNotePlayer = ({ url, duration }) => {
 // ─── REACTION PICKER ──────────────────────────────────────────────────────────
 const ReactionPicker = ({ onSelect, onClose }) => {
     const ref = useRef(null);
+    const [focusIndex, setFocusIndex] = useState(0);
     useEffect(() => {
         const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
     }, [onClose]);
+
+    useEffect(() => {
+        // focus the first emoji when opened
+        const btn = ref.current?.querySelectorAll('button')[focusIndex];
+        if (btn) btn.focus();
+    }, [focusIndex]);
+
+    const onKeyDown = (e) => {
+        const total = EMOJI_REACTIONS.length;
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            setFocusIndex(i => (i + 1) % total);
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            setFocusIndex(i => (i - 1 + total) % total);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            onClose();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const emoji = EMOJI_REACTIONS[focusIndex];
+            if (emoji) { onSelect(emoji); onClose(); }
+        }
+    };
+
     return (
-        <div ref={ref} style={{ position: 'absolute', top: '100%', marginTop: '0px', left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-1)', borderRadius: '24px', padding: '8px 12px', boxShadow: '0 6px 20px rgba(0,0,0,0.2)', display: 'flex', gap: '2px', zIndex: 9999, border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
-            {EMOJI_REACTIONS.map(emoji => (
-                <button key={emoji} onClick={() => { onSelect(emoji); onClose(); }}
+        <div ref={ref} tabIndex={0} onKeyDown={onKeyDown} role="menu" aria-label="Emoji reactions" style={{ position: 'absolute', top: '100%', marginTop: '0px', left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-1)', borderRadius: '24px', padding: '8px 12px', boxShadow: '0 6px 20px rgba(0,0,0,0.2)', display: 'flex', gap: '2px', zIndex: 9999, border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+            {EMOJI_REACTIONS.map((emoji, idx) => (
+                <button
+                    key={emoji}
+                    type="button"
+                    role="menuitem"
+                    aria-label={`React ${emoji}`}
+                    onClick={() => { onSelect(emoji); onClose(); }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '4px', borderRadius: '8px', transition: 'transform 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.3)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>{emoji}</button>
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.3)'; setFocusIndex(idx); }}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >{emoji}</button>
             ))}
         </div>
     );
@@ -89,6 +121,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [StoryViewerComp, setStoryViewerComp] = useState(null);
 
     const isDeleted = !!message.deletedAt;
+    const closeTimerRef = useRef(null);
 
     // Extract post ID from shared post URL
     const extractPostId = (text) => {
@@ -107,14 +140,26 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 
     const handleEditSave = () => { onEdit(message._id, editText); setEditing(false); };
 
+    useEffect(() => {
+        return () => {
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        };
+    }, []);
+
     return (
         <div style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '4px', position: 'relative' }}
-            onMouseEnter={() => !isDeleted && setShowMenu(true)}
-            onMouseLeave={() => { setShowMenu(false); setShowReactions(false); }}>
+            onMouseEnter={() => {
+                if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+                if (!isDeleted) setShowMenu(true);
+            }}
+            onMouseLeave={() => {
+                // delay hiding to allow clicking the reaction picker
+                closeTimerRef.current = setTimeout(() => { setShowMenu(false); setShowReactions(false); }, 2000);
+            }}>
 
             {showMenu && !isDeleted && (
                 <div style={{ position: 'relative', alignSelf: 'center', margin: isOwn ? '0 4px 0 0' : '0 0 0 4px', order: isOwn ? -1 : 1 }}>
-                    <button onClick={() => setShowReactions(v => !v)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} title="Add reaction">😊</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; } setShowReactions(v => !v); }} aria-expanded={showReactions} aria-haspopup="menu" aria-label="Add reaction" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} title="Add reaction">😊</button>
                     {showReactions && <ReactionPicker onSelect={emoji => onReact(message._id, emoji)} onClose={() => setShowReactions(false)} />}
                 </div>
             )}
@@ -252,14 +297,16 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 
                 {showMenu && isOwn && !isDeleted && (
                     <div style={{ position: 'absolute', right: 0, top: '-30px', display: 'flex', gap: '4px', background: 'var(--surface-1)', borderRadius: '10px', padding: '3px 6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', zIndex: 10 }}>
-                        <button onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-main)', padding: '2px 4px' }}>✏️</button>
-                        <button onClick={() => onDelete(message._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#ef4444', padding: '2px 4px' }}>🗑️</button>
+                        <button type="button" aria-label="Edit message" onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-main)', padding: '2px 4px' }}>✏️</button>
+                        <button type="button" aria-label="Delete message" onClick={() => onDelete(message._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#ef4444', padding: '2px 4px' }}>🗑️</button>
                     </div>
                 )}
 
                 {showPostModal && selectedPostId && (
                     <Dialog
-                        header="Post Detail"
+                        header={<h2 id="post-detail-title">Post Detail</h2>}
+                        aria-labelledby="post-detail-title"
+                        aria-modal="true"
                         visible={showPostModal}
                         style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
                         onHide={() => setShowPostModal(false)}
@@ -272,6 +319,9 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                 {storyModalOpen && StoryViewerComp && (
                     <Dialog
                         header={null}
+                        aria-label="Story viewer"
+                        aria-modal="true"
+                        role="dialog"
                         visible={storyModalOpen}
                         appendTo={document.body}
                         baseZIndex={100000}

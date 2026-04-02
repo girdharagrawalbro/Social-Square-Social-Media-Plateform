@@ -3,10 +3,13 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const Comment = require('../models/Comment');
 const Category = require("../models/Category");
+const Group = require("../models/Group");
 const { publish } = require('../lib/pubsub');
 const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
+const contentFilter = require('../middleware/contentFilter');
 const { publishEvent } = require("../services/recommendationPublisher");
+const { updateGamification } = require('../lib/gamification');
 const jwt = require('jsonwebtoken');
 
 const router = express.Router();
@@ -16,6 +19,43 @@ const router = express.Router();
 let _io;
 function setIo(io) { _io = io; }
 
+// ─── VIEW (PUBLIC) ────────────────────────────────────────────────────────────
+router.post("/view/:postId", async (req, res) => {
+    try {
+        const { postId } = req.params;
+        await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } });
+        res.status(200).json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── VOTE (PROTECTED) ────────────────────────────────────────────────────────
+router.post("/vote", verifyToken, async (req, res) => {
+    try {
+        const { postId, optionIndex } = req.body;
+        const userId = req.userId;
+
+        const post = await Post.findById(postId);
+        if (!post || !post.poll) return res.status(404).json({ message: "Poll not found." });
+
+        if (post.poll.expiresAt && new Date() > new Date(post.poll.expiresAt)) {
+            return res.status(400).json({ message: "This poll has expired." });
+        }
+
+        const hasVoted = post.poll.options.some(opt => opt.votes.includes(userId));
+        if (hasVoted) return res.status(400).json({ message: "You have already voted." });
+
+        if (!post.poll.options[optionIndex]) return res.status(400).json({ message: "Invalid option." });
+
+        post.poll.options[optionIndex].votes.push(userId);
+        await post.save();
+
+        const rewards = await updateGamification(userId, 'reaction');
+        if (_io) _io.emit('pollUpdate', { postId, poll: post.poll });
+
+        res.status(200).json({ poll: post.poll, rewards });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 function computeScore(post, followingIds = []) {
     const ageHours = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60);
     return (post.likes?.length || 0) * 2 + (post.comments?.length || 0) * 3
@@ -23,16 +63,21 @@ function computeScore(post, followingIds = []) {
         + Math.max(0, 50 - ageHours * 0.5);
 }
 
-// ─── CREATE (PROTECTED) ────────────────────────────────────────────────────────
-router.post("/create", verifyToken, async (req, res) => {
+// ─── CREATE (PROTECTED + FILTERED) ───────────────────────────────────────────
+router.post("/create", verifyToken, contentFilter, async (req, res) => {
     try {
         const {
-            caption, category, imageURLs, location, music,
+            caption, category, imageURLs, videoURL, location, music,
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
-            isAiGenerated,
+            isAiGenerated, groupId, poll,
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
+
+        // DEBUG: Log video URL received
+        if (videoURL) {
+            console.log('✅ Backend received videoURL:', videoURL.substring(0, 50) + '...');
+        }
 
         if (!loggedUserId || !category) return res.status(400).json({ message: "loggedUserId and category are required." });
 
@@ -48,6 +93,7 @@ router.post("/create", verifyToken, async (req, res) => {
         const newPost = new Post({
             caption, category,
             image_urls: Array.isArray(imageURLs) ? imageURLs : [],
+            video: videoURL || null,
             user: isAnonymous
                 ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
@@ -60,8 +106,17 @@ router.post("/create", verifyToken, async (req, res) => {
             voiceNote: voiceNoteUrl ? { url: voiceNoteUrl, duration: voiceNoteDuration || null } : {},
             mood: mood || null,
             isAiGenerated: !!isAiGenerated,
+            groupId: groupId || null,
+            poll: poll || null
         });
         await newPost.save();
+
+        // DEBUG: Log saved post video field
+        console.log('✅ Post saved with video field:', newPost.video ? 'YES' : 'NO (null or undefined)');
+
+        if (groupId) {
+            await Group.findByIdAndUpdate(groupId, { $push: { posts: newPost._id } });
+        }
 
 
         if (_io && collaborators.length > 0) {
@@ -111,7 +166,13 @@ router.post("/create", verifyToken, async (req, res) => {
             createdAtTs: Math.floor(new Date(newPost.createdAt).getTime() / 1000),
         });
 
-        res.status(201).json(newPost);
+        // ✅ Update Gamification
+        const rewards = await updateGamification(loggedUserId, 'post');
+        if (rewards && _io) {
+            _io.to(loggedUserId.toString()).emit('levelUpdate', rewards);
+        }
+
+        res.status(201).json({ ...newPost.toObject(), rewards });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -203,17 +264,30 @@ router.get("/", async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const cursor = req.query.cursor;
         const userId = req.query.userId;
-        let followingIds = [], userCategories = [];
+        let followingIds = [], userCategories = [], excludedUserIds = [];
         if (userId) {
-            const user = await User.findById(userId).select('following');
-            if (user) followingIds = user.following.map(id => id.toString());
+            const user = await User.findById(userId).select('following blockedUsers mutedUsers');
+            if (user) {
+                followingIds = user.following.map(id => id.toString());
+                excludedUserIds = [
+                    ...(user.blockedUsers || []),
+                    ...(user.mutedUsers || [])
+                ].map(id => id.toString());
+
+                // Also find users who have blocked the current user
+                const blockers = await User.find({ blockedUsers: userId }).select('_id');
+                const blockerIds = blockers.map(b => b._id.toString());
+                excludedUserIds = [...new Set([...excludedUserIds, ...blockerIds])];
+            }
             const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
             userCategories = [...new Set(likedPosts.map(p => p.category))];
         }
         // Exclude anonymous posts from normal feed — they appear in confessions feed only
         // Also exclude time-locked posts that haven't unlocked yet
+        // ALSO: Exclude blocked/muted users
         const query = {
             isAnonymous: { $ne: true },
+            'user._id': { $nin: excludedUserIds },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
@@ -285,6 +359,65 @@ router.get("/saved/:userId", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// ─── REACT (PROTECTED) ────────────────────────────────────────────────────────
+router.post("/react", verifyToken, async (req, res) => {
+    try {
+        const { postId, emoji } = req.body;
+        const userId = req.userId;
+        if (!postId || !emoji) return res.status(400).json({ message: 'PostId and emoji required.' });
+
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: 'Post not found.' });
+
+        const existingIdx = (post.reactions || []).findIndex(r => r.userId?.toString() === userId);
+
+        if (existingIdx !== -1) {
+            if (post.reactions[existingIdx].emoji === emoji) {
+                // Toggle off if same emoji
+                post.reactions.splice(existingIdx, 1);
+                // Also remove from likes if it was there
+                post.likes = post.likes.filter(id => id.toString() !== userId);
+            } else {
+                // Change emoji
+                post.reactions[existingIdx].emoji = emoji;
+                // Ensure it's in likes for backward compatibility/quick counts
+                if (!post.likes.includes(userId)) post.likes.push(userId);
+            }
+        } else {
+            // New reaction
+            post.reactions.push({ userId, emoji });
+            if (!post.likes.includes(userId)) post.likes.push(userId);
+        }
+
+        post.score = computeScore(post);
+        await post.save();
+
+        if (_io) _io.emit('postReacted', { postId, reactions: post.reactions, likesCount: post.likes.length });
+
+        // Notification logic (only for new reactions, not changes)
+        if (existingIdx === -1 && post.user._id.toString() !== userId) {
+            const sender = await User.findById(userId).select('fullname profile_picture').lean();
+            if (sender) {
+                await notificationUtils.createNotification({
+                    recipientId: post.user._id,
+                    sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+                    type: 'reaction',
+                    postId: post._id,
+                    thumbnail: post.image_urls?.[0],
+                    message: { emoji },
+                    url: `/post/${post._id}`,
+                });
+            }
+        }
+
+        // ✅ Update Gamification
+        const rewards = await updateGamification(userId, 'reaction');
+        if (rewards && _io) _io.to(userId.toString()).emit('levelUpdate', rewards);
+
+        res.status(200).json({ ...post.toObject(), rewards });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── TRENDING ─────────────────────────────────────────────────────────────────
 router.get("/trending", async (req, res) => {
     try {
@@ -310,6 +443,8 @@ router.post("/like", verifyToken, async (req, res) => {
         if (!post) return res.status(404).json({ message: 'Post not found.' });
         if (!(post.likes || []).some(id => id.toString() === userId)) {
             post.likes.push(userId);
+            // Default heart reaction for legacy like
+            post.reactions.push({ userId, emoji: '❤️' });
             post.score = computeScore(post);
             await post.save();
 
@@ -354,6 +489,8 @@ router.post("/unlike", verifyToken, async (req, res) => {
         if (!post) return res.status(404).json({ message: 'Post not found.' });
         if ((post.likes || []).some(id => id.toString() === userId)) {
             post.likes = post.likes.filter(id => id.toString() !== userId);
+            // Also remove reaction
+            post.reactions = post.reactions.filter(r => r.userId?.toString() !== userId);
             post.score = computeScore(post);
             await post.save();
 
@@ -387,8 +524,8 @@ router.get('/comments', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── ADD COMMENT ──────────────────────────────────────────────────────────────
-router.post('/comments/add', async (req, res) => {
+// ─── ADD COMMENT (PROTECTED + FILTERED) ───────────────────────────────────────
+router.post('/comments/add', verifyToken, contentFilter, async (req, res) => {
     try {
         const { content, postId, user, parentId } = req.body;
         if (!content || !postId || !user) return res.status(400).json({ error: 'Invalid data' });
@@ -431,7 +568,11 @@ router.post('/comments/add', async (req, res) => {
             });
         }
 
-        return res.status(200).json(newComment);
+        // ✅ Update Gamification
+        const rewards = await updateGamification(user.id || user._id, 'comment');
+        if (rewards && _io) _io.to((user.id || user._id).toString()).emit('levelUpdate', rewards);
+
+        return res.status(200).json({ ...newComment.toObject(), rewards });
     } catch (error) { return res.status(500).json({ error: 'Server error' }); }
 });
 

@@ -178,6 +178,24 @@ router.patch('/users/:userId/toggle-admin', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.patch('/users/:userId/verify', requireAdmin, async (req, res) => {
+    try {
+        const { isVerified, creatorTier } = req.body;
+        const update = {};
+        if (typeof isVerified === 'boolean') update.isVerified = isVerified;
+        if (creatorTier) update.creatorTier = creatorTier;
+
+        const user = await User.findByIdAndUpdate(
+            req.params.userId,
+            update,
+            { new: true, select: 'fullname email isVerified creatorTier' }
+        ).lean();
+        
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json({ message: 'User verification updated', user });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── POST MANAGEMENT ──────────────────────────────────────────────────────────
 router.get('/posts', requireAdmin, async (req, res) => {
     try {

@@ -5,6 +5,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
+import Groups from './Groups';
 import { debounce } from 'lodash';
 
 // ─── CONFESSIONS FEED ─────────────────────────────────────────────────────────
@@ -156,6 +157,7 @@ const Explore = () => {
                     {[
                         { key: 'discover', label: '🔍 Discover' },
                         { key: 'confessions', label: '🎭 Confessions' },
+                        { key: 'communities', label: '👥 Communities' },
                     ].map(tab => (
                         <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                             style={{
@@ -170,6 +172,9 @@ const Explore = () => {
 
                 {/* ── CONFESSIONS TAB ── */}
                 {activeTab === 'confessions' && <ConfessionsFeed />}
+
+                {/* ── COMMUNITIES TAB ── */}
+                {activeTab === 'communities' && <Groups />}
 
                 {/* ── DISCOVER TAB ── */}
                 {activeTab === 'discover' && (

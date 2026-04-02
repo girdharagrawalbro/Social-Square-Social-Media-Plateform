@@ -14,7 +14,23 @@ export const authKeys = {
     otherUsers: ['users', 'other-users'],
     storyFeed: (userId) => ['stories', 'feed', userId],
     collabInvites: (userId) => ['posts', 'collab-invites', userId],
+    analytics: (userId) => ['users', 'analytics', userId],
+    groups: ['groups'],
+    groupDetail: (groupId) => ['groups', groupId],
 };
+
+// ─── FETCH CREATOR ANALYTICS (PROTECTED) ──────────────────────────────────────
+export function useCreatorAnalytics(userId) {
+    return useQuery({
+        queryKey: authKeys.analytics(userId),
+        queryFn: async () => {
+            const res = await api.get(`/api/auth/analytics/${userId}`);
+            return res.data;
+        },
+        enabled: !!userId,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    });
+}
 
 // ─── FETCH USER DETAILS BY IDS ─────────────────────────────────────────────────
 export function useUserDetails(ids = []) {
@@ -215,6 +231,62 @@ export function useRemoveFollower() {
                 setUser({ ...user, followers: newFollowers });
             }
             qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
+        },
+    });
+}
+
+// ─── GROUPS & COMMUNITIES ───────────────────────────────────────────────────
+export function useGroups() {
+    return useQuery({
+        queryKey: authKeys.groups,
+        queryFn: async () => {
+            const res = await api.get(`/api/group/all`);
+            return res.data;
+        },
+        staleTime: 1000 * 60 * 5,
+    });
+}
+
+export function useGroupDetail(groupId) {
+    return useQuery({
+        queryKey: authKeys.groupDetail(groupId),
+        queryFn: async () => {
+            const res = await api.get(`/api/group/${groupId}`);
+            return res.data;
+        },
+        enabled: !!groupId,
+        staleTime: 1000 * 60 * 2,
+    });
+}
+
+export function useCreateGroup() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (groupData) => api.post(`/api/group/create`, groupData),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: authKeys.groups });
+        },
+    });
+}
+
+export function useJoinGroup() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ groupId }) => api.post(`/api/group/join/${groupId}`),
+        onSuccess: (_, { groupId }) => {
+            qc.invalidateQueries({ queryKey: authKeys.groups });
+            qc.invalidateQueries({ queryKey: authKeys.groupDetail(groupId) });
+        },
+    });
+}
+
+export function useLeaveGroup() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ groupId }) => api.post(`/api/group/leave/${groupId}`),
+        onSuccess: (_, { groupId }) => {
+            qc.invalidateQueries({ queryKey: authKeys.groups });
+            qc.invalidateQueries({ queryKey: authKeys.groupDetail(groupId) });
         },
     });
 }

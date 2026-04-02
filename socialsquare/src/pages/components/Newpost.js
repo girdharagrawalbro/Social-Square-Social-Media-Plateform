@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
+import { useGroups } from '../../hooks/queries/useAuthQueries';
 import toast, { Toaster } from "react-hot-toast";
 
-import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
+import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateVideoFile } from '../../utils/cloudinary';
 import axios from "axios";
 import ImageCropper from "./ui/ImageCropper";
 
@@ -56,6 +57,7 @@ const NewPost = ({ setnewpostVisible }) => {
 
     const [formData, setFormData] = useState({ caption: "", category: "Default" });
     const [images, setImages] = useState([]);
+    const [video, setVideo] = useState(null);
     const [isPosting, setIsPosting] = useState(false);
     const [showEmoji, setShowEmoji] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -89,6 +91,17 @@ const NewPost = ({ setnewpostVisible }) => {
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [aiLimit, setAiLimit] = useState(defaultAiLimit);
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
+    
+    // Polls & Quizzes
+    const [showPoll, setShowPoll] = useState(false);
+    const [pollOptions, setPollOptions] = useState(['', '']);
+    const [isQuiz, setIsQuiz] = useState(false);
+    const [correctOptionIndex, setCorrectOptionIndex] = useState(null);
+
+    // Groups
+    const { data: allGroups } = useGroups();
+    const myGroups = allGroups?.filter(g => g.members.some(m => (m._id || m) === loggeduser?._id)) || [];
+    const [selectedGroupId, setSelectedGroupId] = useState(null);
 
     // Cropping
     const [croppingState, setCroppingState] = useState({
@@ -346,12 +359,44 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
     };
 
     // ── File Select & Crop ───────────────────────────────────────────────────
-    const handleFileSelect = (e) => {
+    const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files);
-        if (images.length + files.length > 5) { toast.error('Max 5 images'); return; }
-        
+
+        // If any video file present, handle video upload flow (single video per post)
+        const videoFile = files.find(f => f.type && f.type.startsWith('video/'));
+        if (videoFile) {
+            // validate video file (size & type)
+            const vErr = validateVideoFile(videoFile);
+            if (vErr) { toast.error(vErr); e.target.value = ''; return; }
+
+            // check duration
+            const duration = await new Promise((resolve) => {
+                const url = URL.createObjectURL(videoFile);
+                const vid = document.createElement('video');
+                vid.preload = 'metadata';
+                vid.src = url;
+                vid.onloadedmetadata = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(vid.duration || 0);
+                };
+                vid.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+            });
+
+            if (duration === 0) { toast.error('Unable to read video metadata'); e.target.value = ''; return; }
+            if (duration > 30) { toast.error('Video must be 30 seconds or shorter'); e.target.value = ''; return; }
+
+            // Accept single video - clear images
+            images.forEach(img => img.preview && URL.revokeObjectURL(img.preview));
+            setImages([]);
+            setVideo({ file: videoFile, preview: URL.createObjectURL(videoFile), duration, uploaded: false, url: null, progress: 0, id: Math.random().toString(36).slice(2) });
+            e.target.value = '';
+            return;
+        }
+
+        // Image flow
+        if (images.length + files.length > 5) { toast.error('Max 5 images'); e.target.value = ''; return; }
         const validFiles = files.filter(f => !validateImageFile(f));
-        if (validFiles.length === 0) return;
+        if (validFiles.length === 0) { e.target.value = ''; return; }
 
         // Start cropping the first file
         const first = validFiles[0];
@@ -413,10 +458,22 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
         return uploaded.filter(i => i.uploaded).map(i => i.url);
     };
 
+    const uploadVideoIfNeeded = async () => {
+        if (!video) return null;
+        try {
+            const url = await uploadVideoToCloudinary(video.file, (p) => setVideo(v => v && v.id === video.id ? { ...v, progress: p } : v));
+            setVideo(v => v ? { ...v, uploaded: true, url, progress: 100 } : v);
+            return { url, duration: video.duration };
+        } catch (err) {
+            toast.error('Video upload failed');
+            return null;
+        }
+    };
+
     // ── Submit ────────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.caption.trim() && images.length === 0) { toast.error("Please add a caption or at least one image!"); return; }
+        if (!formData.caption.trim() && images.length === 0 && !video) { toast.error("Please add a caption, image, or video!"); return; }
         setIsPosting(true);
         let postSucceeded = false;
         try {
@@ -435,6 +492,14 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 voiceNoteDuration = recordingDuration;
             }
 
+            // Upload video if attached
+            let videoUrl = null, videoDuration = null;
+            if (video) {
+                const v = await uploadVideoIfNeeded();
+                if (!v) { toast.error('Video upload failed'); setIsPosting(false); return; }
+                videoUrl = v.url; videoDuration = v.duration;
+            }
+
             // Detect mood from caption
             let mood = null;
             try {
@@ -442,7 +507,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 mood = moodRes.data.mood;
             } catch { }
 
-            const postData = {
+                const postData = {
                 ...formData, loggeduser: loggeduser?._id, imageURLs,
                 location: location.name ? location : null,
                 music: music.title ? music : null,
@@ -451,8 +516,14 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 unlocksAt: unlocksAt || null,
                 collaboratorIds: collaborators.map(c => c._id),
                 voiceNoteUrl, voiceNoteDuration,
+                videoURL: videoUrl, videoDuration,
                 mood,
                 isAiGenerated: usedAiForThisPost,
+                poll: showPoll && pollOptions.filter(o => o.trim()).length >= 2 ? {
+                    options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })),
+                    correctOptionIndex: isQuiz ? correctOptionIndex : null
+                } : null,
+                groupId: selectedGroupId,
             };
 
             const response = await createPostMutation.mutateAsync(postData);
@@ -469,6 +540,8 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 setIsAnonymous(false); setExpiresIn(''); setUnlocksAt('');
                 setIsCollaborative(false); setCollaborators([]);
                 setSuggestedCaptions([]); setShowAdvanced(false);
+                setShowPoll(false); setPollOptions(['', '']); setIsQuiz(false); setCorrectOptionIndex(null);
+                setSelectedGroupId(null);
                 toast.success("Post created successfully!");
                 setnewpostVisible(false);
             } else {
@@ -535,7 +608,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/*,video/*"
                                     multiple
                                     onChange={handleFileSelect}
                                     hidden
@@ -580,6 +653,14 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 >
                                     ⚙️
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowPoll(v => !v); setShowAiTools(false); setShowAdvanced(false); }}
+                                    style={actionBtnStyle(showPoll)}
+                                    title="Add Poll"
+                                >
+                                    📊
+                                </button>
 
                                 <button
                                     type="submit"
@@ -599,6 +680,90 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 </button>
                             </div>
 
+                            {showPoll && (
+                                <div className="mt-2 p-3 bg-[var(--surface-1)] border border-[var(--border-color)] rounded-2xl flex flex-col gap-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">Poll Options</span>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setIsQuiz(!isQuiz)}
+                                            className={`text-[10px] px-2 py-1 rounded-lg border font-bold transition ${isQuiz ? 'bg-amber-100 text-amber-600 border-amber-200' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)]'}`}
+                                        >
+                                            {isQuiz ? '📝 Quiz Mode' : '📊 Poll Mode'}
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        {pollOptions.map((opt, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                                {isQuiz && (
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setCorrectOptionIndex(idx)}
+                                                        className={`w-6 h-6 rounded-full border flex-shrink-0 flex items-center justify-center transition ${correctOptionIndex === idx ? 'bg-green-500 border-green-600 text-white' : 'border-[var(--border-color)] text-[var(--text-sub)]'}`}
+                                                    >
+                                                        {correctOptionIndex === idx ? <i className="pi pi-check text-[10px]" /> : idx + 1}
+                                                    </button>
+                                                )}
+                                                <input 
+                                                    type="text" 
+                                                    value={opt} 
+                                                    onChange={(e) => {
+                                                        const newOpts = [...pollOptions];
+                                                        newOpts[idx] = e.target.value;
+                                                        setPollOptions(newOpts);
+                                                    }}
+                                                    placeholder={`Option ${idx + 1}`}
+                                                    className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[#808bf5]"
+                                                />
+                                                {pollOptions.length > 2 && (
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setPollOptions(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="pi pi-times text-[var(--text-sub)] hover:text-red-500 transition cursor-pointer"
+                                                    />
+                                                )}
+                                            </div>
+                                        ))}
+                                        {pollOptions.length < 5 && (
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setPollOptions(prev => [...prev, ''])}
+                                                className="text-xs text-[#808bf5] font-semibold hover:underline w-fit mt-1"
+                                            >
+                                                + Add Option
+                                            </button>
+                                        )}
+                                    </div>
+                                    {isQuiz && <p className="text-[10px] text-[var(--text-sub)] m-0">Click the number to set the correct answer</p>}
+                                </div>
+                            )}
+
+                            {/* Group Selection */}
+                            {myGroups.length > 0 && (
+                                <div className="mt-4 flex flex-col gap-2">
+                                    <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase tracking-widest px-1">Post to Community</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setSelectedGroupId(null)}
+                                            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition ${!selectedGroupId ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-main)] border-[var(--border-color)]'}`}
+                                        >
+                                            🌐 General Feed
+                                        </button>
+                                        {myGroups.map(g => (
+                                            <button 
+                                                key={g._id}
+                                                type="button"
+                                                onClick={() => setSelectedGroupId(g._id)}
+                                                className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition ${selectedGroupId === g._id ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-main)] border-[var(--border-color)]'}`}
+                                            >
+                                                👥 {g.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex flex-col gap-2">
                                 {showEmoji && (
                                     <EmojiPicker
@@ -609,6 +774,18 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                         onClose={() => setShowEmoji(false)}
                                     />
                                 )}
+
+                                    {video && (
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                                            <video src={video.preview} controls style={{ maxWidth: '220px', borderRadius: '8px' }} />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>Video: {Math.round((video.file.size / (1024 * 1024)) * 10) / 10}MB • {formatDuration(Math.round(video.duration))}</div>
+                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                    <button type="button" onClick={() => { URL.revokeObjectURL(video.preview); setVideo(null); }} style={{ padding: '6px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', cursor: 'pointer' }}>Remove</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                 {music.title && <button type="button" onClick={() => setMusic({ title: '', artist: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
                                 {showMusicInput && (

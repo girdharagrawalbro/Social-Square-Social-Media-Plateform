@@ -217,6 +217,39 @@ export function useCreatePost() {
     });
 }
 
+export function useIncrementView() {
+    return useMutation({
+        mutationFn: ({ postId }) =>
+            api.post(`${BASE}/api/post/view/${postId}`),
+    });
+}
+
+export function useVotePoll() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ postId, optionIndex }) =>
+            api.post(`${BASE}/api/post/vote`, { postId, optionIndex }),
+        onSuccess: (res, { postId }) => {
+            qc.invalidateQueries({ queryKey: postKeys.detail(postId) });
+            qc.invalidateQueries({ queryKey: postKeys.all });
+        },
+    });
+}
+export function useReactPost() {
+    const qc = useQueryClient();
+    
+    return useMutation({
+        mutationFn: ({ postId, emoji }) =>
+            api.post(`${BASE}/api/post/react`, { postId, emoji }),
+        onSuccess: (res, { postId }) => {
+            // Updated post data returned from backend
+            qc.setQueriesData({ queryKey: postKeys.detail(postId) }, res.data);
+            qc.invalidateQueries({ queryKey: postKeys.all });
+        },
+    });
+}
+
+
 export function useLikePost() {
     const qc = useQueryClient();
     const optimisticLike = usePostStore(s => s.optimisticLike);
