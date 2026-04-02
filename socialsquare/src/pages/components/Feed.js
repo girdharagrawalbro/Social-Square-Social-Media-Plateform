@@ -18,7 +18,6 @@ import {
     useRecommendedPosts,
 } from '../../hooks/queries/usePostQueries';
 import { useAcceptCollaboration, useDeclineCollaboration, useReportPost } from '../../hooks/queries/usePostOperationsQueries';
-import { useConversations, useSendMessage } from '../../hooks/queries/useConversationQueries';
 import usePostStore from '../../store/zustand/usePostStore';
 import SharePostDialog from './ui/SharePostDialog';
 
