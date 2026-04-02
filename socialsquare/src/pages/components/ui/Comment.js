@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
 import { useComments, useCreateComment, useLikeComment } from '../../../hooks/queries/usePostQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
@@ -37,7 +37,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
 
     const handleLike = async () => {
         if (liking) return;
-        
+
         const wasLiked = liked;
         setLiked(!wasLiked);
         setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
@@ -71,7 +71,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
             setReplyText('');
             setShowReply(false);
             setShowReplies(true);
-        } catch {}
+        } catch { }
     };
 
     const isOwn = comment.user._id?.toString() === loggedUserId;
@@ -79,41 +79,41 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
     return (
         <div style={{ marginLeft: depth > 0 ? '40px' : '0', marginBottom: '8px' }}>
             <div className="flex gap-2 items-start">
-                <div 
-                    className="rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition" 
-                    style={{ width: 32, height: 32, border: '1px solid #f3f4f6' }}
+                <div
+                    className="rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition"
+                    style={{ width: 32, height: 32, border: '1px solid var(--border-color)' }}
                     onClick={() => onProfileClick?.(comment.user._id)}
                 >
-                    <img 
-                        src={comment.user.profile_picture || '/default-profile.png'} 
-                        alt="" 
-                        className="w-full h-full object-cover" 
+                    <img
+                        src={comment.user.profile_picture || '/default-profile.png'}
+                        alt=""
+                        className="w-full h-full object-cover"
                     />
                 </div>
                 <div className="flex-1">
-                    <div 
+                    <div
                         onDoubleClick={handleDoubleClick}
-                        className="bg-gray-50 rounded-2xl px-3 py-2 relative cursor-pointer select-none"
+                        className="bg-[var(--surface-2)] rounded-2xl px-3 py-2 relative cursor-pointer select-none"
                     >
-                        <p 
-                            className="m-0 text-xs font-semibold cursor-pointer hover:text-indigo-600 transition"
+                        <p
+                            className="m-0 text-xs font-semibold cursor-pointer hover:text-[#808bf5] transition text-[var(--text-main)]"
                             onClick={() => onProfileClick?.(comment.user._id)}
                         >
                             {comment.user.fullname}
                         </p>
-                        <p className="m-0 text-sm">{comment.content}</p>
+                        <p className="m-0 text-sm text-[var(--text-main)]">{comment.content}</p>
                         <HeartBurst visible={heartVisible} />
                     </div>
                     <div className="flex items-center gap-3 mt-1 px-1">
-                        <span className="text-xs text-gray-400">{formatDateTime(comment.createdAt)}</span>
+                        <span className="text-xs text-[var(--text-sub)]">{formatDateTime(comment.createdAt)}</span>
 
                         {/* ✅ Like button with optimistic update and disabled state during request */}
                         <button
                             onClick={handleLike}
                             disabled={liking}
                             className="text-xs font-semibold border-0 bg-transparent cursor-pointer p-0 flex items-center gap-1 transition"
-                            style={{ 
-                                color: liked ? '#ef4444' : '#6b7280',
+                            style={{
+                                color: liked ? '#ef4444' : 'var(--text-sub)',
                                 opacity: liking ? 0.6 : 1,
                                 pointerEvents: liking ? 'none' : 'auto'
                             }}
@@ -123,7 +123,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                         </button>
 
                         {depth === 0 && (
-                            <button onClick={() => setShowReply(v => !v)} className="text-xs font-semibold text-gray-500 border-0 bg-transparent cursor-pointer p-0">
+                            <button onClick={() => setShowReply(v => !v)} className="text-xs font-semibold text-[var(--text-sub)] border-0 bg-transparent cursor-pointer p-0">
                                 Reply
                             </button>
                         )}
@@ -139,13 +139,13 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                             <img src={loggeduser.profile_picture} alt="" className="rounded-full object-cover" style={{ width: 24, height: 24 }} />
                             <input type="text" value={replyText} onChange={e => setReplyText(e.target.value)}
                                 placeholder={`Reply to ${comment.user.fullname}...`}
-                                className="flex-1 text-xs border border-gray-200 rounded-full px-3 py-1 outline-none" autoFocus />
-                            <button type="submit" className="text-xs bg-[#808bf5] text-white border-0 rounded-full px-3 py-1 cursor-pointer">Send</button>
+                                className="flex-1 text-xs border border-[var(--border-color)] rounded-full px-3 py-1 outline-none bg-[var(--surface-2)] color-[var(--text-main)]" autoFocus />
+                            <button type="submit" className="text-xs bg-[#808bf5] text-white border-0 rounded-full px-3 py-1 cursor-pointer">     <i className="pi pi-send" style={{ fontSize: '10px' }}></i></button>
                         </form>
                     )}
 
                     {replies.length > 0 && (
-                        <button onClick={() => setShowReplies(v => !v)} className="text-xs text-indigo-500 font-semibold border-0 bg-transparent cursor-pointer mt-1 p-0">
+                        <button onClick={() => setShowReplies(v => !v)} className="text-xs text-[#808bf5] font-semibold border-0 bg-transparent cursor-pointer mt-1 p-0">
                             {showReplies ? '▲ Hide' : `▼ ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`}
                         </button>
                     )}
@@ -171,6 +171,9 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
     const comments = fetchedComments || [];
     const displayComments = localComments ?? comments;
     const loading = { comments: commentsLoading };
+
+    const commentsEndRef = useRef(null);
+    const scrollContainerRef = useRef(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -204,13 +207,27 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
                     } else {
                         setLocalComments(prev => (prev ?? comments).filter(c => c._id !== commentId));
                     }
-                } catch {}
+                } catch { }
             }
         });
     };
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const isNearBottom =
+            container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+        if (isNearBottom) {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }, [displayComments]);
 
     return (
-        <div className="comment flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full min-h-0">
             <style>{`
                 @keyframes heartBurst {
                     0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; }
@@ -219,23 +236,27 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
                 }
             `}</style>
             {/* Scrollable Comments Section */}
-            <div className="flex-1 overflow-y-auto border-b p-3 flex flex-col gap-2 max-h-[600px]">
+            <div
+                ref={scrollContainerRef}
+                className="flex-1 overflow-y-auto p-3 min-h-0"
+            >
                 {loading.comments || !displayComments ? (
-                    <p className="text-gray-400 text-xs text-center">Loading...</p>
+                    <p className="text-[var(--text-sub)] text-xs text-center">Loading...</p>
                 ) : displayComments.length > 0 ? (
                     displayComments.map(comment => (
                         <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} onProfileClick={onProfileClick} />
                     ))
                 ) : (
-                    <p className="text-gray-400 text-xs text-center">No comments yet. Be the first!</p>
+                    <p className="text-[var(--text-sub)] text-xs text-center">No comments yet. Be the first!</p>
                 )}
+                <div ref={commentsEndRef} />
             </div>
-            
+
             {/* Fixed Input Section at Bottom */}
-            <div className="border-t p-3 flex gap-2 items-center bg-white flex-shrink-0">
+            <div className="sticky bottom-0 p-3 flex gap-2 items-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10">
                 <img src={loggeduser?.profile_picture || '/default-profile.png'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
                 <form onSubmit={handleSubmit} className="flex w-full gap-2">
-                    <input type="text" placeholder="Write a comment..." className="flex-1 text-sm border border-gray-200 rounded-full px-3 py-2 outline-none bg-gray-50 focus:border-[#808bf5]"
+                    <input type="text" placeholder="Write a comment..." className="flex-1 text-sm border border-[var(--border-color)] rounded-full px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5]"
                         name="content" value={formData.content} onChange={e => setFormData({ content: e.target.value })} />
                     <button type="submit" className="bg-[#808bf5] hover:bg-[#6b7ae6] text-white border-0 rounded-full px-4 py-2 cursor-pointer transition">
                         <i className="pi pi-send" style={{ fontSize: '14px' }}></i>

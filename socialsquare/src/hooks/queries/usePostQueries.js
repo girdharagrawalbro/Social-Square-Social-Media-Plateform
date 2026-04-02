@@ -218,6 +218,7 @@ export function useCreatePost() {
 }
 
 export function useLikePost() {
+    const qc = useQueryClient();
     const optimisticLike = usePostStore(s => s.optimisticLike);
     const rollbackLike = usePostStore(s => s.rollbackLike);
     const user = useAuthStore(s => s.user);
@@ -226,11 +227,19 @@ export function useLikePost() {
         mutationFn: ({ postId, isLiked }) =>
             api.post(`${BASE}/api/post/${isLiked ? 'unlike' : 'like'}`, { postId }),
         onMutate: ({ postId, isLiked, likes = [] }) => {
-            optimisticLike(postId, user._id, likes);
+            if (user?._id) {
+                optimisticLike(postId, user._id, likes);
+            }
             return { postId, wasLiked: isLiked };
         },
-        onError: (_, __, ctx) => {
-            rollbackLike(ctx.postId, user._id, ctx.wasLiked);
+        onSuccess: (res, { postId }) => {
+            // Invalidate ALL post queries to ensure fresh data is fetched
+            qc.invalidateQueries({ queryKey: postKeys.all });
+        },
+        onError: (err, { postId }, ctx) => {
+            if (ctx?.postId && user?._id) {
+                rollbackLike(ctx.postId, user._id, ctx.wasLiked);
+            }
         },
     });
 }
@@ -242,9 +251,11 @@ export function useSavePost() {
 
     return useMutation({
         mutationFn: ({ postId }) => api.post(`${BASE}/api/post/save`, { postId }),
-        onSuccess: (res, { postId }) => {
-            toggleSaved(postId, res.data.saved);
-            qc.invalidateQueries({ queryKey: postKeys.saved(user?._id) });
+        onSuccess: (res, variables) => {
+            if (variables?.postId) {
+                toggleSaved(variables.postId, res.data.saved);
+                qc.invalidateQueries({ queryKey: postKeys.saved(user?._id) });
+            }
         },
     });
 }
@@ -254,8 +265,10 @@ export function useLikeComment() {
     return useMutation({
         mutationFn: ({ commentId }) =>
             api.post(`${BASE}/api/post/comments/${commentId}/like`),
-        onSuccess: (_, { postId }) => {
-            qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
+        onSuccess: (_, variables) => {
+            if (variables?.postId) {
+                qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+            }
         },
     });
 }
@@ -264,8 +277,10 @@ export function useCreateComment() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: (data) => api.post(`${BASE}/api/post/comments/add`, data),
-        onSuccess: (_, { postId }) => {
-            qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
+        onSuccess: (_, variables) => {
+            if (variables?.postId) {
+                qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+            }
         },
     });
 }
@@ -275,8 +290,10 @@ export function useDeleteComment() {
     return useMutation({
         mutationFn: ({ commentId, postId }) =>
             api.delete(`${BASE}/api/post/comments/${commentId}`),
-        onSuccess: (_, { postId }) => {
-            qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
+        onSuccess: (_, variables) => {
+            if (variables?.postId) {
+                qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+            }
         },
     });
 }
@@ -287,13 +304,16 @@ export function useDeletePost() {
     return useMutation({
         mutationFn: ({ postId }) =>
             api.delete(`${BASE}/api/post/delete/${postId}`),
-        onSuccess: (_, { postId }) => {
-            // Remove from all feed caches
-            qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
-                if (!old) return old;
-                return { ...old, pages: old.pages.map(page => ({ ...page, posts: page.posts.filter(p => p._id !== postId) })) };
-            });
-            qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
+        onSuccess: (_, variables) => {
+            if (variables?.postId) {
+                const { postId } = variables;
+                // Remove from all feed caches
+                qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
+                    if (!old) return old;
+                    return { ...old, pages: old.pages.map(page => ({ ...page, posts: page.posts.filter(p => p._id !== postId) })) };
+                });
+                qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
+            }
         },
     });
 }

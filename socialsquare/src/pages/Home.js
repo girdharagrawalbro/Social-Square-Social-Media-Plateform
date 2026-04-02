@@ -82,7 +82,7 @@ const Home = () => {
                 <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
                     📧 Your email is not verified. Please check your inbox.
                 </p>
-                <button 
+                <button
                     onClick={handleResend}
                     disabled={isResending}
                     className="text-xs font-bold bg-themeAccent text-white px-4 py-1.5 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
@@ -92,7 +92,7 @@ const Home = () => {
             </div>
         );
     };
-    
+
     return (
         <section className={`min-h-[100dvh] w-full overflow-x-hidden ${bg} transition-colors duration-200`}>
             <Navbar />
@@ -135,15 +135,18 @@ const Home = () => {
 
             <Chatbot />
 
-            <Dialog 
+            <Dialog
                 header="Post Detail"
-                visible={!!postDetailId} 
+                visible={!!postDetailId}
                 style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
-                onHide={() => setPostDetailId(null)} 
+                position="center"
+                onHide={() => setPostDetailId(null)}
+                baseZIndex={usePostStore.getState().isStoryViewerOpen ? 20000 : 1000}
+                appendTo={document.body}
                 blockScroll
                 className="p-0 overflow-hidden post-detail-dialog"
             >
-                {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)}  />}
+                {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)} />}
             </Dialog>
         </section>
     );

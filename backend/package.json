@@ -44,6 +44,7 @@
     "redis": "^5.11.0",
     "socket.io": "^4.8.1",
     "ua-parser-js": "^2.0.9",
+    "web-push": "^3.6.7",
     "winston": "^3.19.0"
   }
 }

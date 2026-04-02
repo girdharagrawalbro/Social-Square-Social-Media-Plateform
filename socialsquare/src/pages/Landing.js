@@ -27,32 +27,32 @@ const Landing = () => {
                     </div>
                 </section>
             </div>
-            <footer className="bg-gray-800 text-white py-10 px-5">
+            <footer className="bg-[var(--surface-1)] text-[var(--text-main)] py-10 px-5 border-t border-[var(--border-color)]">
                 <div className="max-w-6xl mx-auto flex flex-wrap justify-between gap-8">
                     <div>
-                        <h3 className="font-pacifico text-2xl">Social Square</h3>
-                        <p className="opacity-80">Building connections that matter</p>
+                        <h3 className="font-pacifico text-2xl text-[var(--text-main)]">Social Square</h3>
+                        <p className="text-[var(--text-sub)]">Building connections that matter</p>
                     </div>
                     <div className="flex gap-8 flex-wrap">
                         <div>
-                            <h4 className="font-semibold mb-2">Product</h4>
-                            <Link to="/login" className="block text-gray-300 hover:text-white">Features</Link>
-                            <Link to="/help" className="block text-gray-300 hover:text-white">Help Center</Link>
+                            <h4 className="font-semibold mb-2 text-[var(--text-main)]">Product</h4>
+                            <Link to="/login" className="block text-[var(--text-sub)] hover:text-[var(--text-main)] transition">Features</Link>
+                            <Link to="/help" className="block text-[var(--text-sub)] hover:text-[var(--text-main)] transition">Help Center</Link>
                         </div>
                         <div>
-                            <h4 className="font-semibold mb-2">Company</h4>
-                            <Link to="/contact" className="block text-gray-300 hover:text-white">Contact Us</Link>
-                            <Link to="/help" className="block text-gray-300 hover:text-white">Support</Link>
+                            <h4 className="font-semibold mb-2 text-[var(--text-main)]">Company</h4>
+                            <Link to="/contact" className="block text-[var(--text-sub)] hover:text-[var(--text-main)] transition">Contact Us</Link>
+                            <Link to="/help" className="block text-[var(--text-sub)] hover:text-[var(--text-main)] transition">Support</Link>
                         </div>
                         <div>
-                            <h4 className="font-semibold mb-2">Legal</h4>
-                            <a href="#privacy" className="block text-gray-300 hover:text-white">Privacy Policy</a>
-                            <a href="#terms" className="block text-gray-300 hover:text-white">Terms of Service</a>
+                            <h4 className="font-semibold mb-2 text-[var(--text-main)]">Legal</h4>
+                            <a href="#privacy" className="block text-[var(--text-sub)] hover:text-[var(--text-main)] transition">Privacy Policy</a>
+                            <a href="#terms" className="block text-[var(--text-sub)] hover:text-[var(--text-main)] transition">Terms of Service</a>
                         </div>
                     </div>
                 </div>
-                <div className="text-center border-t border-gray-700 pt-3">
-                    <p>&copy; 2026 Social Square. All rights reserved.</p>
+                <div className="text-center border-t border-[var(--border-color)] mt-8 pt-6">
+                    <p className="text-[12px] text-[var(--text-sub)]">&copy; 2026 Social Square. All rights reserved.</p>
                 </div>
             </footer>
         </div>

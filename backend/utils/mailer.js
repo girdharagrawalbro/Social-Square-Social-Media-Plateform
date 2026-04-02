@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL?.trim();
+const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
 const MAIL_SERVICE_TIMEOUT_MS = Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 30000);
 
 function shouldRetry(error) {
@@ -21,8 +21,12 @@ async function sendEmail({ to, subject, html, text }) {
         timeout: MAIL_SERVICE_TIMEOUT_MS,
     };
 
+    const baseUrl = MAIL_SERVICE_BASE_URL.endsWith('/api/mail') 
+        ? MAIL_SERVICE_BASE_URL 
+        : `${MAIL_SERVICE_BASE_URL}/api/mail`;
+
     try {
-        const response = await axios.post(`${MAIL_SERVICE_BASE_URL}/send`, payload, requestConfig);
+        const response = await axios.post(`${baseUrl}/send`, payload, requestConfig);
 
         if (response.data?.success === false) {
             throw new Error(response.data?.message || 'Mail service returned unsuccessful response');
@@ -32,7 +36,7 @@ async function sendEmail({ to, subject, html, text }) {
     } catch (error) {
         if (shouldRetry(error)) {
             try {
-                const retryResponse = await axios.post(`${MAIL_SERVICE_BASE_URL}/send`, payload, requestConfig);
+                const retryResponse = await axios.post(`${baseUrl}/send`, payload, requestConfig);
                 if (retryResponse.data?.success === false) {
                     throw new Error(retryResponse.data?.message || 'Mail service returned unsuccessful response');
                 }
@@ -42,8 +46,8 @@ async function sendEmail({ to, subject, html, text }) {
                 throw new Error(`Mail API send failed after retry: ${retryReason}`);
             }
         }
-        const reason = error.response?.data?.message || (error.response?.data?.error) || error.message;
-        throw new Error(`Mail API send failed [Source: ${MAIL_SERVICE_BASE_URL}]: ${reason}`);
+        const reason = error.response?.data?.message || error.message;
+        throw new Error(`Mail API send failed: ${reason}`);
     }
 }
 
@@ -51,7 +55,7 @@ async function sendEmail({ to, subject, html, text }) {
 
 async function sendOtpEmail(email, otp) {
     return sendEmail({
-        to: email,
+        to:      email,
         subject: 'Your Social Square verification code',
         html: `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
@@ -65,7 +69,7 @@ async function sendOtpEmail(email, otp) {
 
 async function sendResetEmail(email, resetUrl) {
     return sendEmail({
-        to: email,
+        to:      email,
         subject: 'Reset your Social Square password',
         html: `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
@@ -79,7 +83,7 @@ async function sendResetEmail(email, resetUrl) {
 
 async function sendNewDeviceAlert(email, { device, location, time }) {
     return sendEmail({
-        to: email,
+        to:      email,
         subject: '⚠️ New device login detected — Social Square',
         html: `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
@@ -97,7 +101,7 @@ async function sendNewDeviceAlert(email, { device, location, time }) {
 
 async function sendLockoutEmail(email, unlockTime) {
     return sendEmail({
-        to: email,
+        to:      email,
         subject: '🔒 Account temporarily locked — Social Square',
         html: `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
@@ -109,29 +113,11 @@ async function sendLockoutEmail(email, unlockTime) {
     });
 }
 
-async function sendSessionRevokedEmail(email, { device, location, ip }) {
-    return sendEmail({
-        to: email,
-        subject: '🛑 A session was revoked — Social Square security',
-        html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-            <h2 style="color:#374151">Session Logged Out</h2>
-            <p>A session was recently terminated from your account:</p>
-            <div style="background:#f9fafb;padding:16px;border-radius:12px;margin:16px 0;border:1px solid #f3f4f6">
-                <p style="margin:0 0 8px;font-size:14px"><strong>Device:</strong> ${device || 'Unknown'}</p>
-                <p style="margin:0 0 8px;font-size:14px"><strong>Location:</strong> ${location || 'Unknown'}</p>
-                <p style="margin:0;font-size:14px"><strong>IP:</strong> ${ip || 'Unknown'}</p>
-            </div>
-            <p style="color:#6b7280;font-size:12px">If this was you (e.g. you logged out on another device), no action needed. If not, change your password immediately.</p>
-        </div>`
-    });
-}
-
 // ─── DAILY DIGEST EMAIL ───────────────────────────────────────────────────────
 async function sendDigestEmail(user, stats) {
     const { newFollowers, newLikes, newComments, trendingPosts = [] } = stats;
     return sendEmail({
-        to: user.email,
+        to:      user.email,
         subject: `${user.fullname}, you had ${newLikes + newComments + newFollowers} interactions yesterday 🔥`,
         html: `
         <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
@@ -144,19 +130,19 @@ async function sendDigestEmail(user, stats) {
                 <p style="font-size:16px;color:#374151;margin:0">Hi <strong>${user.fullname}</strong> 👋</p>
                 <p style="font-size:14px;color:#6b7280;margin:8px 0 20px">Here's what happened on Social Square yesterday.</p>
                 <div style="display:flex;gap:12px;margin-bottom:24px">
-                    ${[['👥', 'New Followers', newFollowers], ['❤️', 'Post Likes', newLikes], ['💬', 'Comments', newComments]].map(([icon, label, val]) => `
+                    ${[['👥','New Followers',newFollowers],['❤️','Post Likes',newLikes],['💬','Comments',newComments]].map(([icon,label,val]) => `
                     <div style="flex:1;background:#f9fafb;border-radius:12px;padding:16px;text-align:center;border:1px solid #f3f4f6">
                         <p style="font-size:24px;margin:0">${icon}</p>
                         <p style="font-size:22px;font-weight:800;color:#111827;margin:8px 0 2px">${val}</p>
                         <p style="font-size:11px;color:#9ca3af;margin:0;text-transform:uppercase;letter-spacing:.05em">${label}</p>
                     </div>`).join('')}
                 </div>
-                ${trendingPosts.slice(0, 3).length ? `
+                ${trendingPosts.slice(0,3).length ? `
                 <p style="font-size:14px;font-weight:700;color:#374151;margin:0 0 12px">🔥 Trending today</p>
-                ${trendingPosts.slice(0, 3).map(p => `
+                ${trendingPosts.slice(0,3).map(p => `
                 <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f9fafb">
-                    <p style="margin:0;font-size:13px;color:#374151">${(p.caption || '').slice(0, 80)}</p>
-                    <p style="margin:0;font-size:12px;color:#9ca3af">❤️ ${p.likes?.length || 0}</p>
+                    <p style="margin:0;font-size:13px;color:#374151">${(p.caption||'').slice(0,80)}</p>
+                    <p style="margin:0;font-size:12px;color:#9ca3af">❤️ ${p.likes?.length||0}</p>
                 </div>`).join('')}` : ''}
                 <div style="text-align:center;margin-top:24px">
                     <a href="${process.env.CLIENT_URL}" style="display:inline-block;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px">Open Social Square →</a>
@@ -171,22 +157,6 @@ async function sendDigestEmail(user, stats) {
     });
 }
 
-async function sendVerificationEmail(email, verificationUrl) {
-    return sendEmail({
-        to: email,
-        subject: 'Verify your Social Square account',
-        html: `
-        <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
-        <div style="max-width:400px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;text-align:center;box-shadow:0 10px 30px rgba(128,139,245,0.1)">
-            <h1 style="color:#808bf5;margin:0;font-size:24px">Social Square</h1>
-            <p style="color:#374151;margin:20px 0 10px;font-weight:600">Verification Required</p>
-            <p style="color:#6b7280;font-size:14px;margin-bottom:24px">Welcome! Please click the button below to verify your email address and unlock all features.</p>
-            <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;border-radius:12px;font-weight:700;box-shadow:0 4px 15px rgba(128,139,245,0.3)">Verify Email</a>
-            <p style="color:#9ca3af;font-size:11px;margin-top:24px">This link will expire in 24 hours. If you did not sign up for Social Square, please ignore this email.</p>
-        </div></body></html>`
-    });
-}
-
 module.exports = {
     sendEmail,
     sendOtpEmail,
@@ -194,6 +164,4 @@ module.exports = {
     sendNewDeviceAlert,
     sendLockoutEmail,
     sendDigestEmail,
-    sendVerificationEmail,
-    sendSessionRevokedEmail,
 };
