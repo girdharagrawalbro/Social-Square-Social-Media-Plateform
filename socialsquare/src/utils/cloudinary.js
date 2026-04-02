@@ -78,3 +78,16 @@ export function validateImageFile(file) {
     }
     return null;
 }
+
+export function validateVideoFile(file) {
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg'];
+    const maxSize = 50 * 1024 * 1024; // 50MB recommended for Cloudinary uploads
+
+    if (!allowedTypes.includes(file.type)) {
+        return 'Only MP4, WebM, MOV and OGG videos are allowed.';
+    }
+    if (file.size > maxSize) {
+        return `Video must be under ${Math.round(maxSize / (1024 * 1024))}MB.`;
+    }
+    return null;
+}

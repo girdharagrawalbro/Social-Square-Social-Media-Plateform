@@ -177,6 +177,7 @@ app.use('/api/auth', (req, res, next) => require('./routes/auth.js')(req, res, n
 app.use('/api/post', postRouter);
 app.use('/api/conversation', (req, res, next) => require('./routes/conversation.js')(req, res, next));
 app.use('/api/story', storyRouter);
+app.use('/api/group', require('./routes/group'));
 app.use('/api/live', require('./routes/live'));
 app.use('/api/ai', (req, res, next) => require('./routes/ai.js')(req, res, next));
 app.use('/api/admin', (req, res, next) => require('./routes/admin.js')(req, res, next));

@@ -215,6 +215,85 @@ const useAuthStore = create(
                 }
             },
 
+            blockUser: async (targetUserId) => {
+                const user = get().user;
+                if (!user) return;
+                set(s => ({
+                    user: {
+                        ...s.user,
+                        blockedUsers: [...(s.user.blockedUsers || []), targetUserId],
+                        following: (s.user.following || []).filter(id => id !== targetUserId)
+                    }
+                }));
+                try {
+                    await api.post('/api/auth/block', { targetUserId });
+                } catch {
+                    set(s => ({
+                        user: {
+                            ...s.user,
+                            blockedUsers: (s.user.blockedUsers || []).filter(id => id !== targetUserId)
+                        }
+                    }));
+                }
+            },
+
+            unblockUser: async (targetUserId) => {
+                set(s => ({
+                    user: {
+                        ...s.user,
+                        blockedUsers: (s.user.blockedUsers || []).filter(id => id !== targetUserId)
+                    }
+                }));
+                try {
+                    await api.post('/api/auth/unblock', { targetUserId });
+                } catch {
+                    set(s => ({
+                        user: {
+                            ...s.user,
+                            blockedUsers: [...(s.user.blockedUsers || []), targetUserId]
+                        }
+                    }));
+                }
+            },
+
+            muteUser: async (targetUserId) => {
+                set(s => ({
+                    user: {
+                        ...s.user,
+                        mutedUsers: [...(s.user.mutedUsers || []), targetUserId]
+                    }
+                }));
+                try {
+                    await api.post('/api/auth/mute', { targetUserId });
+                } catch {
+                    set(s => ({
+                        user: {
+                            ...s.user,
+                            mutedUsers: (s.user.mutedUsers || []).filter(id => id !== targetUserId)
+                        }
+                    }));
+                }
+            },
+
+            unmuteUser: async (targetUserId) => {
+                set(s => ({
+                    user: {
+                        ...s.user,
+                        mutedUsers: (s.user.mutedUsers || []).filter(id => id !== targetUserId)
+                    }
+                }));
+                try {
+                    await api.post('/api/auth/unmute', { targetUserId });
+                } catch {
+                    set(s => ({
+                        user: {
+                            ...s.user,
+                            mutedUsers: [...(s.user.mutedUsers || []), targetUserId]
+                        }
+                    }));
+                }
+            },
+
             // ── Update profile ────────────────────────────────────────────────
             updateProfile: async (data) => {
                 set({ loading: true });

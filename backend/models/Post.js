@@ -9,8 +9,13 @@ const PostSchema = new mongoose.Schema(
     },
     image_url: { type: String, default: null },
     image_urls: [{ type: String }],
+    video: { type: String, default: null },
     caption: { type: String, maxLength: 500 },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    reactions: [{
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      emoji: { type: String, default: '❤️' }
+    }],
     comments: [],
     category: { type: String, required: true },
     tags: [{ type: String }],
@@ -45,6 +50,24 @@ const PostSchema = new mongoose.Schema(
 
     // Track AI posts
     isAiGenerated: { type: Boolean, default: false },
+
+    // Analytics
+    views: { type: Number, default: 0 },
+    shares: { type: Number, default: 0 },
+
+    // Interactive Polls & Quizzes
+    poll: {
+      question: { type: String, default: null },
+      options: [{
+        text: { type: String, required: true },
+        votes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+      }],
+      correctOptionIndex: { type: Number, default: null }, // Sets it as a quiz
+      expiresAt: { type: Date, default: null }
+    },
+
+    // Group / Community
+    groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null },
   },
   { timestamps: true }
 );

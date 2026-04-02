@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts } from '../../hooks/queries/usePostQueries';
+import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts, useReactPost, useIncrementView } from '../../hooks/queries/usePostQueries';
+import ReactionPicker from './ReactionPicker';
+import PollCard from './PollCard';
 import usePostStore from '../../store/zustand/usePostStore';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
@@ -92,8 +94,18 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const [editingPost, setEditingPost] = useState(null);
     const [editCaption, setEditCaption] = useState('');
+    const reactMutation = useReactPost();
+    const [pickerVisible, setPickerVisible] = useState(false);
     const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
     const lastTap = useRef({});
+
+    const incrementViewMutation = useIncrementView();
+
+    useEffect(() => {
+        if (post?._id) {
+            incrementViewMutation.mutate({ postId: post._id });
+        }
+    }, [post?._id, incrementViewMutation]); // Increment once when post ID changes
 
     useEffect(() => {
         if (!post?._id || !loggeduser?._id) return;
@@ -130,6 +142,11 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             setPostLikes(prev => [...prev, loggeduser._id]);
         }
         likeMutation.mutate({ postId: post._id, isLiked });
+    };
+
+    const handleReact = (emoji) => {
+        reactMutation.mutate({ postId: post._id, emoji });
+        setPickerVisible(false);
     };
 
     const handleImageDoubleClick = () => {
@@ -286,7 +303,10 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             onClick={() => handleProfileClick(post.user._id)}
                                         />
                                         <div className="flex flex-col">
-                                            <span className="font-bold text-sm text-[var(--text-main)] truncate cursor-pointer" onClick={() => handleProfileClick(post.user._id)}>{post.user?.fullname}</span>
+                                            <div className="flex items-center gap-1 min-w-0">
+                                                <span className="font-bold text-sm text-[var(--text-main)] truncate cursor-pointer" onClick={() => handleProfileClick(post.user?._id)}>{post.user?.fullname}</span>
+                                                {post.user?.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '11px' }}></i>}
+                                            </div>
                                             {post.collaborators?.length > 0 && (
                                                 <span className="text-[var(--text-sub)] text-[10px] font-medium tracking-tight">Collaborators: {post.collaborators.length}</span>
                                             )}
@@ -308,6 +328,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap font-medium">
                                     {post.caption}
                                 </div>
+                                {post.poll && <PollCard poll={post.poll} postId={post._id} />}
                                 {post.music?.title && (
                                     <div className="mt-3 flex items-center gap-2 text-[11px] text-[#808bf5] font-bold uppercase tracking-wider">
                                         <i className="pi pi-music"></i>
@@ -333,11 +354,23 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     <span className="text-[10px] font-bold text-[var(--text-sub)]">{post.views || 0}</span>
                                 </div>
                                 <div
-                                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    className="flex flex-col items-center gap-1 group cursor-pointer relative"
                                     onClick={handleLikeToggle}
+                                    onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerVisible(true)}
+                                    onMouseLeave={() => setPickerVisible(false)}
                                 >
                                     <Like id={`pd-like-${post._id}`} isliked={isLiked} loading={likeMutation.isPending} />
-                                    <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
+                                        {post.reactions?.length > 0 && (
+                                            <div className="flex -space-x-1 items-center bg-[var(--surface-2)] px-1 rounded-full border border-[var(--border-color)]">
+                                                {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
+                                                    <span key={i} className="text-[8px] leading-none">{emoji}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {pickerVisible && <ReactionPicker onSelect={handleReact} onClose={() => setPickerVisible(false)} />}
                                 </div>
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer"

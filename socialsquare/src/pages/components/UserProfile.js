@@ -7,6 +7,7 @@ import { useUserDetails, useFollowUser, useUnfollowUser } from '../../hooks/quer
 import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
+import CreatorAnalytics from './CreatorAnalytics';
 import toast from 'react-hot-toast';
 
 const PostDetail = lazy(() => import('./PostDetail'));
@@ -81,6 +82,11 @@ const UserProfile = ({ id }) => {
     const [activeTab, setActiveTab] = useState('posts');
     const [chatVisible, setChatVisible] = useState(false);
     const loggeduser = useAuthStore(s => s.user);
+    const blockUser = useAuthStore(s => s.blockUser);
+    const unblockUser = useAuthStore(s => s.unblockUser);
+    const muteUser = useAuthStore(s => s.muteUser);
+    const unmuteUser = useAuthStore(s => s.unmuteUser);
+
     const createConvMutation = useCreateConversation();
     const queryClient = useQueryClient();
 
@@ -102,7 +108,9 @@ const UserProfile = ({ id }) => {
 
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === id?.toString());
     const isRequested = userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
-    const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id;
+    const isBlockedByMe = loggeduser?.blockedUsers?.some(b => b?.toString() === id?.toString());
+    const isMuted = loggeduser?.mutedUsers?.some(m => m?.toString() === id?.toString());
+    const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id && !isBlockedByMe;
 
     const handleFollow = async () => {
         try {
@@ -129,6 +137,10 @@ const UserProfile = ({ id }) => {
         }
     };
 
+    const handleBlock = () => { if (window.confirm(`Block ${userDetails.fullname}? They won't be able to see your posts or message you.`)) blockUser(id); };
+    const handleUnblock = () => unblockUser(id);
+    const handleMute = () => isMuted ? unmuteUser(id) : muteUser(id);
+
     const formatCount = (count = 0) => {
         if (count >= 1000000) return `${(count / 1000000).toFixed(1).replace('.0', '')}M`;
         if (count >= 1000) return `${(count / 1000).toFixed(1).replace('.0', '')}K`;
@@ -153,6 +165,7 @@ const UserProfile = ({ id }) => {
         { key: 'posts', label: `Posts` },
         { key: 'followers', label: `Followers` },
         { key: 'following', label: `Following` },
+        ...(loggeduser?._id === id ? [{ key: 'analytics', label: `Analytics` }] : []),
     ];
 
     return (
@@ -170,13 +183,38 @@ const UserProfile = ({ id }) => {
                                 preview
                             />
                         </div>
-                        <h3 className="m-0 text-lg sm:text-xl lg:text-2xl font-semibold text-[var(--text-main)]">{userDetails?.fullname}</h3>
-                        {userDetails?.username && (
-                            <p className="m-0 text-sm font-medium text-[#808bf5]">@{userDetails.username}</p>
-                        )}
+                        <h3 className="m-0 text-lg sm:text-xl lg:text-2xl font-semibold text-[var(--text-main)] flex items-center gap-2 justify-center">
+                            {userDetails?.fullname}
+                            {userDetails?.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '18px' }}></i>}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                            {userDetails?.username && (
+                                <p className="m-0 text-sm font-medium text-[#808bf5]">@{userDetails.username}</p>
+                            )}
+                            {userDetails?.creatorTier && userDetails.creatorTier !== 'none' && (
+                                <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                    {userDetails.creatorTier} Tier
+                                </span>
+                            )}
+                        </div>
                         {userDetails?.bio && (
                             <p className="text-sm text-[var(--text-main)] m-0 max-w-[260px] leading-6">{userDetails.bio}</p>
                         )}
+
+                        <div className="flex gap-3 mt-4">
+                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
+                                <span className="text-lg font-black text-[#808bf5]">{userDetails?.level || 1}</span>
+                            </div>
+                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
+                                <span className="text-lg font-black text-orange-500">🔥 {userDetails?.streak?.count || 0}</span>
+                            </div>
+                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
+                                <span className="text-lg font-black text-green-500">{(userDetails?.xp || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
 
                         {userDetails?.mutualFollowers?.length > 0 && (
                             <div className="flex items-center gap-2 mt-1">
@@ -200,51 +238,89 @@ const UserProfile = ({ id }) => {
                     </div>
 
                     {loggeduser?._id !== id && (
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={isFollowing ? handleUnfollow : handleFollow}
-                                disabled={(isRequested && !isFollowing) || followMutation.isPending || unfollowMutation.isPending}
-                                className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] cursor-default' : 'border-0 bg-[#808bf5] text-white hover:opacity-95'}`}
-                            >
-                                {((followMutation.isPending && followMutation.variables?.targetUserId === id) || (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === id))
-                                    ? '...'
-                                    : (isFollowing ? 'Following' : isRequested ? 'Requested' : 'Follow')}
-                            </button>
-                            <button
-                                onClick={handleMessage}
-                                className="h-10 sm:h-11 lg:h-12 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
-                            >
-                                <i className="pi pi-send mr-2"></i>Message
-                            </button>
+                        <div className="flex flex-col gap-2">
+                            {!isBlockedByMe ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={isFollowing ? handleUnfollow : handleFollow}
+                                        disabled={(isRequested && !isFollowing) || followMutation.isPending || unfollowMutation.isPending}
+                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] cursor-default' : 'border-0 bg-[#808bf5] text-white hover:opacity-95'}`}
+                                    >
+                                        {((followMutation.isPending && followMutation.variables?.targetUserId === id) || (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === id))
+                                            ? '...'
+                                            : (isFollowing ? 'Following' : isRequested ? 'Requested' : 'Follow')}
+                                    </button>
+                                    <button
+                                        onClick={handleMessage}
+                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                    >
+                                        <i className="pi pi-send mr-2"></i>Message
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleUnblock}
+                                    className="w-full h-10 rounded-xl bg-red-100 text-red-600 border border-red-200 font-bold text-sm cursor-pointer hover:bg-red-200 transition"
+                                >
+                                    Unblock {userDetails.fullname}
+                                </button>
+                            )}
+
+                            {!isBlockedByMe && (
+                                <div className="flex items-center justify-center gap-4 py-1">
+                                    <button onClick={handleMute} className="text-xs text-[var(--text-sub)] hover:text-orange-500 transition border-0 bg-transparent cursor-pointer font-medium">
+                                        <i className={`pi ${isMuted ? 'pi-volume-up' : 'pi-volume-off'} mr-1`}></i>
+                                        {isMuted ? 'Unmute' : 'Mute'}
+                                    </button>
+                                    <button onClick={handleBlock} className="text-xs text-[var(--text-sub)] hover:text-red-500 transition border-0 bg-transparent cursor-pointer font-medium">
+                                        <i className="pi pi-ban mr-1"></i>
+                                        Block
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
-                            <h6 className="m-0 font-extrabold text-base text-[var(--text-main)] leading-5">{formatCount(userDetails?.followers?.length || 0)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold">Followers</span>
+                    {!isBlockedByMe && (
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
+                                <h6 className="m-0 font-extrabold text-base text-[var(--text-main)] leading-5">{formatCount(userDetails?.followers?.length || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold">Followers</span>
+                            </div>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
+                                <h6 className="m-0 font-extrabold text-base text-[var(--text-main)] leading-5">{formatCount(userDetails?.following?.length || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold">Following</span>
+                            </div>
                         </div>
-                        <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
-                            <h6 className="m-0 font-extrabold text-base text-[var(--text-main)] leading-5">{formatCount(userDetails?.following?.length || 0)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold">Following</span>
-                        </div>
-                    </div>
+                    )}
 
-                    <div className="flex border-b border-[var(--border-color)]">
-                        {TABS.map(tab => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
-                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-[#808bf5]' : 'text-[var(--text-sub)]'}`}
-                                style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                    {!isBlockedByMe && (
+                        <div className="flex border-b border-[var(--border-color)]">
+                            {TABS.map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setActiveTab(tab.key)}
+                                    className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-[#808bf5]' : 'text-[var(--text-sub)]'}`}
+                                    style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     <div>
-                        {isPrivateAndNotFollowing ? (
+                        {isBlockedByMe ? (
+                            <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-[var(--surface-2)] rounded-3xl border border-red-50">
+                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                                    <i className="pi pi-ban text-3xl text-red-500"></i>
+                                </div>
+                                <h3 className="m-0 text-[var(--text-main)] font-black text-xl mb-2">User Blocked</h3>
+                                <p className="m-0 text-sm text-[var(--text-sub)] max-w-[200px] leading-relaxed">
+                                    You have blocked this user. Unblock them to see their posts and profile details.
+                                </p>
+                            </div>
+                        ) : isPrivateAndNotFollowing ? (
                             <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-[var(--surface-2)] rounded-2xl border border-dashed border-[var(--border-color)]">
                                 <div className="w-16 h-16 bg-[var(--surface-1)] rounded-full flex items-center justify-center shadow-sm mb-4">
                                     <i className="pi pi-lock text-2xl text-[var(--text-sub)]"></i>
@@ -265,7 +341,10 @@ const UserProfile = ({ id }) => {
                                                 <div key={user._id} className="flex items-center gap-3 p-2 bg-[var(--surface-2)] rounded-lg">
                                                     <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                                                     <div className="min-w-0">
-                                                        <p className="m-0 text-sm font-semibold text-[var(--text-main)] truncate">{user.fullname}</p>
+                                                        <div className="flex items-center gap-1">
+                                                            <p className="m-0 text-sm font-semibold text-[var(--text-main)] truncate">{user.fullname}</p>
+                                                            {user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '11px' }}></i>}
+                                                        </div>
                                                         {user.username && <p className="m-0 text-[11px] text-[#808bf5]">@{user.username}</p>}
                                                     </div>
                                                 </div>
@@ -290,6 +369,10 @@ const UserProfile = ({ id }) => {
                                             ))
                                         )}
                                     </div>
+                                )}
+
+                                {activeTab === 'analytics' && loggeduser?._id === id && (
+                                    <CreatorAnalytics userId={id} />
                                 )}
                             </>
                         )}

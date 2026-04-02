@@ -932,16 +932,86 @@ router.post('/verify-password', async (req, res) => {
     }
 });
 
-router.post('/dismiss-user', verifyToken, async (req, res) => {
+// ─── BLOCK / MUTE USER ────────────────────────────────────────────────────────
+router.post('/block', verifyToken, async (req, res) => {
     try {
-        const userId = req.userId;
         const { targetUserId } = req.body;
         if (!targetUserId) return res.status(400).json({ error: 'Target user ID required' });
+        if (targetUserId === req.userId) return res.status(400).json({ error: 'Cannot block yourself' });
 
-        await User.findByIdAndUpdate(userId, { $addToSet: { dismissedUsers: targetUserId } });
-        res.status(200).json({ message: 'User dismissed' });
+        await User.findByIdAndUpdate(req.userId, { $addToSet: { blockedUsers: targetUserId } });
+        // Also unfollow automatically when blocking
+        await User.findByIdAndUpdate(req.userId, { $pull: { following: targetUserId } });
+        await User.findByIdAndUpdate(targetUserId, { $pull: { followers: req.userId } });
+
+        res.status(200).json({ message: 'User blocked' });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/unblock', verifyToken, async (req, res) => {
+    try {
+        const { targetUserId } = req.body;
+        await User.findByIdAndUpdate(req.userId, { $pull: { blockedUsers: targetUserId } });
+        res.status(200).json({ message: 'User unblocked' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/mute', verifyToken, async (req, res) => {
+    try {
+        const { targetUserId } = req.body;
+        await User.findByIdAndUpdate(req.userId, { $addToSet: { mutedUsers: targetUserId } });
+        res.status(200).json({ message: 'User muted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─── CREATOR ANALYTICS (PROTECTED) ──────────────────────────────────────────
+router.get('/analytics/:userId', verifyToken, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const loggedUserId = req.userId;
+
+        if (userId !== loggedUserId.toString()) return res.status(403).json({ message: "Unauthorized." });
+
+        const posts = await Post.find({ "user._id": userId }).lean();
+        
+        const totalViews = posts.reduce((sum, p) => sum + (p.views || 0), 0);
+        const totalLikes = posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0);
+        const totalComments = posts.reduce((sum, p) => sum + (p.comments?.length || 0), 0);
+        const totalPosts = posts.length;
+
+        // Engagement Rate = (Likes + Comments) / Views (simplified)
+        const engagementRate = totalViews > 0 ? ((totalLikes + totalComments) / totalViews) * 100 : 0;
+
+        const topPosts = posts
+            .sort((a, b) => (b.views || 0) - (a.views || 0))
+            .slice(0, 5)
+            .map(p => ({
+                id: p._id,
+                views: p.views || 0,
+                likes: p.likes?.length || 0,
+                comments: p.comments?.length || 0,
+                image: p.image_urls?.[0] || p.image_url,
+                caption: p.caption
+            }));
+
+        res.status(200).json({
+            stats: { 
+                totalViews, 
+                totalLikes, 
+                totalComments, 
+                totalPosts, 
+                engagementRate: engagementRate.toFixed(2) 
+            },
+            topPosts
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

@@ -184,7 +184,7 @@ const StoryViewer = ({
 
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#1a1a1a' }}>
                     {story.media.type === 'video'
-                        ? <video src={story.media.url} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <video src={story.media.url} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         : <img src={story.media.url} alt="story" style={{ width: '100%', height: '100%', objectFit: story.sharedPostId ? 'cover' : 'contain', filter: story.sharedPostId ? 'blur(10px) brightness(0.6)' : 'none', opacity: story.sharedPostId ? 0.8 : 1 }} />
                     }
 
@@ -582,29 +582,29 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.25)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', width: '360px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ background: 'var(--surface-1)', color: 'var(--text-main)', borderRadius: '16px', padding: '24px', width: '360px', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Create Story {previews.length > 0 && `(${previews.length})`}</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
                 </div>
 
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
-                    <div onClick={() => !sharedPost && fileInputRef.current?.click()} style={{ border: '2px dashed #e5e7eb', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: sharedPost ? 'default' : 'pointer', background: '#f9fafb', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                    <div onClick={() => !sharedPost && fileInputRef.current?.click()} style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: sharedPost ? 'default' : 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                         {sharedPost ? (
-                            <div style={{ width: '100%', padding: '10px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                            <div style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                     <img src={sharedPost.user?.profile_picture} style={{ width: 24, height: 24, borderRadius: '50%' }} alt="" />
                                     <span style={{ fontSize: '12px', fontWeight: 600 }}>{sharedPost.user?.fullname}</span>
                                 </div>
                                 {sharedPost.image_url && <img src={sharedPost.image_url} style={{ width: '100%', borderRadius: '8px', aspectRatio: '1/1', objectFit: 'cover' }} alt="" />}
-                                <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }} className="truncate">{sharedPost.caption}</p>
+                                <p style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '4px' }} className="truncate">{sharedPost.caption}</p>
                             </div>
                         ) : currentMedia ? (
                             currentMedia.type === 'video'
-                                ? <video src={currentMedia.url} style={{ width: '100%', borderRadius: '8px', maxHeight: '200px' }} controls />
-                                : <img src={currentMedia.url} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'cover' }} />
+                                ? <video src={currentMedia.url} style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'contain' }} controls />
+                                : <img src={currentMedia.url} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'contain' }} />
                         ) : (
-                            <div><p style={{ fontSize: '32px', margin: 0 }}>📷</p><p style={{ color: '#9ca3af', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p></div>
+                            <div><p style={{ fontSize: '32px', margin: 0 }}>📷</p><p style={{ color: 'var(--text-sub)', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p></div>
                         )}
                         {(currentMedia || sharedPost) && text && (
                             <div style={{ position: 'absolute', top: textPosition === 'top' ? '15%' : textPosition === 'bottom' ? '75%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: textColor, fontSize: '18px', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)', pointerEvents: 'none', width: '90%', textAlign: 'center', zIndex: 10 }}>
@@ -619,7 +619,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                                     <img
                                         src={p.url}
                                         onClick={() => setCurrentIndex(i)}
-                                        style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid #808bf5' : '1px solid #e5e7eb', cursor: 'pointer' }}
+                                        style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
                                         alt=""
                                     />
                                     <button onClick={(e) => { e.stopPropagation(); removePreview(i); }} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
@@ -630,18 +630,18 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                 </div>
 
                 <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
-                <input type="text" placeholder="Add text overlay (optional)" value={text} onChange={e => setText(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px' }} />
+                <input type="text" placeholder="Add text overlay (optional)" value={text} onChange={e => setText(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px', background: 'transparent', color: 'var(--text-main)' }} />
                 {text && (
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'].map(color => (
-                            <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid #808bf5' : '2px solid #e5e7eb', cursor: 'pointer' }} />
+                            <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid var(--primary)' : '2px solid var(--border-color)', cursor: 'pointer' }} />
                         ))}
-                        <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
+                        <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', color: 'var(--text-main)' }}>
                             <option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option>
                         </select>
                     </div>
                 )}
-                <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost)} style={{ width: '100%', padding: '10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost) ? 0.6 : 1 }}>
+                <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost)} style={{ width: '100%', padding: '10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost) ? 0.6 : 1 }}>
                     {uploading ? 'Uploading...' : sharedPost ? 'Share Post to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
                 </button>
             </div>
@@ -685,8 +685,9 @@ const Stories = () => {
     // ✅ Global trigger for viewing stories (from chat links, etc)
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {
-            const index = groups.findIndex(g => g.user._id.toString() === userId.toString());
+            const index = groups.findIndex(g => g?.user?._id?.toString() === userId?.toString());
             if (index !== -1) {
+                setViewerGroupIndex(index);
                 setInitialStoryId(storyId || null);
                 setViewerOpen(true);
                 setIsStoryViewerOpen(true);
@@ -781,16 +782,30 @@ const Stories = () => {
 
     const handleStoryCreated = (newStory) => {
         const myId = loggeduser?._id?.toString();
+        let groupIndex = -1;
+        
         // Optimistically update the list
         setGroups(prev => {
             const idx = prev.findIndex(g => g.user._id.toString() === myId);
             if (idx !== -1) {
                 const updated = [...prev];
                 updated[idx] = { ...updated[idx], stories: [...updated[idx].stories, newStory] };
+                groupIndex = idx;
                 return updated;
             }
+            groupIndex = 0;
             return [{ user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }, stories: [newStory], hasUnviewed: false }, ...prev];
         });
+        
+        // If this is a shared story, open it in viewer
+        if (sharingPostToStory && groupIndex !== -1) {
+            setViewerGroupIndex(groupIndex);
+            setInitialStoryId(newStory._id);
+            setViewerOpen(true);
+            setIsStoryViewerOpen(true);
+            clearSharingPostToStory();
+        }
+        
         // Refetch in background, but we already updated local state
         queryClient.invalidateQueries(['story-feed']);
     };

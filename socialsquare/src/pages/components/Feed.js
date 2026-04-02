@@ -12,14 +12,16 @@ import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
 
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
+import PollCard from './PollCard';
 import {
     useFeed, useMoodFeed,
     useLikePost, useSavePost, useDeletePost, useUpdatePost,
-    useRecommendedPosts,
+    useRecommendedPosts, useReactPost
 } from '../../hooks/queries/usePostQueries';
 import { useAcceptCollaboration, useDeclineCollaboration, useReportPost } from '../../hooks/queries/usePostOperationsQueries';
 import usePostStore from '../../store/zustand/usePostStore';
 import SharePostDialog from './ui/SharePostDialog';
+import ReactionPicker from './ReactionPicker';
 
 
 const MOOD_EMOJI = { happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' };
@@ -172,6 +174,9 @@ const Feed = ({ activeMood = null }) => {
     const saveMutation = useSavePost();
     const deleteMutation = useDeletePost();
     const updateMutation = useUpdatePost();
+    const reactMutation = useReactPost();
+
+    const [pickerPostId, setPickerPostId] = useState(null);
     const reportMutation = useReportPost();
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
 
@@ -187,6 +192,11 @@ const Feed = ({ activeMood = null }) => {
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const lastTap = useRef({});
+
+    const handleReact = (post, emoji) => {
+        reactMutation.mutate({ postId: post._id, emoji });
+        setPickerPostId(null);
+    };
 
     // Infinite scroll sentinel
     const { ref: loaderRef, inView } = useInView({ threshold: 0.1 });
@@ -387,6 +397,10 @@ const Feed = ({ activeMood = null }) => {
                         {/* Removed unused feed toggle UI */}
                         {displayPosts.length > 0 ? displayPosts.map((post, index) => {
                             const images = getImages(post);
+                            // DEBUG: Log post to check if video field exists
+                            if (post.video) {
+                                console.log('📹 Video post found:', { postId: post._id, video: post.video });
+                            }
                             const isOwn = !post.isAnonymous && (post.user._id === user?._id || post.user._id?.toString() === user?._id);
                             const isFollowing = user?.following?.some(f => f?.toString() === post.user._id?.toString());
                             const postIsSaved = isSaved(post._id);
@@ -420,10 +434,11 @@ const Feed = ({ activeMood = null }) => {
                                             <div>
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <h6
-                                                        className="m-0 font-semibold text-sm leading-tight cursor-pointer hover:text-indigo-600 transition"
+                                                        className="m-0 font-semibold text-sm leading-tight cursor-pointer hover:text-indigo-600 transition flex items-center gap-1"
                                                         onClick={() => handleProfileClick(post.user._id)}
                                                     >
                                                         {post.user.fullname}
+                                                        {post.user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '11px' }}></i>}
                                                     </h6>
                                                     {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }}>🎭 Anonymous</span>}
                                                     {post.isCollaborative && post.collaborators?.some(c => c.status === 'accepted') && <span style={{ fontSize: '10px', background: '#d1fae5', color: '#059669', borderRadius: '10px', padding: '1px 6px' }}>🤝 Collab</span>}
@@ -465,6 +480,29 @@ const Feed = ({ activeMood = null }) => {
                                         </div>
                                     )}
 
+                                    {/* Video */}
+                                    {post.video && !post.image_urls?.length && !post.image_url && (
+                                        <div className="relative border-y border-gray-100" style={{ background: '#000' }}>
+                                            <video
+                                                key={post._id}
+                                                src={post.video}
+                                                autoPlay
+                                                muted
+                                                loop
+                                                playsInline
+                                                style={{
+                                                    width: '100%',
+                                                    maxHeight: '620px',
+                                                    objectFit: 'cover',
+                                                    background: '#000'
+                                                }}
+                                            />
+                                            {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
+                                        </div>
+                                    )}
+
+                                    {post.poll && <PollCard poll={post.poll} postId={post._id} />}
+
                                     {locked && images.length === 0 && (
                                         <div style={{ background: '#f3f4f6', margin: '0 16px', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
                                             <p style={{ fontSize: '32px', margin: 0 }}>🔒</p>
@@ -494,8 +532,30 @@ const Feed = ({ activeMood = null }) => {
                                         <div className="bg-white text-gray-900 w-full px-4 py-3">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-4">
-                                                    <div onClick={(e) => { e.stopPropagation(); handleLikeToggle(post); }} className="flex items-center gap-2 cursor-pointer">
-                                                        <Like id={`like-${post._id}`} isliked={isLikedByMe} loading={likeMutation.isPending} />
+                                                    <div
+                                                        className="relative flex items-center gap-2 cursor-pointer"
+                                                        onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
+                                                        onMouseLeave={() => setPickerPostId(null)}
+                                                    >
+                                                        <div onClick={(e) => { e.stopPropagation(); handleLikeToggle(post); }}>
+                                                            <Like id={`like-${post._id}`} isliked={isLikedByMe} loading={likeMutation.isPending} />
+                                                        </div>
+
+                                                        {pickerPostId === post._id && (
+                                                            <ReactionPicker
+                                                                onSelect={(emoji) => handleReact(post, emoji)}
+                                                                onClose={() => setPickerPostId(null)}
+                                                            />
+                                                        )}
+
+                                                        {post.reactions?.length > 0 && (
+                                                            <div className="flex gap-2 -space-x-1 ml-1 items-center bg-[var(--surface-2)] px-2 py-0.5 rounded-full border border-[var(--border-color)]">
+                                                                {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
+                                                                    <span key={i} className="text-[10px] leading-none">{emoji}</span>
+                                                                ))}
+                                                                <span className="text-[10px] text-[var(--text-sub)] ml-1 font-bold">{post.reactions.length}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <button onClick={(e) => { e.stopPropagation(); setVisiblePostId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
                                                         <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i>
