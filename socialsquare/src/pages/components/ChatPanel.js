@@ -367,7 +367,7 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
         if (chatRef.current && !loadingMore) {
             chatRef.current.scrollTop = chatRef.current.scrollHeight;
         }
-    }, [loading, conversationId]); // Only scroll to bottom when switching conversations or initial load
+    }, [loading, conversationId, loadingMore]); // Only scroll to bottom when switching conversations or initial load
 
     // ✅ Socket listeners with stable ref — no stale closure issues
     useEffect(() => {

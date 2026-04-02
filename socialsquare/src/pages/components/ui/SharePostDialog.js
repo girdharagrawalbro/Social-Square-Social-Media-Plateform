@@ -3,7 +3,6 @@ import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
 import { useUserDetails } from '../../../hooks/queries/useAuthQueries';
 import { useConversations, useSendMessage } from '../../../hooks/queries/useConversationQueries';
-import { api } from '../../../store/zustand/useAuthStore';
 
 const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     const [searchQuery, setSearchQuery] = useState('');

@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { api } from '../../store/zustand/useAuthStore';
-import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts } from '../../hooks/queries/usePostQueries';
-import { useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
+import { useLikePost, useSavePost, usePostDetail, useSimilarPosts } from '../../hooks/queries/usePostQueries';
 import usePostStore from '../../store/zustand/usePostStore';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
@@ -12,7 +10,6 @@ import Comment from './ui/Comment';
 import SharePostDialog from './ui/SharePostDialog';
 import Like from './ui/Like';
 import formatDate from '../../utils/formatDate';
-import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import ReportDialog from './ui/ReportDialog';
 
@@ -20,34 +17,7 @@ const UserProfile = lazy(() => import('./UserProfile'));
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
-// ─── POST MENU ────────────────────────────────────────────────────────────────
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving }) => {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
-
-    useEffect(() => {
-        const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, []);
-
-    return (
-        <div ref={ref} className="relative">
-            <button onClick={() => setOpen(v => !v)} className="bg-transparent border-0 cursor-pointer p-2 rounded-full text-gray-500 hover:bg-gray-100 transition">⋯</button>
-            {open && (
-                <div className="absolute right-0 top-full bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden mt-1" style={{ minWidth: '170px' }}>
-                    <button onClick={() => { if (!isSaving) onSave(); setOpen(false) }} disabled={isSaving} style={{ opacity: isSaving ? 0.5 : 1 }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">{isSaved ? '🔖 Unsave' : '🔖 Save post'}</button>
-                    {!isOwner && <button onClick={() => { onReport(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-red-50 text-red-400">🚩 Report post</button>}
-                    {isOwner && <>
-                        <button onClick={() => { onEdit(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">✏️ Edit post</button>
-                        <button onClick={() => { onDelete(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm text-red-500 hover:bg-red-50">🗑️ Delete post</button>
-                    </>}
-                </div>
-            )}
-        </div>
-    );
-};
+// ─── POST DETAIL ─────────────────────────────────────────────────────────────
 
 
 const PostDetail = ({ post: initialPost, postId, onHide }) => {
@@ -68,15 +38,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
-    const deleteMutation = useDeletePost();
-    const updateMutation = useUpdatePost();
-    const followMutation = useFollowUser();
-    const unfollowMutation = useUnfollowUser();
 
     const [currentImage, setCurrentImage] = useState(0);
     const [heartVisible, setHeartVisible] = useState(false);
-    const [editingPost, setEditingPost] = useState(null);
-    const [editCaption, setEditCaption] = useState('');
     const [shareVisible, setShareVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -97,8 +61,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
     const images = post?.image_urls?.length > 0 ? post.image_urls : post?.image_url ? [post.image_url] : [];
     const isLiked = postLikes?.some(id => id?.toString() === loggeduser?._id?.toString());
-    const isFollowing = loggeduser?.following?.some(f => f?.toString() === post?.user._id?.toString());
-    const isOwner = post?.user._id === loggeduser?._id || post?.user._id?.toString() === loggeduser?._id;
 
     if (isPostLoading && !post) return (
         <div className="max-w-2xl mx-auto p-4 mt-6 text-center">
@@ -172,39 +134,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 setIsSaving(false);
             },
         });
-    };
-
-    const handleDelete = () => {
-        confirmDialog({
-            message: 'Delete this post?',
-            header: 'Confirmation',
-            icon: 'pi pi-exclamation-triangle',
-            acceptClassName: 'p-button-danger',
-            accept: () => {
-                deleteMutation.mutate({ postId: post._id }, {
-                    onSuccess: () => {
-                        toast.success('Post deleted');
-                        onHide();
-                    }
-                });
-            }
-        });
-    };
-
-    const handleEditSubmit = () => {
-        if (!editCaption.trim()) return;
-        updateMutation.mutate({ postId: post._id, caption: editCaption }, {
-            onSuccess: () => {
-                toast.success('Updated');
-                setEditingPost(null);
-                post.caption = editCaption;
-            }
-        });
-    };
-
-    const handleFollow = () => {
-        if (isFollowing) unfollowMutation.mutate({ targetUserId: post.user._id });
-        else followMutation.mutate({ targetUserId: post.user._id });
     };
 
     const handleReport = async (reason) => {
