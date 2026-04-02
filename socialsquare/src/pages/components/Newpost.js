@@ -39,8 +39,8 @@ const EmojiPicker = ({ onSelect, onClose }) => {
         return () => document.removeEventListener('mousedown', h);
     }, [onClose]);
     return (
-        <div ref={ref} className="flex flex-wrap gap-2  p-2 mt-2" >
-            {EMOJIS.map(e => <button key={e} type="button" className="border rounded-full bg-gray-100 text-lg cursor-pointer p-1 " onClick={() => onSelect(e)}>{e}</button>)}
+        <div ref={ref} className="flex flex-wrap gap-2 p-2 mt-2 bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl shadow-lg" >
+            {EMOJIS.map(e => <button key={e} type="button" className="border border-[var(--border-color)] rounded-full bg-[var(--surface-2)] text-[var(--text-main)] text-xl cursor-pointer p-1.5 hover:scale-110 transition-transform" onClick={() => onSelect(e)}>{e}</button>)}
         </div>
     );
 };
@@ -486,13 +486,13 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
 
     const formatDuration = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     const actionBtnStyle = (active) => ({
-        background: active ? '#22c55e' : '#f3f4f6',
-        border: '1px solid #e5e7eb',
+        background: active ? '#22c55e' : 'var(--surface-2)',
+        border: '1px solid var(--border-color)',
         borderRadius: '999px',
         padding: '8px',
         cursor: 'pointer',
         fontSize: '16px',
-        color: active ? '#ffffff' : '#6b7280',
+        color: active ? '#ffffff' : 'var(--text-main)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -505,14 +505,14 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                     <div className="flex gap-2 align-items-center">
                         <img src={isAnonymous ? 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' : (loggeduser?.profile_picture || "default-profile.png")} alt="Profile" className="logo" style={{ borderRadius: '50%' }} />
                         <div>
-                            <span>{loggeduser?.fullname}</span>
-                            {location.name && <span className="flex items-center text-xs gap-1">📍 {location.name}<button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button></span>}
+                            <span className="text-[var(--text-main)] font-semibold">{loggeduser?.fullname}</span>
+                            {location.name && <span className="flex items-center text-xs gap-1 text-[var(--text-sub)]">📍 {location.name}<button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '12px' }}>✕</button></span>}
                         </div>
 
                     </div>
                     <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-100">
                         <textarea ref={captionRef} type="text" placeholder={isAnonymous ? "# Share your anonymous confession..." : "# Tell your thoughts to your friends"}
-                            className="py-2 px-4 rounded bg-gray-100 w-100" cols={50} rows={5} name="caption" value={formData.caption} onChange={handleChange} />
+                            className="py-2 px-4 rounded bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] focus:border-[#808bf5] outline-none w-100 placeholder-[var(--text-sub)]" cols={50} rows={5} name="caption" value={formData.caption} onChange={handleChange} />
                         <div className="flex flex-col w-100 gap-2">
                             <div className="flex w-100 flex-wrap justify-around">
                                 <button
@@ -613,8 +613,8 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 {music.title && <button type="button" onClick={() => setMusic({ title: '', artist: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
                                 {showMusicInput && (
                                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                        <input type="text" placeholder="Song title" value={music.title} onChange={e => setMusic(p => ({ ...p, title: e.target.value }))} style={{ flex: 1, minWidth: '120px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
-                                        <input type="text" placeholder="Artist" value={music.artist} onChange={e => setMusic(p => ({ ...p, artist: e.target.value }))} style={{ flex: 1, minWidth: '100px', padding: '5px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }} />
+                                        <input type="text" placeholder="Song title" value={music.title} onChange={e => setMusic(p => ({ ...p, title: e.target.value }))} style={{ flex: 1, minWidth: '120px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px' }} />
+                                        <input type="text" placeholder="Artist" value={music.artist} onChange={e => setMusic(p => ({ ...p, artist: e.target.value }))} style={{ flex: 1, minWidth: '100px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px' }} />
                                         <button type="button" onClick={() => setShowMusicInput(false)} style={{ padding: '5px 10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>+</button>
                                     </div>
                                 )}
@@ -622,10 +622,10 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
 
 
                                 {showAiTools && (
-                                    <div style={{ background: '#f5f3ff', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid #ddd6fe' }}>
+                                    <div style={{ background: 'var(--surface-1)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#5b21b6' }}>✨ NVIDIA AI Magic</span>
-                                            <span style={{ fontSize: '11px', color: (aiLimit.text.remaining === 0 && aiLimit.image.remaining === 0) ? '#ef4444' : '#6b7280' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '700', background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>✨ NVIDIA AI Magic</span>
+                                            <span style={{ fontSize: '11px', color: (aiLimit.text.remaining === 0 && aiLimit.image.remaining === 0) ? '#ef4444' : 'var(--text-sub)' }}>
                                                 Text: {aiLimit.text.remaining}/2 | Image: {aiLimit.image.remaining}/2
                                             </span>
                                         </div>
@@ -634,44 +634,44 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                             placeholder="Describe what you want to create..."
                                             value={aiPrompt}
                                             onChange={e => setAiPrompt(e.target.value)}
-                                            style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd6fe', fontSize: '12px' }}
+                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}
                                         />
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button
                                                 type="button"
                                                 onClick={generateAiText}
                                                 disabled={isGeneratingAi || aiLimit.text.remaining === 0}
-                                                style={{ flex: 1, padding: '8px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
+                                                style={{ flex: 1, padding: '10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', transition: 'all 0.2s' }}
                                             >
-                                                {isGeneratingAi ? '...' : '📝 Text'}
+                                                {isGeneratingAi ? <i className="pi pi-spin pi-spinner"></i> : '📝 Text'}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={generateAiImage}
                                                 disabled={isGeneratingAi || aiLimit.image.remaining === 0}
-                                                style={{ flex: 1, padding: '8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
+                                                style={{ flex: 1, padding: '10px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', transition: 'all 0.2s' }}
                                             >
-                                                {isGeneratingAi ? '...' : '🖼️ Image'}
+                                                {isGeneratingAi ? <i className="pi pi-spin pi-spinner"></i> : '🖼️ Image'}
                                             </button>
                                         </div>
                                         <button
                                             type="button"
                                             onClick={generateAiMeta}
                                             disabled={isGeneratingAi}
-                                            style={{ width: '100%', padding: '8px', background: '#6d28d9', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'opacity 0.2s' }}
+                                            style={{ width: '100%', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.2s' }}
                                         >
-                                            {isGeneratingAi ? '...' : '#️⃣ Suggest hashtags + category'}
+                                            {isGeneratingAi ? <i className="pi pi-spin pi-spinner"></i> : '#️⃣ Suggest hashtags + category'}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={generateAndPostAi}
                                             disabled={isGeneratingAi || aiLimit.text.remaining === 0 || aiLimit.image.remaining === 0}
-                                            style={{ width: '100%', padding: '8px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, transition: 'opacity 0.2s' }}
+                                            style={{ width: '100%', padding: '12px', background: 'linear-gradient(to right, #6366f1, #8b5cf6)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, transition: 'all 0.2s' }}
                                         >
-                                            {isGeneratingAi ? 'Generating...' : '🚀 One-click AI Generate + Post'}
+                                            {isGeneratingAi ? 'Generating Content...' : '🚀 One-click AI Generate + Post'}
                                         </button>
                                         {(aiLimit.text.remaining === 0 || aiLimit.image.remaining === 0) && (
-                                            <p style={{ fontSize: '10px', color: '#ef4444', margin: 0 }}>
+                                            <p style={{ fontSize: '11px', color: '#f87171', margin: 0, textAlign: 'center' }}>
                                                 {aiLimit.text.remaining === 0 && aiLimit.image.remaining === 0
                                                     ? 'Daily text and image limits reached.'
                                                     : aiLimit.text.remaining === 0
@@ -685,21 +685,23 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 {/* Advanced panel */}
 
                                 {showAdvanced && (
-                                    <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <div style={{ background: 'var(--surface-1)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
 
                                         {/* Anonymous */}
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} />
-                                            <span>🎭 Post anonymously</span>
-                                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>Your name will be hidden</span>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-main)', padding: '4px' }}>
+                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] focus:ring-[#6366f1]" />
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold">🎭 Post anonymously</span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>Your identity will be hidden from everyone</span>
+                                            </div>
                                         </label>
 
                                         {/* Expiry */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: '13px' }}>⏳ Auto-delete after</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', color: 'var(--text-main)', padding: '4px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '600' }} className="flex items-center gap-2">⏳ Auto-delete after</span>
                                             <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)}
-                                                style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
-                                                <option value="">Never</option>
+                                                style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}>
+                                                <option value="">Never (Keep forever)</option>
                                                 <option value="1">1 hour</option>
                                                 <option value="6">6 hours</option>
                                                 <option value="24">24 hours</option>
@@ -709,42 +711,50 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                         </div>
 
                                         {/* Time-lock */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: '13px' }}>🔒 Unlock at</span>
-                                            <input type="datetime-local" value={unlocksAt} onChange={e => setUnlocksAt(e.target.value)}
-                                                min={new Date().toISOString().slice(0, 16)}
-                                                style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }} />
-                                            {unlocksAt && <button type="button" onClick={() => setUnlocksAt('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', color: 'var(--text-main)', padding: '4px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '600' }} className="flex items-center gap-2">🔒 Unlock at</span>
+                                            <div className="flex-1 flex gap-2">
+                                                <input type="datetime-local" value={unlocksAt} onChange={e => setUnlocksAt(e.target.value)}
+                                                    min={new Date().toISOString().slice(0, 16)}
+                                                    style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }} />
+                                                {unlocksAt && <button type="button" onClick={() => setUnlocksAt('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '14px' }}>✕</button>}
+                                            </div>
                                         </div>
 
                                         {/* Collaborative */}
-                                        <div>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', marginBottom: '6px' }}>
-                                                <input type="checkbox" checked={isCollaborative} onChange={e => setIsCollaborative(e.target.checked)} />
-                                                <span>🤝 Collaborative post</span>
+                                        <div style={{ padding: '4px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', marginBottom: '8px' }}>
+                                                <input type="checkbox" checked={isCollaborative} onChange={e => setIsCollaborative(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] focus:ring-[#6366f1]" />
+                                                <span className="font-semibold">🤝 Collaborative post</span>
                                             </label>
                                             {isCollaborative && (
                                                 <div style={{ position: 'relative' }}>
                                                     <input type="text" placeholder="Search collaborators..." value={collaboratorSearch} onChange={e => setCollaboratorSearch(e.target.value)}
-                                                        style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px', boxSizing: 'border-box' }} />
+                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px', boxSizing: 'border-box' }} />
                                                     {collabResults.length > 0 && (
-                                                        <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', zIndex: 50, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                                                        <div style={{ position: 'absolute', left: 0, right: 0, bottom: '100%', marginBottom: '8px', background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '12px', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
                                                             {collabResults.map(u => (
                                                                 <button key={u._id} type="button" onClick={() => addCollaborator(u)}
-                                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                                                                    <img src={u.profile_picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%' }} />
-                                                                    <span style={{ fontSize: '12px' }}>{u.fullname}</span>
+                                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-main)', transition: 'background 0.2s' }}
+                                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-1)'}
+                                                                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                                                >
+                                                                    <img src={u.profile_picture} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectCover: 'cover' }} />
+                                                                    <div className="flex flex-col">
+                                                                        <span style={{ fontSize: '13px', fontWeight: '600' }}>{u.fullname}</span>
+                                                                        <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>@{u.username}</span>
+                                                                    </div>
                                                                 </button>
                                                             ))}
                                                         </div>
                                                     )}
                                                     {collaborators.length > 0 && (
-                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
                                                             {collaborators.map(c => (
-                                                                <div key={c._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#ede9fe', borderRadius: '20px', padding: '3px 8px', fontSize: '11px' }}>
-                                                                    <img src={c.profile_picture} alt="" style={{ width: 16, height: 16, borderRadius: '50%' }} />
-                                                                    {c.fullname}
-                                                                    <button type="button" onClick={() => setCollaborators(prev => prev.filter(x => x._id !== c._id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '10px', padding: 0 }}>✕</button>
+                                                                <div key={c._id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '4px 10px', fontSize: '12px', color: 'var(--text-main)' }}>
+                                                                    <img src={c.profile_picture} alt="" style={{ width: 18, height: 18, borderRadius: '50%' }} />
+                                                                    <span className="font-medium">{c.fullname}</span>
+                                                                    <button type="button" onClick={() => setCollaborators(prev => prev.filter(x => x._id !== c._id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, marginLeft: '2px' }}>✕</button>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -754,21 +764,24 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                         </div>
 
                                         {/* Voice note */}
-                                        <div>
-                                            <p style={{ fontSize: '13px', margin: '0 0 6px' }}>🎤 Voice note</p>
+                                        <div style={{ padding: '4px' }}>
+                                            <p style={{ fontSize: '13px', fontWeight: '600', margin: '0 0 10px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>🎤 Voice Message</p>
                                             {!voicePreviewUrl ? (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     <button type="button" onClick={isRecording ? stopRecording : startRecording}
-                                                        style={{ padding: '6px 14px', background: isRecording ? '#ef4444' : '#808bf5', color: '#fff', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        {isRecording ? <>⏹ Stop {formatDuration(recordingDuration)}</> : '⏺ Record'}
+                                                        style={{ padding: '8px 20px', background: isRecording ? '#ef4444' : '#6366f1', color: '#fff', border: 'none', borderRadius: '99px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}>
+                                                        {isRecording ? <><span className="w-2 h-2 bg-white rounded-full animate-pulse mr-1" /> Stop {formatDuration(recordingDuration)}</> : <><i className="pi pi-microphone" /> Record Voice</>}
                                                     </button>
-                                                    {isRecording && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s infinite' }} />}
+                                                    {isRecording && <div className="flex gap-1">
+                                                        {[1, 2, 3].map(i => <div key={i} className="w-1 bg-[#ef4444] rounded-full animate-bounce" style={{ height: '12px', animationDelay: `${i * 0.1}s` }} />)}
+                                                    </div>}
                                                 </div>
                                             ) : (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--surface-2)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                                    <i className="pi pi-volume-up text-[#6366f1] ml-2" />
                                                     <audio src={voicePreviewUrl} controls style={{ height: '32px', flex: 1 }} />
                                                     <button type="button" onClick={() => { setVoiceBlob(null); setVoicePreviewUrl(null); setRecordingDuration(0); }}
-                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px' }}>Remove</button>
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontWeight: '600', fontSize: '12px', padding: '0 8px' }}>Remove</button>
                                                 </div>
                                             )}
                                         </div>
@@ -786,7 +799,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
                                                 {suggestedCaptions.map((cap, i) => (
                                                     <button key={i} type="button" onClick={() => setFormData(p => ({ ...p, caption: cap }))}
-                                                        style={{ textAlign: 'left', padding: '6px 10px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: '#374151' }}>
+                                                        style={{ textAlign: 'left', padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-main)' }}>
                                                         {cap}
                                                     </button>
                                                 ))}

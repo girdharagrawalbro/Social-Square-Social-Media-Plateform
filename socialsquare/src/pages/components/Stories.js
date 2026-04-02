@@ -145,7 +145,7 @@ const StoryViewer = ({
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.38)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.38)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ position: 'relative', width: '100%', maxWidth: '450px', height: '100vh', maxHeight: '850px', backgroundColor: '#000', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
                 {/* Progress Bars */}
                 <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', gap: '6px', zIndex: 20 }}>
@@ -383,10 +383,9 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
         if (!story?._id || !targetUser?._id) return;
         setSendingUsers(prev => [...prev, targetUser._id]);
         try {
-            // Share as a message with a special flag/link
-            // The link format: /stories?user=STORY_USER_ID&story=STORY_ID
-            const storyLink = `/stories?user=${story.user._id || story.user}&story=${story._id}`;
-            const content = `Shared a story: ${storyLink}`;
+            // Share as a message; the viewer will open via the `storyReply` payload.
+            // No need to embed the full /stories URL in the message content.
+            const content = `Shared a story`;
             
             // Create or get conversation
             const convRes = await api.post('/api/conversation/messages', { recipientId: targetUser._id });
@@ -420,6 +419,9 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
             onHide={onHide} 
             style={{ width: '95vw', maxWidth: '450px' }} 
             breakpoints={{ '640px': '100vw' }}
+            baseZIndex={20000}
+            appendTo={document.body}
+            modal
         >
             <div className="flex flex-col gap-3">
                 <div className="relative">
@@ -579,7 +581,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
     const currentMedia = previews[currentIndex];
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.25)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.25)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', width: '360px', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Create Story {previews.length > 0 && `(${previews.length})`}</h3>
@@ -670,7 +672,7 @@ const Stories = () => {
     const [shareOpen, setShareOpen] = useState(false);
     const [sharingStory, setSharingStory] = useState(null);
     const [initialStoryId, setInitialStoryId] = useState(null);
-    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, setStoryDetailUserId, liveStreamId, isLiveHost, setLiveStream, clearLiveStream } = usePostStore();
+    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, setStoryDetailUserId, liveStreamId, isLiveHost, setLiveStream, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
     const [activeLiveStreams, setActiveLiveStreams] = useState([]);
 
     // ✅ Sync story feed to local groups state
@@ -685,15 +687,15 @@ const Stories = () => {
         window.onViewStory = (userId, storyId) => {
             const index = groups.findIndex(g => g.user._id.toString() === userId.toString());
             if (index !== -1) {
-                setViewerGroupIndex(index);
                 setInitialStoryId(storyId || null);
                 setViewerOpen(true);
+                setIsStoryViewerOpen(true);
             } else {
                 toast.error('Story no longer available');
             }
         };
         return () => delete window.onViewStory;
-    }, [groups]);
+    }, [groups, setIsStoryViewerOpen]);
 
     const fetchActiveLives = async () => {
         try {
@@ -725,11 +727,12 @@ const Stories = () => {
             if (index !== -1) {
                 setViewerGroupIndex(index);
                 setViewerOpen(true);
+                setIsStoryViewerOpen(true);
             }
             // Clear the selection so it doesn't trigger again
             setStoryDetailUserId(null);
         }
-    }, [storyDetailUserId, groups, setStoryDetailUserId]);
+    }, [storyDetailUserId, groups, setStoryDetailUserId, setIsStoryViewerOpen]);
 
     // ✅ Real-time: new story from a followed user
     useEffect(() => {
@@ -797,6 +800,7 @@ const Stories = () => {
         if (group) markGroupAsViewed(group.user._id);
         setViewerGroupIndex(index);
         setViewerOpen(true);
+        setIsStoryViewerOpen(true);
     };
 
     const handleProfileClick = (e, userId) => {
@@ -813,7 +817,7 @@ const Stories = () => {
             <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '12px 4px', scrollbarWidth: 'none' }}>
                 {/* Go Live Button */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
-                    <div style={{ width: 60, height: 60, borderRadius: '50%', border: '3px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+                    <div style={{ width: 60, height: 60, borderRadius: '50%', border: '3px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-1)' }}>
                         <i className="pi pi-video" style={{ color: '#ef4444', fontSize: '24px' }}></i>
                     </div>
                     <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>Go Live</span>
@@ -823,7 +827,7 @@ const Stories = () => {
                 {activeLiveStreams.map(live => (
                     <div key={live._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(live._id, false)}>
                         <div style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite' }}>
-                            <img src={live.host.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff' }} />
+                            <img src={live.host.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--surface-1)' }} />
                         </div>
                         <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
                     </div>
@@ -835,11 +839,11 @@ const Stories = () => {
                             onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}
                             style={{ 
                                 width: 60, height: 60, borderRadius: '50%', padding: '2px', 
-                                background: ownGroup ? (viewedStoryGroups.has(loggeduser?._id?.toString()) ? '#e5e7eb' : 'linear-gradient(135deg, #808bf5, #ec4899)') : '#e5e7eb',
+                                background: ownGroup ? (viewedStoryGroups.has(loggeduser?._id?.toString()) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
                                 transition: 'all 0.3s ease'
                             }}
                         >
-                            <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid #fff' }}>
+                            <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--surface-1)' }}>
                                 <img
                                     src={loggeduser?.profile_picture}
                                     alt=""
@@ -849,12 +853,12 @@ const Stories = () => {
                         </div>
                         <div
                             onClick={(e) => { e.stopPropagation(); setCreateOpen(true); }}
-                            style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, background: '#808bf5', borderRadius: '50%', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 700, zIndex: 5 }}
+                            style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, background: '#808bf5', borderRadius: '50%', border: '2px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 700, zIndex: 5 }}
                         >
                             +
                         </div>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#374151', fontWeight: 500, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 500, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {ownGroup ? 'Your story' : 'Add story'}
                     </span>
                 </div>
@@ -865,9 +869,9 @@ const Stories = () => {
                         <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}>
                             <div
                                 onClick={() => openViewer(realIndex)}
-                                style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? '#e5e7eb' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
+                                style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
                             >
-                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid #fff' }}>
+                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--surface-1)' }}>
                                     <img
                                         src={group.user.profile_picture}
                                         alt=""
@@ -877,7 +881,7 @@ const Stories = () => {
                             </div>
                             <span
                                 onClick={(e) => handleProfileClick(e, group.user._id)}
-                                style={{ fontSize: '11px', color: '#374151', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', hover: { color: '#808bf5' } }}
+                                style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', hover: { color: '#808bf5' } }}
                             >
                                 {group.user.fullname.split(' ')[0]}
                             </span>
@@ -892,6 +896,7 @@ const Stories = () => {
                     onClose={() => {
                         setViewerOpen(false);
                         setInitialStoryId(null);
+                        setIsStoryViewerOpen(false);
                     }}
                     loggeduser={loggeduser}
                     onStoryDeleted={handleStoryDeleted}
@@ -917,13 +922,13 @@ const Stories = () => {
                 />
             )}
 
-            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)} baseZIndex={20000} appendTo={document.body}>
                 <React.Suspense fallback={<div className="p-4 text-center">Loading Profile...</div>}>
                     <UserProfile id={selectedProfileId} />
                 </React.Suspense>
             </Dialog>
 
-            <Dialog header="Post Details" visible={postVisible} style={{ width: '95vw', maxWidth: '700px' }} onHide={() => setPostVisible(false)}>
+            <Dialog header="Post Details" visible={postVisible} style={{ width: '95vw', maxWidth: '700px' }} onHide={() => setPostVisible(false)} baseZIndex={20000} appendTo={document.body}>
                 <React.Suspense fallback={<div className="p-4 text-center">Loading Post...</div>}>
                     <PostDetail postId={selectedPostId} onHide={() => setPostVisible(false)} />
                 </React.Suspense>
@@ -946,5 +951,8 @@ const Stories = () => {
         </>
     );
 };
+
+// Export StoryViewer so other components can open the same viewer in a modal
+export { StoryViewer };
 
 export default Stories;

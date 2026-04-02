@@ -111,7 +111,7 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black z-[2000] flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black z-[10000] flex flex-col items-center justify-center p-4">
             <div className="relative w-full max-w-lg aspect-[9/16] bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
                 {/* Header */}
                 <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-50">

@@ -125,7 +125,7 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
         const story = await Story.findById(req.params.storyId);
         if (!story) return res.status(404).json({ message: 'Story not found.' });
 
-        const isLiked = story.likes.includes(userId);
+        const isLiked = (story.likes || []).some(id => id.toString() === userId);
 
         // Privacy check
         const owner = await User.findById(story.user._id).select('isPrivate followers');

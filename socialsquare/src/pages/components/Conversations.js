@@ -7,6 +7,7 @@ import { useConversations } from '../../hooks/queries/useConversationQueries';
 import ChatPanel from './ChatPanel';
 import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
+import usePostStore from '../../store/zustand/usePostStore';
 
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
@@ -22,6 +23,7 @@ const Conversations = () => {
     const [lastMessageId, setLastMessageId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
+    const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
 
     const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
 
@@ -153,11 +155,14 @@ const Conversations = () => {
                 })}
             </div>
 
-            {/* Chat Dialog */}
             <Dialog header={headerElement} visible={visible} style={{ width: '95vw', maxWidth: '500px', height: '90vh' }}
-                breakpoints={{ '768px': '100vw' }} position="center" onHide={() => { setVisible(false); setIsSearching(false); }}
+                breakpoints={{ '768px': '100vw' }}
+                position="center"
+                onHide={() => { setVisible(false); setIsSearching(false); }}
                 className="glass-card rounded-3xl"
                 headerClassName="border-b border-gray-100 dark:border-gray-800"
+                baseZIndex={isStoryViewerOpen ? 1000 : 2000}
+                appendTo={document.body}
             >
                 {selectedParticipant && (
                     <ChatPanel

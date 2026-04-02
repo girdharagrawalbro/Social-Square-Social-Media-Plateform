@@ -106,10 +106,61 @@ html.dark textarea::placeholder {
 html.dark .p-dialog,
 html.dark .p-overlaypanel,
 html.dark .p-menu,
-html.dark .p-component {
+html.dark .p-component,
+html.dark .p-dialog-header,
+html.dark .p-dialog-content,
+html.dark .p-dialog-footer,
+html.dark .p-confirm-dialog .p-dialog-content,
+html.dark .p-overlaypanel .p-overlaypanel-content {
+  background-color: var(--surface-1) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark .p-menu .p-menuitem-link .p-menuitem-text,
+html.dark .p-menu .p-menuitem-link .p-menuitem-icon {
+  color: var(--text-main);
+}
+
+html.dark .p-menu .p-menuitem-link:hover {
+  background-color: var(--surface-hover);
+}
+
+html.dark .p-inputtext,
+html.dark .p-inputtextarea {
+  background-color: var(--surface-2) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark .p-button.p-button-text,
+html.dark .p-button.p-button-link {
+  color: var(--text-main) !important;
+}
+
+html.dark .p-button.p-button-text:hover,
+html.dark .p-button.p-button-link:hover {
+  background-color: var(--surface-hover);
+}
+
+html.dark .p-dialog .p-dialog-header .p-dialog-header-icon {
+  color: var(--text-main);
+  background: transparent;
+}
+
+html.dark .p-dialog .p-dialog-header .p-dialog-header-icon:hover {
+  background: var(--surface-hover);
+}
+
+html.dark .p-toast .p-toast-message {
   background-color: var(--surface-1);
   color: var(--text-main);
   border-color: var(--border-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .p-toast .p-toast-message .p-toast-message-content .p-toast-detail {
+  color: var(--text-muted);
 }
 
 html.dark .skeleton {
@@ -375,6 +426,7 @@ ul {
   stroke: red;
   fill: red;
   stroke-width: 2px;
+  pointer-events: none;
 }
 
 .heart-container .checkbox:checked~.svg-container .svg-filled {

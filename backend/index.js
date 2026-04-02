@@ -200,7 +200,7 @@ io.on('connection', (socket) => {
     socket.on('registerUser', async (userId) => {
         socket.userId = userId;
         socket.join(userId);
-        
+
         try {
             if (!redis) return;
 
@@ -238,7 +238,7 @@ io.on('connection', (socket) => {
     socket.on('sendMessage', async ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
         const recipientSocketId = redis ? await redis.hget('online_users', recipientId) : null;
 
-        
+
         if (recipientSocketId) {
             io.to(recipientSocketId).emit('receiveMessage', {
                 senderId: sender, socketId: socket.id,

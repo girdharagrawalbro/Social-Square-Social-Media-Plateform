@@ -134,6 +134,59 @@ router.get('/messages/search', verifyToken, async (req, res) => {
 });
 
 // ─── SEND MESSAGE (PROTECTED) ─────────────────────────────────────────────────
+router.post('/send', verifyToken, async (req, res) => {
+    try {
+        // Backwards-compatible alias for /messages/create used by frontend
+        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply } = req.body;
+        const sender = req.userId;
+        if (!conversationId || !recipientId) return res.status(400).json({ error: 'Required fields missing' });
+
+        const message = await Message.create({
+            conversationId,
+            sender,
+            content: content || '',
+            media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
+            storyReply: storyReply || undefined,
+        });
+
+        await Conversation.findByIdAndUpdate(conversationId, {
+            lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
+            lastMessageAt: new Date(),
+            lastMessageBy: sender,
+        });
+
+        const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
+        const senderFullname = senderName || senderUser?.fullname || 'Someone';
+        const notification = await Notification.create({
+            recipient: recipientId,
+            sender: {
+                id: sender,
+                fullname: senderFullname,
+                profile_picture: senderUser?.profile_picture || ''
+            },
+            message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
+        });
+
+        await delCache(`convs:${sender}`, `convs:${recipientId}`, `msgs:${[sender, recipientId].sort().join(':')}`);
+
+        if (_io) {
+            _io.to(recipientId).emit('receiveMessage', { ...message.toObject(), senderId: sender, senderName: senderFullname });
+            _io.to(recipientId).emit('newNotification', {
+                _id: notification._id,
+                recipient: notification.recipient,
+                sender: notification.sender,
+                type: notification.type,
+                message: notification.message,
+                post: notification.post,
+                createdAt: notification.createdAt,
+                read: notification.read,
+            });
+        }
+
+        return res.status(201).json(message);
+    } catch (err) { return res.status(500).json({ error: err.message }); }
+});
+
 router.post('/messages/create', verifyToken, async (req, res) => {
     try {
         const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize } = req.body;
@@ -152,12 +205,13 @@ router.post('/messages/create', verifyToken, async (req, res) => {
             lastMessageBy: sender,
         });
 
-        const senderUser = await User.findById(sender).select('profile_picture');
+        const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
+        const senderFullname = senderName || senderUser?.fullname || 'Someone';
         const notification = await Notification.create({
             recipient: recipientId,
             sender: {
                 id: sender,
-                fullname: senderName,
+                fullname: senderFullname,
                 profile_picture: senderUser?.profile_picture || ''
             },
             message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },

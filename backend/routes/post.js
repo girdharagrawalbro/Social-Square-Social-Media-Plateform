@@ -308,7 +308,7 @@ router.post("/like", verifyToken, async (req, res) => {
         if (!postId) return res.status(400).json({ message: 'PostId required.' });
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: 'Post not found.' });
-        if (!post.likes.includes(userId)) {
+        if (!(post.likes || []).some(id => id.toString() === userId)) {
             post.likes.push(userId);
             post.score = computeScore(post);
             await post.save();
@@ -339,7 +339,7 @@ router.post("/like", verifyToken, async (req, res) => {
                 timestamp: Date.now() / 1000,
             });
 
-            res.status(200).json({ message: "Success" });
+            res.status(200).json({ success: true, post });
         } else { res.status(400).json({ message: "Already liked." }); }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -352,7 +352,7 @@ router.post("/unlike", verifyToken, async (req, res) => {
         if (!postId) return res.status(400).json({ message: 'PostId required.' });
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: 'Post not found.' });
-        if (post.likes.includes(userId)) {
+        if ((post.likes || []).some(id => id.toString() === userId)) {
             post.likes = post.likes.filter(id => id.toString() !== userId);
             post.score = computeScore(post);
             await post.save();
@@ -360,7 +360,7 @@ router.post("/unlike", verifyToken, async (req, res) => {
             // ✅ Broadcast unlike update to all connected users
             if (_io) _io.emit('postUnliked', { postId, userId, likesCount: post.likes.length });
 
-            res.status(200).json({ message: "success" });
+            res.status(200).json({ success: true, post });
         } else { res.status(400).json({ message: "Not liked." }); }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -471,7 +471,7 @@ router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
         const userId = req.userId;
         const comment = await Comment.findById(req.params.commentId);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
-        const liked = comment.likes.includes(userId);
+        const liked = (comment.likes || []).some(id => id.toString() === userId);
         if (liked) {
             await Comment.findByIdAndUpdate(req.params.commentId, { $pull: { likes: userId } });
         } else {

@@ -175,7 +175,7 @@ const Feed = ({ activeMood = null }) => {
     const reportMutation = useReportPost();
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
 
-    const [liveInjectedPosts, setLiveInjectedPosts] = useState({});
+    const [liveInjectedPosts] = useState({});
     const [visiblePostId, setVisiblePostId] = useState(null);
     const [heartVisible, setHeartVisible] = useState({});
     const [editingPost, setEditingPost] = useState(null);
@@ -203,7 +203,7 @@ const Feed = ({ activeMood = null }) => {
 
     const displayPosts = useMemo(() => {
         let all = [...serverPosts, ...recommendedPosts, ...moodPosts];
-        
+
         // prepend socket posts
         const socketNew = socketPosts.filter(sp => !all.some(p => p._id === sp._id));
         all = [...socketNew, ...all];
@@ -215,7 +215,7 @@ const Feed = ({ activeMood = null }) => {
         });
 
         // Sort by date desc
-        let finalArray = Array.from(unique.values()).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        let finalArray = Array.from(unique.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         // Inject live recommendations
         let withInjections = [];
@@ -242,10 +242,10 @@ const Feed = ({ activeMood = null }) => {
 
     const handleLikeToggle = async (post) => {
         if (likeMutation.isPending) return;
-        
+
         const loggedUserId = user?._id?.toString();
         const optimisticSet = optimisticLikes[post._id];
-        
+
         const liked = optimisticSet
             ? Array.from(optimisticSet).some(id => id?.toString() === loggedUserId)
             : (post.likes || []).some(id => id?.toString() === loggedUserId);
@@ -255,19 +255,6 @@ const Feed = ({ activeMood = null }) => {
             isLiked: liked,
             likes: post.likes || []
         });
-
-        if (!liked) {
-            try {
-                const res = await api.get(`/api/recommendation/similar/${post._id}`);
-                const simPosts = res.data?.items || [];
-                if (simPosts.length > 0) {
-                    setLiveInjectedPosts(prev => ({
-                        ...prev,
-                        [post._id]: simPosts.slice(0, 4)
-                    }));
-                }
-            } catch (err) {}
-        }
     };
 
     const handleImageDoubleClick = async post => {
@@ -282,16 +269,6 @@ const Feed = ({ activeMood = null }) => {
                 isLiked: false,
                 likes: post.likes || []
             });
-            try {
-                const res = await api.get(`/api/recommendation/similar/${post._id}`);
-                const simPosts = res.data?.items || [];
-                if (simPosts.length > 0) {
-                    setLiveInjectedPosts(prev => ({
-                        ...prev,
-                        [post._id]: simPosts.slice(0, 4)
-                    }));
-                }
-            } catch (err) {}
         }
         setHeartVisible(p => ({ ...p, [post._id]: true }));
         setTimeout(() => setHeartVisible(p => ({ ...p, [post._id]: false })), 800);
@@ -417,8 +394,8 @@ const Feed = ({ activeMood = null }) => {
                             const expiryRemaining = post.expiresAt ? Math.max(0, new Date(post.expiresAt) - Date.now()) : null;
                             const currentLoggedUserId = user?._id?.toString();
                             const optimisticSet = optimisticLikes[post._id];
-                            const likesArray = optimisticSet 
-                                ? Array.from(optimisticSet) 
+                            const likesArray = optimisticSet
+                                ? Array.from(optimisticSet)
                                 : (post.likes || []);
                             const isLikedByMe = likesArray.some(id => id?.toString() === currentLoggedUserId);
 
@@ -430,19 +407,19 @@ const Feed = ({ activeMood = null }) => {
                                     {/* Header */}
                                     <div className="flex items-start justify-between px-4 py-3">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <div 
+                                            <div
                                                 className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border border-gray-100"
-                                                onClick={() => handleProfileClick(post.user._id)} 
+                                                onClick={() => handleProfileClick(post.user._id)}
                                             >
-                                                <img 
-                                                    src={post.user.profile_picture} 
-                                                    alt="Profile" 
-                                                    className="w-full h-full object-cover" 
+                                                <img
+                                                    src={post.user.profile_picture}
+                                                    alt="Profile"
+                                                    className="w-full h-full object-cover"
                                                 />
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h6 
+                                                    <h6
                                                         className="m-0 font-semibold text-sm leading-tight cursor-pointer hover:text-indigo-600 transition"
                                                         onClick={() => handleProfileClick(post.user._id)}
                                                     >
@@ -535,7 +512,7 @@ const Feed = ({ activeMood = null }) => {
                                                 </div>
                                                 <p className="m-0 mt-2 text-sm font-semibold">{likesArray.length.toLocaleString()} likes</p>
                                                 <p className="m-0 mt-1 text-sm leading-relaxed">
-                                                    <span 
+                                                    <span
                                                         className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
                                                         onClick={() => handleProfileClick(post.user._id)}
                                                     >
@@ -567,12 +544,12 @@ const Feed = ({ activeMood = null }) => {
                     </div>
                 )}
 
-                {sharePost && <SharePostDialog 
-                    visible={!!sharePost} 
-                    onHide={() => setSharePost(null)} 
+                {sharePost && <SharePostDialog
+                    visible={!!sharePost}
+                    onHide={() => setSharePost(null)}
                     post={sharePost}
-                    user={user} 
-                    onShareToStory={() => setSharingPostToStory(sharePost)} 
+                    user={user}
+                    onShareToStory={() => setSharingPostToStory(sharePost)}
                 />}
 
                 {reportPost && <ReportDialog
@@ -594,12 +571,12 @@ const Feed = ({ activeMood = null }) => {
                                 <span className="font-semibold text-sm">{editingPost.user.fullname}</span>
                             </div>
                             <div className="relative">
-                                <textarea 
-                                    value={editCaption} 
-                                    onChange={e => setEditCaption(e.target.value)} 
-                                    rows={6} 
+                                <textarea
+                                    value={editCaption}
+                                    onChange={e => setEditCaption(e.target.value)}
+                                    rows={6}
                                     placeholder="Write your new caption..."
-                                    className="w-full border-2 border-gray-100 rounded-2xl p-4 text-sm resize-none focus:border-indigo-400 outline-none transition font-medium" 
+                                    className="w-full border-2 border-gray-100 rounded-2xl p-4 text-sm resize-none focus:border-indigo-400 outline-none transition font-medium"
                                 />
                             </div>
                             <div className="flex gap-3 mt-2">

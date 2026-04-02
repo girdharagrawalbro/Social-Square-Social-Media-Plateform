@@ -7,12 +7,12 @@ const MainSkeleton = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen w-full p-3 bg-gray-50">
+      <div className="min-h-screen w-full p-3 bg-[var(--surface-1)]">
         {/* Desktop Layout - 3 Column */}
         <div className="hidden lg:flex gap-3 w-full max-w-8xl mx-auto">
           {/* Left Column - Profile Sidebar (25%) */}
           <div className="w-1/4 h-auto">
-            <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-4 bg-[var(--surface-1)] rounded-xl shadow-sm border border-[var(--border-color)]">
               {/* Profile Picture */}
               <div className="skeleton skeleton-profile-pic mb-4 w-20 h-20 rounded-full mx-auto"></div>
               
@@ -22,15 +22,15 @@ const MainSkeleton = () => {
               
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="bg-gray-50 rounded-lg p-2">
+                <div className="bg-[var(--surface-2)] rounded-lg p-2">
                   <div className="skeleton skeleton-line w-full mb-1"></div>
                   <div className="skeleton skeleton-line w-3/4"></div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2">
+                <div className="bg-[var(--surface-2)] rounded-lg p-2">
                   <div className="skeleton skeleton-line w-full mb-1"></div>
                   <div className="skeleton skeleton-line w-3/4"></div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2">
+                <div className="bg-[var(--surface-2)] rounded-lg p-2">
                   <div className="skeleton skeleton-line w-full mb-1"></div>
                   <div className="skeleton skeleton-line w-3/4"></div>
                 </div>
@@ -52,7 +52,7 @@ const MainSkeleton = () => {
             </div>
 
             {/* New Post Box */}
-            <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200 mb-4">
+            <div className="p-4 bg-[var(--surface-1)] rounded-xl shadow-sm border border-[var(--border-color)] mb-4">
               <div className="flex gap-2 items-center">
                 <div className="skeleton skeleton-avatar w-10 h-10 rounded-full"></div>
                 <div className="skeleton skeleton-line flex-1 h-10 rounded-full"></div>
@@ -70,12 +70,12 @@ const MainSkeleton = () => {
           {/* Right Column - Sidebar (25%) */}
           <div className="w-1/4 h-auto">
             {/* Search/Trending Box */}
-            <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200 mb-4">
+            <div className="p-4 bg-[var(--surface-1)] rounded-xl shadow-sm border border-[var(--border-color)] mb-4">
               <div className="skeleton skeleton-line w-full h-10 mb-4 rounded-full"></div>
               
               {/* Trending items */}
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="mb-3 pb-3 border-b border-gray-100">
+                <div key={i} className="mb-3 pb-3 border-b border-[var(--border-color)]">
                   <div className="skeleton skeleton-line w-3/4 mb-2"></div>
                   <div className="skeleton skeleton-line w-1/2"></div>
                 </div>
@@ -94,7 +94,7 @@ const MainSkeleton = () => {
           </div>
 
           {/* New Post Box */}
-          <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-4 bg-[var(--surface-1)] rounded-xl shadow-sm border border-[var(--border-color)]">
             <div className="flex gap-2 items-center">
               <div className="skeleton skeleton-avatar w-10 h-10 rounded-full"></div>
               <div className="skeleton skeleton-line flex-1 h-10 rounded-full"></div>

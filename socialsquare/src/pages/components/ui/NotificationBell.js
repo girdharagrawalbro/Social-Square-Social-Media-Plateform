@@ -79,7 +79,7 @@ export default function NotificationBell({ userId }) {
     return (
         <div ref={ref}>
             {/* Bell button */}
-            <button onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer', padding: '12px' }} className='text-dark bg-transparent border-none'>
+            <button onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer', padding: '12px' }} className='text-[var(--text-main)] bg-transparent border-none hover:opacity-80 transition'>
                 <span className="p-overlay-badge">
                     <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} severity="danger" />}
@@ -90,16 +90,16 @@ export default function NotificationBell({ userId }) {
                 <div>
 
                     {/* Tabs */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--surface-1)' }}>
                         <button
                             onClick={() => setActiveTab('notifications')}
-                            style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'notifications' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'notifications' ? '#808bf5' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'notifications' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'notifications' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             🔔 Notifications
                             {unreadCount > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>{unreadCount}</span>}
                         </button>
                         <button
                             onClick={() => setActiveTab('collabs')}
-                            style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'collabs' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'collabs' ? '#808bf5' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'collabs' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'collabs' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             🤝 Collabs
                             {pendingCollabCount > 0 && <span style={{ background: '#808bf5', color: '#fff', borderRadius: '10px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>{pendingCollabCount}</span>}
                         </button>
@@ -109,15 +109,15 @@ export default function NotificationBell({ userId }) {
                     {activeTab === 'notifications' && (
                         <>
                             {unreadCount > 0 && (
-                                <div style={{ padding: '8px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'flex-end' }}>
-                                    <button onClick={handleMarkAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#6366f1', fontWeight: 600 }}>
+                                <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', background: 'var(--surface-1)' }}>
+                                    <button onClick={handleMarkAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#808bf5', fontWeight: 600 }}>
                                         Mark all as read
                                     </button>
                                 </div>
                             )}
                             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                                 {notifications.length === 0 ? (
-                                    <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
+                                    <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-sub)' }}>
                                         <i className="pi pi-bell-slash" style={{ fontSize: '2rem' }}></i>
                                         <p style={{ marginTop: '8px', margin: '8px 0 0', fontSize: '13px' }}>No new notifications</p>
                                     </div>
@@ -136,20 +136,20 @@ export default function NotificationBell({ userId }) {
                                                 setOpen(false);
                                             }
                                         }}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? '#fff' : '#f5f3ff', borderBottom: '1px solid #f9fafb', transition: 'background 0.2s' }}
-                                            onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
-                                            onMouseLeave={e => e.currentTarget.style.background = n.read ? '#fff' : '#f5f3ff'}>
+                                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = n.read ? 'var(--surface-1)' : 'var(--surface-2)'}>
                                             <img 
                                                 src={n.sender?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`} 
                                                 alt="" 
-                                                style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #f3f4f6' }} 
+                                                style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} 
                                                 onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`; }}
                                             />
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <p style={{ margin: 0, fontSize: '13px' }}>
+                                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
                                                     <strong>{n.sender?.fullname}</strong> {getNotificationText(n)}
                                                 </p>
-                                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#9ca3af' }}>{formatTime(n.createdAt)}</p>
+                                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-sub)' }}>{formatTime(n.createdAt)}</p>
                                                 {n.type === 'follow_request' && !n.read && (
                                                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                                                         <button 
@@ -161,7 +161,7 @@ export default function NotificationBell({ userId }) {
                                                         <button 
                                                             onClick={(e) => handleDecline(e, n.sender.id, n._id)}
                                                             disabled={declineMutation.isPending}
-                                                            style={{ background: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                                                            style={{ background: 'var(--surface-2)', color: 'var(--text-sub)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
                                                             Decline
                                                         </button>
                                                     </div>
@@ -171,7 +171,7 @@ export default function NotificationBell({ userId }) {
                                                 <img 
                                                     src={n.thumbnail} 
                                                     alt="" 
-                                                    style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid #f3f4f6' }}
+                                                    style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }}
                                                     onError={(e) => { e.target.style.display = 'none'; }}
                                                 />
                                             )}

@@ -17,6 +17,7 @@ const usePostStore = create(
             storyDetailUserId: null,
             liveStreamId: null,
             isLiveHost: false,
+            isStoryViewerOpen: false,
 
             // ─── Socket Data ─────────────────────────────────────────────
             socketPosts: [],
@@ -33,13 +34,17 @@ const usePostStore = create(
             closeComment: () => set({ openCommentPostId: null }),
             setSharingPostToStory: (post) => set({ sharingPostToStory: post }),
             clearSharingPostToStory: () => set({ sharingPostToStory: null }),
+            setIsStoryViewerOpen: (isOpen) => set({ isStoryViewerOpen: isOpen }),
 
             // ─── Optimistic like toggle ────────────────────────────────────
             optimisticLike: (postId, userId, initialLikes = []) => {
                 const uid = userId?.toString();
                 set(state => {
+                    const existing = state.optimisticLikes[postId] || initialLikes;
+                    // Convert Set to Array if needed, then map to strings
+                    const likesList = existing instanceof Set ? Array.from(existing) : existing;
                     const current = new Set(
-                        (state.optimisticLikes[postId] || initialLikes).map(id => id?.toString())
+                        (likesList || []).map(id => id?.toString())
                     );
                     if (current.has(uid)) current.delete(uid);
                     else current.add(uid);
@@ -50,8 +55,11 @@ const usePostStore = create(
             rollbackLike: (postId, userId, wasLiked) => {
                 const uid = userId?.toString();
                 set(state => {
+                    const existing = state.optimisticLikes[postId] || [];
+                    // Convert Set to Array if needed, then map to strings
+                    const likesList = existing instanceof Set ? Array.from(existing) : existing;
                     const current = new Set(
-                        (state.optimisticLikes[postId] || []).map(id => id?.toString())
+                        (likesList || []).map(id => id?.toString())
                     );
                     if (wasLiked) current.add(uid);
                     else current.delete(uid);

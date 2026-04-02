@@ -134,54 +134,54 @@ const EditProfile = ({ users, closeSidebar }) => {
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: 'none' }} />
             </div>
 
-            <div className="mb-3">
-                <label htmlFor="fullname" className="block mb-1">Full Name</label>
-                <input type="text" id="fullname" name="fullname" value={formData.fullname} onChange={handleChange} className="w-full border px-3 py-2 rounded" required />
+            <div className="mb-3 flex flex-col gap-1">
+                <label htmlFor="fullname" className="text-xs font-bold text-[var(--text-sub)] uppercase tracking-wider">Full Name</label>
+                <input type="text" id="fullname" name="fullname" value={formData.fullname} onChange={handleChange} className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] px-3 py-2.5 rounded-xl text-[var(--text-main)] text-sm outline-none focus:border-[#808bf5] transition" required />
             </div>
 
-            <div className="mb-3">
-                <label htmlFor="email" className="block mb-1">Email</label>
-                <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} className="w-full border px-3 py-2 rounded" required />
+            <div className="mb-3 flex flex-col gap-1">
+                <label htmlFor="email" className="text-xs font-bold text-[var(--text-sub)] uppercase tracking-wider">Email</label>
+                <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] px-3 py-2.5 rounded-xl text-[var(--text-main)] text-sm outline-none focus:border-[#808bf5] transition" required />
             </div>
 
-            <div className="mb-3">
-                <label htmlFor="bio" className="block mb-1">Bio</label>
-                <textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} className="w-full border px-3 py-2 rounded" rows={3} />
+            <div className="mb-3 flex flex-col gap-1">
+                <label htmlFor="bio" className="text-xs font-bold text-[var(--text-sub)] uppercase tracking-wider">Bio</label>
+                <textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] px-3 py-2.5 rounded-xl text-[var(--text-main)] text-sm outline-none focus:border-[#808bf5] transition resize-none" rows={3} />
             </div>
 
-            <div className="mb-4">
-                <label htmlFor="preferredMood" className="block mb-1 text-sm font-medium text-gray-700">Preferred Feed Mood</label>
-                <select 
-                    id="preferredMood" 
-                    name="preferredMood" 
-                    value={formData.preferredMood} 
-                    onChange={handleChange} 
-                    className="w-full border border-gray-300 px-3 py-2 rounded-lg bg-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            <div className="mb-4 flex flex-col gap-1">
+                <label htmlFor="preferredMood" className="text-xs font-bold text-[var(--text-sub)] uppercase tracking-wider">Content Preference</label>
+                <select
+                    id="preferredMood"
+                    name="preferredMood"
+                    value={formData.preferredMood}
+                    onChange={handleChange}
+                    className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] px-3 py-2.5 rounded-xl text-[var(--text-main)] text-sm outline-none focus:border-[#808bf5] transition cursor-pointer appearance-none"
                 >
                     {MOODS.map(mood => (
-                        <option key={mood.key} value={mood.key}>
+                        <option key={mood.key} value={mood.key} className="bg-[var(--surface-2)]">
                             {mood.emoji ? `${mood.emoji} ` : ''}{mood.label}
                         </option>
                     ))}
                 </select>
-                <p className="mt-1 text-xs text-gray-500">Choosing a mood will automatically blend related posts into your main feed.</p>
+                <p className="mt-1 text-[10px] text-[var(--text-sub)] font-medium">Choosing a mood will automatically blend related posts into your main feed.</p>
             </div>
 
-            <div className="mb-6 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+            <div className="mb-6 p-4 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h4 className="m-0 text-sm font-bold text-indigo-900">Private Account</h4>
-                        <p className="m-0 text-[11px] text-indigo-600 mt-0.5">Only people you approve can see your posts and stories.</p>
+                        <h4 className="m-0 text-sm font-bold text-[var(--text-main)]">Private Account</h4>
+                        <p className="m-0 text-[10px] text-[var(--text-sub)] mt-0.5 font-medium">Only people you approve can see your posts and stories.</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                            type="checkbox" 
+                        <input
+                            type="checkbox"
                             name="isPrivate"
                             checked={formData.isPrivate}
                             onChange={handleChange}
-                            className="sr-only peer" 
+                            className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <div className="w-11 h-6 bg-[var(--border-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#808bf5]"></div>
                     </label>
                 </div>
             </div>

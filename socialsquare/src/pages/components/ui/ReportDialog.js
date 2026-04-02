@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { RadioButton } from 'primereact/radiobutton';
-import { Button } from 'primereact/button';
 
 const REASONS = [
     { label: 'Spam', value: 'spam' },
@@ -25,8 +24,10 @@ const ReportDialog = ({ visible, onHide, onSubmit, loading }) => {
 
     const footer = (
         <div className="flex justify-end gap-2 px-1 pb-1">
-            <Button label="Cancel" icon="pi pi-times" onClick={() => { onHide(); setSelectedReason(null); }} className="p-button-text p-button-sm text-gray-600" />
-            <Button label="Submit" icon="pi pi-check" onClick={handleSubmit} disabled={!selectedReason || loading} loading={loading} className="p-button-sm bg-red-500 border-red-500 hover:bg-red-600" />
+            <button onClick={() => { onHide(); setSelectedReason(null); }} className="px-4 py-2 border-0 bg-transparent text-[var(--text-sub)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-2)] rounded-lg transition">Cancel</button>
+            <button onClick={handleSubmit} disabled={!selectedReason || loading} className="px-4 py-2 bg-red-500 text-white border-0 rounded-lg font-semibold text-sm cursor-pointer hover:bg-red-600 transition disabled:opacity-50">
+                {loading ? 'Submitting...' : 'Submit Report'}
+            </button>
         </div>
     );
 
@@ -41,10 +42,10 @@ const ReportDialog = ({ visible, onHide, onSubmit, loading }) => {
             resizable={false}
             className="rounded-xl overflow-hidden font-sans"
         >
-            <div className="flex flex-col gap-3 py-2">
-                <p className="text-sm text-gray-500 m-0 mb-2 font-medium">Why are you reporting this post?</p>
+            <div className="flex flex-col gap-3 py-2 px-4">
+                <p className="text-sm text-[var(--text-sub)] m-0 mb-2 font-medium">Why are you reporting this post?</p>
                 {REASONS.map((reason) => (
-                    <div key={reason.value} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition" onClick={() => setSelectedReason(reason.value)}>
+                    <div key={reason.value} className="flex items-center gap-3 cursor-pointer p-3 bg-[var(--surface-2)] hover:bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] transition" onClick={() => setSelectedReason(reason.value)}>
                         <RadioButton 
                             inputId={reason.value} 
                             name="reportReason" 
@@ -52,7 +53,7 @@ const ReportDialog = ({ visible, onHide, onSubmit, loading }) => {
                             onChange={(e) => setSelectedReason(e.value)} 
                             checked={selectedReason === reason.value} 
                         />
-                        <label htmlFor={reason.value} className="text-sm cursor-pointer font-medium text-gray-700">{reason.label}</label>
+                        <label htmlFor={reason.value} className="text-sm cursor-pointer font-bold text-[var(--text-main)] flex-grow">{reason.label}</label>
                     </div>
                 ))}
             </div>

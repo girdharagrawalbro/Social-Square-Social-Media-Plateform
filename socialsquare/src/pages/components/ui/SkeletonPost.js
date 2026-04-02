@@ -2,7 +2,7 @@ import React from 'react';
 
 const SkeletonPost = () => {
   return (
-    <div className="p-4 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 mb-4 transition-colors">
+    <div className="p-4 rounded-xl bg-[var(--surface-1)] shadow-sm border border-[var(--border-color)] mb-4 transition-colors">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -25,7 +25,7 @@ const SkeletonPost = () => {
       <div className="skeleton skeleton-image w-full h-80 mb-4"></div>
 
       {/* Actions */}
-      <div className="flex items-center gap-6 pt-3 border-t border-gray-50 dark:border-slate-700/50">
+      <div className="flex items-center gap-6 pt-3 border-t border-[var(--border-color)]">
         <div className="skeleton w-16 h-8 rounded-lg"></div>
         <div className="skeleton w-16 h-8 rounded-lg"></div>
         <div className="skeleton w-16 h-8 rounded-lg"></div>

@@ -63,7 +63,7 @@ const ReactionPicker = ({ onSelect, onClose }) => {
         return () => document.removeEventListener('mousedown', h);
     }, [onClose]);
     return (
-        <div ref={ref} style={{ position: 'absolute', top: '100%', marginTop: '0px', left: '50%', transform: 'translateX(-50%)', background: '#fff', borderRadius: '24px', padding: '8px 12px', boxShadow: '0 6px 20px rgba(0,0,0,0.2)', display: 'flex', gap: '2px', zIndex: 9999, border: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
+        <div ref={ref} style={{ position: 'absolute', top: '100%', marginTop: '0px', left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-1)', borderRadius: '24px', padding: '8px 12px', boxShadow: '0 6px 20px rgba(0,0,0,0.2)', display: 'flex', gap: '2px', zIndex: 9999, border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
             {EMOJI_REACTIONS.map(emoji => (
                 <button key={emoji} onClick={() => { onSelect(emoji); onClose(); }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '4px', borderRadius: '8px', transition: 'transform 0.15s' }}
@@ -82,6 +82,11 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [editText, setEditText] = useState(message.content);
     const [showPostModal, setShowPostModal] = useState(false);
     const [selectedPostId, setSelectedPostId] = useState(null);
+    const [storyModalOpen, setStoryModalOpen] = useState(false);
+    const [storyModalGroups, setStoryModalGroups] = useState([]);
+    const [storyModalGroupIndex, setStoryModalGroupIndex] = useState(0);
+    const [storyModalInitialStoryId, setStoryModalInitialStoryId] = useState(null);
+    const [StoryViewerComp, setStoryViewerComp] = useState(null);
 
     const isDeleted = !!message.deletedAt;
 
@@ -109,7 +114,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 
             {showMenu && !isDeleted && (
                 <div style={{ position: 'relative', alignSelf: 'center', margin: isOwn ? '0 4px 0 0' : '0 0 0 4px', order: isOwn ? -1 : 1 }}>
-                    <button onClick={() => setShowReactions(v => !v)} style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} title="Add reaction">😊</button>
+                    <button onClick={() => setShowReactions(v => !v)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} title="Add reaction">😊</button>
                     {showReactions && <ReactionPicker onSelect={emoji => onReact(message._id, emoji)} onClose={() => setShowReactions(false)} />}
                 </div>
             )}
@@ -121,12 +126,12 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                 {editing ? (
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <input value={editText} onChange={e => setEditText(e.target.value)} autoFocus
-                            style={{ padding: '8px 12px', borderRadius: '16px', border: '1px solid #808bf5', fontSize: '14px', outline: 'none', minWidth: '150px' }} />
+                            style={{ padding: '8px 12px', borderRadius: '16px', border: '1px solid #808bf5', fontSize: '14px', outline: 'none', background: 'var(--surface-2)', color: 'var(--text-main)', minWidth: '150px' }} />
                         <button onClick={handleEditSave} style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '12px' }}>Save</button>
-                        <button onClick={() => setEditing(false)} style={{ background: '#f3f4f6', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '12px' }}>Cancel</button>
+                        <button onClick={() => setEditing(false)} style={{ background: 'var(--surface-2)', border: 'none', color: 'var(--text-main)', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '12px' }}>Cancel</button>
                     </div>
                 ) : (
-                    <div style={{ background: isOwn ? '#808bf5' : '#f3f4f6', color: isOwn ? '#fff' : '#1f2937', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '10px 14px', fontSize: '14px', lineHeight: 1.5 }}>
+                    <div style={{ background: isOwn ? '#808bf5' : 'var(--surface-2)', color: isOwn ? '#fff' : 'var(--text-main)', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '10px 14px', fontSize: '14px', lineHeight: 1.5 }}>
                         {isDeleted ? <span style={{ fontStyle: 'italic', opacity: 0.6, fontSize: '12px' }}>🚫 Message deleted</span> : (
                             <>
                                 {message.storyReply && (
@@ -145,18 +150,38 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                     }}
                                         onMouseEnter={e => e.currentTarget.style.background = isOwn ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.1)'}
                                         onMouseLeave={e => e.currentTarget.style.background = isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)'}
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                             e.stopPropagation();
+                                            const senderId = message.sender?._id || message.senderId;
+                                            const match = message.content?.match(/user=([a-f0-9]+)/);
+                                            const userId = match ? match[1] : senderId;
+                                            const storyId = message.storyReply?.storyId;
+
                                             if (typeof window.onViewStory === 'function') {
-                                                const senderId = message.sender?._id || message.senderId;
-                                                // For shares, we need the owner of the story, not the sender
-                                                // Assuming the share link or object has the userId
-                                                const match = message.content?.match(/user=([a-f0-9]+)/);
-                                                const userId = match ? match[1] : senderId;
-                                                window.onViewStory(userId, message.storyReply.storyId);
-                                            } else {
-                                                window.location.href = `/stories?user=${message.sender?._id || message.senderId}`;
+                                                window.onViewStory(userId, storyId);
+                                                return;
                                             }
+
+                                            // If Stories component not mounted, open same viewer in a modal
+                                            try {
+                                                const res = await api.get('/api/story/feed');
+                                                const groups = Array.isArray(res.data) ? res.data : [];
+                                                const idx = groups.findIndex(g => g.user._id.toString() === userId.toString());
+                                                if (idx !== -1) {
+                                                    setStoryModalGroups(groups);
+                                                    setStoryModalGroupIndex(idx);
+                                                    setStoryModalInitialStoryId(storyId || null);
+                                                    const mod = await import('./Stories');
+                                                    setStoryViewerComp(() => mod.StoryViewer);
+                                                    setStoryModalOpen(true);
+                                                    return;
+                                                }
+                                            } catch (err) {
+                                                console.error('Failed to open story modal', err);
+                                            }
+
+                                            // Fallback: navigate to stories route
+                                            window.location.href = `/stories?user=${userId}${storyId ? `&story=${storyId}` : ''}`;
                                         }}>
                                         {message.storyReply.mediaUrl ? (
                                             <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
@@ -218,30 +243,56 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                     <div style={{ position: 'absolute', left: isOwn ? 'auto' : '100%', right: isOwn ? '100%' : 'auto', marginLeft: isOwn ? 0 : '4px', marginRight: isOwn ? '4px' : 0, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: isOwn ? 'flex-end' : 'flex-start', alignItems: 'center' }}>
                         {Object.entries(reactionGroups).map(([emoji, users]) => (
                             <button key={emoji} onClick={() => onReact(message._id, emoji)}
-                                style={{ background: users.includes(loggeduser._id) ? '#c4b5fd' : '#f3f4f6', border: users.includes(loggeduser._id) ? '1px solid #a78bfa' : '1px solid #e5e7eb', borderRadius: '14px', padding: '3px 8px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 500, transition: 'all 0.2s', boxShadow: users.includes(loggeduser._id) ? '0 1px 3px rgba(168,85,247,0.2)' : 'none' }}>
-                                {emoji} {users.length > 1 && <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600 }}>{users.length}</span>}
+                                style={{ background: users.includes(loggeduser._id) ? 'var(--bg-main)' : 'var(--surface-2)', border: users.includes(loggeduser._id) ? '1px solid var(--border-color)' : '1px solid var(--border-color)', borderRadius: '14px', padding: '3px 8px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 500, transition: 'all 0.2s', boxShadow: users.includes(loggeduser._id) ? '0 1px 3px rgba(168,85,247,0.2)' : 'none' }}>
+                                {emoji} {users.length > 1 && <span style={{ fontSize: '10px', color: 'var(--text-sub)', fontWeight: 600 }}>{users.length}</span>}
                             </button>
                         ))}
                     </div>
                 )}
 
                 {showMenu && isOwn && !isDeleted && (
-                    <div style={{ position: 'absolute', right: 0, top: '-30px', display: 'flex', gap: '4px', background: '#fff', borderRadius: '10px', padding: '3px 6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #f3f4f6', zIndex: 10 }}>
-                        <button onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#6b7280', padding: '2px 4px' }}>✏️</button>
+                    <div style={{ position: 'absolute', right: 0, top: '-30px', display: 'flex', gap: '4px', background: 'var(--surface-1)', borderRadius: '10px', padding: '3px 6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', zIndex: 10 }}>
+                        <button onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-main)', padding: '2px 4px' }}>✏️</button>
                         <button onClick={() => onDelete(message._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#ef4444', padding: '2px 4px' }}>🗑️</button>
                     </div>
                 )}
 
                 {showPostModal && selectedPostId && (
-                    <Dialog 
+                    <Dialog
                         header="Post Detail"
-                        visible={showPostModal} 
-                        style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }} 
-                        onHide={() => setShowPostModal(false)} 
-                        modal 
+                        visible={showPostModal}
+                        style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                        onHide={() => setShowPostModal(false)}
+                        modal
                         className="p-0 overflow-hidden post-detail-dialog"
                     >
                         <PostDetail postId={selectedPostId} isModal={true} onClose={() => setShowPostModal(false)} />
+                    </Dialog>
+                )}
+                {storyModalOpen && StoryViewerComp && (
+                    <Dialog
+                        header={null}
+                        visible={storyModalOpen}
+                        appendTo={document.body}
+                        baseZIndex={100000}
+                        style={{ width: '100vw', maxWidth: '480px', height: '100vh', padding: 0 }}
+                        onHide={() => setStoryModalOpen(false)}
+                        modal
+                        className="p-0 overflow-hidden story-viewer-dialog"
+                    >
+                        <div style={{ width: '100%', height: '100%' }}>
+                            <StoryViewerComp
+                                groups={storyModalGroups}
+                                startGroupIndex={storyModalGroupIndex}
+                                initialStoryId={storyModalInitialStoryId}
+                                onClose={() => setStoryModalOpen(false)}
+                                loggeduser={loggeduser}
+                                onStoryDeleted={() => setStoryModalOpen(false)}
+                                onStoryLiked={() => { }}
+                                onOpenPostDetail={(postId) => { setSelectedPostId(postId); setShowPostModal(true); }}
+                                onShareStory={() => { }}
+                            />
+                        </div>
                     </Dialog>
                 )}
             </div>
@@ -602,10 +653,10 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
         }}>
 
             {isSearching && (
-                <div style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', display: 'flex', gap: '8px' }}>
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '8px' }}>
                     <input type="text" placeholder="Search messages..." value={searchQ} onChange={e => setSearchQ(e.target.value)} autoFocus
-                        style={{ flex: 1, padding: '6px 12px', borderRadius: '20px', border: '1px solid #e5e7eb', fontSize: '13px', outline: 'none' }} />
-                    <button onClick={() => { setIsSearching(false); setSearchQ(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+                        style={{ flex: 1, padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--border-color)', fontSize: '13px', outline: 'none', background: 'var(--surface-2)', color: 'var(--text-main)' }} />
+                    <button onClick={() => { setIsSearching(false); setSearchQ(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)' }}>✕</button>
                 </div>
             )}
 
@@ -648,9 +699,9 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
 
                 {isTypingOther && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                        <div style={{ background: '#f3f4f6', borderRadius: '18px 18px 18px 4px', padding: '10px 14px', display: 'flex', gap: '4px', alignItems: 'center' }}>
-                            <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: '4px' }}>{typingName}</span>
-                            {[0, 1, 2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#9ca3af', animation: `typingDot 1s ${i * 0.2}s infinite` }} />)}
+                        <div style={{ background: 'var(--surface-2)', borderRadius: '18px 18px 18px 4px', padding: '10px 14px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-sub)', marginRight: '4px' }}>{typingName}</span>
+                            {[0, 1, 2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-sub)', animation: `typingDot 1s ${i * 0.2}s infinite` }} />)}
                         </div>
                     </div>
                 )}
@@ -663,23 +714,23 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
                 bottom: 0,
                 left: 0,
                 width: '100%',
-                background: '#fff',
+                background: 'var(--surface-1)',
                 zIndex: 10
             }}>
                 <form onSubmit={handleSend} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '18px', padding: '4px', flexShrink: 0 }}>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '18px', padding: '4px', flexShrink: 0 }}>
                         {uploading ? '⏳' : '📎'}
                     </button>
                     <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" onChange={handleFileSelect} style={{ display: 'none' }} />
                     <input type="text" value={text} onChange={handleInputChange} placeholder="Type your message..."
-                        style={{ flex: 1, padding: '10px 16px', borderRadius: '24px', border: '1px solid #e5e7eb', fontSize: '14px', outline: 'none', background: '#f9fafb' }}
+                        style={{ flex: 1, padding: '10px 16px', borderRadius: '24px', border: '1px solid var(--border-color)', fontSize: '14px', outline: 'none', background: 'var(--surface-2)', color: 'var(--text-main)' }}
                         onFocus={e => e.target.style.borderColor = '#808bf5'}
-                        onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
                     />
                     <button type="submit" disabled={!text.trim() && !uploading}
-                        style={{ width: 40, height: 40, borderRadius: '50%', background: text.trim() ? '#808bf5' : '#e5e7eb', border: 'none', cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s' }}>
-                        <i className="pi pi-send" style={{ fontSize: '16px', color: text.trim() ? '#fff' : '#9ca3af' }}></i>
+                        style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s', background: text.trim() ? '#808bf5' : 'var(--surface-2)' }}>
+                        <i className="pi pi-send" style={{ fontSize: '16px', color: text.trim() ? '#fff' : 'var(--text-sub)' }}></i>
                     </button>
                 </form>
             </div>
