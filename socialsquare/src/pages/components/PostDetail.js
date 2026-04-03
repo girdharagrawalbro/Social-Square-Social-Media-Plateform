@@ -105,7 +105,10 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         if (post?._id) {
             incrementViewMutation.mutate({ postId: post._id });
         }
-    }, [post?._id, incrementViewMutation]); // Increment once when post ID changes
+        // Intentionally omit `incrementViewMutation` from deps to avoid
+        // re-running when React Query returns a new mutation object identity.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [post?._id]); // Increment once when post ID changes
 
     useEffect(() => {
         if (!post?._id || !loggeduser?._id) return;

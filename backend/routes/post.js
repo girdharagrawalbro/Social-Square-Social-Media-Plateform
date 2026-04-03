@@ -5,6 +5,7 @@ const Comment = require('../models/Comment');
 const Category = require("../models/Category");
 const Group = require("../models/Group");
 const { publish } = require('../lib/pubsub');
+const redis = require('../lib/redis');
 const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
 const contentFilter = require('../middleware/contentFilter');
@@ -23,8 +24,37 @@ function setIo(io) { _io = io; }
 router.post("/view/:postId", async (req, res) => {
     try {
         const { postId } = req.params;
-        await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } });
-        res.status(200).json({ success: true });
+
+        // Idempotency guard: avoid counting repeated rapid views from same client
+        // Key: view:{postId}:{userOrIp} with short TTL
+        const TTL_SECONDS = Number(process.env.VIEW_IDEMPOTENCY_SECONDS || 60);
+
+        // Try to determine user identity from bearer token if present (optional)
+        let viewerId = null;
+        try {
+            const auth = req.headers.authorization || '';
+            if (auth.startsWith('Bearer ')) {
+                const token = auth.split(' ')[1];
+                const payload = jwt.verify(token, process.env.JWT_SECRET);
+                viewerId = payload && (payload.userId || payload.id || payload._id) ? (payload.userId || payload.id || payload._id) : null;
+            }
+        } catch (e) {
+            // ignore token errors — fall back to IP
+            viewerId = null;
+        }
+
+        const clientId = viewerId || (req.ip || req.connection && req.connection.remoteAddress || 'anonymous');
+        const redisKey = `view:${postId}:${clientId}`;
+
+        // SET NX with EX — returns 'OK' if set, null if key exists
+        const setResult = await redis.set(redisKey, '1', 'EX', TTL_SECONDS, 'NX');
+        if (setResult === 'OK') {
+            await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } });
+            return res.status(200).json({ success: true, counted: true });
+        } else {
+            // Recently counted — skip increment
+            return res.status(200).json({ success: true, counted: false });
+        }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -277,7 +307,8 @@ router.get("/", async (req, res) => {
                 // Also find users who have blocked the current user
                 const blockers = await User.find({ blockedUsers: userId }).select('_id');
                 const blockerIds = blockers.map(b => b._id.toString());
-                excludedUserIds = [...new Set([...excludedUserIds, ...blockerIds])];
+                // Exclude blockers + current user's own posts from feed results
+                excludedUserIds = [...new Set([...excludedUserIds, ...blockerIds, userId.toString()])];
             }
             const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
             userCategories = [...new Set(likedPosts.map(p => p.category))];
@@ -292,12 +323,43 @@ router.get("/", async (req, res) => {
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
         const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 3);
-        const scored = posts.map(post => {
+
+        // Split into posts from followed users and others (suggestions)
+        const followingPosts = [];
+        const suggestionPosts = [];
+
+        for (const post of posts) {
+            if (followingIds.includes(post.user._id.toString())) followingPosts.push(post);
+            else suggestionPosts.push(post);
+        }
+
+        const scoreAndBoost = (post) => {
             let score = computeScore(post, followingIds);
             if (userCategories.includes(post.category)) score += 15;
-            return { post, score };
-        }).sort((a, b) => b.score - a.score);
-        const result = scored.slice(0, limit).map(s => s.post);
+            return score;
+        };
+
+        // Sort both groups by score (following prioritized)
+        followingPosts.sort((a, b) => scoreAndBoost(b) - scoreAndBoost(a));
+        suggestionPosts.sort((a, b) => scoreAndBoost(b) - scoreAndBoost(a));
+
+        // Compose final feed by interleaving following and suggestions.
+        // Pattern: 2 following posts, then 1 suggestion (approx 70% following).
+        const final = [];
+        let iF = 0, iS = 0;
+        while (final.length < limit && (iF < followingPosts.length || iS < suggestionPosts.length)) {
+            const pos = final.length % 3;
+            if (pos !== 2) {
+                // prefer following
+                if (iF < followingPosts.length) { final.push(followingPosts[iF++]); continue; }
+                if (iS < suggestionPosts.length) { final.push(suggestionPosts[iS++]); continue; }
+            } else {
+                // prefer suggestion at every 3rd slot
+                if (iS < suggestionPosts.length) { final.push(suggestionPosts[iS++]); continue; }
+                if (iF < followingPosts.length) { final.push(followingPosts[iF++]); continue; }
+            }
+        }
+        const result = final.slice(0, limit);
         const hasMore = posts.length >= limit;
         const nextCursor = result.length > 0 ? result[result.length - 1]._id : null;
         res.status(200).json({ posts: result, nextCursor, hasMore });

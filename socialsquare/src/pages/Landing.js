@@ -1,11 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Navbar from './components/Navbar';
 
 const Landing = () => {
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-r from-themeStart to-themeEnd text-white">
-            <Navbar />
             <div className="flex-grow">
                 <section className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between px-5 md:px-12 py-20 gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">
                     <div className="flex-1 max-w-xl">

@@ -16,6 +16,13 @@ import { socket } from './socket';
 import toast, { Toaster } from 'react-hot-toast';
 import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
+import Conversations from './pages/components/Conversations';
+
+// ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
+import Sidebar from './pages/components/Sidebar';
+import ExploreGrid from './pages/components/Explore';
+import Explore from './pages/components/Commuinties';
+import Communities from './pages/components/Commuinties';
 
 // ─── LAZY PAGES ───────────────────────────────────────────────────────────────
 const Home = lazy(() => import('./pages/Home'));
@@ -29,6 +36,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 const PageLoader = () => (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
@@ -70,20 +78,20 @@ function AppInit() {
 
         socket.on('newNotification', (notification) => {
             addNotification(notification);
-            
+
             // Show toast
             const { sender, type, message, post } = notification;
             let title = sender.fullname;
             let icon = '🔔';
-            
+
             if (type === 'like') icon = '❤️';
             if (type === 'comment') icon = '💬';
             if (type === 'message') icon = '📩';
             if (type === 'system') icon = '⚠️';
-            
+
             toast(
                 (t) => (
-                    <div 
+                    <div
                         style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                         onClick={() => {
                             if (type === 'message' && message?.conversationId) {
@@ -203,6 +211,20 @@ function SharedStoryRedirect() {
     return <PageLoader />;
 }
 
+// ─── MAIN LAYOUT WITH NAVBAR & SIDEBAR ────────────────────────────────────────
+function MainLayout({ children }) {
+    return (
+        <div className="flex min-h-[100dvh] w-full">
+            <div className="flex w-full">
+                <Sidebar />
+                <main className="flex-1">
+                    {children}
+                </main>
+            </div>
+        </div>
+    );
+}
+
 function App() {
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -247,21 +269,28 @@ function App() {
                     <Router>
                         <Suspense fallback={<PageLoader />}>
                             <Routes>
+                                {/* Public Routes - No Layout */}
+                                <Route path="/" element={<Landing />} />
                                 <Route path="/signup" element={<Signup />} />
+                                <Route path="/login" element={<Login />} />
                                 <Route path="/forgot" element={<Forgot />} />
                                 <Route path="/contact" element={<Contact />} />
-                                <Route path="/login" element={<Login />} />
                                 <Route path="/help" element={<Help />} />
                                 <Route path="/reset-password" element={<ResetPassword />} />
                                 <Route path="/verify-otp" element={<VerifyOtp />} />
-                                <Route path="/admin" element={<AdminDashboard />} />
                                 <Route path="/verify-email/:token" element={<VerifyEmail />} />
-                                <Route path="/post/:postId" element={<SharedPostRedirect />} />
-                                <Route path="/profile/:userId" element={<SharedProfileRedirect />} />
-                                <Route path="/story/:userId/:storyId" element={<SharedStoryRedirect />} />
-                                <Route path="/story/:userId" element={<SharedStoryRedirect />} />
-                                <Route path="/" element={<Landing />} />
-                                <Route path="/:username" element={<Home />} />
+
+                                {/* Protected Routes - With MainLayout (Navbar + Sidebar) */}
+                                <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
+                                <Route path="/messages" element={<MainLayout><Conversations /></MainLayout>} />
+                                <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
+                                <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />
+                                <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
+                                <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
+                                <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
+                                <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
+                                <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
+
                             </Routes>
                         </Suspense>
                     </Router>

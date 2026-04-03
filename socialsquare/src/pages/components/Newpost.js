@@ -59,14 +59,13 @@ const NewPost = ({ setnewpostVisible }) => {
     const [images, setImages] = useState([]);
     const [video, setVideo] = useState(null);
     const [isPosting, setIsPosting] = useState(false);
-    const [showEmoji, setShowEmoji] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    // Central panel state: null | 'emoji' | 'ai' | 'advanced' | 'poll' | 'music'
+    const [openFeaturePanel, setOpenFeaturePanel] = useState(null);
 
     // Location & music
     const [location, setLocation] = useState({ name: '', lat: null, lng: null });
     const [loadingLocation, setLoadingLocation] = useState(false);
     const [music, setMusic] = useState({ title: '', artist: '' });
-    const [showMusicInput, setShowMusicInput] = useState(false);
 
     // New features
     const [isAnonymous, setIsAnonymous] = useState(false);
@@ -86,14 +85,12 @@ const NewPost = ({ setnewpostVisible }) => {
     // AI
     const [generatingCaption, setGeneratingCaption] = useState(false);
     const [suggestedCaptions, setSuggestedCaptions] = useState([]);
-    const [showAiTools, setShowAiTools] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [aiLimit, setAiLimit] = useState(defaultAiLimit);
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
     
     // Polls & Quizzes
-    const [showPoll, setShowPoll] = useState(false);
     const [pollOptions, setPollOptions] = useState(['', '']);
     const [isQuiz, setIsQuiz] = useState(false);
     const [correctOptionIndex, setCorrectOptionIndex] = useState(null);
@@ -120,6 +117,20 @@ const NewPost = ({ setnewpostVisible }) => {
 
 
     const handleChange = e => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+    // Central panel toggle: closes all others when opening a new one
+    const togglePanel = (panelName) => {
+        setOpenFeaturePanel(openFeaturePanel === panelName ? null : panelName);
+    };
+
+    // Close panel when pressing Escape
+    useEffect(() => {
+        const handleEscapeKey = (event) => {
+            if (event.key === 'Escape') setOpenFeaturePanel(null);
+        };
+        document.addEventListener('keydown', handleEscapeKey);
+        return () => document.removeEventListener('keydown', handleEscapeKey);
+    }, []);
 
     const handleEmojiSelect = (emoji) => {
         const input = captionRef.current;
@@ -320,8 +331,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
             setIsCollaborative(false);
             setCollaborators([]);
             setSuggestedCaptions([]);
-            setShowAiTools(false);
-            setShowAdvanced(false);
+            setOpenFeaturePanel(null);
             setnewpostVisible(false);
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to generate and post');
@@ -519,7 +529,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 videoURL: videoUrl, videoDuration,
                 mood,
                 isAiGenerated: usedAiForThisPost,
-                poll: showPoll && pollOptions.filter(o => o.trim()).length >= 2 ? {
+                poll: openFeaturePanel === 'poll' && pollOptions.filter(o => o.trim()).length >= 2 ? {
                     options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })),
                     correctOptionIndex: isQuiz ? correctOptionIndex : null
                 } : null,
@@ -539,8 +549,8 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 setLocation({ name: '', lat: null, lng: null }); setMusic({ title: '', artist: '' });
                 setIsAnonymous(false); setExpiresIn(''); setUnlocksAt('');
                 setIsCollaborative(false); setCollaborators([]);
-                setSuggestedCaptions([]); setShowAdvanced(false);
-                setShowPoll(false); setPollOptions(['', '']); setIsQuiz(false); setCorrectOptionIndex(null);
+                setSuggestedCaptions([]); setOpenFeaturePanel(null);
+                setPollOptions(['', '']); setIsQuiz(false); setCorrectOptionIndex(null);
                 setSelectedGroupId(null);
                 toast.success("Post created successfully!");
                 setnewpostVisible(false);
@@ -573,15 +583,28 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
     });
     return (
         <>
-            <div className="new ">
+            <div className="new pt-2">
                 <div className="flex flex-col gap-3">
-                    <div className="flex gap-2 align-items-center">
-                        <img src={isAnonymous ? 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' : (loggeduser?.profile_picture || "default-profile.png")} alt="Profile" className="logo" style={{ borderRadius: '50%' }} />
-                        <div>
-                            <span className="text-[var(--text-main)] font-semibold">{loggeduser?.fullname}</span>
-                            {location.name && <span className="flex items-center text-xs gap-1 text-[var(--text-sub)]">📍 {location.name}<button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '12px' }}>✕</button></span>}
+                    <div className="flex gap-2 align-items-center justify-between">
+                        <div className="flex gap-2 align-items-center">
+                            <img src={isAnonymous ? 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' : (loggeduser?.profile_picture || "default-profile.png")} alt="Profile" className="logo" style={{ borderRadius: '50%' }} />
+                            <div>
+                                <span className="text-[var(--text-main)] font-semibold">{loggeduser?.fullname}</span>
+                                {location.name && <span className="flex items-center text-xs gap-1 text-[var(--text-sub)]">📍 {location.name}<button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '12px' }}>✕</button></span>}
+                            </div>
                         </div>
-
+                        {myGroups.length > 0 && (
+                            <select
+                                value={selectedGroupId || ''}
+                                onChange={(e) => setSelectedGroupId(e.target.value || null)}
+                                className="px-3 py-1.5 rounded-xl text-[11px] font-bold border bg-[var(--surface-2)] text-[var(--text-main)] border-[var(--border-color)] outline-none focus:border-[#808bf5] cursor-pointer transition"
+                            >
+                                <option value="">🌐 General Feed</option>
+                                {myGroups.map(g => (
+                                    <option key={g._id} value={g._id}>👥 {g.name}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                     <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-100">
                         <textarea ref={captionRef} type="text" placeholder={isAnonymous ? "# Share your anonymous confession..." : "# Tell your thoughts to your friends"}
@@ -590,8 +613,8 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                             <div className="flex w-100 flex-wrap justify-around">
                                 <button
                                     type="button"
-                                    onClick={() => setShowEmoji(v => !v)}
-                                    style={actionBtnStyle(showEmoji)}
+                                    onClick={() => togglePanel('emoji')}
+                                    style={actionBtnStyle(openFeaturePanel === 'emoji')}
                                 >
                                     😊
                                 </button>
@@ -629,34 +652,34 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 </button>
 
 
-                                {/* Music */}
+                                {/* Music
                                 <button
                                     type="button"
                                     onClick={() => setShowMusicInput(v => !v)}
                                     style={actionBtnStyle(!!music.title)}
                                 >
                                     🎵
-                                </button>
+                                </button> */}
 
                                 <button
                                     type="button"
-                                    onClick={() => { setShowAiTools(v => !v); setShowAdvanced(false); }}
-                                    style={actionBtnStyle(showAiTools)}
+                                    onClick={() => togglePanel('ai')}
+                                    style={actionBtnStyle(openFeaturePanel === 'ai')}
                                     title="AI Magic"
                                 >
                                     ✨
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => { setShowAdvanced(v => !v); setShowAiTools(false); }}
-                                    style={actionBtnStyle(showAdvanced)}
+                                    onClick={() => togglePanel('advanced')}
+                                    style={actionBtnStyle(openFeaturePanel === 'advanced')}
                                 >
                                     ⚙️
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => { setShowPoll(v => !v); setShowAiTools(false); setShowAdvanced(false); }}
-                                    style={actionBtnStyle(showPoll)}
+                                    onClick={() => togglePanel('poll')}
+                                    style={actionBtnStyle(openFeaturePanel === 'poll')}
                                     title="Add Poll"
                                 >
                                     📊
@@ -680,7 +703,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 </button>
                             </div>
 
-                            {showPoll && (
+                            {openFeaturePanel === 'poll' && (
                                 <div className="mt-2 p-3 bg-[var(--surface-1)] border border-[var(--border-color)] rounded-2xl flex flex-col gap-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">Poll Options</span>
@@ -738,40 +761,16 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 </div>
                             )}
 
-                            {/* Group Selection */}
-                            {myGroups.length > 0 && (
-                                <div className="mt-4 flex flex-col gap-2">
-                                    <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase tracking-widest px-1">Post to Community</span>
-                                    <div className="flex flex-wrap gap-2">
-                                        <button 
-                                            type="button"
-                                            onClick={() => setSelectedGroupId(null)}
-                                            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition ${!selectedGroupId ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-main)] border-[var(--border-color)]'}`}
-                                        >
-                                            🌐 General Feed
-                                        </button>
-                                        {myGroups.map(g => (
-                                            <button 
-                                                key={g._id}
-                                                type="button"
-                                                onClick={() => setSelectedGroupId(g._id)}
-                                                className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition ${selectedGroupId === g._id ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-main)] border-[var(--border-color)]'}`}
-                                            >
-                                                👥 {g.name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            {/* Group Selection moved to profile header */}
 
                             <div className="flex flex-col gap-2">
-                                {showEmoji && (
+                                {openFeaturePanel === 'emoji' && (
                                     <EmojiPicker
                                         onSelect={(e) => {
                                             handleEmojiSelect(e);
-                                            setShowEmoji(false);
+                                            setOpenFeaturePanel(null);
                                         }}
-                                        onClose={() => setShowEmoji(false)}
+                                        onClose={() => setOpenFeaturePanel(null)}
                                     />
                                 )}
 
@@ -787,18 +786,18 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                         </div>
                                     )}
 
-                                {music.title && <button type="button" onClick={() => setMusic({ title: '', artist: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
+                                {/* {music.title && <button type="button" onClick={() => setMusic({ title: '', artist: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
                                 {showMusicInput && (
                                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                         <input type="text" placeholder="Song title" value={music.title} onChange={e => setMusic(p => ({ ...p, title: e.target.value }))} style={{ flex: 1, minWidth: '120px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px' }} />
                                         <input type="text" placeholder="Artist" value={music.artist} onChange={e => setMusic(p => ({ ...p, artist: e.target.value }))} style={{ flex: 1, minWidth: '100px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-main)', fontSize: '13px' }} />
                                         <button type="button" onClick={() => setShowMusicInput(false)} style={{ padding: '5px 10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>+</button>
                                     </div>
-                                )}
+                                )} */}
 
 
 
-                                {showAiTools && (
+                                {openFeaturePanel === 'ai' && (
                                     <div style={{ background: 'var(--surface-1)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                             <span style={{ fontSize: '13px', fontWeight: '700', background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>✨ NVIDIA AI Magic</span>
@@ -861,7 +860,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
 
                                 {/* Advanced panel */}
 
-                                {showAdvanced && (
+                                {openFeaturePanel === 'advanced' && (
                                     <div style={{ background: 'var(--surface-1)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
 
                                         {/* Anonymous */}

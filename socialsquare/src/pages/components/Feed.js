@@ -650,7 +650,7 @@ const Feed = ({ activeMood = null }) => {
                 </Dialog>
 
                 <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
-                    <UserProfile id={selectedProfileId} />
+                    <UserProfile id={selectedProfileId} compact={true} />
                 </Dialog>
             </div>
         </>

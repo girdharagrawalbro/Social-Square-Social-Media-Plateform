@@ -127,7 +127,7 @@ const Navbar = () => {
       <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 flex flex-col gap-3 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
         } ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className={isAuthenticated ? '' : 'mb-3'}>
-          {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)}
+          {/* {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)} */}
         </div>
 
 

@@ -6,9 +6,8 @@ import Feed from './components/Feed';
 import Profile from './components/Profile';
 import Conversations from './components/Conversations';
 import Stories from './components/Stories';
-import Explore from './components/Explore';
+import Explore from './components/Commuinties';
 import Groups from './components/Groups';
-import Navbar from './components/Navbar';
 import UserProfile from './components/UserProfile';
 import { useDarkMode } from '../context/DarkModeContext';
 import useAuthStore from '../store/zustand/useAuthStore';
@@ -17,7 +16,7 @@ import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
-import toast from 'react-hot-toast';
+// import toast from 'react-hot-toast';
 
 const Home = () => {
     const [activeView, setActiveView] = useState('feed');
@@ -36,8 +35,8 @@ const Home = () => {
     const profileDetailId = usePostStore(s => s.profileDetailId);
     const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
     const setStoryDetailDeepLink = usePostStore(s => s.setStoryDetailDeepLink);
-    const resendVerification = useAuthStore(s => s.resendVerification);
-    const [isResending, setIsResending] = useState(false);
+    // const resendVerification = useAuthStore(s => s.resendVerification);
+    // const [isResending, setIsResending] = useState(false);
 
     // ✅ Redirect to landing only after auth check is complete and no user found
     useEffect(() => {
@@ -127,44 +126,42 @@ const Home = () => {
         { key: 'profile', icon: 'pi-user' },
     ];
 
-    const handleResend = async () => {
-        setIsResending(true);
-        const result = await resendVerification();
-        setIsResending(false);
-        if (result.success) {
-            toast.success(result.message);
-        } else {
-            toast.error(result.error);
-        }
-    };
+    // const handleResend = async () => {
+    //     setIsResending(true);
+    //     const result = await resendVerification();
+    //     setIsResending(false);
+    //     if (result.success) {
+    //         toast.success(result.message);
+    //     } else {
+    //         toast.error(result.error);
+    //     }
+    // };
 
-    const VerificationBanner = () => {
-        if (!loggeduser || loggeduser.isEmailVerified) return null;
-        return (
-            <div className="w-full bg-themeAccent/10 border-b border-themeAccent/20 py-3 px-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 animate-in slide-in-from-top-4 duration-500">
-                <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-                    📧 Your email is not verified. Please check your inbox.
-                </p>
-                <button
-                    onClick={handleResend}
-                    disabled={isResending}
-                    className="text-xs font-bold bg-themeAccent text-white px-4 py-1.5 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                >
-                    {isResending ? 'Sending...' : 'Resend Link'}
-                </button>
-            </div>
-        );
-    };
+    // const VerificationBanner = () => {
+    //     if (!loggeduser || loggeduser.isEmailVerified) return null;
+    //     return (
+    //         <div className="w-full bg-themeAccent/10 border-b border-themeAccent/20 py-3 px-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 animate-in slide-in-from-top-4 duration-500">
+    //             <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+    //                 📧 Your email is not verified. Please check your inbox.
+    //             </p>
+    //             <button
+    //                 onClick={handleResend}
+    //                 disabled={isResending}
+    //                 className="text-xs font-bold bg-themeAccent text-white px-4 py-1.5 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+    //             >
+    //                 {isResending ? 'Sending...' : 'Resend Link'}
+    //             </button>
+    //         </div>
+    //     );
+    // };
 
     return (
-        <section className={`min-h-[100dvh] w-full overflow-x-hidden ${bg} transition-colors duration-200`}>
-            <Navbar />
-            <VerificationBanner />
-
+        <section className={`flex min-h-[100dvh] w-full overflow-x-hidden ${bg} transition-colors duration-200`}>
+            {/* <VerificationBanner /> */}
             {/* Desktop */}
             {isDesktop ? (
-                <div className="flex gap-3 w-full max-w-8xl mx-auto p-3 h-[calc(100dvh-64px)]">
-                    <div className="w-25 h-full overflow-y-auto flex flex-col">
+                <div className="flex justify-center items-center gap-3 w-full max-w-6xl mx-auto p-3 h-[calc(100dvh-64px)]">
+                    {/* <div className="w-25 h-full overflow-y-auto flex flex-col">
                         <div className="flex gap-2 mb-3">
                             <button
                                 onClick={() => setDesktopView('profile')}
@@ -180,15 +177,15 @@ const Home = () => {
                             </button>
                         </div>
                         {desktopView === 'profile' ? <Profile /> : <Groups />}
-                    </div>
+                    </div> */}
                     <div className="w-50 overflow-y-auto h-full px-3">
                         <Stories />
                         <Feed activeMood={null} />
                     </div>
-                    <div className="w-25 h-full flex flex-col gap-3 min-w-0">
+                    {/* <div className="w-25 h-full flex flex-col gap-3 min-w-0">
                         <Conversations />
                         <OtherUsers />
-                    </div>
+                    </div> */}
                 </div>
             ) : (
                 /* Mobile */
