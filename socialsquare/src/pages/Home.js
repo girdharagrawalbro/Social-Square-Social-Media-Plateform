@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import MainSkeleton from './components/MainSkeleton';
 import OtherUsers from './components/OtherUsers';
 import Feed from './components/Feed';
@@ -9,6 +9,7 @@ import Stories from './components/Stories';
 import Explore from './components/Explore';
 import Groups from './components/Groups';
 import Navbar from './components/Navbar';
+import UserProfile from './components/UserProfile';
 import { useDarkMode } from '../context/DarkModeContext';
 import useAuthStore from '../store/zustand/useAuthStore';
 import Chatbot from './components/Chatbot';
@@ -22,6 +23,7 @@ const Home = () => {
     const [activeView, setActiveView] = useState('feed');
     const [desktopView, setDesktopView] = useState('profile'); // 'profile' or 'communities'
     const navigate = useNavigate();
+    const location = useLocation();
     const { isDark } = useDarkMode();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
@@ -31,6 +33,9 @@ const Home = () => {
     const initialized = useAuthStore(s => s.initialized);
     const postDetailId = usePostStore(s => s.postDetailId);
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
+    const profileDetailId = usePostStore(s => s.profileDetailId);
+    const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
+    const setStoryDetailDeepLink = usePostStore(s => s.setStoryDetailDeepLink);
     const resendVerification = useAuthStore(s => s.resendVerification);
     const [isResending, setIsResending] = useState(false);
 
@@ -40,6 +45,61 @@ const Home = () => {
             navigate('/');
         }
     }, [initialized, loading, loggeduser, navigate]);
+
+    useEffect(() => {
+        if (!initialized || loading || !loggeduser) return;
+
+        const params = new URLSearchParams(location.search);
+        const queryPostId = params.get('post');
+        const queryProfileId = params.get('profile');
+        const queryStoryUserId = params.get('storyUser');
+        const queryStoryId = params.get('story');
+
+        const pendingPostId = window.sessionStorage.getItem('pendingPostId');
+        const pendingProfileId = window.sessionStorage.getItem('pendingProfileId');
+        const pendingStoryUserId = window.sessionStorage.getItem('pendingStoryUserId');
+        const pendingStoryId = window.sessionStorage.getItem('pendingStoryId');
+
+        const targetPostId = queryPostId || pendingPostId;
+        const targetProfileId = queryProfileId || pendingProfileId;
+        const targetStoryUserId = queryStoryUserId || pendingStoryUserId;
+        const targetStoryId = queryStoryId || pendingStoryId;
+
+        if (targetPostId) {
+            setPostDetailId(targetPostId);
+            if (pendingPostId === targetPostId) {
+                window.sessionStorage.removeItem('pendingPostId');
+            }
+        }
+
+        if (targetProfileId) {
+            setProfileDetailId(targetProfileId);
+            if (pendingProfileId === targetProfileId) {
+                window.sessionStorage.removeItem('pendingProfileId');
+            }
+        }
+
+        if (targetStoryUserId) {
+            if (typeof window.onViewStory === 'function') {
+                window.onViewStory(targetStoryUserId, targetStoryId || null);
+            } else {
+                setStoryDetailDeepLink(targetStoryUserId, targetStoryId || null);
+            }
+
+            if (pendingStoryUserId === targetStoryUserId) {
+                window.sessionStorage.removeItem('pendingStoryUserId');
+            }
+            if (targetStoryId && pendingStoryId === targetStoryId) {
+                window.sessionStorage.removeItem('pendingStoryId');
+            }
+        }
+
+        if (!targetPostId && !targetProfileId && !targetStoryUserId) return;
+
+        if (loggeduser.username) {
+            navigate(`/${loggeduser.username}`, { replace: true });
+        }
+    }, [initialized, loading, loggeduser, location.search, navigate, setPostDetailId, setProfileDetailId, setStoryDetailDeepLink]);
 
     // Show skeleton while auth is being checked
     if (!initialized || loading || !loggeduser) return <MainSkeleton />;
@@ -164,6 +224,19 @@ const Home = () => {
                 className="p-0 overflow-hidden post-detail-dialog"
             >
                 {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)} />}
+            </Dialog>
+
+            <Dialog
+                header="Profile"
+                visible={!!profileDetailId}
+                style={{ width: '95vw', maxWidth: '500px' }}
+                position="center"
+                onHide={() => setProfileDetailId(null)}
+                baseZIndex={usePostStore.getState().isStoryViewerOpen ? 20000 : 1000}
+                appendTo={document.body}
+                blockScroll
+            >
+                {profileDetailId && <UserProfile id={profileDetailId} />}
             </Dialog>
         </section>
     );
