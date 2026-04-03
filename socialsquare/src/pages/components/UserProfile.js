@@ -1,4 +1,5 @@
 import React, { useState, lazy, Suspense } from "react";
+import { useNavigate } from 'react-router-dom';
 import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
@@ -12,8 +13,29 @@ import toast from 'react-hot-toast';
 
 const PostDetail = lazy(() => import('./PostDetail'));
 
+/**
+ * UserProfile Component
+ * 
+ * ✅ POPUP/DIALOG MODE (compact=true, DEFAULT):
+ *    - Used in Search results dialog
+ *    - Minimal card-like UI with rounded borders & shadow
+ *    - Shows only Posts tab
+ *    - Limits posts to 3 items (maxPosts={3})
+ *    - Hides Level/Streak/XP, Followers/Following tabs, Analytics
+ *    - Compact size (max-w-sm)
+ * 
+ * ✅ FULL PAGE MODE (compact=false):
+ *    - Used in ProfilePage (/profile/:userId route)
+ *    - Full width layout (max-w-4xl)
+ *    - Shows all tabs and details
+ *    - Shows Level/Streak/XP badges
+ *    - Shows Followers/Following counts
+ *    - Shows analytics if user is creator
+ *    - No visual borders/shadow (cleaner for page)
+ */
 
-const PostGrid = ({ userId }) => {
+
+const PostGrid = ({ userId, maxPosts = 3, isCompactPreview = true }) => {
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
 
@@ -22,7 +44,8 @@ const PostGrid = ({ userId }) => {
         isLoading
     } = useUserPosts(userId);
 
-    const posts = data?.pages.flatMap(page => page.posts) || [];
+    const allPosts = data?.pages.flatMap(page => page.posts) || [];
+    const posts = maxPosts ? allPosts.slice(0, maxPosts) : allPosts;
 
     if (isLoading && posts.length === 0) return (
         <div className="grid grid-cols-3 gap-2">
@@ -35,28 +58,28 @@ const PostGrid = ({ userId }) => {
     return (
         <>
             <div className="grid grid-cols-3 gap-2">
-                {posts.map(post => {
+                {posts.map((post, idx) => {
                     const imgs = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
                     return (
                         <div
                             key={post._id}
                             onClick={() => { setPostDetail(post); setPostDetailVisible(true); }}
-                            className="relative rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-90 transition group"
+                            className={`relative rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-90 transition group opacity-65`}
                             style={{ aspectRatio: '1' }}
                         >
                             {imgs[0]
-                                ? <img src={imgs[0]} alt="" className="w-full h-full object-cover" />
-                                : <div className="w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center">{post.caption?.slice(0, 30)}</div>
+                                ? <img src={imgs[0]} alt="" className='w-full h-full object-cover blur-sm ' />
+                                : <div className={`w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center blur-sm`}>{post.caption?.slice(0, 30)}</div>
                             }
-                            {imgs.length > 1 && (
+                            {/* {imgs.length > 1 && (
                                 <div className="absolute top-2 right-2 bg-black/50 rounded px-1.5 py-1">
                                     <i className="pi pi-images text-white" style={{ fontSize: '12px' }}></i>
                                 </div>
-                            )}
-                            <div className="absolute bottom-0 left-0 right-0 flex gap-3 px-2 py-2 opacity-0 group-hover:opacity-100 transition" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.7))' }}>
+                            )} */}
+                            {/* <div className="absolute bottom-0 left-0 right-0 flex gap-3 px-2 py-2 opacity-0 group-hover:opacity-100 transition" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.7))' }}>
                                 <span className="text-white text-xs font-semibold">❤️ {post.likes?.length || 0}</span>
                                 <span className="text-white text-xs font-semibold">💬 {post.comments?.length || 0}</span>
-                            </div>
+                            </div> */}
                         </div>
                     );
                 })}
@@ -88,6 +111,7 @@ const UserProfile = ({ id }) => {
     const unmuteUser = useAuthStore(s => s.unmuteUser);
 
     const createConvMutation = useCreateConversation();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
 
     const followMutation = useFollowUser();
@@ -105,6 +129,10 @@ const UserProfile = ({ id }) => {
 
     const followersList = useUserDetails(userDetails?.followers?.length > 0 ? userDetails.followers : null).data || [];
     const followingList = useUserDetails(userDetails?.following?.length > 0 ? userDetails.following : null).data || [];
+
+    // posts count for compact preview tiles
+    const { data: postsData } = useUserPosts(id);
+    const userPostsList = postsData?.pages?.flatMap(p => p.posts) || [];
 
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === id?.toString());
     const isRequested = userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
@@ -167,8 +195,8 @@ const UserProfile = ({ id }) => {
 
     if (!id) return null;
     if (userLoading) return (
-        <div className="w-full max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl p-4">
-            <div className="border shadow rounded-2xl bg-[var(--surface-1)] border-[var(--border-color)] p-8 flex flex-col gap-6 items-center">
+        <div className={`w-full p-4`}>
+            <div className={`flex flex-col gap-6 items-center bg-[var(--surface-1)] p-8 `}>
                 <div className="w-24 h-24 rounded-full bg-[var(--surface-2)] animate-pulse" />
                 <div className="flex flex-col items-center gap-2">
                     <div className="h-5 w-40 bg-[var(--surface-2)] rounded animate-pulse" />
@@ -179,17 +207,17 @@ const UserProfile = ({ id }) => {
     );
     if (!userDetails) return <p className="text-center text-[var(--text-sub)] p-4">User not found</p>;
 
-    const TABS = [
-        { key: 'posts', label: `Posts` },
-        { key: 'followers', label: `Followers` },
-        { key: 'following', label: `Following` },
-        ...(loggeduser?._id === id ? [{ key: 'analytics', label: `Analytics` }] : []),
-    ];
+
 
     return (
         <>
-            <div className="w-full max-w-sm lg:max-w-md xl:max-w-lg 2xl:max-w-xl">
-                <div className="flex flex-col gap-4">
+            {/* 
+            USAGE:
+            - Popup/Dialog (compact=true): Shows in PrimeReact Dialog, minimal UI, 3 posts max
+            - Page Display (compact=false): Full profile page at /profile/:userId, complete UI, all posts
+            */}
+            <div className={`w-full py-2`}>
+                <div className={`flex flex-col gap-4 bg-[var(--surface-1)]`}>
                     <div className="flex items-center justify-center text-center flex-col gap-1">
                         <div className="relative">
                             <Image
@@ -219,20 +247,7 @@ const UserProfile = ({ id }) => {
                             <p className="text-sm text-[var(--text-main)] m-0 max-w-[260px] leading-6">{userDetails.bio}</p>
                         )}
 
-                        <div className="flex gap-3 mt-4">
-                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
-                                <span className="text-lg font-black text-[#808bf5]">{userDetails?.level || 1}</span>
-                            </div>
-                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
-                                <span className="text-lg font-black text-orange-500">🔥 {userDetails?.streak?.count || 0}</span>
-                            </div>
-                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
-                                <span className="text-lg font-black text-green-500">{(userDetails?.xp || 0).toLocaleString()}</span>
-                            </div>
-                        </div>
+
 
                         {userDetails?.mutualFollowers?.length > 0 && (
                             <div className="flex items-center gap-2 mt-1">
@@ -256,7 +271,7 @@ const UserProfile = ({ id }) => {
                     </div>
 
                     {loggeduser?._id !== id && (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-4">
                             {!isBlockedByMe ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
@@ -284,7 +299,7 @@ const UserProfile = ({ id }) => {
                                 </button>
                             )}
 
-                            {!isBlockedByMe && (
+                            {/* {!isBlockedByMe && (
                                 <div className="flex items-center justify-center gap-4 py-1">
                                     <button onClick={handleMute} className="text-xs text-[var(--text-sub)] hover:text-orange-500 transition border-0 bg-transparent cursor-pointer font-medium">
                                         <i className={`pi ${isMuted ? 'pi-volume-up' : 'pi-volume-off'} mr-1`}></i>
@@ -295,13 +310,37 @@ const UserProfile = ({ id }) => {
                                         Block
                                     </button>
                                 </div>
-                            )}
+                            )} */}
                             <button
                                 onClick={handleShareProfile}
                                 className="h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
                             >
                                 🔗 Share Profile
                             </button>
+                        </div>
+                    )}
+
+                    {/* Compact popup: show 4 stat tiles (Followers/Following/Posts/Views) */}
+                    {!isBlockedByMe && (
+                        <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mt-2">
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
+                            >
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followers?.length || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
+                            </div>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
+                            >
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.following?.length || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
+                            </div>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userPostsList.length)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
+                            </div>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center" title="Total profile views">
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.profileViews || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Views</span>
+                            </div>
                         </div>
                     )}
 
@@ -327,7 +366,17 @@ const UserProfile = ({ id }) => {
                         </div>
                     )}
 
-                    {!isBlockedByMe && (
+                    {/* Posts Preview in Compact Mode - ABOVE TABS */}
+                    { !isBlockedByMe && (
+                        <div className="flex flex-col gap-2">
+                            <PostGrid userId={id} maxPosts={3} isCompactPreview={true} />
+                            <button onClick={() => navigate(`/profile/${id}`)} className="w-full h-9 text-sm font-semibold text-white bg-[#808bf5] hover:opacity-95 transition rounded-lg border-0 cursor-pointer">
+                                View full profile
+                            </button>
+                        </div>
+                    )}
+
+                    {/* {!isBlockedByMe && (
                         <div className="flex border-b border-[var(--border-color)]">
                             {TABS.map(tab => (
                                 <button
@@ -340,7 +389,7 @@ const UserProfile = ({ id }) => {
                                 </button>
                             ))}
                         </div>
-                    )}
+                    )} */}
 
                     <div>
                         {isBlockedByMe ? (
@@ -363,7 +412,7 @@ const UserProfile = ({ id }) => {
                             </div>
                         ) : (
                             <>
-                                {activeTab === 'posts' && <PostGrid userId={id} />}
+                                {/* {activeTab === 'posts' && <PostGrid userId={id} maxPosts={compact ? 3 : undefined} />}
 
                                 {activeTab === 'followers' && (
                                     <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
@@ -384,9 +433,9 @@ const UserProfile = ({ id }) => {
                                             ))
                                         )}
                                     </div>
-                                )}
+                                )} */}
 
-                                {activeTab === 'following' && (
+                                {/* {activeTab === 'following' && (
                                     <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
                                         {userDetails.following?.length === 0 ? (
                                             <p className="text-center text-[var(--text-sub)] text-sm py-4">Not following anyone yet</p>
@@ -402,11 +451,11 @@ const UserProfile = ({ id }) => {
                                             ))
                                         )}
                                     </div>
-                                )}
+                                )} */}
 
-                                {activeTab === 'analytics' && loggeduser?._id === id && (
+                                {/* {activeTab === 'analytics' && loggeduser?._id === id && (
                                     <CreatorAnalytics userId={id} />
-                                )}
+                                )} */}
                             </>
                         )}
                     </div>

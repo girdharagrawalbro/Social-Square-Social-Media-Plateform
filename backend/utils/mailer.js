@@ -21,9 +21,20 @@ async function sendEmail({ to, subject, html, text }) {
         timeout: MAIL_SERVICE_TIMEOUT_MS,
     };
 
-    const baseUrl = MAIL_SERVICE_BASE_URL.endsWith('/api/mail') 
-        ? MAIL_SERVICE_BASE_URL 
-        : `${MAIL_SERVICE_BASE_URL}/api/mail`;
+    // Normalize and build a safe base URL for the mail service
+    // Acceptable env values include:
+    //  - https://host (will become /api/mail)
+    //  - https://host/api (will become /api/mail)
+    //  - https://host/api/mail (used as-is)
+    const raw = String(MAIL_SERVICE_BASE_URL || '').replace(/\/+$/g, '');
+    let baseUrl;
+    if (raw.endsWith('/api/mail')) {
+        baseUrl = raw;
+    } else if (raw.endsWith('/api')) {
+        baseUrl = `${raw}/mail`;
+    } else {
+        baseUrl = `${raw}/api/mail`;
+    }
 
     try {
         const response = await axios.post(`${baseUrl}/send`, payload, requestConfig);

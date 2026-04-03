@@ -6,7 +6,6 @@ import SkeletonStory from './ui/SkeletonStory';
 const MainSkeleton = () => {
   return (
     <>
-      <Navbar />
       <div className="min-h-screen w-full p-3 bg-[var(--surface-1)]">
         {/* Desktop Layout - 3 Column */}
         <div className="hidden lg:flex gap-3 w-full max-w-8xl mx-auto">

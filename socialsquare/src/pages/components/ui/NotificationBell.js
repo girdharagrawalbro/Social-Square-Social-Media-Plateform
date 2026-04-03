@@ -42,7 +42,7 @@ export default function NotificationBell({ userId }) {
         try {
             await acceptMutation.mutateAsync({ requesterId });
             handleMarkRead(notificationId);
-        } catch {}
+        } catch { }
     };
 
     const handleDecline = async (e, requesterId, notificationId) => {
@@ -50,7 +50,7 @@ export default function NotificationBell({ userId }) {
         try {
             await declineMutation.mutateAsync({ requesterId });
             handleMarkRead(notificationId);
-        } catch {}
+        } catch { }
     };
 
     const formatTime = (dateString) => {
@@ -79,14 +79,15 @@ export default function NotificationBell({ userId }) {
     return (
         <div ref={ref}>
             {/* Bell button */}
-            <button onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer', padding: '12px' }} className='text-[var(--text-main)] bg-transparent border-none hover:opacity-80 transition'>
+            <button onClick={() => setOpen(o => !o)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left hover:bg-gray-100 dark:hover:bg-gray-800`}>
                 <span className="p-overlay-badge">
                     <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} severity="danger" />}
                 </span>
+                <span className='font-medium text-base'>Notifications</span>
             </button>
 
-            <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '500px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog">
+            <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '500px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
                 <div>
 
                     {/* Tabs */}
@@ -139,10 +140,10 @@ export default function NotificationBell({ userId }) {
                                             style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
                                             onMouseLeave={e => e.currentTarget.style.background = n.read ? 'var(--surface-1)' : 'var(--surface-2)'}>
-                                            <img 
-                                                src={n.sender?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`} 
-                                                alt="" 
-                                                style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} 
+                                            <img
+                                                src={n.sender?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`}
+                                                alt=""
+                                                style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }}
                                                 onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`; }}
                                             />
                                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -152,13 +153,13 @@ export default function NotificationBell({ userId }) {
                                                 <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-sub)' }}>{formatTime(n.createdAt)}</p>
                                                 {n.type === 'follow_request' && !n.read && (
                                                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                                                        <button 
+                                                        <button
                                                             onClick={(e) => handleAccept(e, n.sender.id, n._id)}
                                                             disabled={acceptMutation.isPending}
                                                             style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
                                                             {acceptMutation.isPending ? 'Accepting...' : 'Accept'}
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={(e) => handleDecline(e, n.sender.id, n._id)}
                                                             disabled={declineMutation.isPending}
                                                             style={{ background: 'var(--surface-2)', color: 'var(--text-sub)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
@@ -168,9 +169,9 @@ export default function NotificationBell({ userId }) {
                                                 )}
                                             </div>
                                             {n.thumbnail && (
-                                                <img 
-                                                    src={n.thumbnail} 
-                                                    alt="" 
+                                                <img
+                                                    src={n.thumbnail}
+                                                    alt=""
                                                     style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }}
                                                     onError={(e) => { e.target.style.display = 'none'; }}
                                                 />
@@ -180,15 +181,15 @@ export default function NotificationBell({ userId }) {
                                     ))
                                 )}
                                 {hasMore && (
-                                     <div style={{ padding: '12px', textAlign: 'center', borderTop: '1px solid #f3f4f6' }}>
-                                         <button 
-                                             onClick={(e) => { e.stopPropagation(); loadMore(); }} 
-                                             disabled={isLoading}
-                                             style={{ background: 'none', border: 'none', color: '#808bf5', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-                                             {isLoading ? 'Loading...' : 'Load more history'}
-                                         </button>
-                                     </div>
-                                 )}
+                                    <div style={{ padding: '12px', textAlign: 'center', borderTop: '1px solid #f3f4f6' }}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); loadMore(); }}
+                                            disabled={isLoading}
+                                            style={{ background: 'none', border: 'none', color: '#808bf5', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                                            {isLoading ? 'Loading...' : 'Load more history'}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { useNavigate } from 'react-router-dom';
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
@@ -81,11 +82,22 @@ const Search = () => {
         doSearch(term);
     };
 
+    const navigate = useNavigate();
+
     const handleUserClick = (userId, userName) => {
+        saveRecentSearch(userName);
+        setIsFocused(false);
+
+        const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+        if (isMobile) {
+            // On mobile, navigate to the full profile page instead of opening the popup
+            navigate(`/profile/${userId}`);
+            return;
+        }
+
+        // Desktop/tablet: open inline profile dialog
         setSelectedUserId(userId);
         setVisible(true);
-        setIsFocused(false);
-        saveRecentSearch(userName);
     };
 
     const handleCategoryClick = (category) => {
@@ -123,143 +135,142 @@ const Search = () => {
                     )}
                 </div>
 
-                {/* Dropdown */}
-                {showDropdown && (
-                    <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid #e5e7eb' }}>
 
-                        {/* Recent searches — shown when no search term */}
-                        {!searchTerm && recentSearches.length > 0 && (
-                            <div className="p-3">
-                                <div className="flex justify-between items-center mb-2">
-                                    <p className="text-xs font-bold text-gray-500 m-0 uppercase tracking-wider">Recent</p>
-                                    <button onClick={clearRecentSearches} className="text-xs text-indigo-500 border-0 bg-transparent cursor-pointer p-0">Clear all</button>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    {recentSearches.map((term, i) => (
-                                        <button key={i} onClick={() => handleRecentClick(term)}
-                                            className="flex items-center gap-2 px-2 py-2 rounded-lg border-0 bg-transparent cursor-pointer text-left hover:bg-gray-50 w-full">
-                                            <i className="pi pi-clock text-gray-400" style={{ fontSize: '12px' }}></i>
-                                            <span className="text-sm text-gray-700">{term}</span>
-                                        </button>
-                                    ))}
-                                </div>
+                <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: 'none' }}>
+
+                    {/* Recent searches — shown when no search term */}
+                    {!searchTerm && recentSearches.length > 0 && (
+                        <div className="p-3">
+                            <div className="flex justify-between items-center mb-2">
+                                <p className="text-xs font-bold text-gray-500 m-0 uppercase tracking-wider">Recent</p>
+                                <button onClick={clearRecentSearches} className="text-xs text-indigo-500 border-0 bg-transparent cursor-pointer p-0">Clear all</button>
                             </div>
-                        )}
-
-                        {/* Categories — always show when no search term */}
-                        {!searchTerm && categories.length > 0 && (
-                            <div className="px-3 pb-3">
-                                <p className="text-xs font-bold text-gray-500 my-2 m-0 uppercase tracking-wider">Categories</p>
-                                <div className="flex gap-2 flex-wrap">
-                                    {categories.slice(0, 8).map((cat, i) => (
-                                        <button key={i} onClick={() => handleCategoryClick(cat.category)}
-                                            className="text-xs px-3 py-1 rounded-full border-0 cursor-pointer font-medium"
-                                            style={{ background: '#ede9fe', color: '#808bf5' }}>
-                                            #{cat.category}
-                                        </button>
-                                    ))}
-                                </div>
+                            <div className="flex flex-col gap-1">
+                                {recentSearches.map((term, i) => (
+                                    <button key={i} onClick={() => handleRecentClick(term)}
+                                        className="flex items-center gap-2 px-2 py-2 rounded-lg bg-transparent cursor-pointer text-left hover:bg-gray-50 w-full">
+                                        <i className="pi pi-clock text-gray-400" style={{ fontSize: '12px' }}></i>
+                                        <span className="text-sm text-gray-700">{term}</span>
+                                    </button>
+                                ))}
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Search results */}
-                        {searchTerm && (
-                            <div className="p-3">
-                                {loading.search ? (
-                                    <div className="flex items-center gap-2 py-4 justify-center">
-                                        <span className="spinner-border spinner-border-sm text-indigo-500" role="status" />
-                                        <span className="text-sm text-gray-500">Searching...</span>
-                                    </div>
-                                ) : hasResults ? (
-                                    <>
-                                        {/* User results */}
-                                        {searchResults.users?.length > 0 && (
-                                            <div className="mb-3">
-                                                <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">People</p>
-                                                <div className="flex flex-col gap-1">
-                                                    {searchResults.users.map(u => (
-                                                        <button key={u._id} onClick={() => handleUserClick(u._id, u.fullname)}
-                                                            className="flex items-center gap-3 px-2 py-2 rounded-xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-gray-50">
-                                                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
-                                                                <img src={u.profile_picture} alt="" className="w-full h-full object-cover" />
-                                                            </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="m-0 text-sm font-medium truncate">{u.fullname}</p>
-                                                                <div className="flex items-center gap-2 mt-0.5">
-                                                                    {u.username && <p className="m-0 text-[11px] text-indigo-500 font-medium">@{u.username}</p>}
-                                                                    <span className="text-[10px] text-gray-300">•</span>
-                                                                    <p className="m-0 text-[11px] text-gray-500">{u.followers?.length || 0} followers</p>
-                                                                    {user?.following?.some(id => id?.toString() === u._id?.toString()) && (
-                                                                        <span className="text-[10px] bg-green-50 text-green-600 px-1.5 rounded-md font-semibold border border-green-100">Following</span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
 
-                                        {/* AI Recommended results */}
-                                        {aiResults.length > 0 && (
-                                            <div className="mt-3">
-                                                <p className="text-xs font-bold text-indigo-500 mb-3 m-0 uppercase tracking-wider">✨ AI Recommended</p>
-                                                <div className="flex flex-col gap-1">
-                                                    {aiResults.slice(0, 3).map(post => (
-                                                        <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl bg-indigo-50/50">
-                                                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                                                                {(post.image_urls?.[0] || post.image_url)
-                                                                    ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
-                                                                    : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '10px' }}></i></div>
-                                                                }
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="m-0 text-[10px] text-indigo-500 font-bold uppercase">#{post.category}</p>
-                                                                <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
+
+                    {!searchTerm && categories.length > 0 && (
+                        <div style={{ marginTop: '24px' }}>
+                            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Browse Categories</h3>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {categories.slice(0, 8).map((cat, i) => (
+                                    <button key={i} onClick={() => handleCategoryClick(cat.category)}
+                                        style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
+                                        #{cat.category}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Search results */}
+                    {searchTerm && (
+                        <div className="p-3">
+                            {loading.search ? (
+                                <div className="flex items-center gap-2 py-4 justify-center">
+                                    <span className="spinner-border spinner-border-sm text-indigo-500" role="status" />
+                                    <span className="text-sm text-gray-500">Searching...</span>
+                                </div>
+                            ) : hasResults ? (
+                                <>
+                                    {/* User results */}
+                                    {searchResults.users?.length > 0 && (
+                                        <div className="mb-3">
+                                            <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">People</p>
+                                            <div className="flex flex-col gap-1">
+                                                {searchResults.users.map(u => (
+                                                    <button key={u._id} onClick={() => handleUserClick(u._id, u.fullname)}
+                                                        className="flex items-center gap-3 px-2 py-2 rounded-xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-gray-50">
+                                                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
+                                                            <img src={u.profile_picture} alt="" className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="m-0 text-sm font-medium truncate">{u.fullname}</p>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                {u.username && <p className="m-0 text-[11px] text-indigo-500 font-medium">@{u.username}</p>}
+                                                                <span className="text-[10px] text-gray-300">•</span>
+                                                                <p className="m-0 text-[11px] text-gray-500">{u.followers?.length || 0} followers</p>
+                                                                {user?.following?.some(id => id?.toString() === u._id?.toString()) && (
+                                                                    <span className="text-[10px] bg-green-50 text-green-600 px-1.5 rounded-md font-semibold border border-green-100">Following</span>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                    ))}
-                                                </div>
+                                                    </button>
+                                                ))}
                                             </div>
-                                        )}
+                                        </div>
+                                    )}
 
-                                        {/* Post results */}
-                                        {searchResults.posts?.length > 0 && (
-                                            <div className="mt-3">
-                                                <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">Posts</p>
-                                                <div className="flex flex-col gap-1">
-                                                    {searchResults.posts.slice(0, 4).map(post => (
-                                                        <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors">
-                                                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                                                {(post.image_urls?.[0] || post.image_url)
-                                                                    ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
-                                                                    : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '12px' }}></i></div>
-                                                                }
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="m-0 text-xs text-indigo-500 font-medium">#{post.category}</p>
-                                                                <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
-                                                            </div>
+                                    {/* AI Recommended results */}
+                                    {aiResults.length > 0 && (
+                                        <div className="mt-3">
+                                            <p className="text-xs font-bold text-indigo-500 mb-3 m-0 uppercase tracking-wider">✨ AI Recommended</p>
+                                            <div className="flex flex-col gap-1">
+                                                {aiResults.slice(0, 3).map(post => (
+                                                    <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl bg-indigo-50/50">
+                                                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                                                            {(post.image_urls?.[0] || post.image_url)
+                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
+                                                                : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '10px' }}></i></div>
+                                                            }
                                                         </div>
-                                                    ))}
-                                                </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="m-0 text-[10px] text-indigo-500 font-bold uppercase">#{post.category}</p>
+                                                            <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="text-center py-6">
-                                        <p className="text-2xl mb-1">🔍</p>
-                                        <p className="text-sm text-gray-400 m-0">No results for "<strong>{searchTerm}</strong>"</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
+                                        </div>
+                                    )}
+
+                                    {/* Post results */}
+                                    {searchResults.posts?.length > 0 && (
+                                        <div className="mt-3">
+                                            <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">Posts</p>
+                                            <div className="flex flex-col gap-1">
+                                                {searchResults.posts.slice(0, 4).map(post => (
+                                                    <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+                                                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                            {(post.image_urls?.[0] || post.image_url)
+                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
+                                                                : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '12px' }}></i></div>
+                                                            }
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="m-0 text-xs text-indigo-500 font-medium">#{post.category}</p>
+                                                            <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-center py-6 ">
+                                    <p className="text-2xl mb-1">🔍</p>
+                                    <p className="text-sm text-gray-400 m-0">No results for "<strong>{searchTerm}</strong>"</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* User Profile Dialog */}
-            <Dialog header="Profile" visible={isVisible} style={{ width: '500px', height: '90vh' }} onHide={() => setVisible(false)}>
+            {/* User Profile Dialog - Popup/Dialog Mode */}
+            {/* Uses UserProfile with compact=true: minimal UI, 3 posts max, card-like styling, posts preview with blur */}
+            <Dialog header="Profile" visible={isVisible} style={{ width: '500px', height: '90vh' }} onHide={() => setVisible(false)} >
                 <UserProfile id={selectedUserId} />
             </Dialog>
         </>
