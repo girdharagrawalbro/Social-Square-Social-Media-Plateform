@@ -14,7 +14,9 @@ const usePostStore = create(
 
             // ─── Post Detail Dialog ───────────────────────────────────────
             postDetailId: null,
+            profileDetailId: null,
             storyDetailUserId: null,
+            storyDetailStoryId: null,
             liveStreamId: null,
             isLiveHost: false,
             isStoryViewerOpen: false,
@@ -26,7 +28,9 @@ const usePostStore = create(
             // ─── Setters ──────────────────────────────────────────────────
             setActiveMood: (mood) => set({ activeMood: mood }),
             setPostDetailId: (id) => set({ postDetailId: id }),
+            setProfileDetailId: (id) => set({ profileDetailId: id }),
             setStoryDetailUserId: (userId) => set({ storyDetailUserId: userId }),
+            setStoryDetailDeepLink: (userId, storyId = null) => set({ storyDetailUserId: userId, storyDetailStoryId: storyId }),
             setLiveStream: (id, isHost) => set({ liveStreamId: id, isLiveHost: isHost }),
             clearLiveStream: () => set({ liveStreamId: null, isLiveHost: false }),
             clearMood: () => set({ activeMood: null }),

@@ -141,6 +141,24 @@ const UserProfile = ({ id }) => {
     const handleUnblock = () => unblockUser(id);
     const handleMute = () => isMuted ? unmuteUser(id) : muteUser(id);
 
+    const handleShareProfile = async () => {
+        const profileUrl = `${window.location.origin}/profile/${id}`;
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: `${userDetails?.fullname || 'User'} on Social Square`,
+                    text: `Check out this profile on Social Square`,
+                    url: profileUrl
+                });
+                return;
+            }
+            await navigator.clipboard.writeText(profileUrl);
+            toast.success('Profile link copied');
+        } catch {
+            toast.error('Unable to share profile right now');
+        }
+    };
+
     const formatCount = (count = 0) => {
         if (count >= 1000000) return `${(count / 1000000).toFixed(1).replace('.0', '')}M`;
         if (count >= 1000) return `${(count / 1000).toFixed(1).replace('.0', '')}K`;
@@ -278,7 +296,22 @@ const UserProfile = ({ id }) => {
                                     </button>
                                 </div>
                             )}
+                            <button
+                                onClick={handleShareProfile}
+                                className="h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
+                            >
+                                🔗 Share Profile
+                            </button>
                         </div>
+                    )}
+
+                    {loggeduser?._id === id && (
+                        <button
+                            onClick={handleShareProfile}
+                            className="h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
+                        >
+                            🔗 Share Profile
+                        </button>
                     )}
 
                     {!isBlockedByMe && (

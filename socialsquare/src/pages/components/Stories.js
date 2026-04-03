@@ -379,13 +379,26 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
         u.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const storyUrl = story?._id && story?.user?._id
+        ? `${window.location.origin}/story/${story.user._id}/${story._id}`
+        : '';
+
+    const handleCopyLink = async () => {
+        if (!storyUrl) return;
+        try {
+            await navigator.clipboard.writeText(storyUrl);
+            toast.success('Story link copied');
+        } catch {
+            toast.error('Unable to copy link');
+        }
+    };
+
     const handleShare = async (targetUser) => {
         if (!story?._id || !targetUser?._id) return;
         setSendingUsers(prev => [...prev, targetUser._id]);
         try {
-            // Share as a message; the viewer will open via the `storyReply` payload.
-            // No need to embed the full /stories URL in the message content.
-            const content = `Shared a story`;
+            // Include deep link so the recipient can open the exact story from outside chat too.
+            const content = `Shared a story: ${storyUrl}`;
             
             // Create or get conversation
             const convRes = await api.post('/api/conversation/messages', { recipientId: targetUser._id });
@@ -434,6 +447,13 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                         className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-0 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                     />
                 </div>
+
+                <button
+                    onClick={handleCopyLink}
+                    className="w-full py-2.5 bg-gray-100 border-0 rounded-xl cursor-pointer text-gray-700 font-semibold text-xs hover:bg-gray-200 transition"
+                >
+                    🔗 Copy Story Link
+                </button>
                 
                 <div className="max-h-[350px] overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-1">
                     {isLoading ? (
@@ -672,7 +692,7 @@ const Stories = () => {
     const [shareOpen, setShareOpen] = useState(false);
     const [sharingStory, setSharingStory] = useState(null);
     const [initialStoryId, setInitialStoryId] = useState(null);
-    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, setStoryDetailUserId, liveStreamId, isLiveHost, setLiveStream, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
+    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, setLiveStream, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
     const [activeLiveStreams, setActiveLiveStreams] = useState([]);
 
     // ✅ Sync story feed to local groups state
@@ -727,13 +747,14 @@ const Stories = () => {
             const index = groups.findIndex(g => g.user._id.toString() === storyDetailUserId.toString());
             if (index !== -1) {
                 setViewerGroupIndex(index);
+                setInitialStoryId(storyDetailStoryId || null);
                 setViewerOpen(true);
                 setIsStoryViewerOpen(true);
             }
             // Clear the selection so it doesn't trigger again
-            setStoryDetailUserId(null);
+            setStoryDetailDeepLink(null, null);
         }
-    }, [storyDetailUserId, groups, setStoryDetailUserId, setIsStoryViewerOpen]);
+    }, [storyDetailUserId, storyDetailStoryId, groups, setStoryDetailDeepLink, setIsStoryViewerOpen]);
 
     // ✅ Real-time: new story from a followed user
     useEffect(() => {

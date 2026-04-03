@@ -6,6 +6,7 @@ import { uploadToCloudinary, uploadVideoToCloudinary } from '../../utils/cloudin
 import toast from 'react-hot-toast';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
 import PostDetail from './PostDetail';
+import UserProfile from './UserProfile';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 
@@ -114,6 +115,8 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [editText, setEditText] = useState(message.content);
     const [showPostModal, setShowPostModal] = useState(false);
     const [selectedPostId, setSelectedPostId] = useState(null);
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState(null);
     const [storyModalOpen, setStoryModalOpen] = useState(false);
     const [storyModalGroups, setStoryModalGroups] = useState([]);
     const [storyModalGroupIndex, setStoryModalGroupIndex] = useState(0);
@@ -123,14 +126,24 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const isDeleted = !!message.deletedAt;
     const closeTimerRef = useRef(null);
 
-    // Extract post ID from shared post URL
-    const extractPostId = (text) => {
-        const match = text.match(/\/post\/([a-f0-9]+)/);
-        return match ? match[1] : null;
+    const extractSharedLinkData = (text = '') => {
+        const postMatch = text.match(/(?:https?:\/\/[^\s]+)?\/post\/([a-f0-9]+)/i);
+        const profileMatch = text.match(/(?:https?:\/\/[^\s]+)?\/profile\/([a-f0-9]+)/i);
+        const storyMatch = text.match(/(?:https?:\/\/[^\s]+)?\/story\/([a-f0-9]+)(?:\/([a-f0-9]+))?/i);
+
+        return {
+            postId: postMatch ? postMatch[1] : null,
+            profileId: profileMatch ? profileMatch[1] : null,
+            storyUserId: storyMatch ? storyMatch[1] : null,
+            storyId: storyMatch ? (storyMatch[2] || null) : null,
+        };
     };
 
-    const isSharedPost = message.content && message.content.includes('/post/') && message.content.includes('Shared a post');
-    const sharedPostId = isSharedPost ? extractPostId(message.content) : null;
+    const sharedLinkData = extractSharedLinkData(message.content || '');
+    const isSharedPost = !!sharedLinkData.postId;
+    const isSharedProfile = !!sharedLinkData.profileId;
+    const isSharedStoryLink = !!sharedLinkData.storyUserId;
+    const hasSharedLinkCard = isSharedPost || isSharedProfile || isSharedStoryLink;
     const reactions = message.reactions ? Object.entries(message.reactions) : [];
     const reactionGroups = reactions.reduce((acc, [uid, emoji]) => {
         if (!acc[emoji]) acc[emoji] = [];
@@ -246,15 +259,41 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                         </div>
                                     </div>
                                 )}
-                                {isSharedPost ? (
-                                    <div onClick={() => { setSelectedPostId(sharedPostId); setShowPostModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {isSharedPost && (
+                                    <div onClick={() => { setSelectedPostId(sharedLinkData.postId); setShowPostModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '20px' }}>📤</span>
                                         <div style={{ flex: 1 }}>
                                             <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a post</p>
                                             <p style={{ margin: 0, fontSize: '11px', opacity: 0.7, wordBreak: 'break-all' }}>Tap to view post details →</p>
                                         </div>
                                     </div>
-                                ) : null}
+                                )}
+                                {isSharedProfile && (
+                                    <div onClick={() => { setSelectedProfileId(sharedLinkData.profileId); setShowProfileModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '20px' }}>👤</span>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a profile</p>
+                                            <p style={{ margin: 0, fontSize: '11px', opacity: 0.7, wordBreak: 'break-all' }}>Tap to view profile →</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {isSharedStoryLink && (
+                                    <div
+                                        onClick={() => {
+                                            if (typeof window.onViewStory === 'function') {
+                                                window.onViewStory(sharedLinkData.storyUserId, sharedLinkData.storyId);
+                                            } else {
+                                                window.location.href = `/story/${sharedLinkData.storyUserId}${sharedLinkData.storyId ? `/${sharedLinkData.storyId}` : ''}`;
+                                            }
+                                        }}
+                                        style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '20px' }}>📖</span>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a story</p>
+                                            <p style={{ margin: 0, fontSize: '11px', opacity: 0.7, wordBreak: 'break-all' }}>Tap to view story →</p>
+                                        </div>
+                                    </div>
+                                )}
                                 {message.media?.url && (
                                     <div style={{ marginBottom: message.content ? '8px' : 0 }}>
                                         {message.media.type === 'image' && <img src={message.media.url} alt="" style={{
@@ -266,7 +305,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                         {message.media.type === 'file' && <a href={message.media.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isOwn ? '#fff' : '#808bf5', textDecoration: 'none', fontSize: '13px' }}>📎 {message.media.name || 'File'}</a>}
                                     </div>
                                 )}
-                                {!isSharedPost && message.content && <p style={{ margin: 0 }}>{message.content}</p>}
+                                {!hasSharedLinkCard && message.content && <p style={{ margin: 0 }}>{message.content}</p>}
                                 {message.edited && <span style={{ fontSize: '10px', opacity: 0.6 }}> (edited)</span>}
                             </>
                         )}
@@ -314,6 +353,21 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                         className="p-0 overflow-hidden post-detail-dialog"
                     >
                         <PostDetail postId={selectedPostId} isModal={true} onClose={() => setShowPostModal(false)} />
+                    </Dialog>
+                )}
+                {showProfileModal && selectedProfileId && (
+                    <Dialog
+                        header="Profile"
+                        aria-label="Profile"
+                        aria-modal="true"
+                        role="dialog"
+                        visible={showProfileModal}
+                        appendTo={document.body}
+                        style={{ width: '95vw', maxWidth: '500px' }}
+                        onHide={() => setShowProfileModal(false)}
+                        modal
+                    >
+                        <UserProfile id={selectedProfileId} />
                     </Dialog>
                 )}
                 {storyModalOpen && StoryViewerComp && (

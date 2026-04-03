@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Bg from './components/Bg';
 import toast, { Toaster } from 'react-hot-toast';
 import { encryptPassword } from '../utils/crypto';
@@ -9,6 +9,7 @@ import useAuthStore from '../store/zustand/useAuthStore';
 const Login = () => {
   const [formData, setFormData] = useState({ identifier: '', password: '' });
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useAuthStore(s => s.login);
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
@@ -18,9 +19,13 @@ const Login = () => {
     const isInitialMount = !window.sessionStorage.getItem('just_logged_in');
     if (user && isInitialMount) {
       toast.success('You are already logged in..');
-      navigate(`/${user.username}`);
+      if (location.search) {
+        navigate(`/${user.username}${location.search}`);
+      } else {
+        navigate(`/${user.username}`);
+      }
     }
-  }, [user, navigate]);
+  }, [user, navigate, location.search]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,7 +56,32 @@ const Login = () => {
         window.sessionStorage.setItem('just_logged_in', 'true');
         toast.success('Login successful! Redirecting...');
         setTimeout(() => window.sessionStorage.removeItem('just_logged_in'), 2000);
-        navigate(`/${result.user.username}`);
+        const params = new URLSearchParams(location.search);
+        const sharedPostId = params.get('post') || window.sessionStorage.getItem('pendingPostId');
+        const sharedProfileId = params.get('profile') || window.sessionStorage.getItem('pendingProfileId');
+        const sharedStoryUserId = params.get('storyUser') || window.sessionStorage.getItem('pendingStoryUserId');
+        const sharedStoryId = params.get('story') || window.sessionStorage.getItem('pendingStoryId');
+        const loggedInUser = useAuthStore.getState().user;
+        const username = loggedInUser?.username || result?.user?.username;
+
+        if (!username) {
+          toast.error('Login succeeded, but user profile is not available yet. Please try again.');
+          navigate('/');
+          return;
+        }
+
+        const redirectParams = new URLSearchParams();
+        if (sharedPostId) redirectParams.set('post', sharedPostId);
+        if (sharedProfileId) redirectParams.set('profile', sharedProfileId);
+        if (sharedStoryUserId) redirectParams.set('storyUser', sharedStoryUserId);
+        if (sharedStoryId) redirectParams.set('story', sharedStoryId);
+
+        if ([...redirectParams.keys()].length > 0) {
+          navigate(`/${username}?${redirectParams.toString()}`);
+          return;
+        }
+
+        navigate(`/${username}`);
       } else {
         toast.error(result?.error || 'Login failed');
       }

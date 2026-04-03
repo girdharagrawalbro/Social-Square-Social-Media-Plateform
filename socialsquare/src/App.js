@@ -1,5 +1,5 @@
 import './App.css';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
@@ -125,6 +125,84 @@ function AppInit() {
     return null;
 }
 
+function SharedPostRedirect() {
+    const { postId } = useParams();
+    const navigate = useNavigate();
+    const user = useAuthStore(s => s.user);
+    const loading = useAuthStore(s => s.loading);
+    const initialized = useAuthStore(s => s.initialized);
+
+    useEffect(() => {
+        if (!postId) return;
+
+        window.sessionStorage.setItem('pendingPostId', postId);
+
+        if (!initialized || loading) return;
+
+        if (user?.username) {
+            navigate(`/${user.username}?post=${postId}`, { replace: true });
+            return;
+        }
+
+        navigate(`/login?post=${postId}`, { replace: true });
+    }, [postId, initialized, loading, user?.username, navigate]);
+
+    return <PageLoader />;
+}
+
+function SharedProfileRedirect() {
+    const { userId } = useParams();
+    const navigate = useNavigate();
+    const user = useAuthStore(s => s.user);
+    const loading = useAuthStore(s => s.loading);
+    const initialized = useAuthStore(s => s.initialized);
+
+    useEffect(() => {
+        if (!userId) return;
+
+        window.sessionStorage.setItem('pendingProfileId', userId);
+
+        if (!initialized || loading) return;
+
+        if (user?.username) {
+            navigate(`/${user.username}?profile=${userId}`, { replace: true });
+            return;
+        }
+
+        navigate(`/login?profile=${userId}`, { replace: true });
+    }, [userId, initialized, loading, user?.username, navigate]);
+
+    return <PageLoader />;
+}
+
+function SharedStoryRedirect() {
+    const { userId, storyId } = useParams();
+    const navigate = useNavigate();
+    const user = useAuthStore(s => s.user);
+    const loading = useAuthStore(s => s.loading);
+    const initialized = useAuthStore(s => s.initialized);
+
+    useEffect(() => {
+        if (!userId) return;
+
+        window.sessionStorage.setItem('pendingStoryUserId', userId);
+        if (storyId) {
+            window.sessionStorage.setItem('pendingStoryId', storyId);
+        }
+
+        if (!initialized || loading) return;
+
+        if (user?.username) {
+            navigate(`/${user.username}?storyUser=${userId}${storyId ? `&story=${storyId}` : ''}`, { replace: true });
+            return;
+        }
+
+        navigate(`/login?storyUser=${userId}${storyId ? `&story=${storyId}` : ''}`, { replace: true });
+    }, [userId, storyId, initialized, loading, user?.username, navigate]);
+
+    return <PageLoader />;
+}
+
 function App() {
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -178,6 +256,10 @@ function App() {
                                 <Route path="/verify-otp" element={<VerifyOtp />} />
                                 <Route path="/admin" element={<AdminDashboard />} />
                                 <Route path="/verify-email/:token" element={<VerifyEmail />} />
+                                <Route path="/post/:postId" element={<SharedPostRedirect />} />
+                                <Route path="/profile/:userId" element={<SharedProfileRedirect />} />
+                                <Route path="/story/:userId/:storyId" element={<SharedStoryRedirect />} />
+                                <Route path="/story/:userId" element={<SharedStoryRedirect />} />
                                 <Route path="/" element={<Landing />} />
                                 <Route path="/:username" element={<Home />} />
                             </Routes>
