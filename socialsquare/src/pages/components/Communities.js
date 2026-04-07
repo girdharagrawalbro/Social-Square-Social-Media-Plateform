@@ -112,7 +112,7 @@ const ConfessionsFeed = () => {
 };
 
 // ─── MAIN EXPLORE ─────────────────────────────────────────────────────────────
-const Explore = () => {
+const Communities = () => {
 
 
     const [selectedUserId, setSelectedUserId] = useState(null);
@@ -149,11 +149,11 @@ const Explore = () => {
             {activeTab === 'communities' && <Groups />}
 
 
-            <Dialog header="Profile" visible={userProfileVisible} style={{ width: '500px' }} onHide={() => setUserProfileVisible(false)}>
+            <Dialog header="Profile" visible={userProfileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setUserProfileVisible(false)}>
                 <UserProfile id={selectedUserId} />
             </Dialog>
         </div>
     );
 };
 
-export default Explore;
+export default Communities;

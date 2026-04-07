@@ -89,7 +89,7 @@ const NewPost = ({ setnewpostVisible }) => {
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [aiLimit, setAiLimit] = useState(defaultAiLimit);
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
-    
+
     // Polls & Quizzes
     const [pollOptions, setPollOptions] = useState(['', '']);
     const [isQuiz, setIsQuiz] = useState(false);
@@ -517,7 +517,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 mood = moodRes.data.mood;
             } catch { }
 
-                const postData = {
+            const postData = {
                 ...formData, loggeduser: loggeduser?._id, imageURLs,
                 location: location.name ? location : null,
                 music: music.title ? music : null,
@@ -590,7 +590,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                             <img src={isAnonymous ? 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' : (loggeduser?.profile_picture || "default-profile.png")} alt="Profile" className="logo" style={{ borderRadius: '50%' }} />
                             <div>
                                 <span className="text-[var(--text-main)] font-semibold">{loggeduser?.fullname}</span>
-                                {location.name && <span className="flex items-center text-xs gap-1 text-[var(--text-sub)]">📍 {location.name}<button type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '12px' }}>✕</button></span>}
+                                {location.name && <span className="flex items-center text-xs gap-1 text-[var(--text-sub)]">📍 {location.name}<button aria-label="Remove location" type="button" onClick={() => setLocation({ name: '', lat: null, lng: null })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '12px' }}>✕</button></span>}
                             </div>
                         </div>
                         {myGroups.length > 0 && (
@@ -613,6 +613,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                             <div className="flex w-100 flex-wrap justify-around">
                                 <button
                                     type="button"
+                                    aria-label="Add emoji"
                                     onClick={() => togglePanel('emoji')}
                                     style={actionBtnStyle(openFeaturePanel === 'emoji')}
                                 >
@@ -622,6 +623,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
 
                                 <button
                                     type="button"
+                                    aria-label="Add image or video"
                                     onClick={() => fileInputRef.current?.click()}
                                     style={actionBtnStyle(false)}
                                 >
@@ -640,6 +642,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
 
                                 <button
                                     type="button"
+                                    aria-label={location.name ? "Location added" : "Add location"}
                                     onClick={handleGetLocation}
                                     disabled={loadingLocation}
                                     style={actionBtnStyle(!!location.name)}
@@ -663,6 +666,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
 
                                 <button
                                     type="button"
+                                    aria-label="Use AI features"
                                     onClick={() => togglePanel('ai')}
                                     style={actionBtnStyle(openFeaturePanel === 'ai')}
                                     title="AI Magic"
@@ -671,6 +675,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 </button>
                                 <button
                                     type="button"
+                                    aria-label="Advanced settings"
                                     onClick={() => togglePanel('advanced')}
                                     style={actionBtnStyle(openFeaturePanel === 'advanced')}
                                 >
@@ -678,6 +683,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 </button>
                                 <button
                                     type="button"
+                                    aria-label="Add poll"
                                     onClick={() => togglePanel('poll')}
                                     style={actionBtnStyle(openFeaturePanel === 'poll')}
                                     title="Add Poll"
@@ -687,6 +693,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
 
                                 <button
                                     type="submit"
+                                    aria-label="Submit post"
                                     disabled={isPosting}
                                     style={{
                                         ...actionBtnStyle(false),
@@ -707,8 +714,8 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                 <div className="mt-2 p-3 bg-[var(--surface-1)] border border-[var(--border-color)] rounded-2xl flex flex-col gap-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">Poll Options</span>
-                                        <button 
-                                            type="button" 
+                                        <button
+                                            type="button"
                                             onClick={() => setIsQuiz(!isQuiz)}
                                             className={`text-[10px] px-2 py-1 rounded-lg border font-bold transition ${isQuiz ? 'bg-amber-100 text-amber-600 border-amber-200' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)]'}`}
                                         >
@@ -719,7 +726,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                         {pollOptions.map((opt, idx) => (
                                             <div key={idx} className="flex gap-2 items-center">
                                                 {isQuiz && (
-                                                    <button 
+                                                    <button
                                                         type="button"
                                                         onClick={() => setCorrectOptionIndex(idx)}
                                                         className={`w-6 h-6 rounded-full border flex-shrink-0 flex items-center justify-center transition ${correctOptionIndex === idx ? 'bg-green-500 border-green-600 text-white' : 'border-[var(--border-color)] text-[var(--text-sub)]'}`}
@@ -727,9 +734,9 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                                         {correctOptionIndex === idx ? <i className="pi pi-check text-[10px]" /> : idx + 1}
                                                     </button>
                                                 )}
-                                                <input 
-                                                    type="text" 
-                                                    value={opt} 
+                                                <input
+                                                    type="text"
+                                                    value={opt}
                                                     onChange={(e) => {
                                                         const newOpts = [...pollOptions];
                                                         newOpts[idx] = e.target.value;
@@ -739,8 +746,8 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                                     className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[#808bf5]"
                                                 />
                                                 {pollOptions.length > 2 && (
-                                                    <button 
-                                                        type="button" 
+                                                    <button
+                                                        type="button"
                                                         onClick={() => setPollOptions(prev => prev.filter((_, i) => i !== idx))}
                                                         className="pi pi-times text-[var(--text-sub)] hover:text-red-500 transition cursor-pointer"
                                                     />
@@ -748,8 +755,8 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                             </div>
                                         ))}
                                         {pollOptions.length < 5 && (
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 onClick={() => setPollOptions(prev => [...prev, ''])}
                                                 className="text-xs text-[#808bf5] font-semibold hover:underline w-fit mt-1"
                                             >
@@ -774,17 +781,17 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                     />
                                 )}
 
-                                    {video && (
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
-                                            <video src={video.preview} controls style={{ maxWidth: '220px', borderRadius: '8px' }} />
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>Video: {Math.round((video.file.size / (1024 * 1024)) * 10) / 10}MB • {formatDuration(Math.round(video.duration))}</div>
-                                                <div style={{ display: 'flex', gap: '6px' }}>
-                                                    <button type="button" onClick={() => { URL.revokeObjectURL(video.preview); setVideo(null); }} style={{ padding: '6px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', cursor: 'pointer' }}>Remove</button>
-                                                </div>
+                                {video && (
+                                    <div className="flex gap-3 items-center mt-2 justify-center">
+                                        <video src={video.preview} autoplay loop style={{ maxWidth: '220px', borderRadius: '8px' }} />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>Size: {Math.round((video.file.size / (1024 * 1024)) * 10) / 10}MB • {formatDuration(Math.round(video.duration))}</div>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                <button type="button" onClick={() => { URL.revokeObjectURL(video.preview); setVideo(null); }} style={{ padding: '6px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', cursor: 'pointer' }}>Remove</button>
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
                                 {/* {music.title && <button type="button" onClick={() => setMusic({ title: '', artist: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px' }}>✕</button>}
                                 {showMusicInput && (
@@ -1001,7 +1008,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                     </div>
                                 )}
                                 {img.uploaded && <div style={{ position: 'absolute', top: '4px', right: '4px', background: '#22c55e', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: '10px', fontWeight: 'bold' }}>✓</span></div>}
-                                {!isPosting && <button onClick={() => removeImage(img.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>}
+                                {!isPosting && <button aria-label="Remove image" type="button" onClick={() => removeImage(img.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>}
                             </div>
                         ))}
                         {images.length < 5 && !isPosting && (
@@ -1019,7 +1026,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                     {voicePreviewUrl && <span style={{ fontSize: '11px', background: '#dbeafe', color: '#2563eb', borderRadius: '12px', padding: '2px 8px' }}>🎤 Voice note</span>}
                 </div>
             </div>
-            <ImageCropper 
+            <ImageCropper
                 visible={croppingState.visible}
                 image={croppingState.imageSrc}
                 onCropComplete={handleCropComplete}

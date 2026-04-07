@@ -1,5 +1,5 @@
 import './App.css';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
@@ -17,12 +17,18 @@ import toast, { Toaster } from 'react-hot-toast';
 import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
 import Conversations from './pages/components/Conversations';
+import ActiveSessions from './pages/components/ActiveSessions';
+import SettingsLayout from './pages/components/SettingsLayout';
 
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
 import Sidebar from './pages/components/Sidebar';
-import ExploreGrid from './pages/components/Explore';
-import Explore from './pages/components/Commuinties';
-import Communities from './pages/components/Commuinties';
+import Explore from './pages/components/Explore';
+import Communities from './pages/components/Communities';
+import BottomNav from './pages/components/BottomNav';
+import Navbar from './pages/components/Navbar';
+
+import Footer from './pages/components/Footer';
+import NotificationBell from './pages/components/ui/NotificationBell';
 
 // ─── LAZY PAGES ───────────────────────────────────────────────────────────────
 const Home = lazy(() => import('./pages/Home'));
@@ -37,6 +43,7 @@ const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 
 const PageLoader = () => (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
@@ -212,13 +219,39 @@ function SharedStoryRedirect() {
 }
 
 // ─── MAIN LAYOUT WITH NAVBAR & SIDEBAR ────────────────────────────────────────
-function MainLayout({ children }) {
+function PublicLayout({ children }) {
     return (
-        <div className="flex min-h-[100dvh] w-full">
-            <div className="flex w-full">
+        <div className="flex flex-col min-h-[100dvh] w-full">
+            <Navbar />
+            <main className="flex-1">
+                {children}
+            </main>
+            <Footer />
+        </div>
+    );
+}
+
+function MainLayout({ children }) {
+    const user = useAuthStore(s => s.user);
+    const location = useLocation();
+    const isMessages = location.pathname === '/messages';
+
+    return (
+        <div className="relative flex flex-col min-h-[100dvh] w-full">
+            <div className="lg:hidden">
+                <Navbar />
+            </div>
+            {/* Desktop Notification Bell (Top Right) - Hide in Chat Panel */}
+            {!isMessages && (
+                <div className="hidden lg:block fixed top-6 right-8 z-50">
+                    <NotificationBell userId={user?._id} showLabel={false} />
+                </div>
+            )}
+            <div className="flex w-full flex-1">
                 <Sidebar />
-                <main className="flex-1">
+                <main className="flex-1 min-w-0">
                     {children}
+                    <BottomNav />
                 </main>
             </div>
         </div>
@@ -269,20 +302,22 @@ function App() {
                     <Router>
                         <Suspense fallback={<PageLoader />}>
                             <Routes>
-                                {/* Public Routes - No Layout */}
-                                <Route path="/" element={<Landing />} />
-                                <Route path="/signup" element={<Signup />} />
-                                <Route path="/login" element={<Login />} />
-                                <Route path="/forgot" element={<Forgot />} />
-                                <Route path="/contact" element={<Contact />} />
-                                <Route path="/help" element={<Help />} />
-                                <Route path="/reset-password" element={<ResetPassword />} />
-                                <Route path="/verify-otp" element={<VerifyOtp />} />
-                                <Route path="/verify-email/:token" element={<VerifyEmail />} />
+                                {/* Public Routes - With PublicLayout (Navbar) */}
+                                <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
+                                <Route path="/signup" element={<PublicLayout><Signup /></PublicLayout>} />
+                                <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
+                                <Route path="/forgot" element={<PublicLayout><Forgot /></PublicLayout>} />
+                                <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+                                <Route path="/help" element={<PublicLayout><Help /></PublicLayout>} />
+                                <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
+                                <Route path="/verify-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
+                                <Route path="/verify-email/:token" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
 
                                 {/* Protected Routes - With MainLayout (Navbar + Sidebar) */}
                                 <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
                                 <Route path="/messages" element={<MainLayout><Conversations /></MainLayout>} />
+                                <Route path="/settings/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
+                                <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
                                 <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
                                 <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />
                                 <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />

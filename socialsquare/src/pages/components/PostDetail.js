@@ -15,50 +15,13 @@ import formatDate from '../../utils/formatDate';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import ReportDialog from './ui/ReportDialog';
+import PostMenu from './ui/PostMenu';
 
 const UserProfile = lazy(() => import('./UserProfile'));
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
-// ─── POST MENU ────────────────────────────────────────────────────────────────
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory }) => {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
-    useEffect(() => {
-        const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, []);
-    return (
-        <div ref={ref} className="relative">
-            <button onClick={() => setOpen(v => !v)} className="bg-transparent border-0 cursor-pointer p-1.5 rounded-full text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition flex items-center justify-center">
-                <i className="pi pi-ellipsis-h" style={{ fontSize: '14px' }}></i>
-            </button>
-            {open && (
-                <div className="absolute right-0 top-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl shadow-xl z-50 overflow-hidden mt-1" style={{ minWidth: '180px' }}>
-                    <button onClick={() => { if (!isSaving) onSave(); setOpen(false) }} disabled={isSaving} style={{ opacity: isSaving ? 0.5 : 1 }} className="w-full px-4 py-2.5 border-0 bg-transparent cursor-pointer text-left text-sm text-[var(--text-main)] hover:bg-[var(--surface-2)] transition flex items-center gap-2">
-                        <span>{isSaved ? '🔖' : '🔖'}</span> {isSaved ? 'Unsave' : 'Save post'}
-                    </button>
-                    {!isOwner && <button onClick={() => { onReport(); setOpen(false) }} className="w-full px-4 py-2.5 border-0 bg-transparent cursor-pointer text-left text-sm text-red-500 hover:bg-[var(--surface-2)] transition flex items-center gap-2">
-                        <span>🚩</span> Report post
-                    </button>}
-                    {isOwner && <>
-                        <button onClick={() => { onEdit(); setOpen(false) }} className="w-full px-4 py-2.5 border-0 bg-transparent cursor-pointer text-left text-sm text-[var(--text-main)] hover:bg-[var(--surface-2)] transition flex items-center gap-2">
-                            <span>✏️</span> Edit post
-                        </button>
-                        <button onClick={() => { onShareToStory(); setOpen(false) }} className="w-full px-4 py-2.5 border-0 bg-transparent cursor-pointer text-left text-sm text-[#808bf5] hover:bg-[var(--surface-2)] transition flex items-center gap-2">
-                            <span>✨</span> Share to Story
-                        </button>
-                        <button onClick={() => { onDelete(); setOpen(false) }} className="w-full px-4 py-2.5 border-0 bg-transparent cursor-pointer text-left text-sm text-red-500 hover:bg-[var(--surface-2)] transition flex items-center gap-2">
-                            <span>🗑️</span> Delete post
-                        </button>
-                    </>}
-                </div>
-            )}
-        </div>
-    );
-};
+
 
 // ─── POST DETAIL ─────────────────────────────────────────────────────────────
 
@@ -245,6 +208,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             <div className="flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative" style={{ borderRadius: '12px' }}>
                 {/* Custom Close Button for mobile/tablet or for cleaner look */}
                 <button
+                    aria-label="Close"
                     onClick={onHide}
                     className="absolute top-4 right-4 z-[60] bg-[var(--surface-1)] shadow-md border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-[var(--surface-2)] transition text-[var(--text-main)] md:hidden"
                 >
@@ -256,37 +220,54 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                     <div className="hidden md:flex flex-1 bg-[var(--surface-1)] items-center justify-center p-0 relative overflow-hidden">
                         <div className="relative w-full h-full flex items-center justify-center">
-                            <img
-                                src={images[currentImage]}
-                                alt="Post"
-                                onDoubleClick={handleImageDoubleClick}
-                                onTouchEnd={handleImageTap}
-                                className="max-w-full max-h-full object-contain cursor-pointer"
-                            />
-                            {heartVisible && (
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none animate-heartBurst">
-                                    <span className="text-8xl">❤️</span>
+                            {/* VIDEO RENDERER */}
+                            {post?.video ? (
+                                <div className="relative w-full h-full flex items-center justify-center bg-black">
+                                    <video
+                                        src={post.video}
+                                        controls
+                                        onDoubleClick={handleImageDoubleClick}
+                                        onTouchEnd={handleImageTap}
+                                        className="max-w-full max-h-full object-contain"
+                                        style={{ display: 'block' }}
+                                    />
                                 </div>
+                            ) : (
+                                <>
+                                    <img
+                                        src={images[currentImage]}
+                                        alt="Post"
+                                        onDoubleClick={handleImageDoubleClick}
+                                        onTouchEnd={handleImageTap}
+                                        className="max-w-full max-h-full object-contain cursor-pointer"
+                                    />
+                                    {images.length > 1 && (
+                                        <>
+                                            {currentImage > 0 && (
+                                                <button aria-label="Previous image" onClick={() => setCurrentImage(c => c - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
+                                                    <i className="pi pi-chevron-left"></i>
+                                                </button>
+                                            )}
+                                            {currentImage < images.length - 1 && (
+                                                <button aria-label="Next image" onClick={() => setCurrentImage(c => c + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
+                                                    <i className="pi pi-chevron-right"></i>
+                                                </button>
+                                            )}
+                                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-sm p-1.5 rounded-full">
+                                                {images.map((_, i) => (
+                                                    <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </>
                             )}
 
-                            {images.length > 1 && (
-                                <>
-                                    {currentImage > 0 && (
-                                        <button onClick={() => setCurrentImage(c => c - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
-                                            <i className="pi pi-chevron-left"></i>
-                                        </button>
-                                    )}
-                                    {currentImage < images.length - 1 && (
-                                        <button onClick={() => setCurrentImage(c => c + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
-                                            <i className="pi pi-chevron-right"></i>
-                                        </button>
-                                    )}
-                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-sm p-1.5 rounded-full">
-                                        {images.map((_, i) => (
-                                            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
-                                        ))}
-                                    </div>
-                                </>
+                            {/* SHARED HEART ANIMATION */}
+                            {heartVisible && (
+                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
+                                    <span className="text-8xl">❤️</span>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -313,7 +294,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             {post.collaborators?.length > 0 && (
                                                 <span className="text-[var(--text-sub)] text-[10px] font-medium tracking-tight">Collaborators: {post.collaborators.length}</span>
                                             )}
-                                            <span className="text-[var(--text-sub)] text-[10px]">{formatDate(post.createdAt)}</span>
+                                            <span className="text-[var(--text-sub)] text-[10px]">{formatDate(post.createdAt || post.updatedAt)}</span>
                                         </div>
                                     </div>
                                     <PostMenu
@@ -358,7 +339,11 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 </div>
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer relative"
+                                    role="button"
+                                    tabIndex="0"
+                                    aria-label="Like post"
                                     onClick={handleLikeToggle}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLikeToggle(); } }}
                                     onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerVisible(true)}
                                     onMouseLeave={() => setPickerVisible(false)}
                                 >
@@ -377,9 +362,19 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 </div>
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    role="button"
+                                    tabIndex="0"
+                                    aria-label="Comment"
                                     onClick={() => {
                                         const input = document.querySelector('input[placeholder="Write a comment..."]');
                                         if (input) input.focus();
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            const input = document.querySelector('input[placeholder="Write a comment..."]');
+                                            if (input) input.focus();
+                                        }
                                     }}
                                 >
                                     <i className="pi pi-comment text-xl text-[var(--text-main)] group-hover:scale-110 transition-transform"></i>
@@ -387,14 +382,22 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 </div>
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    role="button"
+                                    tabIndex="0"
+                                    aria-label="Share post"
                                     onClick={() => setShareVisible(true)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShareVisible(true); } }}
                                 >
                                     <i className="pi pi-send text-xl text-[var(--text-main)] group-hover:scale-110 transition-transform -rotate-12"></i>
                                     <span className="text-[10px] font-bold text-[var(--text-sub)]">Share</span>
                                 </div>
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    role="button"
+                                    tabIndex="0"
+                                    aria-label={isSaved ? 'Unsave post' : 'Save post'}
                                     onClick={handleSave}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSave(); } }}
                                     style={{ opacity: isSaving ? 0.5 : 1 }}
                                 >
                                     <i className={`pi ${isSaved ? 'pi-bookmark-fill' : 'pi-bookmark'} text-xl ${isSaved ? 'text-[#808bf5]' : 'text-[var(--text-main)]'} group-hover:scale-110 transition-transform`}></i>
@@ -403,6 +406,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                             </div>
 
 
+                            <div className="px-4 py-2">
+                                <p className="m-0 text-[10px] text-[var(--text-sub)] uppercase tracking-wide">{formatDate(post.createdAt || post.updatedAt)}</p>
+                            </div>
                             {/* Similar Posts */}
                             <div className="">
                                 <SimilarPosts postId={post._id} onPostClick={(id) => setActivePostId(id)} />

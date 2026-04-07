@@ -237,7 +237,7 @@ export function useVotePoll() {
 }
 export function useReactPost() {
     const qc = useQueryClient();
-    
+
     return useMutation({
         mutationFn: ({ postId, emoji }) =>
             api.post(`${BASE}/api/post/react`, { postId, emoji }),

@@ -113,8 +113,14 @@ async function initRedis() {
         const subClient = pubClient.duplicate();
         subClient.on('error', err => console.error('[Redis Sub]', err.message));
         await Promise.all([pubClient.connect(), subClient.connect()]);
-        io.adapter(createAdapter(pubClient, subClient));
-        console.log('[Redis] Socket.io adapter configured');
+        // Gate the socket.io Redis adapter behind an env flag so we can disable during testing
+        // To enable, set `ENABLE_SOCKET_REDIS_ADAPTER=true` in your environment
+        if (process.env.ENABLE_SOCKET_REDIS_ADAPTER === 'true') {
+            io.adapter(createAdapter(pubClient, subClient));
+            console.log('[Redis] Socket.io adapter configured');
+        } else {
+            console.log('[Redis] Socket.io adapter disabled (ENABLE_SOCKET_REDIS_ADAPTER !== true)');
+        }
     } catch (err) {
         console.warn('[Redis] Failed:', err.message);
     }
@@ -150,12 +156,14 @@ async function initCleanupJobs() {
 
 const postRouter = require('./routes/post.js');
 const storyRouter = require('./routes/story.js');
+const conversationRouter = require('./routes/conversation.js');
 
 const notificationUtils = require('./lib/notification.js');
 notificationUtils.setIo(io);
 
 postRouter.setIo(io);
 storyRouter.setIo(io);
+conversationRouter.setIo(io);
 
 app.get('/health', (req, res) => {
     const mem = process.memoryUsage();
@@ -172,10 +180,10 @@ app.get('/health', (req, res) => {
     });
 });
 
-// ✅ Lazy route loading — require() only fires when first request hits that path
+// ✅ Routes
 app.use('/api/auth', (req, res, next) => require('./routes/auth.js')(req, res, next));
 app.use('/api/post', postRouter);
-app.use('/api/conversation', (req, res, next) => require('./routes/conversation.js')(req, res, next));
+app.use('/api/conversation', conversationRouter);
 app.use('/api/story', storyRouter);
 app.use('/api/group', require('./routes/group'));
 app.use('/api/live', require('./routes/live'));

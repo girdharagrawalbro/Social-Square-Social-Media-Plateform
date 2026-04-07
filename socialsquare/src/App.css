@@ -16,15 +16,15 @@
 }
 
 html.dark {
-  --app-bg: #0f172a;
-  --surface-1: #111827;
-  --surface-2: #1f2937;
-  --surface-3: #374151;
-  --surface-hover: #475569;
-  --surface-accent-soft: #312e81;
-  --text-main: #e5e7eb;
+  --app-bg: #0d0d0d;
+  --surface-1: #0d0d0d;
+  --surface-2: #121212;
+  --surface-3: #1a1a1a;
+  --surface-hover: #1f1f1f;
+  --surface-accent-soft: #1e1b4b;
+  --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --border-color: #334155;
+  --border-color: #1f1f1f;
 }
 
 body {
@@ -495,8 +495,9 @@ ul {
 
 /* Accessibility: visible focus outlines for keyboard users */
 :focus-visible {
-  outline: 3px solid rgba(128,139,245,0.6);
+  outline: 3px solid rgba(128, 139, 245, 0.6);
   outline-offset: 2px;
+  border-radius: 6px;
 }
 
 button:focus-visible,
@@ -504,13 +505,13 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 [role="button"]:focus-visible {
-  outline: 3px solid rgba(128,139,245,0.6);
+  outline: 3px solid rgba(128, 139, 245, 0.6);
   outline-offset: 2px;
   border-radius: 6px;
 }
 
-/* Make keyboard-only focus rings less intrusive for mouse users */
-body:not(.keyboard-nav) button:focus,
-body:not(.keyboard-nav) a:focus {
-  outline: none;
+.p-dialog .p-dialog-header {
+  /* font-family: 'Pacifico', cursive; */
+  font-size: 20px;
+  font-weight: 600;
 }

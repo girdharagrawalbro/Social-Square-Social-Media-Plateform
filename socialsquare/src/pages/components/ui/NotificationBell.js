@@ -6,11 +6,13 @@ import CollabManager from '../CollabManager';
 import usePostStore from '../../../store/zustand/usePostStore';
 import useConversationStore from '../../../store/zustand/useConversationStore';
 import { Dialog } from 'primereact/dialog';
+import { useNavigate } from 'react-router-dom';
 
-export default function NotificationBell({ userId }) {
+export default function NotificationBell({ userId, useRoute = false, showLabel = true }) {
     const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'collabs'
     const ref = useRef(null);
+    const navigate = useNavigate();
 
     // ✅ TanStack Query - cached, deduplicated requests
     const { data: notifications = [], markRead, unreadCount, loadMore, hasMore, isLoading } = useNotifications(userId);
@@ -79,14 +81,15 @@ export default function NotificationBell({ userId }) {
     return (
         <div ref={ref}>
             {/* Bell button */}
-            <button onClick={() => setOpen(o => !o)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left hover:bg-gray-100 dark:hover:bg-gray-800`}>
+            <button onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)} className={`w-full flex items-start gap-3 px-4 py-3 rounded-lg transition-all text-left hover:bg-gray-100 dark:hover:bg-gray-800`}>
                 <span className="p-overlay-badge">
                     <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} severity="danger" />}
                 </span>
-                <span className='font-medium text-base'>Notifications</span>
+                {showLabel && <span className='font-medium text-base'>Notifications</span>}
             </button>
 
+            {!useRoute && (
             <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '500px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
                 <div>
 
@@ -202,6 +205,7 @@ export default function NotificationBell({ userId }) {
                     )}
                 </div>
             </Dialog>
+            )}
         </div>
     );
 }

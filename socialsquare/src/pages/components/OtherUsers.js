@@ -101,8 +101,8 @@ const OtherUsers = () => {
                 </div>
             </div>
 
-            <Dialog header="Profile" visible={profileVisible} style={{ width: '500px' }} onHide={() => setProfileVisible(false)}>
-                <UserProfile id={selectedId} />
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)}>
+                <UserProfile id={selectedId} onClose={() => setProfileVisible(false)} />
             </Dialog>
         </>
     );

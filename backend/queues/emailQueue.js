@@ -10,6 +10,6 @@ if (require.main === module) {
   const w = new Worker('email', async job => {
     // job processing
     console.log('Processing email job', job.id, job.name, job.data);
-  }, { connection, concurrency: 5 });
+  }, { connection: redis, concurrency: 2, limiter: { max: 5, duration: 1000 } });
 }
 module.exports = { emailQueue };

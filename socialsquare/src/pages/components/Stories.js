@@ -14,13 +14,13 @@ import ImageCropper from './ui/ImageCropper';
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
 
-const StoryViewer = ({ 
-    groups, 
-    startGroupIndex, 
-    onClose, 
-    loggeduser, 
-    onStoryDeleted, 
-    onStoryLiked, 
+const StoryViewer = ({
+    groups,
+    startGroupIndex,
+    onClose,
+    loggeduser,
+    onStoryDeleted,
+    onStoryLiked,
     onOpenPostDetail,
     onShareStory,
     initialStoryId = null
@@ -208,10 +208,10 @@ const StoryViewer = ({
                             className="shared-post-sticker"
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 4px' }}>
-                                <img 
-                                    src={story.sharedPostId.user?.profile_picture ? (story.sharedPostId.user.profile_picture.startsWith('http') ? story.sharedPostId.user.profile_picture : `${process.env.REACT_APP_BACKEND_URL}${story.sharedPostId.user.profile_picture}`) : '/default-profile.png'} 
-                                    style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #fff', objectFit: 'cover' }} 
-                                    alt="" 
+                                <img
+                                    src={story.sharedPostId.user?.profile_picture ? (story.sharedPostId.user.profile_picture.startsWith('http') ? story.sharedPostId.user.profile_picture : `${process.env.REACT_APP_BACKEND_URL}${story.sharedPostId.user.profile_picture}`) : '/default-profile.png'}
+                                    style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #fff', objectFit: 'cover' }}
+                                    alt=""
                                 />
                                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>{story.sharedPostId.user?.fullname}</span>
                             </div>
@@ -318,11 +318,11 @@ const StoryViewer = ({
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                        <button 
+                        <button
                             onClick={() => {
                                 setIsPaused(true);
                                 onShareStory(story);
-                            }} 
+                            }}
                             style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                             <i className="pi pi-send" style={{ fontSize: '22px' }}></i>
@@ -366,15 +366,15 @@ const StoryViewer = ({
 const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sendingUsers, setSendingUsers] = useState([]);
-    
+
     // Use user's followers/following to share
     const followerIds = (loggeduser?.followers || []).map(f => f.toString());
     const followingIds = (loggeduser?.following || []).map(f => f.toString());
     const allUniqueIds = [...new Set([...followerIds, ...followingIds])];
-    
+
     const { data: users = [], isLoading } = useUserDetails(allUniqueIds);
 
-    const filteredUsers = users.filter(u => 
+    const filteredUsers = users.filter(u =>
         u.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -399,11 +399,11 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
         try {
             // Include deep link so the recipient can open the exact story from outside chat too.
             const content = `Shared a story: ${storyUrl}`;
-            
+
             // Create or get conversation
             const convRes = await api.post('/api/conversation/messages', { recipientId: targetUser._id });
             const conversationId = convRes.data.conversation?._id;
-            
+
             if (conversationId) {
                 await api.post('/api/conversation/send', {
                     conversationId,
@@ -426,11 +426,11 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
     };
 
     return (
-        <Dialog 
-            header="Share Story" 
-            visible={visible} 
-            onHide={onHide} 
-            style={{ width: '95vw', maxWidth: '450px' }} 
+        <Dialog
+            header="Share Story"
+            visible={visible}
+            onHide={onHide}
+            style={{ width: '95vw', maxWidth: '450px' }}
             breakpoints={{ '640px': '100vw' }}
             baseZIndex={20000}
             appendTo={document.body}
@@ -439,9 +439,9 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
             <div className="flex flex-col gap-3">
                 <div className="relative">
                     <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                    <input 
-                        type="text" 
-                        placeholder="Search people..." 
+                    <input
+                        type="text"
+                        placeholder="Search people..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-0 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
@@ -454,10 +454,10 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                 >
                     🔗 Copy Story Link
                 </button>
-                
+
                 <div className="max-h-[350px] overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-1">
                     {isLoading ? (
-                        [1,2,3].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse w-full mb-1" />)
+                        [1, 2, 3].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse w-full mb-1" />)
                     ) : filteredUsers.length === 0 ? (
                         <p className="text-center py-8 text-gray-400 text-sm">No users found</p>
                     ) : filteredUsers.map(u => (
@@ -469,7 +469,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                                     <p className="m-0 text-[11px] text-gray-400">@{u.username}</p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => handleShare(u)}
                                 disabled={sendingUsers.includes(u._id)}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold border-0 cursor-pointer shadow-sm transition-all ${sendingUsers.includes(u._id) ? 'bg-gray-100 text-gray-400' : 'bg-indigo-500 text-white hover:bg-indigo-600'}`}
@@ -804,7 +804,7 @@ const Stories = () => {
     const handleStoryCreated = (newStory) => {
         const myId = loggeduser?._id?.toString();
         let groupIndex = -1;
-        
+
         // Optimistically update the list
         setGroups(prev => {
             const idx = prev.findIndex(g => g.user._id.toString() === myId);
@@ -817,7 +817,7 @@ const Stories = () => {
             groupIndex = 0;
             return [{ user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }, stories: [newStory], hasUnviewed: false }, ...prev];
         });
-        
+
         // If this is a shared story, open it in viewer
         if (sharingPostToStory && groupIndex !== -1) {
             setViewerGroupIndex(groupIndex);
@@ -826,7 +826,7 @@ const Stories = () => {
             setIsStoryViewerOpen(true);
             clearSharingPostToStory();
         }
-        
+
         // Refetch in background, but we already updated local state
         queryClient.invalidateQueries(['story-feed']);
     };
@@ -848,82 +848,139 @@ const Stories = () => {
     const ownGroup = groups.find(g => g.user._id.toString() === loggeduser?._id?.toString());
     const otherGroups = groups.filter(g => g.user._id.toString() !== loggeduser?._id?.toString());
 
+    const scrollRef = useRef(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    const checkScroll = () => {
+        if (!scrollRef.current) return;
+        setCanScrollLeft(scrollRef.current.scrollLeft > 0);
+        setCanScrollRight(
+            scrollRef.current.scrollLeft < scrollRef.current.scrollWidth - scrollRef.current.clientWidth - 5
+        );
+    };
+
+    useEffect(() => {
+        checkScroll();
+        const el = scrollRef.current;
+        if (el) el.addEventListener('scroll', checkScroll);
+        return () => el?.removeEventListener('scroll', checkScroll);
+    }, [groups]);
+
+    const scroll = (direction) => {
+        if (!scrollRef.current) return;
+        const width = 300;
+        scrollRef.current.scrollBy({
+            left: direction === 'left' ? -width : width,
+            behavior: 'smooth'
+        });
+    };
+
     return (
         <>
-            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '12px 4px', scrollbarWidth: 'none' }}>
-                {/* Go Live Button */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
-                    <div style={{ width: 60, height: 60, borderRadius: '50%', border: '3px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-1)' }}>
-                        <i className="pi pi-video" style={{ color: '#ef4444', fontSize: '24px' }}></i>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>Go Live</span>
-                </div>
-
-                {/* Active Live Streams */}
-                {activeLiveStreams.map(live => (
-                    <div key={live._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(live._id, false)}>
-                        <div style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite' }}>
-                            <img src={live.host.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--surface-1)' }} />
+            <div className="relative group story-list-container">
+                <div
+                    ref={scrollRef}
+                    style={{ display: 'flex', gap: '16px', overflowX: 'auto', padding: '12px 4px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    className="no-scrollbar"
+                >
+                    {/* Go Live Button */}
+                    {/* <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
+                        <div style={{ width: 89, height: 89, borderRadius: '50%', border: '3px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-1)' }}>
+                            <i className="pi pi-video" style={{ color: '#ef4444', fontSize: '32px' }}></i>
                         </div>
-                        <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
-                    </div>
-                ))}
+                        <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>Go Live</span>
+                    </div> */}
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}>
-                    <div style={{ position: 'relative', width: 60, height: 60 }}>
-                        <div
-                            onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}
-                            style={{ 
-                                width: 60, height: 60, borderRadius: '50%', padding: '2px', 
-                                background: ownGroup ? (viewedStoryGroups.has(loggeduser?._id?.toString()) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
-                                transition: 'all 0.3s ease'
-                            }}
-                        >
-                            <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--surface-1)' }}>
-                                <img
-                                    src={loggeduser?.profile_picture}
-                                    alt=""
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
+                    {/* Active Live Streams */}
+                    {/* {activeLiveStreams.map(live => (
+                        <div key={live._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(live._id, false)}>
+                            <div style={{ width: 89, height: 89, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite' }}>
+                                <img src={live.host.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--surface-1)' }} />
                             </div>
+                            <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
                         </div>
-                        <div
-                            onClick={(e) => { e.stopPropagation(); setCreateOpen(true); }}
-                            style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, background: '#808bf5', borderRadius: '50%', border: '2px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 700, zIndex: 5 }}
-                        >
-                            +
-                        </div>
-                    </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 500, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {ownGroup ? 'Your story' : 'Add story'}
-                    </span>
-                </div>
-                {otherGroups.map(group => {
-                    const realIndex = groups.findIndex(g => g.user._id.toString() === group.user._id.toString());
-                    const allViewed = !group.hasUnviewed || viewedStoryGroups.has(group.user._id.toString());
-                    return (
-                        <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}>
+                    ))} */}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
+                        <div style={{ position: 'relative', width: 89, height: 89 }}>
                             <div
-                                onClick={() => openViewer(realIndex)}
-                                style={{ width: 60, height: 60, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
+                                onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}
+                                style={{
+                                    width: 89, height: 89, borderRadius: '50%', padding: '2px',
+                                    background: ownGroup ? (viewedStoryGroups.has(loggeduser?._id?.toString()) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
+                                    transition: 'all 0.3s ease'
+                                }}
                             >
-                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--surface-1)' }}>
+                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
                                     <img
-                                        src={group.user.profile_picture}
+                                        src={loggeduser?.profile_picture}
                                         alt=""
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
                                 </div>
                             </div>
-                            <span
-                                onClick={(e) => handleProfileClick(e, group.user._id)}
-                                style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', hover: { color: '#808bf5' } }}
+                            <div
+                                onClick={(e) => { e.stopPropagation(); setCreateOpen(true); }}
+                                style={{ position: 'absolute', bottom: 4, right: 4, width: 24, height: 24, background: '#808bf5', borderRadius: '50%', border: '2px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '16px', fontWeight: 700, zIndex: 5 }}
                             >
-                                {group.user.fullname.split(' ')[0]}
-                            </span>
+                                +
+                            </div>
                         </div>
-                    );
-                })}
+                        <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 500, textAlign: 'center', maxWidth: 89, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {ownGroup ? 'Your story' : 'Add story'}
+                        </span>
+                    </div>
+                    {otherGroups.map(group => {
+                        const realIndex = groups.findIndex(g => g.user._id.toString() === group.user._id.toString());
+                        const allViewed = !group.hasUnviewed || viewedStoryGroups.has(group.user._id.toString());
+                        return (
+                            <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
+                                <div
+                                    onClick={() => openViewer(realIndex)}
+                                    style={{ width: 89, height: 89, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
+                                >
+                                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
+                                        <img
+                                            src={group.user.profile_picture}
+                                            alt=""
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        />
+                                    </div>
+                                </div>
+                                <span
+                                    onClick={(e) => handleProfileClick(e, group.user._id)}
+                                    style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 89, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                >
+                                    {group.user.fullname.split(' ')[0]}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Left/Right Buttons */}
+                {canScrollLeft && (
+                    <button
+                        onClick={() => scroll('left')}
+                        className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white w-8 h-8 rounded-full border-0 cursor-pointer shadow-md opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center p-0"
+                    >
+                        <i className="pi pi-chevron-left text-sm"></i>
+                    </button>
+                )}
+                {canScrollRight && (
+                    <button
+                        onClick={() => scroll('right')}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white w-8 h-8 rounded-full border-0 cursor-pointer shadow-md opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center p-0"
+                    >
+                        <i className="pi pi-chevron-right text-sm"></i>
+                    </button>
+                )}
+
+                <style>{`
+                    .no-scrollbar::-webkit-scrollbar { display: none; }
+                    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                `}</style>
             </div>
             {viewerOpen && groups.length > 0 && (
                 <StoryViewer
@@ -958,9 +1015,9 @@ const Stories = () => {
                 />
             )}
 
-            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)} baseZIndex={20000} appendTo={document.body}>
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)} baseZIndex={20000} appendTo={document.body}>
                 <React.Suspense fallback={<div className="p-4 text-center">Loading Profile...</div>}>
-                    <UserProfile id={selectedProfileId} />
+                    <UserProfile id={selectedProfileId} onClose={() => { setProfileVisible(false); setViewerOpen(false); if (typeof setIsStoryViewerOpen === 'function') setIsStoryViewerOpen(false); }} />
                 </React.Suspense>
             </Dialog>
 
@@ -970,11 +1027,11 @@ const Stories = () => {
                 </React.Suspense>
             </Dialog>
 
-            <ShareStoryDialog 
-                visible={shareOpen} 
-                onHide={() => setShareOpen(false)} 
-                story={sharingStory} 
-                loggeduser={loggeduser} 
+            <ShareStoryDialog
+                visible={shareOpen}
+                onHide={() => setShareOpen(false)}
+                story={sharingStory}
+                loggeduser={loggeduser}
             />
 
             {liveStreamId && (

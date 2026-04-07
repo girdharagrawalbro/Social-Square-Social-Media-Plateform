@@ -69,7 +69,11 @@ const worker = new Worker('systemCleanup', async (job) => {
         console.error('[Cleanup] Error during notification cleanup:', err.message);
     }
 
-}, { connection: redis, concurrency: 1 });
+}, {
+    connection: redis,
+    concurrency: 2,
+    limiter: { max: 5, duration: 1000 },
+});
 
 worker.on('failed', (job, err) => console.error('[Cleanup] Job failed:', err.message));
 

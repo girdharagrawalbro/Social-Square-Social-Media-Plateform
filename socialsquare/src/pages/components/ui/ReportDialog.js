@@ -23,7 +23,7 @@ const ReportDialog = ({ visible, onHide, onSubmit, loading }) => {
     };
 
     const footer = (
-        <div className="flex justify-end gap-2 px-1 pb-1">
+        <div className="flex justify-end gap-2 pt-3 ">
             <button onClick={() => { onHide(); setSelectedReason(null); }} className="px-4 py-2 border-0 bg-transparent text-[var(--text-sub)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-2)] rounded-lg transition">Cancel</button>
             <button onClick={handleSubmit} disabled={!selectedReason || loading} className="px-4 py-2 bg-red-500 text-white border-0 rounded-lg font-semibold text-sm cursor-pointer hover:bg-red-600 transition disabled:opacity-50">
                 {loading ? 'Submitting...' : 'Submit Report'}
@@ -33,17 +33,16 @@ const ReportDialog = ({ visible, onHide, onSubmit, loading }) => {
 
     return (
         <Dialog 
-            header="Report Post" 
+            header="Why are you reporting this post?" 
             visible={visible} 
             onHide={() => { onHide(); setSelectedReason(null); }} 
             footer={footer}
-            style={{ width: '300px' }}
+            style={{ width: '500px' }}
             draggable={false}
             resizable={false}
             className="rounded-xl overflow-hidden font-sans"
         >
-            <div className="flex flex-col gap-3 py-2 px-4">
-                <p className="text-sm text-[var(--text-sub)] m-0 mb-2 font-medium">Why are you reporting this post?</p>
+            <div className="flex flex-col gap-3 py-3">
                 {REASONS.map((reason) => (
                     <div key={reason.value} className="flex items-center gap-3 cursor-pointer p-3 bg-[var(--surface-2)] hover:bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] transition" onClick={() => setSelectedReason(reason.value)}>
                         <RadioButton 
