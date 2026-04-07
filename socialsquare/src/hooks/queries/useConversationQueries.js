@@ -146,3 +146,55 @@ export function useMarkMessagesRead() {
         },
     });
 }
+
+export function useClearChat() {
+    const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
+    const clearSocketMessages = useConversationStore(s => s.clearSocketMessages);
+    return useMutation({
+        mutationFn: (conversationId) => api.delete(`${BASE}/api/conversation/${conversationId}/clear`),
+        onMutate: async (conversationId) => {
+            clearSocketMessages(conversationId);
+            const queryKey = convoKeys.list(user?._id);
+            await qc.cancelQueries({ queryKey });
+            const prev = qc.getQueryData(queryKey);
+            if (prev) {
+                qc.setQueryData(queryKey, prev.map(c => 
+                    c._id === conversationId ? { ...c, lastMessage: null, lastMessageAt: null } : c
+                ));
+            }
+            return { prev };
+        },
+        onError: (err, id, ctx) => {
+            if (ctx?.prev) qc.setQueryData(convoKeys.list(user?._id), ctx.prev);
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: convoKeys.list(user?._id) });
+        },
+    });
+}
+
+export function useDeleteChat() {
+    const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
+    const clearSocketMessages = useConversationStore(s => s.clearSocketMessages);
+    return useMutation({
+        mutationFn: (conversationId) => api.delete(`${BASE}/api/conversation/${conversationId}`),
+        onMutate: async (conversationId) => {
+            clearSocketMessages(conversationId);
+            const queryKey = convoKeys.list(user?._id);
+            await qc.cancelQueries({ queryKey });
+            const prev = qc.getQueryData(queryKey);
+            if (prev) {
+                qc.setQueryData(queryKey, prev.filter(c => c._id !== conversationId));
+            }
+            return { prev };
+        },
+        onError: (err, id, ctx) => {
+            if (ctx?.prev) qc.setQueryData(convoKeys.list(user?._id), ctx.prev);
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: convoKeys.list(user?._id) });
+        },
+    });
+}

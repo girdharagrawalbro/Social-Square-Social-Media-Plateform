@@ -13,7 +13,7 @@ const PollCard = ({ poll: initialPoll, postId }) => {
         setPoll(initialPoll);
     }, [initialPoll]);
 
-    if (!poll || !poll.options) return null;
+    if (!poll || !poll.options || poll.options.length === 0) return null;
 
     const totalVotes = poll.options.reduce((sum, opt) => sum + (opt.votes?.length || 0), 0);
     const userVotedOptionIndex = poll.options.findIndex(opt => opt.votes?.some(v => (v._id || v) === user?._id));

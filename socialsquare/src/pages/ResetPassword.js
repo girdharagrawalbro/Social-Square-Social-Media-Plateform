@@ -56,8 +56,11 @@ const ResetPassword = () => {
 
   return (
     <>
-      <div className="max-w-md mx-auto bg-white border p-6 rounded shadow text-center mt-20">
-        <h3 className="font-pacifico text-2xl mb-4">Reset Password</h3>
+      <div className="max-w-md mx-auto bg-white border border-gray-100 p-6 sm:p-8 rounded-xl shadow-sm text-center mt-20">
+        <div className="mb-6">
+            <h3 className="font-pacifico text-3xl sm:text-4xl text-[#808bf5] mb-2">Social Square</h3>
+            <p className="text-gray-500 font-medium">Reset Password</p>
+        </div>
         <form onSubmit={handleSubmit}>
           <input
             className="px-3 py-2 bg-white text-gray-800 w-full my-2 border rounded"

@@ -53,7 +53,22 @@ const PostGrid = ({ userId, maxPosts = 3, isCompactPreview = true }) => {
         </div>
     );
 
-    if (posts.length === 0) return <p className="text-center text-[var(--text-sub)] text-sm py-6">No posts yet</p>;
+    if (posts.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center text-center ">
+                <div className="relative w-full mb-6    ">
+
+                    <div className="flex flex-col items-center justify-center">
+                        <div className="w-20 h-20 bg-[var(--surface-1)] rounded-full flex items-center justify-center shadow-lg mb-4 border border-[var(--border-color)]">
+                            <i className="pi pi-images text-4xl text-[var(--text-sub)] opacity-20"></i>
+                        </div>
+                        <h3 className="m-0 text-[var(--text-main)] font-bold text-lg">No posts yet</h3>
+                        <p className="m-0 text-sm text-[var(--text-sub)] mt-1 max-w-[200px]">When this user shares photos or videos, they'll appear here.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
@@ -101,7 +116,7 @@ const PostGrid = ({ userId, maxPosts = 3, isCompactPreview = true }) => {
     );
 };
 
-const UserProfile = ({ id }) => {
+const UserProfile = ({ id, onClose }) => {
     const [activeTab, setActiveTab] = useState('posts');
     const [chatVisible, setChatVisible] = useState(false);
     const loggeduser = useAuthStore(s => s.user);
@@ -216,9 +231,9 @@ const UserProfile = ({ id }) => {
             - Popup/Dialog (compact=true): Shows in PrimeReact Dialog, minimal UI, 3 posts max
             - Page Display (compact=false): Full profile page at /profile/:userId, complete UI, all posts
             */}
-            <div className={`w-full py-2`}>
-                <div className={`flex flex-col gap-4 bg-[var(--surface-1)]`}>
-                    <div className="flex items-center justify-center text-center flex-col gap-1">
+            <div className={`w-full py-2 flex flex-col items-center`}>
+                <div className={`w-full flex flex-col gap-4 bg-[var(--surface-1)]`} style={{ maxWidth: '400px' }}>
+                    <div className="flex items-center justify-center text-center flex-col gap-1 w-full">
                         <div className="relative">
                             <Image
                                 src={userDetails?.profile_picture}
@@ -353,24 +368,15 @@ const UserProfile = ({ id }) => {
                         </button>
                     )}
 
-                    {!isBlockedByMe && (
-                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
-                                <h6 className="m-0 font-extrabold text-base text-[var(--text-main)] leading-5">{formatCount(userDetails?.followers?.length || 0)}</h6>
-                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold">Followers</span>
-                            </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
-                                <h6 className="m-0 font-extrabold text-base text-[var(--text-main)] leading-5">{formatCount(userDetails?.following?.length || 0)}</h6>
-                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold">Following</span>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Posts Preview in Compact Mode - ABOVE TABS */}
-                    { !isBlockedByMe && (
+                    {!isBlockedByMe && (
                         <div className="flex flex-col gap-2">
                             <PostGrid userId={id} maxPosts={3} isCompactPreview={true} />
-                            <button onClick={() => navigate(`/profile/${id}`)} className="w-full h-9 text-sm font-semibold text-white bg-[#808bf5] hover:opacity-95 transition rounded-lg border-0 cursor-pointer">
+                            <button onClick={() => {
+                                if (onClose) onClose();
+                                navigate(`/profile/${id}`);
+                            }} className="w-full h-9 text-sm font-semibold text-white bg-[#808bf5] hover:opacity-95 transition rounded-lg border-0 cursor-pointer">
                                 View full profile
                             </button>
                         </div>

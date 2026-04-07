@@ -1,68 +1,59 @@
 import React from 'react';
 import Bg from './components/Bg';
+import { useDarkMode } from '../context/DarkModeContext';
 
 const Contact = () => {
-  return (
-    <>
-      <Bg>
-        <div className="w-full max-w-3xl mx-auto text-left">
-          <div className="rounded-2xl border border-gray-200 p-4 sm:p-6 md:p-8 bg-white/95">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Contact Us</h1>
-            <p className="text-sm sm:text-base text-gray-600 mb-5 sm:mb-6">
-              We would love to hear from you. Reach out through any channel below and we will get back to you as soon as possible.
-            </p>
+    const { isDark } = useDarkMode();
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-6">
-              <a
-                href="mailto:girdharagarawalbro@gmail.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border rounded-xl p-3 sm:p-4 hover:shadow-sm transition"
-              >
-                <p className="text-sm text-gray-500 mb-1">Email</p>
-                <p className="font-semibold text-themeStart break-all">girdharagarawalbro@gmail.com</p>
-              </a>
+    const cardClass = `border rounded-xl p-4 transition-all duration-200 transform hover:scale-[1.02] ${isDark ? 'bg-white/5 border-gray-800 hover:bg-white/10' : 'bg-white border-gray-100 hover:shadow-md'}`;
+    const labelClass = `text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`;
+    const valueClass = `font-bold text-base sm:text-lg text-[#808bf5] break-all`;
 
-              <a
-                href="https://instagram.com/codewithgirdhar"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border rounded-xl p-3 sm:p-4 hover:shadow-sm transition"
-              >
-                <p className="text-sm text-gray-500 mb-1">Instagram</p>
-                <p className="font-semibold text-themeStart">@codewithgirdhar</p>
-              </a>
+    return (
+        <Bg>
+            <div className="w-full max-w-3xl mx-auto text-left">
+                <div className={`rounded-2xl border transition-all duration-200 p-6 sm:p-8 md:p-10 ${isDark ? 'bg-black/40 border-gray-800' : 'bg-white/95 border-gray-100'}`}>
+                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">Contact Us</h1>
+                    <p className={`text-base mb-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        We would love to hear from you. Reach out through any channel below and we will get back to you as soon as possible.
+                    </p>
 
-              <a
-                href="https://linkedin.com/in/girdhar-agrawal"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border rounded-xl p-3 sm:p-4 hover:shadow-sm transition sm:col-span-2"
-              >
-                <p className="text-sm text-gray-500 mb-1">LinkedIn</p>
-                <p className="font-semibold text-themeStart">Girdhar Agrawal</p>
-              </a>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                        <a href="mailto:girdharagarawalbro@gmail.com" target="_blank" rel="noopener noreferrer" className={cardClass}>
+                            <p className={labelClass}>Email</p>
+                            <p className={valueClass}>girdharagarawalbro@gmail.com</p>
+                        </a>
+
+                        <a href="https://instagram.com/codewithgirdhar" target="_blank" rel="noopener noreferrer" className={cardClass}>
+                            <p className={labelClass}>Instagram</p>
+                            <p className={valueClass}>@codewithgirdhar</p>
+                        </a>
+
+                        <a href="https://linkedin.com/in/girdhar-agrawal" target="_blank" rel="noopener noreferrer" className={`${cardClass} sm:col-span-2`}>
+                            <p className={labelClass}>LinkedIn</p>
+                            <p className={valueClass}>Girdhar Agrawal</p>
+                        </a>
+                    </div>
+
+                    <div className={`rounded-xl border p-6 transition-colors duration-200 ${isDark ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                        <h2 className="text-xl font-bold mb-3">Collaborate With Us</h2>
+                        <p className={`text-sm sm:text-base leading-relaxed mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                            We are always excited to welcome new collaborators. If you want to contribute ideas or code, check the repository and share your contribution.
+                        </p>
+                        <a
+                            href="https://github.com/girdharagrawalbro/Social-Square-Social-Media-Plateform"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-[#808bf5] font-bold hover:underline"
+                        >
+                            <i className="pi pi-github" />
+                            <span>Social Square Repository</span>
+                        </a>
+                    </div>
+                </div>
             </div>
-
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
-              <h2 className="text-lg sm:text-xl font-semibold mb-2">Collaborate With Us</h2>
-              <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
-                We are always excited to welcome new collaborators. If you want to contribute ideas or code, check the repository and share your contribution.
-              </p>
-              <a
-                href="https://github.com/your-repo-link"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-3 text-themeStart font-semibold underline break-words"
-              >
-                Social Square - Social Media Plateform
-              </a>
-            </div>
-          </div>
-        </div>
-      </Bg>
-    </>
-  );
+        </Bg>
+    );
 };
 
 export default Contact;

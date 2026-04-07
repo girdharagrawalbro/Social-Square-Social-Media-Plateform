@@ -171,157 +171,133 @@ const Profile = ({ userId }) => {
             { key: 'collabs', label: '🤝 Collabs' },
         ]
         : [
-           
+
         ];
 
     return (
         <>
-            <div className="w-full max-w-xl lg:max-w-xl xl:max-w-lg 2xl:max-w-xl">
-                <div className="bg-white 
-p-0 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
+            <div className="w-full max-w-xl lg:max-w-xl xl:max-w-lg 2xl:max-w-xl mx-auto">
+                <div className="bg-[var(--surface-1)] flex flex-col gap-4 min-h-screen">
 
-                    {/* Header */}
-                    {/* <div className="flex items-center justify-between">
-                        <h2 className="m-0 text-base font-semibold">{viewingOwnProfile ? 'My Profile' : displayUser?.fullname}</h2>
-                        {viewingOwnProfile && (
-                            <button
-                                onClick={() => setActiveSessionsVisible(true)}
-                                className="border-0 bg-transparent cursor-pointer rounded-full p-2 text-gray-500 hover:bg-gray-100 transition"
-                                title="Security settings"
-                            >
-                                <i className="pi pi-cog"></i>
-                            </button>
-                        )}
-                    </div> */}
-
-                    {/* Avatar + identity */}
-                    <div className="flex items-center justify-center text-center flex-col gap-1">
-                        <div className="relative">
-                            <Image
-                                src={displayUser?.profile_picture}
-                                zoomSrc={displayUser?.profile_picture}
-                                alt="Profile"
-                                className="profile-image-square overflow-hidden border-4 border-indigo-100"
-                                style={{ '--size': '80px' }}
-                                preview
-                            />
-                            {viewingOwnProfile && (
-                                <button
-                                    className="absolute bottom-1 right-1 w-7 h-7 rounded-full border-0 cursor-pointer bg-[#4f46e5] text-white flex items-center justify-center"
-                                    onClick={() => setEditVisible(true)}
-                                    title="Edit profile"
-                                >
-                                    <i className="pi pi-pencil text-[11px]"></i>
-                                </button>
+                    {/* Header: Sticky Profile Info */}
+                    <div className="sticky top-0 z-30 bg-[var(--surface-1)] bg-opacity-90 backdrop-blur-md border-b border-[var(--border-color)] py-2 px-4 sm:mx-0 sm:px-0">
+                        {/* Avatar + identity */}
+                        <div className="flex items-center justify-center text-center flex-col gap-1 mb-4">
+                            <div className="relative">
+                                <Image
+                                    src={displayUser?.profile_picture}
+                                    zoomSrc={displayUser?.profile_picture}
+                                    alt="Profile"
+                                    className="profile-image-square overflow-hidden border-4 border-indigo-100"
+                                    style={{ '--size': '80px' }}
+                                    preview
+                                />
+                                {viewingOwnProfile && (
+                                    <button
+                                        className="absolute bottom-1 right-1 w-7 h-7 rounded-full border-0 cursor-pointer bg-[#4f46e5] text-white flex items-center justify-center"
+                                        onClick={() => setEditVisible(true)}
+                                        title="Edit profile"
+                                    >
+                                        <i className="pi pi-pencil text-[11px]"></i>
+                                    </button>
+                                )}
+                            </div>
+                            <h3 className="m-0 text-lg sm:text-xl lg:text-2xl font-semibold text-[var(--text-main)]">{displayUser?.fullname}</h3>
+                            {displayUser?.username && (
+                                <p className="m-0 text-sm font-medium text-indigo-600">@{displayUser.username}</p>
+                            )}
+                            {displayUser?.bio && (
+                                <p className="text-sm text-[var(--text-sub)] m-0 max-w-[260px] leading-6">{displayUser.bio}</p>
                             )}
                         </div>
-                        <h3 className="m-0 text-lg sm:text-xl lg:text-2xl font-semibold">{displayUser?.fullname}</h3>
-                        {displayUser?.username && (
-                            <p className="m-0 text-sm font-medium text-indigo-600">@{displayUser.username}</p>
-                        )}
-                        {displayUser?.bio && (
-                            <p className="text-sm text-gray-500 m-0 max-w-[260px] leading-6">{displayUser.bio}</p>
-                        )}
-                    </div>
 
-                
+                        {/* Level/Streak/XP */}
+                        <div className="flex gap-3 justify-center mb-4">
+                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
+                                <span className="text-lg font-black text-[#808bf5]">{displayUser?.level || 1}</span>
+                            </div>
+                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
+                                <span className="text-lg font-black text-orange-500">🔥 {displayUser?.streak?.count || 0}</span>
+                            </div>
+                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
+                                <span className="text-lg font-black text-green-500">{(displayUser?.xp || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
 
+                        {/* Stats tiles */}
+                        <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mb-4">
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
+                                onClick={() => viewingOwnProfile && setShowFollowersList(true)}>
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(displayUser?.followers?.length || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
+                            </div>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
+                                onClick={() => viewingOwnProfile && setShowFollowingList(true)}>
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(displayUser?.following?.length || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
+                            </div>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(userPostsList.length)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
+                            </div>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center" title="Total profile views">
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(displayUser?.profileViews || 0)}</h6>
+                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Views</span>
+                            </div>
+                        </div>
 
-                    {/* Block warning - OTHER PROFILE */}
-                    {!viewingOwnProfile && isBlockedByMe && (
-                        <div className="bg-red-100 border border-red-200 text-red-600 p-3 rounded-lg text-sm text-center font-semibold">
-                            You blocked this user
+                        {/* Action buttons */}
+                        <div className="mb-4">
+                            {viewingOwnProfile ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold text-sm cursor-pointer hover:bg-indigo-100 transition"
+                                        onClick={() => setEditVisible(true)}
+                                    >
+                                        <i className="pi pi-user-edit mr-2"></i>Edit Profile
+                                    </button>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold text-sm cursor-pointer hover:opacity-95 transition"
+                                    >
+                                        <i className="pi pi-sign-out mr-2"></i>Logout
+                                    </button>
+                                </div>
+                            ) : !isBlockedByMe && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={isFollowing ? handleUnfollow : handleFollow}
+                                        disabled={followMutation.isPending || unfollowMutation.isPending}
+                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:opacity-95'}`}
+                                    >
+                                        {followMutation.isPending || unfollowMutation.isPending ? '...' : (isFollowing ? 'Following' : 'Follow')}
+                                    </button>
+                                    <button
+                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold text-sm cursor-pointer hover:bg-indigo-100 transition"
+                                    >
+                                        <i className="pi pi-send mr-2"></i>Message
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    )}
 
-                    {/* Level/Streak/XP - GAMIFICATION BADGES */}
-                    <div className="flex gap-3 justify-center">
-                        <div className="flex flex-col items-center bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 min-w-[70px]">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 tracking-wider">Level</span>
-                            <span className="text-lg font-black text-[#808bf5]">{displayUser?.level || 1}</span>
+                        {/* Tabs */}
+                        <div className="flex">
+                            {TABS.map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setActiveTab(tab.key)}
+                                    className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-[var(--text-sub)]'
+                                        }`}
+                                    style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
                         </div>
-                        <div className="flex flex-col items-center bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 min-w-[70px]">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 tracking-wider">Streak</span>
-                            <span className="text-lg font-black text-orange-500">🔥 {displayUser?.streak?.count || 0}</span>
-                        </div>
-                        <div className="flex flex-col items-center bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 min-w-[70px]">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 tracking-wider">XP</span>
-                            <span className="text-lg font-black text-green-500">{(displayUser?.xp || 0).toLocaleString()}</span>
-                        </div>
-                    </div>
-
-                    {/* Stats tiles */}
-                    <div className="grid grid-cols-4 gap-1.5 sm:gap-3">
-                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer"
-                            onClick={() => viewingOwnProfile && setShowFollowersList(true)}>
-                            <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(displayUser?.followers?.length || 0)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center block">Followers</span>
-                        </div>
-                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center cursor-pointer"
-                            onClick={() => viewingOwnProfile && setShowFollowingList(true)}>
-                            <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(displayUser?.following?.length || 0)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center block">Following</span>
-                        </div>
-                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center">
-                            <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userPostsList.length)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center block">Posts</span>
-                        </div>
-                        <div className="rounded-xl bg-gray-50 border border-gray-100 py-3 text-center" title="Total profile views">
-                            <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(displayUser?.profileViews || 0)}</h6>
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center block">Views</span>
-                        </div>
-                    </div>
-
-                        {/* Action buttons - OWN PROFILE */}
-                    {viewingOwnProfile && (
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold text-sm cursor-pointer hover:bg-indigo-100 transition"
-                                onClick={() => setEditVisible(true)}
-                            >
-                                <i className="pi pi-user-edit mr-2"></i>Edit Profile
-                            </button>
-                            <button
-                                onClick={handleLogout}
-                                className="h-10 sm:h-11 lg:h-12 rounded-xl border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold text-sm cursor-pointer hover:opacity-95 transition"
-                            >
-                                <i className="pi pi-sign-out mr-2"></i>Logout
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Action buttons - OTHER PROFILE */}
-                    {!viewingOwnProfile && !isBlockedByMe && (
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={isFollowing ? handleUnfollow : handleFollow}
-                                disabled={followMutation.isPending || unfollowMutation.isPending}
-                                className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:opacity-95'}`}
-                            >
-                                {followMutation.isPending || unfollowMutation.isPending ? '...' : (isFollowing ? 'Following' : 'Follow')}
-                            </button>
-                            <button
-                                className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold text-sm cursor-pointer hover:bg-indigo-100 transition"
-                            >
-                                <i className="pi pi-send mr-2"></i>Message
-                            </button>
-                        </div>
-                    )}
-
-                    
-                    {/* Tabs */}
-                    <div className="flex border-b border-gray-100">
-                        {TABS.map(tab => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
-                                className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-gray-500'
-                                    }`}
-                                style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
                     </div>
 
                     {/* Tab content */}
@@ -330,7 +306,7 @@ p-0 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
                         <CollabManager mode="all" />
                     ) : (
                         // Posts / Saved — 3-col grid   
-                        <div className="grid grid-cols-3 gap-2 max-h-[320px] overflow-y-auto pr-1">
+                        <div className="grid grid-cols-3 gap-2 pr-1">
                             {isLoadingTab ? (
                                 [1, 2, 3, 4, 5, 6].map(i => (
                                     <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ aspectRatio: '1' }} />
@@ -338,8 +314,29 @@ p-0 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
                             ) : tabPosts.length > 0 ? (
                                 tabPosts.map(post => <PostCard key={post._id} post={post} onClick={(post) => { setPostDetail(post); setPostDetailVisible(true); }} />)
                             ) : (
-                                <div className="col-span-3 text-center text-gray-400 text-sm py-6">
-                                    {activeTab === 'posts' ? 'No posts yet' : 'No saved posts'}
+                                <div className="col-span-3">
+                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                        <div className="relative w-full mb-8">
+                                            <div className="grid grid-cols-3 gap-3 opacity-5">
+                                                {[1, 2, 3, 4, 5, 6].map(i => (
+                                                    <div key={i} className="bg-[var(--surface-2)] rounded-lg animate-pulse" style={{ aspectRatio: '1' }} />
+                                                ))}
+                                            </div>
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                <div className="w-16 h-16 bg-[var(--surface-1)] rounded-full flex items-center justify-center shadow-lg mb-4 border border-[var(--border-color)]">
+                                                    <i className="pi pi-images text-3xl text-[var(--text-sub)] opacity-20"></i>
+                                                </div>
+                                                <h3 className="m-0 text-[var(--text-main)] font-bold text-lg">
+                                                    {activeTab === 'posts' ? 'No posts yet' : 'No saved posts'}
+                                                </h3>
+                                                <p className="m-0 text-sm text-[var(--text-sub)] mt-1 max-w-[200px]">
+                                                    {activeTab === 'posts'
+                                                        ? "This user hasn't shared anything yet."
+                                                        : "Posts you save will appear here."}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -396,7 +393,7 @@ p-0 sm:p-4 lg:p-5 xl:p-6 flex flex-col gap-4">
                 </>
             )}
 
-      
+
 
             {/* Post Detail Dialog - Shared */}
             <Dialog

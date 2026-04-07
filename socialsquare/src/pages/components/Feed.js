@@ -22,6 +22,7 @@ import { useAcceptCollaboration, useDeclineCollaboration, useReportPost } from '
 import usePostStore from '../../store/zustand/usePostStore';
 import SharePostDialog from './ui/SharePostDialog';
 import ReactionPicker from './ReactionPicker';
+import PostMenu from './ui/PostMenu';
 
 
 const MOOD_EMOJI = { happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' };
@@ -56,49 +57,23 @@ const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
     if (!images?.length) return null;
     if (images.length === 1) return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ background: '#000' }}>
-            <img src={images[0]} alt="Post" style={{ width: '100%', aspectRatio: '1/1', maxHeight: '620px', objectFit: 'contain', display: 'block' }} />
+            <img src={images[0]} alt="Post" style={{ width: '100%', height: 'auto', objectFit: 'contain', display: 'block' }} />
         </div>
     );
     return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ position: 'relative' }}>
-            <img src={images[current]} alt={`${current + 1}`} style={{ width: '100%', aspectRatio: '1/1', maxHeight: '620px', objectFit: 'cover', display: 'block', background: '#000' }} />
-            {current > 0 && <button onClick={e => { e.stopPropagation(); setCurrent(c => c - 1) }} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
-            {current < images.length - 1 && <button onClick={e => { e.stopPropagation(); setCurrent(c => c + 1) }} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+            <img src={images[current]} alt={`${current + 1}`} style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block', background: '#000' }} />
+            {current > 0 && <button aria-label="Previous image" onClick={e => { e.stopPropagation(); setCurrent(c => c - 1) }} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+            {current < images.length - 1 && <button aria-label="Next image" onClick={e => { e.stopPropagation(); setCurrent(c => c + 1) }} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
             <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 2, background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: '11px', padding: '3px 8px', borderRadius: '999px', fontWeight: 600 }}>{current + 1}/{images.length}</div>
             <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '5px', zIndex: 2 }}>
-                {images.map((_, i) => <button key={i} onClick={e => { e.stopPropagation(); setCurrent(i) }} style={{ width: i === current ? '16px' : '6px', height: '6px', borderRadius: '3px', border: 'none', cursor: 'pointer', padding: 0, background: i === current ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'all 0.2s' }} />)}
+                {images.map((_, i) => <button aria-label={`Go to image ${i + 1}`} key={i} onClick={e => { e.stopPropagation(); setCurrent(i) }} style={{ width: i === current ? '16px' : '6px', height: '6px', borderRadius: '3px', border: 'none', cursor: 'pointer', padding: 0, background: i === current ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'all 0.2s' }} />)}
             </div>
         </div>
     );
 };
 
-// ─── POST MENU ────────────────────────────────────────────────────────────────
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory }) => {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
-    useEffect(() => {
-        const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, []);
-    return (
-        <div ref={ref} className="relative">
-            <button onClick={() => setOpen(v => !v)} className="bg-transparent border-0 cursor-pointer p-2 rounded-full text-gray-500 hover:bg-gray-100 transition">⋯</button>
-            {open && (
-                <div className="absolute right-0 top-full bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden mt-1" style={{ minWidth: '170px' }}>
-                    <button onClick={() => { if (!isSaving) onSave(); setOpen(false) }} disabled={isSaving} style={{ opacity: isSaving ? 0.5 : 1 }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">{isSaved ? '🔖 Unsave' : '🔖 Save post'}</button>
-                    {!isOwner && <button onClick={() => { onReport(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-red-50 text-red-400">🚩 Report post</button>}
-                    {isOwner && <>
-                        <button onClick={() => { onEdit(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-gray-50">✏️ Edit post</button>
-                        <button onClick={() => { onShareToStory(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm hover:bg-indigo-50 text-indigo-600">✨ Share to Story</button>
-                        <button onClick={() => { onDelete(); setOpen(false) }} className="w-full px-4 py-2 border-0 bg-transparent cursor-pointer text-left text-sm text-red-500 hover:bg-red-50">🗑️ Delete post</button>
-                    </>}
-                </div>
-            )}
-        </div>
-    );
-};
+
 
 
 // ─── TIME LOCK OVERLAY ────────────────────────────────────────────────────────
@@ -414,12 +389,12 @@ const Feed = ({ activeMood = null }) => {
                             const isLikedByMe = likesArray.some(id => id?.toString() === currentLoggedUserId);
 
                             return (
-                                <article key={post._id || index} className="relative overflow-hidden w-full rounded-2xl shadow-sm flex flex-col border bg-white">
+                                <article key={post._id || index} className="relative overflow-hidden w-full rounded-2xl border flex flex-col bg-white dark:bg-black mb-8 px-0 sm:px-0">
                                     <PostActivityTracker postId={post._id} onDwell={handleDwell} />
                                     <CollabInviteBanner post={post} user={user} />
 
                                     {/* Header */}
-                                    <div className="flex items-start justify-between px-4 py-3">
+                                    <div className="flex items-center justify-between p-3">
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div
                                                 className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border border-gray-100"
@@ -431,30 +406,33 @@ const Feed = ({ activeMood = null }) => {
                                                     className="w-full h-full object-cover"
                                                 />
                                             </div>
-                                            <div>
-                                                <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="flex flex-col justify-center min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap min-w-0">
                                                     <h6
-                                                        className="m-0 font-semibold text-sm leading-tight cursor-pointer hover:text-indigo-600 transition flex items-center gap-1"
+                                                        className="m-0 font-bold text-sm leading-none cursor-pointer hover:text-[#808bf5] transition flex items-center gap-1.5 text-[var(--text-main)] shrink-0"
                                                         onClick={() => handleProfileClick(post.user._id)}
                                                     >
                                                         {post.user.fullname}
                                                         {post.user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '11px' }}></i>}
                                                     </h6>
-                                                    {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }}>🎭 Anonymous</span>}
-                                                    {post.isCollaborative && post.collaborators?.some(c => c.status === 'accepted') && <span style={{ fontSize: '10px', background: '#d1fae5', color: '#059669', borderRadius: '10px', padding: '1px 6px' }}>🤝 Collab</span>}
-                                                    {!isOwn && (
-                                                        <button onClick={() => handleFollow(post)} className={`text-[11px] px-2.5 py-1 rounded-full border cursor-pointer font-semibold transition ${isFollowing ? 'border-gray-200 bg-transparent text-gray-500' : 'border-indigo-500 bg-[#808bf5] text-white'}`}>
-                                                            {isFollowing ? 'Following' : 'Follow'}
+                                                    <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider leading-none shrink-0">{formatDate(post.updatedAt)}</span>
+                                                    {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🎭 Anonymous</span>}
+                                                    {post.isCollaborative && post.collaborators?.some(c => c.status === 'accepted') && <span style={{ fontSize: '10px', background: '#d1fae5', color: '#059669', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🤝 Collab</span>}
+                                                    {!isOwn && !isFollowing && (
+                                                        <button
+                                                            onClick={() => handleFollow(post)}
+                                                            className="text-[10px] px-2.5 py-1 rounded-full border border-indigo-500 bg-[#808bf5] text-white cursor-pointer font-semibold transition leading-none h-6 flex items-center"
+                                                        >
+                                                            Follow
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    {post.location?.name && <span className="text-xs text-gray-500">{post.location.name}</span>}
-                                                    {post.mood && <span className="text-xs text-gray-500">{MOOD_EMOJI[post.mood]} {post.mood}</span>}
-                                                    {post.isRecommended && <span className="text-xs text-indigo-500 font-medium">✨ Recommended</span>}
-                                                    {post.isMoodMatch && <span className="text-xs text-indigo-500 font-medium">{user.preferredMood ? MOOD_EMOJI[user.preferredMood] : ''} Based on your mood</span>}
-                                                    {post.isLiveInjected && <span className="text-xs text-pink-500 font-medium">🔥 Highly Related</span>}
-                                                </div>
+                                                {post.location?.name && (
+                                                    <div className="flex items-center gap-1 mt-1">
+                                                        <i className="pi pi-map-marker text-[9px] text-gray-400"></i>
+                                                        <span className="text-[10px] text-gray-400 font-medium">{post.location.name}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0 pl-2">
@@ -473,7 +451,7 @@ const Feed = ({ activeMood = null }) => {
 
                                     {/* Images */}
                                     {images.length > 0 && (
-                                        <div className="relative border-y border-gray-100">
+                                        <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden">
                                             <ImageCarousel images={images} onDoubleClick={() => !locked && handleImageDoubleClick(post)} onTouchEnd={() => !locked && handleImageTap(post)} />
                                             {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
                                             <HeartBurst visible={!!heartVisible[post._id]} />
@@ -482,7 +460,7 @@ const Feed = ({ activeMood = null }) => {
 
                                     {/* Video */}
                                     {post.video && !post.image_urls?.length && !post.image_url && (
-                                        <div className="relative border-y border-gray-100" style={{ background: '#000' }}>
+                                        <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" style={{ background: '#000' }}>
                                             <video
                                                 key={post._id}
                                                 src={post.video}
@@ -490,13 +468,17 @@ const Feed = ({ activeMood = null }) => {
                                                 muted
                                                 loop
                                                 playsInline
+                                                onDoubleClick={() => !locked && handleImageDoubleClick(post)}
+                                                onTouchEnd={() => !locked && handleImageTap(post)}
                                                 style={{
                                                     width: '100%',
-                                                    maxHeight: '620px',
+                                                    height: 'auto',
                                                     objectFit: 'cover',
-                                                    background: '#000'
+                                                    background: '#000',
+                                                    cursor: 'pointer'
                                                 }}
                                             />
+                                            <HeartBurst visible={!!heartVisible[post._id]} />
                                             {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
                                         </div>
                                     )}
@@ -529,7 +511,7 @@ const Feed = ({ activeMood = null }) => {
 
                                     {/* Actions */}
                                     {!locked && (
-                                        <div className="bg-white text-gray-900 w-full px-4 py-3">
+                                        <div className="bg-white dark:bg-black text-[var(--text-main)] w-full p-3">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-4">
                                                     <div
@@ -537,8 +519,8 @@ const Feed = ({ activeMood = null }) => {
                                                         onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
                                                         onMouseLeave={() => setPickerPostId(null)}
                                                     >
-                                                        <div onClick={(e) => { e.stopPropagation(); handleLikeToggle(post); }}>
-                                                            <Like id={`like-${post._id}`} isliked={isLikedByMe} loading={likeMutation.isPending} />
+                                                        <div onClick={(e) => { e.stopPropagation(); handleLikeToggle(post); }} className="flex items-center gap-2">
+                                                            <Like id={`like-${post._id}`} isliked={isLikedByMe} loading={likeMutation.isPending} /> {likesArray.length.toLocaleString()}
                                                         </div>
 
                                                         {pickerPostId === post._id && (
@@ -549,7 +531,7 @@ const Feed = ({ activeMood = null }) => {
                                                         )}
 
                                                         {post.reactions?.length > 0 && (
-                                                            <div className="flex gap-2 -space-x-1 ml-1 items-center bg-[var(--surface-2)] px-2 py-0.5 rounded-full border border-[var(--border-color)]">
+                                                            <div className="flex gap-2 -space-x-1 ml-1 items-center bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
                                                                 {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
                                                                     <span key={i} className="text-[10px] leading-none">{emoji}</span>
                                                                 ))}
@@ -557,20 +539,20 @@ const Feed = ({ activeMood = null }) => {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <button onClick={(e) => { e.stopPropagation(); setVisiblePostId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
-                                                        <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i>
+                                                    <button aria-label={visiblePostId === post._id ? "Close comments" : "Open comments"} onClick={(e) => { e.stopPropagation(); setVisiblePostId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] gap-2">
+                                                        <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i> {post.comments?.length || 0}
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); setSharePost(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900">
+                                                    <button aria-label="Share post" onClick={(e) => { e.stopPropagation(); setSharePost(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)]">
                                                         <i className="pi pi-send" style={{ fontSize: '1.15rem' }}></i>
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); setPostDetailId(post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-gray-900 ml-auto" style={{ marginRight: '4px' }}>
+                                                    <button aria-label="View post details" onClick={(e) => { e.stopPropagation(); setPostDetailId(post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] ml-auto" style={{ marginRight: '4px' }}>
                                                         <i className="pi pi-external-link" style={{ fontSize: '1rem' }}></i>
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleSave(post); }} disabled={savingPostIds.has(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0" style={{ opacity: savingPostIds.has(post._id) ? 0.5 : 1, pointerEvents: savingPostIds.has(post._id) ? 'none' : 'auto' }}>
+                                                    <button aria-label={postIsSaved ? 'Unsave post' : 'Save post'} onClick={(e) => { e.stopPropagation(); handleSave(post); }} disabled={savingPostIds.has(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0" style={{ opacity: savingPostIds.has(post._id) ? 0.5 : 1, pointerEvents: savingPostIds.has(post._id) ? 'none' : 'auto' }}>
                                                         <i className={`pi ${postIsSaved ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: postIsSaved ? '#808bf5' : 'currentColor' }}></i>
                                                     </button>
                                                 </div>
-                                                <p className="m-0 mt-2 text-sm font-semibold">{likesArray.length.toLocaleString()} likes</p>
+                                                {/* <p className="m-0 mt-2 text-sm font-semibold">{likesArray.length.toLocaleString()} likes</p> */}
                                                 <p className="m-0 mt-1 text-sm leading-relaxed">
                                                     <span
                                                         className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
@@ -580,8 +562,8 @@ const Feed = ({ activeMood = null }) => {
                                                     </span>
                                                     {renderCaption(post.caption || '')}
                                                 </p>
-                                                <p className="m-0 mt-1 text-xs text-gray-500 cursor-pointer" onClick={() => setVisiblePostId(p => p === post._id ? null : post._id)}>View all {post.comments?.length || 0} comments</p>
-                                                <p className="m-0 mt-2 text-[10px] text-gray-400 uppercase tracking-wide">{formatDate(post.updatedAt)}</p>
+                                                {/* <p className="m-0 mt-1 text-xs text-gray-500 cursor-pointer" onClick={() => setVisiblePostId(p => p === post._id ? null : post._id)}>View all {post.comments?.length || 0} comments</p> */}
+                                                {/* <p className="m-0 mt-2 text-[10px] text-gray-400 uppercase tracking-wide">{formatDate(post.updatedAt)}</p> */}
                                             </div>
                                         </div>
                                     )}
@@ -649,7 +631,7 @@ const Feed = ({ activeMood = null }) => {
                     )}
                 </Dialog>
 
-                <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
+                <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)}>
                     <UserProfile id={selectedProfileId} compact={true} />
                 </Dialog>
             </div>

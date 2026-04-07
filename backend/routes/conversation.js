@@ -1,11 +1,18 @@
 const express = require('express');
 const router = express.Router();
+
+// Debug middleware
+router.use((req, res, next) => {
+    console.log(`[Conversation] ${req.method} ${req.url}`);
+    next();
+});
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const verifyToken = require('../middleware/Verifytoken');
 const redis = require('../lib/redis');
+const mongoose = require('mongoose');
 
 const CACHE_TTL = 60; // 60 seconds
 
@@ -21,6 +28,67 @@ async function delCache(...keys) {
 
 let _io;
 function setIo(io) { _io = io; }
+
+// ─── CLEAR CHAT (PROTECTED) ──────────────────────────────────────────────────
+router.delete('/:conversationId/clear', verifyToken, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        const userId = req.userId;
+        console.log(`[Conversation] Clear request: ${conversationId} by ${userId}`);
+
+        if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+            return res.status(400).json({ error: 'Invalid conversation ID' });
+        }
+
+        const conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': userId });
+        if (!conv) return res.status(403).json({ error: 'Unauthorized to clear this chat' });
+
+        await Message.deleteMany({ conversationId });
+
+        await Conversation.findByIdAndUpdate(conversationId, {
+            lastMessage: null,
+            lastMessageAt: new Date(),
+        });
+
+        const participants = conv.participants.map(p => p.userId.toString());
+        await delCache(...participants.map(p => `convs:${p}`), `msgs:${participants.sort().join(':')}`);
+
+        res.json({ message: 'Chat cleared' });
+    } catch (err) {
+        console.error('[Conversation] Clear error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── DELETE CHAT (PROTECTED) ─────────────────────────────────────────────────
+router.delete('/:conversationId', verifyToken, async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        const userId = req.userId;
+        console.log(`[Conversation] Delete request: ${conversationId} by ${userId}`);
+
+        if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+            return res.status(400).json({ error: 'Invalid conversation ID' });
+        }
+
+        const conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': userId });
+        if (!conv) return res.status(403).json({ error: 'Unauthorized to delete this chat' });
+
+        const participants = conv.participants.map(p => p.userId.toString());
+
+        await Promise.all([
+            Message.deleteMany({ conversationId }),
+            Conversation.findByIdAndDelete(conversationId)
+        ]);
+
+        await delCache(...participants.map(p => `convs:${p}`), `msgs:${participants.sort().join(':')}`);
+
+        res.json({ message: 'Chat deleted' });
+    } catch (err) {
+        console.error('[Conversation] Delete error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // ─── CREATE CONVERSATION (PROTECTED) ──────────────────────────────────────────
 router.post('/create', verifyToken, async (req, res) => {
@@ -59,7 +127,6 @@ router.get('/', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const cacheKey = `convs:${userId}`;
-
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
 
@@ -87,26 +154,13 @@ router.post('/messages', verifyToken, async (req, res) => {
         const conversation = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
         if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
 
-        const query = {
-            conversationId: conversation._id,
-            deletedAt: null,
-        };
+        const query = { conversationId: conversation._id, deletedAt: null };
+        if (before) query.createdAt = { $lt: new Date(before) };
 
-        if (before) {
-            query.createdAt = { $lt: new Date(before) };
-        }
-
-        const messages = await Message.find(query)
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .lean();
-
-        // Reverse to maintain chronological order for the frontend
+        const messages = await Message.find(query).sort({ createdAt: -1 }).limit(limit).lean();
         messages.reverse();
 
-        const hasMore = messages.length === limit;
-        const result = { messages, conversation, hasMore };
-        
+        const result = { messages, conversation, hasMore: messages.length === limit };
         await setCache(cacheKey, result, 15);
         res.status(200).json(result);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -117,15 +171,13 @@ router.get('/messages/search', verifyToken, async (req, res) => {
     try {
         const { conversationId, q } = req.query;
         const userId = req.userId;
-        if (!conversationId || !q) return res.status(400).json({ error: 'conversationId and q required' });
+        if (!conversationId || !q) return res.status(400).json({ error: 'Required fields missing' });
 
-        // Authorization check: User must be part of the conversation
         const conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': userId });
-        if (!conv) return res.status(403).json({ error: 'Unauthorized access to conversation' });
+        if (!conv) return res.status(403).json({ error: 'Unauthorized' });
 
         const messages = await Message.find({
-            conversationId,
-            deletedAt: null,
+            conversationId, deletedAt: null,
             $text: { $search: q },
         }).sort({ score: { $meta: 'textScore' } }).limit(20).lean();
 
@@ -134,109 +186,36 @@ router.get('/messages/search', verifyToken, async (req, res) => {
 });
 
 // ─── SEND MESSAGE (PROTECTED) ─────────────────────────────────────────────────
-router.post('/send', verifyToken, async (req, res) => {
+router.post('/messages/create', verifyToken, async (req, res) => {
     try {
-        // Backwards-compatible alias for /messages/create used by frontend
         const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply } = req.body;
         const sender = req.userId;
         if (!conversationId || !recipientId) return res.status(400).json({ error: 'Required fields missing' });
 
         const message = await Message.create({
-            conversationId,
-            sender,
-            content: content || '',
+            conversationId, sender, content: content || '',
             media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
             storyReply: storyReply || undefined,
         });
 
         await Conversation.findByIdAndUpdate(conversationId, {
             lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
-            lastMessageAt: new Date(),
-            lastMessageBy: sender,
+            lastMessageAt: new Date(), lastMessageBy: sender,
         });
 
         const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
-        const senderFullname = senderName || senderUser?.fullname || 'Someone';
         const notification = await Notification.create({
             recipient: recipientId,
-            sender: {
-                id: sender,
-                fullname: senderFullname,
-                profile_picture: senderUser?.profile_picture || ''
-            },
+            sender: { id: sender, fullname: senderName || senderUser?.fullname || 'Someone', profile_picture: senderUser?.profile_picture || '' },
             message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
         });
 
         await delCache(`convs:${sender}`, `convs:${recipientId}`, `msgs:${[sender, recipientId].sort().join(':')}`);
 
         if (_io) {
-            _io.to(recipientId).emit('receiveMessage', { ...message.toObject(), senderId: sender, senderName: senderFullname });
-            _io.to(recipientId).emit('newNotification', {
-                _id: notification._id,
-                recipient: notification.recipient,
-                sender: notification.sender,
-                type: notification.type,
-                message: notification.message,
-                post: notification.post,
-                createdAt: notification.createdAt,
-                read: notification.read,
-            });
+            _io.to(recipientId).emit('receiveMessage', { ...message.toObject(), senderId: sender, senderName: senderName || senderUser?.fullname });
+            _io.to(recipientId).emit('newNotification', notification);
         }
-
-        return res.status(201).json(message);
-    } catch (err) { return res.status(500).json({ error: err.message }); }
-});
-
-router.post('/messages/create', verifyToken, async (req, res) => {
-    try {
-        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize } = req.body;
-        const sender = req.userId;
-        if (!conversationId || !recipientId)
-            return res.status(400).json({ error: 'Required fields missing' });
-
-        const message = await Message.create({
-            conversationId, sender, content: content || '',
-            media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
-        });
-
-        await Conversation.findByIdAndUpdate(conversationId, {
-            lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
-            lastMessageAt: new Date(),
-            lastMessageBy: sender,
-        });
-
-        const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
-        const senderFullname = senderName || senderUser?.fullname || 'Someone';
-        const notification = await Notification.create({
-            recipient: recipientId,
-            sender: {
-                id: sender,
-                fullname: senderFullname,
-                profile_picture: senderUser?.profile_picture || ''
-            },
-            message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
-        });
-
-        await delCache(`convs:${sender}`, `convs:${recipientId}`, `msgs:${[sender, recipientId].sort().join(':')}`);
-
-        if (_io) {
-            _io.to(recipientId).emit('receiveMessage', {
-                ...message.toObject(), senderId: sender, senderName,
-            });
-
-            // Push real-time notification for message events so bell updates instantly.
-            _io.to(recipientId).emit('newNotification', {
-                _id: notification._id,
-                recipient: notification.recipient,
-                sender: notification.sender,
-                type: notification.type,
-                message: notification.message,
-                post: notification.post,
-                createdAt: notification.createdAt,
-                read: notification.read,
-            });
-        }
-
         res.status(201).json(message);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -247,26 +226,15 @@ router.patch('/messages/:messageId', verifyToken, async (req, res) => {
         const { content } = req.body;
         const userId = req.userId;
         const message = await Message.findById(req.params.messageId);
-        if (!message) return res.status(404).json({ error: 'Message not found' });
-        if (message.sender.toString() !== userId) return res.status(403).json({ error: 'Unauthorized to edit this message' });
+        if (!message || message.sender.toString() !== userId) return res.status(403).json({ error: 'Unauthorized' });
 
-        message.content = content;
-        message.edited = true;
-        message.editedAt = new Date();
+        message.content = content; message.edited = true; message.editedAt = new Date();
         await message.save();
 
         if (_io) {
             const conv = await Conversation.findById(message.conversationId).select('participants').lean();
-            conv?.participants?.forEach(p => {
-                _io.to(p.userId.toString()).emit('messageEdited', {
-                    messageId: message._id,
-                    content,
-                    conversationId: message.conversationId,
-                });
-            });
+            conv?.participants?.forEach(p => _io.to(p.userId.toString()).emit('messageEdited', { messageId: message._id, content, conversationId: message.conversationId }));
         }
-
-        await delCache(`msgs:${message.conversationId}`);
         res.json(message);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -276,80 +244,33 @@ router.delete('/messages/:messageId', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const message = await Message.findOne({ _id: req.params.messageId, sender: userId });
-        if (!message) return res.status(404).json({ error: 'Message not found or unauthorized' });
-
-        message.deletedAt = new Date();
-        message.content = '';
-        await message.save();
-
-        if (_io) {
-            const conv = await Conversation.findById(message.conversationId).select('participants').lean();
-            conv?.participants?.forEach(p => {
-                _io.to(p.userId.toString()).emit('messageDeleted', {
-                    messageId: message._id,
-                    conversationId: message.conversationId,
-                });
-            });
-        }
-        await delCache(`msgs:${message.conversationId}`);
-        res.json({ message: 'Message deleted' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ─── REACT TO MESSAGE (PROTECTED) ─────────────────────────────────────────────
-router.post('/messages/:messageId/react', verifyToken, async (req, res) => {
-    try {
-        const { emoji } = req.body;
-        const userId = req.userId;
-        const message = await Message.findById(req.params.messageId);
         if (!message) return res.status(404).json({ error: 'Not found' });
 
-        if (message.reactions.get(userId) === emoji) {
-            message.reactions.delete(userId);
-        } else {
-            message.reactions.set(userId, emoji);
-        }
+        message.deletedAt = new Date(); message.content = '';
         await message.save();
 
-        const reactionsObj = Object.fromEntries(message.reactions);
         if (_io) {
             const conv = await Conversation.findById(message.conversationId).select('participants').lean();
-            conv?.participants?.forEach(p => {
-                _io.to(p.userId.toString()).emit('messageReaction', {
-                    messageId: message._id,
-                    conversationId: message.conversationId,
-                    reactions: reactionsObj,
-                });
-            });
+            conv?.participants?.forEach(p => _io.to(p.userId.toString()).emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId }));
         }
-
-        await delCache(`msgs:${message.conversationId}`);
-        res.json({ reactions: reactionsObj });
+        res.json({ message: 'Deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── MARK READ (PROTECTED) ────────────────────────────────────────────────────
+// ─── MARK MESSAGES READ (PROTECTED) ───────────────────────────────────────────
 router.post('/messages/mark-read', verifyToken, async (req, res) => {
     try {
         const { unreadMessageIds, lastMessage } = req.body;
         const userId = req.userId;
-        if (!Array.isArray(unreadMessageIds)) return res.status(400).json({ error: 'Invalid' });
-
         await Message.updateMany({ _id: { $in: unreadMessageIds } }, { $set: { isRead: true } });
-
         if (lastMessage) {
             const msg = await Message.findById(lastMessage).lean();
             if (msg) {
-                await Conversation.findByIdAndUpdate(msg.conversationId, {
-                    'lastMessage.isRead': true,
-                    lastMessageBy: msg.sender,
-                    lastMessageAt: msg.createdAt,
-                });
+                await Conversation.findByIdAndUpdate(msg.conversationId, { 'lastMessage.isRead': true });
                 await delCache(`convs:${msg.sender}`);
             }
         }
-
-        res.json({ message: 'Marked as read', unreadMessageIds });
+        res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -357,35 +278,16 @@ router.post('/messages/mark-read', verifyToken, async (req, res) => {
 router.get('/notifications', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-        const skip = (page - 1) * limit;
-
-        const [notifications, total] = await Promise.all([
-            Notification.find({ recipient: userId })
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            Notification.countDocuments({ recipient: userId })
-        ]);
-
-        res.status(200).json({
-            notifications,
-            total,
-            page,
-            hasNextPage: total > skip + notifications.length
-        });
+        const notifications = await Notification.find({ recipient: userId }).sort({ createdAt: -1 }).limit(50).lean();
+        res.json({ notifications, total: notifications.length });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.patch('/notifications/mark-read', verifyToken, async (req, res) => {
     try {
         const { Ids } = req.body;
-        const userId = req.userId;
-        // Verify notifications belong to the user
-        await Notification.updateMany({ _id: { $in: Ids }, recipient: userId }, { $set: { read: true } });
-        res.json({ Ids });
+        await Notification.updateMany({ _id: { $in: Ids }, recipient: req.userId }, { $set: { read: true } });
+        res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -393,26 +295,12 @@ router.patch('/notifications/mark-read', verifyToken, async (req, res) => {
 router.get('/:participantId', verifyToken, async (req, res) => {
     try {
         const { participantId } = req.params;
-        const userId = req.userId;
+        if (participantId !== req.userId) return res.status(403).json({ error: 'Unauthorized' });
 
-        if (participantId !== userId) {
-            return res.status(403).json({ error: 'Unauthorized access' });
-        }
-
-        const cacheKey = `convs:${userId}`;
-        const cached = await getCache(cacheKey);
-        if (cached) return res.json(cached);
-
-        const conversations = await Conversation.find({ 'participants.userId': userId })
-            .sort({ lastMessageAt: -1 })
-            .lean();
-
-        await setCache(cacheKey, conversations, 30);
-        return res.status(200).json(conversations);
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
-    }
+        const conversations = await Conversation.find({ 'participants.userId': req.userId }).sort({ lastMessageAt: -1 }).lean();
+        res.json(conversations);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.setIo = setIo;
 module.exports = router;
-module.exports.setIo = setIo;

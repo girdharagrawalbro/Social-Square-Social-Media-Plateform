@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
@@ -108,9 +108,8 @@ const ReactionPicker = ({ onSelect, onClose }) => {
 };
 
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
-const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, onEdit, onDelete }) => {
+const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, onEdit, onDelete, searchQ, isSelected, onSelect }) => {
     const [showReactions, setShowReactions] = useState(false);
-    const [showMenu, setShowMenu] = useState(false);
     const [editing, setEditing] = useState(false);
     const [editText, setEditText] = useState(message.content);
     const [showPostModal, setShowPostModal] = useState(false);
@@ -124,7 +123,22 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [StoryViewerComp, setStoryViewerComp] = useState(null);
 
     const isDeleted = !!message.deletedAt;
-    const closeTimerRef = useRef(null);
+    const longPressTimer = useRef(null);
+
+    const handleTouchStart = () => {
+        if (isDeleted) return;
+        longPressTimer.current = setTimeout(() => {
+            onSelect();
+            if (window.navigator?.vibrate) window.navigator.vibrate(50);
+        }, 500);
+    };
+
+    const handleTouchEnd = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
 
     const extractSharedLinkData = (text = '') => {
         const postMatch = text.match(/(?:https?:\/\/[^\s]+)?\/post\/([a-f0-9]+)/i);
@@ -154,33 +168,47 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const handleEditSave = () => { onEdit(message._id, editText); setEditing(false); };
 
     useEffect(() => {
-        return () => {
-            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-        };
-    }, []);
+        if (!isSelected) setShowReactions(false);
+    }, [isSelected]);
+
+    const highlightText = (text, highlight) => {
+        if (!highlight || !highlight.trim()) return text;
+        const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        const parts = String(text).split(regex);
+        return parts.map((part, i) =>
+            regex.test(part) ? <mark key={i} style={{ backgroundColor: '#ffeb3b', color: '#000', padding: '0 2px', borderRadius: '4px', fontWeight: 'bold' }}>{part}</mark> : part
+        );
+    };
 
     return (
-        <div style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '4px', position: 'relative' }}
-            onMouseEnter={() => {
-                if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
-                if (!isDeleted) setShowMenu(true);
-            }}
-            onMouseLeave={() => {
-                // delay hiding to allow clicking the reaction picker
-                closeTimerRef.current = setTimeout(() => { setShowMenu(false); setShowReactions(false); }, 2000);
-            }}>
+        <div id={`msg-${message._id}`} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '4px', position: 'relative' }}>
 
-            {showMenu && !isDeleted && (
+            {isSelected && !isDeleted && (
                 <div style={{ position: 'relative', alignSelf: 'center', margin: isOwn ? '0 4px 0 0' : '0 0 0 4px', order: isOwn ? -1 : 1 }}>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; } setShowReactions(v => !v); }} aria-expanded={showReactions} aria-haspopup="menu" aria-label="Add reaction" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} title="Add reaction">😊</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setShowReactions(v => !v); }} aria-expanded={showReactions} aria-haspopup="menu" aria-label="Add reaction" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} title="Add reaction">😊</button>
                     {showReactions && <ReactionPicker onSelect={emoji => onReact(message._id, emoji)} onClose={() => setShowReactions(false)} />}
                 </div>
             )}
 
-            <div style={{
-                maxWidth: '80%',
-                wordBreak: 'break-word', position: 'relative'
-            }}>
+            <div
+                onMouseDown={handleTouchStart}
+                onMouseUp={handleTouchEnd}
+                onMouseLeave={handleTouchEnd}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onClick={(e) => {
+                    // Prevent deselect if clicking inside bubble components
+                    if (!editing) e.stopPropagation();
+                }}
+                style={{
+                    maxWidth: '80%',
+                    wordBreak: 'break-word',
+                    position: 'relative',
+                    transform: isSelected ? 'scale(1.02)' : 'none',
+                    filter: isSelected ? 'brightness(1.05)' : 'none',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                }}
+            >
                 {editing ? (
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <input value={editText} onChange={e => setEditText(e.target.value)} autoFocus
@@ -189,7 +217,16 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                         <button onClick={() => setEditing(false)} style={{ background: 'var(--surface-2)', border: 'none', color: 'var(--text-main)', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '12px' }}>Cancel</button>
                     </div>
                 ) : (
-                    <div style={{ background: isOwn ? '#808bf5' : 'var(--surface-2)', color: isOwn ? '#fff' : 'var(--text-main)', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '10px 14px', fontSize: '14px', lineHeight: 1.5 }}>
+                    <div style={{
+                        background: isOwn ? '#808bf5' : 'var(--surface-2)',
+                        color: isOwn ? '#fff' : 'var(--text-main)',
+                        borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                        padding: '10px 14px',
+                        fontSize: '14px',
+                        lineHeight: 1.5,
+                        boxShadow: isSelected ? '0 4px 15px rgba(128,139,245,0.3)' : 'none',
+                        border: isSelected ? '1px solid rgba(255,255,255,0.3)' : 'none'
+                    }}>
                         {isDeleted ? <span style={{ fontStyle: 'italic', opacity: 0.6, fontSize: '12px' }}>🚫 Message deleted</span> : (
                             <>
                                 {message.storyReply && (
@@ -220,7 +257,6 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                                 return;
                                             }
 
-                                            // If Stories component not mounted, open same viewer in a modal
                                             try {
                                                 const res = await api.get('/api/story/feed');
                                                 const groups = Array.isArray(res.data) ? res.data : [];
@@ -238,7 +274,6 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                                 console.error('Failed to open story modal', err);
                                             }
 
-                                            // Fallback: navigate to stories route
                                             window.location.href = `/stories?user=${userId}${storyId ? `&story=${storyId}` : ''}`;
                                         }}>
                                         {message.storyReply.mediaUrl ? (
@@ -260,7 +295,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                     </div>
                                 )}
                                 {isSharedPost && (
-                                    <div onClick={() => { setSelectedPostId(sharedLinkData.postId); setShowPostModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div onClick={(e) => { e.stopPropagation(); setSelectedPostId(sharedLinkData.postId); setShowPostModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '20px' }}>📤</span>
                                         <div style={{ flex: 1 }}>
                                             <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a post</p>
@@ -269,7 +304,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                     </div>
                                 )}
                                 {isSharedProfile && (
-                                    <div onClick={() => { setSelectedProfileId(sharedLinkData.profileId); setShowProfileModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div onClick={(e) => { e.stopPropagation(); setSelectedProfileId(sharedLinkData.profileId); setShowProfileModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '20px' }}>👤</span>
                                         <div style={{ flex: 1 }}>
                                             <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a profile</p>
@@ -279,7 +314,8 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                 )}
                                 {isSharedStoryLink && (
                                     <div
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             if (typeof window.onViewStory === 'function') {
                                                 window.onViewStory(sharedLinkData.storyUserId, sharedLinkData.storyId);
                                             } else {
@@ -305,7 +341,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                         {message.media.type === 'file' && <a href={message.media.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isOwn ? '#fff' : '#808bf5', textDecoration: 'none', fontSize: '13px' }}>📎 {message.media.name || 'File'}</a>}
                                     </div>
                                 )}
-                                {!hasSharedLinkCard && message.content && <p style={{ margin: 0 }}>{message.content}</p>}
+                                {!hasSharedLinkCard && message.content && <p style={{ margin: 0 }}>{highlightText(message.content, searchQ)}</p>}
                                 {message.edited && <span style={{ fontSize: '10px', opacity: 0.6 }}> (edited)</span>}
                             </>
                         )}
@@ -334,10 +370,10 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                     </div>
                 )}
 
-                {showMenu && isOwn && !isDeleted && (
-                    <div style={{ position: 'absolute', right: 0, top: '-30px', display: 'flex', gap: '4px', background: 'var(--surface-1)', borderRadius: '10px', padding: '3px 6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', zIndex: 10 }}>
-                        <button type="button" aria-label="Edit message" onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-main)', padding: '2px 4px' }}>✏️</button>
-                        <button type="button" aria-label="Delete message" onClick={() => onDelete(message._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#ef4444', padding: '2px 4px' }}>🗑️</button>
+                {isSelected && isOwn && !isDeleted && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-200" style={{ position: 'absolute', right: 0, top: '-36px', display: 'flex', gap: '4px', background: 'var(--surface-1)', borderRadius: '12px', padding: '4px 8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', zIndex: 10 }}>
+                        <button type="button" aria-label="Edit message" onClick={(e) => { e.stopPropagation(); setEditing(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: 'var(--text-main)', padding: '4px', borderRadius: '6px' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>✏️</button>
+                        <button type="button" aria-label="Delete message" onClick={(e) => { e.stopPropagation(); onDelete(message._id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#ef4444', padding: '4px', borderRadius: '6px' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>🗑️</button>
                     </div>
                 )}
 
@@ -363,11 +399,11 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                         role="dialog"
                         visible={showProfileModal}
                         appendTo={document.body}
-                        style={{ width: '95vw', maxWidth: '500px' }}
+                        style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }}
                         onHide={() => setShowProfileModal(false)}
                         modal
                     >
-                        <UserProfile id={selectedProfileId} />
+                        <UserProfile id={selectedProfileId} onClose={() => setShowProfileModal(false)} />
                     </Dialog>
                 )}
                 {storyModalOpen && StoryViewerComp && (
@@ -405,25 +441,57 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 };
 
 // ─── CHAT PANEL ───────────────────────────────────────────────────────────────
-const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) => {
+const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching, searchQ, setSearchQ, searchIndex, setSearchIndex, setSearchCount, onConversationIdFetched, refreshKey }) => {
     const user = useAuthStore(s => s.user);
     const setTyping = useConversationStore(s => s.setTyping);
     const clearTyping = useConversationStore(s => s.clearTyping);
     const isTyping = useConversationStore(s => s.isTyping);
     const getTypingName = useConversationStore(s => s.getTypingName);
     const chatRef = useRef(null);
+    const shouldAutoScroll = useRef(true);
     const fileInputRef = useRef(null);
     const typingTimer = useRef(null);
     const conversationIdRef = useRef(null);
 
     const [text, setText] = useState('');
-    const [searchQ, setSearchQ] = useState('');
     const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [messages, setMessages] = useState([]);
     const [conversationId, setConversationId] = useState(null);
+    const [showScrollBottom, setShowScrollBottom] = useState(false);
+    const [selectedMessageId, setSelectedMessageId] = useState(null);
+
+    // ✅ Track conversation ID and notify parent
+    useEffect(() => {
+        if (conversationId && onConversationIdFetched) {
+            onConversationIdFetched(conversationId);
+        }
+    }, [conversationId, onConversationIdFetched]);
+
+    // ✅ Track search matches (Latest first)
+    const searchMatches = useMemo(() => {
+        if (!searchQ || !searchQ.trim()) return [];
+        return messages
+            .filter(m => m.content?.toLowerCase().includes(searchQ.toLowerCase()))
+            .map(m => m._id)
+            .reverse(); // Reverse so index 0 is the most recent
+    }, [messages, searchQ]);
+
+    useEffect(() => {
+        setSearchCount(searchMatches.length);
+    }, [searchMatches, setSearchCount]);
+
+    // ✅ Scroll to current search match
+    useEffect(() => {
+        if (isSearching && searchMatches.length > 0 && searchMatches[searchIndex]) {
+            const el = document.getElementById(`msg-${searchMatches[searchIndex]}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [searchIndex, searchMatches, isSearching]);
 
     // ✅ TanStack Query mutations
     const sendMessageMut = useSendMessage();
@@ -470,7 +538,7 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-    }, [user?._id, participantId, markRead]);
+    }, [user?._id, participantId, markRead, refreshKey]);
 
     const fetchMoreMessages = useCallback(async () => {
         if (loadingMore || !hasMore || !messages.length || !participantId) return;
@@ -510,19 +578,62 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
     }, [loadingMore, hasMore, messages, participantId]);
 
     const handleScroll = (e) => {
-        if (e.target.scrollTop === 0 && hasMore && !loadingMore) {
+        const target = e.target;
+        const { scrollTop, scrollHeight, clientHeight } = target;
+
+        // If user scrolled to top, fetch older messages
+        if (scrollTop === 0 && hasMore && !loadingMore) {
             fetchMoreMessages();
+        }
+
+        // Track whether we should auto-scroll on new messages
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        shouldAutoScroll.current = distanceFromBottom < 200;
+        setShowScrollBottom(distanceFromBottom > 400);
+
+        // Deselect message on scroll
+        if (selectedMessageId) setSelectedMessageId(null);
+    };
+
+    const scrollToBottom = () => {
+        if (chatRef.current) {
+            chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' });
         }
     };
 
     useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-    // ✅ Scroll to bottom on initial load only
+    // ✅ Scroll to bottom on initial load or conversation change
     useEffect(() => {
-        if (chatRef.current && !loadingMore) {
+        if (chatRef.current && !loading && !loadingMore) {
             chatRef.current.scrollTop = chatRef.current.scrollHeight;
         }
-    }, [loading, conversationId, loadingMore]); // Only scroll to bottom when switching conversations or initial load
+    }, [loading, conversationId]); // Removed loadingMore to prevent jumping after pagination
+
+    // Auto-scroll when new messages arrive, but only if the user hasn't scrolled up
+    useEffect(() => {
+        if (!chatRef.current) return;
+        if (shouldAutoScroll.current) {
+            // use smooth scroll so UX is nicer
+            try {
+                chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' });
+            } catch (err) {
+                chatRef.current.scrollTop = chatRef.current.scrollHeight;
+            }
+        }
+    }, [messages.length]);
+
+    // Keep chat at bottom on window resize if appropriate
+    useEffect(() => {
+        const onResize = () => {
+            if (!chatRef.current) return;
+            if (shouldAutoScroll.current) {
+                chatRef.current.scrollTop = chatRef.current.scrollHeight;
+            }
+        };
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     // ✅ Socket listeners with stable ref — no stale closure issues
     useEffect(() => {
@@ -744,9 +855,7 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
     const isTypingOther = conversationId && isTyping(conversationId);
     const typingName = conversationId ? getTypingName(conversationId) : null;
 
-    const displayMessages = messages.filter(m =>
-        !searchQ || m.content?.toLowerCase().includes(searchQ.toLowerCase())
-    );
+    const displayMessages = messages;
 
     return (
         <div style={{
@@ -756,24 +865,25 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
             position: 'relative'
         }}>
 
-            {isSearching && (
-                <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '8px' }}>
-                    <input type="text" placeholder="Search messages..." value={searchQ} onChange={e => setSearchQ(e.target.value)} autoFocus
-                        style={{ flex: 1, padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--border-color)', fontSize: '13px', outline: 'none', background: 'var(--surface-2)', color: 'var(--text-main)' }} />
-                    <button onClick={() => { setIsSearching(false); setSearchQ(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)' }}>✕</button>
-                </div>
-            )}
+
 
             {/* Messages */}
-            <div ref={chatRef} onScroll={handleScroll} style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '12px',
-                paddingBottom: '80px', // ✅ space for input
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px'
-            }}>
+            <div
+                ref={chatRef}
+                onScroll={handleScroll}
+                onClick={(e) => {
+                    if (e.target === e.currentTarget) setSelectedMessageId(null);
+                }}
+                style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: '20px',
+                    paddingBottom: '80px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                }}
+            >
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading...</div>
                 ) : (
@@ -796,9 +906,22 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching }) 
                                 onReact={handleReact}
                                 onEdit={handleEdit}
                                 onDelete={handleDelete}
+                                searchQ={searchQ}
+                                isSelected={selectedMessageId === message._id}
+                                onSelect={() => setSelectedMessageId(message._id)}
                             />
                         ))}
                     </>
+                )}
+
+                {showScrollBottom && (
+                    <button 
+                        onClick={scrollToBottom}
+                        className="absolute bottom-20 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-indigo-500 text-white shadow-2xl flex items-center justify-center cursor-pointer animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300 hover:scale-110 active:scale-95 transition-all z-50 border-0"
+                        title="Scroll to bottom"
+                    >
+                        <i className="pi pi-chevron-down text-lg"></i>
+                    </button>
                 )}
 
                 {isTypingOther && (

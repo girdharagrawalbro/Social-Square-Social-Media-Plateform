@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Bg from './components/Bg';
 import toast, { Toaster } from 'react-hot-toast';
@@ -13,10 +13,17 @@ const Signup = () => {
   const signup = useAuthStore(s => s.signup);
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
+  const initialized = useAuthStore(s => s.initialized);
+  const hasShownToast = useRef(false);
 
   useEffect(() => {
-    if (user) { toast.success("You are already logged in.."); navigate(`/${user.username}`); }
-  }, [user, navigate]);
+    if (!initialized || loading) return;
+    if (user && !hasShownToast.current) {
+      hasShownToast.current = true;
+      toast.success("You are already logged in..");
+      navigate(`/${user.username}`);
+    }
+  }, [user, navigate, initialized, loading]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -53,8 +60,11 @@ const Signup = () => {
     <>
       <Bg>
         <div className="w-full flex items-center justify-center gap-6 flex-col md:flex-row">
-          <div className="w-full max-w-md flex flex-col text-left">
-            <h3 className="font-pacifico mb-3 text-2xl sm:text-3xl text-center">Social Square</h3>
+          <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col text-left">
+            <div className="mb-6 text-center">
+                <h3 className="font-pacifico text-3xl sm:text-4xl text-[#808bf5] mb-2">Social Square</h3>
+                <p className="text-gray-500 font-medium whitespace-nowrap">Join your community today</p>
+            </div>
             <form onSubmit={handleSubmit}>
               <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
               <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="text" name="fullname" placeholder="Full Name" value={formData.fullname} onChange={handleChange} required />

@@ -6,7 +6,7 @@ import Feed from './components/Feed';
 import Profile from './components/Profile';
 import Conversations from './components/Conversations';
 import Stories from './components/Stories';
-import Explore from './components/Commuinties';
+import Explore from './components/Communities';
 import Groups from './components/Groups';
 import UserProfile from './components/UserProfile';
 import { useDarkMode } from '../context/DarkModeContext';
@@ -103,8 +103,8 @@ const Home = () => {
     // Show skeleton while auth is being checked
     if (!initialized || loading || !loggeduser) return <MainSkeleton />;
 
-    const bg = isDark ? 'bg-gray-900' : 'bg-gray-50';
-    const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
+    const bg = isDark ? 'bg-[#0d0d0d]' : 'bg-gray-50';
+    const cardBg = isDark ? 'bg-[#121212]' : 'bg-white';
 
     const renderMobileView = () => {
         switch (activeView) {
@@ -156,11 +156,11 @@ const Home = () => {
     // };
 
     return (
-        <section className={`flex min-h-[100dvh] w-full overflow-x-hidden ${bg} transition-colors duration-200`}>
+        <section className={`flex min-h-[100dvh] w-full ${bg} transition-colors duration-200`}>
             {/* <VerificationBanner /> */}
             {/* Desktop */}
             {isDesktop ? (
-                <div className="flex justify-center items-center gap-3 w-full max-w-6xl mx-auto p-3 h-[calc(100dvh-64px)]">
+                <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3 min-h-[calc(100dvh-64px)]">
                     {/* <div className="w-25 h-full overflow-y-auto flex flex-col">
                         <div className="flex gap-2 mb-3">
                             <button
@@ -178,9 +178,13 @@ const Home = () => {
                         </div>
                         {desktopView === 'profile' ? <Profile /> : <Groups />}
                     </div> */}
-                    <div className="w-50 overflow-y-auto h-full px-3">
-                        <Stories />
-                        <Feed activeMood={null} />
+                    <div className="flex-1 h-full overflow-y-auto px-0 sm:px-3 custom-scrollbar">
+                        <div className="max-w-screen-md mx-auto w-full">
+                            <Stories />
+                            <div className="max-w-md mx-auto">
+                                <Feed activeMood={null} />
+                            </div>
+                        </div>
                     </div>
                     {/* <div className="w-25 h-full flex flex-col gap-3 min-w-0">
                         <Conversations />
@@ -189,7 +193,7 @@ const Home = () => {
                 </div>
             ) : (
                 /* Mobile */
-                <div className="flex flex-col h-[calc(100dvh-60px)] overflow-hidden">
+                <div className="flex flex-col min-h-[calc(100dvh-60px)]">
                     <div className={`flex-1 p-2 pb-20 ${activeView === 'messages' ? 'overflow-hidden flex flex-col' : 'overflow-auto'}`}>
                         {renderMobileView()}
                     </div>
@@ -197,7 +201,7 @@ const Home = () => {
                         <div className="flex justify-around">
                             {navItems.map(item => (
                                 <button key={item.key}
-                                    className={`px-3 py-2 rounded-full border-0 cursor-pointer transition-all ${activeView === item.key ? 'bg-[#808bf5] text-white' : isDark ? 'bg-gray-700 text-gray-300' : 'bg-transparent border border-gray-200 text-gray-600'}`}
+                                    className={`px-3 py-2 rounded-full cursor-pointer transition-all ${activeView === item.key ? 'bg-[#808bf5] text-white' : isDark ? 'bg-gray-700 text-gray-300' : 'bg-transparent text-gray-600'}`}
                                     onClick={() => setActiveView(item.key)}>
                                     <i className={`pi ${item.icon}`}></i>
                                 </button>

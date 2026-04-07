@@ -1,12 +1,11 @@
-import React from 'react';
-import Navbar from './Navbar';
+import { useDarkMode } from '../../context/DarkModeContext';
 
 const Bg = ({ children }) => {
+    const { isDark } = useDarkMode();
     return (
         <>
-            <Navbar />
             <div className="w-full min-h-screen flex items-center justify-center bg-cover bg-center px-3 py-6 sm:px-6" style={{ backgroundImage: "url('https://i.ibb.co/tKbHYTv/bg.jpg')" }}>
-                <div className="w-full max-w-4xl border bg-white text-center flex p-4 sm:p-6 rounded-lg shadow-md mx-auto">
+                <div className={`flex rounded-xl shadow-lg mx-auto transition-colors duration-200 ${isDark ? 'bg-[#121212] text-white' : 'bg-white text-gray-800'}`}>
                     {children}
                 </div>
             </div>

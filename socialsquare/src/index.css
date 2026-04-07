@@ -2,8 +2,10 @@
   --app-bg: #f1f5f9;
   --text-main: #0f172a;
   --text-sub: #64748b;
+  --surface-0: #f1f5f9;
   --surface-1: #ffffff;
   --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
   --border-color: #e2e8f0;
   --primary: #808bf5;
   --card-bg: rgba(255, 255, 255, 0.8);
@@ -11,14 +13,16 @@
 }
 
 .dark {
-  --app-bg: #0f172a;
+  --app-bg: #000000;
+  --surface-0: #000000;
   --text-main: #f8fafc;
   --text-sub: #94a3b8;
-  --surface-1: #1e293b;
-  --surface-2: #0f172a;
-  --border-color: #334155;
-  --card-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --surface-1: #000000;
+  --surface-2: #050505;
+  --surface-3: #111111;
+  --border-color: #1a1a1a;
+  --card-bg: rgba(0, 0, 0, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.05);
 }
 
 body {

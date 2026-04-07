@@ -43,7 +43,7 @@ const Navbar = () => {
 
 
   return (
-    <nav ref={mobileMenuRef} aria-label="Main Navigation" className={`sticky top-0 z-50 w-full backdrop-blur-md shadow-sm border-b max-w-8xl mx-auto flex items-center justify-between px-4 py-2 transition-all duration-300 ${isDark ? 'bg-gray-900/80 border-gray-700' : 'bg-white/80 border-gray-200'}`}>
+    <nav ref={mobileMenuRef} aria-label="Main Navigation" className={`sticky top-0 z-50 w-full h-16 backdrop-blur-md shadow-sm border-b flex items-center justify-between px-4 transition-all duration-300 ${isDark ? 'bg-black/80 border-[#1a1a1a]' : 'bg-white/80 border-gray-200'}`}>
       <div className="flex items-center gap-3 flex-1">
         <Link to={"/"} className="flex items-center">
           <i className={`pi pi-home text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
@@ -54,13 +54,14 @@ const Navbar = () => {
       </div>
 
       <div className="hidden md:block mx-auto max-w-4xl w-full px-8">
-        {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)}
+        {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search onClose={() => setMobileMenuOpen(false)} /> : <Authnav />)}
       </div>
 
 
       <div className="hidden md:flex items-center justify-end gap-3 flex-1">
         {isAuthenticated && !isLandingPage ? (
           <button
+            aria-label="Create post"
             onClick={() => setnewpostVisible(true)}
             className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
             title="Create post"
@@ -72,10 +73,15 @@ const Navbar = () => {
         {isAuthenticated ? (
           !isLandingPage && <NotificationBell userId={loggeduser?._id} />
         ) : (
-          <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline">Login</Link>
+          location.pathname === '/login' ? (
+              <Link to="/signup" className="border border-[#808bf5] text-[#808bf5] px-4 py-1 rounded no-underline hover:bg-[#808bf5] hover:text-white transition-all">Sign Up</Link>
+          ) : (
+              <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Login</Link>
+          )
         )}
         {/* Dark mode toggle */}
         <button
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           onClick={toggle}
           className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -100,6 +106,7 @@ const Navbar = () => {
         {isAuthenticated && !isLandingPage ? (
           <>
             <button
+              aria-label="Create post"
               onClick={() => setnewpostVisible(true)}
               className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
               title="Create post"
@@ -110,7 +117,13 @@ const Navbar = () => {
             <NotificationBell userId={loggeduser?._id} />
           </>
         ) : (
-          !isAuthenticated && <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm">Login</Link>
+          !isAuthenticated && (
+              location.pathname === '/login' ? (
+                  <Link to="/signup" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Sign Up</Link>
+              ) : (
+                  <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Login</Link>
+              )
+          )
         )}
 
         <button
@@ -127,16 +140,11 @@ const Navbar = () => {
       <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 flex flex-col gap-3 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
         } ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className={isAuthenticated ? '' : 'mb-3'}>
-          {/* {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search /> : <Authnav />)} */}
+          {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search onClose={() => setMobileMenuOpen(false)} /> : <Authnav />)}
         </div>
-
-
-
 
         {isAuthenticated && (
           <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-
-
             {isAdminUser && (
               <Link
                 to="/admin"
@@ -160,18 +168,6 @@ const Navbar = () => {
             >
               <span>🚪</span> Logout
             </button>
-          </div>
-        )}
-
-        {!isAuthenticated && (
-          <div className="flex justify-end">
-            <Link
-              to="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline"
-            >
-              Login
-            </Link>
           </div>
         )}
       </div>

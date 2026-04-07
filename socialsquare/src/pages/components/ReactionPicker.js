@@ -1,16 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '🔥', '🙌', '💯'];
 
 const ReactionPicker = ({ onSelect, onClose }) => {
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && onClose) {
+                onClose();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
     return (
         <div 
+            role="dialog"
+            aria-label="Reaction picker"
             className="absolute bottom-full mb-[-8px]  left-0 z-[100] bg-[var(--surface-1)] border border-[var(--border-color)] rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex gap-1 p-1.5 items-center animate-in fade-in slide-in-from-bottom-2 duration-300 backdrop-blur-md bg-opacity-90"
             onMouseLeave={onClose}
         >
             {EMOJIS.map(emoji => (
                 <button
                     key={emoji}
+                    aria-label={`React with ${emoji}`}
                     onClick={(e) => { 
                         e.stopPropagation();
                         onSelect(emoji); 

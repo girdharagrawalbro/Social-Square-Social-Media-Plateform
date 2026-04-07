@@ -154,7 +154,11 @@ const worker = new Worker('emailDigest', async (job) => {
     }
 
     console.log(`[Digest] Done — sent: ${sent}, failed: ${failed}`);
-}, { connection: redis, concurrency: 1 });
+}, {
+    connection: redis,
+    concurrency: 2,
+    limiter: { max: 5, duration: 1000 },
+});
 
 worker.on('failed', (job, err) => console.error('[Digest] Job failed:', err.message));
 

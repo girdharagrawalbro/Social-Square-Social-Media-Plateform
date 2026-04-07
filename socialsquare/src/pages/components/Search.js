@@ -11,7 +11,7 @@ const BASE = process.env.REACT_APP_BACKEND_URL;
 const RECENT_KEY = 'recentSearches';
 const MAX_RECENT = 5;
 
-const Search = () => {
+const Search = ({ onClose }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const [isVisible, setVisible] = useState(false);
@@ -91,6 +91,7 @@ const Search = () => {
         const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
         if (isMobile) {
             // On mobile, navigate to the full profile page instead of opening the popup
+            if (onClose) onClose();
             navigate(`/profile/${userId}`);
             return;
         }
@@ -116,13 +117,13 @@ const Search = () => {
 
     return (
         <>
-            <div ref={containerRef} className="relative w-full">
+            <div ref={containerRef} className="relative w-full mt-3">
                 {/* Search input */}
                 <div className="relative flex items-center">
                     <i className="pi pi-search absolute left-4 text-gray-400" style={{ fontSize: '15px' }}></i>
                     <input
                         placeholder="Search users, posts, categories..."
-                        className="py-2.5 pl-11 pr-11 rounded-full bg-gray-50 border border-gray-100 w-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 placeholder:text-gray-400 transition-all shadow-sm"
+                        className="py-2.5 pl-11 pr-11 rounded-full bg-gray-50 border border-gray-100 w-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 placeholder:text-gray-400 transition-all "
                         type="text"
                         value={searchTerm}
                         onChange={handleInputChange}
@@ -136,7 +137,7 @@ const Search = () => {
                 </div>
 
 
-                <div className="absolute left-0 right-0 bg-white shadow-xl rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: 'none' }}>
+                <div className="absolute left-0 right-0 bg-white  rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: 'none' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (
@@ -270,8 +271,13 @@ const Search = () => {
 
             {/* User Profile Dialog - Popup/Dialog Mode */}
             {/* Uses UserProfile with compact=true: minimal UI, 3 posts max, card-like styling, posts preview with blur */}
-            <Dialog header="Profile" visible={isVisible} style={{ width: '500px', height: '90vh' }} onHide={() => setVisible(false)} >
-                <UserProfile id={selectedUserId} />
+            <Dialog header="Profile" visible={isVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setVisible(false)} >
+                <UserProfile id={selectedUserId} onClose={() => {
+                    setVisible(false);
+                    setIsFocused(false);
+                    setSearchTerm('');
+                    if (onClose) onClose();
+                }} />
             </Dialog>
         </>
     );
