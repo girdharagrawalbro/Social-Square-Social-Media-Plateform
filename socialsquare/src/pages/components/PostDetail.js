@@ -37,7 +37,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         else if (initialPost?._id) setActivePostId(initialPost._id);
     }, [postId, initialPost?._id]);
 
-    const { data: fetchedPost, isLoading: isPostLoading } = usePostDetail(activePostId);
+    const { data: fetchedPost, isLoading: isPostLoading, error: postError } = usePostDetail(activePostId);
 
     // Use initialPost only if it matches our active ID, otherwise use fetchedPost
     const post = (initialPost && initialPost._id === activePostId) ? initialPost : fetchedPost;
@@ -68,32 +68,66 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         if (post?._id) {
             incrementViewMutation.mutate({ postId: post._id });
         }
-        // Intentionally omit `incrementViewMutation` from deps to avoid
-        // re-running when React Query returns a new mutation object identity.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [post?._id]); // Increment once when post ID changes
+    }, [post?._id]); 
 
     useEffect(() => {
         if (!post?._id || !loggeduser?._id) return;
         setPostLikes(post.likes || []);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [post?._id, loggeduser?._id, post?.likes]);
 
     const images = post?.image_urls?.length > 0 ? post.image_urls : post?.image_url ? [post.image_url] : [];
     const isLiked = postLikes?.some(id => id?.toString() === loggeduser?._id?.toString());
 
     if (isPostLoading && !post) return (
-        <div className="max-w-2xl mx-auto p-4 mt-6 text-center">
-            <p className="text-4xl mb-2">⏳</p>
-            <p className="text-gray-500">Loading post details...</p>
+        <div className="max-w-2xl mx-auto p-20 mt-6 text-center bg-[var(--surface-1)]">
+            <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-[var(--text-sub)] font-medium">Loading post details...</p>
         </div>
     );
 
+    // Check for Privacy Error (403 from backend)
+    if (postError?.response?.status === 403) {
+        const privateOwner = postError.response.data.owner;
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center bg-[var(--surface-1)] h-full min-h-[400px]">
+                <div className="relative mb-6">
+                    <img 
+                        src={privateOwner?.profile_picture} 
+                        alt="" 
+                        className="w-24 h-24 rounded-full object-cover border-4 border-[var(--surface-2)] shadow-xl"
+                    />
+                    <div className="absolute -bottom-1 -right-1 bg-[#808bf5] text-white w-8 h-8 rounded-full flex items-center justify-center border-4 border-[var(--surface-1)]">
+                        <i className="pi pi-lock text-xs"></i>
+                    </div>
+                </div>
+                <h2 className="text-xl font-bold text-[var(--text-main)] mb-2">{privateOwner?.fullname}</h2>
+                <p className="text-[var(--text-sub)] text-sm max-w-[280px] mb-8 font-medium">
+                    This account is private. Follow this user to see their posts and interactions.
+                </p>
+                <div className="flex gap-4">
+                    <button 
+                        onClick={() => handleProfileClick(privateOwner?._id)}
+                        className="px-6 py-2.5 bg-[#808bf5] text-white rounded-xl border-0 font-bold cursor-pointer hover:opacity-90 transition shadow-lg shadow-indigo-500/20"
+                    >
+                        View Profile
+                    </button>
+                    <button 
+                        onClick={onHide}
+                        className="px-6 py-2.5 bg-[var(--surface-2)] text-[var(--text-main)] rounded-xl border-0 font-bold cursor-pointer hover:opacity-80 transition"
+                    >
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (!post) return (
-        <div className="max-w-2xl mx-auto p-4 mt-6 text-center">
-            <p className="text-4xl mb-2">😕</p>
-            <p className="text-gray-500">Post not found or has been deleted.</p>
-            <button onClick={() => navigate('/')} className="mt-4 px-4 py-2 bg-[#808bf5] text-white rounded-lg border-0 cursor-pointer">Go home</button>
+        <div className="max-w-2xl mx-auto p-12 mt-6 text-center bg-[var(--surface-1)] rounded-3xl">
+            <p className="text-5xl mb-4">😕</p>
+            <h3 className="text-xl font-bold mb-2">Post Unavailable</h3>
+            <p className="text-[var(--text-sub)] mb-8">This post might have been deleted or is no longer accessible.</p>
+            <button onClick={() => navigate('/')} className="px-8 py-3 bg-[#808bf5] text-white rounded-xl border-0 font-bold cursor-pointer shadow-lg shadow-indigo-500/20">Go home</button>
         </div>
     );
 
@@ -206,14 +240,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             <ReportDialog visible={reportVisible} onHide={() => setReportVisible(false)} onSubmit={handleReport} />
 
             <div className="flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative" style={{ borderRadius: '12px' }}>
-                {/* Custom Close Button for mobile/tablet or for cleaner look */}
-                <button
-                    aria-label="Close"
-                    onClick={onHide}
-                    className="absolute top-4 right-4 z-[60] bg-[var(--surface-1)] shadow-md border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-[var(--surface-2)] transition text-[var(--text-main)] md:hidden"
-                >
-                    <i className="pi pi-times" style={{ fontSize: '14px' }}></i>
-                </button>
+                {/* Removed redundant mobile close button as it is now handled by the Dialog wrapper */}
 
                 <div className="flex flex-1 overflow-hidden">
                     {/* LEFT COLUMN - IMAGE */}
@@ -273,7 +300,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                     </div>
 
                     {/* RIGHT COLUMN - ACTIONS & COMMENTS */}
-                    <div className="w-full md:w-[450px] flex flex-col border-l border-[var(--border-color)] bg-[var(--surface-1)]">
+                    <div className="w-full md:w-[450px] flex flex-col h-full border-l border-[var(--border-color)] bg-[var(--surface-1)]">
                         {/* Scrollable Content */}
                         <div className="flex-1 flex flex-col min-h-0">
                             {/* Author & Caption */}
@@ -288,12 +315,25 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         />
                                         <div className="flex flex-col">
                                             <div className="flex items-center gap-1 min-w-0">
-                                                <span className="font-bold text-sm text-[var(--text-main)] truncate cursor-pointer" onClick={() => handleProfileClick(post.user?._id)}>{post.user?.fullname}</span>
+                                                <span className="font-bold text-sm text-[var(--text-main)] truncate cursor-pointer hover:text-[#808bf5] transition" onClick={() => handleProfileClick(post.user?._id)}>{post.user?.fullname}</span>
+                                                {post.collaborators?.filter(c => c.status === 'accepted').length > 0 && (() => {
+                                                    const collab = post.collaborators.find(c => c.status === 'accepted');
+                                                    return (
+                                                        <>
+                                                            <span className="text-[var(--text-sub)] text-xs font-normal ml-0.5">and</span>
+                                                            <span 
+                                                                className="text-sm font-bold text-[var(--text-main)] cursor-pointer hover:text-[#808bf5] transition ml-0.5"
+                                                                onClick={() => handleProfileClick(collab.userId || collab._id)}
+                                                            >
+                                                                {collab.fullname}
+                                                                {post.collaborators.filter(c => c.status === 'accepted').length > 1 && ` and ${post.collaborators.filter(c => c.status === 'accepted').length - 1} others`}
+                                                            </span>
+                                                        </>
+                                                    );
+                                                })()}
                                                 {post.user?.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '11px' }}></i>}
                                             </div>
-                                            {post.collaborators?.length > 0 && (
-                                                <span className="text-[var(--text-sub)] text-[10px] font-medium tracking-tight">Collaborators: {post.collaborators.length}</span>
-                                            )}
+
                                             <span className="text-[var(--text-sub)] text-[10px]">{formatDate(post.createdAt || post.updatedAt)}</span>
                                         </div>
                                     </div>
@@ -312,6 +352,14 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap font-medium">
                                     {post.caption}
                                 </div>
+                                {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
+                                    <div key={i} className="mt-2 text-sm leading-relaxed">
+                                        <span className="font-bold mr-1 cursor-pointer hover:text-[#808bf5] transition" onClick={() => handleProfileClick(c.userId || c._id)}>
+                                            {c.username || c.fullname}
+                                        </span>
+                                        <span className="font-medium whitespace-pre-wrap">{c.contribution}</span>
+                                    </div>
+                                ))}
                                 {post.poll && <PollCard poll={post.poll} postId={post._id} />}
                                 {post.music?.title && (
                                     <div className="mt-3 flex items-center gap-2 text-[11px] text-[#808bf5] font-bold uppercase tracking-wider">
@@ -464,7 +512,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                         background: transparent;
                     }
                     .custom-scrollbar::-webkit-scrollbar-thumb {
-                        background: #e5e7eb;
+                        background: var(--border-color);
                         border-radius: 10px;
                     }
                     .custom-scrollbar::-webkit-scrollbar-thumb:hover {

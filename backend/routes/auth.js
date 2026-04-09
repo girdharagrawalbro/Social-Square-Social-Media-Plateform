@@ -429,8 +429,11 @@ router.post('/refresh', async (req, res) => {
         // Fingerprint check
         if (session.fingerprint !== hashValue(fingerprint)) {
             console.warn(`[SECURITY] Fingerprint mismatch for user ${decoded.userId}`);
+            console.log(`[DEBUG] Received fingerprint: ${fingerprint?.substring(0, 10)}... (hash: ${hashValue(fingerprint)})`);
+            console.log(`[DEBUG] Stored fingerprint hash: ${session.fingerprint}`);
             return res.status(403).json({ error: 'Browser fingerprint mismatch' });
         }
+
 
         const newRefreshToken = generateRefreshToken(decoded.userId, decoded.family);
         await LoginSession.findByIdAndUpdate(session._id, {
@@ -783,6 +786,11 @@ router.post('/follow-request/accept', async (req, res) => {
         await User.findByIdAndUpdate(userId, { 
             $pull: { followRequests: requesterId },
             $addToSet: { followers: requesterId }
+        });
+
+        // ADD THIS: Also update the requester's following list
+        await User.findByIdAndUpdate(requesterId, { 
+            $addToSet: { following: userId }
         });
         
         // Create notification for the requester

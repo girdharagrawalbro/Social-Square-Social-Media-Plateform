@@ -95,7 +95,7 @@ const Home = () => {
 
         if (!targetPostId && !targetProfileId && !targetStoryUserId) return;
 
-        if (loggeduser.username) {
+        if (loggeduser.username && (queryPostId || queryProfileId || queryStoryUserId)) {
             navigate(`/${loggeduser.username}`, { replace: true });
         }
     }, [initialized, loading, loggeduser, location.search, navigate, setPostDetailId, setProfileDetailId, setStoryDetailDeepLink]);
@@ -103,8 +103,8 @@ const Home = () => {
     // Show skeleton while auth is being checked
     if (!initialized || loading || !loggeduser) return <MainSkeleton />;
 
-    const bg = isDark ? 'bg-[#0d0d0d]' : 'bg-gray-50';
-    const cardBg = isDark ? 'bg-[#121212]' : 'bg-white';
+    const bg = 'bg-[var(--surface-2)]';
+    const cardBg = 'bg-[var(--surface-1)]';
 
     const renderMobileView = () => {
         switch (activeView) {
@@ -201,7 +201,7 @@ const Home = () => {
                         <div className="flex justify-around">
                             {navItems.map(item => (
                                 <button key={item.key}
-                                    className={`px-3 py-2 rounded-full cursor-pointer transition-all ${activeView === item.key ? 'bg-[#808bf5] text-white' : isDark ? 'bg-gray-700 text-gray-300' : 'bg-transparent text-gray-600'}`}
+                                    className={`px-3 py-2 rounded-full cursor-pointer transition-all ${activeView === item.key ? 'bg-[#808bf5] text-white' : 'bg-transparent text-[var(--text-sub)] hover:text-[var(--text-main)]'}`}
                                     onClick={() => setActiveView(item.key)}>
                                     <i className={`pi ${item.icon}`}></i>
                                 </button>
@@ -214,17 +214,30 @@ const Home = () => {
             <Chatbot />
 
             <Dialog
-                header="Post Detail"
+                showHeader={false}
                 visible={!!postDetailId}
                 style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
                 position="center"
                 onHide={() => setPostDetailId(null)}
-                baseZIndex={usePostStore.getState().isStoryViewerOpen ? 20000 : 1000}
-                appendTo={document.body}
-                blockScroll
-                className="p-0 overflow-hidden post-detail-dialog"
-            >
-                {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)} />}
+                dismissableMask
+                blockScroll={true}
+                closable={false}
+                modal
+                maskStyle={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}
+            > <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                    <button
+                        onClick={() => setPostDetailId(null)}
+                        className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
+                    >
+                        <i className="pi pi-times text-sm"></i>
+                    </button>
+                    <React.Suspense fallback={<div className="p-20 text-center text-[var(--text-sub)] bg-[var(--surface-1)]">
+                        <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="font-medium">Loading Post...</p>
+                    </div>}>
+                        {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)} />}
+                    </React.Suspense>
+                </div>
             </Dialog>
 
             <Dialog
@@ -239,7 +252,7 @@ const Home = () => {
             >
                 {profileDetailId && <UserProfile id={profileDetailId} />}
             </Dialog>
-        </section>
+        </section >
     );
 };
 

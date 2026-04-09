@@ -45,10 +45,10 @@ const Navbar = () => {
   return (
     <nav ref={mobileMenuRef} aria-label="Main Navigation" className={`sticky top-0 z-50 w-full h-16 backdrop-blur-md shadow-sm border-b flex items-center justify-between px-4 transition-all duration-300 ${isDark ? 'bg-black/80 border-[#1a1a1a]' : 'bg-white/80 border-gray-200'}`}>
       <div className="flex items-center gap-3 flex-1">
-        <Link to={"/"} className="flex items-center">
+        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className="flex items-center">
           <i className={`pi pi-home text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
         </Link>
-        <Link to={isAuthenticated ? `/${loggeduser?.username}` : "/"} className={`no-underline flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
+        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className={`no-underline flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
           <h1 className="font-pacifico text-2xl m-0 whitespace-nowrap">Social Square</h1>
         </Link>
       </div>

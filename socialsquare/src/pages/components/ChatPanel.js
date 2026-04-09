@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
@@ -299,7 +299,6 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                         <span style={{ fontSize: '20px' }}>📤</span>
                                         <div style={{ flex: 1 }}>
                                             <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a post</p>
-                                            <p style={{ margin: 0, fontSize: '11px', opacity: 0.7, wordBreak: 'break-all' }}>Tap to view post details →</p>
                                         </div>
                                     </div>
                                 )}
@@ -379,16 +378,30 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 
                 {showPostModal && selectedPostId && (
                     <Dialog
-                        header={<h2 id="post-detail-title">Post Detail</h2>}
-                        aria-labelledby="post-detail-title"
-                        aria-modal="true"
+                        showHeader={false}
                         visible={showPostModal}
                         style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
                         onHide={() => setShowPostModal(false)}
-                        modal
-                        className="p-0 overflow-hidden post-detail-dialog"
+                        contentStyle={{ padding: 0, borderRadius: '24px', overflow: 'hidden', background: 'transparent' }}
+                        baseZIndex={20000}
+                        dismissableMask
+                        blockScroll={true}
+                        closable={false}
                     >
-                        <PostDetail postId={selectedPostId} isModal={true} onClose={() => setShowPostModal(false)} />
+                        <div className="relative bg-[var(--surface-1)] h-full w-full" style={{ borderRadius: '24px', overflow: 'hidden' }}>
+                            <button
+                                onClick={() => setShowPostModal(false)}
+                                className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
+                            >
+                                <i className="pi pi-times text-sm"></i>
+                            </button>
+                            <React.Suspense fallback={<div className="p-20 text-center text-[var(--text-sub)] bg-[var(--surface-1)]">
+                                <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
+                                <p className="font-medium">Loading Post...</p>
+                            </div>}>
+                                <PostDetail postId={selectedPostId} onHide={() => setShowPostModal(false)} />
+                            </React.Suspense>
+                        </div>
                     </Dialog>
                 )}
                 {showProfileModal && selectedProfileId && (
@@ -441,7 +454,19 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 };
 
 // ─── CHAT PANEL ───────────────────────────────────────────────────────────────
-const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching, searchQ, setSearchQ, searchIndex, setSearchIndex, setSearchCount, onConversationIdFetched, refreshKey }) => {
+const ChatPanel = ({
+    participantId,
+    lastMessage,
+    isSearching = false,
+    setIsSearching = () => { },
+    searchQ = '',
+    setSearchQ = () => { },
+    searchIndex = 0,
+    setSearchIndex = () => { },
+    setSearchCount = () => { },
+    onConversationIdFetched,
+    refreshKey
+}) => {
     const user = useAuthStore(s => s.user);
     const setTyping = useConversationStore(s => s.setTyping);
     const clearTyping = useConversationStore(s => s.clearTyping);
@@ -914,16 +939,6 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching, se
                     </>
                 )}
 
-                {showScrollBottom && (
-                    <button 
-                        onClick={scrollToBottom}
-                        className="absolute bottom-20 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-indigo-500 text-white shadow-2xl flex items-center justify-center cursor-pointer animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300 hover:scale-110 active:scale-95 transition-all z-50 border-0"
-                        title="Scroll to bottom"
-                    >
-                        <i className="pi pi-chevron-down text-lg"></i>
-                    </button>
-                )}
-
                 {isTypingOther && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
                         <div style={{ background: 'var(--surface-2)', borderRadius: '18px 18px 18px 4px', padding: '10px 14px', display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -934,7 +949,22 @@ const ChatPanel = ({ participantId, lastMessage, isSearching, setIsSearching, se
                 )}
             </div>
 
+            {showScrollBottom && (
+                <button
+                    onClick={scrollToBottom}
+                    className="absolute bottom-20 right-6 w-12 h-12 rounded-full bg-indigo-500 text-white shadow-2xl flex items-center justify-center cursor-pointer animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300 hover:scale-110 active:scale-95 transition-all z-50 border-0"
+                    style={{
+                        boxShadow: '0 4px 15px rgba(99, 102, 241, 0.5)',
+                        border: '2px solid rgba(255,255,255,0.1)'
+                    }}
+                    title="Scroll to bottom"
+                >
+                    <i className="pi pi-chevron-down text-xl"></i>
+                </button>
+            )}
+
             {/* Input */}
+
             <div style={{
                 padding: '10px 12px',
                 position: 'absolute',

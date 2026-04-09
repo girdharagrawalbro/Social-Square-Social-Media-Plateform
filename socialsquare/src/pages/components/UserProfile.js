@@ -4,7 +4,7 @@ import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
-import { useUserDetails, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
+import { useUserDetails, useFollowUser, useUnfollowUser, authKeys } from '../../hooks/queries/useAuthQueries';
 import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
@@ -13,29 +13,7 @@ import toast from 'react-hot-toast';
 
 const PostDetail = lazy(() => import('./PostDetail'));
 
-/**
- * UserProfile Component
- * 
- * ✅ POPUP/DIALOG MODE (compact=true, DEFAULT):
- *    - Used in Search results dialog
- *    - Minimal card-like UI with rounded borders & shadow
- *    - Shows only Posts tab
- *    - Limits posts to 3 items (maxPosts={3})
- *    - Hides Level/Streak/XP, Followers/Following tabs, Analytics
- *    - Compact size (max-w-sm)
- * 
- * ✅ FULL PAGE MODE (compact=false):
- *    - Used in ProfilePage (/profile/:userId route)
- *    - Full width layout (max-w-4xl)
- *    - Shows all tabs and details
- *    - Shows Level/Streak/XP badges
- *    - Shows Followers/Following counts
- *    - Shows analytics if user is creator
- *    - No visual borders/shadow (cleaner for page)
- */
-
-
-const PostGrid = ({ userId, maxPosts = 3, isCompactPreview = true }) => {
+const PostGrid = ({ userId, maxPosts, isBlur }) => {
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
 
@@ -78,47 +56,55 @@ const PostGrid = ({ userId, maxPosts = 3, isCompactPreview = true }) => {
                     return (
                         <div
                             key={post._id}
-                            onClick={() => { setPostDetail(post); setPostDetailVisible(true); }}
-                            className={`relative rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-90 transition group opacity-65`}
+
+                            onClick={() => { setPostDetail(post); setPostDetailVisible(isBlur ? false : true); }}
+                            className={`relative rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-90 transition group ${isBlur ? 'blur-sm' : ''}`}
                             style={{ aspectRatio: '1' }}
                         >
                             {imgs[0]
-                                ? <img src={imgs[0]} alt="" className='w-full h-full object-cover blur-sm ' />
-                                : <div className={`w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center blur-sm`}>{post.caption?.slice(0, 30)}</div>
+                                ? <img src={imgs[0]} alt="" className={`w-full h-full object-cover  ${isBlur ? 'blur-sm' : ''}`} />
+                                : <div className={`w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center ${isBlur ? 'blur-sm' : ''}`}>{post.caption?.slice(0, 30)}</div>
                             }
-                            {/* {imgs.length > 1 && (
-                                <div className="absolute top-2 right-2 bg-black/50 rounded px-1.5 py-1">
-                                    <i className="pi pi-images text-white" style={{ fontSize: '12px' }}></i>
-                                </div>
-                            )} */}
-                            {/* <div className="absolute bottom-0 left-0 right-0 flex gap-3 px-2 py-2 opacity-0 group-hover:opacity-100 transition" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.7))' }}>
-                                <span className="text-white text-xs font-semibold">❤️ {post.likes?.length || 0}</span>
-                                <span className="text-white text-xs font-semibold">💬 {post.comments?.length || 0}</span>
-                            </div> */}
                         </div>
                     );
                 })}
             </div>
 
             <Dialog
-                header="Post Detail"
+                showHeader={false}
                 visible={postDetailVisible}
                 style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
                 onHide={() => setPostDetailVisible(false)}
-                modal
-                className="p-0 overflow-hidden post-detail-dialog"
+                contentStyle={{ padding: 0, borderRadius: '24px', overflow: 'hidden', background: 'transparent' }}
+                baseZIndex={20000}
+                dismissableMask
+                blockScroll={true}
+                closable={false}
             >
-                <Suspense fallback={<div className="p-4 text-center">Loading Post Details...</div>}>
-                    <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
-                </Suspense>
-            </Dialog>
+                <div className="relative bg-[var(--surface-1)] h-full w-full" style={{ borderRadius: '24px', overflow: 'hidden' }}>
+                    <button
+                        onClick={() => setPostDetailVisible(false)}
+                        className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
+                    >
+                        <i className="pi pi-times text-sm"></i>
+                    </button>
+                    <React.Suspense fallback={<div className="p-20 text-center text-[var(--text-sub)] bg-[var(--surface-1)]">
+                        <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="font-medium">Loading Post...</p>
+                    </div>}>
+                        <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
+                    </React.Suspense>
+                </div>
+            </Dialog >
         </>
     );
 };
 
-const UserProfile = ({ id, onClose }) => {
+const UserProfile = ({ id, onClose, maxPosts }) => {
     const [activeTab, setActiveTab] = useState('posts');
     const [chatVisible, setChatVisible] = useState(false);
+    const [followersVisible, setFollowersVisible] = useState(false);
+    const [followingVisible, setFollowingVisible] = useState(false);
     const loggeduser = useAuthStore(s => s.user);
     const blockUser = useAuthStore(s => s.blockUser);
     const unblockUser = useAuthStore(s => s.unblockUser);
@@ -133,7 +119,7 @@ const UserProfile = ({ id, onClose }) => {
     const unfollowMutation = useUnfollowUser();
 
     const { data: userDetails, isLoading: userLoading } = useQuery({
-        queryKey: ['user', 'profile', id],
+        queryKey: authKeys.userProfile(id),
         queryFn: async () => {
             const res = await api.get(`/api/auth/other-user/view/${id}`);
             return res.data;
@@ -226,11 +212,7 @@ const UserProfile = ({ id, onClose }) => {
 
     return (
         <>
-            {/* 
-            USAGE:
-            - Popup/Dialog (compact=true): Shows in PrimeReact Dialog, minimal UI, 3 posts max
-            - Page Display (compact=false): Full profile page at /profile/:userId, complete UI, all posts
-            */}
+
             <div className={`w-full py-2 flex flex-col items-center`}>
                 <div className={`w-full flex flex-col gap-4 bg-[var(--surface-1)]`} style={{ maxWidth: '400px' }}>
                     <div className="flex items-center justify-center text-center flex-col gap-1 w-full">
@@ -253,8 +235,8 @@ const UserProfile = ({ id, onClose }) => {
                                 <p className="m-0 text-sm font-medium text-[#808bf5]">@{userDetails.username}</p>
                             )}
                             {userDetails?.creatorTier && userDetails.creatorTier !== 'none' && (
-                                <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                    {userDetails.creatorTier} Tier
+                                <span className="text-[10px] bg-[#808bf5]/10 text-[#808bf5] px-2.5 py-1 rounded-full font-black uppercase tracking-widest border border-[#808bf5]/20">
+                                    {userDetails.creatorTier} Elite
                                 </span>
                             )}
                         </div>
@@ -308,24 +290,12 @@ const UserProfile = ({ id, onClose }) => {
                             ) : (
                                 <button
                                     onClick={handleUnblock}
-                                    className="w-full h-10 rounded-xl bg-red-100 text-red-600 border border-red-200 font-bold text-sm cursor-pointer hover:bg-red-200 transition"
+                                    className="w-full h-11 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-bold text-sm cursor-pointer hover:bg-red-500/20 transition"
                                 >
-                                    Unblock {userDetails.fullname}
+                                    Re-enable Connection
                                 </button>
                             )}
 
-                            {/* {!isBlockedByMe && (
-                                <div className="flex items-center justify-center gap-4 py-1">
-                                    <button onClick={handleMute} className="text-xs text-[var(--text-sub)] hover:text-orange-500 transition border-0 bg-transparent cursor-pointer font-medium">
-                                        <i className={`pi ${isMuted ? 'pi-volume-up' : 'pi-volume-off'} mr-1`}></i>
-                                        {isMuted ? 'Unmute' : 'Mute'}
-                                    </button>
-                                    <button onClick={handleBlock} className="text-xs text-[var(--text-sub)] hover:text-red-500 transition border-0 bg-transparent cursor-pointer font-medium">
-                                        <i className="pi pi-ban mr-1"></i>
-                                        Block
-                                    </button>
-                                </div>
-                            )} */}
                             <button
                                 onClick={handleShareProfile}
                                 className="h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
@@ -335,15 +305,30 @@ const UserProfile = ({ id, onClose }) => {
                         </div>
                     )}
 
-                    {/* Compact popup: show 4 stat tiles (Followers/Following/Posts/Views) */}
                     {!isBlockedByMe && (
-                        <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mt-2">
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
+                        <div className="grid grid-cols-4 gap-1.5  sm:gap-3 mt-2">
+                            <div
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all ${isFollowing || loggeduser?._id === id ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                onClick={() => {
+                                    if (isFollowing || loggeduser?._id === id) {
+                                        setFollowersVisible(true);
+                                    } else {
+                                        toast.error('Follow this user to see their followers', { icon: '🔒' });
+                                    }
+                                }}
                             >
                                 <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followers?.length || 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                             </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
+                            <div
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all ${isFollowing || loggeduser?._id === id ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                onClick={() => {
+                                    if (isFollowing || loggeduser?._id === id) {
+                                        setFollowingVisible(true);
+                                    } else {
+                                        toast.error('Follow this user to see who they follow', { icon: '🔒' });
+                                    }
+                                }}
                             >
                                 <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.following?.length || 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
@@ -369,38 +354,21 @@ const UserProfile = ({ id, onClose }) => {
                     )}
 
 
-                    {/* Posts Preview in Compact Mode - ABOVE TABS */}
                     {!isBlockedByMe && (
                         <div className="flex flex-col gap-2">
-                            <PostGrid userId={id} maxPosts={3} isCompactPreview={true} />
+                            <PostGrid userId={id} maxPosts={maxPosts} isCompactPreview={true} isBlur={isFollowing ? false : true} />
                             <button onClick={() => {
                                 if (onClose) onClose();
-                                navigate(`/profile/${id}`);
+                                if (id) navigate(`/profile/${id}`);
                             }} className="w-full h-9 text-sm font-semibold text-white bg-[#808bf5] hover:opacity-95 transition rounded-lg border-0 cursor-pointer">
                                 View full profile
                             </button>
                         </div>
                     )}
-
-                    {/* {!isBlockedByMe && (
-                        <div className="flex border-b border-[var(--border-color)]">
-                            {TABS.map(tab => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setActiveTab(tab.key)}
-                                    className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-[#808bf5]' : 'text-[var(--text-sub)]'}`}
-                                    style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-                    )} */}
-
                     <div>
                         {isBlockedByMe ? (
-                            <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-[var(--surface-2)] rounded-3xl border border-red-50">
-                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                            <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-[var(--surface-2)] rounded-3xl border border-[var(--border-color)]">
+                                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 shadow-sm border border-red-500/20">
                                     <i className="pi pi-ban text-3xl text-red-500"></i>
                                 </div>
                                 <h3 className="m-0 text-[var(--text-main)] font-black text-xl mb-2">User Blocked</h3>
@@ -418,50 +386,6 @@ const UserProfile = ({ id, onClose }) => {
                             </div>
                         ) : (
                             <>
-                                {/* {activeTab === 'posts' && <PostGrid userId={id} maxPosts={compact ? 3 : undefined} />}
-
-                                {activeTab === 'followers' && (
-                                    <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
-                                        {userDetails.followers?.length === 0 ? (
-                                            <p className="text-center text-[var(--text-sub)] text-sm py-4">No followers yet</p>
-                                        ) : (
-                                            followersList.map(user => (
-                                                <div key={user._id} className="flex items-center gap-3 p-2 bg-[var(--surface-2)] rounded-lg">
-                                                    <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-1">
-                                                            <p className="m-0 text-sm font-semibold text-[var(--text-main)] truncate">{user.fullname}</p>
-                                                            {user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '11px' }}></i>}
-                                                        </div>
-                                                        {user.username && <p className="m-0 text-[11px] text-[#808bf5]">@{user.username}</p>}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )} */}
-
-                                {/* {activeTab === 'following' && (
-                                    <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto">
-                                        {userDetails.following?.length === 0 ? (
-                                            <p className="text-center text-[var(--text-sub)] text-sm py-4">Not following anyone yet</p>
-                                        ) : (
-                                            followingList.map(user => (
-                                                <div key={user._id} className="flex items-center gap-3 p-2 bg-[var(--surface-2)] rounded-lg">
-                                                    <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                                                    <div className="min-w-0">
-                                                        <p className="m-0 text-sm font-semibold text-[var(--text-main)] truncate">{user.fullname}</p>
-                                                        {user.username && <p className="m-0 text-[11px] text-[#808bf5]">@{user.username}</p>}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )} */}
-
-                                {/* {activeTab === 'analytics' && loggeduser?._id === id && (
-                                    <CreatorAnalytics userId={id} />
-                                )} */}
                             </>
                         )}
                     </div>
@@ -471,6 +395,82 @@ const UserProfile = ({ id, onClose }) => {
             <Dialog header={`Chat with ${userDetails.fullname}`} visible={chatVisible}
                 style={{ width: '95vw', maxWidth: '500px', height: '90vh' }} position="center" onHide={() => setChatVisible(false)}>
                 <ChatPanel participantId={id} />
+            </Dialog>
+
+            <Dialog
+                header="Followers"
+                visible={followersVisible}
+                onHide={() => setFollowersVisible(false)}
+                style={{ width: '95vw', maxWidth: '420px' }}
+                className="rounded-3xl"
+            >
+                <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    {followersList.length === 0 ? (
+                        <div className="text-center py-10 opacity-60">
+                            <i className="pi pi-users text-4xl mb-3 block"></i>
+                            <p className="m-0 text-sm">No followers yet</p>
+                        </div>
+                    ) : (
+                        followersList.map(user => (
+                            <div
+                                key={user._id}
+                                className="flex items-center gap-3 p-3 hover:bg-[var(--surface-2)] rounded-2xl cursor-pointer transition-colors group"
+                                onClick={() => {
+                                    setFollowersVisible(false);
+                                    navigate(`/profile/${user._id}`);
+                                }}
+                            >
+                                <img src={user.profile_picture || '/default-profile.png'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1">
+                                        <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>
+                                        {user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '12px' }}></i>}
+                                    </div>
+                                    <p className="m-0 text-[11px] text-[#808bf5] font-medium">@{user.username || 'user'}</p>
+                                </div>
+                                <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </Dialog>
+
+            <Dialog
+                header="Following"
+                visible={followingVisible}
+                onHide={() => setFollowingVisible(false)}
+                style={{ width: '95vw', maxWidth: '420px' }}
+                className="rounded-3xl"
+            >
+                <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    {followingList.length === 0 ? (
+                        <div className="text-center py-10 opacity-60">
+                            <i className="pi pi-user-plus text-4xl mb-3 block"></i>
+                            <p className="m-0 text-sm">Not following anyone yet</p>
+                        </div>
+                    ) : (
+                        followingList.map(user => (
+                            <div
+                                key={user._id}
+                                className="flex items-center gap-3 p-3 hover:bg-[var(--surface-2)] rounded-2xl cursor-pointer transition-colors group"
+                                onClick={() => {
+                                    setFollowingVisible(false);
+                                    navigate(`/profile/${user._id}`);
+                                }}
+                            >
+                                <img src={user.profile_picture || '/default-profile.png'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1">
+                                        <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>
+                                        {user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '12px' }}></i>}
+                                    </div>
+                                    <p className="m-0 text-[11px] text-[#808bf5] font-medium">@{user.username || 'user'}</p>
+                                </div>
+                                <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                            </div>
+                        ))
+                    )}
+                </div>
             </Dialog>
         </>
     );

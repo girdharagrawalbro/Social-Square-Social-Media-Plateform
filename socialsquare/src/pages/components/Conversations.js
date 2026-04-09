@@ -46,7 +46,9 @@ const Conversations = () => {
         setSearchQ('');
         setSearchIndex(0);
         setSearchCount(0);
+        setProfileVisible(false);
     }, [selectedParticipant?.userId]);
+
 
     const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
 
@@ -102,7 +104,7 @@ const Conversations = () => {
                     <div className="p-4 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-3">
                             <h2 className="m-0 text-xl font-black text-[var(--text-main)]">Messages</h2>
-                            <button 
+                            <button
                                 onClick={() => setIsComposeOpen(true)}
                                 className="w-9 h-9 flex items-center justify-center bg-[#808bf5]/10 text-[#808bf5] rounded-full border-0 cursor-pointer hover:bg-[#808bf5] hover:text-white transition-all duration-200"
                                 title="New Message"
@@ -112,7 +114,7 @@ const Conversations = () => {
                         </div>
                         <div className="relative">
                             <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Search people..."
                                 value={searchQuery}
@@ -197,26 +199,26 @@ const Conversations = () => {
                                         <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
                                             <div className="relative">
                                                 <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-[10px]"></i>
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Find text..." 
+                                                <input
+                                                    type="text"
+                                                    placeholder="Find text..."
                                                     autoFocus
                                                     value={searchQ}
                                                     onChange={e => { setSearchQ(e.target.value); setSearchIndex(0); }}
-                                                    className="w-40 sm:w-56 bg-gray-50 dark:bg-gray-900 border-0 rounded-2xl py-2 pl-8 pr-16 text-xs text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/20 transition-all font-medium" 
+                                                    className="w-40 sm:w-56 bg-gray-50 dark:bg-gray-900 border-0 rounded-2xl py-2 pl-8 pr-16 text-xs text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/20 transition-all font-medium"
                                                 />
                                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pr-1">
                                                     {searchQ && searchCount > 0 && (
                                                         <div className="flex items-center gap-0.5">
                                                             <span className="text-[10px] text-indigo-500 font-black tracking-tighter opacity-80">{searchIndex + 1}/{searchCount}</span>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => setSearchIndex(prev => (prev + 1) % searchCount)}
                                                                 className="w-5 h-5 flex items-center justify-center p-0 border-0 bg-transparent text-gray-400 hover:text-indigo-500 cursor-pointer transition-colors"
                                                                 title="Previous match (Up)"
                                                             >
                                                                 <i className="pi pi-chevron-up text-[10px]"></i>
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => setSearchIndex(prev => (prev - 1 + searchCount) % searchCount)}
                                                                 className="w-5 h-5 flex items-center justify-center p-0 border-0 bg-transparent text-gray-400 hover:text-indigo-500 cursor-pointer transition-colors"
                                                                 title="Next match (Down)"
@@ -232,8 +234,8 @@ const Conversations = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <button 
-                                                onClick={() => { setIsSearching(false); setSearchQ(''); }} 
+                                            <button
+                                                onClick={() => { setIsSearching(false); setSearchQ(''); }}
                                                 className="bg-transparent border-0 text-gray-400 text-[11px] font-black uppercase tracking-wider cursor-pointer hover:text-indigo-500 px-1 transition-colors"
                                             >
                                                 Exit
@@ -244,9 +246,9 @@ const Conversations = () => {
                                             <button onClick={() => setIsSearching(true)} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title="Search messages">
                                                 <i className="pi pi-search" style={{ fontSize: '13px' }}></i>
                                             </button>
-                                            <button 
-                                                onClick={() => setShowMenu(true)} 
-                                                className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" 
+                                            <button
+                                                onClick={() => setShowMenu(true)}
+                                                className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all"
                                                 title="Chat options"
                                             >
                                                 <i className="pi pi-ellipsis-v" style={{ fontSize: '14px' }}></i>
@@ -287,24 +289,24 @@ const Conversations = () => {
                     <div className="w-80 border-l border-gray-100 dark:border-gray-800 overflow-y-auto" style={{ width: '30rem' }}>
                         <div className="p-3">
                             <button className="mb-3 text-sm text-gray-500" onClick={() => setProfileVisible(false)}>Close</button>
-                            <UserProfile id={selectedUserId} onClose={() => setProfileVisible(false)} />
+                            <UserProfile id={selectedUserId} onClose={() => setProfileVisible(false)} maxPosts={9} />
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Chat Options Menu */}
-            <Dialog 
+            <Dialog
                 header={"Chat Options"}
-                visible={showMenu} 
+                visible={showMenu}
                 onHide={() => setShowMenu(false)}
                 style={{ width: '90vw', maxWidth: '320px', borderRadius: '24px' }}
                 className="options-dialog shadow-2xl"
                 closable={true}
             >
                 <div className="p-2 flex flex-col gap-1">
-                    
-                    <button 
+
+                    <button
                         onClick={() => {
                             setShowMenu(false);
                             confirmDialog({
@@ -325,7 +327,7 @@ const Conversations = () => {
                         <span className="text-sm">Clear Chat History</span>
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => {
                             setShowMenu(false);
                             confirmDialog({
@@ -352,21 +354,21 @@ const Conversations = () => {
             </Dialog>
 
             {/* New Conversation Dialog */}
-            <Dialog 
+            <Dialog
                 header={"New Message"}
-                visible={isComposeOpen} 
+                visible={isComposeOpen}
                 onHide={() => { setIsComposeOpen(false); setGlobalSearch(''); }}
-                style={{ width: '95vw', maxWidth: '420px', height: '400px'}}
+                style={{ width: '95vw', maxWidth: '420px', height: '400px' }}
                 className="dark:bg-[var(--surface-1)] "
                 closable={true}
             >
                 <div className="py-3 flex flex-col gap-4">
-               
+
 
                     <div className="relative">
                         <i className={`pi ${isSearchingGlobal ? 'pi-spin pi-spinner' : 'pi-search'} absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm`}></i>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             autoFocus
                             placeholder="Type a name..."
                             value={globalSearch}
@@ -379,9 +381,9 @@ const Conversations = () => {
                         {globalSearch && searchResults.length === 0 && !isSearchingGlobal && (
                             <div className="text-center py-8 text-gray-400 text-sm italic">No users found for "{globalSearch}"</div>
                         )}
-                        
+
                         {searchResults.filter(u => u._id !== user?._id).map(u => (
-                            <div 
+                            <div
                                 key={u._id}
                                 className="flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer transition-all duration-200 group"
                                 onClick={() => {

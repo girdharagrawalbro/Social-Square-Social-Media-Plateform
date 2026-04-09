@@ -1,7 +1,18 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import useAuthStore from '../store/zustand/useAuthStore';
 
 const Landing = () => {
+    const navigate = useNavigate();
+    const user = useAuthStore(s => s.user);
+    const initialized = useAuthStore(s => s.initialized);
+    const loading = useAuthStore(s => s.loading);
+
+    useEffect(() => {
+        if (initialized && !loading && user?.username) {
+            navigate(`/${user.username}`, { replace: true });
+        }
+    }, [initialized, loading, user, navigate]);
     return (
         <div className="bg-gradient-to-r from-themeStart to-themeEnd text-white py-20 px-8">
             <section className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">

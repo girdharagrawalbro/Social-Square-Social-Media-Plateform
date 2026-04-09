@@ -198,3 +198,9 @@ code {
 .notification-bell-dialog .p-dialog-header {
   display: none !important;
 }
+
+/* ── Force notification badge to always stay red ── */
+.p-overlay-badge .p-badge {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+}

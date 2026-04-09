@@ -52,7 +52,10 @@ router.get('/feed', verifyToken, async (req, res) => {
             'user._id': { $in: userIds },
             expiresAt: { $gt: new Date() },
         })
-        .populate('sharedPostId')
+        .populate({
+            path: 'sharedPostId',
+            populate: { path: 'user', select: 'fullname profile_picture' }
+        })
         .sort({ createdAt: 1 });
 
         const grouped = {};

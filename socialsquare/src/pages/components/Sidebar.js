@@ -33,7 +33,7 @@ export default function Sidebar() {
         { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
         { key: 'communities', label: 'Communities', icon: 'pi pi-users', to: '/communities' },
         { key: 'messages', label: 'Messages', icon: 'pi pi-envelope', to: '/messages' },
-        { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: `/profile/${user?._id}` },
+        { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
         { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/search' },
         { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
         { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
@@ -46,14 +46,14 @@ export default function Sidebar() {
             <aside
                 onMouseEnter={() => setOpen(true)}
                 onMouseLeave={() => setOpen(false)}
-                className={`sticky top-0 h-screen hidden lg:flex flex-col bg-white dark:bg-[#0d0d0d] border-r border-gray-100 dark:border-[#1f1f1f] transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
+                className={`sticky top-0 h-screen hidden lg:flex flex-col bg-[var(--surface-1)] border-r border-[var(--border-color)] transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
             >
-                <div className="flex items-center justify-between px-3 py-4 border-b border-gray-100 dark:border-[#1f1f1f]">
+                <div className="flex items-center justify-between px-3 py-4 border-b border-[var(--border-color)]">
                     <div className="flex items-center gap-3">
-                        <Link to={"/"} className="flex items-center shrink-0 ml-1">
-                            <i className={`pi pi-home text-3xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+                        <Link to={user?.username ? `/${user.username}` : "/"} className="flex items-center shrink-0 ml-1">
+                            <i className={`pi pi-home text-3xl text-[var(--text-main)]`}></i>
                         </Link>
-                        {open && <div className="text-sm font-semibold opacity-100 transition-opacity duration-300"><h1 className="font-pacifico text-3xl m-0 whitespace-nowrap">Social Square</h1></div>}
+                        {open && <div className="text-sm font-semibold opacity-100 transition-opacity duration-300"><h1 className="font-pacifico text-3xl m-0 whitespace-nowrap text-[var(--text-main)]">Social Square</h1></div>}
                     </div>
                 </div>
 
@@ -98,10 +98,10 @@ export default function Sidebar() {
                     </ul>
                 </nav>
 
-                <div className="p-3 border-t border-gray-100 dark:border-neutral-900">
+                <div className="p-3 border-t border-[var(--border-color)]">
                     <div className="flex items-center gap-2">
-                        <img src={user?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullname || 'U')}&background=808bf5&color=fff`} alt="me" className="w-10 h-10 rounded-full" />
-                        {open && <div className="text-base">{user?.fullname || 'You'}</div>}
+                        <img src={user?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullname || 'U')}&background=808bf5&color=fff`} alt="me" className="w-10 h-10 rounded-full border border-[var(--border-color)]" />
+                        {open && <div className="text-base font-semibold text-[var(--text-main)]">{user?.fullname || 'You'}</div>}
                     </div>
 
                     <div className="mt-3">
