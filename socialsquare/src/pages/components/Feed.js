@@ -118,12 +118,28 @@ const CollabInviteBanner = ({ post, user }) => {
         } catch { toast.error('Failed'); }
     };
     return (
-        <div style={{ background: '#ede9fe', borderRadius: '8px', padding: '10px 12px', margin: '8px 16px 0' }}>
-            <p style={{ margin: '0 0 6px', fontSize: '13px', fontWeight: 600, color: '#6366f1' }}>🤝 You've been invited to collaborate!</p>
-            <input type="text" placeholder="Add your contribution..." value={contribution} onChange={e => setContribution(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #c4b5fd', fontSize: '12px', marginBottom: '6px', boxSizing: 'border-box' }} />
+        <div style={{ background: 'var(--surface-2)', borderRadius: '12px', padding: '12px', margin: '8px 16px 0', border: '1px solid var(--border-color)' }}>
+            <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: '#808bf5' }}>🤝 You've been invited to collaborate!</p>
+            <input
+                type="text"
+                placeholder="Add your contribution..."
+                value={contribution}
+                onChange={e => setContribution(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--surface-1)', color: 'var(--text-main)', fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box', outline: 'none' }}
+            />
             <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => respond(true)} disabled={acceptMut.isPending} style={{ flex: 1, padding: '5px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, opacity: acceptMut.isPending ? 0.6 : 1 }}>Accept</button>
-                <button onClick={() => respond(false)} disabled={declineMut.isPending} style={{ flex: 1, padding: '5px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, opacity: declineMut.isPending ? 0.6 : 1 }}>Decline</button>
+                <button
+                    onClick={() => respond(true)}
+                    disabled={acceptMut.isPending || !contribution.trim()}
+                    style={{ flex: 1, padding: '8px', background: contribution.trim() ? '#808bf5' : 'var(--surface-3)', color: contribution.trim() ? '#fff' : 'var(--text-sub)', border: 'none', borderRadius: '10px', cursor: contribution.trim() ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: 700, opacity: acceptMut.isPending ? 0.6 : 1, transition: 'all 0.2s' }}>
+                    Accept
+                </button>
+                <button
+                    onClick={() => respond(false)}
+                    disabled={declineMut.isPending}
+                    style={{ flex: 1, padding: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, opacity: declineMut.isPending ? 0.6 : 1 }}>
+                    Decline
+                </button>
             </div>
         </div>
     );
@@ -366,9 +382,9 @@ const Feed = ({ activeMood = null }) => {
 
             <div>
                 {isLoading ? (
-                    <div className="mt-3 flex flex-col gap-3">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
+                    <div className="mt-3 flex flex-col">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
                 ) : (
-                    <div className="mt-3 flex flex-col gap-4">
+                    <div className="mt-3 flex flex-col">
                         {/* Removed unused feed toggle UI */}
                         {displayPosts.length > 0 ? displayPosts.map((post, index) => {
                             const images = getImages(post);
@@ -408,16 +424,33 @@ const Feed = ({ activeMood = null }) => {
                                             </div>
                                             <div className="flex flex-col justify-center min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                                    <h6
-                                                        className="m-0 font-bold text-sm leading-none cursor-pointer hover:text-[#808bf5] transition flex items-center gap-1.5 text-[var(--text-main)] shrink-0"
-                                                        onClick={() => handleProfileClick(post.user._id)}
-                                                    >
-                                                        {post.user.fullname}
-                                                        {post.user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '11px' }}></i>}
-                                                    </h6>
+                                                    <div className="m-0 text-sm leading-none flex items-center gap-1 flex-wrap text-[var(--text-main)] shrink-0">
+                                                        <span
+                                                            className="font-bold cursor-pointer hover:text-[#808bf5] transition"
+                                                            onClick={() => handleProfileClick(post.user._id)}
+                                                        >
+                                                            {post.user.fullname}
+                                                        </span>
+                                                        {post.collaborators?.filter(c => c.status === 'accepted').length > 0 && (() => {
+                                                            const collab = post.collaborators.find(c => c.status === 'accepted');
+                                                            return (
+                                                                <>
+                                                                    <span className="text-[var(--text-sub)] font-normal ml-0.5">&</span>
+                                                                    <span
+                                                                        className="font-bold cursor-pointer hover:text-[#808bf5] transition ml-0.5"
+                                                                        onClick={() => handleProfileClick(collab.userId || collab._id)}
+                                                                    >
+                                                                        {collab.fullname}
+                                                                        {post.collaborators.filter(c => c.status === 'accepted').length > 1 && ` & ${post.collaborators.filter(c => c.status === 'accepted').length - 1} others`}
+                                                                    </span>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                        {post.user.isVerified && <i className="pi pi-check-circle text-blue-500 ml-1" style={{ fontSize: '11px' }}></i>}
+                                                    </div>
                                                     <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider leading-none shrink-0">{formatDate(post.updatedAt)}</span>
                                                     {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🎭 Anonymous</span>}
-                                                    {post.isCollaborative && post.collaborators?.some(c => c.status === 'accepted') && <span style={{ fontSize: '10px', background: '#d1fae5', color: '#059669', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🤝 Collab</span>}
+
                                                     {!isOwn && !isFollowing && (
                                                         <button
                                                             onClick={() => handleFollow(post)}
@@ -492,15 +525,7 @@ const Feed = ({ activeMood = null }) => {
                                         </div>
                                     )}
 
-                                    {/* Collaborators */}
-                                    {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted' && c.contribution).length > 0 && (
-                                        <div style={{ margin: '0 16px', background: '#f0fdf4', borderRadius: '8px', padding: '8px 12px' }}>
-                                            <p style={{ fontSize: '11px', color: '#059669', fontWeight: 600, margin: '0 0 4px' }}>🤝 Collaborators added:</p>
-                                            {post.collaborators.filter(c => c.status === 'accepted' && c.contribution).map((c, i) => (
-                                                <p key={i} style={{ fontSize: '12px', margin: '2px 0', color: '#374151' }}><strong>{c.fullname}:</strong> {c.contribution}</p>
-                                            ))}
-                                        </div>
-                                    )}
+
 
                                     {/* Voice note */}
                                     {post.voiceNote?.url && (
@@ -562,6 +587,17 @@ const Feed = ({ activeMood = null }) => {
                                                     </span>
                                                     {renderCaption(post.caption || '')}
                                                 </p>
+                                                {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
+                                                    <p key={i} className="m-0 mt-0.5 text-sm leading-relaxed">
+                                                        <span
+                                                            className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
+                                                            onClick={() => handleProfileClick(c.userId)}
+                                                        >
+                                                            {c.username || c.fullname}
+                                                        </span>
+                                                        {renderCaption(c.contribution || '')}
+                                                    </p>
+                                                ))}
                                                 {/* <p className="m-0 mt-1 text-xs text-gray-500 cursor-pointer" onClick={() => setVisiblePostId(p => p === post._id ? null : post._id)}>View all {post.comments?.length || 0} comments</p> */}
                                                 {/* <p className="m-0 mt-2 text-[10px] text-gray-400 uppercase tracking-wide">{formatDate(post.updatedAt)}</p> */}
                                             </div>
@@ -632,7 +668,7 @@ const Feed = ({ activeMood = null }) => {
                 </Dialog>
 
                 <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)}>
-                    <UserProfile id={selectedProfileId} compact={true} />
+                    <UserProfile id={selectedProfileId} maxPosts={3} />
                 </Dialog>
             </div>
         </>

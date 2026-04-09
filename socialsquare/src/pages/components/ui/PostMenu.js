@@ -52,9 +52,9 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
             <button
                 aria-label="Post options"
                 onClick={() => setVisible(true)}
-                className="bg-transparent border-0 cursor-pointer p-2 rounded-full text-white hover:bg-[var(--surface-2)] transition flex items-center justify-center"
+                className="bg-[var(--surface-2)] border-0 cursor-pointer p-2 rounded-full text-[var(--text-main)] hover:opacity-80 transition flex items-center justify-center shadow-sm"
             >
-                <i className="pi pi-ellipsis-h" style={{ fontSize: '16px' }}></i>
+                <i className="pi pi-ellipsis-h" style={{ fontSize: '16px', fontWeight: 'bold' }}></i>
             </button>
 
             <Dialog

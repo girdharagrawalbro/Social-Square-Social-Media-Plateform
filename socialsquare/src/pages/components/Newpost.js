@@ -310,9 +310,7 @@ const NewPost = ({ setnewpostVisible }) => {
             }));
 
             // Show detailed success message with AI models and remaining usage
-            const successMsg = `✨ Post created! 
-Models: ${aiData?.textModel || 'NVIDIA (text)'} & ${aiData?.imageModel || 'NVIDIA (image)'}
-Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining ?? 0}/2`;
+            const successMsg = `✨ Post created!`;
             toast.success(successMsg, { duration: 4000 });
 
             if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
@@ -534,6 +532,7 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                     correctOptionIndex: isQuiz ? correctOptionIndex : null
                 } : null,
                 groupId: selectedGroupId,
+                isCollaborative,
             };
 
             const response = await createPostMutation.mutateAsync(postData);
@@ -717,9 +716,9 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                                         <button
                                             type="button"
                                             onClick={() => setIsQuiz(!isQuiz)}
-                                            className={`text-[10px] px-2 py-1 rounded-lg border font-bold transition ${isQuiz ? 'bg-amber-100 text-amber-600 border-amber-200' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)]'}`}
+                                            className={`text-[10px] px-2.5 py-1 rounded-lg border font-black uppercase tracking-tight transition ${isQuiz ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)]'}`}
                                         >
-                                            {isQuiz ? '📝 Quiz Mode' : '📊 Poll Mode'}
+                                            {isQuiz ? '🎓 Neural Quiz' : '📈 Statistical Poll'}
                                         </button>
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -1018,12 +1017,12 @@ Remaining: Text ${aiData?.textRemaining ?? 0}/2 | Image ${aiData?.imageRemaining
                 )}
 
                 {/* Feature badges */}
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px', paddingLeft: '44px' }}>
-                    {isAnonymous && <span style={{ fontSize: '11px', background: '#ede9fe', color: '#6366f1', borderRadius: '12px', padding: '2px 8px' }}>🎭 Anonymous</span>}
-                    {expiresIn && <span style={{ fontSize: '11px', background: '#fef3c7', color: '#d97706', borderRadius: '12px', padding: '2px 8px' }}>⏳ Expires in {expiresIn}h</span>}
-                    {unlocksAt && <span style={{ fontSize: '11px', background: '#fee2e2', color: '#ef4444', borderRadius: '12px', padding: '2px 8px' }}>🔒 Time-locked</span>}
-                    {isCollaborative && <span style={{ fontSize: '11px', background: '#d1fae5', color: '#059669', borderRadius: '12px', padding: '2px 8px' }}>🤝 Collaborative</span>}
-                    {voicePreviewUrl && <span style={{ fontSize: '11px', background: '#dbeafe', color: '#2563eb', borderRadius: '12px', padding: '2px 8px' }}>🎤 Voice note</span>}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px', paddingLeft: '44px' }}>
+                    {isAnonymous && <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', background: 'rgba(128,139,245,0.1)', color: '#808bf5', borderRadius: '12px', padding: '4px 10px', border: '1px solid rgba(128,139,245,0.2)', letterSpacing: '0.05em' }}>🎭 Anonymous</span>}
+                    {expiresIn && <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', borderRadius: '12px', padding: '4px 10px', border: '1px solid rgba(245,158,11,0.2)', letterSpacing: '0.05em' }}>⏳ {expiresIn}H SPAN</span>}
+                    {unlocksAt && <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: '12px', padding: '4px 10px', border: '1px solid rgba(239,68,68,0.2)', letterSpacing: '0.05em' }}>🔒 SECURE LOCK</span>}
+                    {isCollaborative && <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', background: 'rgba(16,185,129,0.1)', color: '#10b981', borderRadius: '12px', padding: '4px 10px', border: '1px solid rgba(16,185,129,0.2)', letterSpacing: '0.05em' }}>🤝 SHARED</span>}
+                    {voicePreviewUrl && <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', borderRadius: '12px', padding: '4px 10px', border: '1px solid rgba(59,130,246,0.2)', letterSpacing: '0.05em' }}>🎤 VOICE NODE</span>}
                 </div>
             </div>
             <ImageCropper

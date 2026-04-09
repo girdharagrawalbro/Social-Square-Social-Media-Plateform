@@ -83,7 +83,9 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                 {filteredUsers.length === 0 ? (
                     <div className="text-center py-8 opacity-40">
                         <i className="pi pi-users text-2xl text-[var(--text-sub)] mb-2"></i>
-                        <p className="text-sm m-0 text-[var(--text-sub)]">No one found matching "{searchQuery}"</p>
+                        <p className="text-sm m-0 text-[var(--text-sub)] font-medium">
+                            {searchQuery ? `No users found matching "${searchQuery}"` : 'No users there'}
+                        </p>
                     </div>
                 ) : filteredUsers.map(u => {
                     const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
@@ -113,8 +115,8 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                             <div className="flex items-center gap-2">
                                 {u._id !== user?._id && (
                                     <>
-                                        {/* If it's followers list, show Remove button */}
-                                        {!isfollowing && (
+                                        {/* If it's followers list AND it's MY list, show Remove button */}
+                                        {!isfollowing && ids.some(id => id.toString() === u._id.toString()) && user.followers?.some(fid => fid.toString() === u._id.toString()) && (
                                             <button
                                                 onClick={() => handleRemoveFollower(u._id)}
                                                 disabled={removeFollowerMutation.isPending}

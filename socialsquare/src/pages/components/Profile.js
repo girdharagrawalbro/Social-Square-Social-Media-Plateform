@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery } from '@tanstack/react-query';
-import { useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
-import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites } from '../../hooks/queries/useAuthQueries';
+import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
 import toast, { Toaster } from 'react-hot-toast';
+
 import { socket } from '../../socket';
 import EditProfile from './EditProfile';
 import ActiveSessions from './ActiveSessions';
@@ -57,7 +58,7 @@ const Profile = ({ userId }) => {
 
     // Fetch other user's profile data if viewing someone else
     const { data: otherUserProfile, isLoading: otherUserLoading } = useQuery({
-        queryKey: ['user', 'profile', profileId],
+        queryKey: authKeys.userProfile(profileId),
         queryFn: async () => {
             const res = await api.get(`/api/auth/other-user/view/${profileId}`);
             return res.data;
@@ -128,32 +129,72 @@ const Profile = ({ userId }) => {
     };
 
     const handleBlock = () => {
-        if (window.confirm(`Block ${displayUser.fullname}? They won't be able to see your posts or message you.`)) {
-            blockUser(profileId);
-            toast.success(`Blocked ${displayUser.fullname}`);
-        }
+        confirmDialog({
+            message: `Block ${displayUser.fullname}? They won't be able to see your posts or message you.`,
+            header: 'Block User',
+            icon: 'pi pi-ban',
+            acceptClassName: 'p-button-danger',
+            acceptLabel: 'Yes, Block',
+            rejectLabel: 'Cancel',
+            accept: () => {
+                blockUser(profileId);
+                toast.success(`Blocked ${displayUser.fullname}`);
+            },
+        });
     };
 
     const handleUnblock = () => {
-        unblockUser(profileId);
-        toast.success(`Unblocked ${displayUser.fullname}`);
+        confirmDialog({
+            message: `Unblock ${displayUser.fullname}? They will be able to see your posts again.`,
+            header: 'Unblock User',
+            icon: 'pi pi-check-circle',
+            acceptLabel: 'Yes, Unblock',
+            rejectLabel: 'Cancel',
+            accept: () => {
+                unblockUser(profileId);
+                toast.success(`Unblocked ${displayUser.fullname}`);
+            },
+        });
     };
 
     const handleMute = () => {
         if (isMuted) {
-            unmuteUser(profileId);
-            toast.success(`Unmuted ${displayUser.fullname}`);
+            confirmDialog({
+                message: `Unmute ${displayUser.fullname}? You will start seeing their posts again.`,
+                header: 'Unmute User',
+                icon: 'pi pi-volume-up',
+                acceptLabel: 'Yes, Unmute',
+                rejectLabel: 'Cancel',
+                accept: () => {
+                    unmuteUser(profileId);
+                    toast.success(`Unmuted ${displayUser.fullname}`);
+                },
+            });
         } else {
-            muteUser(profileId);
-            toast.success(`Muted ${displayUser.fullname}`);
+            confirmDialog({
+                message: `Mute ${displayUser.fullname}? Their posts won't appear in your feed.`,
+                header: 'Mute User',
+                icon: 'pi pi-volume-off',
+                acceptLabel: 'Yes, Mute',
+                rejectLabel: 'Cancel',
+                accept: () => {
+                    muteUser(profileId);
+                    toast.success(`Muted ${displayUser.fullname}`);
+                },
+            });
         }
     };
+
+    const { data: collabInvites = [] } = useCollabInvites(viewingOwnProfile ? profileId : null);
 
     if (!loggeduser) return <div className="text-center p-4">Loading...</div>;
     if (!viewingOwnProfile && otherUserLoading) return <div className="text-center p-4">Loading profile...</div>;
     if (!displayUser) return <div className="text-center p-4">Profile not found</div>;
 
-    // Only posts/saved use the grid — collabs has its own renderer
+    const acceptedCollabsCount = displayUser?.collaborationsCount || 0;
+    const pendingCollabCount = collabInvites.length;
+
+    // Only posts/saved use the grid
     const tabPosts = activeTab === 'posts' ? userPostsList : savedPosts;
     const isLoadingTab = activeTab === 'posts' ? loadingUserPosts : false;
 
@@ -168,7 +209,19 @@ const Profile = ({ userId }) => {
         ? [
             { key: 'posts', label: `Posts (${userPostsList.length})` },
             { key: 'saved', label: `Saved (${savedPosts.length})` },
-            { key: 'collabs', label: '🤝 Collabs' },
+            {
+                key: 'collabs',
+                label: (
+                    <div className="flex items-center justify-center gap-1.5">
+                        <span>🤝 Collabs</span>
+                        {pendingCollabCount > 0 && (
+                            <span className="bg-[#ef4444] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                                {pendingCollabCount}
+                            </span>
+                        )}
+                    </div>
+                )
+            },
         ]
         : [
 
@@ -188,13 +241,18 @@ const Profile = ({ userId }) => {
                                     src={displayUser?.profile_picture}
                                     zoomSrc={displayUser?.profile_picture}
                                     alt="Profile"
-                                    className="profile-image-square overflow-hidden border-4 border-indigo-100"
+                                    className="profile-image-square overflow-hidden border-2 border-indigo-500/20"
                                     style={{ '--size': '80px' }}
                                     preview
                                 />
+                                {displayUser?.isOnline && (
+                                    <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-[var(--surface-1)] rounded-full shadow-sm z-10" title="Online now">
+                                        <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-25"></div>
+                                    </div>
+                                )}
                                 {viewingOwnProfile && (
                                     <button
-                                        className="absolute bottom-1 right-1 w-7 h-7 rounded-full border-0 cursor-pointer bg-[#4f46e5] text-white flex items-center justify-center"
+                                        className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-0 cursor-pointer bg-[#4f46e5] text-white flex items-center justify-center shadow-md z-10"
                                         onClick={() => setEditVisible(true)}
                                         title="Edit profile"
                                     >
@@ -202,6 +260,7 @@ const Profile = ({ userId }) => {
                                     </button>
                                 )}
                             </div>
+
                             <h3 className="m-0 text-lg sm:text-xl lg:text-2xl font-semibold text-[var(--text-main)]">{displayUser?.fullname}</h3>
                             {displayUser?.username && (
                                 <p className="m-0 text-sm font-medium text-indigo-600">@{displayUser.username}</p>
@@ -229,22 +288,38 @@ const Profile = ({ userId }) => {
 
                         {/* Stats tiles */}
                         <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mb-4">
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
-                                onClick={() => viewingOwnProfile && setShowFollowersList(true)}>
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(displayUser?.followers?.length || 0)}</h6>
+                            <div
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                onClick={() => {
+                                    if (viewingOwnProfile || isFollowing) {
+                                        setShowFollowersList(true);
+                                    } else {
+                                        toast.error('Follow this user to see their followers', { icon: '🔒' });
+                                    }
+                                }}
+                            >
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followers?.length || 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                             </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer"
-                                onClick={() => viewingOwnProfile && setShowFollowingList(true)}>
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(displayUser?.following?.length || 0)}</h6>
+                            <div
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                onClick={() => {
+                                    if (viewingOwnProfile || isFollowing) {
+                                        setShowFollowingList(true);
+                                    } else {
+                                        toast.error('Follow this user to see who they follow', { icon: '🔒' });
+                                    }
+                                }}
+                            >
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center ">{formatCount(displayUser?.following?.length || 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
                             </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(userPostsList.length)}</h6>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer px-4">
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center">{formatCount(userPostsList.length)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
                             </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center" title="Total profile views">
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)]">{formatCount(displayUser?.profileViews || 0)}</h6>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer px-4" title="Total profile views">
+                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.profileViews || 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Views</span>
                             </div>
                         </div>
@@ -252,37 +327,58 @@ const Profile = ({ userId }) => {
                         {/* Action buttons */}
                         <div className="mb-4">
                             {viewingOwnProfile ? (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold text-sm cursor-pointer hover:bg-indigo-100 transition"
-                                        onClick={() => setEditVisible(true)}
-                                    >
-                                        <i className="pi pi-user-edit mr-2"></i>Edit Profile
-                                    </button>
-                                    <button
-                                        onClick={handleLogout}
-                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold text-sm cursor-pointer hover:opacity-95 transition"
-                                    >
-                                        <i className="pi pi-sign-out mr-2"></i>Logout
-                                    </button>
-                                </div>
+                                <></>
                             ) : !isBlockedByMe && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={isFollowing ? handleUnfollow : handleFollow}
                                         disabled={followMutation.isPending || unfollowMutation.isPending}
-                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:opacity-95'}`}
+                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing
+                                            ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20'
+                                            : 'border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:opacity-95 shadow-lg shadow-indigo-500/20'}`}
                                     >
                                         {followMutation.isPending || unfollowMutation.isPending ? '...' : (isFollowing ? 'Following' : 'Follow')}
                                     </button>
                                     <button
-                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold text-sm cursor-pointer hover:bg-indigo-100 transition"
+                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-500 font-semibold text-sm cursor-pointer hover:bg-indigo-500/20 transition flex items-center justify-center gap-2"
                                     >
-                                        <i className="pi pi-send mr-2"></i>Message
+                                        <i className="pi pi-send"></i>
+                                        <span>Message</span>
                                     </button>
                                 </div>
                             )}
                         </div>
+
+                        {/* OTHER PROFILE - Mute/Block Options */}
+                        {!viewingOwnProfile && (
+                            <div className="py-2 border-t border-b border-[var(--border-color)] flex divide-x divide-[var(--border-color)] my-2">
+                                <button
+                                    onClick={handleMute}
+                                    className="flex-1 flex items-center justify-center gap-2 text-xs text-[var(--text-sub)] hover:text-orange-500 transition border-0 bg-transparent cursor-pointer font-bold py-2.5"
+                                >
+                                    <i className={`pi ${isMuted ? 'pi-volume-up' : 'pi-volume-off'} text-sm`}></i>
+                                    {isMuted ? 'Unmute' : 'Mute'}
+                                </button>
+                                {!isBlockedByMe && (
+                                    <button
+                                        onClick={handleBlock}
+                                        className="flex-1 flex items-center justify-center gap-2 text-xs text-[var(--text-sub)] hover:text-red-500 transition border-0 bg-transparent cursor-pointer font-bold py-2.5"
+                                    >
+                                        <i className="pi pi-ban text-sm"></i>
+                                        Block
+                                    </button>
+                                )}
+                                {isBlockedByMe && (
+                                    <button
+                                        onClick={handleUnblock}
+                                        className="flex-1 flex items-center justify-center gap-2 text-xs text-red-500 hover:text-red-600 transition border-0 bg-transparent cursor-pointer font-bold py-2.5"
+                                    >
+                                        <i className="pi pi-check text-sm"></i>
+                                        Unblock
+                                    </button>
+                                )}
+                            </div>
+                        )}
 
                         {/* Tabs */}
                         <div className="flex">
@@ -312,7 +408,21 @@ const Profile = ({ userId }) => {
                                     <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ aspectRatio: '1' }} />
                                 ))
                             ) : tabPosts.length > 0 ? (
-                                tabPosts.map(post => <PostCard key={post._id} post={post} onClick={(post) => { setPostDetail(post); setPostDetailVisible(true); }} />)
+                                (viewingOwnProfile || isFollowing ? tabPosts : tabPosts.slice(0, 3)).map(post => (
+                                    <PostCard
+                                        key={post._id}
+                                        post={post}
+                                        isBlur={!(viewingOwnProfile || isFollowing)}
+                                        onClick={(post) => {
+                                            if (viewingOwnProfile || isFollowing) {
+                                                setPostDetail(post);
+                                                setPostDetailVisible(true);
+                                            } else {
+                                                toast.error('Follow this user to see the full post', { icon: '🔒' });
+                                            }
+                                        }}
+                                    />
+                                ))
                             ) : (
                                 <div className="col-span-3">
                                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -342,40 +452,10 @@ const Profile = ({ userId }) => {
                         </div>
                     )}
 
-                    {/* OTHER PROFILE - Mute/Block Options */}
-                    {!viewingOwnProfile && (
-                        <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2 text-center">
-                            <button
-                                onClick={handleMute}
-                                className="flex-1 text-xs text-gray-500 hover:text-orange-500 transition border-0 bg-transparent cursor-pointer font-medium"
-                            >
-                                <i className={`pi ${isMuted ? 'pi-volume-up' : 'pi-volume-off'} mr-1`}></i>
-                                {isMuted ? 'Unmute' : 'Mute'}
-                            </button>
-                            {!isBlockedByMe && (
-                                <button
-                                    onClick={handleBlock}
-                                    className="flex-1 text-xs text-gray-500 hover:text-red-500 transition border-0 bg-transparent cursor-pointer font-medium"
-                                >
-                                    <i className="pi pi-ban mr-1"></i>Block
-                                </button>
-                            )}
-                            {isBlockedByMe && (
-                                <button
-                                    onClick={handleUnblock}
-                                    className="flex-1 text-xs text-red-600 border-0 bg-transparent cursor-pointer font-medium hover:text-red-700 transition"
-                                >
-                                    <i className="pi pi-check mr-1"></i>Unblock
-                                </button>
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
 
-            <ConfirmDialog />
-
-            {/* OWN PROFILE - Edit & Security Dialogs */}
+            {/* Edit & Security Dialogs - Own Profile Only */}
             {viewingOwnProfile && (
                 <>
                     <Dialog header="Edit Profile" visible={editVisible} position="center" style={{ width: '90vw', maxWidth: '500px', height: '80vh' }} onHide={() => setEditVisible(false)}>
@@ -384,27 +464,57 @@ const Profile = ({ userId }) => {
                     <Dialog header="Security & Sessions" visible={activeSessionsVisible} position="center" style={{ width: '90vw', maxWidth: '500px', height: '100vh' }} onHide={() => setActiveSessionsVisible(false)}>
                         <ActiveSessions />
                     </Dialog>
-                    <Dialog header="Followers" visible={showFollowersList} style={{ width: '90vw', maxWidth: '500px', height: '80vh' }} onHide={() => setShowFollowersList(false)}>
-                        <FollowFollowingList isfollowing={false} ids={loggeduser?.followers} />
-                    </Dialog>
-                    <Dialog header="Following" visible={showFollowingList} style={{ width: '90vw', maxWidth: '500px', height: '80vh' }} onHide={() => setShowFollowingList(false)}>
-                        <FollowFollowingList isfollowing={true} ids={loggeduser?.following} />
-                    </Dialog>
                 </>
             )}
+
+            {/* Followers / Following Dialogs - Accessible if following or own profile */}
+            <Dialog
+                header="Followers"
+                visible={showFollowersList}
+                style={{ width: '90vw', maxWidth: '420px', height: '80vh' }}
+                onHide={() => setShowFollowersList(false)}
+                className="rounded-3xl"
+            >
+                <FollowFollowingList isfollowing={false} ids={displayUser?.followers} />
+            </Dialog>
+            <Dialog
+                header="Following"
+                visible={showFollowingList}
+                style={{ width: '90vw', maxWidth: '420px', height: '80vh' }}
+                onHide={() => setShowFollowingList(false)}
+                className="rounded-3xl"
+            >
+                <FollowFollowingList isfollowing={true} ids={displayUser?.following} />
+            </Dialog>
 
 
 
             {/* Post Detail Dialog - Shared */}
             <Dialog
-                header="Post Detail"
+            showHeader={false}
                 visible={postDetailVisible}
                 style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                position="center"
                 onHide={() => setPostDetailVisible(false)}
-                modal
-                className="p-0 overflow-hidden post-detail-dialog"
+                contentStyle={{ padding: 0, borderRadius: '24px', overflow: 'hidden', background: 'transparent' }}
+                baseZIndex={20000}
+                blockScroll={true}
+                closable={false}
             >
-                <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
+                <div className="relative bg-[var(--surface-1)] h-full w-full" style={{ borderRadius: '24px', overflow: 'hidden' }}>
+                    <button
+                        onClick={() => setPostDetailVisible(false)}
+                        className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
+                    >
+                        <i className="pi pi-times text-sm"></i>
+                    </button>
+                    <React.Suspense fallback={<div className="p-20 text-center text-[var(--text-sub)] bg-[var(--surface-1)]">
+                        <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="font-medium">Loading Post...</p>
+                    </div>}>
+                        <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
+                    </React.Suspense>
+                </div>
             </Dialog>
 
             <Toaster />

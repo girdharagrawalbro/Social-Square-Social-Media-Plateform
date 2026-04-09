@@ -119,39 +119,45 @@ const Search = ({ onClose }) => {
         <>
             <div ref={containerRef} className="relative w-full mt-3">
                 {/* Search input */}
-                <div className="relative flex items-center">
-                    <i className="pi pi-search absolute left-4 text-gray-400" style={{ fontSize: '15px' }}></i>
+                <div className="relative flex items-center group">
+                    <i className="pi pi-search absolute left-4 text-[var(--text-sub)] transition-colors group-focus-within:text-[#808bf5]" style={{ fontSize: '15px' }}></i>
                     <input
                         placeholder="Search users, posts, categories..."
-                        className="py-2.5 pl-11 pr-11 rounded-full bg-gray-50 border border-gray-100 w-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 placeholder:text-gray-400 transition-all "
+                        className="py-2.5 pl-11 pr-11 rounded-full bg-[var(--surface-2)] border border-[var(--border-color)] w-full text-sm outline-none focus:bg-[var(--surface-1)] focus:ring-2 focus:ring-[#808bf5]/20 placeholder:text-[var(--text-sub)] text-[var(--text-main)] transition-all "
                         type="text"
                         value={searchTerm}
                         onChange={handleInputChange}
                         onFocus={() => setIsFocused(true)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && searchTerm.trim()) {
+                                saveRecentSearch(searchTerm.trim());
+                                doSearch(searchTerm.trim());
+                            }
+                        }}
                     />
                     {searchTerm && (
-                        <button onClick={handleClear} className="absolute right-3 bg-transparent border-0 cursor-pointer text-gray-400 p-0">
+                        <button onClick={handleClear} className="absolute right-3 bg-transparent border-0 cursor-pointer text-[var(--text-sub)] hover:text-[var(--text-main)] p-2 rounded-full transition-colors flex items-center justify-center">
                             <i className="pi pi-times" style={{ fontSize: '12px' }}></i>
                         </button>
                     )}
                 </div>
 
 
-                <div className="absolute left-0 right-0 bg-white  rounded-2xl z-50 overflow-hidden mt-1" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: 'none' }}>
+                <div className="absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (
                         <div className="p-3">
-                            <div className="flex justify-between items-center mb-2">
-                                <p className="text-xs font-bold text-gray-500 m-0 uppercase tracking-wider">Recent</p>
-                                <button onClick={clearRecentSearches} className="text-xs text-indigo-500 border-0 bg-transparent cursor-pointer p-0">Clear all</button>
+                            <div className="flex justify-between items-center mb-2 px-1">
+                                <p className="text-[10px] font-bold text-[var(--text-sub)] m-0 uppercase tracking-widest">Recent Searches</p>
+                                <button onClick={clearRecentSearches} className="text-[10px] font-bold text-[#808bf5] border-0 bg-transparent cursor-pointer p-0 hover:underline uppercase">Clear all</button>
                             </div>
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-0.5">
                                 {recentSearches.map((term, i) => (
                                     <button key={i} onClick={() => handleRecentClick(term)}
-                                        className="flex items-center gap-2 px-2 py-2 rounded-lg bg-transparent cursor-pointer text-left hover:bg-gray-50 w-full">
-                                        <i className="pi pi-clock text-gray-400" style={{ fontSize: '12px' }}></i>
-                                        <span className="text-sm text-gray-700">{term}</span>
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-transparent cursor-pointer text-left hover:bg-[var(--surface-2)] w-full transition-colors group">
+                                        <i className="pi pi-clock text-[var(--text-sub)] group-hover:text-[#808bf5]" style={{ fontSize: '12px' }}></i>
+                                        <span className="text-sm font-medium text-[var(--text-main)]">{term}</span>
                                     </button>
                                 ))}
                             </div>
@@ -166,10 +172,11 @@ const Search = ({ onClose }) => {
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                 {categories.slice(0, 8).map((cat, i) => (
                                     <button key={i} onClick={() => handleCategoryClick(cat.category)}
-                                        style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
+                                        style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                                         #{cat.category}
                                     </button>
                                 ))}
+
                             </div>
                         </div>
                     )}
@@ -187,25 +194,26 @@ const Search = ({ onClose }) => {
                                     {/* User results */}
                                     {searchResults.users?.length > 0 && (
                                         <div className="mb-3">
-                                            <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">People</p>
-                                            <div className="flex flex-col gap-1">
+                                            <p className="text-[10px] font-bold text-[var(--text-sub)] mb-2 m-0 uppercase tracking-widest px-1">People</p>
+                                            <div className="flex flex-col gap-0.5">
                                                 {searchResults.users.map(u => (
                                                     <button key={u._id} onClick={() => handleUserClick(u._id, u.fullname)}
-                                                        className="flex items-center gap-3 px-2 py-2 rounded-xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-gray-50">
-                                                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
+                                                        className="flex items-center gap-3 px-2 py-2.5 rounded-2xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-[var(--surface-2)] transition-colors group">
+                                                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-color)] shadow-sm">
                                                             <img src={u.profile_picture} alt="" className="w-full h-full object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="m-0 text-sm font-medium truncate">{u.fullname}</p>
+                                                            <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{u.fullname}</p>
                                                             <div className="flex items-center gap-2 mt-0.5">
-                                                                {u.username && <p className="m-0 text-[11px] text-indigo-500 font-medium">@{u.username}</p>}
-                                                                <span className="text-[10px] text-gray-300">•</span>
-                                                                <p className="m-0 text-[11px] text-gray-500">{u.followers?.length || 0} followers</p>
+                                                                {u.username && <p className="m-0 text-[11px] text-[#808bf5] font-bold">@{u.username}</p>}
+                                                                <span className="text-[10px] text-[var(--text-sub)] opacity-40">•</span>
+                                                                <p className="m-0 text-[11px] text-[var(--text-sub)] font-medium">{u.followers?.length || 0} followers</p>
                                                                 {user?.following?.some(id => id?.toString() === u._id?.toString()) && (
-                                                                    <span className="text-[10px] bg-green-50 text-green-600 px-1.5 rounded-md font-semibold border border-green-100">Following</span>
+                                                                    <span className="text-[9px] bg-[#808bf5]/10 text-[#808bf5] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">Following</span>
                                                                 )}
                                                             </div>
                                                         </div>
+                                                        <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transition-opacity pr-2"></i>
                                                     </button>
                                                 ))}
                                             </div>
@@ -214,21 +222,22 @@ const Search = ({ onClose }) => {
 
                                     {/* AI Recommended results */}
                                     {aiResults.length > 0 && (
-                                        <div className="mt-3">
-                                            <p className="text-xs font-bold text-indigo-500 mb-3 m-0 uppercase tracking-wider">✨ AI Recommended</p>
-                                            <div className="flex flex-col gap-1">
+                                        <div className="mt-4">
+                                            <p className="text-[10px] font-bold text-[#808bf5] mb-2 m-0 uppercase tracking-widest px-1">✨ AI Recommended</p>
+                                            <div className="flex flex-col gap-1.5">
                                                 {aiResults.slice(0, 3).map(post => (
-                                                    <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl bg-indigo-50/50">
-                                                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                                                    <div key={post._id} className="flex items-center gap-4 px-3 py-3 rounded-2xl bg-[#808bf5]/5 border border-[#808bf5]/10 hover:bg-[#808bf5]/10 transition-colors cursor-pointer group">
+                                                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-[var(--surface-2)] flex-shrink-0 shadow-sm">
                                                             {(post.image_urls?.[0] || post.image_url)
-                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
-                                                                : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '10px' }}></i></div>
+                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '14px' }}></i></div>
                                                             }
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="m-0 text-[10px] text-indigo-500 font-bold uppercase">#{post.category}</p>
-                                                            <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
+                                                            <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
+                                                            <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
                                                         </div>
+                                                        <i className="pi pi-sparkles text-[var(--text-sub)] opacity-30 group-hover:opacity-100 transition-opacity"></i>
                                                     </div>
                                                 ))}
                                             </div>
@@ -237,20 +246,24 @@ const Search = ({ onClose }) => {
 
                                     {/* Post results */}
                                     {searchResults.posts?.length > 0 && (
-                                        <div className="mt-3">
-                                            <p className="text-xs font-bold text-gray-500 mb-2 m-0 uppercase tracking-wider">Posts</p>
-                                            <div className="flex flex-col gap-1">
+                                        <div className="mt-4">
+                                            <p className="text-[10px] font-bold text-[var(--text-sub)] mb-2 m-0 uppercase tracking-widest px-1">Posts</p>
+                                            <div className="flex flex-col gap-0.5">
                                                 {searchResults.posts.slice(0, 4).map(post => (
-                                                    <div key={post._id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                    <div
+                                                        key={post._id}
+                                                        onClick={() => saveRecentSearch(post.caption)}
+                                                        className="flex items-center gap-4 px-3 py-2.5 rounded-2xl hover:bg-[var(--surface-2)] transition-colors cursor-pointer group"
+                                                    >
+                                                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-[var(--surface-3)] flex-shrink-0 shadow-sm">
                                                             {(post.image_urls?.[0] || post.image_url)
-                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover" />
-                                                                : <div className="w-full h-full flex items-center justify-center"><i className="pi pi-file text-gray-400" style={{ fontSize: '12px' }}></i></div>
+                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '12px' }}></i></div>
                                                             }
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="m-0 text-xs text-indigo-500 font-medium">#{post.category}</p>
-                                                            <p className="m-0 text-xs text-gray-600 truncate">{post.caption}</p>
+                                                            <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
+                                                            <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -277,7 +290,9 @@ const Search = ({ onClose }) => {
                     setIsFocused(false);
                     setSearchTerm('');
                     if (onClose) onClose();
-                }} />
+
+
+                }} maxPosts={3} />
             </Dialog>
         </>
     );

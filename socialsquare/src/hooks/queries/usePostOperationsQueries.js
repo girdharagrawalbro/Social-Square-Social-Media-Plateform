@@ -1,23 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
-import useAuthStore from '../../store/zustand/useAuthStore';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
+import { api } from '../../store/zustand/useAuthStore';
 
 // ─── ACCEPT COLLABORATION INVITATION ────────────────────────────────────────
 export function useAcceptCollaboration() {
     const qc = useQueryClient();
-    const user = useAuthStore(s => s.user);
 
     return useMutation({
         mutationFn: ({ postId, contribution }) =>
-            axios.post(`${BASE}/api/post/collaborate/accept`, {
-                postId, userId: user._id, contribution
+            api.post(`/api/post/collaborate/accept`, {
+                postId, contribution
             }),
         onSuccess: () => {
-            // Invalidate collab invites cache
             qc.invalidateQueries({ queryKey: ['posts', 'collab-invites'] });
-            qc.invalidateQueries({ queryKey: ['posts'] }); // Invalidate posts that user collaborated on
+            qc.invalidateQueries({ queryKey: ['posts'] });
         },
     });
 }
@@ -25,15 +20,13 @@ export function useAcceptCollaboration() {
 // ─── DECLINE COLLABORATION INVITATION ───────────────────────────────────────
 export function useDeclineCollaboration() {
     const qc = useQueryClient();
-    const user = useAuthStore(s => s.user);
 
     return useMutation({
         mutationFn: ({ postId }) =>
-            axios.post(`${BASE}/api/post/collaborate/decline`, {
-                postId, userId: user._id
+            api.post(`/api/post/collaborate/decline`, {
+                postId
             }),
         onSuccess: () => {
-            // Invalidate collab invites cache
             qc.invalidateQueries({ queryKey: ['posts', 'collab-invites'] });
         },
     });
@@ -41,12 +34,9 @@ export function useDeclineCollaboration() {
 
 // ─── REPORT POST ────────────────────────────────────────────────────────────
 export function useReportPost() {
-    const user = useAuthStore(s => s.user);
-
     return useMutation({
         mutationFn: ({ postId, reason }) =>
-            axios.post(`${BASE}/api/admin/report`, {
-                reporterId: user._id,
+            api.post(`/api/admin/report`, {
                 targetType: 'post',
                 targetId: postId,
                 reason
@@ -56,12 +46,9 @@ export function useReportPost() {
 
 // ─── REPORT USER ───────────────────────────────────────────────────────────
 export function useReportUser() {
-    const user = useAuthStore(s => s.user);
-
     return useMutation({
         mutationFn: ({ userId, reason }) =>
-            axios.post(`${BASE}/api/admin/report`, {
-                reporterId: user._id,
+            api.post(`/api/admin/report`, {
                 targetType: 'user',
                 targetId: userId,
                 reason
@@ -71,12 +58,9 @@ export function useReportUser() {
 
 // ─── REPORT COMMENT ────────────────────────────────────────────────────────
 export function useReportComment() {
-    const user = useAuthStore(s => s.user);
-
     return useMutation({
         mutationFn: ({ commentId, reason }) =>
-            axios.post(`${BASE}/api/admin/report`, {
-                reporterId: user._id,
+            api.post(`/api/admin/report`, {
                 targetType: 'comment',
                 targetId: commentId,
                 reason

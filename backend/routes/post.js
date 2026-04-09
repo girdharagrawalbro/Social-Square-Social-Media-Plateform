@@ -149,9 +149,22 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
         }
 
 
-        if (_io && collaborators.length > 0) {
-            collaborators.forEach(c => {
-                _io.to(c.userId.toString()).emit('collaborationInvite', { postId: newPost._id, postCaption: caption, invitedBy: userDetails.fullname });
+        if (collaborators.length > 0) {
+            collaborators.forEach(async (c) => {
+                if (_io) {
+                    _io.to(c.userId.toString()).emit('collaborationInvite', { postId: newPost._id, postCaption: caption, invitedBy: userDetails.fullname });
+                }
+
+                // Also create a persistent notification
+                await notificationUtils.createNotification({
+                    recipientId: c.userId,
+                    sender: { id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
+                    type: 'collab_invite',
+                    postId: newPost._id,
+                    thumbnail: newPost.image_urls?.[0],
+                    url: `/post/${newPost._id}`,
+                    message: { content: 'invited you to collaborate on a post' }
+                });
             });
         }
 
@@ -247,6 +260,28 @@ router.get("/collaborate/invites/:userId", async (req, res) => {
                 }
             }
         });
+        res.status(200).json(posts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─── MY COLLABORATIONS ────────────────────────────────────────────────────────
+router.get("/collaborate/mine/:userId", async (req, res) => {
+    try {
+        const posts = await Post.find({
+            $or: [
+                { 'user._id': req.params.userId },
+                {
+                    collaborators: {
+                        $elemMatch: {
+                            userId: req.params.userId,
+                            status: 'accepted'
+                        }
+                    }
+                }
+            ]
+        }).sort({ createdAt: -1 });
         res.status(200).json(posts);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -371,8 +406,21 @@ router.get("/user/:userId", async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 12;
         const cursor = req.query.cursor;
-        // Show all posts for profile page — owner sees their own anonymous posts too
-        const query = { 'user._id': req.params.userId, ...(cursor ? { _id: { $lt: cursor } } : {}) };
+        // Show all posts where user is owner OR an accepted collaborator
+        const query = {
+            $or: [
+                { 'user._id': req.params.userId },
+                {
+                    collaborators: {
+                        $elemMatch: {
+                            userId: req.params.userId,
+                            status: 'accepted'
+                        }
+                    }
+                }
+            ],
+            ...(cursor ? { _id: { $lt: cursor } } : {})
+        };
         const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1);
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
@@ -701,20 +749,38 @@ router.get("/detail/:postId", async (req, res) => {
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
 
-        // ✅ Optional tracking: Extract userId if token exists
-        let userId = null;
+        // ✅ Extract userId from token if possible
+        let viewerId = null;
         const authHeader = req.headers.authorization;
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
             try {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                userId = decoded.userId;
+                viewerId = decoded.userId || decoded.id || decoded._id;
             } catch (err) { /* ignore invalid token for detail view */ }
+        }
+
+        // ✅ Privacy Check
+        const ownerId = post.user._id.toString();
+        const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
+        
+        if (postOwner && postOwner.isPrivate) {
+            const isOwner = viewerId && viewerId.toString() === ownerId;
+            const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
+            const isCollaborator = viewerId && post.collaborators?.some(c => c.userId?.toString() === viewerId.toString() && c.status === 'accepted');
+
+            if (!isOwner && !isFollower && !isCollaborator) {
+                return res.status(403).json({ 
+                    message: "This account is private. Follow to see their posts.",
+                    isPrivate: true,
+                    owner: post.user
+                });
+            }
         }
 
         // ✅ Publish recommendation event
         await publishEvent("user.activity.view", {
-            userId,
+            userId: viewerId,
             postId: post._id.toString(),
             action: "view",
             category: post.category || "",

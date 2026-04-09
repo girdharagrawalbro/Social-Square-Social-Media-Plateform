@@ -101,7 +101,7 @@ const Groups = () => {
                             </p>
                             <button
                                 onClick={() => setShowCreate(true)}
-                                className="bg-transparent border-2 border-[#808bf5]/20 text-[#808bf5] px-6 py-2 rounded-2xl text-xs font-bold cursor-pointer hover:bg-[#808bf5]/5 transition"
+                                className="bg-transparent border-2 border-[#808bf5]/30 text-[#808bf5] px-6 py-2.5 rounded-2xl text-xs font-bold cursor-pointer hover:bg-[#808bf5]/10 transition"
                             >
                                 {myGroups?.length > 0 ? "Create a new community" : "Create your first community"}
                             </button>
@@ -157,21 +157,21 @@ const Groups = () => {
 
 const GroupItem = ({ group, onJoin, onLeave, isMember }) => {
     return (
-        <div className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-3xl p-4 flex items-center gap-4 hover:shadow-md transition">
-            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl">
+        <div className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-3xl p-4 flex items-center gap-4 hover:shadow-lg transition-all duration-300 group">
+            <div className="w-14 h-14 bg-[var(--surface-3)] rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl shadow-inner">
                 {group.cover_picture ? <img src={group.cover_picture} alt="" className="w-full h-full object-cover rounded-2xl" /> : '👥'}
             </div>
             <div className="flex-1 min-w-0">
                 <h4 className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{group.name}</h4>
-                <p className="m-0 text-[11px] text-[var(--text-sub)] truncate mb-1">{group.description || 'No description provided.'}</p>
+                <p className="m-0 text-[11px] text-[var(--text-sub)] truncate mb-1 opacity-80">{group.description || 'No description provided.'}</p>
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-[#808bf5] bg-indigo-50 px-2 py-0.5 rounded-full">{group.members?.length || 0} Members</span>
+                    <span className="text-[9px] font-bold text-[#808bf5] bg-[#808bf5]/10 px-2.5 py-1 rounded-full uppercase tracking-tighter shadow-sm">{group.members?.length || 0} Members</span>
                     {group.isPrivate && <i className="pi pi-lock text-[10px] text-amber-500" />}
                 </div>
             </div>
             <button
                 onClick={isMember ? onLeave : onJoin}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-xl text-[10px] font-bold border-0 cursor-pointer transition ${isMember ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-[#808bf5] text-white hover:opacity-90'}`}
+                className={`flex-shrink-0 px-5 py-2 rounded-xl text-[10px] font-bold border-0 cursor-pointer transition shadow-sm ${isMember ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-[#808bf5] text-white hover:opacity-90 active:scale-95'}`}
             >
                 {isMember ? 'Leave' : 'Join'}
             </button>

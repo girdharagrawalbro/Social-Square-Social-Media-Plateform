@@ -128,12 +128,23 @@ function AppInit() {
             );
         });
 
+        socket.on('collaborationInvite', ({ postCaption, invitedBy }) => {
+            queryClient.invalidateQueries({ queryKey: ['posts', 'collab-invites', user?._id] });
+            toast(`🤝 ${invitedBy} invited you to collaborate on a post`, {
+                icon: '🤝',
+                duration: 5000,
+                position: 'top-right',
+                style: { borderRadius: '12px', background: '#333', color: '#fff' }
+            });
+        });
+
         return () => {
             socket.off('connect');
             socket.off('updateUserList');
             socket.off('userOnline');
             socket.off('userOffline');
             socket.off('newNotification');
+            socket.off('collaborationInvite');
         };
     }, [user?._id, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, openChat, setPostDetailId, setStoryDetailUserId]);
 

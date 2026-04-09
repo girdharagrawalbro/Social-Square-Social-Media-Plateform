@@ -8,7 +8,7 @@ const BASE = process.env.REACT_APP_BACKEND_URL;
 export const authKeys = {
     users: ['users'],
     userDetails: (ids) => ['users', 'details', ids?.sort().join(',')],
-    userProfile: (userId) => ['users', 'profile', userId],
+    userProfile: (userId) => ['user', 'profile', userId],
     followers: (userId) => ['users', 'followers', userId],
     following: (userId) => ['users', 'following', userId],
     otherUsers: ['users', 'other-users'],
@@ -148,6 +148,7 @@ export function useFollowUser() {
                 qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
             }
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
+            qc.invalidateQueries({ queryKey: authKeys.otherUsers });
         },
     });
 }
@@ -165,6 +166,7 @@ export function useUnfollowUser() {
             qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
             qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
+            qc.invalidateQueries({ queryKey: authKeys.otherUsers });
         },
     });
 }

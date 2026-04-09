@@ -75,7 +75,7 @@ export function usePostDetail(postId) {
     return useQuery({
         queryKey: postKeys.detail(postId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/post/detail/${postId}`);
+            const res = await api.get(`${BASE}/api/post/detail/${postId}`);
             return res.data;
         },
         enabled: !!postId,

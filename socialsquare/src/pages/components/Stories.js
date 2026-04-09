@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
+import { confirmDialog } from 'primereact/confirmdialog';
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
 
 import { socket } from '../../socket';
@@ -130,8 +131,20 @@ const StoryViewer = ({
     if (!story || !group) return null;
     const isOwn = group.user._id.toString() === loggeduser?._id?.toString();
 
-    const handleDelete = async (e) => {
+    const handleDelete = (e) => {
         e.stopPropagation();
+        setIsPaused(true);
+        confirmDialog({
+            message: 'Are you sure you want to delete this story?',
+            header: 'Delete Confirmation',
+            icon: 'pi pi-exclamation-triangle',
+            accept: confirmDelete,
+            reject: () => setIsPaused(false),
+            onHide: () => setIsPaused(false)
+        });
+    };
+
+    const confirmDelete = async () => {
         try {
             const { api } = await import('../../store/zustand/useAuthStore');
             await api.delete(`/api/story/${story._id}`);
@@ -141,7 +154,10 @@ const StoryViewer = ({
                 if (groupIndex < groups.length - 1) { setGroupIndex(g => g + 1); setStoryIndex(0); }
                 else onClose();
             } else { goNext(); }
-        } catch { toast.error('Failed to delete'); }
+        } catch {
+            toast.error('Failed to delete');
+            setIsPaused(false);
+        }
     };
 
     return (
@@ -194,47 +210,49 @@ const StoryViewer = ({
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsPaused(true);
-                                onOpenPostDetail(story.sharedPostId._id);
+                                const pid = story.sharedPostId?._id || story.sharedPostId?.id || story.sharedPostId;
+                                if (pid) onOpenPostDetail(pid);
                             }}
                             style={{
                                 position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                                background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)',
-                                padding: '12px', borderRadius: '24px',
-                                width: '280px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', cursor: 'pointer',
-                                display: 'flex', flexDirection: 'column', gap: '10px',
-                                border: '1px solid rgba(255,255,255,0.3)',
-                                transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                                background: 'rgba(255, 255, 255, 0.95)',
+                                padding: '12px', borderRadius: '20px',
+                                width: '310px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', cursor: 'pointer',
+                                display: 'flex', flexDirection: 'column', gap: '8px',
+                                border: '1px solid rgba(255,255,255,0.4)',
+                                zIndex: 100,
+                                transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
                             }}
-                            className="shared-post-sticker"
+                            className="shared-post-sticker hover:scale-[1.02]"
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
                                 <img
-                                    src={story.sharedPostId.user?.profile_picture ? (story.sharedPostId.user.profile_picture.startsWith('http') ? story.sharedPostId.user.profile_picture : `${process.env.REACT_APP_BACKEND_URL}${story.sharedPostId.user.profile_picture}`) : '/default-profile.png'}
-                                    style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid #fff', objectFit: 'cover' }}
+                                    src={story.sharedPostId.user?.profile_picture || '/default-profile.png'}
+                                    style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                                     alt=""
                                 />
-                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>{story.sharedPostId.user?.fullname}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 800, color: '#000', letterSpacing: '-0.3px' }}>{story.sharedPostId.user?.fullname}</span>
+                                    <span style={{ fontSize: '10px', color: '#666', marginTop: '-2px' }}>Social Square Post</span>
+                                </div>
+                                <i className="pi pi-instagram ml-auto text-gray-400" style={{ fontSize: '12px' }}></i>
                             </div>
-                            {story.sharedPostId.image_url ? (
-                                <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', borderRadius: '16px' }}>
-                                    <img src={story.sharedPostId.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                </div>
-                            ) : (
-                                <div style={{ padding: '24px 16px', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', borderRadius: '16px', minHeight: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <p style={{ color: '#fff', fontSize: '15px', fontWeight: 600, textAlign: 'center', margin: 0, lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                        {story.sharedPostId.caption || 'Shared a post'}
-                                    </p>
-                                </div>
-                            )}
-                            {story.sharedPostId.image_url && story.sharedPostId.caption && (
-                                <div style={{ padding: '0 4px' }}>
-                                    <p style={{ margin: 0, fontSize: '12px', color: '#374151', lineHeight: '1.4', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                                        {story.sharedPostId.caption}
-                                    </p>
-                                </div>
-                            )}
-                            <div style={{ marginTop: '4px', textAlign: 'center' }}>
-                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>View Post <i className="pi pi-chevron-right" style={{ fontSize: '8px' }}></i></span>
+
+                            <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                {(story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url) ? (
+                                    <img
+                                        src={story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        alt=""
+                                    />
+                                ) : (
+                                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #808bf5, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} />
+                                )}
+                            </div>
+                            <div style={{ padding: '4px 6px 6px' }}>
+                                <p style={{ margin: 0, fontSize: '12px', color: '#1f2937', fontWeight: 600, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                                    {story.sharedPostId.caption}
+                                </p>
                             </div>
                         </div>
                     )}
@@ -459,7 +477,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                     {isLoading ? (
                         [1, 2, 3].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse w-full mb-1" />)
                     ) : filteredUsers.length === 0 ? (
-                        <p className="text-center py-8 text-gray-400 text-sm">No users found</p>
+                        <p className="text-center py-8 text-gray-400 text-sm font-medium">No users there</p>
                     ) : filteredUsers.map(u => (
                         <div key={u._id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition">
                             <div className="flex items-center gap-3">
@@ -569,10 +587,11 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
 
             if (sharedPost) {
                 // Special case for sharing a post
+                const mediaUrl = sharedPost.image_urls?.[0] || sharedPost.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80';
                 const res = await api.post(`/api/story/create`, {
-                    mediaUrl: sharedPost.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
+                    mediaUrl,
                     mediaType: 'image',
-                    text: text ? { content: text, color: textColor, position: textPosition } : { content: 'Tap to view post', color: '#ffffff', position: 'bottom' },
+                    text: text ? { content: text, color: textColor, position: textPosition } : null,
                     sharedPostId: sharedPost._id
                 });
                 onCreated(res.data);
@@ -611,13 +630,14 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
                     <div onClick={() => !sharedPost && fileInputRef.current?.click()} style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: sharedPost ? 'default' : 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                         {sharedPost ? (
-                            <div style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                    <img src={sharedPost.user?.profile_picture} style={{ width: 24, height: 24, borderRadius: '50%' }} alt="" />
-                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{sharedPost.user?.fullname}</span>
+                            <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
+                                    <img src={sharedPost.user?.profile_picture} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                    <span style={{ fontSize: '11px', fontWeight: 800 }}>{sharedPost.user?.fullname}</span>
                                 </div>
-                                {sharedPost.image_url && <img src={sharedPost.image_url} style={{ width: '100%', borderRadius: '8px', aspectRatio: '1/1', objectFit: 'cover' }} alt="" />}
-                                <p style={{ fontSize: '11px', color: 'var(--text-sub)', marginTop: '4px' }} className="truncate">{sharedPost.caption}</p>
+                                {(sharedPost.image_urls?.[0] || sharedPost.image_url) && (
+                                    <img src={sharedPost.image_urls?.[0] || sharedPost.image_url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '1/1', objectFit: 'cover' }} alt="" />
+                                )}
                             </div>
                         ) : currentMedia ? (
                             currentMedia.type === 'video'
@@ -1021,10 +1041,31 @@ const Stories = () => {
                 </React.Suspense>
             </Dialog>
 
-            <Dialog header="Post Details" visible={postVisible} style={{ width: '95vw', maxWidth: '700px' }} onHide={() => setPostVisible(false)} baseZIndex={20000} appendTo={document.body}>
-                <React.Suspense fallback={<div className="p-4 text-center">Loading Post...</div>}>
-                    <PostDetail postId={selectedPostId} onHide={() => setPostVisible(false)} />
-                </React.Suspense>
+            <Dialog
+                showHeader={false}
+                visible={postVisible}
+                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                onHide={() => setPostVisible(false)}
+                dismissableMask
+                blockScroll={true}
+                closable={false}
+                modal
+                maskStyle={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}
+            >
+                <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                    <button
+                        onClick={() => setPostVisible(false)}
+                        className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
+                    >
+                        <i className="pi pi-times text-sm"></i>
+                    </button>
+                    <React.Suspense fallback={<div className="p-20 text-center text-[var(--text-sub)] bg-[var(--surface-1)]">
+                        <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="font-medium">Loading Post...</p>
+                    </div>}>
+                        <PostDetail postId={selectedPostId} onHide={() => setPostVisible(false)} />
+                    </React.Suspense>
+                </div>
             </Dialog>
 
             <ShareStoryDialog
