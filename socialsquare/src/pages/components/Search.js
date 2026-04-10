@@ -13,7 +13,7 @@ const MAX_RECENT = 5;
 
 const Search = ({ onClose }) => {
     const [searchTerm, setSearchTerm] = useState("");
-    const [isFocused, setIsFocused] = useState(false);
+    const [, setIsFocused] = useState(false);
     const [isVisible, setVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [recentSearches, setRecentSearches] = useState(() => {
@@ -112,7 +112,6 @@ const Search = ({ onClose }) => {
         setIsFocused(true);
     };
 
-    const showDropdown = isFocused;
     const hasResults = searchResults?.users?.length > 0 || searchResults?.posts?.length > 0 || aiResults?.length > 0;
 
     return (

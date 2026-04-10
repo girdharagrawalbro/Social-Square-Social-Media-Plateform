@@ -563,7 +563,7 @@ const ChatPanel = ({
             console.error('Failed to fetch messages', err);
         }
         setLoading(false);
-    }, [user?._id, participantId, markRead, refreshKey]);
+    }, [user?._id, participantId, markRead]);
 
     const fetchMoreMessages = useCallback(async () => {
         if (loadingMore || !hasMore || !messages.length || !participantId) return;
@@ -626,14 +626,13 @@ const ChatPanel = ({
         }
     };
 
-    useEffect(() => { fetchMessages(); }, [fetchMessages]);
+    useEffect(() => { fetchMessages(); }, [fetchMessages, refreshKey]);
 
-    // ✅ Scroll to bottom on initial load or conversation change
     useEffect(() => {
         if (chatRef.current && !loading && !loadingMore) {
             chatRef.current.scrollTop = chatRef.current.scrollHeight;
         }
-    }, [loading, conversationId]); // Removed loadingMore to prevent jumping after pagination
+    }, [loading, conversationId, loadingMore]); // Added loadingMore to satisfy ESLint, logic prevents jumping
 
     // Auto-scroll when new messages arrive, but only if the user hasn't scrolled up
     useEffect(() => {

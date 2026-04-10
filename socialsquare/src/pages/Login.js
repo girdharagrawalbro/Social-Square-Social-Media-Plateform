@@ -50,7 +50,6 @@ const Login = () => {
                 window.sessionStorage.setItem('just_logged_in', 'true');
                 toast.success('Login successful! Redirecting...');
                 setTimeout(() => window.sessionStorage.removeItem('just_logged_in'), 2000);
-                const params = new URLSearchParams(location.search);
                 const username = result?.user?.username || useAuthStore.getState().user?.username;
                 if (!username) {
                     toast.error('Login succeeded, but user profile is not available yet.');

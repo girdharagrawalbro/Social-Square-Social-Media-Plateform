@@ -68,7 +68,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         if (post?._id) {
             incrementViewMutation.mutate({ postId: post._id });
         }
-    }, [post?._id]); 
+    }, [post?._id, incrementViewMutation]); 
 
     useEffect(() => {
         if (!post?._id || !loggeduser?._id) return;

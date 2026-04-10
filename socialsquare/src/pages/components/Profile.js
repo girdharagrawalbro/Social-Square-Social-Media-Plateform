@@ -8,7 +8,7 @@ import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
 import toast, { Toaster } from 'react-hot-toast';
 
-import { socket } from '../../socket';
+
 import EditProfile from './EditProfile';
 import ActiveSessions from './ActiveSessions';
 import FollowFollowingList from './FollowFollowingList';
@@ -40,7 +40,7 @@ const Profile = ({ userId }) => {
     const [postDetail, setPostDetail] = useState(null);
 
     const loggeduser = useAuthStore(s => s.user);
-    const logout = useAuthStore(s => s.logout);
+
     const blockUser = useAuthStore(s => s.blockUser);
     const unblockUser = useAuthStore(s => s.unblockUser);
     const muteUser = useAuthStore(s => s.muteUser);
@@ -91,42 +91,6 @@ const Profile = ({ userId }) => {
 
     const handleUnfollow = () => unfollowMutation.mutate({ targetUserId: profileId });
 
-    const handleLogout = () => {
-        confirmDialog({
-            message: 'Are you sure you want to logout?',
-            header: 'Confirmation',
-            icon: 'pi pi-exclamation-triangle',
-            acceptClassName: 'p-button-danger',
-            accept: () => {
-                localStorage.removeItem('token');
-                sessionStorage.removeItem('hasReloaded');
-                logout();
-                toast.error('You have been logged out.');
-                if (socket.connected) socket.emit('logoutUser', loggeduser?._id);
-                window.location.href = '/login';
-            },
-            reject: () => toast.error('Logout canceled.'),
-        });
-    };
-
-    const handleDeleteProfile = () => {
-        confirmDialog({
-            message: 'Are you sure you want to delete your profile? This action cannot be undone.',
-            header: 'Delete Profile',
-            icon: 'pi pi-exclamation-triangle',
-            acceptClassName: 'p-button-danger',
-            accept: async () => {
-                try {
-                    await api.delete('/api/auth/profile/delete');
-                    toast.success('Profile deleted');
-                    logout();
-                    window.location.href = '/login';
-                } catch {
-                    toast.error('Failed to delete profile');
-                }
-            },
-        });
-    };
 
     const handleBlock = () => {
         confirmDialog({
@@ -191,7 +155,6 @@ const Profile = ({ userId }) => {
     if (!viewingOwnProfile && otherUserLoading) return <div className="text-center p-4">Loading profile...</div>;
     if (!displayUser) return <div className="text-center p-4">Profile not found</div>;
 
-    const acceptedCollabsCount = displayUser?.collaborationsCount || 0;
     const pendingCollabCount = collabInvites.length;
 
     // Only posts/saved use the grid

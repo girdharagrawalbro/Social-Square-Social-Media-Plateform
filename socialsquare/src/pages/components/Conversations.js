@@ -7,7 +7,6 @@ import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import ChatPanel from './ChatPanel';
 import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
-import usePostStore from '../../store/zustand/usePostStore';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 
@@ -24,7 +23,7 @@ const Conversations = () => {
     const [lastMessageId, setLastMessageId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
-    const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
+
 
     const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [globalSearch, setGlobalSearch] = useState('');

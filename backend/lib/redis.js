@@ -1,6 +1,6 @@
 const IORedis = require('ioredis');
 
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 const redis = new IORedis(redisUrl, {
     // BullMQ prefers commands to be queued during reconnects.
     // Keep `maxRetriesPerRequest: null` for BullMQ compatibility,

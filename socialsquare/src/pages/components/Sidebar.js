@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
 import NotificationBell from './ui/NotificationBell';
 
@@ -18,8 +18,7 @@ export default function Sidebar() {
     const { isDark, toggle } = useDarkMode();
     const [newpostVisible, setnewpostVisible] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [notificationsVisible, setNotificationsVisible] = useState(false);
-    const navigate = useNavigate();
+
 
 
 

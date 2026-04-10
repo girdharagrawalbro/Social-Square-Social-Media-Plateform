@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { confirmDialog } from "primereact/confirmdialog";
 import { api } from "../../store/zustand/useAuthStore";
@@ -141,11 +141,10 @@ const ActiveSessions = () => {
           <button
             onClick={toggle2FA}
             disabled={toggling2FA}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-              twoFaEnabled
+            className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed ${twoFaEnabled
                 ? "bg-red-100 text-red-500 hover:bg-red-200"
                 : "bg-indigo-500 text-white hover:bg-indigo-600"
-            }`}
+              }`}
           >
             {toggling2FA ? "Please wait..." : twoFaEnabled ? "Disable" : "Enable"}
           </button>
