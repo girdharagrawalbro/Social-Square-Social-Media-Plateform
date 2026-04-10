@@ -187,31 +187,45 @@ export function usePersonalizedSearch(userId, q) {
 
 // ─── MUTATIONS ────────────────────────────────────────────────────────────────
 
+// ─── MUTATIONS ────────────────────────────────────────────────────────────────
+
+export function usePrefetchPost() {
+    const qc = useQueryClient();
+    return (postId) => {
+        if (!postId) return;
+        qc.prefetchQuery({
+            queryKey: postKeys.detail(postId),
+            queryFn: async () => {
+                const res = await api.get(`${BASE}/api/post/detail/${postId}`);
+                return res.data;
+            },
+            staleTime: 1000 * 60 * 5,
+        });
+    };
+}
+
 export function useCreatePost() {
     const qc = useQueryClient();
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: (data) => api.post(`${BASE}/api/post/create`, data),
         onSuccess: (res) => {
-            // Prepend to feed cache immediately
-            try {
-                qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
-                    if (!old?.pages) return old;
-                    const newPost = res?.data;
-                    if (!newPost) return old;
-                    return {
-                        ...old,
-                        pages: [
-                            {
-                                posts: [newPost, ...(old.pages[0]?.posts ?? [])],
-                                nextCursor: old.pages[0]?.nextCursor,
-                                hasMore: old.pages[0]?.hasMore,
-                            },
-                            ...old.pages.slice(1),
-                        ],
-                    };
-                });
-            } catch (_) { /* ignore cache update errors */ }
+            qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
+                if (!old?.pages) return old;
+                const newPost = res?.data;
+                if (!newPost) return old;
+                return {
+                    ...old,
+                    pages: [
+                        {
+                            posts: [newPost, ...(old.pages[0]?.posts ?? [])],
+                            nextCursor: old.pages[0]?.nextCursor,
+                            hasMore: old.pages[0]?.hasMore,
+                        },
+                        ...old.pages.slice(1),
+                    ],
+                };
+            });
             qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
         },
     });
@@ -219,8 +233,7 @@ export function useCreatePost() {
 
 export function useIncrementView() {
     return useMutation({
-        mutationFn: ({ postId }) =>
-            api.post(`${BASE}/api/post/view/${postId}`),
+        mutationFn: ({ postId }) => api.post(`${BASE}/api/post/view/${postId}`),
     });
 }
 
@@ -235,20 +248,28 @@ export function useVotePoll() {
         },
     });
 }
+
 export function useReactPost() {
     const qc = useQueryClient();
-
     return useMutation({
         mutationFn: ({ postId, emoji }) =>
             api.post(`${BASE}/api/post/react`, { postId, emoji }),
+        onMutate: async ({ postId, emoji }) => {
+            await qc.cancelQueries({ queryKey: postKeys.detail(postId) });
+            const prev = qc.getQueryData(postKeys.detail(postId));
+            qc.setQueryData(postKeys.detail(postId), (old) => {
+                if (!old) return old;
+                // Simplified optimistic reaction update logic would go here
+                return old;
+            });
+            return { prev };
+        },
         onSuccess: (res, { postId }) => {
-            // Updated post data returned from backend
-            qc.setQueriesData({ queryKey: postKeys.detail(postId) }, res.data);
+            qc.setQueryData(postKeys.detail(postId), res.data);
             qc.invalidateQueries({ queryKey: postKeys.all });
         },
     });
 }
-
 
 export function useLikePost() {
     const qc = useQueryClient();
@@ -259,20 +280,20 @@ export function useLikePost() {
     return useMutation({
         mutationFn: ({ postId, isLiked }) =>
             api.post(`${BASE}/api/post/${isLiked ? 'unlike' : 'like'}`, { postId }),
-        onMutate: ({ postId, isLiked, likes = [] }) => {
-            if (user?._id) {
-                optimisticLike(postId, user._id, likes);
-            }
+        onMutate: async ({ postId, isLiked, likes = [] }) => {
+            // Cancel outgoing refetches
+            await qc.cancelQueries({ queryKey: postKeys.all });
+            
+            // Optimistically update zustand store (UI state)
+            if (user?._id) optimisticLike(postId, user._id, likes);
+            
             return { postId, wasLiked: isLiked };
         },
-        onSuccess: (res, { postId }) => {
-            // Invalidate ALL post queries to ensure fresh data is fetched
-            qc.invalidateQueries({ queryKey: postKeys.all });
-        },
         onError: (err, { postId }, ctx) => {
-            if (ctx?.postId && user?._id) {
-                rollbackLike(ctx.postId, user._id, ctx.wasLiked);
-            }
+            if (ctx?.postId && user?._id) rollbackLike(ctx.postId, user._id, ctx.wasLiked);
+        },
+        onSettled: () => {
+            qc.invalidateQueries({ queryKey: postKeys.all });
         },
     });
 }
@@ -284,12 +305,22 @@ export function useSavePost() {
 
     return useMutation({
         mutationFn: ({ postId }) => api.post(`${BASE}/api/post/save`, { postId }),
+        onMutate: async ({ postId }) => {
+            // Optimistic toggle in Zustand
+            toggleSaved(postId);
+            return { postId };
+        },
         onSuccess: (res, variables) => {
             if (variables?.postId) {
+                // Ensure state matches server response
                 toggleSaved(variables.postId, res.data.saved);
                 qc.invalidateQueries({ queryKey: postKeys.saved(user?._id) });
             }
         },
+        onError: (err, variables) => {
+            // Rollback on error
+            if (variables?.postId) toggleSaved(variables.postId);
+        }
     });
 }
 
@@ -308,12 +339,41 @@ export function useLikeComment() {
 
 export function useCreateComment() {
     const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
+
     return useMutation({
         mutationFn: (data) => api.post(`${BASE}/api/post/comments/add`, data),
-        onSuccess: (_, variables) => {
-            if (variables?.postId) {
-                qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+        onMutate: async (newComment) => {
+            if (!newComment.postId) return;
+            
+            // Cancel outgoing refetches for comments
+            await qc.cancelQueries({ queryKey: postKeys.comments(newComment.postId) });
+            
+            // Snapshot previous value
+            const previousComments = qc.getQueryData(postKeys.comments(newComment.postId));
+            
+            // Optimistically update to the new value
+            qc.setQueryData(postKeys.comments(newComment.postId), (old = []) => [
+                {
+                    _id: 'temp-id-' + Date.now(),
+                    content: newComment.content,
+                    userId: user,
+                    createdAt: new Date().toISOString(),
+                    likes: [],
+                    isOptimistic: true // marker for UI to show a "sending..." state
+                },
+                ...old
+            ]);
+            
+            return { previousComments, postId: newComment.postId };
+        },
+        onError: (err, newComment, context) => {
+            if (context?.postId) {
+                qc.setQueryData(postKeys.comments(context.postId), context.previousComments);
             }
+        },
+        onSettled: (data, error, variables) => {
+            qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
         },
     });
 }
