@@ -85,6 +85,32 @@ const StoryViewer = ({
         setProgress(0);
     }, [story?._id]);
 
+    // ✅ Pre-fetching Logic
+    useEffect(() => {
+        if (!group) return;
+        let nextStory = null;
+        
+        // Next story in current group?
+        if (storyIndex < group.stories.length - 1) {
+            nextStory = group.stories[storyIndex + 1];
+        } 
+        // Or first story in next group?
+        else if (groupIndex < groups.length - 1) {
+            nextStory = groups[groupIndex + 1].stories[0];
+        }
+
+        if (nextStory && nextStory.media?.url) {
+            if (nextStory.media.type === 'image') {
+                const img = new Image();
+                img.src = nextStory.media.url;
+            } else if (nextStory.media.type === 'video') {
+                const video = document.createElement('video');
+                video.src = nextStory.media.url;
+                video.preload = 'auto';
+            }
+        }
+    }, [storyIndex, groupIndex, group, groups]);
+
     useEffect(() => {
         if (!story || isPaused) return;
 
@@ -176,7 +202,7 @@ const StoryViewer = ({
                 <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '1.5px solid rgba(255,255,255,0.8)', flexShrink: 0 }}>
-                            <img src={group.user.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={group.user.profile_picture || '/default-profile.png'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
                             <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
@@ -904,7 +930,7 @@ const Stories = () => {
                     style={{ display: 'flex', gap: '16px', overflowX: 'auto', padding: '12px 4px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     className="no-scrollbar"
                 >
-                    {/* Go Live Button */}
+                    {/* Go Live Button
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
                         <div style={{ width: 89, height: 89, borderRadius: '50%', border: '3px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-1)', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}>
                             <i className="pi pi-video" style={{ color: '#ef4444', fontSize: '32px' }}></i>
@@ -913,14 +939,14 @@ const Stories = () => {
                     </div>
 
                     {/* Active Live Streams */}
-                    {activeLiveStreams.map(live => (
+                    {/* {activeLiveStreams.map(live => (
                         <div key={live._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(live._id, false)}>
                             <div style={{ width: 89, height: 89, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)' }}>
                                 <img src={live.host.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--surface-1)' }} />
                             </div>
                             <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
                         </div>
-                    ))}
+                    ))} */}    
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                         <div style={{ position: 'relative', width: 89, height: 89 }}>

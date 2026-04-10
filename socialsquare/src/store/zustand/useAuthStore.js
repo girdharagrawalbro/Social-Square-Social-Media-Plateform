@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
+// ✅ Global Rate Limit Handler (HTTP 429)
+const handleRateLimit = err => {
+    if (err.response?.status === 429) {
+        toast.error('Slow down! Too many requests. Please wait a moment.', { id: 'rate-limit', icon: '⏳' });
+    }
+    return Promise.reject(err);
+};
+
+axios.interceptors.response.use(res => res, handleRateLimit);
 
 const BASE = (process.env.REACT_APP_BACKEND_URL || '').trim();
 
@@ -10,6 +21,8 @@ export const api = axios.create({
     baseURL: BASE,
     withCredentials: true, // sends httpOnly refresh token cookie automatically
 });
+
+api.interceptors.response.use(res => res, handleRateLimit);
 
 // In-memory access token — never touches localStorage
 // Survives re-renders, lost on hard refresh (intentional — refresh endpoint restores it)
@@ -87,6 +100,7 @@ api.interceptors.response.use(
     res => res,
     async err => {
         const original = err.config;
+
         if (err.response?.status !== 401 || original._retry || original.url?.includes('/auth/refresh')) {
             return Promise.reject(err);
         }

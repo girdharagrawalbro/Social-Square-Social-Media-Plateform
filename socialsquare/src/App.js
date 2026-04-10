@@ -18,6 +18,7 @@ import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
 import Conversations from './pages/components/Conversations';
 import SettingsLayout from './pages/components/SettingsLayout';
+import useTabTitle from './hooks/useTabTitle';
 
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
 import Sidebar from './pages/components/Sidebar';
@@ -245,6 +246,7 @@ function MainLayout({ children }) {
 }
 
 function App() {
+    useTabTitle();
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
     useEffect(() => {

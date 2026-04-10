@@ -278,7 +278,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                         }}>
                                         {message.storyReply.mediaUrl ? (
                                             <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
-                                                <img src={message.storyReply.mediaUrl} style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} alt="" />
+                                                <img src={message.storyReply.mediaUrl} loading="lazy" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} alt="" />
                                                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                     <i className="pi pi-play" style={{ color: '#fff', fontSize: '12px' }}></i>
                                                 </div>
@@ -331,7 +331,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                 )}
                                 {message.media?.url && (
                                     <div style={{ marginBottom: message.content ? '8px' : 0 }}>
-                                        {message.media.type === 'image' && <img src={message.media.url} alt="" style={{
+                                        {message.media.type === 'image' && <img src={message.media.url} alt="" loading="lazy" style={{
                                             maxWidth: '100%',
                                             maxHeight: '250px', borderRadius: '12px', display: 'block'
                                         }} />}

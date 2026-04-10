@@ -185,6 +185,43 @@ router.post("/activity", verifyToken, async (req, res) => {
     }
 });
 
+router.post("/batch-activity", verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { activities } = req.body; // Array of { postId, action, duration, timestamp }
+        const { publishEvent } = require("../services/recommendationPublisher");
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return res.json({ success: true, message: "No activities to process" });
+        }
+
+        // Process in parallel to be efficient
+        await Promise.all(activities.map(async (act) => {
+            try {
+                const post = await Post.findById(act.postId);
+                if (!post) return;
+
+                await publishEvent(`user.activity.${act.action}`, {
+                    userId,
+                    postId: act.postId,
+                    action: act.action,
+                    duration: act.duration,
+                    category: post.category || "",
+                    tags: post.tags || [],
+                    timestamp: act.timestamp || Date.now() / 1000,
+                });
+            } catch (innerErr) {
+                console.error("Failed to publish batched event", innerErr);
+            }
+        }));
+
+        res.json({ success: true, processed: activities.length });
+    } catch (err) {
+        console.error("Batch activity error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 router.get("/memory", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;

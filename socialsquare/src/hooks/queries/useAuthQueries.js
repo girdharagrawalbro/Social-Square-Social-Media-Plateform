@@ -19,6 +19,22 @@ export const authKeys = {
     groupDetail: (groupId) => ['groups', groupId],
 };
 
+// ─── PREFETCH HELPERS ─────────────────────────────────────────────────────────
+export function usePrefetchUserProfile() {
+    const qc = useQueryClient();
+    return (userId) => {
+        if (!userId) return;
+        qc.prefetchQuery({
+            queryKey: authKeys.userProfile(userId),
+            queryFn: async () => {
+                const res = await axios.get(`${BASE}/api/auth/user/${userId}`);
+                return res.data;
+            },
+            staleTime: 1000 * 60 * 5,
+        });
+    };
+}
+
 // ─── FETCH CREATOR ANALYTICS (PROTECTED) ──────────────────────────────────────
 export function useCreatorAnalytics(userId) {
     return useQuery({
