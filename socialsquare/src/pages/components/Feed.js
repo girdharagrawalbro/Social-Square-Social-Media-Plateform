@@ -25,8 +25,6 @@ import ReactionPicker from './ReactionPicker';
 import PostMenu from './ui/PostMenu';
 
 
-const MOOD_EMOJI = { happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' };
-
 const PostActivityTracker = ({ postId, onDwell }) => {
     const { ref, inView } = useInView({ threshold: 0.7 });
     const startTime = useRef(null);

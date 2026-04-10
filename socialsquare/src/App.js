@@ -17,7 +17,6 @@ import toast, { Toaster } from 'react-hot-toast';
 import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
 import Conversations from './pages/components/Conversations';
-import ActiveSessions from './pages/components/ActiveSessions';
 import SettingsLayout from './pages/components/SettingsLayout';
 
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
@@ -176,30 +175,6 @@ function SharedPostRedirect() {
     return <PageLoader />;
 }
 
-function SharedProfileRedirect() {
-    const { userId } = useParams();
-    const navigate = useNavigate();
-    const user = useAuthStore(s => s.user);
-    const loading = useAuthStore(s => s.loading);
-    const initialized = useAuthStore(s => s.initialized);
-
-    useEffect(() => {
-        if (!userId) return;
-
-        window.sessionStorage.setItem('pendingProfileId', userId);
-
-        if (!initialized || loading) return;
-
-        if (user?.username) {
-            navigate(`/${user.username}?profile=${userId}`, { replace: true });
-            return;
-        }
-
-        navigate(`/login?profile=${userId}`, { replace: true });
-    }, [userId, initialized, loading, user?.username, navigate]);
-
-    return <PageLoader />;
-}
 
 function SharedStoryRedirect() {
     const { userId, storyId } = useParams();

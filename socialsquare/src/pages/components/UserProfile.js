@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from "react";
+import React, { useState, lazy } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
@@ -8,7 +8,7 @@ import { useUserDetails, useFollowUser, useUnfollowUser, authKeys } from '../../
 import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
-import CreatorAnalytics from './CreatorAnalytics';
+
 import toast from 'react-hot-toast';
 
 const PostDetail = lazy(() => import('./PostDetail'));
@@ -101,15 +101,12 @@ const PostGrid = ({ userId, maxPosts, isBlur }) => {
 };
 
 const UserProfile = ({ id, onClose, maxPosts }) => {
-    const [activeTab, setActiveTab] = useState('posts');
+
     const [chatVisible, setChatVisible] = useState(false);
     const [followersVisible, setFollowersVisible] = useState(false);
     const [followingVisible, setFollowingVisible] = useState(false);
     const loggeduser = useAuthStore(s => s.user);
-    const blockUser = useAuthStore(s => s.blockUser);
     const unblockUser = useAuthStore(s => s.unblockUser);
-    const muteUser = useAuthStore(s => s.muteUser);
-    const unmuteUser = useAuthStore(s => s.unmuteUser);
 
     const createConvMutation = useCreateConversation();
     const navigate = useNavigate();
@@ -138,7 +135,6 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === id?.toString());
     const isRequested = userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
     const isBlockedByMe = loggeduser?.blockedUsers?.some(b => b?.toString() === id?.toString());
-    const isMuted = loggeduser?.mutedUsers?.some(m => m?.toString() === id?.toString());
     const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id && !isBlockedByMe;
 
     const handleFollow = async () => {
@@ -166,9 +162,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
         }
     };
 
-    const handleBlock = () => { if (window.confirm(`Block ${userDetails.fullname}? They won't be able to see your posts or message you.`)) blockUser(id); };
     const handleUnblock = () => unblockUser(id);
-    const handleMute = () => isMuted ? unmuteUser(id) : muteUser(id);
 
     const handleShareProfile = async () => {
         const profileUrl = `${window.location.origin}/profile/${id}`;

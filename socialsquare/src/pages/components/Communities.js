@@ -1,12 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { useCategories, useTrending } from '../../hooks/queries/usePostQueries';
-import { useConfessions, useSearchUsers } from '../../hooks/queries/useExploreQueries';
-import usePostStore from '../../store/zustand/usePostStore';
+import React, { useState } from 'react';
+import { useConfessions } from '../../hooks/queries/useExploreQueries';
 
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import Groups from './Groups';
-import { debounce } from 'lodash';
 
 // ─── CONFESSIONS FEED ─────────────────────────────────────────────────────────
 const ConfessionsFeed = () => {
@@ -115,7 +112,7 @@ const ConfessionsFeed = () => {
 const Communities = () => {
 
 
-    const [selectedUserId, setSelectedUserId] = useState(null);
+    const [selectedUserId] = useState(null);
     const [userProfileVisible, setUserProfileVisible] = useState(false);
 
     // ✅ Tab: 'discover' | 'confessions'

@@ -9,7 +9,6 @@ import Stories from './components/Stories';
 import Explore from './components/Communities';
 import Groups from './components/Groups';
 import UserProfile from './components/UserProfile';
-import { useDarkMode } from '../context/DarkModeContext';
 import useAuthStore from '../store/zustand/useAuthStore';
 import Chatbot from './components/Chatbot';
 import useWindowWidth from '../hooks/useWindowWidth';
@@ -20,10 +19,8 @@ import PostDetail from './components/PostDetail';
 
 const Home = () => {
     const [activeView, setActiveView] = useState('feed');
-    const [desktopView, setDesktopView] = useState('profile'); // 'profile' or 'communities'
     const navigate = useNavigate();
     const location = useLocation();
-    const { isDark } = useDarkMode();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
 
@@ -161,23 +158,7 @@ const Home = () => {
             {/* Desktop */}
             {isDesktop ? (
                 <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3 min-h-[calc(100dvh-64px)]">
-                    {/* <div className="w-25 h-full overflow-y-auto flex flex-col">
-                        <div className="flex gap-2 mb-3">
-                            <button
-                                onClick={() => setDesktopView('profile')}
-                                className={`flex-1 px-3 py-2 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${desktopView === 'profile' ? 'bg-[#808bf5] text-white' : `${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}`}
-                            >
-                                👤 Profile
-                            </button>
-                            <button
-                                onClick={() => setDesktopView('communities')}
-                                className={`flex-1 px-3 py-2 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${desktopView === 'communities' ? 'bg-[#808bf5] text-white' : `${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}`}
-                            >
-                                👥 Communities
-                            </button>
-                        </div>
-                        {desktopView === 'profile' ? <Profile /> : <Groups />}
-                    </div> */}
+
                     <div className="flex-1 h-full overflow-y-auto px-0 sm:px-3 custom-scrollbar">
                         <div className="max-w-screen-md mx-auto w-full">
                             <Stories />

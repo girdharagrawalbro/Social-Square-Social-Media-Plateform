@@ -905,22 +905,22 @@ const Stories = () => {
                     className="no-scrollbar"
                 >
                     {/* Go Live Button */}
-                    {/* <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
-                        <div style={{ width: 89, height: 89, borderRadius: '50%', border: '3px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-1)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
+                        <div style={{ width: 89, height: 89, borderRadius: '50%', border: '3px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-1)', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}>
                             <i className="pi pi-video" style={{ color: '#ef4444', fontSize: '32px' }}></i>
                         </div>
                         <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>Go Live</span>
-                    </div> */}
+                    </div>
 
                     {/* Active Live Streams */}
-                    {/* {activeLiveStreams.map(live => (
+                    {activeLiveStreams.map(live => (
                         <div key={live._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(live._id, false)}>
-                            <div style={{ width: 89, height: 89, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite' }}>
-                                <img src={live.host.profile_picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--surface-1)' }} />
+                            <div style={{ width: 89, height: 89, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)' }}>
+                                <img src={live.host.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--surface-1)' }} />
                             </div>
                             <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
                         </div>
-                    ))} */}
+                    ))}
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                         <div style={{ position: 'relative', width: 89, height: 89 }}>

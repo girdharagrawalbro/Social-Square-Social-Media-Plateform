@@ -1,5 +1,5 @@
 const Pusher = require('pusher');
-const PusherClient = require('pusher-js');
+const PusherClient = require('pusher-js').Pusher;
 
 // Pusher Server (for publishing)
 const pusher = new Pusher({

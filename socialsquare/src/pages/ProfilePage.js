@@ -1,5 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import useAuthStore from '../store/zustand/useAuthStore';
+import { useParams } from 'react-router-dom';
 import Profile from './components/Profile';
 
 /**
@@ -14,8 +13,6 @@ import Profile from './components/Profile';
  */
 export default function ProfilePage() {
     const { userId } = useParams();
-    const navigate = useNavigate();
-    const user = useAuthStore(s => s.user);
 
     if (!userId) {
         return (
