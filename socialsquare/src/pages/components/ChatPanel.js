@@ -295,19 +295,20 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                     </div>
                                 )}
                                 {isSharedPost && (
-                                    <div onClick={(e) => { e.stopPropagation(); setSelectedPostId(sharedLinkData.postId); setShowPostModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '20px' }}>📤</span>
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a post</p>
+                                    <div onClick={(e) => { e.stopPropagation(); setSelectedPostId(sharedLinkData.postId); setShowPostModal(true); }} className="cursor-pointer p-3 rounded-xl mb-2 flex items-center gap-4 transition-all" style={{ background: isOwn ? 'rgba(255,255,255,0.15)' : 'var(--surface-3)', border: isOwn ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-color)' }}>
+                                        <div className="w-10 h-10 rounded-lg bg-[#808bf5]/20 flex items-center justify-center text-lg flex-shrink-0">📦</div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="m-0 text-[12px] font-bold opacity-90">Shared Post</p>
+                                            <p className="m-0 text-[10px] opacity-60 truncate">Tap to view post</p>
                                         </div>
                                     </div>
                                 )}
                                 {isSharedProfile && (
-                                    <div onClick={(e) => { e.stopPropagation(); setSelectedProfileId(sharedLinkData.profileId); setShowProfileModal(true); }} style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '20px' }}>👤</span>
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a profile</p>
-                                            <p style={{ margin: 0, fontSize: '11px', opacity: 0.7, wordBreak: 'break-all' }}>Tap to view profile →</p>
+                                    <div onClick={(e) => { e.stopPropagation(); setSelectedProfileId(sharedLinkData.profileId); setShowProfileModal(true); }} className="cursor-pointer p-3 rounded-xl mb-2 flex items-center gap-4 transition-all" style={{ background: isOwn ? 'rgba(255,255,255,0.15)' : 'var(--surface-3)', border: isOwn ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-color)' }}>
+                                        <div className="w-10 h-10 rounded-lg bg-[#808bf5]/20 flex items-center justify-center text-lg flex-shrink-0">👤</div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="m-0 text-[12px] font-bold opacity-90">Shared Profile</p>
+                                            <p className="m-0 text-[10px] opacity-60 truncate">Tap to view profile</p>
                                         </div>
                                     </div>
                                 )}

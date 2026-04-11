@@ -2,12 +2,17 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import useConversationStore from '../../store/zustand/useConversationStore';
 
 const BottomNav = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
+    const chatOpen = useConversationStore(s => s.chatOpen);
+    const isMessages = location.pathname === '/messages';
+
+    if (chatOpen && isMessages) return null;
 
     const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
 

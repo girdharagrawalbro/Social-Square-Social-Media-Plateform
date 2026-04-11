@@ -20,6 +20,17 @@ const Conversations = () => {
     const { data: conversations = [], refetch } = useConversations(user?._id);
 
     const [selectedParticipant, setSelectedParticipant] = useState(null);
+    const openChatGlobal = useConversationStore(s => s.openChat);
+    const closeChatGlobal = useConversationStore(s => s.closeChat);
+    const activeParticipant = useConversationStore(s => s.activeParticipant);
+
+    // Sync local selectedParticipant with global activeParticipant on mount if needed
+    useEffect(() => {
+        if (activeParticipant && !selectedParticipant) {
+            setSelectedParticipant(activeParticipant);
+        }
+    }, [activeParticipant, selectedParticipant]);
+
     const [lastMessageId, setLastMessageId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
@@ -74,6 +85,7 @@ const Conversations = () => {
         setSelectedParticipant(participant);
         setLastMessageId(lastMsgId);
         clearUnread(participant.conversationId);
+        openChatGlobal(participant.conversationId, participant);
     };
 
     const handleProfileClick = (userId) => {
@@ -99,7 +111,7 @@ const Conversations = () => {
         <div className="flex flex-col flex-1 min-h-0 glass-card overflow-hidden transition-all duration-300" style={{ height: 'calc(100vh - 10px)' }}>
             <div className="flex flex-1 min-h-0">
                 {/* Conversation list - left column */}
-                <div className="w-80 border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden" style={{ width: '30rem' }}>
+                <div className={`w-full sm:w-80 md:w-[30rem] border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden ${selectedParticipant ? 'hidden sm:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-3">
                             <h2 className="m-0 text-xl font-black text-[var(--text-main)]">Messages</h2>
@@ -141,25 +153,25 @@ const Conversations = () => {
 
                             return (
                                 <div key={conv._id}
-                                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-200 ${isUnread ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800/40'}`}
+                                    className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 ${isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
                                     onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
                                     <div className="relative flex-shrink-0">
-                                        <img src={other.profilePicture || '/default-profile.png'} alt={other.fullname} className="w-11 h-11 rounded-full object-cover shadow-sm ring-2 ring-white dark:ring-gray-800" />
+                                        <img src={other.profilePicture || '/default-profile.png'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
                                         {isOnline(other.userId) && (
-                                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 shadow-sm" />
+                                            <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm" />
                                         )}
                                     </div>
                                     <div className="flex flex-col justify-center flex-1 min-w-0">
-                                        <div className="flex justify-between items-center mb-0.5">
-                                            <h6 className={`p-0 m-0 text-sm truncate ${isUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-semibold text-gray-700 dark:text-gray-300'}`}>{other.fullname}</h6>
-                                            <p className="text-gray-400 dark:text-gray-500 p-0 m-0 text-[10px] font-medium flex-shrink-0 ml-2">{formatDateTime(conv.lastMessageAt)}</p>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <h6 className={`p-0 m-0 text-[15px] truncate ${isUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'}`}>{other.fullname}</h6>
+                                            <p className="text-gray-400 dark:text-gray-500 p-0 m-0 text-[11px] font-medium flex-shrink-0 ml-2">{formatDateTime(conv.lastMessageAt)}</p>
                                         </div>
                                         <div className="flex justify-between items-center gap-2">
-                                            <p className={`p-0 m-0 text-xs truncate flex-1 ${isUnread ? 'font-medium text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
-                                                {toId(conv.lastMessageBy) === myId ? 'You: ' : ''}{conv.lastMessage?.message || ''}
+                                            <p className={`p-0 m-0 text-sm truncate flex-1 leading-tight ${isUnread ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 font-normal'}`}>
+                                                {toId(conv.lastMessageBy) === myId ? <span className="text-[#808bf5] font-bold mr-1">You:</span> : ''}{conv.lastMessage?.message || ''}
                                             </p>
                                             {convUnread > 0 && (
-                                                <span className="bg-[#808bf5] text-white rounded-full min-w-[18px] h-[18px] px-1 text-[10px] flex items-center justify-center font-bold shadow-sm">
+                                                <span className="bg-[#808bf5] text-white rounded-full min-w-[20px] h-[20px] px-1.5 text-[11px] flex items-center justify-center font-bold shadow-lg shadow-indigo-500/20">
                                                     {convUnread}
                                                 </span>
                                             )}
@@ -172,11 +184,17 @@ const Conversations = () => {
                 </div>
 
                 {/* Chat panel - middle column */}
-                <div className="flex-1 flex flex-col min-h-0 h-full">
+                <div className={`flex-1 flex flex-col min-h-0 h-full ${selectedParticipant ? 'flex' : 'hidden sm:flex'}`}>
                     {selectedParticipant ? (
                         <div className="flex flex-col flex-1 min-h-0 h-full">
                             <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between min-h-[64px] bg-white/80 dark:bg-black/80 backdrop-blur-md">
                                 <div className="flex items-center gap-3 cursor-pointer group" onClick={() => handleProfileClick(selectedParticipant.userId)}>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setSelectedParticipant(null); closeChatGlobal(); }}
+                                        className="sm:hidden -ml-2 p-2 rounded-full border-0 bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center justify-center"
+                                    >
+                                        <i className="pi pi-chevron-left text-lg"></i>
+                                    </button>
                                     <div className="relative">
                                         <img src={selectedParticipant.profilePicture || '/default-profile.png'} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
                                         {isOnline(selectedParticipant.userId) && (

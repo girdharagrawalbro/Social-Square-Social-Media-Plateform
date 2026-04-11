@@ -63,7 +63,7 @@ const Navbar = () => {
           <button
             aria-label="Create post"
             onClick={() => setnewpostVisible(true)}
-            className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+            className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
             title="Create post"
           >
             <i className="pi pi-plus"></i>
@@ -74,9 +74,9 @@ const Navbar = () => {
           !isLandingPage && <NotificationBell userId={loggeduser?._id} />
         ) : (
           location.pathname === '/login' ? (
-              <Link to="/signup" className="border border-[#808bf5] text-[#808bf5] px-4 py-1 rounded no-underline hover:bg-[#808bf5] hover:text-white transition-all">Sign Up</Link>
+            <Link to="/signup" className="border border-[#808bf5] text-[#808bf5] px-4 py-1 rounded no-underline hover:bg-[#808bf5] hover:text-white transition-all">Sign Up</Link>
           ) : (
-              <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Login</Link>
+            <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Login</Link>
           )
         )}
         {/* Dark mode toggle */}
@@ -118,11 +118,11 @@ const Navbar = () => {
           </>
         ) : (
           !isAuthenticated && (
-              location.pathname === '/login' ? (
-                  <Link to="/signup" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Sign Up</Link>
-              ) : (
-                  <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Login</Link>
-              )
+            location.pathname === '/login' ? (
+              <Link to="/signup" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Sign Up</Link>
+            ) : (
+              <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Login</Link>
+            )
           )
         )}
 
@@ -137,8 +137,8 @@ const Navbar = () => {
         </button>
       </div>
 
-      <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-lg px-4 py-3 z-40 flex flex-col gap-3 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
-        } ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-2xl px-4 py-4 z-40 flex flex-col gap-4 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
+        } ${isDark ? 'bg-[#0f0f0f]/95 border-neutral-800' : 'bg-white/95 border-gray-200'}`}>
         <div className={isAuthenticated ? '' : 'mb-3'}>
           {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search onClose={() => setMobileMenuOpen(false)} /> : <Authnav />)}
         </div>
@@ -157,16 +157,16 @@ const Navbar = () => {
 
             <button
               onClick={() => { toggle(); setMobileMenuOpen(false); }}
-              className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-3 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
             >
-              <span>{isDark ? '☀️' : '🌙'}</span> {isDark ? 'Light Mode' : 'Dark Mode'}
+              <span className="text-lg">{isDark ? '☀️' : '🌙'}</span> {isDark ? 'Light Mode' : 'Dark Mode'}
             </button>
 
             <button
               onClick={() => { logout(); setMobileMenuOpen(false); }}
-              className={`text-left p-2 rounded-lg border-0 bg-transparent cursor-pointer flex items-center gap-2 font-inherit text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10`}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-3 font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors`}
             >
-              <span>🚪</span> Logout
+              <span className="text-lg">🚪</span> Logout
             </button>
           </div>
         )}
