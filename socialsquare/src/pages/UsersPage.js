@@ -14,7 +14,7 @@ const UsersPage = () => {
     const isOnline = useConversationStore(s => s.isOnline);
     
     // Hooks from our query system
-    const { data: users = [], isLoading, error } = useOtherUsers();
+    const { data: users = [], isLoading } = useOtherUsers();
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
 

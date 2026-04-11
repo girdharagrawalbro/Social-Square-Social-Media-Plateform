@@ -8,7 +8,6 @@ import Conversations from './components/Conversations';
 import Stories from './components/Stories';
 import Explore from './components/Explore';
 import Communities from './components/Communities';
-import Groups from './components/Groups';
 import UserProfile from './components/UserProfile';
 import useAuthStore from '../store/zustand/useAuthStore';
 import Chatbot from './components/Chatbot';
