@@ -245,14 +245,17 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sendMessage', async ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
-        const recipientSocketId = redis ? await redis.hget('online_users', recipientId) : null;
+        try {
+            const recipientSocketId = redis ? await redis.hget('online_users', recipientId) : null;
 
-
-        if (recipientSocketId) {
-            io.to(recipientSocketId).emit('receiveMessage', {
-                senderId: sender, socketId: socket.id,
-                content, recipientId, senderName, conversationId, _id, createdAt, isRead,
-            });
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('receiveMessage', {
+                    senderId: sender, socketId: socket.id,
+                    content, recipientId, senderName, conversationId, _id, createdAt, isRead,
+                });
+            }
+        } catch (err) {
+            console.error('[Socket] Redis error (sendMessage):', err.message);
         }
 
         // Save as notification as well
@@ -265,15 +268,21 @@ io.on('connection', (socket) => {
     });
 
     socket.on('typing', async ({ recipientId, senderName }) => {
-        const sid = redis ? await redis.hget('online_users', recipientId) : null;
-
-        if (sid) io.to(sid).emit('userTyping', { senderName });
+        try {
+            const sid = redis ? await redis.hget('online_users', recipientId) : null;
+            if (sid) io.to(sid).emit('userTyping', { senderName });
+        } catch (err) {
+            console.error('[Socket] Redis error (typing):', err.message);
+        }
     });
 
     socket.on('stopTyping', async ({ recipientId }) => {
-        const sid = redis ? await redis.hget('online_users', recipientId) : null;
-
-        if (sid) io.to(sid).emit('userStoppedTyping');
+        try {
+            const sid = redis ? await redis.hget('online_users', recipientId) : null;
+            if (sid) io.to(sid).emit('userStoppedTyping');
+        } catch (err) {
+            console.error('[Socket] Redis error (stopTyping):', err.message);
+        }
     });
 
     socket.on('readMessage', ({ messageId, socketId }) => {
