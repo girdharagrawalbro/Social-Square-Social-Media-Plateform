@@ -101,6 +101,10 @@ const io = socketIo(server, {
 
 // ─── REDIS ADAPTER (optional — only if REDIS_URL set) ─────────────────────────
 async function initRedis() {
+    if (process.env.DISABLE_REDIS === 'true') {
+        console.log('[Redis] Adapter skipped (DISABLE_REDIS is true)');
+        return;
+    }
     if (!process.env.REDIS_URL) {
         console.log('[Redis] No REDIS_URL — skipping adapter (single instance mode)');
         return;
