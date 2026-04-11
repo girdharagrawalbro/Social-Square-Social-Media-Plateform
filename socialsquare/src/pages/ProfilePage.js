@@ -23,8 +23,8 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-[var(--surface-1)]">
-            <div className="flex gap-4 max-w-7xl mx-auto px-4 py-4 h-full">
+        <div className="bg-[var(--surface-1)]">
+            <div className="flex gap-4 max-w-7xl mx-auto px-4 py-4">
                 <main className="flex mx-auto lg:ml-0 ml-0">
                     <div className="max-w-4xl mx-auto">
                         <Profile userId={userId} />

@@ -44,6 +44,7 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
 
 const PageLoader = () => (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
@@ -224,7 +225,7 @@ function MainLayout({ children }) {
     const isMessages = location.pathname === '/messages';
 
     return (
-        <div className="relative flex flex-col min-h-[100dvh] w-full">
+        <div className="relative flex flex-col h-screen w-full overflow-hidden">
             <div className="lg:hidden">
                 <Navbar />
             </div>
@@ -234,9 +235,9 @@ function MainLayout({ children }) {
                     <NotificationBell userId={user?._id} showLabel={false} />
                 </div>
             )}
-            <div className="flex w-full flex-1">
+            <div className="flex w-full flex-1 min-h-0">
                 <Sidebar />
-                <main className="flex-1 min-w-0">
+                <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar relative">
                     {children}
                     <BottomNav />
                 </main>
@@ -313,6 +314,7 @@ function App() {
                                 <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
                                 <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
                                 <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
+                                <Route path="/users" element={<MainLayout><UsersPage /></MainLayout>} />
 
                             </Routes>
                         </Suspense>

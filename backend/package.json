@@ -46,5 +46,8 @@
     "ua-parser-js": "^2.0.9",
     "web-push": "^3.6.7",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.4.0"
   }
 }

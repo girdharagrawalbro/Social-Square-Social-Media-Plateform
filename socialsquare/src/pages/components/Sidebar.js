@@ -30,6 +30,7 @@ export default function Sidebar() {
     const links = [
         { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username || 'You'}` },
         { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
+        { key: 'users', label: 'Discover', icon: 'pi pi-users', to: '/users' },
         { key: 'communities', label: 'Communities', icon: 'pi pi-users', to: '/communities' },
         { key: 'messages', label: 'Messages', icon: 'pi pi-envelope', to: '/messages' },
         { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },

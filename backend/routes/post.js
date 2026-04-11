@@ -821,5 +821,21 @@ router.get("/confessions", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// ─── EXPLORE REELS ──────────────────────────────────────────────────────────
+router.get("/explore-reels", async (req, res) => {
+    try {
+        // Fetch posts that have a video URL
+        const posts = await Post.find({ video: { $ne: null } })
+            .limit(20)
+            .sort({ createdAt: -1 });
+        
+        // Randomize the results for better "explore" feel
+        const shuffled = posts.sort(() => Math.random() - 0.5);
+        res.status(200).json(shuffled);
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 module.exports = router;
 module.exports.setIo = setIo;

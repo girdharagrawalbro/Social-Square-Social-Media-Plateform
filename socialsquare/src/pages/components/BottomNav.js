@@ -19,7 +19,7 @@ const BottomNav = () => {
     const navItems = [
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
-        { key: 'communities', icon: 'pi-users', to: () => '/communities' },
+        { key: 'users', icon: 'pi-users', to: () => '/users' },
         { key: 'messages', icon: 'pi-envelope', to: () => '/messages' },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
     ];

@@ -6,7 +6,8 @@ import Feed from './components/Feed';
 import Profile from './components/Profile';
 import Conversations from './components/Conversations';
 import Stories from './components/Stories';
-import Explore from './components/Communities';
+import Explore from './components/Explore';
+import Communities from './components/Communities';
 import Groups from './components/Groups';
 import UserProfile from './components/UserProfile';
 import useAuthStore from '../store/zustand/useAuthStore';
@@ -107,7 +108,7 @@ const Home = () => {
         switch (activeView) {
             case 'feed': return <><Stories /><Feed activeMood={null} /></>;
             case 'explore': return <Explore />;
-            case 'communities': return <Groups />;
+            case 'communities': return <Communities />;
             case 'profile': return <Profile />;
             case 'otherUsers': return <OtherUsers />;
             case 'messages': return <div className="h-full flex flex-col"><Conversations /></div>;
@@ -150,16 +151,13 @@ const Home = () => {
     //             </button>
     //         </div>
     //     );
-    // };
-
     return (
-        <section className={`flex min-h-[100dvh] w-full ${bg} transition-colors duration-200`}>
+        <section className={`w-full min-h-full ${bg} transition-colors duration-200 pb-20`}>
             {/* <VerificationBanner /> */}
             {/* Desktop */}
             {isDesktop ? (
-                <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3 min-h-[calc(100dvh-64px)]">
-
-                    <div className="flex-1 h-full overflow-y-auto px-0 sm:px-3 custom-scrollbar">
+                <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3">
+                    <div className="flex-1 px-0 sm:px-3">
                         <div className="max-w-screen-md mx-auto w-full">
                             <Stories />
                             <div className="max-w-md mx-auto">
@@ -167,24 +165,21 @@ const Home = () => {
                             </div>
                         </div>
                     </div>
-                    {/* <div className="w-25 h-full flex flex-col gap-3 min-w-0">
-                        <Conversations />
-                        <OtherUsers />
-                    </div> */}
                 </div>
             ) : (
                 /* Mobile */
-                <div className="flex flex-col min-h-[calc(100dvh-60px)]">
-                    <div className={`flex-1 p-2 pb-20 ${activeView === 'messages' ? 'overflow-hidden flex flex-col' : 'overflow-auto'}`}>
+                <div className="flex flex-col pb-24">
+                    <div className={`flex-1 p-2 ${activeView === 'messages' ? 'h-[calc(100dvh-120px)] flex flex-col overflow-hidden' : ''}`}>
                         {renderMobileView()}
                     </div>
-                    <div className={`fixed bottom-2 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md ${cardBg} rounded-full p-2 shadow-md`} style={{ zIndex: 100 }}>
-                        <div className="flex justify-around">
+                    {/* Floating Nav */}
+                    <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md ${cardBg} rounded-3xl p-2 shadow-2xl border border-[var(--border-color)] blur-bg`} style={{ zIndex: 1000 }}>
+                        <div className="flex justify-around items-center">
                             {navItems.map(item => (
                                 <button key={item.key}
-                                    className={`px-3 py-2 rounded-full cursor-pointer transition-all ${activeView === item.key ? 'bg-[#808bf5] text-white' : 'bg-transparent text-[var(--text-sub)] hover:text-[var(--text-main)]'}`}
+                                    className={`w-12 h-12 rounded-2xl cursor-pointer transition-all flex items-center justify-center ${activeView === item.key ? 'bg-[#808bf5] text-white shadow-lg' : 'bg-transparent text-[var(--text-sub)] hover:text-[var(--text-main)]'}`}
                                     onClick={() => setActiveView(item.key)}>
-                                    <i className={`pi ${item.icon}`}></i>
+                                    <i className={`pi ${item.icon} text-lg`}></i>
                                 </button>
                             ))}
                         </div>
