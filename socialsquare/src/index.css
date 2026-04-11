@@ -203,4 +203,65 @@ code {
 .p-overlay-badge .p-badge {
   background-color: #ef4444 !important;
   color: #ffffff !important;
-}
+}
+
+/* ── Presence Glow ── */
+.presence-glow {
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.6), 0 0 5px rgba(74, 222, 128, 0.4);
+    border: 2px solid #4ade80 !important;
+}
+
+.presence-dot {
+    width: 12px;
+    height: 12px;
+    background: #4ade80;
+    border-radius: 50%;
+    border: 2px solid var(--surface-1);
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
+    z-index: 10;
+}
+
+/* ── Floating Reactions ── */
+@keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-150px) scale(1.8) rotate(25deg); opacity: 0; }
+}
+
+.floating-reaction {
+    position: absolute;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 2.5rem;
+    animation: floatUp 1.2s ease-out forwards;
+}
+
+/* ── Pulse Page Animations ── */
+@keyframes pulseRotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.pulse-gradient {
+    background: linear-gradient(135deg, #a855f7, #6366f1, #3b82f6);
+    background-size: 200% 200%;
+    animation: gradientMove 5s ease infinite;
+}
+
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+    animation: float 3s ease-in-out infinite;
+}
+

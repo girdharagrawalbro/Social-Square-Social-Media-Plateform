@@ -30,6 +30,7 @@ export default function Sidebar() {
     const links = [
         { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username || 'You'}` },
         { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
+        { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse', accent: true },
         { key: 'users', label: 'Discover', icon: 'pi pi-users', to: '/users' },
         { key: 'communities', label: 'Communities', icon: 'pi pi-users', to: '/communities' },
         { key: 'messages', label: 'Messages', icon: 'pi pi-envelope', to: '/messages' },
@@ -58,64 +59,70 @@ export default function Sidebar() {
                 </div>
 
                 <nav className="flex-1 overflow-auto py-1">
-                    <ul className="flex flex-col gap-2 px-1">
+                    <ul className={`flex flex-col gap-2 ${open ? 'px-3 items-start' : 'px-2 items-center'}`}>
                         {links.map(l => (
-                            <li key={l.key}>
+                            <li key={l.key} className="w-full">
                                 {l.key === 'search' ? (
-                                    <button aria-label={l.label} onClick={() => setIsSearchOpen(true)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left hover:bg-gray-100 dark:hover:bg-neutral-900`}>
+                                    <button aria-label={l.label} onClick={() => setIsSearchOpen(true)} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left hover:bg-gray-100 dark:hover:bg-neutral-900 border-0 cursor-pointer`}>
                                         <i className={`${l.icon} text-xl`} />
-                                        {open && <span className="font-medium text-base">{l.label}</span>}
+                                        {open && <span className="font-semibold text-base">{l.label}</span>}
                                     </button>
                                 ) : l.key === 'addpost' ? (
-                                    <button aria-label={l.label} onClick={() => setnewpostVisible(true)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left hover:bg-gray-100 dark:hover:bg-neutral-900`}>
+                                    <button aria-label={l.label} onClick={() => setnewpostVisible(true)} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left hover:bg-gray-100 dark:hover:bg-neutral-900 border-0 cursor-pointer`}>
                                         <i className={`${l.icon} text-xl`} />
-                                        {open && <span className="font-medium text-base">{l.label}</span>}
+                                        {open && <span className="font-semibold text-base">{l.label}</span>}
                                     </button>
                                 ) : l.key === 'notifications' ? (
                                     <NotificationBell userId={user?._id} useRoute={true} showLabel={open} />
                                 ) : (
-                                    <Link aria-label={l.label} to={l.to || '#'} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left ${l.accent ? 'bg-gradient-to-r from-[#808bf5] to-[#6366f1] text-white font-semibold shadow-md' : 'hover:bg-gray-100 dark:hover:bg-neutral-900'}`}>
-                                        <i className={`${l.icon} text-xl`} />
-                                        {open && <span className="font-medium text-base">{l.label}</span>}
+                                    <Link aria-label={l.label} to={l.to || '#'} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left ${l.accent ? 'bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white font-bold shadow-lg shadow-indigo-500/40 relative overflow-hidden' : 'hover:bg-gray-100 dark:hover:bg-neutral-900'}`}>
+                                        {l.accent && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
+                                        <i className={`${l.icon} text-xl relative z-10`} />
+                                        {open && <span className="font-semibold text-base relative z-10">{l.label}</span>}
                                     </Link>
                                 )}
                             </li>
                         ))}
                         {user?.isAdmin && (
-                            <li>
-                                <Link to="/admin" className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-900 text-left">
+                            <li className="w-full">
+                                <Link to="/admin" className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full hover:bg-gray-100 dark:hover:bg-neutral-900 text-left`}>
                                     <i className={`pi pi-shield text-xl`} />
-                                    {open && <span className="font-medium text-base">Admin</span>}
+                                    {open && <span className="font-semibold text-base">Admin</span>}
                                 </Link>
                             </li>
                         )}
-                        <li>
-                            <button aria-label="Theme" onClick={toggle} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-900 text-left">
+                        <li className="w-full">
+                            <button aria-label="Theme" onClick={toggle} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full hover:bg-gray-100 dark:hover:bg-neutral-900 border-0 cursor-pointer text-left`}>
                                 <i className={`pi ${isDark ? 'pi-moon' : 'pi-sun'} text-xl`} />
-                                {open && <span className="font-medium text-base">Theme</span>}
+                                {open && <span className="font-semibold text-base">Theme</span>}
                             </button>
                         </li>
                     </ul>
                 </nav>
 
-                <div className="p-3 border-t border-[var(--border-color)]">
-                    <div className="flex items-center gap-2">
-                        <img src={user?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullname || 'U')}&background=808bf5&color=fff`} alt="me" className="w-10 h-10 rounded-full border border-[var(--border-color)]" />
-                        {open && <div className="text-base font-semibold text-[var(--text-main)]">{user?.fullname || 'You'}</div>}
-                    </div>
-
-                    <div className="mt-3">
-                        {open ? (
-                            <button onClick={() => logout()} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">
-                                <i className="pi pi-sign-out"></i>
-                                <span className="font-semibold">Logout</span>
-                            </button>
-                        ) : (
-                            <button aria-label="Logout" onClick={() => logout()} className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center mx-auto hover:bg-red-700">
-                                <i className="pi pi-sign-out"></i>
-                            </button>
+                <div className={`p-3 border-t border-[var(--border-color)] flex flex-col items-${open ? 'start' : 'center'} gap-3`}>
+                    <div className="flex items-center gap-3 w-full px-1">
+                        <img 
+                            src={user?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullname || 'U')}&background=808bf5&color=fff`} 
+                            alt="me" 
+                            className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm" 
+                        />
+                        {open && (
+                            <div className="flex flex-col">
+                                <span className="text-sm font-bold text-[var(--text-main)] leading-none">{user?.fullname || 'User'}</span>
+                                <span className="text-[10px] text-[var(--text-sub)] mt-1">Active Now</span>
+                            </div>
                         )}
                     </div>
+
+                    <button 
+                        onClick={() => logout()} 
+                        className={`flex items-center ${open ? 'w-full px-4 justify-start gap-3' : 'w-10 h-10 justify-center'} rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border-0 cursor-pointer p-0`}
+                        aria-label="Logout"
+                    >
+                        <i className={`pi pi-sign-out ${open ? 'text-lg' : 'text-xl'}`}></i>
+                        {open && <span className="font-bold text-sm">Logout</span>}
+                    </button>
                 </div>
             </aside>
 

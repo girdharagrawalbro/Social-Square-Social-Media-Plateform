@@ -172,16 +172,19 @@ const PostItem = React.memo(({
             <div className="flex items-center justify-between p-3">
                 <div className="flex items-center gap-3 min-w-0">
                     <div
-                        className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition border border-gray-100"
+                        className="relative w-10 h-10 flex-shrink-0"
                         onClick={() => onProfileClick(post.user._id)}
                         onMouseEnter={() => prefetchUser(post.user._id)}
                     >
-                        <img
-                            src={post.user.profile_picture}
-                            alt="Profile"
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                        />
+                        <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
+                            <img
+                                src={post.user.profile_picture}
+                                alt="Profile"
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                        {post.user.isOnline && <div className="presence-dot" />}
                     </div>
                     <div className="flex flex-col justify-center min-w-0">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -210,7 +213,7 @@ const PostItem = React.memo(({
                                 {post.user.isVerified && <i className="pi pi-check-circle text-blue-500 ml-1" style={{ fontSize: '11px' }}></i>}
                             </div>
                             <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider leading-none shrink-0">{formatDate(post.updatedAt)}</span>
-                            {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🎭 Anonymous</span>}
+                            {/* {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🎭 Anonymous</span>} */}
 
                             {!isOwn && !isFollowing && (
                                 <button
@@ -405,6 +408,7 @@ const Feed = ({ activeMood = null }) => {
     const lastTap = useRef({});
 
     const handleReact = (post, emoji) => {
+        if (navigator.vibrate) navigator.vibrate(15);
         reactMutation.mutate({ postId: post._id, emoji });
         setPickerPostId(null);
     };
@@ -470,6 +474,9 @@ const Feed = ({ activeMood = null }) => {
 
     const handleLikeToggle = async (post) => {
         if (likeMutation.isPending) return;
+        
+        // Haptic feedback
+        if (navigator.vibrate) navigator.vibrate(10);
 
         const loggedUserId = user?._id?.toString();
         const optimisticSet = optimisticLikes[post._id];
@@ -492,6 +499,7 @@ const Feed = ({ activeMood = null }) => {
             : post.likes?.includes(user?._id);
 
         if (!liked) {
+            if (navigator.vibrate) navigator.vibrate([10, 30]);
             likeMutation.mutate({
                 postId: post._id,
                 isLiked: false,

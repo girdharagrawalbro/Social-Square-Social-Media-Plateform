@@ -17,11 +17,11 @@ router.post('/create', verifyToken, async (req, res) => {
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
 
-        const user = await User.findById(userId).select('fullname profile_picture followers');
+        const user = await User.findById(userId).select('fullname profile_picture followers isOnline');
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
         const story = new Story({
-            user: { _id: user._id, fullname: user.fullname, profile_picture: user.profile_picture },
+            user: { _id: user._id, fullname: user.fullname, profile_picture: user.profile_picture, isOnline: user.isOnline },
             media: { url: mediaUrl, type: mediaType },
             text: text || {},
             sharedPostId: sharedPostId || null,
@@ -48,21 +48,37 @@ router.get('/feed', verifyToken, async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
         const userIds = [userId, ...user.following.map(id => id.toString())];
+        
+        // Fetch stories and then manually attach presence from current User state if needed, 
+        // OR better, populate the user info with isOnline.
+        // Since story.user is a subdocument saved at creation time, it might be stale.
+        // Let's modify the grouping logic to fetch fresh presence.
+
         const stories = await Story.find({
             'user._id': { $in: userIds },
             expiresAt: { $gt: new Date() },
         })
         .populate({
             path: 'sharedPostId',
-            populate: { path: 'user', select: 'fullname profile_picture' }
+            populate: { path: 'user', select: 'fullname profile_picture isOnline' }
         })
         .sort({ createdAt: 1 });
+
+        // Fetch fresh presence for all users in the feed
+        const uniqueUserIds = [...new Set(stories.map(s => s.user._id.toString()))];
+        const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
+        const presenceMap = {};
+        usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
 
         const grouped = {};
         stories.forEach(story => {
             const uid = story.user._id.toString();
             if (!grouped[uid]) {
-                grouped[uid] = { user: story.user, stories: [], hasUnviewed: false };
+                grouped[uid] = { 
+                    user: { ...story.user.toObject(), isOnline: presenceMap[uid] || false }, 
+                    stories: [], 
+                    hasUnviewed: false 
+                };
             }
             grouped[uid].stories.push(story);
             if (!story.viewers.map(v => v.toString()).includes(userId)) {

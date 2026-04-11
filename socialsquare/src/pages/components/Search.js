@@ -145,7 +145,7 @@ const Search = ({ onClose }) => {
                 </div>
 
 
-                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl ${isMobile && !searchTerm && !isFocused ? 'hidden' : 'block'}`} style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'}`} style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (
