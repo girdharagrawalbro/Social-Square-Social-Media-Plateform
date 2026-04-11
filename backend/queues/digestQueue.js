@@ -5,22 +5,29 @@ const Notification = require('../models/Notification');
 const redis = require('../lib/redis'); 
 const { sendEmail } = require('../utils/mailer');
 
+const isRedisDisabled = process.env.DISABLE_REDIS === 'true';
+
 // ─── QUEUE ────────────────────────────────────────────────────────────────────
-const digestQueue = new Queue('emailDigest', { connection: redis });
+const digestQueue = !isRedisDisabled ? new Queue('emailDigest', { connection: redis }) : null;
 
 // ─── SCHEDULE DAILY DIGEST ────────────────────────────────────────────────────
-// Called from a cron job or on app start
 async function scheduleDailyDigest() {
-    // Remove existing repeatable jobs to avoid duplicates
-    const jobs = await digestQueue.getRepeatableJobs();
-    for (const job of jobs) await digestQueue.removeRepeatableByKey(job.key);
+    if (isRedisDisabled || !digestQueue) {
+        console.log('[Digest] Skipped (Redis is disabled)');
+        return;
+    }
+    try {
+        const jobs = await digestQueue.getRepeatableJobs();
+        for (const job of jobs) await digestQueue.removeRepeatableByKey(job.key);
 
-    // Schedule daily at 8:00 AM UTC
-    await digestQueue.add('daily-digest', {}, {
-        repeat: { cron: '0 8 * * *' },
-        removeOnComplete: true,
-    });
-    console.log('[Digest] Daily digest scheduled for 8:00 AM UTC');
+        await digestQueue.add('daily-digest', {}, {
+            repeat: { cron: '0 8 * * *' },
+            removeOnComplete: true,
+        });
+        console.log('[Digest] Daily digest scheduled for 8:00 AM UTC');
+    } catch (err) {
+        console.warn('[Digest] Failed to schedule:', err.message);
+    }
 }
 
 function buildDigestEmail(user, stats) {
@@ -32,14 +39,10 @@ function buildDigestEmail(user, stats) {
     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; margin: 0; padding: 20px;">
         <div style="max-width: 560px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
-            
-            <!-- Header -->
             <div style="background: linear-gradient(135deg, #808bf5, #6366f1); padding: 32px 28px; text-align: center;">
                 <h1 style="color: #fff; margin: 0; font-size: 24px; font-weight: 800;">Social Square</h1>
                 <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">Your daily activity digest</p>
             </div>
-
-            <!-- Greeting -->
             <div style="padding: 28px 28px 0;">
                 <p style="font-size: 16px; color: #374151; margin: 0;">Hi <strong>${user.fullname}</strong> 👋${user.isAdmin ? ' (Admin)' : ''}</p>
                 <p style="font-size: 14px; color: #6b7280; margin: 8px 0 0;">
@@ -48,9 +51,6 @@ function buildDigestEmail(user, stats) {
                         : "Everything is running smoothly! No new personal activity to report for yesterday."}
                 </p>
             </div>
-
-
-            <!-- Stats -->
             <div style="padding: 20px 28px; display: flex; gap: 12px;">
                 ${[
                     { icon: '👥', label: 'New Followers', value: newFollowers },
@@ -64,8 +64,6 @@ function buildDigestEmail(user, stats) {
                     </div>
                 `).join('')}
             </div>
-
-            <!-- Trending posts -->
             ${trendingPosts.length > 0 ? `
             <div style="padding: 0 28px 24px;">
                 <p style="font-size: 14px; font-weight: 700; color: #374151; margin: 0 0 12px;">🔥 Trending today</p>
@@ -82,13 +80,9 @@ function buildDigestEmail(user, stats) {
                 `).join('')}
             </div>
             ` : ''}
-
-            <!-- CTA -->
             <div style="padding: 0 28px 28px; text-align: center;">
                 <a href="${process.env.CLIENT_URL}" style="display: inline-block; background: linear-gradient(135deg, #808bf5, #6366f1); color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 14px;">Open Social Square →</a>
             </div>
-
-            <!-- Footer -->
             <div style="padding: 16px 28px; background: #f9fafb; border-top: 1px solid #f3f4f6; text-align: center;">
                 <p style="font-size: 11px; color: '#9ca3af'; margin: 0;">
                     You're receiving this because you have email digests enabled.
@@ -102,64 +96,60 @@ function buildDigestEmail(user, stats) {
 }
 
 // ─── WORKER ───────────────────────────────────────────────────────────────────
-const worker = new Worker('emailDigest', async (job) => {
-    if (job.name !== 'daily-digest') return;
+if (!isRedisDisabled) {
+    const worker = new Worker('emailDigest', async (job) => {
+        if (job.name !== 'daily-digest') return;
 
-    console.log('[Digest] Starting daily digest job');
+        console.log('[Digest] Starting daily digest job');
 
-    const yesterday = new Date(Date.now() - 86400000);
+        const yesterday = new Date(Date.now() - 86400000);
 
-    // Get users with digest enabled
-    const users = await User.find({
-        'notificationSettings.emailDigest': true,
-        isBanned: { $ne: true },
-        email: { $exists: true },
-    }).select('fullname email _id isAdmin').lean();
+        const users = await User.find({
+            'notificationSettings.emailDigest': true,
+            isBanned: { $ne: true },
+            email: { $exists: true },
+        }).select('fullname email _id isAdmin').lean();
 
+        console.log(`[Digest] Sending to ${users.length} users`);
 
-    console.log(`[Digest] Sending to ${users.length} users`);
+        let sent = 0, failed = 0;
 
-    let sent = 0, failed = 0;
+        for (const user of users) {
+            try {
+                const [newFollowers, notifications, trendingPosts] = await Promise.all([
+                    User.countDocuments({ followers: user._id, created_at: { $gte: yesterday } }),
+                    Notification.find({ recipient: user._id, createdAt: { $gte: yesterday } }).lean(),
+                    Post.find({ createdAt: { $gte: yesterday } }).sort({ score: -1 }).limit(5).select('caption user likes').lean(),
+                ]);
 
-    for (const user of users) {
-        try {
-            // Get user's stats for yesterday
-            const [newFollowers, notifications, trendingPosts] = await Promise.all([
-                User.countDocuments({ followers: user._id, created_at: { $gte: yesterday } }),
-                Notification.find({ recipient: user._id, createdAt: { $gte: yesterday } }).lean(),
-                Post.find({ createdAt: { $gte: yesterday } }).sort({ score: -1 }).limit(5).select('caption user likes').lean(),
-            ]);
+                const newLikes    = notifications.filter(n => n.type === 'like').length;
+                const newComments = notifications.filter(n => n.type === 'comment').length;
 
-            const newLikes    = notifications.filter(n => n.type === 'like').length;
-            const newComments = notifications.filter(n => n.type === 'comment').length;
+                if (newFollowers === 0 && newLikes === 0 && newComments === 0 && !user.isAdmin) continue;
 
-            // Skip if nothing happened (Admins always receive it if enabled for verification)
-            if (newFollowers === 0 && newLikes === 0 && newComments === 0 && !user.isAdmin) continue;
+                await sendEmail({
+                    to:      user.email,
+                    subject: `${user.fullname}, you had ${newLikes + newComments + newFollowers} interactions yesterday 🔥`,
+                    html:    buildDigestEmail(user, { newFollowers, newLikes, newComments, trendingPosts }),
+                });
 
+                sent++;
+            } catch (err) {
+                console.error(`[Digest] Failed for ${user.email}:`, err.message);
+                failed++;
+            }
 
-            await sendEmail({
-                to:      user.email,
-                subject: `${user.fullname}, you had ${newLikes + newComments + newFollowers} interactions yesterday 🔥`,
-                html:    buildDigestEmail(user, { newFollowers, newLikes, newComments, trendingPosts }),
-            });
-
-            sent++;
-        } catch (err) {
-            console.error(`[Digest] Failed for ${user.email}:`, err.message);
-            failed++;
+            await new Promise(r => setTimeout(r, 100));
         }
 
-        // Rate limit: 10 emails/second (Gmail limit)
-        await new Promise(r => setTimeout(r, 100));
-    }
+        console.log(`[Digest] Done — sent: ${sent}, failed: ${failed}`);
+    }, {
+        connection: redis,
+        concurrency: 2,
+        limiter: { max: 5, duration: 1000 },
+    });
 
-    console.log(`[Digest] Done — sent: ${sent}, failed: ${failed}`);
-}, {
-    connection: redis,
-    concurrency: 2,
-    limiter: { max: 5, duration: 1000 },
-});
-
-worker.on('failed', (job, err) => console.error('[Digest] Job failed:', err.message));
+    worker.on('failed', (job, err) => console.error('[Digest] Job failed:', err.message));
+}
 
 module.exports = { digestQueue, scheduleDailyDigest };
