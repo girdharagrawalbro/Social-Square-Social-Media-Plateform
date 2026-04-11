@@ -2,18 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
-
-const VIDEO_POOL = [
-  { id: 1, url: 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-light-1282-large.mp4', title: 'Neon Vibez', creator: 'Mixkit' },
-  { id: 2, url: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4', title: 'Nature Bloom', creator: 'Mixkit' },
-  { id: 3, url: 'https://assets.mixkit.co/videos/preview/mixkit-glacier-ice-melting-1335-large.mp4', title: 'Arctic Flow', creator: 'Mixkit' },
-  { id: 4, url: 'https://assets.mixkit.co/videos/preview/mixkit-mother-with-her-son-in-the-park-4022-large.mp4', title: 'Park Days', creator: 'Mixkit' },
-  { id: 5, url: 'https://assets.mixkit.co/videos/preview/mixkit-city-at-night-with-car-traffic-lights-4424-large.mp4', title: 'City Motion', creator: 'Mixkit' },
-  { id: 6, url: 'https://assets.mixkit.co/videos/preview/mixkit-portrait-of-a-woman-in-a-field-of-flowers-1172-large.mp4', title: 'Golden Hour', creator: 'Mixkit' },
-  { id: 7, url: 'https://assets.mixkit.co/videos/preview/mixkit-ink-in-water-underwater-shot-1262-large.mp4', title: 'Ink Flow', creator: 'Mixkit' },
-  { id: 8, url: 'https://assets.mixkit.co/videos/preview/mixkit-serving-fresh-orange-juice-4357-large.mp4', title: 'Sunday Sips', creator: 'Mixkit' },
-  { id: 9, url: 'https://www.w3schools.com/html/mov_bbb.mp4', title: 'Classic Bunny', creator: 'OpenSource' },
-];
+import { useExploreReels } from '../../hooks/queries/useExploreQueries';
+import { Skeleton } from 'primereact/skeleton';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
@@ -24,9 +14,9 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
 
   useEffect(() => {
     if (inView) {
-      onVisible(vid.id);
+      onVisible(vid._id);
     }
-  }, [inView, vid.id, onVisible]);
+  }, [inView, vid._id, onVisible]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -41,14 +31,14 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   return (
     <div
       ref={ref}
-      onMouseEnter={() => onVisible(vid.id)}
-      className="relative rounded-2xl overflow-hidden bg-[#121212] cursor-pointer group transition-transform active:scale-95"
+      onMouseEnter={() => onVisible(vid._id)}
+      className="relative rounded-2xl overflow-hidden bg-[#121212] cursor-pointer group transition-transform active:scale-95 shadow-lg"
       style={{ aspectRatio: '9/16' }}
       onClick={onClick}
     >
       <video
         ref={videoRef}
-        src={vid.url}
+        src={vid.video}
         muted
         loop
         playsInline
@@ -59,8 +49,8 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
       {/* Dynamic Overlay Info */}
       <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent transition-opacity duration-500 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}>
         <div className="absolute bottom-4 left-4 right-4 transform translate-y-0 transition-transform duration-500">
-            <span className="text-[10px] uppercase font-bold text-[#808bf5] tracking-widest">{vid.creator}</span>
-            <p className="m-0 text-white font-bold text-sm truncate mt-1">{vid.title}</p>
+            <span className="text-[10px] uppercase font-bold text-[#808bf5] tracking-widest">{vid.user?.fullname}</span>
+            <p className="m-0 text-white font-bold text-sm truncate mt-1">{vid.caption}</p>
         </div>
       </div>
 
@@ -73,7 +63,7 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
         </div>
       )}
 
-      {/* Loading Shimmer (optional but good for 'no data' feel) */}
+      {/* Status Dot */}
       <div className="absolute top-4 right-4">
           <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-white/20'}`}></div>
       </div>
@@ -82,7 +72,7 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
 });
 
 const Explore = () => {
-  const [videos, setVideos] = useState([]);
+  const { data: videos = [], isLoading, refetch, isRefetching } = useExploreReels();
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
   const [visible, setVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -91,10 +81,10 @@ const Explore = () => {
   const lastTap = useRef(0);
 
   useEffect(() => {
-    const shuffled = [...VIDEO_POOL].sort(() => Math.random() - 0.5);
-    setVideos(shuffled);
-    if (shuffled.length > 0) setCurrentlyPlayingId(shuffled[0].id);
-  }, []);
+    if (videos.length > 0 && !currentlyPlayingId) {
+        setCurrentlyPlayingId(videos[0]._id);
+    }
+  }, [videos, currentlyPlayingId]);
 
   const handleVisible = React.useCallback((id) => {
     setCurrentlyPlayingId(id);
@@ -114,34 +104,47 @@ const Explore = () => {
 
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-20 px-2 sm:px-4 py-4 bg-[var(--surface-1)] border-b border-[var(--border-color)] mb-6">
+      <div className="sticky top-0 z-20 px-4 py-4 bg-[var(--surface-1)]/80 backdrop-blur-lg border-b border-[var(--border-color)] mb-6">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <h2 className="m-0 text-xl font-pacifico text-[var(--theme-start)]">Explore</h2>
+          <h2 className="m-0 text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
+              <i className="pi pi-compass text-[#808bf5]"></i>
+              Explore
+          </h2>
           <button
-            onClick={() => {
-                const shuffled = [...videos].sort(() => Math.random() - 0.5);
-                setVideos(shuffled);
-                if (shuffled.length > 0) setCurrentlyPlayingId(shuffled[0].id);
-            }}
-            className="bg-[var(--surface-2)] p-2 rounded-full text-xs font-bold text-[var(--text-sub)] cursor-pointer hover:bg-[var(--surface-1)] transition flex items-center justify-center gap-2"
+            onClick={() => refetch()}
+            disabled={isLoading || isRefetching}
+            className="w-10 h-10 bg-[var(--surface-2)] rounded-full text-[var(--text-sub)] border-0 cursor-pointer hover:bg-[var(--surface-3)] transition-all flex items-center justify-center disabled:opacity-50"
           >
-            <i className="pi pi-refresh"></i>
+            <i className={`pi pi-refresh ${isRefetching ? 'pi-spin' : ''}`}></i>
           </button>
         </div>
       </div>
 
-      <div className="px-2 sm:px-4 pb-8 text-center">
-        <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
-          {videos.map((vid, idx) => (
-            <VideoCard 
-              key={vid.id} 
-              vid={vid} 
-              isPlaying={currentlyPlayingId === vid.id}
-              onVisible={handleVisible}
-              onClick={() => { setActiveIndex(idx); setVisible(true); }} 
-            />
-          ))}
-        </div>
+      <div className="px-2 sm:px-4 pb-12 text-center">
+        {isLoading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
+                {[...Array(6)].map((_, i) => (
+                    <Skeleton key={i} shape="rectangle" className="rounded-2xl w-full" style={{ aspectRatio: '9/16' }} />
+                ))}
+            </div>
+        ) : videos.length === 0 ? (
+            <div className="py-20 flex flex-col items-center">
+                <i className="pi pi-video text-6xl text-gray-300 mb-4"></i>
+                <p className="text-gray-500 font-medium">No reels found yet. Check back soon!</p>
+            </div>
+        ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
+            {videos.map((vid, idx) => (
+                <VideoCard 
+                key={vid._id} 
+                vid={vid} 
+                isPlaying={currentlyPlayingId === vid._id}
+                onVisible={handleVisible}
+                onClick={() => { setActiveIndex(idx); setVisible(true); }} 
+                />
+            ))}
+            </div>
+        )}
       </div>
 
       {/* REEL STYLE MODAL */}
@@ -173,7 +176,7 @@ const Explore = () => {
           {/* Reels Container */}
           <div className="w-full h-full flex items-center justify-center relative">
             <video
-              src={videos[activeIndex]?.url}
+              src={videos[activeIndex]?.video}
               autoPlay
               loop
               playsInline
@@ -199,14 +202,14 @@ const Explore = () => {
             <div className="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2 z-40">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-yellow-500 p-0.5">
-                  <div className="w-full h-full bg-black rounded-full flex items-center justify-center text-xs font-bold text-white uppercase italic">{videos[activeIndex]?.creator?.[0]}</div>
+                  <img src={videos[activeIndex]?.user?.profile_picture || '/default-profile.png'} className="w-full h-full rounded-full object-cover border-2 border-black" alt="" />
                 </div>
                 <div>
-                  <p className="m-0 text-white font-bold text-sm">@{videos[activeIndex]?.creator.toLowerCase()}</p>
+                  <p className="m-0 text-white font-bold text-sm">@{videos[activeIndex]?.user?.fullname?.toLowerCase().replace(/\s/g, '_') || 'user'}</p>
                   <p className="m-0 text-white/70 text-[10px] uppercase font-bold tracking-widest leading-none mt-1">Suggested for you</p>
                 </div>
               </div>
-              <p className="m-0 text-white text-sm mt-2">{videos[activeIndex]?.title} #explore #reels #trending</p>
+              <p className="m-0 text-white text-sm mt-2 font-medium">{videos[activeIndex]?.caption} #explore #reels #trending</p>
             </div>
 
             {/* Navigation Buttons for PC */}

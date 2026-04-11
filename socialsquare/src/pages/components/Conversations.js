@@ -108,7 +108,7 @@ const Conversations = () => {
     });
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 glass-card overflow-hidden transition-all duration-300" style={{ height: 'calc(100vh - 10px)' }}>
+        <div className="flex flex-col flex-1 min-h-0 glass-card overflow-hidden transition-all duration-300" style={{ height: '100%' }}>
             <div className="flex flex-1 min-h-0">
                 {/* Conversation list - left column */}
                 <div className={`w-full sm:w-80 md:w-[30rem] border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden ${selectedParticipant ? 'hidden sm:flex' : 'flex'}`}>

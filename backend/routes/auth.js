@@ -691,7 +691,7 @@ router.get('/get', async (req, res) => {
 router.get("/other-users", verifyToken, async (req, res) => {
     try {
         const loggedUserId = req.userId;
-        const suggestions = await getSuggestedUsers(loggedUserId, 20);
+        const suggestions = await getSuggestedUsers(loggedUserId, 16);
 
         return res.status(200).json(suggestions);
     } catch (error) {
@@ -738,13 +738,13 @@ router.post('/follow', async (req, res) => {
         if (targetUser.isPrivate) {
             // Already following?
             if (targetUser.followers.includes(userId)) return res.status(200).json(targetUser);
-            
+
             // Already requested?
             if (targetUser.followRequests.includes(userId)) return res.status(200).json(targetUser);
 
             const updatedTarget = await User.findByIdAndUpdate(
-                followUserId, 
-                { $addToSet: { followRequests: userId } }, 
+                followUserId,
+                { $addToSet: { followRequests: userId } },
                 { new: true }
             ).select("-password");
 
@@ -762,7 +762,7 @@ router.post('/follow', async (req, res) => {
         // Public account logic
         await User.findByIdAndUpdate(userId, { $addToSet: { following: followUserId } });
         const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId } }, { new: true }).select("-password");
-        
+
         // Notification for immediate follow
         const sender = await User.findById(userId).select('fullname profile_picture');
         await require('../lib/notification.js').createNotification({
@@ -772,27 +772,27 @@ router.post('/follow', async (req, res) => {
         });
 
         res.status(200).json(user);
-    } catch (error) { 
+    } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Failed to follow user.' }); 
+        res.status(500).json({ message: 'Failed to follow user.' });
     }
 });
 
 router.post('/follow-request/accept', async (req, res) => {
     try {
         const { userId, requesterId } = req.body; // userId is ME (the one accepting)
-        
+
         // Remove from requests, add to followers
-        await User.findByIdAndUpdate(userId, { 
+        await User.findByIdAndUpdate(userId, {
             $pull: { followRequests: requesterId },
             $addToSet: { followers: requesterId }
         });
 
         // ADD THIS: Also update the requester's following list
-        await User.findByIdAndUpdate(requesterId, { 
+        await User.findByIdAndUpdate(requesterId, {
             $addToSet: { following: userId }
         });
-        
+
         // Create notification for the requester
         const sender = await User.findById(userId).select('fullname profile_picture');
         await require('../lib/notification.js').createNotification({
@@ -858,7 +858,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
         const myFollowingIds = (loggedUser?.following || []).map(f => f.toString());
         const mutualIds = myFollowingIds.filter(id => targetFollowerIds.includes(id));
 
-        const mutualDetails = mutualIds.length > 0 
+        const mutualDetails = mutualIds.length > 0
             ? await User.find({ _id: { $in: mutualIds.slice(0, 3) } }).select('fullname profile_picture username').lean()
             : [];
 
@@ -883,7 +883,7 @@ router.post("/search", async (req, res) => {
         const normalizedQuery = escapedQuery.startsWith('@') ? escapedQuery.slice(1) : escapedQuery;
 
         const [userResults, postResults] = await Promise.all([
-            User.find({ 
+            User.find({
                 $or: [
                     { fullname: { $regex: escapedQuery, $options: "i" } },
                     { username: { $regex: normalizedQuery, $options: "i" } }
@@ -987,7 +987,7 @@ router.get('/analytics/:userId', verifyToken, async (req, res) => {
         if (userId !== loggedUserId.toString()) return res.status(403).json({ message: "Unauthorized." });
 
         const posts = await Post.find({ "user._id": userId }).lean();
-        
+
         const totalViews = posts.reduce((sum, p) => sum + (p.views || 0), 0);
         const totalLikes = posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0);
         const totalComments = posts.reduce((sum, p) => sum + (p.comments?.length || 0), 0);
@@ -1009,12 +1009,12 @@ router.get('/analytics/:userId', verifyToken, async (req, res) => {
             }));
 
         res.status(200).json({
-            stats: { 
-                totalViews, 
-                totalLikes, 
-                totalComments, 
-                totalPosts, 
-                engagementRate: engagementRate.toFixed(2) 
+            stats: {
+                totalViews,
+                totalLikes,
+                totalComments,
+                totalPosts,
+                engagementRate: engagementRate.toFixed(2)
             },
             topPosts
         });

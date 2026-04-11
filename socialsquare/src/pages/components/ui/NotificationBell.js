@@ -86,18 +86,22 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
             {/* Bell button */}
             <button 
                 onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)} 
-                className={`flex items-center justify-center md:justify-start gap-0 md:gap-3 
-                           w-9 h-9 md:w-auto md:h-auto
-                           p-0 md:px-4 md:py-3 
-                           rounded-full md:rounded-lg 
+                className={`flex items-center ${showLabel ? 'justify-start gap-3 px-4' : 'justify-center px-0'} 
+                           w-full h-12
+                           rounded-lg 
                            transition-all hover:bg-gray-100 dark:hover:bg-gray-800 
-                           ${isDark ? 'bg-gray-700 md:bg-transparent text-white' : 'bg-gray-100 md:bg-transparent text-gray-800'}`}
+                           ${isDark ? 'bg-transparent text-white' : 'bg-transparent text-gray-800'} border-0 cursor-pointer`}
             >
-                <span className="p-overlay-badge flex items-center justify-center">
+                <div className="relative flex items-center justify-center w-6 shrink-0">
                     <i className="pi pi-bell text-xl"></i>
-                    {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} style={{ background: '#ef4444 !important', color: '#fff !important', backgroundColor: '#ef4444' }} className="!bg-red-500 !text-white" />}
-                </span>
-                {showLabel && <span className='font-medium text-base hidden md:inline-block'>Notifications</span>}
+                    {totalBadge > 0 && (
+                        <Badge 
+                            value={totalBadge > 99 ? '99+' : totalBadge} 
+                            className="absolute -top-1.5 -right-1.5 !bg-red-500 !text-white !p-0 !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] border-white font-bold" 
+                        />
+                    )}
+                </div>
+                {showLabel && <span className='font-medium text-base whitespace-nowrap'>Notifications</span>}
             </button>
 
             {!useRoute && (

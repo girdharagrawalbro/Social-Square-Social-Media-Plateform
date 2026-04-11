@@ -43,13 +43,13 @@ const Navbar = () => {
 
 
   return (
-    <nav ref={mobileMenuRef} aria-label="Main Navigation" className={`sticky top-0 z-50 w-full h-16 backdrop-blur-md shadow-sm border-b flex items-center justify-between px-4 transition-all duration-300 ${isDark ? 'bg-black/80 border-[#1a1a1a]' : 'bg-white/80 border-gray-200'}`}>
-      <div className="flex items-center gap-3 flex-1">
-        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className="flex items-center">
-          <i className={`pi pi-home text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+    <nav ref={mobileMenuRef} aria-label="Main Navigation" className={`sticky top-0 z-50 w-full h-16 backdrop-blur-md shadow-sm border-b flex items-center justify-between px-3 sm:px-4 transition-all duration-300 ${isDark ? 'bg-black/80 border-[#1a1a1a]' : 'bg-white/80 border-gray-200'}`}>
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
+        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className="flex items-center flex-shrink-0">
+          <i className={`pi pi-home text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
         </Link>
-        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className={`no-underline flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
-          <h1 className="font-pacifico text-2xl m-0 whitespace-nowrap">Social Square</h1>
+        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className={`no-underline flex items-center gap-2 min-w-0 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
+          <h1 className="font-pacifico text-lg sm:text-2xl m-0 truncate whitespace-nowrap">Social Square</h1>
         </Link>
       </div>
 
@@ -102,16 +102,16 @@ const Navbar = () => {
         )}
       </div>
 
-      <div className="md:hidden flex items-center gap-2">
+      <div className="md:hidden flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {isAuthenticated && !isLandingPage ? (
           <>
             <button
               aria-label="Create post"
               onClick={() => setnewpostVisible(true)}
-              className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+              className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
               title="Create post"
             >
-              <i className="pi pi-plus"></i>
+              <i className="pi pi-plus text-xs sm:text-base"></i>
             </button>
 
             <NotificationBell userId={loggeduser?._id} />

@@ -5,6 +5,7 @@ import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
 import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
 import useAuthStore from "../../store/zustand/useAuthStore";
+import useWindowWidth from "../../hooks/useWindowWidth";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -13,7 +14,9 @@ const MAX_RECENT = 5;
 
 const Search = ({ onClose }) => {
     const [searchTerm, setSearchTerm] = useState("");
-    const [, setIsFocused] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
+    const windowWidth = useWindowWidth();
+    const isMobile = windowWidth < 1024;
     const [isVisible, setVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [recentSearches, setRecentSearches] = useState(() => {
@@ -142,7 +145,7 @@ const Search = ({ onClose }) => {
                 </div>
 
 
-                <div className="absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl" style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl ${isMobile && !searchTerm && !isFocused ? 'hidden' : 'block'}`} style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (

@@ -903,7 +903,6 @@ const ChatPanel = ({
                     flex: 1,
                     overflowY: 'auto',
                     padding: '20px',
-                    paddingBottom: '80px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '2px'
@@ -967,12 +966,11 @@ const ChatPanel = ({
 
             <div style={{
                 padding: '10px 12px',
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
                 width: '100%',
                 background: 'var(--surface-1)',
-                zIndex: 10
+                zIndex: 10,
+                borderTop: '1px solid var(--border-color)',
+                boxSizing: 'border-box'
             }}>
                 <form onSubmit={handleSend} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
