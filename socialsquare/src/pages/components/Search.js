@@ -166,16 +166,15 @@ const Search = ({ onClose }) => {
 
 
                     {!searchTerm && categories.length > 0 && (
-                        <div style={{ marginTop: '24px' }}>
-                            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Browse Categories</h3>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        <div className="p-4 mt-2">
+                            <h3 className="text-sm font-bold text-[var(--text-sub)] uppercase tracking-widest mb-4 px-1">Browse Categories</h3>
+                            <div className="flex flex-wrap gap-2">
                                 {categories.slice(0, 8).map((cat, i) => (
                                     <button key={i} onClick={() => handleCategoryClick(cat.category)}
-                                        style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                        className="px-4 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] cursor-pointer text-xs font-bold hover:border-[#808bf5] transition-all">
                                         #{cat.category}
                                     </button>
                                 ))}
-
                             </div>
                         </div>
                     )}

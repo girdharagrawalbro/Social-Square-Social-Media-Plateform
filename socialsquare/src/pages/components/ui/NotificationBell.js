@@ -7,8 +7,10 @@ import usePostStore from '../../../store/zustand/usePostStore';
 import useConversationStore from '../../../store/zustand/useConversationStore';
 import { Dialog } from 'primereact/dialog';
 import { useNavigate } from 'react-router-dom';
+import { useDarkMode } from '../../../context/DarkModeContext';
 
 export default function NotificationBell({ userId, useRoute = false, showLabel = true }) {
+    const { isDark } = useDarkMode();
     const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'collabs'
     const ref = useRef(null);
@@ -82,12 +84,20 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     return (
         <div ref={ref}>
             {/* Bell button */}
-            <button onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)} className={`w-full flex items-start gap-3 px-4 py-3 rounded-lg transition-all text-left hover:bg-gray-100 dark:hover:bg-gray-800`}>
-                <span className="p-overlay-badge">
+            <button 
+                onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)} 
+                className={`flex items-center justify-center md:justify-start gap-0 md:gap-3 
+                           w-9 h-9 md:w-auto md:h-auto
+                           p-0 md:px-4 md:py-3 
+                           rounded-full md:rounded-lg 
+                           transition-all hover:bg-gray-100 dark:hover:bg-gray-800 
+                           ${isDark ? 'bg-gray-700 md:bg-transparent text-white' : 'bg-gray-100 md:bg-transparent text-gray-800'}`}
+            >
+                <span className="p-overlay-badge flex items-center justify-center">
                     <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && <Badge value={totalBadge > 99 ? '99+' : totalBadge} style={{ background: '#ef4444 !important', color: '#fff !important', backgroundColor: '#ef4444' }} className="!bg-red-500 !text-white" />}
                 </span>
-                {showLabel && <span className='font-medium text-base'>Notifications</span>}
+                {showLabel && <span className='font-medium text-base hidden md:inline-block'>Notifications</span>}
             </button>
 
             {!useRoute && (

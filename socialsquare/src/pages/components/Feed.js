@@ -369,8 +369,8 @@ const PostItem = React.memo(({
 const Feed = ({ activeMood = null }) => {
     // ✅ Zustand
     const user = useAuthStore(s => s.user);
-    const followUser = useAuthStore(s => s.followUser);
-    const unfollowUser = useAuthStore(s => s.unfollowUser);
+    // const followUser = useAuthStore(s => s.followUser);
+    // const unfollowUser = useAuthStore(s => s.unfollowUser);
     const rawSocketPosts = usePostStore(s => s.socketPosts);
     const socketPosts = useMemo(() => rawSocketPosts || [], [rawSocketPosts]);
     const isSaved = usePostStore(s => s.isSaved);
@@ -389,7 +389,7 @@ const Feed = ({ activeMood = null }) => {
 
     const [pickerPostId, setPickerPostId] = useState(null);
     const reportMutation = useReportPost();
-    const setPostDetailId = usePostStore(s => s.setPostDetailId);
+    // const setPostDetailId = usePostStore(s => s.setPostDetailId);
 
     const [liveInjectedPosts] = useState({});
     const [visiblePostId, setVisiblePostId] = useState(null);

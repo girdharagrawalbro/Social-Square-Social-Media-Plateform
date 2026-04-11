@@ -89,11 +89,11 @@ const StoryViewer = ({
     useEffect(() => {
         if (!group) return;
         let nextStory = null;
-        
+
         // Next story in current group?
         if (storyIndex < group.stories.length - 1) {
             nextStory = group.stories[storyIndex + 1];
-        } 
+        }
         // Or first story in next group?
         else if (groupIndex < groups.length - 1) {
             nextStory = groups[groupIndex + 1].stories[0];
@@ -738,8 +738,8 @@ const Stories = () => {
     const [shareOpen, setShareOpen] = useState(false);
     const [sharingStory, setSharingStory] = useState(null);
     const [initialStoryId, setInitialStoryId] = useState(null);
-    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, setLiveStream, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
-    const [activeLiveStreams, setActiveLiveStreams] = useState([]);
+    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
+    // const [activeLiveStreams, setActiveLiveStreams] = useState([]);
 
     // ✅ Sync story feed to local groups state
     useEffect(() => {
@@ -764,29 +764,29 @@ const Stories = () => {
         return () => delete window.onViewStory;
     }, [groups, setIsStoryViewerOpen]);
 
-    const fetchActiveLives = async () => {
-        try {
-            const { data } = await api.get('/api/live/active');
-            setActiveLiveStreams(data);
-        } catch (err) {
-            console.error('Error fetching lives:', err);
-        }
-    };
+    // const fetchActiveLives = async () => {
+    //     try {
+    //         const { data } = await api.get('/api/live/active');
+    //         // setActiveLiveStreams(data);
+    //     } catch (err) {
+    //         console.error('Error fetching lives:', err);
+    //     }
+    // };
 
-    useEffect(() => {
-        fetchActiveLives();
-        const interval = setInterval(fetchActiveLives, 30000); // Polling for now
-        return () => clearInterval(interval);
-    }, []);
+    // useEffect(() => {
+    //     fetchActiveLives();
+    //     const interval = setInterval(fetchActiveLives, 30000); // Polling for now
+    //     return () => clearInterval(interval);
+    // }, []);
 
-    const handleGoLive = async () => {
-        try {
-            const { data } = await api.post('/api/live/start', { title: `${loggeduser.fullname}'s Live` });
-            setLiveStream(data._id, true);
-        } catch (err) {
-            toast.error('Could not start live stream');
-        }
-    };
+    // const handleGoLive = async () => {
+    //     try {
+    //         const { data } = await api.post('/api/live/start', { title: `${loggeduser.fullname}'s Live` });
+    //         setLiveStream(data._id, true);
+    //     } catch (err) {
+    //         toast.error('Could not start live stream');
+    //     }
+    // };
 
     useEffect(() => {
         if (storyDetailUserId && groups.length > 0) {
@@ -946,7 +946,7 @@ const Stories = () => {
                             </div>
                             <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
                         </div>
-                    ))} */}    
+                    ))} */}
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                         <div style={{ position: 'relative', width: 89, height: 89 }}>

@@ -61,11 +61,12 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [pickerVisible, setPickerVisible] = useState(false);
     const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
     const lastTap = useRef({});
-
+    const viewedPostIdRef = useRef(null);
     const incrementViewMutation = useIncrementView();
 
     useEffect(() => {
-        if (post?._id) {
+        if (post?._id && viewedPostIdRef.current !== post._id) {
+            viewedPostIdRef.current = post._id;
             incrementViewMutation.mutate({ postId: post._id });
         }
     }, [post?._id, incrementViewMutation]); 
