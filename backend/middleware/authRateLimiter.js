@@ -1,16 +1,53 @@
-const { RateLimiterRedis } = require('rate-limiter-flexible');
+const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible');
 const redisClient = require('../lib/redis'); 
 
-const rateLimiter = new RateLimiterRedis({
-  storeClient: redisClient,
-  points: 10, // 10 requests
-  duration: 60, // per 60 seconds by IP
-  keyPrefix: 'rl-auth', // specific prefix for auth endpoints
+let rateLimiter;
+
+// Initialize the primary Redis-backed limiter if URL is available
+if (process.env.REDIS_URL) {
+  rateLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    points: 10,
+    duration: 60,
+    keyPrefix: 'rl-auth',
+  });
+}
+
+// Memory-backed limiter for fallback
+const memoryLimiter = new RateLimiterMemory({
+  points: 10,
+  duration: 60,
 });
 
-module.exports = (req, res, next) => {
+module.exports = async (req, res, next) => {
   const key = req.ip;
-  rateLimiter.consume(key)
-    .then(() => next())
-    .catch(() => res.status(429).json({ error: 'Too many login/signup attempts. Please try again later.' }));
+
+  // 1. If no Redis URL, just use memory limiter and proceed
+  if (!process.env.REDIS_URL || !rateLimiter) {
+    return memoryLimiter.consume(key)
+      .then(() => next())
+      .catch(() => res.status(429).json({ error: 'Too many login attempts. Please try again later.' }));
+  }
+
+  // 2. Try Redis limiter, fallback to Memory on Redis server error
+  try {
+    await rateLimiter.consume(key);
+    next();
+  } catch (err) {
+    // Check if it's a rate limit rejection (no 'message' field usually) or a Redis Error
+    if (err && err.consumePoints !== undefined) {
+      // It's a rate limit rejection!
+      return res.status(429).json({ error: 'Too many login/signup attempts. Please try again later.' });
+    }
+
+    // It's a Redis internal error (e.g., Upstash limit reached)
+    console.warn('[RateLimiter] Redis error (limit reached?), falling back to Memory:', err?.message || 'Unknown error');
+    
+    try {
+      await memoryLimiter.consume(key);
+      next();
+    } catch (memErr) {
+      res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+    }
+  }
 };
