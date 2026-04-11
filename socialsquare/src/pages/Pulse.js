@@ -1,13 +1,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import useAuthStore, { api } from '../store/zustand/useAuthStore';
-import Sidebar from './components/Sidebar';
-import Navbar from './components/Navbar';
-import BottomNav from './components/BottomNav';
+import { api } from '../store/zustand/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 
 const Pulse = () => {
-    const user = useAuthStore(s => s.user);
     const navigate = useNavigate();
 
     const { data, isLoading } = useQuery({

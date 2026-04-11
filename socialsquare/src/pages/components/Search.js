@@ -5,7 +5,6 @@ import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
 import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
 import useAuthStore from "../../store/zustand/useAuthStore";
-import useWindowWidth from "../../hooks/useWindowWidth";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -15,8 +14,6 @@ const MAX_RECENT = 5;
 const Search = ({ onClose }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isFocused, setIsFocused] = useState(false);
-    const windowWidth = useWindowWidth();
-    const isMobile = windowWidth < 1024;
     const [isVisible, setVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [recentSearches, setRecentSearches] = useState(() => {
