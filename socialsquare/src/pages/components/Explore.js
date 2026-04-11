@@ -77,6 +77,7 @@ const Explore = () => {
   const [visible, setVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [floatingReactions, setFloatingReactions] = useState([]);
   const [heartVisible, setHeartVisible] = useState(false);
   const lastTap = useRef(0);
 
@@ -89,8 +90,19 @@ const Explore = () => {
   const handleVisible = React.useCallback((id) => {
     setCurrentlyPlayingId(id);
   }, []);
+  
+  const addFloatingReaction = (emoji = '❤️') => {
+    const id = Date.now();
+    const x = Math.random() * 60 + 20; // 20-80% width
+    setFloatingReactions(prev => [...prev, { id, x, emoji }]);
+    setTimeout(() => {
+      setFloatingReactions(prev => prev.filter(r => r.id !== id));
+    }, 1200);
+  };
 
   const handleDoubleClick = () => {
+    if (navigator.vibrate) navigator.vibrate([10, 30]);
+    addFloatingReaction();
     setHeartVisible(true);
     toast.success('Added to Liked Videos!');
     setTimeout(() => setHeartVisible(false), 800);
@@ -186,15 +198,42 @@ const Explore = () => {
               className="h-full w-auto max-w-full object-contain cursor-pointer"
             />
 
+            {/* Floating Reactions Layer */}
+            {floatingReactions.map(r => (
+              <span 
+                key={r.id} 
+                className="floating-reaction" 
+                style={{ left: `${r.x}%`, bottom: '20%' }}
+              >
+                {r.emoji}
+              </span>
+            ))}
+
             {/* Overlay Actions */}
             <div className="absolute bottom-10 right-4 flex flex-col gap-6 items-center text-white z-40">
               <div className="flex flex-col items-center gap-1">
-                <button className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-110 transition" onClick={handleDoubleClick}><i className="pi pi-heart-fill text-red-500"></i></button>
+                <button 
+                    className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 active:scale-90 transition-all" 
+                    onClick={() => {
+                        handleDoubleClick();
+                        addFloatingReaction('🔥');
+                    }}
+                >
+                    <i className="pi pi-heart-fill text-red-500"></i>
+                </button>
                 <span className="text-[10px] font-bold">Liked</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <button className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-110 transition"><i className="pi pi-comment"></i></button>
-                <span className="text-[10px] font-bold">Share</span>
+                <button 
+                    className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 transition"
+                    onClick={() => {
+                        if (navigator.vibrate) navigator.vibrate(10);
+                        addFloatingReaction('💬');
+                    }}
+                >
+                    <i className="pi pi-comment"></i>
+                </button>
+                <span className="text-[10px] font-bold">React</span>
               </div>
             </div>
 

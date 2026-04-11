@@ -45,6 +45,7 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
+const Pulse = lazy(() => import('./pages/Pulse'));
 
 const PageLoader = () => (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
@@ -315,6 +316,7 @@ function App() {
                                 <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
                                 <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
                                 <Route path="/users" element={<MainLayout><UsersPage /></MainLayout>} />
+                                <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
 
                             </Routes>
                         </Suspense>

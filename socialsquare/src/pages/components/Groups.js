@@ -17,6 +17,7 @@ const Groups = () => {
 
     const handleCreate = async () => {
         if (!newGroup.name.trim()) return toast.error('Group name is required');
+        if (navigator.vibrate) navigator.vibrate(20);
         try {
             await createGroupMutation.mutateAsync(newGroup);
             toast.success('Group created!');
@@ -26,6 +27,7 @@ const Groups = () => {
     };
 
     const handleJoin = async (groupId) => {
+        if (navigator.vibrate) navigator.vibrate(10);
         try {
             await joinMutation.mutateAsync({ groupId });
             toast.success('Joined group!');
@@ -33,6 +35,7 @@ const Groups = () => {
     };
 
     const handleLeave = async (groupId) => {
+        if (navigator.vibrate) navigator.vibrate(5);
         try {
             await leaveMutation.mutateAsync({ groupId });
             toast.success('Left group');

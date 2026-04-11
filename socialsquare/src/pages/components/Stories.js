@@ -984,15 +984,16 @@ const Stories = () => {
                             <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                                 <div
                                     onClick={() => openViewer(realIndex)}
-                                    style={{ width: 89, height: 89, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
+                                    style={{ position: 'relative', width: 89, height: 89, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
                                 >
-                                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
+                                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }} className={group.user.isOnline ? 'presence-glow' : ''}>
                                         <img
                                             src={group.user.profile_picture}
                                             alt=""
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />
                                     </div>
+                                    {group.user.isOnline && <div className="presence-dot" style={{ width: 16, height: 16, border: '3px solid var(--surface-1)' }} />}
                                 </div>
                                 <span
                                     onClick={(e) => handleProfileClick(e, group.user._id)}

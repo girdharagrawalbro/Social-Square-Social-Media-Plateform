@@ -19,6 +19,7 @@ const BottomNav = () => {
     const navItems = [
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
+        { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse', accent: true },
         { key: 'users', icon: 'pi-users', to: () => '/users' },
         { key: 'messages', icon: 'pi-envelope', to: () => '/messages' },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
@@ -48,7 +49,11 @@ const BottomNav = () => {
                 {navItems.map(item => (
                     <button key={item.key}
                         aria-label={item.key.charAt(0).toUpperCase() + item.key.slice(1)}
-                        className={`px-3 py-2 rounded-full border-0 cursor-pointer transition-all ${isActive(item.key, item.to) ? 'bg-[#808bf5] text-white' : isDark ? 'bg-gray-700 text-gray-300' : 'bg-transparent border border-gray-200 text-gray-600'}`}
+                        className={`px-3 py-2 rounded-full border-0 cursor-pointer transition-all ${
+                            item.accent ? 'bg-gradient-to-tr from-[#808bf5] to-[#6366f1] text-white shadow-md' : 
+                            isActive(item.key, item.to) ? 'bg-[#808bf5] text-white' : 
+                            isDark ? 'bg-gray-700 text-gray-300' : 'bg-transparent border border-gray-200 text-gray-600'
+                        }`}
                         onClick={() => handleClick(item)}>
                         <i className={`pi ${item.icon}`}></i>
                     </button>

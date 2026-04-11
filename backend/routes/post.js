@@ -395,9 +395,25 @@ router.get("/", async (req, res) => {
             }
         }
         const result = final.slice(0, limit);
+
+        // Fetch fresh presence for all users in the feed
+        const uniqueUserIds = [...new Set(result.map(p => p.user._id.toString()))];
+        const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
+        const presenceMap = {};
+        usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
+
+        // Attach presence to results
+        const resultWithPresence = result.map(p => {
+            const po = p.toObject ? p.toObject() : p;
+            if (po.user) {
+                po.user.isOnline = presenceMap[po.user._id.toString()] || false;
+            }
+            return po;
+        });
+
         const hasMore = posts.length >= limit;
         const nextCursor = result.length > 0 ? result[result.length - 1]._id : null;
-        res.status(200).json({ posts: result, nextCursor, hasMore });
+        res.status(200).json({ posts: resultWithPresence, nextCursor, hasMore });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -528,19 +544,57 @@ router.post("/react", verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── TRENDING ─────────────────────────────────────────────────────────────────
+// ─── PULSE / TRENDING ────────────────────────────────────────────────────────
 router.get("/trending", async (req, res) => {
     try {
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const trending = await Post.aggregate([
-            { $match: { createdAt: { $gte: sevenDaysAgo } } },
-            { $group: { _id: '$category', postCount: { $sum: 1 }, totalLikes: { $sum: { $size: '$likes' } }, totalComments: { $sum: { $size: '$comments' } } } },
-            { $addFields: { score: { $add: ['$totalLikes', { $multiply: ['$totalComments', 2] }, '$postCount'] } } },
-            { $sort: { score: -1 } }, { $limit: 10 },
-            { $project: { category: '$_id', postCount: 1, totalLikes: 1, totalComments: 1, score: 1, _id: 0 } }
+        
+        // 1. Trending Categories
+        const categories = await Post.aggregate([
+            { $match: { createdAt: { $gte: sevenDaysAgo }, isAnonymous: { $ne: true } } },
+            { $group: { _id: '$category', postCount: { $sum: 1 }, totalLikes: { $sum: { $size: '$likes' } } } },
+            { $sort: { totalLikes: -1, postCount: -1 } },
+            { $limit: 8 }
         ]);
-        res.status(200).json(trending);
-    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+
+        // 2. Trending Hashtags (Manual extraction from captions)
+        const postsWithHashtags = await Post.find({ 
+            createdAt: { $gte: sevenDaysAgo },
+            isAnonymous: { $ne: true },
+            caption: { $regex: /#/ } 
+        }).select('caption');
+
+        const hashtagMap = {};
+        postsWithHashtags.forEach(p => {
+            const tags = p.caption.match(/#[\w]+/g) || [];
+            tags.forEach(t => { hashtagMap[t] = (hashtagMap[t] || 0) + 1; });
+        });
+        const hashtags = Object.entries(hashtagMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 15)
+            .map(([tag, count]) => ({ tag, count }));
+
+        // 3. Top Users (Rising Stars)
+        const topUsersAgg = await Post.aggregate([
+            { $match: { createdAt: { $gte: sevenDaysAgo }, isAnonymous: { $ne: true } } },
+            { $group: { _id: '$user._id', totalLikes: { $sum: { $size: '$likes' } }, postCount: { $sum: 1 } } },
+            { $sort: { totalLikes: -1 } },
+            { $limit: 5 }
+        ]);
+
+        const topUserIds = topUsersAgg.map(u => u._id);
+        const topUsersInfo = await User.find({ _id: { $in: topUserIds } }).select('fullname username profile_picture followers isOnline');
+        
+        const topUsers = topUsersAgg.map(u => {
+            const info = topUsersInfo.find(ui => ui._id.toString() === u._id.toString());
+            return {
+                ...u,
+                user: info
+            };
+        });
+
+        res.status(200).json({ categories, hashtags, topUsers });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ─── LIKE (PROTECTED) ─────────────────────────────────────────────────────────
