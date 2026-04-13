@@ -29,8 +29,14 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
     const [heartVisible, setHeartVisible] = useState(false);
     const likeMutation = useLikeComment();
 
+    const commentUserId = typeof comment?.user === 'string' ? comment.user : comment?.user?._id;
+    const commentUserName = (typeof comment?.user === 'object' && comment?.user?.fullname) ? comment.user.fullname : 'Unknown';
+    const commentUserPicture = (typeof comment?.user === 'object' && comment?.user?.profile_picture)
+        ? comment.user.profile_picture
+        : '/default-profile.png';
+
     // ✅ Fix: compare as strings to handle ObjectId vs string mismatch
-    const loggedUserId = loggeduser._id?.toString();
+    const loggedUserId = loggeduser?._id?.toString();
     const isLikedInitial = (comment.likes || []).some(id => id?.toString() === loggedUserId);
     const [liked, setLiked] = useState(isLikedInitial);
     const [likeCount, setLikeCount] = useState(comment.likes?.length || 0);
@@ -74,7 +80,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
         } catch { }
     };
 
-    const isOwn = comment.user._id?.toString() === loggedUserId;
+    const isOwn = commentUserId?.toString?.() === loggedUserId;
 
     return (
         <div style={{ marginLeft: depth > 0 ? '40px' : '0', marginBottom: '8px' }}>
@@ -82,10 +88,10 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                 <div
                     className="rounded-full overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition"
                     style={{ width: 32, height: 32, border: '1px solid var(--border-color)' }}
-                    onClick={() => onProfileClick?.(comment.user._id)}
+                    onClick={() => commentUserId && onProfileClick?.(commentUserId)}
                 >
                     <img
-                        src={comment.user.profile_picture || '/default-profile.png'}
+                        src={commentUserPicture}
                         alt=""
                         className="w-full h-full object-cover"
                     />
@@ -97,9 +103,9 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                     >
                         <p
                             className="m-0 text-xs font-semibold cursor-pointer hover:text-[#808bf5] transition text-[var(--text-main)]"
-                            onClick={() => onProfileClick?.(comment.user._id)}
+                            onClick={() => commentUserId && onProfileClick?.(commentUserId)}
                         >
-                            {comment.user.fullname}
+                            {commentUserName}
                         </p>
                         <p className="m-0 text-sm text-[var(--text-main)]">{comment.content}</p>
                         <HeartBurst visible={heartVisible} />
@@ -138,7 +144,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                         <form onSubmit={handleReplySubmit} className="flex gap-2 mt-2 items-center">
                             <img src={loggeduser.profile_picture} alt="" className="rounded-full object-cover" style={{ width: 24, height: 24 }} />
                             <input type="text" value={replyText} onChange={e => setReplyText(e.target.value)}
-                                placeholder={`Reply to ${comment.user.fullname}...`}
+                                placeholder={`Reply to ${commentUserName}...`}
                                 className="flex-1 text-xs border border-[var(--border-color)] rounded-full px-3 py-1 outline-none bg-[var(--surface-2)] color-[var(--text-main)]" autoFocus />
                             <button type="submit" className="text-xs bg-[#808bf5] text-white border-0 rounded-full px-3 py-1 cursor-pointer">     <i className="pi pi-send" style={{ fontSize: '10px' }}></i></button>
                         </form>
@@ -177,6 +183,7 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!loggeduser?._id) return;
         if (!formData.content.trim()) return;
         const payload = {
             postId, content: formData.content,
