@@ -304,8 +304,72 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                     <div className="w-full md:w-[450px] flex flex-col h-full border-l border-[var(--border-color)] bg-[var(--surface-1)]">
                         {/* Scrollable Content */}
                         <div className="flex-1 flex flex-col min-h-0">
+                            {/* MOBILE ONLY - MEDIA (image/video). Desktop uses the left column. */}
+                            <div className="md:hidden flex-shrink-0 border-b border-[var(--border-color)] bg-[var(--surface-1)]">
+                                <div className="relative w-full h-[34vh] max-h-[360px] flex items-center justify-center overflow-hidden">
+                                    {post?.video ? (
+                                        <video
+                                            src={post.video}
+                                            controls
+                                            onDoubleClick={handleImageDoubleClick}
+                                            onTouchEnd={handleImageTap}
+                                            className="w-full h-full object-contain"
+                                            style={{ display: 'block', background: 'black' }}
+                                        />
+                                    ) : images[currentImage] ? (
+                                        <>
+                                            <img
+                                                src={images[currentImage]}
+                                                alt="Post"
+                                                onDoubleClick={handleImageDoubleClick}
+                                                onTouchEnd={handleImageTap}
+                                                className="w-full h-full object-contain cursor-pointer"
+                                                style={{ background: 'black' }}
+                                            />
+                                            {images.length > 1 && (
+                                                <>
+                                                    {currentImage > 0 && (
+                                                        <button
+                                                            aria-label="Previous image"
+                                                            onClick={() => setCurrentImage(c => c - 1)}
+                                                            className="absolute left-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer"
+                                                        >
+                                                            <i className="pi pi-chevron-left"></i>
+                                                        </button>
+                                                    )}
+                                                    {currentImage < images.length - 1 && (
+                                                        <button
+                                                            aria-label="Next image"
+                                                            onClick={() => setCurrentImage(c => c + 1)}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer"
+                                                        >
+                                                            <i className="pi pi-chevron-right"></i>
+                                                        </button>
+                                                    )}
+                                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-sm p-1.5 rounded-full">
+                                                        {images.map((_, i) => (
+                                                            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-sm text-[var(--text-sub)] bg-[var(--surface-2)]">
+                                            No media
+                                        </div>
+                                    )}
+
+                                    {heartVisible && (
+                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
+                                            <span className="text-7xl">❤️</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Author & Caption */}
-                            <div className="px-4 py-3 border-b border-[var(--border-color)] flex-shrink-0">
+                            <div className="px-4 py-3 border-b border-[var(--border-color)] shrink md:shrink-0 max-h-[26vh] overflow-y-auto md:max-h-none md:overflow-visible">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
                                         <img
@@ -459,7 +523,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 <p className="m-0 text-[10px] text-[var(--text-sub)] uppercase tracking-wide">{formatDate(post.createdAt || post.updatedAt)}</p>
                             </div>
                             {/* Similar Posts */}
-                            <div className="">
+                            <div className="hidden md:block">
                                 <SimilarPosts postId={post._id} onPostClick={(id) => setActivePostId(id)} />
                             </div>
                         </div>

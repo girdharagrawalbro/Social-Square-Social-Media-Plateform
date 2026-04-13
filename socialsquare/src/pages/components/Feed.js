@@ -23,7 +23,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 import SharePostDialog from './ui/SharePostDialog';
 import ReactionPicker from './ReactionPicker';
 import PostMenu from './ui/PostMenu';
-import { usePrefetchUserProfile } from '../../hooks/queries/useAuthQueries';
+import { usePrefetchUserProfile, useFollowUser } from '../../hooks/queries/useAuthQueries';
 import { usePrefetchPost } from '../../hooks/queries/usePostQueries';
 
 
@@ -151,7 +151,7 @@ const PostItem = React.memo(({
     visiblePostId, pickerPostId, savingPostIds, 
     onLikeToggle, onImageDoubleClick, onImageTap, onSave, onDelete, onReport, 
     onShareToStory, onProfileClick, onSharePost, onEdit, 
-    setVisibleCommentId, setPickerPostId, handleDwell, handleReact, renderCaption 
+    setVisibleCommentId, setPickerPostId, handleDwell, handleReact, renderCaption, onFollow 
 }) => {
     const prefetchUser = usePrefetchUserProfile();
     const prefetchPost = usePrefetchPost();
@@ -215,9 +215,9 @@ const PostItem = React.memo(({
                             <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider leading-none shrink-0">{formatDate(post.updatedAt)}</span>
                             {/* {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🎭 Anonymous</span>} */}
 
-                            {!isOwn && !isFollowing && (
+                            {!isOwn && !isFollowing && !post.isAnonymous && (
                                 <button
-                                    onClick={() => onLikeToggle(post)}
+                                    onClick={() => onFollow(post.user._id)}
                                     className="text-[10px] px-2.5 py-1 rounded-full border border-indigo-500 bg-[#808bf5] text-white cursor-pointer font-semibold transition leading-none h-6 flex items-center"
                                 >
                                     Follow
@@ -389,6 +389,7 @@ const Feed = ({ activeMood = null }) => {
     const deleteMutation = useDeletePost();
     const updateMutation = useUpdatePost();
     const reactMutation = useReactPost();
+    const followMutation = useFollowUser();
 
     const [pickerPostId, setPickerPostId] = useState(null);
     const reportMutation = useReportPost();
@@ -411,6 +412,11 @@ const Feed = ({ activeMood = null }) => {
         if (navigator.vibrate) navigator.vibrate(15);
         reactMutation.mutate({ postId: post._id, emoji });
         setPickerPostId(null);
+    };
+
+    const handleFollow = (targetUserId) => {
+        if (!targetUserId) return;
+        followMutation.mutate({ targetUserId });
     };
 
     // Infinite scroll sentinel
@@ -656,6 +662,7 @@ const Feed = ({ activeMood = null }) => {
                                 handleDwell={handleDwell}
                                 handleReact={handleReact}
                                 renderCaption={renderCaption}
+                                onFollow={handleFollow}
                             />
                         )) : (
                             <div style={{ textAlign: 'center', padding: '48px 16px' }}>
