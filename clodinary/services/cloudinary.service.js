@@ -21,11 +21,13 @@ function getCloudinary() {
 // Upload a base64 string or file path
 async function uploadBase64(base64Data, options = {}) {
     const cld = getCloudinary();
-    return cld.uploader.upload(base64Data, {
+    const uploadOptions = {
         folder:        options.folder        || 'uploads',
         resource_type: options.resource_type || 'image',
         ...options,
-    });
+    };
+
+    return cld.uploader.upload(base64Data, uploadOptions);
 }
 
 // Upload from a URL (for AI-generated images)

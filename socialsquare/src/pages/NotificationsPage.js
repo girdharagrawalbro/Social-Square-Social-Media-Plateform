@@ -3,7 +3,6 @@ import useAuthStore from '../store/zustand/useAuthStore';
 import { useNotifications } from '../hooks/useNotifications';
 import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } from '../hooks/queries/useAuthQueries';
 import usePostStore from '../store/zustand/usePostStore';
-import useConversationStore from '../store/zustand/useConversationStore';
 import { useNavigate } from 'react-router-dom';
 import CollabManager from './components/CollabManager';
 
@@ -15,7 +14,6 @@ const NotificationsPage = () => {
     const { data: collabInvites = [] } = useCollabInvites(user?._id);
 
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
-    const openChat = useConversationStore(s => s.openChat);
     const acceptMutation = useAcceptFollowRequest();
     const declineMutation = useDeclineFollowRequest();
 

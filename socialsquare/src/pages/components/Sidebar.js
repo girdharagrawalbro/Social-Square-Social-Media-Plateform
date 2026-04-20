@@ -131,9 +131,7 @@ export default function Sidebar() {
                 </div>
             </Dialog>
 
-            <Dialog header="Add Post" visible={newpostVisible} modal position="center" style={{ width: '30vw', maxHeight: '100vh' }} onHide={() => setnewpostVisible(false)}>
-                <NewPost setnewpostVisible={setnewpostVisible} />
-            </Dialog>
+            <NewPost visible={newpostVisible} onHide={() => setnewpostVisible(false)} />
 
 
         </>

@@ -120,7 +120,7 @@ const Communities = () => {
 
 
     return (
-        <div style={{ maxWidth: '680px', margin: '0 auto', padding: '16px' }}>
+        <div className='max-w-[680px] my-0 mx-auto py-3'>
 
             {/* ── Tabs ── */}
             <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>

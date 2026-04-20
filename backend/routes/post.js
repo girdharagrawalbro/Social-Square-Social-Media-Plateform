@@ -100,7 +100,7 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             caption, category, imageURLs, videoURL, location, music,
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
-            isAiGenerated, groupId, poll,
+            isAiGenerated, groupId, poll, videoThumbnail
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
 
@@ -124,6 +124,7 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             caption, category,
             image_urls: Array.isArray(imageURLs) ? imageURLs : [],
             video: videoURL || null,
+            videoThumbnail: videoThumbnail || null,
             user: isAnonymous
                 ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },

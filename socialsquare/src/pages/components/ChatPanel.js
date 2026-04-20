@@ -10,6 +10,7 @@ import UserProfile from './UserProfile';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import ProgressiveImage from './ui/ProgressiveImage';
+import useWindowWidth from '../../hooks/useWindowWidth';
 
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
@@ -122,6 +123,9 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [storyModalGroupIndex, setStoryModalGroupIndex] = useState(0);
     const [storyModalInitialStoryId, setStoryModalInitialStoryId] = useState(null);
     const [StoryViewerComp, setStoryViewerComp] = useState(null);
+    const windowWidth = useWindowWidth();
+    const isDesktop = windowWidth >= 1024;
+
 
     const isDeleted = !!message.deletedAt;
     const longPressTimer = useRef(null);
@@ -500,15 +504,15 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                     <Dialog
                         showHeader={false}
                         visible={showPostModal}
-                        style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                        style={{ width: isDesktop ? '95vw' : '100vw', maxWidth: isDesktop ? '1200px' : 'none', height: isDesktop ? '90vh' : '100dvh' }}
                         onHide={() => setShowPostModal(false)}
-                        contentStyle={{ padding: 0, borderRadius: '24px', overflow: 'hidden', background: 'transparent' }}
+                        contentStyle={{ padding: 0, borderRadius: isDesktop ? '24px' : '0', overflow: 'hidden', background: 'transparent' }}
                         baseZIndex={20000}
                         dismissableMask
                         blockScroll={true}
                         closable={false}
                     >
-                        <div className="relative bg-[var(--surface-1)] h-full w-full" style={{ borderRadius: '24px', overflow: 'hidden' }}>
+                        <div className="relative bg-[var(--surface-1)] h-full w-full" style={{ borderRadius: isDesktop ? '24px' : '0', overflow: 'hidden', border: isDesktop ? '1px solid var(--border-color)' : 'none' }}>
                             <button
                                 onClick={() => setShowPostModal(false)}
                                 className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
@@ -973,11 +977,17 @@ const ChatPanel = ({
         try {
             let mediaUrl, mediaType;
             if (file.type.startsWith('image/')) {
-                mediaUrl = await uploadToCloudinary(file); mediaType = 'image';
+                const result = await uploadToCloudinary(file);
+                mediaUrl = typeof result === 'string' ? result : result?.url;
+                mediaType = 'image';
             } else if (file.type.startsWith('video/')) {
-                mediaUrl = await uploadVideoToCloudinary(file); mediaType = 'video';
+                const result = await uploadVideoToCloudinary(file);
+                mediaUrl = typeof result === 'string' ? result : result?.url;
+                mediaType = 'video';
             } else {
-                mediaUrl = await uploadToCloudinary(file); mediaType = 'file';
+                const result = await uploadToCloudinary(file);
+                mediaUrl = typeof result === 'string' ? result : result?.url;
+                mediaType = 'file';
             }
 
             const res = await sendMessageMut.mutateAsync({

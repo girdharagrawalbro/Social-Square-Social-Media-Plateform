@@ -10,6 +10,7 @@ const PostSchema = new mongoose.Schema(
     image_url: { type: String, default: null },
     image_urls: [{ type: String }],
     video: { type: String, default: null },
+    videoThumbnail: { type: String, default: null },
     caption: { type: String, maxLength: 500 },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     reactions: [{

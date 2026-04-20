@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MainSkeleton from './components/MainSkeleton';
 import OtherUsers from './components/OtherUsers';
@@ -15,10 +15,9 @@ import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
-import toast from 'react-hot-toast';
 
 const Home = () => {
-    const [activeView, setActiveView] = useState('feed');
+    const activeView = 'feed';
     const navigate = useNavigate();
     const location = useLocation();
     const windowWidth = useWindowWidth();
@@ -101,7 +100,6 @@ const Home = () => {
     if (!initialized || loading || !loggeduser) return <MainSkeleton />;
 
     const bg = 'bg-[var(--surface-2)]';
-    const cardBg = 'bg-[var(--surface-1)]';
 
     const renderMobileView = () => {
         switch (activeView) {
@@ -115,13 +113,6 @@ const Home = () => {
         }
     };
 
-    const navItems = [
-        { key: 'feed', icon: 'pi-home' },
-        { key: 'explore', icon: 'pi-compass' },
-        { key: 'communities', icon: 'pi-users' },
-        { key: 'messages', icon: 'pi-envelope' },
-        { key: 'profile', icon: 'pi-user' },
-    ];
 
     // const handleResend = async () => {
     //     setIsResending(true);
@@ -171,18 +162,6 @@ const Home = () => {
                     <div className={`flex-1 p-2 ${activeView === 'messages' ? 'h-[calc(100dvh-120px)] flex flex-col overflow-hidden' : ''}`}>
                         {renderMobileView()}
                     </div>
-                    {/* Floating Nav */}
-                    <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[90%] max-w-md ${cardBg} rounded-3xl p-2 shadow-2xl border border-[var(--border-color)] blur-bg`} style={{ zIndex: 1000 }}>
-                        <div className="flex justify-around items-center">
-                            {navItems.map(item => (
-                                <button key={item.key}
-                                    className={`w-12 h-12 rounded-2xl cursor-pointer transition-all flex items-center justify-center ${activeView === item.key ? 'bg-[#808bf5] text-white shadow-lg' : 'bg-transparent text-[var(--text-sub)] hover:text-[var(--text-main)]'}`}
-                                    onClick={() => setActiveView(item.key)}>
-                                    <i className={`pi ${item.icon} text-lg`}></i>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
                 </div>
             )}
 
@@ -191,7 +170,8 @@ const Home = () => {
             <Dialog
                 showHeader={false}
                 visible={!!postDetailId}
-                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                style={{ width: isDesktop ? '95vw' : '100vw', maxWidth: isDesktop ? '1200px' : 'none', height: isDesktop ? '90vh' : '100dvh' }}
+                className={!isDesktop ? 'p-0' : ''}
                 position="center"
                 onHide={() => setPostDetailId(null)}
                 dismissableMask
@@ -199,7 +179,7 @@ const Home = () => {
                 closable={false}
                 modal
                 maskStyle={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}
-            > <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+            > <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: isDesktop ? '24px' : '0', overflow: 'hidden', border: isDesktop ? '1px solid var(--border-color)' : 'none' }}>
                     <button
                         onClick={() => setPostDetailId(null)}
                         className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"

@@ -4,7 +4,6 @@ import { useNotifications } from '../../../hooks/useNotifications';
 import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } from '../../../hooks/queries/useAuthQueries';
 import CollabManager from '../CollabManager';
 import usePostStore from '../../../store/zustand/usePostStore';
-import useConversationStore from '../../../store/zustand/useConversationStore';
 import { Dialog } from 'primereact/dialog';
 import { useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../../../context/DarkModeContext';
@@ -21,7 +20,6 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     const { data: collabInvites = [] } = useCollabInvites(userId);
 
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
-    const openChat = useConversationStore(s => s.openChat);
     const acceptMutation = useAcceptFollowRequest();
     const declineMutation = useDeclineFollowRequest();
     const pendingCollabCount = collabInvites.length;

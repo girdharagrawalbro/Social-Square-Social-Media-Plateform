@@ -45,6 +45,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const Pulse = lazy(() => import('./pages/Pulse'));
+const StoriesPage = lazy(() => import('./pages/StoriesPage'));
 
 const PageLoader = () => (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
@@ -181,7 +182,7 @@ function AppInit() {
             socket.off('newNotification');
             socket.off('collaborationInvite');
         };
-    }, [user?._id, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate]);
+    }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate]);
 
     return null;
 }
@@ -230,11 +231,11 @@ function SharedStoryRedirect() {
         if (!initialized || loading) return;
 
         if (user?.username) {
-            navigate(`/${user.username}?storyUser=${userId}${storyId ? `&story=${storyId}` : ''}`, { replace: true });
+            navigate(`/stories/${userId}${storyId ? `/${storyId}` : ''}`, { replace: true });
             return;
         }
 
-        navigate(`/login?storyUser=${userId}${storyId ? `&story=${storyId}` : ''}`, { replace: true });
+        navigate(`/login?redirect=/stories/${userId}${storyId ? `/${storyId}` : ''}`, { replace: true });
     }, [userId, storyId, initialized, loading, user?.username, navigate]);
 
     return <PageLoader />;
@@ -354,6 +355,9 @@ function App() {
                                 <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
                                 <Route path="/users" element={<MainLayout><UsersPage /></MainLayout>} />
                                 <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
+                                <Route path="/stories/:username" element={<StoriesPage />} />
+                                <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
+                                <Route path="/stories" element={<StoriesPage />} />
 
                             </Routes>
                         </Suspense>
