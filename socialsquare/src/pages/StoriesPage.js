@@ -57,7 +57,7 @@ const StoriesPage = () => {
     const nextGroup = safeIndex < groups.length - 1 ? groups[safeIndex + 1] : null;
 
     const handleClose = () => {
-        navigate(-1);
+        navigate(`/${user?.username || ''}`, { replace: true });
     };
 
     const navigateToGroup = (index) => {
@@ -96,18 +96,12 @@ const StoriesPage = () => {
             {/* Close Button */}
             <button 
                 onClick={handleClose}
-                className="absolute top-6 right-6 z-[2010] bg-white/10 hover:bg-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md border border-white/10 group cursor-pointer"
+                className="absolute top-6 right-6 z-[2010] bg-white/10 hover:bg-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md group cursor-pointer"
             >
                 <i className="pi pi-times group-hover:scale-110 transition-transform"></i>
             </button>
 
-            {/* Logo */}
-            <div className="absolute top-6 left-8 z-[2010] hidden md:flex items-center gap-2 pointer-events-none opacity-80">
-                <div className="w-8 h-8 bg-gradient-to-br from-[#808bf5] to-[#a5aefb] rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold text-lg">S</span>
-                </div>
-                <span className="text-white font-semibold tracking-wide">Stories</span>
-            </div>
+          
 
             <div className="relative flex items-center justify-center w-full h-full max-w-[1400px] mx-auto px-4 gap-8">
                 
@@ -137,7 +131,7 @@ const StoriesPage = () => {
                 )}
 
                 {/* ACTIVE STORY VIEWER */}
-                <div className="relative w-full max-w-[420px] aspect-[9/16] h-[90vh] max-h-[820px] rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] border border-white/10 z-[2005] animate-in zoom-in-95 duration-300">
+                <div className="relative w-full max-w-[420px] aspect-[9/16] h-[90vh] max-h-[820px] rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)]  animate-in zoom-in-95 duration-300">
                     <StoryViewer 
                         groups={groups}
                         startGroupIndex={safeIndex}

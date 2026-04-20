@@ -52,14 +52,14 @@ export default function Sidebar() {
                 <div className="flex items-center justify-between px-3 py-4 border-b border-[var(--border-color)]">
                     <div className="flex items-center gap-3">
                         <Link to={user?.username ? `/${user.username}` : "/"} className="flex items-center shrink-0 ml-1">
-                            <i className={`pi pi-home text-3xl text-[var(--text-main)]`}></i>
+                            <img src="/logo.jpg" alt="Logo" className="w-12 h-12 rounded-full" />
                         </Link>
                         {open && <div className="text-sm font-semibold opacity-100 transition-opacity duration-300"><h1 className="font-pacifico text-3xl m-0 whitespace-nowrap text-[var(--text-main)]">Social Square</h1></div>}
                     </div>
                 </div>
 
                 <nav className="flex-1 overflow-auto py-1">
-                    <ul className={`flex flex-col gap-2 ${open ? 'px-3 items-start' : 'px-2 items-center'}`}>
+                    <ul className={`flex flex-col gap-2 ${open ? 'px-2 items-start' : 'px-3 items-center'}`}>
                         {links.map(l => (
                             <li key={l.key} className="w-full">
                                 {l.key === 'search' ? (
