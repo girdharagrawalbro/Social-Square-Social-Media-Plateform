@@ -84,7 +84,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
             {/* Bell button */}
             <button 
                 onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)} 
-                className={`flex items-center ${showLabel ? 'justify-start gap-3 px-4 w-full' : 'justify-center px-0 w-12'} 
+                className={`flex items-center ${showLabel ? 'justify-start gap-2 px-4 w-full' : 'justify-center px-0 w-12'} 
                            h-12
                            rounded-full 
                            transition-all hover:bg-gray-100 dark:hover:bg-neutral-900 

@@ -220,7 +220,7 @@ const StoryViewer = ({
             {/* Header */}
             <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '1.5px solid rgba(255,255,255,0.8)', flexShrink: 0 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
                         <img src={group.user.profile_picture || '/default-profile.png'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
