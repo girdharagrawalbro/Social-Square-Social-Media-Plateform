@@ -7,9 +7,9 @@ import { Skeleton } from 'primereact/skeleton';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
-  const { ref, inView } = useInView({ 
+  const { ref, inView } = useInView({
     threshold: 0.2, // Trigger earlier to start loading
-    rootMargin: '100px 0px' 
+    rootMargin: '100px 0px'
   });
 
   useEffect(() => {
@@ -21,7 +21,7 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.play().catch(() => {});
+        videoRef.current.play().catch(() => { });
       } else {
         videoRef.current.pause();
       }
@@ -45,34 +45,46 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
         preload="auto"
         className={`w-full h-full object-cover transition-all duration-1000 ${isPlaying ? 'grayscale-0 scale-105 opacity-100' : 'grayscale opacity-60 scale-100'}`}
       />
-      
+
       {/* Dynamic Overlay Info */}
       <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent transition-opacity duration-500 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}>
         <div className="absolute bottom-4 left-4 right-4 transform translate-y-0 transition-transform duration-500">
-            <span className="text-[10px] uppercase font-bold text-[#808bf5] tracking-widest">{vid.user?.fullname}</span>
-            <p className="m-0 text-white font-bold text-sm truncate mt-1">{vid.caption}</p>
+          <span className="text-[10px] uppercase font-bold text-[#808bf5] tracking-widest">{vid.user?.fullname}</span>
+          <p className="m-0 text-white font-bold text-sm truncate mt-1">{vid.caption}</p>
         </div>
       </div>
 
       {/* Play Indicator for Inactive */}
       {!isPlaying && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-                <i className="pi pi-play text-white text-xl ml-1"></i>
-            </div>
+          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+            <i className="pi pi-play text-white text-xl ml-1"></i>
+          </div>
         </div>
       )}
 
       {/* Status Dot */}
       <div className="absolute top-4 right-4">
-          <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-white/20'}`}></div>
+        <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-white/20'}`}></div>
       </div>
     </div>
   );
 });
 
 const Explore = () => {
-  const { data: videos = [], isLoading, refetch, isRefetching } = useExploreReels();
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+    isRefetching
+  } = useExploreReels();
+
+  // Flatten the pages into a single array of videos
+  const videos = data?.pages.flatMap(page => page.posts) || [];
+
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
   const [visible, setVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -81,16 +93,28 @@ const Explore = () => {
   const [heartVisible, setHeartVisible] = useState(false);
   const lastTap = useRef(0);
 
+  // Infinite Scroll Trigger
+  const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
+    threshold: 0.1,
+    rootMargin: '200px'
+  });
+
+  useEffect(() => {
+    if (loadMoreInView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [loadMoreInView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   useEffect(() => {
     if (videos.length > 0 && !currentlyPlayingId) {
-        setCurrentlyPlayingId(videos[0]._id);
+      setCurrentlyPlayingId(videos[0]._id);
     }
   }, [videos, currentlyPlayingId]);
 
   const handleVisible = React.useCallback((id) => {
     setCurrentlyPlayingId(id);
   }, []);
-  
+
   const addFloatingReaction = (emoji = '❤️') => {
     const id = Date.now();
     const x = Math.random() * 60 + 20; // 20-80% width
@@ -119,8 +143,8 @@ const Explore = () => {
       <div className="sticky top-0 z-20 px-4 py-4 bg-[var(--surface-1)]/80 backdrop-blur-lg border-b border-[var(--border-color)] mb-6">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <h2 className="m-0 text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
-              <i className="pi pi-compass text-[#808bf5]"></i>
-              Explore
+            <i className="pi pi-compass text-[#808bf5]"></i>
+            Explore
           </h2>
           <button
             onClick={() => refetch()}
@@ -134,28 +158,41 @@ const Explore = () => {
 
       <div className="px-2 sm:px-4 pb-12 text-center">
         {isLoading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
-                {[...Array(6)].map((_, i) => (
-                    <Skeleton key={i} shape="rectangle" className="rounded-2xl w-full" style={{ aspectRatio: '9/16' }} />
-                ))}
-            </div>
-        ) : videos.length === 0 ? (
-            <div className="py-20 flex flex-col items-center">
-                <i className="pi pi-video text-6xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500 font-medium">No reels found yet. Check back soon!</p>
-            </div>
-        ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
-            {videos.map((vid, idx) => (
-                <VideoCard 
-                key={vid._id} 
-                vid={vid} 
-                isPlaying={currentlyPlayingId === vid._id}
-                onVisible={handleVisible}
-                onClick={() => { setActiveIndex(idx); setVisible(true); }} 
-                />
+          <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} shape="rectangle" className="rounded-2xl w-full" style={{ aspectRatio: '9/16' }} />
             ))}
+          </div>
+        ) : videos.length === 0 ? (
+          <div className="py-20 flex flex-col items-center">
+            <i className="pi pi-video text-6xl text-gray-300 mb-4"></i>
+            <p className="text-gray-500 font-medium">No reels found yet. Check back soon!</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
+              {videos.map((vid, idx) => (
+                <VideoCard
+                  key={vid._id}
+                  vid={vid}
+                  isPlaying={currentlyPlayingId === vid._id}
+                  onVisible={handleVisible}
+                  onClick={() => { setActiveIndex(idx); setVisible(true); }}
+                />
+              ))}
             </div>
+
+            {/* Infinite Scroll Trigger & Loader */}
+            <div ref={loadMoreRef} className="py-10 flex justify-center w-full">
+              {isFetchingNextPage ? (
+                <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin"></div>
+              ) : hasNextPage ? (
+                <p className="text-[var(--text-sub)] text-sm font-medium opacity-50">Scrolling for more magic...</p>
+              ) : (
+                <p className="text-[var(--text-sub)] text-sm font-medium opacity-50">You've reached the end of the magic ✨</p>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -200,9 +237,9 @@ const Explore = () => {
 
             {/* Floating Reactions Layer */}
             {floatingReactions.map(r => (
-              <span 
-                key={r.id} 
-                className="floating-reaction" 
+              <span
+                key={r.id}
+                className="floating-reaction"
                 style={{ left: `${r.x}%`, bottom: '20%' }}
               >
                 {r.emoji}
@@ -212,26 +249,26 @@ const Explore = () => {
             {/* Overlay Actions */}
             <div className="absolute bottom-10 right-4 flex flex-col gap-6 items-center text-white z-40">
               <div className="flex flex-col items-center gap-1">
-                <button 
-                    className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 active:scale-90 transition-all" 
-                    onClick={() => {
-                        handleDoubleClick();
-                        addFloatingReaction('🔥');
-                    }}
+                <button
+                  className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 active:scale-90 transition-all"
+                  onClick={() => {
+                    handleDoubleClick();
+                    addFloatingReaction('🔥');
+                  }}
                 >
-                    <i className="pi pi-heart-fill text-red-500"></i>
+                  <i className="pi pi-heart-fill text-red-500"></i>
                 </button>
                 <span className="text-[10px] font-bold">Liked</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <button 
-                    className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 transition"
-                    onClick={() => {
-                        if (navigator.vibrate) navigator.vibrate(10);
-                        addFloatingReaction('💬');
-                    }}
+                <button
+                  className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 transition"
+                  onClick={() => {
+                    if (navigator.vibrate) navigator.vibrate(10);
+                    addFloatingReaction('💬');
+                  }}
                 >
-                    <i className="pi pi-comment"></i>
+                  <i className="pi pi-comment"></i>
                 </button>
                 <span className="text-[10px] font-bold">React</span>
               </div>

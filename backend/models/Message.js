@@ -26,6 +26,19 @@ const MessageSchema = new mongoose.Schema({
         storyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story' },
         mediaUrl: String,
         mediaType: String,
+        authorName: String,
+        authorUsername: String,
+        authorProfilePicture: String,
+        isShare: Boolean,
+    },
+    sharedPost: {
+        postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
+        authorName: String,
+        authorUsername: String,
+        authorProfilePicture: String,
+        caption: String,
+        mediaUrl: String,
+        mediaType: String,
     },
 }, { timestamps: true });
 

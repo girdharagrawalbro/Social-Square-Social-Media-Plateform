@@ -11,6 +11,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 import LiveStream from './LiveStream';
 import toast from 'react-hot-toast';
 import ImageCropper from './ui/ImageCropper';
+import ProgressiveImage from './ui/ProgressiveImage';
 
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
@@ -187,222 +188,225 @@ const StoryViewer = ({
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.38)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ position: 'relative', width: '100%', maxWidth: '450px', height: '100vh', maxHeight: '850px', backgroundColor: '#000', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
-                {/* Progress Bars */}
-                <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', gap: '6px', zIndex: 20 }}>
-                    {group.stories.map((_, i) => (
-                        <div key={i} style={{ flex: 1, height: '2.5px', background: 'rgba(255,255,255,0.25)', borderRadius: '10px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', background: '#fff', width: i < storyIndex ? '100%' : i === storyIndex ? `${progress}%` : '0%', transition: i === storyIndex ? 'width 0.05s linear' : 'none' }} />
-                        </div>
-                    ))}
-                </div>
-
-                {/* Header */}
-                <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '1.5px solid rgba(255,255,255,0.8)', flexShrink: 0 }}>
-                            <img src={group.user.profile_picture || '/default-profile.png'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                        <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-                            <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
-                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>
-                                {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                {isOwn && ` · ${story.viewers?.length || 0} views`}
-                            </p>
-                        </div>
+        <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#030303', overflow: 'hidden' }}>
+            {/* Progress Bars */}
+            <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', gap: '6px', zIndex: 20 }}>
+                {group.stories.map((_, i) => (
+                    <div key={i} style={{ flex: 1, height: '2.5px', background: 'rgba(255,255,255,0.25)', borderRadius: '10px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: '#fff', width: i < storyIndex ? '100%' : i === storyIndex ? `${progress}%` : '0%', transition: i === storyIndex ? 'width 0.05s linear' : 'none' }} />
                     </div>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        {isOwn && (
-                            <button onClick={handleDelete} title='Delete' style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(5px)', border: 'none', color: '#fff', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
-                                <i className="pi pi-trash" style={{ fontSize: '14px' }}></i>
-                            </button>
-                        )}
-                        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(5px)', border: 'none', color: '#fff', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
-                            <i className="pi pi-times" style={{ fontSize: '16px' }}></i>
+                ))}
+            </div>
+
+            {/* Header */}
+            <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '1.5px solid rgba(255,255,255,0.8)', flexShrink: 0 }}>
+                        <img src={group.user.profile_picture || '/default-profile.png'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                        <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
+                        <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>
+                            {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {isOwn && ` · ${story.viewers?.length || 0} views`}
+                        </p>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {isOwn && (
+                        <button onClick={handleDelete} title='Delete' style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(5px)', border: 'none', color: '#fff', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                            <i className="pi pi-trash" style={{ fontSize: '14px' }}></i>
                         </button>
-                    </div>
+                    )}
+                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(5px)', border: 'none', color: '#fff', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                        <i className="pi pi-times" style={{ fontSize: '16px' }}></i>
+                    </button>
                 </div>
+            </div>
 
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#1a1a1a' }}>
-                    {story.media.type === 'video'
-                        ? <video src={story.media.url} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        : <img src={story.media.url} alt="story" style={{ width: '100%', height: '100%', objectFit: story.sharedPostId ? 'cover' : 'contain', filter: story.sharedPostId ? 'blur(10px) brightness(0.6)' : 'none', opacity: story.sharedPostId ? 0.8 : 1 }} />
-                    }
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#1a1a1a' }}>
+                {story.media.type === 'video'
+                    ? <video src={story.media.url} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    : <ProgressiveImage
+                        src={story.media.url}
+                        alt="story"
+                        objectFit={story.sharedPostId ? 'cover' : 'contain'}
+                        placeholderColor="#111"
+                        blurIntensity="10px"
+                        style={{
+                            filter: story.sharedPostId ? 'blur(100px) brightness(0.6)' : 'none',
+                            opacity: story.sharedPostId ? 0.8 : 1,
+                            background: '#030303'
+                        }}
+                    />
+                }
 
-                    {/* Shared Post Overlay (Sticker) */}
-                    {story.sharedPostId && (
-                        <div
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsPaused(true);
-                                const pid = story.sharedPostId?._id || story.sharedPostId?.id || story.sharedPostId;
-                                if (pid) onOpenPostDetail(pid);
-                            }}
-                            style={{
-                                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                                background: 'rgba(255, 255, 255, 0.95)',
-                                padding: '12px', borderRadius: '20px',
-                                width: '310px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', cursor: 'pointer',
-                                display: 'flex', flexDirection: 'column', gap: '8px',
-                                border: '1px solid rgba(255,255,255,0.4)',
-                                zIndex: 100,
-                                transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-                            }}
-                            className="shared-post-sticker hover:scale-[1.02]"
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
-                                <img
-                                    src={story.sharedPostId.user?.profile_picture || '/default-profile.png'}
-                                    style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                {/* Shared Post Overlay (Sticker) */}
+                {story.sharedPostId && (
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsPaused(true);
+                            const pid = story.sharedPostId?._id || story.sharedPostId?.id || story.sharedPostId;
+                            if (pid) onOpenPostDetail(pid);
+                        }}
+                        style={{
+                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                            background: 'rgba(255, 255, 255, 0.95)',
+                            padding: '12px', borderRadius: '20px',
+                            width: '310px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', cursor: 'pointer',
+                            display: 'flex', flexDirection: 'column', gap: '8px',
+                            border: '1px solid rgba(255,255,255,0.4)',
+                            zIndex: 100,
+                            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                        }}
+                        className="shared-post-sticker hover:scale-[1.02]"
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
+                            <img
+                                src={story.sharedPostId.user?.profile_picture || '/default-profile.png'}
+                                style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                                alt=""
+                            />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 800, color: '#000', letterSpacing: '-0.3px' }}>{story.sharedPostId.user?.fullname}</span>
+                                <span style={{ fontSize: '10px', color: '#666', marginTop: '-2px' }}>Social Square Post</span>
+                            </div>
+                            <i className="pi pi-instagram ml-auto text-gray-400" style={{ fontSize: '12px' }}></i>
+                        </div>
+
+                        <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                            {(story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url) ? (
+                                <ProgressiveImage
+                                    src={story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url}
+                                    style={{ width: '100%', height: '100%' }}
                                     alt=""
                                 />
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 800, color: '#000', letterSpacing: '-0.3px' }}>{story.sharedPostId.user?.fullname}</span>
-                                    <span style={{ fontSize: '10px', color: '#666', marginTop: '-2px' }}>Social Square Post</span>
-                                </div>
-                                <i className="pi pi-instagram ml-auto text-gray-400" style={{ fontSize: '12px' }}></i>
-                            </div>
-
-                            <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                                {(story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url) ? (
-                                    <img
-                                        src={story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        alt=""
-                                    />
-                                ) : (
-                                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #808bf5, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} />
-                                )}
-                            </div>
-                            <div style={{ padding: '4px 6px 6px' }}>
-                                <p style={{ margin: 0, fontSize: '12px', color: '#1f2937', fontWeight: 600, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
-                                    {story.sharedPostId.caption}
-                                </p>
-                            </div>
+                            ) : (
+                                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #808bf5, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} />
+                            )}
                         </div>
-                    )}
-                </div>
-
-                {/* Overlay Text */}
-                {story.text?.content && (
-                    <div style={{ position: 'absolute', top: story.text.position === 'top' ? '25%' : story.text.position === 'bottom' ? '70%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: story.text.color || '#fff', fontSize: '24px', fontWeight: 800, textShadow: '0 4px 12px rgba(0,0,0,0.9)', textAlign: 'center', padding: '10px 20px', borderRadius: '12px', maxWidth: '85%', zIndex: 15 }}>
-                        {story.text.content}
-                    </div>
-                )}
-
-                {/* Interaction Overlay */}
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 10 }}
-                    onMouseDown={() => setIsPaused(true)}
-                    onMouseUp={() => setIsPaused(false)}
-                    onMouseLeave={() => setIsPaused(false)}
-                    onTouchStart={() => setIsPaused(true)}
-                    onTouchEnd={() => setIsPaused(false)}
-                >
-                    <div style={{ flex: 1, cursor: 'pointer' }} onClick={goPrev} />
-                    <div style={{ flex: 1, cursor: 'pointer' }} onClick={goNext} />
-                </div>
-
-                {/* Footer / Interaction Bar */}
-                <div style={{ position: 'absolute', bottom: 30, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: '15px', zIndex: 25 }}>
-                    {isOwn ? (
-                        <div
-                            onClick={async () => {
-                                setIsPaused(true);
-                                try {
-                                    const { api } = await import('../../store/zustand/useAuthStore');
-                                    const res = await api.get(`/api/story/viewers/${story._id}`);
-                                    setViewers(res.data);
-                                    setViewersVisible(true);
-                                } catch { toast.error('Failed to load viewers'); setIsPaused(false); }
-                            }}
-                            style={{ flex: 1, height: 44, borderRadius: '22px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 16px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontWeight: 600 }}
-                        >
-                            <i className="pi pi-eye mr-2"></i>
-                            {story.viewers?.length || 0} Views
-                        </div>
-                    ) : (
-                        <form
-                            onSubmit={async (e) => {
-                                e.preventDefault();
-                                const reply = e.target.reply.value;
-                                if (!reply.trim() || !story?._id) return;
-                                try {
-                                    const { api } = await import('../../store/zustand/useAuthStore');
-                                    await api.post(`/api/story/reply/${story._id}`, { content: reply });
-                                    toast.success('Reply sent!');
-                                    e.target.reply.value = '';
-                                    setIsPaused(false);
-                                } catch { toast.error('Failed to send reply'); }
-                            }}
-                            style={{ flex: 1, display: 'flex' }}
-                        >
-                            <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
-                                <input
-                                    name="reply"
-                                    type="text"
-                                    placeholder="Send message..."
-                                    onFocus={() => setIsPaused(true)}
-                                    onBlur={() => setIsPaused(false)}
-                                    autoComplete="off"
-                                    style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '13px', padding: '0 12px', outline: 'none' }}
-                                />
-                                <button type="submit" style={{ background: '#808bf5', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '2px' }}>
-                                    <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                        <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
-                            <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
-                        </button>
-                        {likesCount > 0 && <span style={{ color: '#fff', fontSize: '8px', fontWeight: 700 }}>{likesCount}</span>}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                        <button
-                            onClick={() => {
-                                setIsPaused(true);
-                                onShareStory(story);
-                            }}
-                            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                            <i className="pi pi-send" style={{ fontSize: '22px' }}></i>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Viewers Overlay */}
-                {viewersVisible && (
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', flexDirection: 'column', padding: '60px 20px 20px', animation: 'slideUp 0.3s ease-out' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>Viewers ({viewers.length})</h3>
-                            <button onClick={() => { setViewersVisible(false); setIsPaused(false); }} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '20px' }}>✕</button>
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {viewers.length === 0 ? (
-                                <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: '40px' }}>No views yet</p>
-                            ) : viewers.map(v => (
-                                <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <img src={v.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                                    <div>
-                                        <p style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: 600 }}>{v.fullname}</p>
-                                        <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '12px' }}>@{v.username}</p>
-                                    </div>
-                                </div>
-                            ))}
+                        <div style={{ padding: '4px 6px 6px' }}>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#1f2937', fontWeight: 600, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                                {story.sharedPostId.caption}
+                            </p>
                         </div>
                     </div>
                 )}
             </div>
-            <style>{`
-                @keyframes slideUp {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
-                }
-            `}</style>
+
+            {/* Overlay Text */}
+            {story.text?.content && (
+                <div style={{ position: 'absolute', top: story.text.position === 'top' ? '25%' : story.text.position === 'bottom' ? '70%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: story.text.color || '#fff', fontSize: '24px', fontWeight: 800, textShadow: '0 4px 12px rgba(0,0,0,0.9)', textAlign: 'center', padding: '10px 20px', borderRadius: '12px', maxWidth: '85%', zIndex: 15 }}>
+                    {story.text.content}
+                </div>
+            )}
+
+            {/* Interaction Overlay */}
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 10 }}
+                onMouseDown={() => setIsPaused(true)}
+                onMouseUp={() => setIsPaused(false)}
+                onMouseLeave={() => setIsPaused(false)}
+                onTouchStart={() => setIsPaused(true)}
+                onTouchEnd={() => setIsPaused(false)}
+            >
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={goPrev} />
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={goNext} />
+            </div>
+
+            {/* Footer / Interaction Bar */}
+            <div style={{ position: 'absolute', bottom: 30, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: '15px', zIndex: 25 }}>
+                {isOwn ? (
+                    <div
+                        onClick={async () => {
+                            setIsPaused(true);
+                            try {
+                                const { api } = await import('../../store/zustand/useAuthStore');
+                                const res = await api.get(`/api/story/viewers/${story._id}`);
+                                setViewers(res.data);
+                                setViewersVisible(true);
+                            } catch { toast.error('Failed to load viewers'); setIsPaused(false); }
+                        }}
+                        style={{ flex: 1, height: 44, borderRadius: '22px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 16px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontWeight: 600 }}
+                    >
+                        <i className="pi pi-eye mr-2"></i>
+                        {story.viewers?.length || 0} Views
+                    </div>
+                ) : (
+                    <form
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            const reply = e.target.reply.value;
+                            if (!reply.trim() || !story?._id) return;
+                            try {
+                                const { api } = await import('../../store/zustand/useAuthStore');
+                                await api.post(`/api/story/reply/${story._id}`, { content: reply });
+                                toast.success('Reply sent!');
+                                e.target.reply.value = '';
+                                setIsPaused(false);
+                            } catch { toast.error('Failed to send reply'); }
+                        }}
+                        style={{ flex: 1, display: 'flex' }}
+                    >
+                        <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+                            <input
+                                name="reply"
+                                type="text"
+                                placeholder="Send message..."
+                                onFocus={() => setIsPaused(true)}
+                                onBlur={() => setIsPaused(false)}
+                                autoComplete="off"
+                                style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '13px', padding: '0 12px', outline: 'none' }}
+                            />
+                            <button type="submit" style={{ background: '#808bf5', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '2px' }}>
+                                <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                    <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
+                        <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
+                    </button>
+                    {likesCount > 0 && <span style={{ color: '#fff', fontSize: '8px', fontWeight: 700 }}>{likesCount}</span>}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                    <button
+                        onClick={() => {
+                            setIsPaused(true);
+                            onShareStory(story);
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <i className="pi pi-send" style={{ fontSize: '22px' }}></i>
+                    </button>
+                </div>
+            </div>
+
+            {/* Viewers Overlay */}
+            {viewersVisible && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', flexDirection: 'column', padding: '60px 20px 20px', animation: 'slideUp 0.3s ease-out' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>Viewers ({viewers.length})</h3>
+                        <button onClick={() => { setViewersVisible(false); setIsPaused(false); }} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '20px' }}>✕</button>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {viewers.length === 0 ? (
+                            <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: '40px' }}>No views yet</p>
+                        ) : viewers.map(v => (
+                            <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <img src={v.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                <div>
+                                    <p style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: 600 }}>{v.fullname}</p>
+                                    <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '12px' }}>@{v.username}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -452,10 +456,14 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                 await api.post('/api/conversation/send', {
                     conversationId,
                     recipientId: targetUser._id,
-                    content,
+                    content: "You sent an attachment",
                     storyReply: {
                         storyId: story._id,
                         mediaUrl: story.media?.url,
+                        mediaType: story.media?.type,
+                        authorName: story.user?.fullname,
+                        authorUsername: story.user?.fullname?.toLowerCase()?.replace(/\s+/g, '_'),
+                        authorProfilePicture: story.user?.profile_picture,
                         isShare: true
                     }
                 });
@@ -608,9 +616,10 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
     const handleSubmit = async () => {
         if (previews.length === 0 && !sharedPost) { toast.error('Please select an image or video'); return; }
         setUploading(true);
+        let uploadToast = null;
         try {
             const { api } = await import('../../store/zustand/useAuthStore');
-
+            uploadToast = toast.loading("Uploading story...");
             if (sharedPost) {
                 // Special case for sharing a post
                 const mediaUrl = sharedPost.image_urls?.[0] || sharedPost.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80';
@@ -637,9 +646,9 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                     onCreated(res.data);
                 }
             }
-            toast.success(sharedPost ? 'Post shared to story!' : `${previews.length} stories created!`);
+            toast.success(sharedPost ? 'Post shared to story!' : `${previews.length} stories created!`, { id: uploadToast });
             onClose();
-        } catch { toast.error('Failed to create story'); }
+        } catch { toast.error('Failed to create story', { id: typeof uploadToast !== 'undefined' ? uploadToast : undefined }); }
         setUploading(false);
     };
 
@@ -1029,29 +1038,46 @@ const Stories = () => {
                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                 `}</style>
             </div>
-            {viewerOpen && groups.length > 0 && (
-                <StoryViewer
-                    groups={groups}
-                    startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)}
-                    onClose={() => {
-                        setViewerOpen(false);
-                        setInitialStoryId(null);
-                        setIsStoryViewerOpen(false);
-                    }}
-                    loggeduser={loggeduser}
-                    onStoryDeleted={handleStoryDeleted}
-                    onStoryLiked={handleStoryLiked}
-                    onOpenPostDetail={(id) => {
-                        setSelectedPostId(id);
-                        setPostVisible(true);
-                    }}
-                    onShareStory={(s) => {
-                        setSharingStory(s);
-                        setShareOpen(true);
-                    }}
-                    initialStoryId={initialStoryId}
-                />
-            )}
+            <Dialog
+                visible={viewerOpen}
+                onHide={() => {
+                    setViewerOpen(false);
+                    setInitialStoryId(null);
+                    setIsStoryViewerOpen(false);
+                }}
+                showHeader={false}
+                modal
+                dismissableMask
+                contentStyle={{ padding: 0, borderRadius: '20px', overflow: 'hidden' }}
+                style={{ width: '95vw', maxWidth: '420px', height: '90vh', maxHeight: '800px', border: 'none' }}
+                maskStyle={{ backdropFilter: 'blur(12px)', background: 'rgba(0,0,0,0.7)' }}
+                baseZIndex={10000}
+                appendTo={document.body}
+            >
+                {viewerOpen && groups.length > 0 && (
+                    <StoryViewer
+                        groups={groups}
+                        startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)}
+                        onClose={() => {
+                            setViewerOpen(false);
+                            setInitialStoryId(null);
+                            setIsStoryViewerOpen(false);
+                        }}
+                        loggeduser={loggeduser}
+                        onStoryDeleted={handleStoryDeleted}
+                        onStoryLiked={handleStoryLiked}
+                        onOpenPostDetail={(id) => {
+                            setSelectedPostId(id);
+                            setPostVisible(true);
+                        }}
+                        onShareStory={(s) => {
+                            setSharingStory(s);
+                            setShareOpen(true);
+                        }}
+                        initialStoryId={initialStoryId}
+                    />
+                )}
+            </Dialog>
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
             {sharingPostToStory && (
                 <CreateStoryModal

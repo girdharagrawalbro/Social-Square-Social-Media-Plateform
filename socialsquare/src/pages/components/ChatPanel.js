@@ -9,6 +9,7 @@ import PostDetail from './PostDetail';
 import UserProfile from './UserProfile';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
+import ProgressiveImage from './ui/ProgressiveImage';
 
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
@@ -154,9 +155,9 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     };
 
     const sharedLinkData = extractSharedLinkData(message.content || '');
-    const isSharedPost = !!sharedLinkData.postId;
+    const isSharedPost = !!sharedLinkData.postId || !!message.sharedPost?.postId;
     const isSharedProfile = !!sharedLinkData.profileId;
-    const isSharedStoryLink = !!sharedLinkData.storyUserId;
+    const isSharedStoryLink = !!sharedLinkData.storyUserId || !!message.storyReply?.storyId;
     const hasSharedLinkCard = isSharedPost || isSharedProfile || isSharedStoryLink;
     const reactions = message.reactions ? Object.entries(message.reactions) : [];
     const reactionGroups = reactions.reduce((acc, [uid, emoji]) => {
@@ -218,89 +219,212 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                     </div>
                 ) : (
                     <div style={{
-                        background: isOwn ? '#808bf5' : 'var(--surface-2)',
+                        background: (isSharedPost || (message.storyReply && message.storyReply.isShare)) ? 'none' : (isOwn ? '#808bf5' : 'var(--surface-2)'),
                         color: isOwn ? '#fff' : 'var(--text-main)',
                         borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                        padding: '10px 14px',
+                        padding: (isSharedPost || (message.storyReply && message.storyReply.isShare)) ? '0' : '10px 14px',
                         fontSize: '14px',
                         lineHeight: 1.5,
-                        boxShadow: isSelected ? '0 4px 15px rgba(128,139,245,0.3)' : 'none',
+                        boxShadow: (isSelected && !(isSharedPost || (message.storyReply && message.storyReply.isShare))) ? '0 4px 15px rgba(128,139,245,0.3)' : 'none',
                         border: isSelected ? '1px solid rgba(255,255,255,0.3)' : 'none'
                     }}>
                         {isDeleted ? <span style={{ fontStyle: 'italic', opacity: 0.6, fontSize: '12px' }}>🚫 Message deleted</span> : (
                             <>
                                 {message.storyReply && (
-                                    <div style={{
-                                        padding: '10px',
-                                        background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)',
-                                        borderRadius: '12px',
-                                        marginBottom: '8px',
-                                        border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)',
-                                        display: 'flex',
-                                        gap: '10px',
-                                        alignItems: 'center',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        maxWidth: '240px'
-                                    }}
-                                        onMouseEnter={e => e.currentTarget.style.background = isOwn ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.1)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)'}
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            const senderId = message.sender?._id || message.senderId;
-                                            const match = message.content?.match(/user=([a-f0-9]+)/);
-                                            const userId = match ? match[1] : senderId;
-                                            const storyId = message.storyReply?.storyId;
+                                    <div
+                                        className="mb-2"
+                                        style={{
+                                            maxWidth: message.storyReply.isShare ? '240px' : 'none',
+                                            width: '100%'
+                                        }}
+                                    >
+                                        {message.storyReply.isShare && message.storyReply.authorName && (
+                                            <p className="m-0 mb-2 text-[11px] opacity-70 italic text-center">
+                                                Shared {message.storyReply.authorName}'s story
+                                            </p>
+                                        )}
 
-                                            if (typeof window.onViewStory === 'function') {
-                                                window.onViewStory(userId, storyId);
-                                                return;
-                                            }
+                                        <div
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                const senderId = message.sender?._id || message.senderId;
+                                                const match = message.content?.match(/user=([a-f0-9]+)/);
+                                                const userId = match ? match[1] : senderId;
+                                                const storyId = message.storyReply?.storyId;
 
-                                            try {
-                                                const res = await api.get('/api/story/feed');
-                                                const groups = Array.isArray(res.data) ? res.data : [];
-                                                const idx = groups.findIndex(g => g.user._id.toString() === userId.toString());
-                                                if (idx !== -1) {
-                                                    setStoryModalGroups(groups);
-                                                    setStoryModalGroupIndex(idx);
-                                                    setStoryModalInitialStoryId(storyId || null);
-                                                    const mod = await import('./Stories');
-                                                    setStoryViewerComp(() => mod.StoryViewer);
-                                                    setStoryModalOpen(true);
+                                                if (typeof window.onViewStory === 'function') {
+                                                    window.onViewStory(userId, storyId);
                                                     return;
                                                 }
-                                            } catch (err) {
-                                                console.error('Failed to open story modal', err);
-                                            }
 
-                                            window.location.href = `/stories?user=${userId}${storyId ? `&story=${storyId}` : ''}`;
-                                        }}>
-                                        {message.storyReply.mediaUrl ? (
-                                            <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
-                                                <img src={message.storyReply.mediaUrl} loading="lazy" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} alt="" />
-                                                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <i className="pi pi-play" style={{ color: '#fff', fontSize: '12px' }}></i>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div style={{ width: 44, height: 44, borderRadius: '8px', background: '#808bf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                <i className="pi pi-bolt" style={{ color: '#fff' }}></i>
-                                            </div>
-                                        )}
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, opacity: 0.9 }}>{message.storyReply.isShare ? 'Shared a story' : 'Replied to story'}</p>
-                                            <p style={{ margin: 0, fontSize: '10px', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Tap to view ✨</p>
+                                                try {
+                                                    const res = await api.get('/api/story/feed');
+                                                    const groups = Array.isArray(res.data) ? res.data : [];
+                                                    const idx = groups.findIndex(g => g.user._id.toString() === userId.toString());
+                                                    if (idx !== -1) {
+                                                        setStoryModalGroups(groups);
+                                                        setStoryModalGroupIndex(idx);
+                                                        setStoryModalInitialStoryId(storyId || null);
+                                                        const mod = await import('./Stories');
+                                                        setStoryViewerComp(() => mod.StoryViewer);
+                                                        setStoryModalOpen(true);
+                                                        return;
+                                                    }
+                                                } catch (err) {
+                                                    console.error('Failed to open story modal', err);
+                                                }
+
+                                                window.location.href = `/stories?user=${userId}${storyId ? `&story=${storyId}` : ''}`;
+                                            }}
+                                            className={`cursor-pointer transition-all hover:brightness-110 active:scale-[0.98] ${message.storyReply.isShare ? 'overflow-hidden' : 'p-2.5 flex items-center gap-3'}`}
+                                            style={{
+                                                background: message.storyReply.isShare ? 'transparent' : (isOwn ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)'),
+                                                borderRadius: message.storyReply.isShare ? '20px' : '12px',
+                                                border: message.storyReply.isShare ? '2px solid rgba(255,255,255,0.8)' : 'none',
+                                                aspectRatio: message.storyReply.isShare ? '9/16' : 'auto',
+                                                position: 'relative'
+                                            }}
+                                        >
+                                            {message.storyReply.isShare ? (
+                                                <>
+                                                    {/* Rich Share Card UI */}
+                                                    <div className="absolute inset-0 bg-black/20">
+                                                        {message.storyReply.mediaUrl ? (
+                                                            <ProgressiveImage
+                                                                src={message.storyReply.mediaUrl}
+                                                                alt="Story Content"
+                                                                objectFit="cover"
+                                                                placeholderColor="#111"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-4xl">✨</div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Author Overlay */}
+                                                    {message.storyReply.authorName && (
+                                                        <div className="absolute top-3 left-3 flex items-center gap-2 z-10 px-2 py-1.5 bg-black/30 backdrop-blur-md rounded-full border border-white/10">
+                                                            <img
+                                                                src={message.storyReply.authorProfilePicture || '/default-profile.png'}
+                                                                className="w-5 h-5 rounded-full object-cover border border-white/20"
+                                                                alt=""
+                                                            />
+                                                            <span className="text-[10px] font-bold text-white truncate max-w-[80px]">
+                                                                {message.storyReply.authorUsername || message.storyReply.authorName}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Video Indicator */}
+                                                    {message.storyReply.mediaType === 'video' && (
+                                                        <div className="absolute bottom-3 right-3 z-10 p-2 bg-black/40 backdrop-blur-md rounded-full">
+                                                            <i className="pi pi-play text-white text-[10px]"></i>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                /* Legacy / Reply UI */
+                                                <>
+                                                    {message.storyReply.mediaUrl ? (
+                                                        <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
+                                                            <img src={message.storyReply.mediaUrl} loading="lazy" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover' }} alt="" />
+                                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <i className="pi pi-play" style={{ color: '#fff', fontSize: '12px' }}></i>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ width: 44, height: 44, borderRadius: '8px', background: '#808bf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                            <i className="pi pi-bolt" style={{ color: '#fff' }}></i>
+                                                        </div>
+                                                    )}
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, opacity: 0.9 }}>{message.storyReply.isShare ? '' : 'Replied to story'}</p>
+                                                        <p style={{ margin: 0, fontSize: '10px', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Tap to view ✨</p>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 )}
                                 {isSharedPost && (
-                                    <div onClick={(e) => { e.stopPropagation(); setSelectedPostId(sharedLinkData.postId); setShowPostModal(true); }} className="cursor-pointer p-3 rounded-xl mb-2 flex items-center gap-4 transition-all" style={{ background: isOwn ? 'rgba(255,255,255,0.15)' : 'var(--surface-3)', border: isOwn ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-color)' }}>
-                                        <div className="w-10 h-10 rounded-lg bg-[#808bf5]/20 flex items-center justify-center text-lg flex-shrink-0">📦</div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="m-0 text-[12px] font-bold opacity-90">Shared Post</p>
-                                            <p className="m-0 text-[10px] opacity-60 truncate">Tap to view post</p>
-                                        </div>
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); setSelectedPostId(message.sharedPost?.postId || sharedLinkData.postId); setShowPostModal(true); }}
+                                        className="cursor-pointer mb-2 overflow-hidden transition-all hover:brightness-110 active:scale-[0.98]"
+                                        style={{
+                                            background: isOwn ? '#808bf5' : 'rgba(0, 0, 0, 0.2)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: '24px',
+                                            width: '100%',
+                                            maxWidth: '280px',
+                                            color: '#fff'
+                                        }}
+                                    >
+                                        {message.sharedPost ? (
+                                            <>
+                                                {/* Header: Author Info */}
+                                                <div className="flex items-center gap-2 p-3 border-b border-white/5">
+                                                    <img
+                                                        src={message.sharedPost.authorProfilePicture || '/default-profile.png'}
+                                                        className="w-8 h-8 rounded-full object-cover border border-white/10"
+                                                        alt=""
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-[12px] font-bold truncate opacity-90">{message.sharedPost.authorName}</span>
+                                                            <i className="pi pi-check-circle text-[#3897f0] text-[10px]"></i>
+                                                        </div>
+                                                        <p className="m-0 text-[10px] opacity-50 truncate">@{message.sharedPost.authorUsername}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Media Preview */}
+                                                <div className="relative w-full overflow-hidden" style={{ aspectRatio: '1/1', maxHeight: '300px' }}>
+                                                    {message.sharedPost.mediaUrl ? (
+                                                        <ProgressiveImage
+                                                            src={message.sharedPost.mediaUrl}
+                                                            alt="Post Content"
+                                                            objectFit="cover"
+                                                            placeholderColor="rgba(0, 0, 0, 0.4)"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center bg-black/20 text-4xl">📦</div>
+                                                    )}
+                                                    {message.sharedPost.mediaType === 'video' && (
+                                                        <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-md rounded-lg p-1">
+                                                            <i className="pi pi-video text-white text-[10px]"></i>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Footer: Caption */}
+                                                <div className="p-3 bg-black/5">
+                                                    <p className="m-0 text-[11px] line-clamp-2 leading-relaxed">
+                                                        <span className="font-bold mr-1">{message.sharedPost.authorUsername}</span>
+                                                        <span className="opacity-80">{message.sharedPost.caption}</span>
+                                                    </p>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            /* Fallback for legacy messages */
+                                            <div className="flex items-center gap-3 p-3">
+                                                <div className="w-12 h-12 rounded-lg bg-[#808bf5]/20 flex items-center justify-center text-lg flex-shrink-0 overflow-hidden">
+                                                    {message.media?.url ? (
+                                                        <ProgressiveImage
+                                                            src={message.media.url}
+                                                            alt="Post Preview"
+                                                            objectFit="cover"
+                                                            placeholderColor="rgba(128, 139, 245, 0.1)"
+                                                        />
+                                                    ) : (
+                                                        '📦'
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="m-0 text-[12px] font-bold opacity-90">Shared Post</p>
+                                                    <p className="m-0 text-[10px] opacity-60 truncate">Tap to view post</p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 {isSharedProfile && (
@@ -322,12 +446,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                                 window.location.href = `/story/${sharedLinkData.storyUserId}${sharedLinkData.storyId ? `/${sharedLinkData.storyId}` : ''}`;
                                             }
                                         }}
-                                        style={{ cursor: 'pointer', padding: '12px', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', marginBottom: '8px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '20px' }}>📖</span>
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 500, opacity: 0.9 }}>Shared a story</p>
-                                            <p style={{ margin: 0, fontSize: '11px', opacity: 0.7, wordBreak: 'break-all' }}>Tap to view story →</p>
-                                        </div>
+                                        style={{ cursor: 'pointer', padding: '0', background: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderRadius: '12px', border: isOwn ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.1)', transition: 'all 0.2s', display: 'flex', alignItems: 'center' }}>
                                     </div>
                                 )}
                                 {message.media?.url && (

@@ -9,6 +9,7 @@ import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
@@ -19,22 +20,43 @@ const Conversations = () => {
     const unreadCounts = useConversationStore(s => s.unreadCounts);
     const { data: conversations = [], refetch } = useConversations(user?._id);
 
-    const [selectedParticipant, setSelectedParticipant] = useState(null);
+    const navigate = useNavigate();
+    const { userId: routeUserId } = useParams();
+    const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
+
+    const selectedParticipant = routeUserId
+        ? (() => {
+            const myId = toId(user?._id);
+            const conv = conversations.find(c => {
+                const other = c.participants?.find(p => toId(p.userId) !== myId);
+                return other && toId(other.userId) === routeUserId;
+            });
+            if (conv) {
+                const other = conv.participants?.find(p => toId(p.userId) !== myId);
+                return other ? { ...other, userId: toId(other.userId), conversationId: conv._id } : { userId: routeUserId };
+            }
+            return { userId: routeUserId }; // Fallback for new conversations
+        })()
+        : null;
+
+    // Sync global store with routing-derived participant
     const openChatGlobal = useConversationStore(s => s.openChat);
     const closeChatGlobal = useConversationStore(s => s.closeChat);
-    const activeParticipant = useConversationStore(s => s.activeParticipant);
 
-    // Sync local selectedParticipant with global activeParticipant on mount if needed
     useEffect(() => {
-        if (activeParticipant && !selectedParticipant) {
-            setSelectedParticipant(activeParticipant);
+        if (selectedParticipant) {
+            openChatGlobal(selectedParticipant.conversationId || null, selectedParticipant);
+            if (selectedParticipant.conversationId) {
+                clearUnread(selectedParticipant.conversationId);
+            }
+        } else {
+            closeChatGlobal();
         }
-    }, [activeParticipant, selectedParticipant]);
+    }, [routeUserId, selectedParticipant?.conversationId]); // eslint-disable-line
 
     const [lastMessageId, setLastMessageId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
-
 
     const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [globalSearch, setGlobalSearch] = useState('');
@@ -50,17 +72,14 @@ const Conversations = () => {
     const clearChatMut = useClearChat();
     const deleteChatMut = useDeleteChat();
 
-    // ✅ Auto-close search when switching chats
+    // Auto-close search when switching chats
     useEffect(() => {
         setIsSearching(false);
         setSearchQ('');
         setSearchIndex(0);
         setSearchCount(0);
         setProfileVisible(false);
-    }, [selectedParticipant?.userId]);
-
-
-    const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
+    }, [routeUserId]);
 
     // Memoize the refetch callback to prevent unnecessary effect re-runs
     const handleRefetch = useCallback(() => {
@@ -69,26 +88,27 @@ const Conversations = () => {
 
     // Socket: receive message → increment unread + refetch conversations
     useEffect(() => {
-        const handleReceiveMessage = ({ conversationId, senderName, content }) => {
+        const handleReceiveMessage = ({ conversationId }) => {
             incrementUnread(conversationId);
             handleRefetch();
         };
-
         socket.on('receiveMessage', handleReceiveMessage);
-
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
         };
     }, [handleRefetch, incrementUnread]);
 
     const openChat = (participant, lastMsgId) => {
-        setSelectedParticipant(participant);
-        setLastMessageId(lastMsgId);
-        clearUnread(participant.conversationId);
-        openChatGlobal(participant.conversationId, participant);
+        setLastMessageId(lastMsgId || null);
+        navigate(`/messages/${toId(participant.userId)}`);
+    };
+
+    const closeChat = () => {
+        navigate('/messages');
     };
 
     const handleProfileClick = (userId) => {
+        if (!userId) return;
         setSelectedUserId(userId);
         setProfileVisible(true);
     };
@@ -114,7 +134,7 @@ const Conversations = () => {
                 <div className={`w-full sm:w-80 md:w-[30rem] border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden ${selectedParticipant ? 'hidden sm:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-3">
-                            <h2 className="m-0 text-xl font-black text-[var(--text-main)]">Messages</h2>
+                            <h2 className="m-0 text-xl font-black text-[var(--test-main)]">Messages</h2>
                             <button
                                 onClick={() => setIsComposeOpen(true)}
                                 className="w-9 h-9 flex items-center justify-center bg-[#808bf5]/10 text-[#808bf5] rounded-full border-0 cursor-pointer hover:bg-[#808bf5] hover:text-white transition-all duration-200"
@@ -151,9 +171,10 @@ const Conversations = () => {
                             const convUnread = unreadCounts[conv._id] || 0;
                             const isUnread = toId(conv.lastMessageBy) !== myId && !conv.lastMessage?.isRead;
 
+                            const isActive = routeUserId === toId(other.userId);
                             return (
                                 <div key={conv._id}
-                                    className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 ${isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
+                                    className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 ${isActive ? 'bg-[#808bf5]/10 ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
                                     onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
                                     <div className="relative flex-shrink-0">
                                         <img src={other.profilePicture || '/default-profile.png'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
@@ -190,7 +211,7 @@ const Conversations = () => {
                             <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between min-h-[64px] bg-white/80 dark:bg-black/80 backdrop-blur-md">
                                 <div className="flex items-center gap-3 cursor-pointer group" onClick={() => handleProfileClick(selectedParticipant.userId)}>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); setSelectedParticipant(null); closeChatGlobal(); }}
+                                        onClick={(e) => { e.stopPropagation(); closeChat(); }}
                                         className="sm:hidden -ml-2 p-2 rounded-full border-0 bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center justify-center"
                                     >
                                         <i className="pi pi-chevron-left text-lg"></i>
@@ -289,9 +310,7 @@ const Conversations = () => {
                                     setSearchCount={setSearchCount}
                                     refreshKey={refreshKey}
                                     onConversationIdFetched={(cid) => {
-                                        if (selectedParticipant.conversationId !== cid) {
-                                            setSelectedParticipant(prev => ({ ...prev, conversationId: cid }));
-                                        }
+                                        // conversationId is derived from URL; no local state needed
                                     }}
                                 />
                             </div>
@@ -354,7 +373,7 @@ const Conversations = () => {
                                 acceptClassName: 'p-button-danger rounded-xl',
                                 accept: () => {
                                     const cid = selectedParticipant?.conversationId;
-                                    setSelectedParticipant(null);
+                                    closeChat();
                                     setShowMenu(false);
                                     deleteChatMut.mutate(cid);
                                 }

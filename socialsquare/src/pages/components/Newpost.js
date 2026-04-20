@@ -484,6 +484,7 @@ const NewPost = ({ setnewpostVisible }) => {
         if (!formData.caption.trim() && images.length === 0 && !video) { toast.error("Please add a caption, image, or video!"); return; }
         setIsPosting(true);
         let postSucceeded = false;
+        let uploadToast = null;
         try {
             let imageURLs = [];
             if (images.length > 0) {
@@ -511,6 +512,7 @@ const NewPost = ({ setnewpostVisible }) => {
             // Detect mood from caption
             let mood = null;
             try {
+                uploadToast = toast.loading("Posting your masterpiece...");
                 const moodRes = await api.post(`/api/ai/detect-mood`, { caption: formData.caption });
                 mood = moodRes.data.mood;
             } catch { }
@@ -551,16 +553,16 @@ const NewPost = ({ setnewpostVisible }) => {
                 setSuggestedCaptions([]); setOpenFeaturePanel(null);
                 setPollOptions(['', '']); setIsQuiz(false); setCorrectOptionIndex(null);
                 setSelectedGroupId(null);
-                toast.success("Post created successfully!");
+                toast.success("Post created successfully!", { id: uploadToast });
                 setnewpostVisible(false);
             } else {
-                toast.error(data?.error || "Failed to create post");
+                toast.error(data?.error || "Failed to create post", { id: uploadToast });
             }
         } catch (error) {
             // Only show error toast if the post itself genuinely failed
             if (!postSucceeded) {
                 const msg = error?.response?.data?.error || error?.message || "An unexpected error occurred";
-                toast.error(msg);
+                toast.error(msg, { id: uploadToast });
             }
         }
         finally { setIsPosting(false); }

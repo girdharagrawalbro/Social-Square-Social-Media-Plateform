@@ -115,7 +115,7 @@ const PasswordGate = ({ onSuccess }) => {
                     margin: '0 0 10px', fontSize: '26px', fontWeight: 900,
                     textAlign: 'center', letterSpacing: '-0.5px',
                     color: 'var(--text-main)',
-                }}>Nexus Control</h2>
+                }}>Admin Control Panel</h2>
                 <p style={{
                     margin: '0 0 40px', fontSize: '13px', textAlign: 'center',
                     color: 'var(--text-sub)',
@@ -131,7 +131,7 @@ const PasswordGate = ({ onSuccess }) => {
                     <div style={{ position: 'relative' }}>
                         <input
                             type={showPw ? 'text' : 'password'}
-                            placeholder="Enter administrative key"
+                            placeholder="Enter Admin Password"
                             value={password}
                             onChange={e => { setPassword(e.target.value); setError(''); }}
                             autoFocus
@@ -194,7 +194,7 @@ const PasswordGate = ({ onSuccess }) => {
                         boxShadow: loading ? 'none' : '0 10px 30px rgba(99,102,241,0.4)',
                     }}>
                         {loading ? (
-                            <><div style={{ width: 18, height: 18, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Synchronizing...</>
+                            <><div style={{ width: 18, height: 18, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Authenticating...</>
                         ) : '🔓 Authorization'}
                     </button>
 
@@ -219,7 +219,7 @@ const PasswordGate = ({ onSuccess }) => {
                                 e.target.style.color = 'var(--text-sub)';
                             }}
                         >
-                            ← Return to Grid
+                            ← Return to Feed
                         </button>
                     </Link>
                 </form>
@@ -274,17 +274,17 @@ const BarChart = ({ data, label }) => {
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '120px', padding: '0 4px' }}>
                 {data.map((d, i) => (
                     <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', height: '100%', justifyContent: 'flex-end' }}>
-                        <div 
-                            style={{ 
-                                width: '100%', 
-                                height: `${(d.count / max) * 100}%`, 
-                                background: 'linear-gradient(to top, #808bf5, #6366f1)', 
-                                borderRadius: '12px 12px 4px 4px', 
-                                minHeight: '6px', 
+                        <div
+                            style={{
+                                width: '100%',
+                                height: `${(d.count / max) * 100}%`,
+                                background: 'linear-gradient(to top, #808bf5, #6366f1)',
+                                borderRadius: '12px 12px 4px 4px',
+                                minHeight: '6px',
                                 transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-                                boxShadow: '0 4px 15px rgba(99,102,241,0.2)' 
-                            }} 
-                            title={`${d._id}: ${d.count}`} 
+                                boxShadow: '0 4px 15px rgba(99,102,241,0.2)'
+                            }}
+                            title={`${d._id}: ${d.count}`}
                         />
                         <span style={{ fontSize: '9px', color: 'var(--text-sub)', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>{d._id?.slice(8)}</span>
                     </div>

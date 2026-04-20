@@ -47,16 +47,24 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
         setSendingUsers(prev => [...prev, targetUser._id]);
 
         try {
-            const postUrl = `${window.location.origin}/post/${post._id}`;
-            const content = `🔗 Shared a post: ${postUrl}`;
+            const content = `You sent an attachment`;
 
             // Find existing conversation or it will be handled by the mutation logic
             const conv = conversations.find(c => c.participants.some(p => p.userId === targetUser._id));
 
             await sendMessageMut.mutateAsync({
-                conversationId: conv?._id, // If null, the backend or mutation will handle creation
+                conversationId: conv?._id,
                 content,
                 recipientId: targetUser._id,
+                sharedPost: {
+                    postId: post._id,
+                    authorName: post.user?.fullname,
+                    authorUsername: post.user?.fullname?.toLowerCase().replace(/\s/g, '_'), // Best guess for username if not in post object
+                    authorProfilePicture: post.user?.profile_picture,
+                    caption: post.caption,
+                    mediaUrl: post.image_urls?.[0] || post.image_url || post.videoURL,
+                    mediaType: post.videoURL ? 'video' : 'image'
+                }
             });
 
             toast.success(`Shared with ${targetUser.fullname}`);
@@ -100,7 +108,11 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
                 {/* Action Buttons */}
                 <div className="flex gap-2">
                     <button
-                        onClick={() => { onShareToStory?.(post); onHide(); }}
+                        onClick={() => {
+                            onShareToStory?.(post);
+                            onHide();
+                            toast.success('Ready to share to story!');
+                        }}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 border-0 rounded-xl cursor-pointer text-indigo-600 font-semibold text-xs hover:bg-indigo-100 transition"
                     >
                         ✨ Share to Story

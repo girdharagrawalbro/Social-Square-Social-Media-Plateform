@@ -16,6 +16,7 @@ import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import ReportDialog from './ui/ReportDialog';
 import PostMenu from './ui/PostMenu';
+import ProgressiveImage from './ui/ProgressiveImage';
 
 const UserProfile = lazy(() => import('./UserProfile'));
 
@@ -69,7 +70,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             viewedPostIdRef.current = post._id;
             incrementViewMutation.mutate({ postId: post._id });
         }
-    }, [post?._id, incrementViewMutation]); 
+    }, [post?._id, incrementViewMutation]);
 
     useEffect(() => {
         if (!post?._id || !loggeduser?._id) return;
@@ -92,9 +93,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-center bg-[var(--surface-1)] h-full min-h-[400px]">
                 <div className="relative mb-6">
-                    <img 
-                        src={privateOwner?.profile_picture} 
-                        alt="" 
+                    <img
+                        src={privateOwner?.profile_picture}
+                        alt=""
                         className="w-24 h-24 rounded-full object-cover border-4 border-[var(--surface-2)] shadow-xl"
                     />
                     <div className="absolute -bottom-1 -right-1 bg-[#808bf5] text-white w-8 h-8 rounded-full flex items-center justify-center border-4 border-[var(--surface-1)]">
@@ -106,13 +107,13 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                     This account is private. Follow this user to see their posts and interactions.
                 </p>
                 <div className="flex gap-4">
-                    <button 
+                    <button
                         onClick={() => handleProfileClick(privateOwner?._id)}
                         className="px-6 py-2.5 bg-[#808bf5] text-white rounded-xl border-0 font-bold cursor-pointer hover:opacity-90 transition shadow-lg shadow-indigo-500/20"
                     >
                         View Profile
                     </button>
-                    <button 
+                    <button
                         onClick={onHide}
                         className="px-6 py-2.5 bg-[var(--surface-2)] text-[var(--text-main)] rounded-xl border-0 font-bold cursor-pointer hover:opacity-80 transition"
                     >
@@ -253,7 +254,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 <div className="relative w-full h-full flex items-center justify-center bg-black">
                                     <video
                                         src={post.video}
-                                        controls
+                                        autoPlay
+                                        loop
+                                        muted
                                         onDoubleClick={handleImageDoubleClick}
                                         onTouchEnd={handleImageTap}
                                         className="max-w-full max-h-full object-contain"
@@ -262,12 +265,13 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 </div>
                             ) : (
                                 <>
-                                    <img
+                                    <ProgressiveImage
                                         src={images[currentImage]}
                                         alt="Post"
                                         onDoubleClick={handleImageDoubleClick}
                                         onTouchEnd={handleImageTap}
-                                        className="max-w-full max-h-full object-contain cursor-pointer"
+                                        objectFit="contain"
+                                        className="cursor-pointer"
                                     />
                                     {images.length > 1 && (
                                         <>
@@ -310,7 +314,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     {post?.video ? (
                                         <video
                                             src={post.video}
-                                            controls
+                                            autoPlay
+                                            loop
+                                            muted
                                             onDoubleClick={handleImageDoubleClick}
                                             onTouchEnd={handleImageTap}
                                             className="w-full h-full object-contain"
@@ -318,13 +324,14 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         />
                                     ) : images[currentImage] ? (
                                         <>
-                                            <img
+                                            <ProgressiveImage
                                                 src={images[currentImage]}
                                                 alt="Post"
                                                 onDoubleClick={handleImageDoubleClick}
                                                 onTouchEnd={handleImageTap}
-                                                className="w-full h-full object-contain cursor-pointer"
+                                                objectFit="contain"
                                                 style={{ background: 'black' }}
+                                                className="cursor-pointer"
                                             />
                                             {images.length > 1 && (
                                                 <>
@@ -386,7 +393,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                     return (
                                                         <>
                                                             <span className="text-[var(--text-sub)] text-xs font-normal ml-0.5">and</span>
-                                                            <span 
+                                                            <span
                                                                 className="text-sm font-bold text-[var(--text-main)] cursor-pointer hover:text-[#808bf5] transition ml-0.5"
                                                                 onClick={() => handleProfileClick(collab.userId || collab._id)}
                                                             >

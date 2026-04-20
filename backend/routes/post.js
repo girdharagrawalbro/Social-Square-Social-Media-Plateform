@@ -875,17 +875,30 @@ router.get("/confessions", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── EXPLORE REELS ──────────────────────────────────────────────────────────
+// ─── EXPLORE REELS (Infinite Scroll) ──────────────────────────────────────────
 router.get("/explore-reels", async (req, res) => {
     try {
-        // Fetch posts that have a video URL
-        const posts = await Post.find({ video: { $ne: null } })
-            .limit(20)
-            .sort({ createdAt: -1 });
+        const limit = parseInt(req.query.limit) || 12;
+        const cursor = req.query.cursor;
+
+        const query = { video: { $ne: null } };
+        if (cursor) {
+            query._id = { $lt: cursor };
+        }
+
+        const posts = await Post.find(query)
+            .sort({ _id: -1 }) // Use _id for reliable cursor-based pagination
+            .limit(limit + 1);
         
-        // Randomize the results for better "explore" feel
-        const shuffled = posts.sort(() => Math.random() - 0.5);
-        res.status(200).json(shuffled);
+        const hasMore = posts.length > limit;
+        const result = hasMore ? posts.slice(0, limit) : posts;
+        const nextCursor = hasMore ? result[result.length - 1]._id : null;
+
+        res.status(200).json({
+            posts: result,
+            nextCursor,
+            hasMore
+        });
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
     }
