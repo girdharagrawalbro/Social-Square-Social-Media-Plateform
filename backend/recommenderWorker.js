@@ -7,7 +7,7 @@ const Post = require("./models/Post");
 
 dotenv.config();
 
-const NATS_URL = process.env.NATS_URL || "nats://nats.railway.internal:4222";
+const NATS_URL = process.env.NATS_URL || "ws://7905038@://onrender.com";
 const MONGO_URI = process.env.MONGO_URI;
 
 let extractor = null;
@@ -29,7 +29,8 @@ async function initWorker() {
     console.log("✅ Model loaded");
 
     // 3. Connect to NATS
-    const nc = await connect({ servers: NATS_URL });
+    const nc = await connect({ servers: "ws://://onrender.com", 
+  token: "7905038" });
     console.log(`🔌 Worker connected to NATS at ${NATS_URL}`);
 
     // 4. Subscribe to subjects
