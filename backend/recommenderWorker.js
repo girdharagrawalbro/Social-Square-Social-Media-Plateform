@@ -7,7 +7,7 @@ const Post = require("./models/Post");
 
 dotenv.config();
 
-const NATS_URL = process.env.NATS_URL || "ws://7905038@://onrender.com";
+const NATS_URL = process.env.NATS_URL || "wss://7905038@://onrender.com";
 const MONGO_URI = process.env.MONGO_URI;
 
 let extractor = null;
@@ -15,6 +15,17 @@ const sc = StringCodec();
 
 // Exponential Moving Average factor for user interest updates
 const ALPHA = 0.2;
+
+const http = require('http');
+// Render automatically provides the PORT environment variable
+const dummyPort = process.env.PORT || 10000; 
+
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Worker is active');
+}).listen(dummyPort, () => {
+  console.log(`Dummy health-check server listening on port ${dummyPort}`);
+});
 
 async function initWorker() {
     // 1. Connect to MongoDB (if not already connected by main app, though workers usually run standalone)
@@ -29,30 +40,34 @@ async function initWorker() {
     console.log("✅ Model loaded");
 
     // 3. Connect to NATS
-    const nc = await connect({ servers: "ws://://onrender.com", token: "7905038", waitOnFirstConnect: true, timeout: 60000});
+    const nc = await connect({ servers: "wss://nats-inby.onrender.com", token: "7905038", waitOnFirstConnect: true, timeout: 60000});
     console.log(`🔌 Worker connected to NATS at ${NATS_URL}`);
 
     // 4. Subscribe to subjects
     const subjects = ["post.created", "user.activity.*"];
 
-    const sub = nc.subscribe(">"); // Subscribe to all for simplicity or use specific subjects
+   // 4. Subscribe to subjects
+const sub = nc.subscribe(">"); 
+console.log("📡 Subscribed to all subjects");
 
-    (async () => {
-        for await (const m of sub) {
-            const subject = m.subject;
-            const data = JSON.parse(sc.decode(m.data));
+(async () => {
+  for await (const m of sub) {
+    try {
+      const subject = m.subject;
+      const rawData = sc.decode(m.data);
+      const data = JSON.parse(rawData);
 
-            try {
-                if (subject === "post.created") {
-                    await handlePostCreated(data);
-                } else if (subject.startsWith("user.activity.")) {
-                    await handleUserActivity(data);
-                }
-            } catch (err) {
-                console.error(`❌ Error processing ${subject}:`, err.message);
-            }
-        }
-    })();
+      if (subject === "post.created") {
+        await handlePostCreated(data);
+      } else if (subject.startsWith("user.activity.")) {
+        await handleUserActivity(data);
+      }
+    } catch (err) {
+      console.error(`❌ Error processing message:`, err.message);
+    }
+  }
+})().catch(err => console.error("Message loop error:", err));
+
 }
 
 async function getEmbedding(text) {
