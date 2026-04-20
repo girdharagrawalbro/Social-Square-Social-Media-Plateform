@@ -101,7 +101,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                         />
                     )}
                 </div>
-                {showLabel && <span className='font-medium text-base whitespace-nowrap'>Notifications</span>}
+                {showLabel && <span className='hidden md:inline font-medium text-base whitespace-nowrap ml-3'>Notifications</span>}
             </button>
 
             {!useRoute && (
@@ -144,8 +144,9 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                         notifications.map(n => (
                                             <div key={n._id} onClick={() => {
                                                 handleMarkRead(n._id);
-                                                if (n.type === 'message' && n.message?.conversationId) {
-                                                    openChat(n.message.conversationId, n.sender);
+                                                if (n.type === 'message' && n.sender) {
+                                                    const targetId = n.sender.id || n.sender._id;
+                                                    if (targetId) navigate(`/messages/${targetId}`);
                                                     setOpen(false);
                                                 } else if (n.type === 'like' && n.story) {
                                                     setStoryDetailUserId(n.sender.id || n.sender._id);

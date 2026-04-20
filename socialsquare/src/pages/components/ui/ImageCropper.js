@@ -92,6 +92,8 @@ const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
       onHide={onCancel}
       style={{ width: '90vw', maxWidth: '600px' }}
       modal
+      baseZIndex={20000}
+      appendTo={document.body}
       footer={
         <div className="flex flex-col sm:flex-row justify-between items-center w-full gap-2 p-2">
           <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto items-center">

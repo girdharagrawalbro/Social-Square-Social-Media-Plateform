@@ -186,9 +186,9 @@ router.get('/messages/search', verifyToken, async (req, res) => {
 });
 
 // ─── SEND MESSAGE (PROTECTED) ─────────────────────────────────────────────────
-router.post('/messages/create', verifyToken, async (req, res) => {
+router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
     try {
-        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply } = req.body;
+        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost } = req.body;
         const sender = req.userId;
         if (!conversationId || !recipientId) return res.status(400).json({ error: 'Required fields missing' });
 
@@ -196,6 +196,7 @@ router.post('/messages/create', verifyToken, async (req, res) => {
             conversationId, sender, content: content || '',
             media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
             storyReply: storyReply || undefined,
+            sharedPost: sharedPost || undefined,
         });
 
         await Conversation.findByIdAndUpdate(conversationId, {

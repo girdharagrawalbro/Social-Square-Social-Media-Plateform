@@ -45,7 +45,7 @@ const Navbar = () => {
   return (
     <nav ref={mobileMenuRef} aria-label="Main Navigation" className={`sticky top-0 z-50 w-full h-16 backdrop-blur-md shadow-sm border-b flex items-center justify-between px-3 sm:px-4 transition-all duration-300 ${isDark ? 'bg-black/80 border-[#1a1a1a]' : 'bg-white/80 border-gray-200'}`}>
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
-        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className="flex items-center flex-shrink-0">
+        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className="hidden sm:flex items-center flex-shrink-0">
           <i className={`pi pi-home text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
         </Link>
         <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className={`no-underline flex items-center gap-2 min-w-0 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
@@ -71,7 +71,7 @@ const Navbar = () => {
         ) : null}
 
         {isAuthenticated ? (
-          !isLandingPage && <NotificationBell userId={loggeduser?._id} />
+          !isLandingPage && <NotificationBell userId={loggeduser?._id} showLabel={false} />
         ) : (
           location.pathname === '/login' ? (
             <Link to="/signup" className="border border-[#808bf5] text-[#808bf5] px-4 py-1 rounded no-underline hover:bg-[#808bf5] hover:text-white transition-all">Sign Up</Link>
@@ -114,7 +114,7 @@ const Navbar = () => {
               <i className="pi pi-plus text-xs sm:text-base"></i>
             </button>
 
-            <NotificationBell userId={loggeduser?._id} />
+            <NotificationBell userId={loggeduser?._id} showLabel={false} />
           </>
         ) : (
           !isAuthenticated && (

@@ -9,10 +9,10 @@ const BottomNav = () => {
     const location = useLocation();
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
-    const chatOpen = useConversationStore(s => s.chatOpen);
+    const isChatOpen = location.pathname.startsWith('/messages/') && location.pathname.split('/').length > 2;
     const isMessages = location.pathname === '/messages';
 
-    if (chatOpen && isMessages) return null;
+    if (isChatOpen) return null;
 
     const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
 

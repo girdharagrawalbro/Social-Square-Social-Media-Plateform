@@ -83,11 +83,11 @@ export function useSendMessage() {
     const user = useAuthStore(s => s.user);
 
     return useMutation({
-        mutationFn: ({ conversationId, content, recipientId, mediaUrl, mediaType }) =>
+        mutationFn: ({ conversationId, content, recipientId, mediaUrl, mediaType, sharedPost }) =>
             api.post(`${BASE}/api/conversation/messages/create`, {
                 conversationId, content,
                 senderName: user.fullname, recipientId,
-                mediaUrl, mediaType,
+                mediaUrl, mediaType, sharedPost
             }),
         onSuccess: (res, { conversationId }) => {
             // Optimistically add to Zustand socket messages

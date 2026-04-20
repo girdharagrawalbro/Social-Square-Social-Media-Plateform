@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
 
 import toast from 'react-hot-toast';
+import ProgressiveImage from './ui/ProgressiveImage';
 
 const PostDetail = lazy(() => import('./PostDetail'));
 
@@ -62,7 +63,14 @@ const PostGrid = ({ userId, maxPosts, isBlur }) => {
                             style={{ aspectRatio: '1' }}
                         >
                             {imgs[0]
-                                ? <img src={imgs[0]} alt="" className={`w-full h-full object-cover  ${isBlur ? 'blur-sm' : ''}`} />
+                                ? (
+                                    <ProgressiveImage
+                                        src={imgs[0]}
+                                        alt=""
+                                        className={isBlur ? 'blur-sm' : ''}
+                                        objectFit="cover"
+                                    />
+                                )
                                 : <div className={`w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center ${isBlur ? 'blur-sm' : ''}`}>{post.caption?.slice(0, 30)}</div>
                             }
                         </div>

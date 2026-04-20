@@ -25,6 +25,7 @@ import ReactionPicker from './ReactionPicker';
 import PostMenu from './ui/PostMenu';
 import { usePrefetchUserProfile, useFollowUser } from '../../hooks/queries/useAuthQueries';
 import { usePrefetchPost } from '../../hooks/queries/usePostQueries';
+import ProgressiveImage from './ui/ProgressiveImage';
 
 
 const PostActivityTracker = ({ postId, onDwell }) => {
@@ -57,12 +58,12 @@ const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
     if (!images?.length) return null;
     if (images.length === 1) return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ background: '#000' }}>
-            <img src={images[0]} alt="Post" loading="lazy" style={{ width: '100%', height: 'auto', objectFit: 'contain', display: 'block' }} />
+            <ProgressiveImage src={images[0]} alt="Post" objectFit="contain" />
         </div>
     );
     return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ position: 'relative' }}>
-            <img src={images[current]} alt={`${current + 1}`} loading="lazy" style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block', background: '#000' }} />
+            <ProgressiveImage src={images[current]} alt={`${current + 1}`} objectFit="cover" style={{ background: '#000' }} />
             {current > 0 && <button aria-label="Previous image" onClick={e => { e.stopPropagation(); setCurrent(c => c - 1) }} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
             {current < images.length - 1 && <button aria-label="Next image" onClick={e => { e.stopPropagation(); setCurrent(c => c + 1) }} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
             <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 2, background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: '11px', padding: '3px 8px', borderRadius: '999px', fontWeight: 600 }}>{current + 1}/{images.length}</div>

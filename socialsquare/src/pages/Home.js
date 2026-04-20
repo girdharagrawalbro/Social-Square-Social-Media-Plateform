@@ -15,7 +15,7 @@ import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
-// import toast from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 const Home = () => {
     const [activeView, setActiveView] = useState('feed');

@@ -171,8 +171,9 @@ const NotificationsPage = () => {
                                                     key={n._id}
                                                     onClick={() => {
                                                         handleMarkRead(n._id);
-                                                        if (n.type === 'message' && n.message?.conversationId) {
-                                                            openChat(n.message.conversationId, n.sender);
+                                                        if (n.type === 'message' && n.sender) {
+                                                            const targetId = n.sender.id || n.sender._id;
+                                                            if (targetId) navigate(`/messages/${targetId}`);
                                                         } else if (n.type === 'like' && n.story) {
                                                             setStoryDetailUserId(n.sender.id || n.sender._id);
                                                         } else if (n.post) {

@@ -6,7 +6,6 @@ import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import { ConfirmDialog } from 'primereact/confirmdialog';
-import { Toast } from 'primereact/toast';
 
 // ✅ All imports from src/ root — no '../' needed
 import useAuthStore from './store/zustand/useAuthStore';
@@ -62,11 +61,11 @@ const queryClient = new QueryClient({
 });
 
 function AppInit() {
+    const navigate = useNavigate();
     const initAuth = useAuthStore(s => s.initAuth);
     const user = useAuthStore(s => s.user);
     const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification } = useConversationStore();
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
-    const openChat = useConversationStore(s => s.openChat);
 
     useTokenRefresh(Boolean(user?._id));
 
@@ -89,23 +88,24 @@ function AppInit() {
             addNotification(notification);
 
             // Show toast
-            const { sender, type, message, post } = notification;
-            let title = sender.fullname;
+            const { sender, type, message, post, story } = notification;
             let icon = '🔔';
-
             if (type === 'like') icon = '❤️';
             if (type === 'comment') icon = '💬';
             if (type === 'message') icon = '📩';
             if (type === 'system') icon = '⚠️';
+            if (type === 'new_post') icon = '🖼️';
+            if (type === 'new_story') icon = '📸';
 
             toast(
                 (t) => (
                     <div
                         style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                         onClick={() => {
-                            if (type === 'message' && message?.conversationId) {
-                                openChat(message.conversationId, sender);
-                            } else if (type === 'like' && notification.story) {
+                            if (type === 'message' && sender) {
+                                const targetId = sender._id || sender.id;
+                                if (targetId) navigate(`/messages/${targetId}`);
+                            } else if ((type === 'like' && story) || type === 'new_story') {
                                 setStoryDetailUserId(sender._id);
                             } else if (post) {
                                 setPostDetailId(post);
@@ -113,20 +113,53 @@ function AppInit() {
                             toast.dismiss(t.id);
                         }}
                     >
-                        <span style={{ fontSize: '20px' }}>{icon}</span>
-                        <div>
-                            <p style={{ margin: 0, fontWeight: 'bold', fontSize: '14px' }}>{title}</p>
-                            <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>
-                                {type === 'like' && 'liked your post'}
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid var(--primary)' }}>
+                            <img src={sender.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                            <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>{icon}</span> {sender.fullname}
+                            </p>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-sub)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {type === 'like' && (story ? 'liked your story' : 'liked your post')}
                                 {type === 'comment' && 'commented on your post'}
                                 {type === 'new_post' && 'posted something new'}
+                                {type === 'new_story' && 'added a new story'}
                                 {type === 'message' && (message?.content || 'sent you a message')}
                                 {type === 'system' && (message?.content || 'Security Alert')}
                             </p>
                         </div>
                     </div>
                 ),
-                { duration: 4000, position: 'top-right' }
+                { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' } }
+            );
+        });
+
+        socket.on('newStory', (story) => {
+            const { user: storyUser } = story;
+            if (storyUser._id === user?._id) return;
+
+            toast(
+                (t) => (
+                    <div
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                        onClick={() => {
+                            setStoryDetailUserId(storyUser._id);
+                            toast.dismiss(t.id);
+                        }}
+                    >
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid #ff4b2b' }}>
+                            <img src={storyUser.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                            <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)' }}>
+                                📸 {user.fullname}
+                            </p>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-sub)' }}>Added a new story</p>
+                        </div>
+                    </div>
+                ),
+                { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)' } }
             );
         });
 
@@ -135,8 +168,8 @@ function AppInit() {
             toast(`🤝 ${invitedBy} invited you to collaborate on a post`, {
                 icon: '🤝',
                 duration: 5000,
-                position: 'top-right',
-                style: { borderRadius: '12px', background: '#333', color: '#fff' }
+                position: 'top-center',
+                style: { borderRadius: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }
             });
         });
 
@@ -148,7 +181,7 @@ function AppInit() {
             socket.off('newNotification');
             socket.off('collaborationInvite');
         };
-    }, [user?._id, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, openChat, setPostDetailId, setStoryDetailUserId]);
+    }, [user?._id, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate]);
 
     return null;
 }
@@ -223,7 +256,7 @@ function PublicLayout({ children }) {
 function MainLayout({ children }) {
     const user = useAuthStore(s => s.user);
     const location = useLocation();
-    const isMessages = location.pathname === '/messages';
+    const isMessages = location.pathname.startsWith('/messages');
 
     return (
         <div className="relative flex flex-col h-screen w-full overflow-hidden">
@@ -264,6 +297,11 @@ function App() {
 
     return (
         <HelmetProvider>
+            <Toaster
+                position="top-center"
+                toastOptions={{ duration: 3000 }}
+                containerStyle={{ zIndex: 99999 }}
+            />
             {isOffline && (
                 <div style={{
                     position: 'fixed',
@@ -285,11 +323,9 @@ function App() {
             )}
             <QueryClientProvider client={queryClient}>
                 <DarkModeProvider>
-                    <AppInit />
-                    <Toaster />
-                    <Toast />
                     <ConfirmDialog />
                     <Router>
+                        <AppInit />
                         <Suspense fallback={<PageLoader />}>
                             <Routes>
                                 {/* Public Routes - With PublicLayout (Navbar) */}
@@ -306,6 +342,7 @@ function App() {
                                 {/* Protected Routes - With MainLayout (Navbar + Sidebar) */}
                                 <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
                                 <Route path="/messages" element={<MainLayout><Conversations /></MainLayout>} />
+                                <Route path="/messages/:userId" element={<MainLayout><Conversations /></MainLayout>} />
                                 <Route path="/settings/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
                                 <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
                                 <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />

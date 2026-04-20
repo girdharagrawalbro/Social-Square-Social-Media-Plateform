@@ -91,7 +91,7 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
                     background: var(--surface-1);
                     color: var(--text-main);
                     border-top-left-radius: 1.5rem;
-                    border-top-right-radius: 1.5rem;
+                    border-top-center-radius: 1.5rem;
                 }
                 .post-menu-dialog .p-dialog-content {
                     padding: 0.5rem 1rem 1.5rem 1rem;

@@ -9,14 +9,17 @@ export const exploreKeys = {
     reels: ['posts', 'reels'],
 };
 
-// ─── EXPLORE REELS ────────────────────────────────────────────────────────────
+// ─── EXPLORE REELS (Infinite Scroll) ──────────────────────────────────────────
 export function useExploreReels() {
-    return useQuery({
+    return useInfiniteQuery({
         queryKey: exploreKeys.reels,
-        queryFn: async () => {
-            const res = await api.get('/api/post/explore-reels');
+        queryFn: async ({ pageParam = null }) => {
+            const params = new URLSearchParams({ limit: '12' });
+            if (pageParam) params.append('cursor', pageParam);
+            const res = await api.get(`/api/post/explore-reels?${params}`);
             return res.data;
         },
+        getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         staleTime: 1000 * 60 * 5,
     });
 }
