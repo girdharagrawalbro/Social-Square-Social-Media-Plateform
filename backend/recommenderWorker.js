@@ -29,8 +29,7 @@ async function initWorker() {
     console.log("✅ Model loaded");
 
     // 3. Connect to NATS
-    const nc = await connect({ servers: "ws://://onrender.com", 
-  token: "7905038" });
+    const nc = await connect({ servers: "ws://://onrender.com", token: "7905038", waitOnFirstConnect: true, timeout: 60000});
     console.log(`🔌 Worker connected to NATS at ${NATS_URL}`);
 
     // 4. Subscribe to subjects
