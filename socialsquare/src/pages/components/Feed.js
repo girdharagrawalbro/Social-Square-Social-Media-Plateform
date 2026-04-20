@@ -26,6 +26,7 @@ import PostMenu from './ui/PostMenu';
 import { usePrefetchUserProfile, useFollowUser } from '../../hooks/queries/useAuthQueries';
 import { usePrefetchPost } from '../../hooks/queries/usePostQueries';
 import ProgressiveImage from './ui/ProgressiveImage';
+import { getMediaThumbnail } from '../../utils/mediaUtils';
 
 
 const PostActivityTracker = ({ postId, onDwell }) => {
@@ -262,6 +263,7 @@ const PostItem = React.memo(({
                     <video
                         key={post._id}
                         src={post.video}
+                        poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                         autoPlay
                         muted
                         loop
@@ -271,6 +273,7 @@ const PostItem = React.memo(({
                         style={{
                             width: '100%',
                             height: 'auto',
+                            aspectRatio: '1',
                             objectFit: 'cover',
                             background: '#000',
                             cursor: 'pointer'

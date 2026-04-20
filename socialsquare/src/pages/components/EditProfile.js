@@ -59,9 +59,10 @@ const EditProfile = ({ users, closeSidebar }) => {
         setUploadProgress(0);
 
         try {
-            const url = await uploadToCloudinary(file, (progress) => {
+            const result = await uploadToCloudinary(file, (progress) => {
                 setUploadProgress(progress);
             });
+            const url = typeof result === 'string' ? result : result?.url;
             setFormData(prev => ({ ...prev, profile_picture: url }));
             toast.success('Photo uploaded!');
         } catch {

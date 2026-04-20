@@ -13,7 +13,7 @@ function setIo(io) { _io = io; }
 // ─── CREATE STORY (PROTECTED) ─────────────────────────────────────────────────
 router.post('/create', verifyToken, async (req, res) => {
     try {
-        const { mediaUrl, mediaType, text, sharedPostId } = req.body;
+        const { mediaUrl, mediaType, text, sharedPostId, thumbnailUrl } = req.body;
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
 
@@ -22,7 +22,7 @@ router.post('/create', verifyToken, async (req, res) => {
 
         const story = new Story({
             user: { _id: user._id, fullname: user.fullname, profile_picture: user.profile_picture, isOnline: user.isOnline },
-            media: { url: mediaUrl, type: mediaType },
+            media: { url: mediaUrl, type: mediaType, thumbnailUrl: thumbnailUrl || null },
             text: text || {},
             sharedPostId: sharedPostId || null,
         });

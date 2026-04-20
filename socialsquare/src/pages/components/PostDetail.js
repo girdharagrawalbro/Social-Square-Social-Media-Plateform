@@ -17,6 +17,9 @@ import { Dialog } from 'primereact/dialog';
 import ReportDialog from './ui/ReportDialog';
 import PostMenu from './ui/PostMenu';
 import ProgressiveImage from './ui/ProgressiveImage';
+import { getMediaThumbnail } from '../../utils/mediaUtils';
+import useWindowWidth from '../../hooks/useWindowWidth';
+
 
 const UserProfile = lazy(() => import('./UserProfile'));
 
@@ -64,6 +67,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const lastTap = useRef({});
     const viewedPostIdRef = useRef(null);
     const incrementViewMutation = useIncrementView();
+    const windowWidth = useWindowWidth();
+    const isDesktop = windowWidth >= 1024;
+
 
     useEffect(() => {
         if (post?._id && viewedPostIdRef.current !== post._id) {
@@ -241,7 +247,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             />
             <ReportDialog visible={reportVisible} onHide={() => setReportVisible(false)} onSubmit={handleReport} />
 
-            <div className="flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative" style={{ borderRadius: '12px' }}>
+            <div className="flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative" style={{ borderRadius: isDesktop ? '12px' : '0' }}>
                 {/* Removed redundant mobile close button as it is now handled by the Dialog wrapper */}
 
                 <div className="flex flex-1 overflow-hidden">
@@ -254,6 +260,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 <div className="relative w-full h-full flex items-center justify-center bg-black">
                                     <video
                                         src={post.video}
+                                        poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                                         autoPlay
                                         loop
                                         muted
@@ -305,7 +312,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                     </div>
 
                     {/* RIGHT COLUMN - ACTIONS & COMMENTS */}
-                    <div className="w-full md:w-[450px] flex flex-col h-full border-l border-[var(--border-color)] bg-[var(--surface-1)]">
+                    <div className={`w-full md:w-[450px] flex flex-col h-full ${isDesktop ? 'border-l border-[var(--border-color)]' : ''} bg-[var(--surface-1)]`}>
                         {/* Scrollable Content */}
                         <div className="flex-1 flex flex-col min-h-0">
                             {/* MOBILE ONLY - MEDIA (image/video). Desktop uses the left column. */}
@@ -314,6 +321,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     {post?.video ? (
                                         <video
                                             src={post.video}
+                                            poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                                             autoPlay
                                             loop
                                             muted

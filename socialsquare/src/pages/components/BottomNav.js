@@ -2,7 +2,6 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import useConversationStore from '../../store/zustand/useConversationStore';
 
 const BottomNav = () => {
     const navigate = useNavigate();
@@ -10,7 +9,6 @@ const BottomNav = () => {
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
     const isChatOpen = location.pathname.startsWith('/messages/') && location.pathname.split('/').length > 2;
-    const isMessages = location.pathname === '/messages';
 
     if (isChatOpen) return null;
 
@@ -44,7 +42,7 @@ const BottomNav = () => {
     };
 
     return (
-        <div className={`lg:hidden fixed bottom-2 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md ${cardBg} rounded-full p-2 shadow-md`} style={{ zIndex: 1000 }}>
+        <div className={`lg:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md ${cardBg} p-2 shadow-md`} style={{ zIndex: 1000 }}>
             <div className="flex justify-around">
                 {navItems.map(item => (
                     <button key={item.key}

@@ -7,7 +7,6 @@ import NotificationBell from "./ui/NotificationBell";
 import { useDarkMode } from '../../context/DarkModeContext';
 import { requestNotificationPermission } from '../../utils/pushNotifications';
 import NewPost from "./Newpost";
-import { Dialog } from "primereact/dialog";
 
 
 const Navbar = () => {
@@ -172,9 +171,7 @@ const Navbar = () => {
         )}
       </div>
 
-      <Dialog header="New Post" visible={newpostVisible} modal position="center" style={{ width: '500px', maxHeight: '600px' }} onHide={() => setnewpostVisible(false)}>
-        <NewPost setnewpostVisible={setnewpostVisible} />
-      </Dialog>
+      <NewPost visible={newpostVisible} onHide={() => setnewpostVisible(false)} />
     </nav>
   );
 };

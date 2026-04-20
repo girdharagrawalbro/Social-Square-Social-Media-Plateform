@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
@@ -12,6 +13,8 @@ import LiveStream from './LiveStream';
 import toast from 'react-hot-toast';
 import ImageCropper from './ui/ImageCropper';
 import ProgressiveImage from './ui/ProgressiveImage';
+import { getMediaThumbnail } from '../../utils/mediaUtils';
+import useWindowWidth from '../../hooks/useWindowWidth';
 
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
@@ -25,9 +28,25 @@ const StoryViewer = ({
     onStoryLiked,
     onOpenPostDetail,
     onShareStory,
-    initialStoryId = null
+    initialStoryId = null,
+    onIndexChange = () => {}
 }) => {
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
+    const lastReportedIndex = useRef(startGroupIndex);
+
+    // ✅ Sync internal state with external prop (e.g. from previews)
+    useEffect(() => {
+        setGroupIndex(startGroupIndex);
+        lastReportedIndex.current = startGroupIndex;
+    }, [startGroupIndex]);
+
+    useEffect(() => {
+        if (groupIndex !== lastReportedIndex.current) {
+            onIndexChange(groupIndex);
+            lastReportedIndex.current = groupIndex;
+        }
+    }, [groupIndex, onIndexChange]);
+
     const [storyIndex, setStoryIndex] = useState(0);
     const [progress, setProgress] = useState(0);
     const intervalRef = useRef(null);
@@ -226,7 +245,7 @@ const StoryViewer = ({
 
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#1a1a1a' }}>
                 {story.media.type === 'video'
-                    ? <video src={story.media.url} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ? <video src={story.media.url} poster={story.media.thumbnailUrl || getMediaThumbnail(story.media.url, 'video')} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     : <ProgressiveImage
                         src={story.media.url}
                         alt="story"
@@ -446,7 +465,6 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
         setSendingUsers(prev => [...prev, targetUser._id]);
         try {
             // Include deep link so the recipient can open the exact story from outside chat too.
-            const content = `Shared a story: ${storyUrl}`;
 
             // Create or get conversation
             const convRes = await api.post('/api/conversation/messages', { recipientId: targetUser._id });
@@ -632,15 +650,19 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                 onCreated(res.data);
             } else {
                 for (const item of previews) {
-                    let mediaUrl;
+                    let mediaUrl, thumbnailUrl;
                     if (item.type === 'video') {
-                        mediaUrl = await uploadVideoToCloudinary(item.file);
+                        const result = await uploadVideoToCloudinary(item.file);
+                        mediaUrl = typeof result === 'string' ? result : result?.url;
+                        thumbnailUrl = result?.thumbnailUrl || null;
                     } else {
-                        mediaUrl = await uploadToCloudinary(item.file);
+                        const result = await uploadToCloudinary(item.file);
+                        mediaUrl = typeof result === 'string' ? result : result?.url;
                     }
 
                     const res = await api.post(`/api/story/create`, {
                         mediaUrl, mediaType: item.type,
+                        thumbnailUrl,
                         text: text ? { content: text, color: textColor, position: textPosition } : null
                     });
                     onCreated(res.data);
@@ -733,21 +755,22 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
 };
 
 const Stories = () => {
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const loggeduser = useAuthStore(s => s.user);
     const { data: storyFeed } = useStoryFeed(loggeduser?._id);
     const [groups, setGroups] = useState([]);
-    const [viewerOpen, setViewerOpen] = useState(false);
-    const [viewerGroupIndex, setViewerGroupIndex] = useState(0);
     const [createOpen, setCreateOpen] = useState(false);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const [postVisible, setPostVisible] = useState(false);
-    const [selectedPostId, setSelectedPostId] = useState(null);
+    const [selectedPostId] = useState(null);
     const [shareOpen, setShareOpen] = useState(false);
-    const [sharingStory, setSharingStory] = useState(null);
-    const [initialStoryId, setInitialStoryId] = useState(null);
+    const [sharingStory] = useState(null);
     const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
+    const windowWidth = useWindowWidth();
+    const isDesktop = windowWidth >= 1024;
+
     // const [activeLiveStreams, setActiveLiveStreams] = useState([]);
 
     // ✅ Sync story feed to local groups state
@@ -760,18 +783,15 @@ const Stories = () => {
     // ✅ Global trigger for viewing stories (from chat links, etc)
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {
-            const index = groups.findIndex(g => g?.user?._id?.toString() === userId?.toString());
-            if (index !== -1) {
-                setViewerGroupIndex(index);
-                setInitialStoryId(storyId || null);
-                setViewerOpen(true);
-                setIsStoryViewerOpen(true);
+            const group = groups.find(g => g?.user?._id?.toString() === userId?.toString());
+            if (group) {
+                navigate(`/stories/${group.user.username}${storyId ? `/${storyId}` : ''}`);
             } else {
                 toast.error('Story no longer available');
             }
         };
         return () => delete window.onViewStory;
-    }, [groups, setIsStoryViewerOpen]);
+    }, [groups, navigate]);
 
     // const fetchActiveLives = async () => {
     //     try {
@@ -799,17 +819,14 @@ const Stories = () => {
 
     useEffect(() => {
         if (storyDetailUserId && groups.length > 0) {
-            const index = groups.findIndex(g => g.user._id.toString() === storyDetailUserId.toString());
-            if (index !== -1) {
-                setViewerGroupIndex(index);
-                setInitialStoryId(storyDetailStoryId || null);
-                setViewerOpen(true);
-                setIsStoryViewerOpen(true);
+            const group = groups.find(g => g.user._id.toString() === storyDetailUserId.toString());
+            if (group) {
+                navigate(`/stories/${group.user.username}${storyDetailStoryId ? `/${storyDetailStoryId}` : ''}`);
             }
             // Clear the selection so it doesn't trigger again
             setStoryDetailDeepLink(null, null);
         }
-    }, [storyDetailUserId, storyDetailStoryId, groups, setStoryDetailDeepLink, setIsStoryViewerOpen]);
+    }, [storyDetailUserId, storyDetailStoryId, groups, setStoryDetailDeepLink, navigate]);
 
     // ✅ Real-time: new story from a followed user
     useEffect(() => {
@@ -840,21 +857,7 @@ const Stories = () => {
         };
     }, [loggeduser?._id]);
 
-    const handleStoryLiked = (storyId, likes) => {
-        setGroups(prev => prev.map(g => ({
-            ...g,
-            stories: g.stories.map(s => s._id === storyId ? { ...s, likes } : s)
-        })));
-    };
 
-    const handleStoryDeleted = (userId, storyId) => {
-        setGroups(prev =>
-            prev.map(g => g.user._id.toString() === userId
-                ? { ...g, stories: g.stories.filter(s => s._id !== storyId) }
-                : g
-            ).filter(g => g.stories.length > 0)
-        );
-    };
 
     const handleStoryCreated = (newStory) => {
         const myId = loggeduser?._id?.toString();
@@ -875,10 +878,10 @@ const Stories = () => {
 
         // If this is a shared story, open it in viewer
         if (sharingPostToStory && groupIndex !== -1) {
-            setViewerGroupIndex(groupIndex);
-            setInitialStoryId(newStory._id);
-            setViewerOpen(true);
-            setIsStoryViewerOpen(true);
+            const group = groups[groupIndex];
+            if (group) {
+                navigate(`/stories/${group.user.username}/${newStory._id}`);
+            }
             clearSharingPostToStory();
         }
 
@@ -888,10 +891,10 @@ const Stories = () => {
 
     const openViewer = (index) => {
         const group = groups[index];
-        if (group) markGroupAsViewed(group.user._id);
-        setViewerGroupIndex(index);
-        setViewerOpen(true);
-        setIsStoryViewerOpen(true);
+        if (group) {
+            markGroupAsViewed(group.user._id);
+            navigate(`/stories/${group.user.username}`);
+        }
     };
 
     const handleProfileClick = (e, userId) => {
@@ -1038,46 +1041,6 @@ const Stories = () => {
                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                 `}</style>
             </div>
-            <Dialog
-                visible={viewerOpen}
-                onHide={() => {
-                    setViewerOpen(false);
-                    setInitialStoryId(null);
-                    setIsStoryViewerOpen(false);
-                }}
-                showHeader={false}
-                modal
-                dismissableMask
-                contentStyle={{ padding: 0, borderRadius: '20px', overflow: 'hidden' }}
-                style={{ width: '95vw', maxWidth: '420px', height: '90vh', maxHeight: '800px', border: 'none' }}
-                maskStyle={{ backdropFilter: 'blur(12px)', background: 'rgba(0,0,0,0.7)' }}
-                baseZIndex={10000}
-                appendTo={document.body}
-            >
-                {viewerOpen && groups.length > 0 && (
-                    <StoryViewer
-                        groups={groups}
-                        startGroupIndex={Math.min(viewerGroupIndex, groups.length - 1)}
-                        onClose={() => {
-                            setViewerOpen(false);
-                            setInitialStoryId(null);
-                            setIsStoryViewerOpen(false);
-                        }}
-                        loggeduser={loggeduser}
-                        onStoryDeleted={handleStoryDeleted}
-                        onStoryLiked={handleStoryLiked}
-                        onOpenPostDetail={(id) => {
-                            setSelectedPostId(id);
-                            setPostVisible(true);
-                        }}
-                        onShareStory={(s) => {
-                            setSharingStory(s);
-                            setShareOpen(true);
-                        }}
-                        initialStoryId={initialStoryId}
-                    />
-                )}
-            </Dialog>
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
             {sharingPostToStory && (
                 <CreateStoryModal
@@ -1090,14 +1053,14 @@ const Stories = () => {
 
             <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)} baseZIndex={20000} appendTo={document.body}>
                 <React.Suspense fallback={<div className="p-4 text-center">Loading Profile...</div>}>
-                    <UserProfile id={selectedProfileId} onClose={() => { setProfileVisible(false); setViewerOpen(false); if (typeof setIsStoryViewerOpen === 'function') setIsStoryViewerOpen(false); }} />
+                    <UserProfile id={selectedProfileId} onClose={() => { setProfileVisible(false); if (typeof setIsStoryViewerOpen === 'function') setIsStoryViewerOpen(false); }} />
                 </React.Suspense>
             </Dialog>
 
             <Dialog
                 showHeader={false}
                 visible={postVisible}
-                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                style={{ width: isDesktop ? '95vw' : '100vw', maxWidth: isDesktop ? '1200px' : 'none', height: isDesktop ? '90vh' : '100dvh' }}
                 onHide={() => setPostVisible(false)}
                 dismissableMask
                 blockScroll={true}
@@ -1105,7 +1068,7 @@ const Stories = () => {
                 modal
                 maskStyle={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}
             >
-                <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: isDesktop ? '24px' : '0', overflow: 'hidden', border: isDesktop ? '1px solid var(--border-color)' : 'none' }}>
                     <button
                         onClick={() => setPostVisible(false)}
                         className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
@@ -1139,7 +1102,7 @@ const Stories = () => {
     );
 };
 
-// Export StoryViewer so other components can open the same viewer in a modal
-export { StoryViewer };
+// Export components so other pages can use them
+export { StoryViewer, ShareStoryDialog };
 
 export default Stories;

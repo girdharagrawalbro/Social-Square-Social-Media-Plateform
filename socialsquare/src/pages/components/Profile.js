@@ -7,6 +7,8 @@ import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
 import toast, { Toaster } from 'react-hot-toast';
+import useWindowWidth from '../../hooks/useWindowWidth';
+
 
 
 import EditProfile from './EditProfile';
@@ -38,6 +40,9 @@ const Profile = ({ userId }) => {
     const [activeTab, setActiveTab] = useState('posts');
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
+    const windowWidth = useWindowWidth();
+    const isDesktop = windowWidth >= 1024;
+
 
     const loggeduser = useAuthStore(s => s.user);
 
@@ -250,9 +255,9 @@ const Profile = ({ userId }) => {
                         </div>
 
                         {/* Stats tiles */}
-                        <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mb-4">
+                        <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4">
                             <div
-                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
                                 onClick={() => {
                                     if (viewingOwnProfile || isFollowing) {
                                         setShowFollowersList(true);
@@ -261,11 +266,11 @@ const Profile = ({ userId }) => {
                                     }
                                 }}
                             >
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followers?.length || 0)}</h6>
-                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
+                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followers?.length || 0)}</h6>
+                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                             </div>
                             <div
-                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
                                 onClick={() => {
                                     if (viewingOwnProfile || isFollowing) {
                                         setShowFollowingList(true);
@@ -274,16 +279,16 @@ const Profile = ({ userId }) => {
                                     }
                                 }}
                             >
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center ">{formatCount(displayUser?.following?.length || 0)}</h6>
-                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
+                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center ">{formatCount(displayUser?.following?.length || 0)}</h6>
+                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block" style={{ whiteSpace: 'nowrap' }}>Following</span>
                             </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer px-4">
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center">{formatCount(userPostsList.length)}</h6>
-                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4">
+                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(userPostsList.length)}</h6>
+                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
                             </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center cursor-pointer px-4" title="Total profile views">
-                                <h6 className="m-0 font-extrabold text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.profileViews || 0)}</h6>
-                                <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Views</span>
+                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4" title="Total profile views">
+                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.profileViews || 0)}</h6>
+                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Views</span>
                             </div>
                         </div>
 
@@ -454,17 +459,17 @@ const Profile = ({ userId }) => {
 
             {/* Post Detail Dialog - Shared */}
             <Dialog
-            showHeader={false}
+                showHeader={false}
                 visible={postDetailVisible}
-                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                style={{ width: isDesktop ? '95vw' : '100vw', maxWidth: isDesktop ? '1200px' : 'none', height: isDesktop ? '90vh' : '100dvh' }}
                 position="center"
                 onHide={() => setPostDetailVisible(false)}
-                contentStyle={{ padding: 0, borderRadius: '24px', overflow: 'hidden', background: 'transparent' }}
+                contentStyle={{ padding: 0, borderRadius: isDesktop ? '24px' : '0', overflow: 'hidden', background: 'transparent' }}
                 baseZIndex={20000}
                 blockScroll={true}
                 closable={false}
             >
-                <div className="relative bg-[var(--surface-1)] h-full w-full" style={{ borderRadius: '24px', overflow: 'hidden' }}>
+                <div className="relative bg-[var(--surface-1)] h-full w-full" style={{ borderRadius: isDesktop ? '24px' : '0', overflow: 'hidden', border: isDesktop ? '1px solid var(--border-color)' : 'none' }}>
                     <button
                         onClick={() => setPostDetailVisible(false)}
                         className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
 import { useExploreReels } from '../../hooks/queries/useExploreQueries';
 import { Skeleton } from 'primereact/skeleton';
+import { getMediaThumbnail } from '../../utils/mediaUtils';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
@@ -36,15 +37,24 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
       style={{ aspectRatio: '9/16' }}
       onClick={onClick}
     >
-      <video
-        ref={videoRef}
-        src={vid.video}
-        muted
-        loop
-        playsInline
-        preload="auto"
-        className={`w-full h-full object-cover transition-all duration-1000 ${isPlaying ? 'grayscale-0 scale-105 opacity-100' : 'grayscale opacity-60 scale-100'}`}
-      />
+      {isPlaying ? (
+        <video
+          ref={videoRef}
+          src={vid.video}
+          poster={vid.videoThumbnail || getMediaThumbnail(vid.video, 'video')}
+          muted
+          loop
+          playsInline
+          preload="auto"
+          className={`w-full h-full object-cover transition-all duration-1000 grayscale-0 scale-105 opacity-100`}
+        />
+      ) : (
+        <img 
+          src={vid.videoThumbnail || getMediaThumbnail(vid.video, 'video', { width: 400, height: 711 })} 
+          alt="" 
+          className="w-full h-full object-cover grayscale opacity-60 scale-100 transition-all duration-500"
+        />
+      )}
 
       {/* Dynamic Overlay Info */}
       <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent transition-opacity duration-500 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}>
@@ -83,7 +93,7 @@ const Explore = () => {
   } = useExploreReels();
 
   // Flatten the pages into a single array of videos
-  const videos = data?.pages.flatMap(page => page.posts) || [];
+  const videos = useMemo(() => data?.pages.flatMap(page => page.posts) || [], [data?.pages]);
 
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
   const [visible, setVisible] = useState(false);

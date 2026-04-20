@@ -32,6 +32,56 @@ async function requestCloudinaryApi(path, method, body) {
     return json;
 }
 
+/**
+ * Generates a thumbnail image from a video file using the browser's Canvas API.
+ */
+export function generateVideoThumbnail(videoFile, seekTime = 1) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Allow cross-origin if needed, though usually local Blob
+        video.crossOrigin = "anonymous";
+        video.src = URL.createObjectURL(videoFile);
+        video.currentTime = seekTime;
+        video.muted = true; // Required for mobile autoplay/preview sometimes
+
+        video.addEventListener('loadeddata', () => {
+            // Handle case where seekTime is longer than video
+            if (seekTime > video.duration) {
+                video.currentTime = Math.min(1, video.duration / 2);
+            }
+        });
+
+        video.addEventListener('seeked', () => {
+            try {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const file = new File([blob], 'thumb.jpg', { type: 'image/jpeg' });
+                        resolve(file);
+                    } else {
+                        reject(new Error('Failed to generate thumbnail blob'));
+                    }
+                }, 'image/jpeg', 0.85);
+            } catch (err) {
+                reject(err);
+            } finally {
+                URL.revokeObjectURL(video.src);
+            }
+        });
+
+        video.addEventListener('error', (e) => {
+            URL.revokeObjectURL(video.src);
+            reject(new Error('Failed to load video for thumbnail generation'));
+        });
+    });
+}
+
 export async function uploadToCloudinary(file, onProgress, options = {}) {
     const fileBase64 = await fileToDataUrl(file, onProgress);
     const payload = {
@@ -41,21 +91,51 @@ export async function uploadToCloudinary(file, onProgress, options = {}) {
     };
 
     const json = await requestCloudinaryApi('/upload-base64', 'POST', payload);
-    const secureUrl = json?.data?.secure_url;
+    const result = json?.data;
+    const secureUrl = result?.secure_url;
 
     if (!secureUrl) {
         throw new Error('Cloudinary upload succeeded but secure_url is missing');
     }
 
     if (onProgress) onProgress(100);
-    return secureUrl;
+
+    return {
+        url: secureUrl,
+        publicId: result?.public_id
+    };
 }
 
 export async function uploadVideoToCloudinary(file, onProgress, options = {}) {
-    return uploadToCloudinary(file, onProgress, {
+    // 1. Generate thumbnail first
+    let thumbnailFile = null;
+    try {
+        thumbnailFile = await generateVideoThumbnail(file);
+    } catch (err) {
+        console.warn('Thumbnail generation failed, continuing with video only', err);
+    }
+
+    // 2. Upload video
+    const videoResult = await uploadToCloudinary(file, onProgress, {
         ...options,
         resourceType: 'video',
     });
+
+    // 3. Upload thumbnail as an image if generated
+    let thumbnailUrl = null;
+    if (thumbnailFile) {
+        try {
+            const thumbResult = await uploadToCloudinary(thumbnailFile);
+            thumbnailUrl = thumbResult.url;
+        } catch (err) {
+            console.error('Failed to upload thumbnail', err);
+        }
+    }
+
+    return {
+        ...videoResult,
+        thumbnailUrl
+    };
 }
 
 export async function deleteFromCloudinary(publicId, resourceType = 'image') {
