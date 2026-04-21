@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
+import usePostStore from '../../store/zustand/usePostStore';
+import useWindowWidth from '../../hooks/useWindowWidth';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -58,7 +60,9 @@ const MessageBubble = ({ msg }) => {
 // ─── MAIN CHATBOT ─────────────────────────────────────────────────────────────
 const Chatbot = () => {
     const user = useAuthStore(s => s.user);
-    const [open, setOpen] = useState(false);
+    const { chatbotOpen: open, setChatbotOpen: setOpen } = usePostStore();
+    const windowWidth = useWindowWidth();
+    const isMobile = windowWidth < 768;
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [unread, setUnread] = useState(0);
@@ -207,7 +211,8 @@ const Chatbot = () => {
                 {open && (
                     <div className="chatbot-window" style={{
                         position: 'absolute', bottom: '68px', right: 0,
-                        width: '340px', height: '520px',
+                        width: 'calc(100vw - 48px)', maxWidth: '340px',
+                        height: 'calc(100dvh - 180px)', maxHeight: '520px',
                         background: 'var(--surface-1)', borderRadius: '20px',
                         boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
                         border: '1px solid var(--border-color)',
@@ -297,34 +302,37 @@ const Chatbot = () => {
                     </div>
                 )}
 
-                {/* Bubble button */}
-                <button
-                    type="button"
-                    aria-pressed={open}
-                    aria-label={open ? 'Close SocialBot' : 'Open SocialBot'}
-                    onClick={() => setOpen(v => !v)}
-                    style={{
-                        width: 56, height: 56, borderRadius: '50%',
-                        background: open ? '#6366f1' : 'linear-gradient(135deg, #808bf5, #6366f1)',
-                        border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 8px 24px rgba(128,139,245,0.5)',
-                        animation: !hasOpened.current ? 'bubblePulse 2s ease infinite' : 'none',
-                        transition: 'transform 0.2s, background 0.2s',
-                        fontSize: '24px',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                    title="Chat with SocialBot"
-                >
-                    {open ? '✕' : '🤖'}
-                </button>
+                {/* Bubble button and Unread badge - Hidden on mobile, moved to hamburger */}
+                {!isMobile && (
+                    <>
+                        <button
+                            type="button"
+                            aria-pressed={open}
+                            aria-label={open ? 'Close SocialBot' : 'Open SocialBot'}
+                            onClick={() => setOpen(v => !v)}
+                            style={{
+                                width: 56, height: 56, borderRadius: '50%',
+                                background: open ? '#6366f1' : 'linear-gradient(135deg, #808bf5, #6366f1)',
+                                border: 'none', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 8px 24px rgba(128,139,245,0.5)',
+                                animation: !hasOpened.current ? 'bubblePulse 2s ease infinite' : 'none',
+                                transition: 'transform 0.2s, background 0.2s',
+                                fontSize: '24px',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                            title="Chat with SocialBot"
+                        >
+                            {open ? '✕' : '🤖'}
+                        </button>
 
-                {/* Unread badge */}
-                {unread > 0 && !open && (
-                    <div style={{ position: 'absolute', top: -4, right: -4, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 20, height: 20, fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
-                        {unread}
-                    </div>
+                        {unread > 0 && !open && (
+                            <div style={{ position: 'absolute', top: -4, right: -4, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 20, height: 20, fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
+                                {unread}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </>

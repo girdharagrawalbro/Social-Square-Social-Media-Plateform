@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import Search from "./Search";
 import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
+import usePostStore from '../../store/zustand/usePostStore';
 import Authnav from "./Authnav";
 import NotificationBell from "./ui/NotificationBell";
 import { useDarkMode } from '../../context/DarkModeContext';
@@ -13,6 +14,7 @@ const Navbar = () => {
   const location = useLocation();
   const isLandingPage = ['/', '/help', '/contact'].includes(location.pathname);
   const { user: loggeduser, logout } = useAuthStore();
+  const { setChatbotOpen } = usePostStore();
   const isAdminUser = Boolean(loggeduser?.isAdmin || loggeduser?.role === 'admin');
   const isAuthenticated = Boolean(loggeduser?._id || getToken());
   const { isDark, toggle } = useDarkMode();
@@ -153,6 +155,13 @@ const Navbar = () => {
                 <span>⚙️</span> Admin Dashboard
               </Link>
             )}
+            
+            <button
+                onClick={() => { setChatbotOpen(true); setMobileMenuOpen(false); }}
+                className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-3 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                <span className="text-lg">🤖</span> AI SocialBot
+              </button>
 
             <button
               onClick={() => { toggle(); setMobileMenuOpen(false); }}

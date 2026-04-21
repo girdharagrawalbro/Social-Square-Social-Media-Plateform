@@ -158,7 +158,7 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
                                 <button
                                     onClick={() => handleShare(u)}
                                     disabled={sendingUsers.includes(u._id)}
-                                    className={`px-5 py-2 rounded-full text-[11px] font-bold border-0 cursor-pointer transition-all ${sendingUsers.includes(u._id)
+                                    className={`px-3 py-2 rounded-full text-[11px] font-bold border-0 cursor-pointer transition-all ${sendingUsers.includes(u._id)
                                         ? 'bg-gray-100 text-gray-400'
                                         : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm'
                                         }`}
