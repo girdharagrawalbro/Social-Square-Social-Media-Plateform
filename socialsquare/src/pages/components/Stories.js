@@ -31,6 +31,7 @@ const StoryViewer = ({
     initialStoryId = null,
     onIndexChange = () => { }
 }) => {
+    const navigate = useNavigate();
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
     const lastReportedIndex = useRef(startGroupIndex);
 
@@ -100,7 +101,15 @@ const StoryViewer = ({
 
     useEffect(() => {
         setProgress(0);
-    }, [story?._id]);
+        // ✅ Sync URL with current story
+        if (group?.user) {
+            const target = group.user.username || group.user._id;
+            const path = `/stories/${target}${story?._id ? `/${story._id}` : ''}`;
+            if (window.location.pathname !== path) {
+                navigate(path, { replace: true });
+            }
+        }
+    }, [story?._id, group?.user, navigate]);
 
     // ✅ Pre-fetching Logic
     useEffect(() => {
@@ -128,10 +137,14 @@ const StoryViewer = ({
         }
     }, [storyIndex, groupIndex, group, groups]);
 
+    const viewedRef = useRef(new Set());
+
     useEffect(() => {
         if (!story || isPaused) return;
 
-        if (story._id && loggeduser?._id) {
+        // Record view only once per story per viewer session
+        if (story._id && loggeduser?._id && !viewedRef.current.has(story._id)) {
+            viewedRef.current.add(story._id);
             import('../../store/zustand/useAuthStore').then(({ api }) => {
                 api.post(`/api/story/view/${story._id}`).catch(() => { });
             });
@@ -151,7 +164,7 @@ const StoryViewer = ({
 
         return () => clearInterval(intervalRef.current);
 
-    }, [story?._id, story, DURATION, loggeduser?._id, goNext, isPaused]);
+    }, [story, DURATION, loggeduser?._id, goNext, isPaused]);
 
     const handleLike = async (e) => {
         e.stopPropagation();
@@ -165,9 +178,34 @@ const StoryViewer = ({
     };
 
     const goPrev = (e) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
         if (storyIndex > 0) setStoryIndex(s => s - 1);
-        else if (groupIndex > 0) { setGroupIndex(g => g - 1); setStoryIndex(0); }
+        else if (groupIndex > 0) {
+            setGroupIndex(g => g - 1);
+            // Move to the last story of the previous group
+            const prevGroup = groups[groupIndex - 1];
+            if (prevGroup) {
+                setStoryIndex(prevGroup.stories.length - 1);
+            }
+        }
+    };
+
+    const goToNextGroup = (e) => {
+        if (e) e.stopPropagation();
+        if (groupIndex < groups.length - 1) {
+            setGroupIndex(g => g + 1);
+            setStoryIndex(0);
+        } else {
+            onClose();
+        }
+    };
+
+    const goToPrevGroup = (e) => {
+        if (e) e.stopPropagation();
+        if (groupIndex > 0) {
+            setGroupIndex(g => g - 1);
+            setStoryIndex(0);
+        }
     };
 
     if (!story || !group) return null;
@@ -253,6 +291,24 @@ const StoryViewer = ({
                     />
                 }
 
+                {/* Left/Right Group Navigation Arrows */}
+                {groupIndex > 0 && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setGroupIndex(g => g - 1); setStoryIndex(0); }}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 z-50 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white w-10 h-10 rounded-full border-0 cursor-pointer flex items-center justify-center transition-all"
+                    >
+                        <i className="pi pi-chevron-left" style={{ fontSize: '18px' }}></i>
+                    </button>
+                )}
+                {groupIndex < groups.length - 1 && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setGroupIndex(g => g + 1); setStoryIndex(0); }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 z-50 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white w-10 h-10 rounded-full border-0 cursor-pointer flex items-center justify-center transition-all"
+                    >
+                        <i className="pi pi-chevron-right" style={{ fontSize: '18px' }}></i>
+                    </button>
+                )}
+
                 {/* Shared Post Overlay (Sticker) */}
                 {story.sharedPostId && (
                     <div
@@ -326,8 +382,58 @@ const StoryViewer = ({
                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={goNext} />
             </div>
 
+            {/* ✅ Neighbor Navigation Buttons (Visible on Desktop) */}
+            <div className="hidden md:flex" style={{ position: 'absolute', top: '50%', left: '-80px', right: '-80px', transform: 'translateY(-50%)', justifyContent: 'space-between', zIndex: 40, pointerEvents: 'none' }}>
+                <button
+                    onClick={goToPrevGroup}
+                    disabled={groupIndex === 0}
+                    style={{
+                        pointerEvents: 'auto',
+                        background: 'rgba(255,255,255,0.1)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#fff',
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '50%',
+                        cursor: groupIndex === 0 ? 'default' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s',
+                        opacity: groupIndex === 0 ? 0.3 : 1
+                    }}
+                    className="hover:scale-110 hover:bg-white/20 active:scale-95"
+                >
+                    <i className="pi pi-chevron-left" style={{ fontSize: '20px' }}></i>
+                </button>
+                <button
+                    onClick={goToNextGroup}
+                    disabled={groupIndex === groups.length - 1}
+                    style={{
+                        pointerEvents: 'auto',
+                        background: 'rgba(255,255,255,0.1)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#fff',
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '50%',
+                        cursor: groupIndex === groups.length - 1 ? 'default' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s',
+                        opacity: groupIndex === groups.length - 1 ? 0.3 : 1
+                    }}
+                    className="hover:scale-110 hover:bg-white/20 active:scale-95"
+                >
+                    <i className="pi pi-chevron-right" style={{ fontSize: '20px' }}></i>
+                </button>
+            </div>
+
             {/* Footer / Interaction Bar */}
-            <div style={{ position: 'absolute', bottom: 30, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: '15px', zIndex: 25 }}>
+            <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: '4px', zIndex: 25 }}>
                 {isOwn ? (
                     <div
                         onClick={async () => {
@@ -448,8 +554,8 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
         u.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const storyUrl = story?._id && story?.user?._id
-        ? `${window.location.origin}/story/${story.user._id}/${story._id}`
+    const storyUrl = story?._id && (story?.user?.username || story?.user?._id)
+        ? `${window.location.origin}/stories/${story.user.username || story.user._id}/${story._id}`
         : '';
 
     const handleCopyLink = async () => {
@@ -762,6 +868,7 @@ const Stories = () => {
     const loggeduser = useAuthStore(s => s.user);
     const { data: storyFeed } = useStoryFeed(loggeduser?._id);
     const [groups, setGroups] = useState([]);
+    const viewedRef = useRef(new Set());
     const [createOpen, setCreateOpen] = useState(false);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
@@ -773,16 +880,12 @@ const Stories = () => {
     const isMobile = windowWidth < 640;
     const storySize = isMobile ? 64 : 89;
 
-    // const [activeLiveStreams, setActiveLiveStreams] = useState([]);
-
-    // ✅ Sync story feed to local groups state
     useEffect(() => {
         if (storyFeed) {
             setGroups(storyFeed);
         }
     }, [storyFeed]);
 
-    // ✅ Global trigger for viewing stories (from chat links, etc)
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {
             const group = groups.find(g => g?.user?._id?.toString() === userId?.toString());
@@ -795,46 +898,21 @@ const Stories = () => {
         return () => delete window.onViewStory;
     }, [groups, navigate]);
 
-    // const fetchActiveLives = async () => {
-    //     try {
-    //         const { data } = await api.get('/api/live/active');
-    //         // setActiveLiveStreams(data);
-    //     } catch (err) {
-    //         console.error('Error fetching lives:', err);
-    //     }
-    // };
-
-    // useEffect(() => {
-    //     fetchActiveLives();
-    //     const interval = setInterval(fetchActiveLives, 30000); // Polling for now
-    //     return () => clearInterval(interval);
-    // }, []);
-
-    // const handleGoLive = async () => {
-    //     try {
-    //         const { data } = await api.post('/api/live/start', { title: `${loggeduser.fullname}'s Live` });
-    //         setLiveStream(data._id, true);
-    //     } catch (err) {
-    //         toast.error('Could not start live stream');
-    //     }
-    // };
-
     useEffect(() => {
-        if (storyDetailUserId && groups.length > 0) {
+        if (storyDetailUserId && groups.length > 0 && !viewedRef.current.has(storyDetailUserId)) {
             const group = groups.find(g => g.user._id.toString() === storyDetailUserId.toString());
             if (group) {
+                viewedRef.current.add(storyDetailUserId);
                 navigate(`/stories/${group.user.username}${storyDetailStoryId ? `/${storyDetailStoryId}` : ''}`);
             }
-            // Clear the selection so it doesn't trigger again
             setStoryDetailDeepLink(null, null);
         }
     }, [storyDetailUserId, storyDetailStoryId, groups, setStoryDetailDeepLink, navigate]);
 
-    // ✅ Real-time: new story from a followed user
     useEffect(() => {
         const handleNewStory = (story) => {
             const storyUserId = story.user._id.toString();
-            if (storyUserId === loggeduser?._id?.toString()) return; // skip own
+            if (storyUserId === loggeduser?._id?.toString()) return;
             setGroups(prev => {
                 const idx = prev.findIndex(g => g.user._id.toString() === storyUserId);
                 if (idx !== -1) {
@@ -859,13 +937,10 @@ const Stories = () => {
         };
     }, [loggeduser?._id]);
 
-
-
     const handleStoryCreated = (newStory) => {
         const myId = loggeduser?._id?.toString();
         let groupIndex = -1;
 
-        // Optimistically update the list
         setGroups(prev => {
             const idx = prev.findIndex(g => g.user._id.toString() === myId);
             if (idx !== -1) {
@@ -878,7 +953,6 @@ const Stories = () => {
             return [{ user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }, stories: [newStory], hasUnviewed: false }, ...prev];
         });
 
-        // If this is a shared story, open it in viewer
         if (sharingPostToStory && groupIndex !== -1) {
             const group = groups[groupIndex];
             if (group) {
@@ -887,7 +961,6 @@ const Stories = () => {
             clearSharingPostToStory();
         }
 
-        // Refetch in background, but we already updated local state
         queryClient.invalidateQueries(['story-feed']);
     };
 
@@ -944,31 +1017,13 @@ const Stories = () => {
                     style={{ display: 'flex', gap: '16px', overflowX: 'auto', padding: '12px 4px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     className="no-scrollbar"
                 >
-                    {/* Go Live Button
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
-                        <div style={{ width: 89, height: 89, borderRadius: '50%', border: '3px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-1)', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}>
-                            <i className="pi pi-video" style={{ color: '#ef4444', fontSize: '32px' }}></i>
-                        </div>
-                        <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>Go Live</span>
-                    </div>
-
-                    {/* Active Live Streams */}
-                    {/* {activeLiveStreams.map(live => (
-                        <div key={live._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(live._id, false)}>
-                            <div style={{ width: 89, height: 89, borderRadius: '50%', padding: '2px', background: '#ef4444', animation: 'pulse 2s infinite', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)' }}>
-                                <img src={live.host.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--surface-1)' }} />
-                            </div>
-                            <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>LIVE</span>
-                        </div>
-                    ))} */}
-
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                         <div style={{ position: 'relative', width: storySize, height: storySize }}>
                             <div
                                 onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}
                                 style={{
                                     width: storySize, height: storySize, borderRadius: '50%', padding: '2px',
-                                    background: ownGroup ? (viewedStoryGroups.has(loggeduser?._id?.toString()) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
+                                    background: ownGroup ? ((!ownGroup.hasUnviewed || viewedStoryGroups.has(loggeduser?._id?.toString())) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
                                     transition: 'all 0.3s ease'
                                 }}
                             >
@@ -984,7 +1039,7 @@ const Stories = () => {
                                 onClick={(e) => { e.stopPropagation(); setCreateOpen(true); }}
                                 style={{ position: 'absolute', bottom: isMobile ? 0 : 4, right: isMobile ? 0 : 4, width: isMobile ? 20 : 24, height: isMobile ? 20 : 24, background: '#808bf5', borderRadius: '50%', border: '2px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, zIndex: 5 }}
                             >
-                                +
+                                <i className="pi pi-plus" style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: 'bold' }}></i>
                             </div>
                         </div>
                         <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 500, textAlign: 'center', maxWidth: storySize, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1020,21 +1075,20 @@ const Stories = () => {
                     })}
                 </div>
 
-                {/* Left/Right Buttons */}
                 {canScrollLeft && (
                     <button
                         onClick={() => scroll('left')}
-                        className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white w-8 h-8 rounded-full border-0 cursor-pointer shadow-md opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center p-0"
+                        className="absolute left-1 top-1/2 -translate-y-1/2 z-20 bg-white/80 dark:bg-black/60 hover:scale-110 text-gray-800 dark:text-white w-7 h-7 rounded-full border border-gray-200 dark:border-white/10 cursor-pointer shadow-lg transition-all flex items-center justify-center p-0"
                     >
-                        <i className="pi pi-chevron-left text-sm"></i>
+                        <i className="pi pi-chevron-left text-[10px]"></i>
                     </button>
                 )}
                 {canScrollRight && (
                     <button
                         onClick={() => scroll('right')}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white w-8 h-8 rounded-full border-0 cursor-pointer shadow-md opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center p-0"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 z-20 bg-white/80 dark:bg-black/60 hover:scale-110 text-gray-800 dark:text-white w-7 h-7 rounded-full border border-gray-200 dark:border-white/10 cursor-pointer shadow-lg transition-all flex items-center justify-center p-0"
                     >
-                        <i className="pi pi-chevron-right text-sm"></i>
+                        <i className="pi pi-chevron-right text-[10px]"></i>
                     </button>
                 )}
 

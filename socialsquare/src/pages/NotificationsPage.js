@@ -171,7 +171,7 @@ const NotificationsPage = () => {
                                                         handleMarkRead(n._id);
                                                         if (n.type === 'message' && n.sender) {
                                                             const targetId = n.sender.id || n.sender._id;
-                                                            if (targetId) navigate(`/messages/${targetId}`);
+                                                            if (targetId) navigate(`/conversation/${targetId}`);
                                                         } else if (n.type === 'like' && n.story) {
                                                             setStoryDetailUserId(n.sender.id || n.sender._id);
                                                         } else if (n.post) {

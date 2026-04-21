@@ -159,7 +159,7 @@ export function useClearChat() {
             await qc.cancelQueries({ queryKey });
             const prev = qc.getQueryData(queryKey);
             if (prev) {
-                qc.setQueryData(queryKey, prev.map(c => 
+                qc.setQueryData(queryKey, prev.map(c =>
                     c._id === conversationId ? { ...c, lastMessage: null, lastMessageAt: null } : c
                 ));
             }

@@ -22,14 +22,8 @@ const StoriesPage = () => {
     const [sharingStory, setSharingStory] = useState(null);
 
     const onIndexChange = React.useCallback((newIndex) => {
-        if (groups[newIndex]) {
-            const targetUsername = groups[newIndex].user?.username;
-            if (targetUsername && targetUsername !== username) {
-                markGroupAsViewed(groups[newIndex].user._id);
-                navigate(`/stories/${targetUsername}`, { replace: true });
-            }
-        }
-    }, [groups, username, navigate, markGroupAsViewed]);
+        // Now handled internally by StoryViewer to include storyId sync
+    }, []);
 
     useEffect(() => {
         if (storyFeed) {
@@ -62,7 +56,9 @@ const StoriesPage = () => {
 
     const navigateToGroup = (index) => {
         if (groups[index]) {
-            navigate(`/stories/${groups[index].user.username}`);
+            const target = groups[index].user.username || groups[index].user._id;
+            navigate(`/stories/${target}`);
+            markGroupAsViewed(groups[index].user._id);
         }
     };
 
@@ -96,7 +92,7 @@ const StoriesPage = () => {
             {/* Close Button */}
             <button
                 onClick={handleClose}
-                className="absolute top-6 right-6 z-[2010] bg-white/10 hover:bg-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md group cursor-pointer"
+                className="absolute top-2 right-2 md:top-6 md:right-6 z-[2010] bg-white/10 hover:bg-white/20 text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md group cursor-pointer"
             >
                 <i className="pi pi-times group-hover:scale-110 transition-transform"></i>
             </button>
@@ -109,8 +105,11 @@ const StoriesPage = () => {
                 {prevGroup && (
                     <div
                         onClick={() => navigateToGroup(safeIndex - 1)}
-                        className="hidden lg:flex flex-col items-center gap-4 cursor-pointer transition-all hover:scale-105 group opacity-40 hover:opacity-100"
+                        className="hidden lg:flex flex-col items-center gap-4 cursor-pointer transition-all hover:scale-110 group opacity-40 hover:opacity-100 relative"
                     >
+                        <div className="absolute -left-12 top-1/2 -translate-y-1/2 z-30 bg-white/20 hover:bg-white/40 text-white w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i className="pi pi-chevron-left text-xl"></i>
+                        </div>
                         <div className="w-[180px] h-[320px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative">
                             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
                             <img
@@ -124,7 +123,7 @@ const StoriesPage = () => {
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
                                     <img src={prevGroup.user.profile_picture || '/default-profile.png'} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
-                                <span className="text-white text-xs font-semibold drop-shadow-md">{prevGroup.user.username}</span>
+                                <span className="text-white text-xs font-semibold drop-shadow-md">{prevGroup.user.username || prevGroup.user.fullname}</span>
                             </div>
                         </div>
                     </div>
@@ -156,8 +155,11 @@ const StoriesPage = () => {
                 {nextGroup && (
                     <div
                         onClick={() => navigateToGroup(safeIndex + 1)}
-                        className="hidden lg:flex flex-col items-center gap-4 cursor-pointer transition-all hover:scale-105 group opacity-40 hover:opacity-100"
+                        className="hidden lg:flex flex-col items-center gap-4 cursor-pointer transition-all hover:scale-110 group opacity-40 hover:opacity-100 relative"
                     >
+                        <div className="absolute -right-12 top-1/2 -translate-y-1/2 z-30 bg-white/20 hover:bg-white/40 text-white w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i className="pi pi-chevron-right text-xl"></i>
+                        </div>
                         <div className="w-[180px] h-[320px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative">
                             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
                             <img
@@ -171,7 +173,7 @@ const StoriesPage = () => {
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
                                     <img src={nextGroup.user.profile_picture || '/default-profile.png'} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
-                                <span className="text-white text-xs font-semibold drop-shadow-md">{nextGroup.user.username}</span>
+                                <span className="text-white text-xs font-semibold drop-shadow-md">{nextGroup.user.username || nextGroup.user.fullname}</span>
                             </div>
                         </div>
                     </div>

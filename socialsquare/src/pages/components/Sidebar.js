@@ -35,11 +35,11 @@ export default function Sidebar() {
         { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse', accent: true },
         { key: 'users', label: 'Discover', icon: 'pi pi-users', to: '/users' },
         { key: 'communities', label: 'Communities', icon: 'pi pi-map', to: '/communities' },
-        { key: 'messages', label: 'Messages', icon: 'pi pi-envelope', to: '/messages' },
+        { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
         { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
         { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
         { key: 'settings', label: 'Settings', icon: 'pi pi-cog', to: '/settings' },
-    ];
+    ];  
 
 
     return (
@@ -125,7 +125,7 @@ export default function Sidebar() {
                 </div>
             </aside>
 
-            <Dialog header={"Search Users , Posts , Categories..."} visible={isSearchOpen} onHide={() => setIsSearchOpen(false)} style={{ width: '50vw', height: '100vh' }} position="top" baseZIndex={2000} appendTo={document.body} draggable={false} resizable={false} modal>
+            <Dialog header={"Search Users , Posts , Categories..."} visible={isSearchOpen} onHide={() => setIsSearchOpen(false)} style={{ width: '50vw', height: '100vh' }} position="center" baseZIndex={2000} appendTo={document.body} draggable={false} resizable={false} modal>
                 <div style={{ padding: 8 }}>
                     <Search onClose={() => setIsSearchOpen(false)} />
                 </div>

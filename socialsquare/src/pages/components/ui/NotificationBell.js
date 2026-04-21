@@ -144,7 +144,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                 handleMarkRead(n._id);
                                                 if (n.type === 'message' && n.sender) {
                                                     const targetId = n.sender.id || n.sender._id;
-                                                    if (targetId) navigate(`/messages/${targetId}`);
+                                                    if (targetId) navigate(`/conversation/${targetId}`);
                                                     setOpen(false);
                                                 } else if (n.type === 'like' && n.story) {
                                                     setStoryDetailUserId(n.sender.id || n.sender._id);

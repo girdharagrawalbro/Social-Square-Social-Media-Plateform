@@ -8,7 +8,7 @@ const BottomNav = () => {
     const location = useLocation();
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
-    const isChatOpen = location.pathname.startsWith('/messages/') && location.pathname.split('/').length > 2;
+    const isChatOpen = location.pathname.startsWith('/conversation/') && location.pathname.split('/').length > 2;
 
     if (isChatOpen) return null;
 
@@ -19,7 +19,7 @@ const BottomNav = () => {
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
         { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse', accent: true },
         { key: 'users', icon: 'pi-users', to: () => '/users' },
-        { key: 'messages', icon: 'pi-envelope', to: () => '/messages' },
+        { key: 'messages', icon: 'pi-envelope', to: () => '/conversations' },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
     ];
 

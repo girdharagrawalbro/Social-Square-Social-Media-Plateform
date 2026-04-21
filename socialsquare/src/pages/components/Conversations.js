@@ -100,11 +100,11 @@ const Conversations = () => {
 
     const openChat = (participant, lastMsgId) => {
         setLastMessageId(lastMsgId || null);
-        navigate(`/messages/${toId(participant.userId)}`);
+        navigate(`/conversation/${toId(participant.userId)}`);
     };
 
     const closeChat = () => {
-        navigate('/messages');
+        navigate('/conversations');
     };
 
     const handleProfileClick = (userId) => {
@@ -134,7 +134,7 @@ const Conversations = () => {
                 <div className={`w-full sm:w-80 md:w-[30rem] border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden ${selectedParticipant ? 'hidden sm:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-3">
-                            <h2 className="m-0 text-xl font-black text-[var(--test-main)]">Messages</h2>
+                            <h2 className="m-0 text-xl font-black text-[var(--test-main)]">Conversations</h2>
                             <button
                                 onClick={() => setIsComposeOpen(true)}
                                 className="w-9 h-9 flex items-center justify-center bg-[#808bf5]/10 text-[#808bf5] rounded-full border-0 cursor-pointer hover:bg-[#808bf5] hover:text-white transition-all duration-200"

@@ -10,6 +10,7 @@ import ReportDialog from './ui/ReportDialog';
 import toast from 'react-hot-toast';
 import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
+import { useDarkMode } from '../../context/DarkModeContext';
 
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import PollCard from './PollCard';
@@ -376,6 +377,7 @@ const PostItem = React.memo(({
 const Feed = ({ activeMood = null }) => {
     // ✅ Zustand
     const user = useAuthStore(s => s.user);
+    const { isDark } = useDarkMode();
     // const followUser = useAuthStore(s => s.followUser);
     // const unfollowUser = useAuthStore(s => s.unfollowUser);
     const rawSocketPosts = usePostStore(s => s.socketPosts);
@@ -632,9 +634,9 @@ const Feed = ({ activeMood = null }) => {
 
             <div>
                 {isLoading ? (
-                    <div className="mt-3 flex flex-col">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
+                    <div className="mt-1 flex flex-col">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
                 ) : (
-                    <div className="mt-3 flex flex-col">
+                    <div className="mt-1 flex flex-col">
                         {displayPosts.length > 0 ? displayPosts.map((post, index) => (
                             <PostItem
                                 key={post._id || index}
@@ -669,9 +671,28 @@ const Feed = ({ activeMood = null }) => {
                                 onFollow={handleFollow}
                             />
                         )) : (
-                            <div style={{ textAlign: 'center', padding: '48px 16px' }}>
-                                <p style={{ fontSize: '36px', margin: 0 }}>{activeMood ? '😔' : '📭'}</p>
-                                <p style={{ color: '#9ca3af', fontSize: '14px', margin: '8px 0 0' }}>{activeMood ? `No ${activeMood} posts found` : 'No posts to display.'}</p>
+                            <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+                                <div className={`relative w-24 h-24 mb-6 flex items-center justify-center rounded-3xl rotate-12 transition-transform hover:rotate-0 duration-500 ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-gray-50 border-gray-100'} border-2 shadow-xl`}>
+                                    <span className="text-5xl animate-bounce">📬</span>
+                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full border-4 border-white dark:border-black animate-pulse"></div>
+                                </div>
+                                <h3 className={`text-2xl font-bold mb-2 font-outfit ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                    {activeMood ? `No ${activeMood} vibes yet` : 'Your feed is waiting'}
+                                </h3>
+                                <p className="text-gray-500 max-w-[280px] text-sm leading-relaxed mb-8">
+                                    {activeMood 
+                                        ? `Be the first to share a post with the ${activeMood} mood!` 
+                                        : "Follow more people or share your first moment to see what's happening around you."
+                                    }
+                                </p>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                                        className="px-6 py-2.5 rounded-2xl bg-[#808bf5] text-white font-bold text-sm shadow-lg shadow-indigo-200 hover:scale-105 transition-all cursor-pointer border-0"
+                                    >
+                                        Explore Trends
+                                    </button>
+                                </div>
                             </div>
                         )}
 
