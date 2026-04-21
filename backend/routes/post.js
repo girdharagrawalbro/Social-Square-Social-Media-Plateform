@@ -421,6 +421,30 @@ router.get("/", async (req, res) => {
 // ─── USER POSTS ───────────────────────────────────────────────────────────────
 router.get("/user/:userId", async (req, res) => {
     try {
+        // Enforce privacy: extract viewer ID from token if present
+        let viewerId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const jwt = require('jsonwebtoken');
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                viewerId = decoded.userId || decoded.id || decoded._id;
+            } catch (err) {}
+        }
+
+        const ownerId = req.params.userId;
+        const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
+
+        if (postOwner && postOwner.isPrivate) {
+            const isOwner = viewerId && viewerId.toString() === ownerId;
+            const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
+            
+            if (!isOwner && !isFollower) {
+                return res.status(200).json({ posts: [], nextCursor: null, hasMore: false, isPrivate: true });
+            }
+        }
+
         const limit = parseInt(req.query.limit) || 12;
         const cursor = req.query.cursor;
         // Show all posts where user is owner OR an accepted collaborator

@@ -85,11 +85,20 @@ function AppInit() {
         socket.on('userOnline', addOnlineUser);
         socket.on('userOffline', removeOnlineUser);
 
-        socket.on('newNotification', (notification) => {
+        const handleNewNotification = (notification) => {
             addNotification(notification);
 
             // Show toast
             const { sender, type, message, post, story } = notification;
+
+            // Prevent toast for chat message if we are already chatting with that user
+            if (type === 'message' && sender) {
+                const targetId = sender._id || sender.id;
+                if (window.location.pathname.includes(`/messages/${targetId}`)) {
+                    return; 
+                }
+            }
+
             let icon = '🔔';
             if (type === 'like') icon = '❤️';
             if (type === 'comment') icon = '💬';
@@ -115,11 +124,11 @@ function AppInit() {
                         }}
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid var(--primary)' }}>
-                            <img src={sender.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={sender?.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span>{icon}</span> {sender.fullname}
+                                <span>{icon}</span> {sender?.fullname || 'System'}
                             </p>
                             <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-sub)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {type === 'like' && (story ? 'liked your story' : 'liked your post')}
@@ -134,9 +143,9 @@ function AppInit() {
                 ),
                 { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' } }
             );
-        });
+        };
 
-        socket.on('newStory', (story) => {
+        const handleNewStory = (story) => {
             const { user: storyUser } = story;
             if (storyUser._id === user?._id) return;
 
@@ -150,7 +159,7 @@ function AppInit() {
                         }}
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid #ff4b2b' }}>
-                            <img src={storyUser.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={storyUser?.profile_picture || '/default-profile.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)' }}>
@@ -162,9 +171,9 @@ function AppInit() {
                 ),
                 { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)' } }
             );
-        });
+        };
 
-        socket.on('collaborationInvite', ({ postCaption, invitedBy }) => {
+        const handleCollabInvite = ({ postCaption, invitedBy }) => {
             queryClient.invalidateQueries({ queryKey: ['posts', 'collab-invites', user?._id] });
             toast(`🤝 ${invitedBy} invited you to collaborate on a post`, {
                 icon: '🤝',
@@ -172,15 +181,20 @@ function AppInit() {
                 position: 'top-center',
                 style: { borderRadius: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }
             });
-        });
+        };
+
+        socket.on('newNotification', handleNewNotification);
+        socket.on('newStory', handleNewStory);
+        socket.on('collaborationInvite', handleCollabInvite);
 
         return () => {
             socket.off('connect');
             socket.off('updateUserList');
             socket.off('userOnline');
             socket.off('userOffline');
-            socket.off('newNotification');
-            socket.off('collaborationInvite');
+            socket.off('newNotification', handleNewNotification);
+            socket.off('newStory', handleNewStory);
+            socket.off('collaborationInvite', handleCollabInvite);
         };
     }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate]);
 

@@ -92,7 +92,7 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
             draggable={false}
             className="share-dialog"
         >
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 pt-0 pr-2 pb-2 pl-2">
                 {/* Search Bar */}
                 <div className="relative">
                     <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>

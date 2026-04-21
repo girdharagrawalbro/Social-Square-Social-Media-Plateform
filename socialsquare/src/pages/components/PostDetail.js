@@ -270,7 +270,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         style={{ display: 'block' }}
                                     />
                                 </div>
-                            ) : (
+                            ) : images.length > 0 ? (
                                 <>
                                     <ProgressiveImage
                                         src={images[currentImage]}
@@ -300,6 +300,14 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         </>
                                     )}
                                 </>
+                            ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-sub)] bg-[var(--surface-2)]">
+                                    <div className="w-24 h-24 rounded-full bg-[var(--surface-1)] flex items-center justify-center mb-6 shadow-sm border border-[var(--border-color)]">
+                                        <i className="pi pi-align-left text-3xl opacity-60"></i>
+                                    </div>
+                                    <span className="font-bold text-lg mb-2 text-[var(--text-main)]">Text Post</span>
+                                    <span className="text-sm">There are no media attachments.</span>
+                                </div>
                             )}
 
                             {/* SHARED HEART ANIMATION */}
@@ -370,8 +378,11 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             )}
                                         </>
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-sm text-[var(--text-sub)] bg-[var(--surface-2)]">
-                                            No media
+                                        <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-sub)] bg-[var(--surface-2)] py-8">
+                                            <div className="w-12 h-12 rounded-full bg-[var(--surface-1)] flex items-center justify-center mb-3 shadow-sm border border-[var(--border-color)]">
+                                                <i className="pi pi-align-left text-xl opacity-60"></i>
+                                            </div>
+                                            <span className="font-bold text-sm mb-1 text-[var(--text-main)]">Text Post</span>
                                         </div>
                                     )}
 

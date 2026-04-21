@@ -35,7 +35,7 @@ const PostGrid = ({ userId, maxPosts, isBlur }) => {
     if (posts.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center text-center ">
-                <div className="relative w-full mb-6    ">
+                <div className="relative w-full mb-6">
 
                     <div className="flex flex-col items-center justify-center">
                         <div className="w-20 h-20 bg-[var(--surface-1)] rounded-full flex items-center justify-center shadow-lg mb-4 border border-[var(--border-color)]">
@@ -214,7 +214,6 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
 
     return (
         <>
-
             <div className={`w-full py-2 flex flex-col items-center`}>
                 <div className={`w-full flex flex-col gap-4 bg-[var(--surface-1)]`} style={{ maxWidth: '400px' }}>
                     <div className="flex items-center justify-center text-center flex-col gap-1 w-full">
@@ -307,7 +306,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                         </div>
                     )}
 
-                    {!isBlockedByMe && (
+                    {!isBlockedByMe && !isPrivateAndNotFollowing && (
                         <div className="grid grid-cols-4 gap-1.5  sm:gap-3 mt-2">
                             <div
                                 className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all ${isFollowing || loggeduser?._id === id ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
@@ -356,7 +355,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                     )}
 
 
-                    {!isBlockedByMe && (
+                    {!isBlockedByMe && !isPrivateAndNotFollowing && (
                         <div className="flex flex-col gap-2">
                             <PostGrid userId={id} maxPosts={maxPosts} isCompactPreview={true} isBlur={isFollowing ? false : true} />
                             <button onClick={() => {

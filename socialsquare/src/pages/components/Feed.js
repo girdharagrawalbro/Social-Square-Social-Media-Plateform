@@ -148,16 +148,16 @@ const CollabInviteBanner = ({ post, user }) => {
 };
 
 // ─── POST ITEM (MEMOIZED) ───────────────────────────────────────────────────
-const PostItem = React.memo(({ 
-    post, user, isLikedByMe, likesCount, isSavedByMe, isFollowing, heartVisible, 
-    visiblePostId, pickerPostId, savingPostIds, 
-    onLikeToggle, onImageDoubleClick, onImageTap, onSave, onDelete, onReport, 
-    onShareToStory, onProfileClick, onSharePost, onEdit, 
-    setVisibleCommentId, setPickerPostId, handleDwell, handleReact, renderCaption, onFollow 
+const PostItem = React.memo(({
+    post, user, isLikedByMe, likesCount, isSavedByMe, isFollowing, heartVisible,
+    visiblePostId, pickerPostId, savingPostIds,
+    onLikeToggle, onImageDoubleClick, onImageTap, onSave, onDelete, onReport,
+    onShareToStory, onProfileClick, onSharePost, onEdit,
+    setVisibleCommentId, setPickerPostId, handleDwell, handleReact, renderCaption, onFollow
 }) => {
     const prefetchUser = usePrefetchUserProfile();
     const prefetchPost = usePrefetchPost();
-    
+
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
     const images = getImages(post);
     const isOwn = !post.isAnonymous && (post.user._id === user?._id || post.user._id?.toString() === user?._id);
@@ -456,7 +456,7 @@ const Feed = ({ activeMood = null }) => {
         });
 
         // Shuffle by random weights (Stable per session, random on refresh)
-        let finalArray = uniqueEntries.sort((a, b) => 
+        let finalArray = uniqueEntries.sort((a, b) =>
             randomWeights.current[a._id] - randomWeights.current[b._id]
         );
 
@@ -484,7 +484,7 @@ const Feed = ({ activeMood = null }) => {
 
     const handleLikeToggle = async (post) => {
         if (likeMutation.isPending) return;
-        
+
         // Haptic feedback
         if (navigator.vibrate) navigator.vibrate(10);
 
@@ -636,11 +636,11 @@ const Feed = ({ activeMood = null }) => {
                 ) : (
                     <div className="mt-3 flex flex-col">
                         {displayPosts.length > 0 ? displayPosts.map((post, index) => (
-                            <PostItem 
-                                key={post._id || index} 
-                                post={post} 
+                            <PostItem
+                                key={post._id || index}
+                                post={post}
                                 user={user}
-                                isLikedByMe={optimisticLikes[post._id] 
+                                isLikedByMe={optimisticLikes[post._id]
                                     ? Array.from(optimisticLikes[post._id]).some(id => id?.toString() === user?._id?.toString())
                                     : (post.likes || []).some(id => id?.toString() === user?._id?.toString())
                                 }

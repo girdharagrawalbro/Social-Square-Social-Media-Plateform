@@ -95,7 +95,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                     {totalBadge > 0 && (
                         <Badge 
                             value={totalBadge > 99 ? '99+' : totalBadge} 
-                            className="absolute -top-1.5 -right-1.5 !bg-red-500 !text-white !p-0 !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] border-white font-bold" 
+                            className="absolute -top-1.5 -right-1.5 !bg-red-500 !text-white p-1 py-2  !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] border-white font-bold" 
                         />
                     )}
                 </div>
