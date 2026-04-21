@@ -94,8 +94,8 @@ function AppInit() {
             // Prevent toast for chat message if we are already chatting with that user
             if (type === 'message' && sender) {
                 const targetId = sender._id || sender.id;
-                if (window.location.pathname.includes(`/messages/${targetId}`)) {
-                    return; 
+                if (window.location.pathname.includes(`/conversation/${targetId}`)) {
+                    return;
                 }
             }
 
@@ -114,7 +114,7 @@ function AppInit() {
                         onClick={() => {
                             if (type === 'message' && sender) {
                                 const targetId = sender._id || sender.id;
-                                if (targetId) navigate(`/messages/${targetId}`);
+                                if (targetId) navigate(`/conversation/${targetId}`);
                             } else if ((type === 'like' && story) || type === 'new_story') {
                                 setStoryDetailUserId(sender._id);
                             } else if (post) {
@@ -271,7 +271,7 @@ function PublicLayout({ children }) {
 function MainLayout({ children }) {
     const user = useAuthStore(s => s.user);
     const location = useLocation();
-    const isMessages = location.pathname.startsWith('/messages');
+    const isMessages = location.pathname.startsWith('/conversation');
 
     return (
         <div className="relative flex flex-col h-screen w-full overflow-hidden">
@@ -356,8 +356,8 @@ function App() {
 
                                 {/* Protected Routes - With MainLayout (Navbar + Sidebar) */}
                                 <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
-                                <Route path="/messages" element={<MainLayout><Conversations /></MainLayout>} />
-                                <Route path="/messages/:userId" element={<MainLayout><Conversations /></MainLayout>} />
+                                <Route path="/conversations" element={<MainLayout><Conversations /></MainLayout>} />
+                                <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
                                 <Route path="/settings/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
                                 <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
                                 <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />

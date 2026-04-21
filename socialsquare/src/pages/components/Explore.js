@@ -49,9 +49,9 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
           className={`w-full h-full object-cover transition-all duration-1000 grayscale-0 scale-105 opacity-100`}
         />
       ) : (
-        <img 
-          src={vid.videoThumbnail || getMediaThumbnail(vid.video, 'video', { width: 400, height: 711 })} 
-          alt="" 
+        <img
+          src={vid.videoThumbnail || getMediaThumbnail(vid.video, 'video', { width: 400, height: 711 })}
+          alt=""
           className="w-full h-full object-cover grayscale opacity-60 scale-100 transition-all duration-500"
         />
       )}
@@ -291,11 +291,10 @@ const Explore = () => {
                   <img src={videos[activeIndex]?.user?.profile_picture || '/default-profile.png'} className="w-full h-full rounded-full object-cover border-2 border-black" alt="" />
                 </div>
                 <div>
-                  <p className="m-0 text-white font-bold text-sm">@{videos[activeIndex]?.user?.fullname?.toLowerCase().replace(/\s/g, '_') || 'user'}</p>
-                  <p className="m-0 text-white/70 text-[10px] uppercase font-bold tracking-widest leading-none mt-1">Suggested for you</p>
+                  <p className="m-0 text-white font-bold text-sm">@{videos[activeIndex]?.user?.username || videos[activeIndex]?.user?.fullname?.toLowerCase().replace(/\s/g, '_') || 'user'}</p>
                 </div>
               </div>
-              <p className="m-0 text-white text-sm mt-2 font-medium">{videos[activeIndex]?.caption} #explore #reels #trending</p>
+              <p className="m-0 text-white text-sm mt-2 font-medium">{videos[activeIndex]?.caption}</p>
             </div>
 
             {/* Navigation Buttons for PC */}
