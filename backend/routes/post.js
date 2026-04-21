@@ -430,7 +430,7 @@ router.get("/user/:userId", async (req, res) => {
                 const jwt = require('jsonwebtoken');
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
                 viewerId = decoded.userId || decoded.id || decoded._id;
-            } catch (err) {}
+            } catch (err) { }
         }
 
         const ownerId = req.params.userId;
@@ -439,7 +439,7 @@ router.get("/user/:userId", async (req, res) => {
         if (postOwner && postOwner.isPrivate) {
             const isOwner = viewerId && viewerId.toString() === ownerId;
             const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
-            
+
             if (!isOwner && !isFollower) {
                 return res.status(200).json({ posts: [], nextCursor: null, hasMore: false, isPrivate: true });
             }
@@ -482,7 +482,7 @@ router.post("/save", verifyToken, async (req, res) => {
             return res.status(200).json({ saved: false });
         } else {
             await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
-            
+
             // ✅ Publish recommendation event
             const post = await Post.findById(postId).select('category tags');
             if (post) {
@@ -573,7 +573,7 @@ router.post("/react", verifyToken, async (req, res) => {
 router.get("/trending", async (req, res) => {
     try {
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        
+
         // 1. Trending Categories
         const categories = await Post.aggregate([
             { $match: { createdAt: { $gte: sevenDaysAgo }, isAnonymous: { $ne: true } } },
@@ -583,10 +583,10 @@ router.get("/trending", async (req, res) => {
         ]);
 
         // 2. Trending Hashtags (Manual extraction from captions)
-        const postsWithHashtags = await Post.find({ 
+        const postsWithHashtags = await Post.find({
             createdAt: { $gte: sevenDaysAgo },
             isAnonymous: { $ne: true },
-            caption: { $regex: /#/ } 
+            caption: { $regex: /#/ }
         }).select('caption');
 
         const hashtagMap = {};
@@ -609,7 +609,7 @@ router.get("/trending", async (req, res) => {
 
         const topUserIds = topUsersAgg.map(u => u._id);
         const topUsersInfo = await User.find({ _id: { $in: topUserIds } }).select('fullname username profile_picture followers isOnline');
-        
+
         const topUsers = topUsersAgg.map(u => {
             const info = topUsersInfo.find(ui => ui._id.toString() === u._id.toString());
             return {
@@ -842,14 +842,14 @@ router.get("/detail/:postId", async (req, res) => {
         // ✅ Privacy Check
         const ownerId = post.user._id.toString();
         const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
-        
+
         if (postOwner && postOwner.isPrivate) {
             const isOwner = viewerId && viewerId.toString() === ownerId;
             const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
             const isCollaborator = viewerId && post.collaborators?.some(c => c.userId?.toString() === viewerId.toString() && c.status === 'accepted');
 
             if (!isOwner && !isFollower && !isCollaborator) {
-                return res.status(403).json({ 
+                return res.status(403).json({
                     message: "This account is private. Follow to see their posts.",
                     isPrivate: true,
                     owner: post.user
@@ -914,7 +914,7 @@ router.get("/explore-reels", async (req, res) => {
         const posts = await Post.find(query)
             .sort({ _id: -1 }) // Use _id for reliable cursor-based pagination
             .limit(limit + 1);
-        
+
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         const nextCursor = hasMore ? result[result.length - 1]._id : null;

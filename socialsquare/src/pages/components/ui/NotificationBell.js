@@ -82,8 +82,8 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     return (
         <div ref={ref}>
             {/* Bell button */}
-            <button 
-                onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)} 
+            <button
+                onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)}
                 className={`flex items-center ${showLabel ? 'justify-start gap-2 px-4 w-full' : 'justify-center px-0 w-12'} 
                            h-12
                            rounded-full 
@@ -93,9 +93,9 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                 <div className="relative flex items-center justify-center w-6 shrink-0">
                     <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && (
-                        <Badge 
-                            value={totalBadge > 99 ? '99+' : totalBadge} 
-                            className="absolute -top-1.5 -right-1.5 !bg-red-500 !text-white p-1 py-2  !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] border-white font-bold" 
+                        <Badge
+                            value={totalBadge > 99 ? '99+' : totalBadge}
+                            className="absolute -top-1.5 -right-1.5 !bg-red-500 !text-white p-1 py-2  !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] border-white font-bold"
                         />
                     )}
                 </div>
