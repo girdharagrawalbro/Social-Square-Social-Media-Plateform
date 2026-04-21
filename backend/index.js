@@ -169,6 +169,8 @@ postRouter.setIo(io);
 storyRouter.setIo(io);
 conversationRouter.setIo(io);
 
+app.get('/ping', (req, res) => res.status(200).json({ status: 'ok', message: 'pong' }));
+
 app.get('/health', (req, res) => {
     const mem = process.memoryUsage();
     res.json({
@@ -377,7 +379,22 @@ async function bootstrap() {
     await initCleanupJobs();
     const { scheduleDailyDigest } = require('./queues/digestQueue');
     await scheduleDailyDigest();
-    server.listen(port, () => console.log(`[Server] Running on port ${port} (PID: ${process.pid})`));
+    server.listen(port, () => {
+        console.log(`[Server] Running on port ${port} (PID: ${process.pid})`);
+
+        // Self-ping mechanism to keep Render free tier alive
+        const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+        setInterval(async () => {
+            try {
+                const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
+                const axios = require('axios');
+                await axios.get(`${url}/ping`);
+                console.log(`[Self-Ping] Keep-alive ping sent to ${url}/ping successfully`);
+            } catch (error) {
+                console.error(`[Self-Ping] Error: ${error.message}`);
+            }
+        }, PING_INTERVAL);
+    });
 }
 
 bootstrap().catch(err => {
