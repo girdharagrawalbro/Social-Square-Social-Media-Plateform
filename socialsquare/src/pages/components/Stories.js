@@ -766,7 +766,6 @@ const Stories = () => {
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const [postVisible, setPostVisible] = useState(false);
     const [selectedPostId] = useState(null);
-    const [shareOpen, setShareOpen] = useState(false);
     const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
@@ -1086,12 +1085,6 @@ const Stories = () => {
                 </div>
             </Dialog>
 
-            <ShareStoryDialog
-                visible={shareOpen}
-                onHide={() => setShareOpen(false)}
-                story={sharingStory}
-                loggeduser={loggeduser}
-            />
 
             {liveStreamId && (
                 <LiveStream
