@@ -65,7 +65,6 @@ const StoryViewer = ({
     const DURATION = story?.media?.type === 'video' ? 15000 : 5000;
 
     const [isLiked, setIsLiked] = useState(false);
-    const [likesCount, setLikesCount] = useState(0);
 
     const [isPaused, setIsPaused] = useState(false);
     const [viewers, setViewers] = useState([]);
@@ -74,14 +73,12 @@ const StoryViewer = ({
     useEffect(() => {
         if (story) {
             setIsLiked(story.likes?.some(id => id.toString() === loggeduser?._id?.toString()));
-            setLikesCount(story.likes?.length || 0);
         }
     }, [story, loggeduser?._id]);
 
     useEffect(() => {
         const handleStoryUpdate = ({ storyId, likes }) => {
             if (story?._id === storyId) {
-                setLikesCount(likes.length);
                 setIsLiked(likes.some(id => id.toString() === loggeduser?._id?.toString()));
             }
         };
@@ -162,7 +159,6 @@ const StoryViewer = ({
         try {
             const { api } = await import('../../store/zustand/useAuthStore');
             const res = await api.post(`/api/story/like/${story._id}`);
-            setLikesCount(res.data.likes.length);
             setIsLiked(res.data.likes.some(id => id.toString() === loggeduser?._id?.toString()));
             onStoryLiked(story._id, res.data.likes);
         } catch { toast.error('Failed to like story'); }
@@ -385,7 +381,6 @@ const StoryViewer = ({
                     <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
                         <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
                     </button>
-                    {likesCount > 0 && <span style={{ color: '#fff', fontSize: '8px', fontWeight: 700 }}>{likesCount}</span>}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
@@ -415,15 +410,21 @@ const StoryViewer = ({
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {viewers.length === 0 ? (
                             <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: '40px' }}>No views yet</p>
-                        ) : viewers.map(v => (
-                            <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <img src={v.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                                <div>
-                                    <p style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: 600 }}>{v.fullname}</p>
-                                    <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '12px' }}>@{v.username}</p>
+                        ) : viewers.map(v => {
+                            const hasLiked = story.likes?.some(likeId => likeId.toString() === v._id.toString());
+                            return (
+                                <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <img src={v.profile_picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: 600 }}>{v.fullname}</p>
+                                        <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '12px' }}>@{v.username}</p>
+                                    </div>
+                                    {hasLiked && (
+                                        <i className="pi pi-heart-fill" style={{ color: '#ff4b4b', fontSize: '18px' }} title="Liked story"></i>
+                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}
