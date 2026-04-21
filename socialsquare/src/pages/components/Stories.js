@@ -29,7 +29,7 @@ const StoryViewer = ({
     onOpenPostDetail,
     onShareStory,
     initialStoryId = null,
-    onIndexChange = () => {}
+    onIndexChange = () => { }
 }) => {
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
     const lastReportedIndex = useRef(startGroupIndex);
@@ -237,9 +237,6 @@ const StoryViewer = ({
                             <i className="pi pi-trash" style={{ fontSize: '14px' }}></i>
                         </button>
                     )}
-                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(5px)', border: 'none', color: '#fff', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
-                        <i className="pi pi-times" style={{ fontSize: '16px' }}></i>
-                    </button>
                 </div>
             </div>
 
@@ -393,11 +390,15 @@ const StoryViewer = ({
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                     <button
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation();
                             setIsPaused(true);
-                            onShareStory(story);
+                            if (typeof onShareStory === 'function') {
+                                onShareStory(story);
+                            }
                         }}
                         style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Share Story"
                     >
                         <i className="pi pi-send" style={{ fontSize: '22px' }}></i>
                     </button>
@@ -479,8 +480,8 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                         storyId: story._id,
                         mediaUrl: story.media?.url,
                         mediaType: story.media?.type,
-                        authorName: story.user?.fullname,
-                        authorUsername: story.user?.fullname?.toLowerCase()?.replace(/\s+/g, '_'),
+                        authorName: story.user?.fullname || 'Someone',
+                        authorUsername: story.user?.username || story.user?.fullname?.toLowerCase()?.replace(/\s+/g, '_') || 'user',
                         authorProfilePicture: story.user?.profile_picture,
                         isShare: true
                     }
@@ -502,7 +503,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
             onHide={onHide}
             style={{ width: '95vw', maxWidth: '450px' }}
             breakpoints={{ '640px': '100vw' }}
-            baseZIndex={20000}
+            baseZIndex={150000}
             appendTo={document.body}
             modal
         >
@@ -766,10 +767,11 @@ const Stories = () => {
     const [postVisible, setPostVisible] = useState(false);
     const [selectedPostId] = useState(null);
     const [shareOpen, setShareOpen] = useState(false);
-    const [sharingStory] = useState(null);
     const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
+    const isMobile = windowWidth < 640;
+    const storySize = isMobile ? 64 : 89;
 
     // const [activeLiveStreams, setActiveLiveStreams] = useState([]);
 
@@ -961,11 +963,11 @@ const Stories = () => {
                     ))} */}
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
-                        <div style={{ position: 'relative', width: 89, height: 89 }}>
+                        <div style={{ position: 'relative', width: storySize, height: storySize }}>
                             <div
                                 onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}
                                 style={{
-                                    width: 89, height: 89, borderRadius: '50%', padding: '2px',
+                                    width: storySize, height: storySize, borderRadius: '50%', padding: '2px',
                                     background: ownGroup ? (viewedStoryGroups.has(loggeduser?._id?.toString()) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
                                     transition: 'all 0.3s ease'
                                 }}
@@ -980,12 +982,12 @@ const Stories = () => {
                             </div>
                             <div
                                 onClick={(e) => { e.stopPropagation(); setCreateOpen(true); }}
-                                style={{ position: 'absolute', bottom: 4, right: 4, width: 24, height: 24, background: '#808bf5', borderRadius: '50%', border: '2px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '16px', fontWeight: 700, zIndex: 5 }}
+                                style={{ position: 'absolute', bottom: isMobile ? 0 : 4, right: isMobile ? 0 : 4, width: isMobile ? 20 : 24, height: isMobile ? 20 : 24, background: '#808bf5', borderRadius: '50%', border: '2px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, zIndex: 5 }}
                             >
                                 +
                             </div>
                         </div>
-                        <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 500, textAlign: 'center', maxWidth: 89, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 500, textAlign: 'center', maxWidth: storySize, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {ownGroup ? 'Your story' : 'Add story'}
                         </span>
                     </div>
@@ -996,7 +998,7 @@ const Stories = () => {
                             <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                                 <div
                                     onClick={() => openViewer(realIndex)}
-                                    style={{ position: 'relative', width: 89, height: 89, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
+                                    style={{ position: 'relative', width: storySize, height: storySize, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
                                 >
                                     <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }} className={group.user.isOnline ? 'presence-glow' : ''}>
                                         <img
@@ -1005,11 +1007,11 @@ const Stories = () => {
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />
                                     </div>
-                                    {group.user.isOnline && <div className="presence-dot" style={{ width: 16, height: 16, border: '3px solid var(--surface-1)' }} />}
+                                    {group.user.isOnline && <div className="presence-dot" style={{ width: isMobile ? 12 : 16, height: isMobile ? 12 : 16, border: '3px solid var(--surface-1)' }} />}
                                 </div>
                                 <span
                                     onClick={(e) => handleProfileClick(e, group.user._id)}
-                                    style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: 89, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: allViewed ? 400 : 600, textAlign: 'center', maxWidth: storySize, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                 >
                                     {group.user.fullname.split(' ')[0]}
                                 </span>

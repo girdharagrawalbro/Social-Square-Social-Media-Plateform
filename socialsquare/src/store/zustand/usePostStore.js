@@ -20,6 +20,7 @@ const usePostStore = create(
             liveStreamId: null,
             isLiveHost: false,
             isStoryViewerOpen: false,
+            chatbotOpen: false,
 
             // ─── Socket Data ─────────────────────────────────────────────
             socketPosts: [],
@@ -39,6 +40,7 @@ const usePostStore = create(
             setSharingPostToStory: (post) => set({ sharingPostToStory: post }),
             clearSharingPostToStory: () => set({ sharingPostToStory: null }),
             setIsStoryViewerOpen: (isOpen) => set({ isStoryViewerOpen: isOpen }),
+            setChatbotOpen: (isOpen) => set({ chatbotOpen: isOpen }),
 
             // ─── Optimistic like toggle ────────────────────────────────────
             optimisticLike: (postId, userId, initialLikes = []) => {

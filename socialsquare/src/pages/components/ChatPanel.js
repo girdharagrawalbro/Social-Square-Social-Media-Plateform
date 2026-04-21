@@ -123,6 +123,9 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [storyModalGroupIndex, setStoryModalGroupIndex] = useState(0);
     const [storyModalInitialStoryId, setStoryModalInitialStoryId] = useState(null);
     const [StoryViewerComp, setStoryViewerComp] = useState(null);
+    const [ShareStoryDialogComp, setShareStoryDialogComp] = useState(null);
+    const [shareOpen, setShareOpen] = useState(false);
+    const [sharingStory, setSharingStory] = useState(null);
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
 
@@ -271,6 +274,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                                         setStoryModalInitialStoryId(storyId || null);
                                                         const mod = await import('./Stories');
                                                         setStoryViewerComp(() => mod.StoryViewer);
+                                                        setShareStoryDialogComp(() => mod.ShareStoryDialog);
                                                         setStoryModalOpen(true);
                                                         return;
                                                     }
@@ -567,10 +571,21 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                 onStoryDeleted={() => setStoryModalOpen(false)}
                                 onStoryLiked={() => { }}
                                 onOpenPostDetail={(postId) => { setSelectedPostId(postId); setShowPostModal(true); }}
-                                onShareStory={() => { }}
+                                onShareStory={(s) => {
+                                    setSharingStory(s);
+                                    setShareOpen(true);
+                                }}
                             />
                         </div>
                     </Dialog>
+                )}
+                {shareOpen && ShareStoryDialogComp && (
+                    <ShareStoryDialogComp
+                        visible={shareOpen}
+                        onHide={() => setShareOpen(false)}
+                        story={sharingStory}
+                        loggeduser={loggeduser}
+                    />
                 )}
             </div>
         </div>
