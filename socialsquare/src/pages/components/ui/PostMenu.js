@@ -99,6 +99,7 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
                     border-bottom-left-radius: 1.5rem;
                     border-bottom-right-radius: 1.5rem;
                 }
+                  
                 .post-menu-dialog .p-dialog-header .p-dialog-header-icon {
                     color: var(--text-sub);
                 }

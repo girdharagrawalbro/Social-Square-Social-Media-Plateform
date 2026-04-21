@@ -7,14 +7,24 @@ let redis;
 
 if (isDisabled) {
     console.log('[Redis] Disabled via DISABLE_REDIS flag');
-    // Minimal mock to prevent crashes, though features like online status will be limited
+    // Minimal mock to enable socket functionality (online status, typing) in single-instance mode
+    const inMemoryData = {};
     redis = {
-        hset: async () => {},
-        hget: async () => null,
-        hdel: async () => {},
-        hgetall: async () => ({}),
-        get: async () => null,
-        set: async () => {},
+        hset: async (key, field, value) => {
+            if (!inMemoryData[key]) inMemoryData[key] = {};
+            inMemoryData[key][field] = value;
+        },
+        hget: async (key, field) => {
+            return inMemoryData[key]?.[field] || null;
+        },
+        hdel: async (key, field) => {
+            if (inMemoryData[key]) delete inMemoryData[key][field];
+        },
+        hgetall: async (key) => {
+            return inMemoryData[key] || {};
+        },
+        get: async (key) => inMemoryData[key] || null,
+        set: async (key, value) => { inMemoryData[key] = value; },
         on: () => {},
         quit: async () => {},
         status: 'disabled',

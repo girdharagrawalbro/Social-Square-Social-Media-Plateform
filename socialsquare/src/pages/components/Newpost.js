@@ -261,7 +261,8 @@ const NewPost = ({ visible, onHide }) => {
                  currentSource: reader.result,
                  pendingFiles: validFiles.slice(1),
                  allProcessed: [],
-                 isVideo: false
+                 isVideo: false,
+                 originalFile: first
              });
              setStep(STEPS.PREVIEW);
         };
@@ -289,6 +290,9 @@ const NewPost = ({ visible, onHide }) => {
                 console.error('Crop failed:', err);
                 previewUrl = croppingState.currentSource;
             }
+            if (!processedFile && croppingState.originalFile) {
+                processedFile = croppingState.originalFile;
+            }
         }
 
         const newImgObj = { 
@@ -310,7 +314,8 @@ const NewPost = ({ visible, onHide }) => {
                     ...prev,
                     currentSource: reader.result,
                     pendingFiles: prev.pendingFiles.slice(1),
-                    allProcessed: updatedProcessed
+                    allProcessed: updatedProcessed,
+                    originalFile: nextFile
                 }));
                 setCrop({ x: 0, y: 0 });
                 setZoom(1);
@@ -333,15 +338,20 @@ const NewPost = ({ visible, onHide }) => {
     const uploadAllImages = async () => {
         const pending = images.filter(img => !img.uploaded);
         const uploaded = [...images];
+        let hasError = false;
         await Promise.all(pending.map(async (img) => {
             const idx = uploaded.findIndex(i => i.id === img.id);
             try {
                 const result = await uploadToCloudinary(img.file, (p) => setImages(prev => prev.map(i => i.id === img.id ? { ...i, progress: p } : i)));
                 const url = typeof result === 'string' ? result : result?.url;
                 uploaded[idx] = { ...uploaded[idx], url, uploaded: true, progress: 100 };
-            } catch { toast.error(`Failed: ${img.file.name}`); }
+            } catch { 
+                toast.error(`Failed: ${img.file?.name || 'Image'}`); 
+                hasError = true;
+            }
         }));
         setImages(uploaded);
+        if (hasError) throw new Error("Image upload failed");
         return uploaded.filter(i => i.uploaded).map(i => i.url);
     };
 
@@ -435,9 +445,10 @@ const NewPost = ({ visible, onHide }) => {
                 <button
                     onClick={() => step === STEPS.PREVIEW ? handleApplyCrop() : handleSubmit()}
                     disabled={isPosting}
-                    className="text-[#6366f1] text-sm font-bold hover:text-white transition disabled:opacity-50"
+                    className="text-[#6366f1] text-sm font-bold hover:text-[#818cf8] transition disabled:opacity-50 flex items-center gap-2"
                 >
-                    {step === STEPS.SELECT ? "" : (step === STEPS.PREVIEW ? (croppingState.pendingFiles.length > 0 ? "Next Image" : "Next") : "Post")}
+                    {isPosting && step !== STEPS.PREVIEW && <i className="pi pi-spinner pi-spin text-xs"></i>}
+                    {step === STEPS.SELECT ? "" : (step === STEPS.PREVIEW ? (croppingState.pendingFiles.length > 0 ? "Next Image" : "Next") : (isPosting ? "Posting..." : "Post"))}
                 </button>
             </div>
         );
@@ -567,7 +578,7 @@ const NewPost = ({ visible, onHide }) => {
                     <div className="flex flex-col gap-0 border-t border-[var(--border-color)] mt-2">
                         <button onClick={handleGetLocation} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
                             <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                {location.name ? "📍" : <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>}
+                                {location.name ? <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i> : <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>}
                                 {location.name || "Add Location"}
                             </span>
                             <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
@@ -615,7 +626,7 @@ const NewPost = ({ visible, onHide }) => {
                                 <i className={`pi pi-chevron-${openFeaturePanel === 'ai' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
                             </button>
                             {openFeaturePanel === 'ai' && (
-                                <div className="p-3 bg-gradient-to-br from-[#6366f1]/5 to-purple-500/5 flex flex-col gap-3 border border-[#6366f1]/10 rounded-lg m-1 animate-in zoom-in-95">
+                                <div className=" flex flex-col gap-3 m-1 animate-in zoom-in-95">
                                      <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
                                      <div className="flex gap-2">
                                         <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">

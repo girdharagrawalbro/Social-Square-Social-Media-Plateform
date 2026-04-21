@@ -80,6 +80,7 @@ const Profile = ({ userId }) => {
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === profileId?.toString());
     const isBlockedByMe = loggeduser?.blockedUsers?.some(b => b?.toString() === profileId?.toString());
     const isMuted = loggeduser?.mutedUsers?.some(m => m?.toString() === profileId?.toString());
+    const isPrivateAndNotFollowing = displayUser?.isPrivate && !isFollowing && !viewingOwnProfile && !isBlockedByMe;
 
     const handleFollow = async () => {
         try {
@@ -239,58 +240,62 @@ const Profile = ({ userId }) => {
                         </div>
 
                         {/* Level/Streak/XP */}
-                        <div className="flex gap-3 justify-center mb-4">
-                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
-                                <span className="text-lg font-black text-[#808bf5]">{displayUser?.level || 1}</span>
+                        {!isPrivateAndNotFollowing && !isBlockedByMe && (
+                            <div className="flex gap-3 justify-center mb-4">
+                                <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                    <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
+                                    <span className="text-lg font-black text-[#808bf5]">{displayUser?.level || 1}</span>
+                                </div>
+                                <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                    <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
+                                    <span className="text-lg font-black text-orange-500">🔥 {displayUser?.streak?.count || 0}</span>
+                                </div>
+                                <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                    <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
+                                    <span className="text-lg font-black text-green-500">{(displayUser?.xp || 0).toLocaleString()}</span>
+                                </div>
                             </div>
-                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
-                                <span className="text-lg font-black text-orange-500">🔥 {displayUser?.streak?.count || 0}</span>
-                            </div>
-                            <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
-                                <span className="text-lg font-black text-green-500">{(displayUser?.xp || 0).toLocaleString()}</span>
-                            </div>
-                        </div>
+                        )}
 
                         {/* Stats tiles */}
-                        <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4">
-                            <div
-                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
-                                onClick={() => {
-                                    if (viewingOwnProfile || isFollowing) {
-                                        setShowFollowersList(true);
-                                    } else {
-                                        toast.error('Follow this user to see their followers', { icon: '🔒' });
-                                    }
-                                }}
-                            >
-                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followers?.length || 0)}</h6>
-                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
+                        {!isPrivateAndNotFollowing && !isBlockedByMe && (
+                            <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4">
+                                <div
+                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                    onClick={() => {
+                                        if (viewingOwnProfile || isFollowing) {
+                                            setShowFollowersList(true);
+                                        } else {
+                                            toast.error('Follow this user to see their followers', { icon: '🔒' });
+                                        }
+                                    }}
+                                >
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followers?.length || 0)}</h6>
+                                    <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
+                                </div>
+                                <div
+                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                    onClick={() => {
+                                        if (viewingOwnProfile || isFollowing) {
+                                            setShowFollowingList(true);
+                                        } else {
+                                            toast.error('Follow this user to see who they follow', { icon: '🔒' });
+                                        }
+                                    }}
+                                >
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center ">{formatCount(displayUser?.following?.length || 0)}</h6>
+                                    <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block" style={{ whiteSpace: 'nowrap' }}>Following</span>
+                                </div>
+                                <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4">
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(userPostsList.length)}</h6>
+                                    <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
+                                </div>
+                                <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4" title="Total profile views">
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.profileViews || 0)}</h6>
+                                    <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Views</span>
+                                </div>
                             </div>
-                            <div
-                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
-                                onClick={() => {
-                                    if (viewingOwnProfile || isFollowing) {
-                                        setShowFollowingList(true);
-                                    } else {
-                                        toast.error('Follow this user to see who they follow', { icon: '🔒' });
-                                    }
-                                }}
-                            >
-                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center ">{formatCount(displayUser?.following?.length || 0)}</h6>
-                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block" style={{ whiteSpace: 'nowrap' }}>Following</span>
-                            </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4">
-                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(userPostsList.length)}</h6>
-                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
-                            </div>
-                            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4" title="Total profile views">
-                                <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.profileViews || 0)}</h6>
-                                <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Views</span>
-                            </div>
-                        </div>
+                        )}
 
                         {/* Action buttons */}
                         <div className="mb-4">
@@ -349,23 +354,43 @@ const Profile = ({ userId }) => {
                         )}
 
                         {/* Tabs */}
-                        <div className="flex">
-                            {TABS.map(tab => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setActiveTab(tab.key)}
-                                    className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-[var(--text-sub)]'
-                                        }`}
-                                    style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
+                        {!isPrivateAndNotFollowing && !isBlockedByMe && (
+                            <div className="flex">
+                                {TABS.map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setActiveTab(tab.key)}
+                                        className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-[var(--text-sub)]'
+                                            }`}
+                                        style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Tab content */}
-                    {activeTab === 'collabs' ? (
+                    {/* Content Area */}
+                    {isBlockedByMe ? (
+                        <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-[var(--surface-2)] rounded-3xl mx-4 mb-4 border border-[var(--border-color)]">
+                            <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 shadow-sm border border-red-500/20">
+                                <i className="pi pi-ban text-3xl text-red-500"></i>
+                            </div>
+                            <h3 className="m-0 text-[var(--text-main)] font-black text-xl mb-2">User Blocked</h3>
+                            <p className="m-0 text-sm text-[var(--text-sub)] max-w-[300px] leading-relaxed">
+                                You have blocked this user. Unblock them to see their posts and profile details.
+                            </p>
+                        </div>
+                    ) : isPrivateAndNotFollowing ? (
+                        <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-[var(--surface-2)] rounded-2xl mx-4 mb-4 border border-dashed border-[var(--border-color)]">
+                            <div className="w-16 h-16 bg-[var(--surface-1)] rounded-full flex items-center justify-center shadow-sm mb-4">
+                                <i className="pi pi-lock text-3xl text-[var(--text-sub)]"></i>
+                            </div>
+                            <h4 className="m-0 text-[var(--text-main)] font-bold text-lg mb-2">This Account is Private</h4>
+                            <p className="m-0 text-sm text-[var(--text-sub)]">Follow to see their photos and videos.</p>
+                        </div>
+                    ) : activeTab === 'collabs' ? (
                         // Collabs tab — full width, no grid
                         <CollabManager mode="all" />
                     ) : (
