@@ -48,8 +48,8 @@ const StoriesPage = () => {
         );
     }
 
-    const currentGroupIndex = username 
-        ? groups.findIndex(g => g.user.username === username || g.user._id.toString() === username) 
+    const currentGroupIndex = username
+        ? groups.findIndex(g => g.user.username === username || g.user._id.toString() === username)
         : 0;
 
     const safeIndex = currentGroupIndex === -1 ? 0 : currentGroupIndex;
@@ -94,45 +94,45 @@ const StoriesPage = () => {
             }}></div>
 
             {/* Close Button */}
-            <button 
+            <button
                 onClick={handleClose}
                 className="absolute top-6 right-6 z-[2010] bg-white/10 hover:bg-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md group cursor-pointer"
             >
                 <i className="pi pi-times group-hover:scale-110 transition-transform"></i>
             </button>
 
-          
+
 
             <div className="relative flex items-center justify-center w-full h-full max-w-[1400px] mx-auto px-4 gap-8">
-                
+
                 {/* Previous Group Preview */}
                 {prevGroup && (
-                    <div 
+                    <div
                         onClick={() => navigateToGroup(safeIndex - 1)}
                         className="hidden lg:flex flex-col items-center gap-4 cursor-pointer transition-all hover:scale-105 group opacity-40 hover:opacity-100"
                     >
                         <div className="w-[180px] h-[320px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative">
-                             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
-                             <img 
-                                src={prevGroup.stories[0]?.media?.type === 'video' 
+                            <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
+                            <img
+                                src={prevGroup.stories[0]?.media?.type === 'video'
                                     ? getMediaThumbnail(prevGroup.stories[0]?.media?.url, 'video', { width: 180, height: 320 })
-                                    : prevGroup.stories[0]?.media?.url} 
-                                alt="" 
+                                    : prevGroup.stories[0]?.media?.url}
+                                alt=""
                                 className="w-full h-full object-cover blur-[2px]"
-                             />
-                             <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
+                            />
+                            <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
                                     <img src={prevGroup.user.profile_picture || '/default-profile.png'} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
                                 <span className="text-white text-xs font-semibold drop-shadow-md">{prevGroup.user.username}</span>
-                             </div>
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* ACTIVE STORY VIEWER */}
                 <div className="relative w-full max-w-[420px] aspect-[9/16] h-[90vh] max-h-[820px] rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)]  animate-in zoom-in-95 duration-300">
-                    <StoryViewer 
+                    <StoryViewer
                         groups={groups}
                         startGroupIndex={safeIndex}
                         onClose={handleClose}
@@ -154,25 +154,25 @@ const StoriesPage = () => {
 
                 {/* Next Group Preview */}
                 {nextGroup && (
-                    <div 
+                    <div
                         onClick={() => navigateToGroup(safeIndex + 1)}
                         className="hidden lg:flex flex-col items-center gap-4 cursor-pointer transition-all hover:scale-105 group opacity-40 hover:opacity-100"
                     >
                         <div className="w-[180px] h-[320px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative">
-                             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
-                             <img 
-                                src={nextGroup.stories[0]?.media?.type === 'video' 
+                            <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
+                            <img
+                                src={nextGroup.stories[0]?.media?.type === 'video'
                                     ? getMediaThumbnail(nextGroup.stories[0]?.media?.url, 'video', { width: 180, height: 320 })
-                                    : nextGroup.stories[0]?.media?.url} 
-                                alt="" 
+                                    : nextGroup.stories[0]?.media?.url}
+                                alt=""
                                 className="w-full h-full object-cover blur-[2px]"
-                             />
-                             <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
+                            />
+                            <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
                                     <img src={nextGroup.user.profile_picture || '/default-profile.png'} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
                                 <span className="text-white text-xs font-semibold drop-shadow-md">{nextGroup.user.username}</span>
-                             </div>
+                            </div>
                         </div>
                     </div>
                 )}
