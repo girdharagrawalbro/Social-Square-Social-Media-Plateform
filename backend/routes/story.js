@@ -207,7 +207,15 @@ router.delete('/:storyId', verifyToken, async (req, res) => {
 // ─── REPLY TO STORY (PROTECTED) ───────────────────────────────────────────────
 router.post('/reply/:storyId', verifyToken, async (req, res) => {
     try {
-        const textContent = text || req.body.content || '';
+        const { storyId } = req.params;
+        const userId = req.userId;
+        const textContent = req.body.text || req.body.content || '';
+
+        const story = await Story.findById(storyId);
+        if (!story) return res.status(404).json({ message: 'Story not found.' });
+
+        const sender = await User.findById(userId).select('fullname profile_picture').lean();
+        if (!sender) return res.status(404).json({ message: 'User not found.' });
 
         // 1. Send Notification
         await notificationUtils.createNotification({

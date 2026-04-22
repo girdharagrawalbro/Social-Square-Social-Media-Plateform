@@ -253,7 +253,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     {userDetails.mutualFollowers.slice(0, 3).map((m, idx) => (
                                         <img
                                             key={m._id}
-                                            src={m.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.fullname || 'U')}&background=808bf5&color=fff`}
+                                            src={m.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                             alt={m.fullname}
                                             className="w-6 h-6 rounded-full border-2 border-[var(--surface-1)] object-cover"
                                             style={{ zIndex: 3 - idx }}
@@ -421,7 +421,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     navigate(`/profile/${user._id}`);
                                 }}
                             >
-                                <img src={user.profile_picture || '/default-profile.png'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
+                                <img src={user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1">
                                         <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>
@@ -459,7 +459,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     navigate(`/profile/${user._id}`);
                                 }}
                             >
-                                <img src={user.profile_picture || '/default-profile.png'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
+                                <img src={user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1">
                                         <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>

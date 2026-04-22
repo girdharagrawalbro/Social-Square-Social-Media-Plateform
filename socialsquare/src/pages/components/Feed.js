@@ -9,6 +9,7 @@ import ReportDialog from './ui/ReportDialog';
 
 import toast from 'react-hot-toast';
 import UserProfile from './UserProfile';
+import FollowFollowingList from './FollowFollowingList';
 import formatDate from '../../utils/formatDate';
 import { useDarkMode } from '../../context/DarkModeContext';
 
@@ -154,7 +155,8 @@ const PostItem = React.memo(({
     visiblePostId, pickerPostId, savingPostIds,
     onLikeToggle, onImageDoubleClick, onImageTap, onSave, onDelete, onReport,
     onShareToStory, onProfileClick, onSharePost, onEdit,
-    setVisibleCommentId, setPickerPostId, handleDwell, handleReact, renderCaption, onFollow
+    setVisibleCommentId, setPickerPostId, handleDwell, handleReact, renderCaption, onFollow,
+    onLikesClick
 }) => {
     const prefetchUser = usePrefetchUserProfile();
     const prefetchPost = usePrefetchPost();
@@ -181,7 +183,7 @@ const PostItem = React.memo(({
                     >
                         <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
                             <img
-                                src={post.user.profile_picture}
+                                src={post.user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                 alt="Profile"
                                 loading="lazy"
                                 className="w-full h-full object-cover"
@@ -266,7 +268,6 @@ const PostItem = React.memo(({
                         src={post.video}
                         poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                         autoPlay
-                        muted
                         loop
                         playsInline
                         onDoubleClick={() => !locked && onImageDoubleClick(post)}
@@ -311,8 +312,16 @@ const PostItem = React.memo(({
                                 onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
                                 onMouseLeave={() => setPickerPostId(null)}
                             >
-                                <div onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }} className="flex items-center gap-2">
-                                    <Like id={`like-${post._id}`} isliked={isLikedByMe} /> {likesCount.toLocaleString()}
+                                <div className="flex items-center gap-2">
+                                    <div onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }} className="cursor-pointer">
+                                        <Like id={`like-${post._id}`} isliked={isLikedByMe} />
+                                    </div>
+                                    <span 
+                                        className="cursor-pointer hover:text-[#808bf5] transition-colors font-bold"
+                                        onClick={(e) => { e.stopPropagation(); onLikesClick(post.likes || []); }}
+                                    >
+                                        {likesCount.toLocaleString()}
+                                    </span>
                                 </div>
 
                                 {pickerPostId === post._id && (
@@ -412,6 +421,8 @@ const Feed = ({ activeMood = null }) => {
     const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
+    const [likesVisible, setLikesVisible] = useState(false);
+    const [likesIds, setLikesIds] = useState([]);
     const lastTap = useRef({});
 
     const handleReact = (post, emoji) => {
@@ -677,6 +688,7 @@ const Feed = ({ activeMood = null }) => {
                                 handleReact={handleReact}
                                 renderCaption={renderCaption}
                                 onFollow={handleFollow}
+                                onLikesClick={(ids) => { setLikesIds(ids); setLikesVisible(true); }}
                             />
                         )) : (
                             <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
@@ -759,6 +771,16 @@ const Feed = ({ activeMood = null }) => {
 
                 <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)}>
                     <UserProfile id={selectedProfileId} maxPosts={3} />
+                </Dialog>
+
+                <Dialog 
+                    header="Liked By" 
+                    visible={likesVisible} 
+                    style={{ width: '95vw', maxWidth: '450px' }} 
+                    onHide={() => setLikesVisible(false)}
+                    contentClassName="custom-scrollbar"
+                >
+                    <FollowFollowingList ids={likesIds} />
                 </Dialog>
             </div>
         </>

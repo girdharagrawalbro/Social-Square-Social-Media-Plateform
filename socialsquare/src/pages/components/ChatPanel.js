@@ -313,7 +313,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                                     {message.storyReply.authorName && (
                                                         <div className="absolute top-3 left-3 flex items-center gap-2 z-10 px-2 py-1.5 bg-black/30 backdrop-blur-md rounded-full border border-white/10">
                                                             <img
-                                                                src={message.storyReply.authorProfilePicture || '/default-profile.png'}
+                                                                src={message.storyReply.authorProfilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                                                 className="w-5 h-5 rounded-full object-cover border border-white/20"
                                                                 alt=""
                                                             />
@@ -372,7 +372,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                                 {/* Header: Author Info */}
                                                 <div className="flex items-center gap-2 p-3 border-b border-white/5">
                                                     <img
-                                                        src={message.sharedPost.authorProfilePicture || '/default-profile.png'}
+                                                        src={message.sharedPost.authorProfilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                                         className="w-8 h-8 rounded-full object-cover border border-white/10"
                                                         alt=""
                                                     />

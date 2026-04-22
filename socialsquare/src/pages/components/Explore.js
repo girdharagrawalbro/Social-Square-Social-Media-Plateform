@@ -288,7 +288,7 @@ const Explore = () => {
             <div className="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2 z-40">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-yellow-500 p-0.5">
-                  <img src={videos[activeIndex]?.user?.profile_picture || '/default-profile.png'} className="w-full h-full rounded-full object-cover border-2 border-black" alt="" />
+                  <img src={videos[activeIndex]?.user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-full h-full rounded-full object-cover border-2 border-black" alt="" />
                 </div>
                 <div>
                   <p className="m-0 text-white font-bold text-sm">@{videos[activeIndex]?.user?.username || videos[activeIndex]?.user?.fullname?.toLowerCase().replace(/\s/g, '_') || 'user'}</p>

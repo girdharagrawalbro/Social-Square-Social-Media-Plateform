@@ -126,7 +126,7 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             video: videoURL || null,
             videoThumbnail: videoThumbnail || null,
             user: isAnonymous
-                ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff' }
+                ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain' }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             location: location || {}, music: music || {},
             isAnonymous: !!isAnonymous,
@@ -892,7 +892,7 @@ router.get("/confessions", async (req, res) => {
             user: {
                 _id: null, // never reveal real _id
                 fullname: 'Anonymous',
-                profile_picture: 'https://ui-avatars.com/api/?name=A&background=808bf5&color=fff',
+                profile_picture: 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain',
             },
         }));
 

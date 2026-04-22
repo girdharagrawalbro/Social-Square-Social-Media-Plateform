@@ -14,6 +14,7 @@ import Like from './ui/Like';
 import formatDate from '../../utils/formatDate';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
+import FollowFollowingList from './FollowFollowingList';
 import ReportDialog from './ui/ReportDialog';
 import PostMenu from './ui/PostMenu';
 import ProgressiveImage from './ui/ProgressiveImage';
@@ -61,6 +62,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const [editingPost, setEditingPost] = useState(null);
     const [editCaption, setEditCaption] = useState('');
+    const [likesVisible, setLikesVisible] = useState(false);
+    const [likesIds, setLikesIds] = useState([]);
     const reactMutation = useReactPost();
     const [pickerVisible, setPickerVisible] = useState(false);
     const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
@@ -263,7 +266,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                                         autoPlay
                                         loop
-                                        muted
                                         onDoubleClick={handleImageDoubleClick}
                                         onTouchEnd={handleImageTap}
                                         className="max-w-full max-h-full object-contain"
@@ -332,7 +334,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                                             autoPlay
                                             loop
-                                            muted
                                             onDoubleClick={handleImageDoubleClick}
                                             onTouchEnd={handleImageTap}
                                             className="w-full h-full object-contain"
@@ -488,7 +489,12 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 >
                                     <Like id={`pd-like-${post._id}`} isliked={isLiked} loading={likeMutation.isPending} />
                                     <div className="flex items-center gap-1">
-                                        <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
+                                        <span
+                                            className="text-[10px] font-bold text-[var(--text-sub)] cursor-pointer hover:text-[#808bf5] transition-colors"
+                                            onClick={(e) => { e.stopPropagation(); setLikesIds(postLikes); setLikesVisible(true); }}
+                                        >
+                                            {postLikes?.length || 0}
+                                        </span>
                                         {post.reactions?.length > 0 && (
                                             <div className="flex -space-x-1 items-center bg-[var(--surface-2)] px-1 rounded-full border border-[var(--border-color)]">
                                                 {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
@@ -561,6 +567,16 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 <Suspense fallback={<div className="p-4 text-center text-[var(--text-sub)]">Loading Profile...</div>}>
                     <UserProfile id={selectedProfileId} />
                 </Suspense>
+            </Dialog>
+
+            <Dialog
+                header="Liked By"
+                visible={likesVisible}
+                style={{ width: '95vw', maxWidth: '450px' }}
+                onHide={() => setLikesVisible(false)}
+                contentClassName="custom-scrollbar"
+            >
+                <FollowFollowingList ids={likesIds} />
             </Dialog>
 
             <Dialog header={false} visible={!!editingPost} style={{ width: '95vw', maxWidth: '420px', borderRadius: '24px' }} onHide={() => setEditingPost(null)} closable={false} className="dark:bg-[var(--surface-1)]">

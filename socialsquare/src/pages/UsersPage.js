@@ -13,14 +13,14 @@ const UsersPage = () => {
     const navigate = useNavigate();
     const user = useAuthStore(s => s.user);
     const isOnline = useConversationStore(s => s.isOnline);
-    
+
     // Infinite Query with limit of 10
-    const { 
-        data, 
-        isLoading, 
-        fetchNextPage, 
-        hasNextPage, 
-        isFetchingNextPage 
+    const {
+        data,
+        isLoading,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
     } = useInfiniteOtherUsers(10);
 
     const { ref: loadMoreRef, inView } = useInView();
@@ -74,8 +74,8 @@ const UsersPage = () => {
         );
     }
 
-    const filteredUsers = users.filter(u => 
-        u._id !== user?._id && 
+    const filteredUsers = users.filter(u =>
+        u._id !== user?._id &&
         !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString()) &&
         !localDismissed.includes(u._id)
     );
@@ -95,18 +95,17 @@ const UsersPage = () => {
                         const userIsOnline = isOnline(u._id);
                         const following = isFollowing(u._id);
                         const isMutating = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
-                                         (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id);
+                            (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id);
 
                         return (
-                            <div 
+                            <div
                                 key={u._id}
-                                className={`group relative p-6 rounded-3xl border transition-all hover:scale-[1.02] cursor-pointer ${
-                                    isDark ? 'bg-[#1a1a1a] border-[#2a2a2a] hover:bg-[#222]' : 'bg-white border-gray-100 hover:shadow-2xl'
-                                }`}
+                                className={`group relative p-6 rounded-3xl border transition-all hover:scale-[1.02] cursor-pointer ${isDark ? 'bg-[#1a1a1a] border-[#2a2a2a] hover:bg-[#222]' : 'bg-white border-gray-100 hover:shadow-2xl'
+                                    }`}
                                 onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}
                             >
                                 {/* Dismiss button */}
-                                <button 
+                                <button
                                     onClick={(e) => handleDismiss(e, u._id)}
                                     className="absolute top-4 right-4 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500 text-gray-400 border-0 bg-transparent flex items-center justify-center cursor-pointer"
                                 >
@@ -115,8 +114,8 @@ const UsersPage = () => {
 
                                 <div className="flex flex-col items-center">
                                     <div className="relative w-24 h-24 mb-4">
-                                        <img 
-                                            src={u.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.fullname)}&background=808bf5&color=fff`} 
+                                        <img
+                                            src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                             alt={u.fullname}
                                             className="w-full h-full rounded-full object-cover border-4 border-[#808bf5]/10 group-hover:border-[#808bf5]/30 transition-all"
                                         />
@@ -140,18 +139,17 @@ const UsersPage = () => {
                                     </div>
 
                                     <div className="flex gap-2 w-full mt-auto">
-                                        <button 
+                                        <button
                                             disabled={isMutating}
                                             onClick={(e) => handleFollow(e, u._id)}
-                                            className={`flex-1 py-2.5 rounded-2xl text-xs font-bold transition-all border-0 cursor-pointer ${
-                                                following 
-                                                ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' 
-                                                : 'bg-[#808bf5] text-white hover:shadow-[0_8px_20px_-6px_rgba(128,139,245,0.6)]'
-                                            } ${isMutating ? 'opacity-50' : ''}`}
+                                            className={`flex-1 py-2.5 rounded-2xl text-xs font-bold transition-all border-0 cursor-pointer ${following
+                                                    ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                                                    : 'bg-[#808bf5] text-white hover:shadow-[0_8px_20px_-6px_rgba(128,139,245,0.6)]'
+                                                } ${isMutating ? 'opacity-50' : ''}`}
                                         >
                                             {isMutating ? '...' : (following ? 'Following' : 'Follow')}
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 navigate(`/profile/${u._id}`);
@@ -184,7 +182,7 @@ const UsersPage = () => {
                         </div>
                         <h2 className="text-xl font-bold mb-2">No new suggestions</h2>
                         <p className="text-gray-500">You've seen everyone! Check back later for more.</p>
-                        <button 
+                        <button
                             onClick={() => navigate('/')}
                             className="mt-6 px-6 py-2 rounded-xl bg-[#808bf5] text-white font-bold border-0 cursor-pointer"
                         >
@@ -194,18 +192,18 @@ const UsersPage = () => {
                 )}
             </div>
 
-            <Dialog 
+            <Dialog
                 showHeader={false}
-                visible={profileVisible} 
-                style={{ width: '95vw', maxWidth: '500px', height: '90vh' }} 
-                position="center" 
+                visible={profileVisible}
+                style={{ width: '95vw', maxWidth: '500px', height: '90vh' }}
+                position="center"
                 onHide={() => setProfileVisible(false)}
                 dismissableMask={true}
                 modal={true}
                 maskStyle={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.4)' }}
             >
                 <div className="relative h-full overflow-hidden bg-[var(--surface-1)]" style={{ borderRadius: '24px' }}>
-                    <button 
+                    <button
                         onClick={() => setProfileVisible(false)}
                         className="absolute top-4 left-4 z-50 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center border-0 cursor-pointer"
                     >

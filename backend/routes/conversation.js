@@ -214,7 +214,7 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
         await delCache(`convs:${sender}`, `convs:${recipientId}`, `msgs:${[sender, recipientId].sort().join(':')}`);
 
         if (_io) {
-            _io.to(recipientId).emit('receiveMessage', { ...message.toObject(), senderId: sender, senderName: senderName || senderUser?.fullname });
+            _io.to(recipientId).to(sender).emit('receiveMessage', { ...message.toObject(), senderId: sender, senderName: senderName || senderUser?.fullname });
             _io.to(recipientId).emit('newNotification', notification);
         }
         res.status(201).json(message);

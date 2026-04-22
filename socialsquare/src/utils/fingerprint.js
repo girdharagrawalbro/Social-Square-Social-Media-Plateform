@@ -70,4 +70,4 @@ export async function getFingerprint() {
 
     return fingerprintPromise;
 }
-
+

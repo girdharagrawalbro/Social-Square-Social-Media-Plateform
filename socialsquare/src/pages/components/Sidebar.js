@@ -103,7 +103,7 @@ export default function Sidebar() {
                 <div className={`p-3 border-t border-[var(--border-color)] flex flex-col items-${open ? 'start' : 'center'} gap-3`}>
                     <div className="flex items-center gap-3 w-full px-1">
                         <img
-                            src={user?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullname || 'U')}&background=808bf5&color=fff`}
+                            src={user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                             alt="me"
                             className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm"
                         />

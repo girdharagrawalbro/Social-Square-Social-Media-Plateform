@@ -601,7 +601,7 @@ const PostsTab = () => {
                             </div>
                             <div className="p-6">
                                 <div className="flex items-center gap-3 mb-4">
-                                    <img src={post.user?.profile_picture || '/default-profile.png'} alt="" className="w-7 h-7 rounded-lg object-cover border border-[var(--border-color)] shadow-sm" />
+                                    <img src={post.user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" className="w-7 h-7 rounded-lg object-cover border border-[var(--border-color)] shadow-sm" />
                                     <span className="text-[10px] font-black text-[var(--text-sub)] uppercase tracking-widest opacity-70 truncate">{post.user?.fullname || 'System Entity'}</span>
                                 </div>
                                 <p className="text-xs text-[var(--text-main)] font-semibold line-clamp-2 min-h-[36px] leading-relaxed mb-6 opacity-90">{post.caption || '(Meta description only)'}</p>
@@ -733,7 +733,7 @@ const ReportsTab = () => {
                         <div className="flex items-start justify-between gap-6">
                             <div className="flex items-center gap-5">
                                 <div className="relative group/reporter">
-                                    <img src={report.reporter?.profile_picture || '/default-profile.png'} alt="" className="w-14 h-14 rounded-[20px] object-cover ring-4 ring-[var(--surface-2)] shadow-xl group-hover/reporter:scale-105 transition-transform" />
+                                    <img src={report.reporter?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" className="w-14 h-14 rounded-[20px] object-cover ring-4 ring-[var(--surface-2)] shadow-xl group-hover/reporter:scale-105 transition-transform" />
                                     <span className="absolute -bottom-2 -right-2 bg-[var(--surface-1)] p-1.5 rounded-xl shadow-lg text-xs border border-[var(--border-color)]">🚩</span>
                                 </div>
                                 <div>
