@@ -950,13 +950,14 @@ const Stories = () => {
                 return updated;
             }
             groupIndex = 0;
-            return [{ user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }, stories: [newStory], hasUnviewed: false }, ...prev];
+            return [{ user: { _id: loggeduser._id, username: loggeduser.username, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }, stories: [newStory], hasUnviewed: false }, ...prev];
         });
 
         if (sharingPostToStory && groupIndex !== -1) {
             const group = groups[groupIndex];
             if (group) {
-                navigate(`/stories/${group.user.username}/${newStory._id}`);
+                const target = group.user.username || group.user._id;
+                navigate(`/stories/${target}/${newStory._id}`);
             }
             clearSharingPostToStory();
         }
@@ -968,7 +969,8 @@ const Stories = () => {
         const group = groups[index];
         if (group) {
             markGroupAsViewed(group.user._id);
-            navigate(`/stories/${group.user.username}`);
+            const target = group.user.username || group.user._id;
+            navigate(`/stories/${target}`);
         }
     };
 

@@ -15,7 +15,7 @@ const StoriesPage = () => {
     const user = useAuthStore(s => s.user);
     const { markGroupAsViewed } = usePostStore();
     const { data: storyFeed, isLoading } = useStoryFeed(user?._id);
-    const [groups, setGroups] = useState([]);
+    const [groups, setGroups] = useState(storyFeed || []);
     const [postVisible, setPostVisible] = useState(false);
     const [selectedPostId, setSelectedPostId] = useState(null);
     const [shareOpen, setShareOpen] = useState(false);
@@ -31,6 +31,15 @@ const StoriesPage = () => {
         }
     }, [storyFeed]);
 
+    const currentGroupIndex = React.useMemo(() => {
+        if (!username || !groups.length) return 0;
+        const normalizedUsername = username.toLowerCase();
+        return groups.findIndex(g => 
+            g.user.username?.toLowerCase() === normalizedUsername || 
+            g.user._id.toString() === username
+        );
+    }, [groups, username]);
+
     if (isLoading) return <div className="h-screen w-full bg-black flex items-center justify-center"><div className="w-10 h-10 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin"></div></div>;
     if (!groups || groups.length === 0) {
         return (
@@ -42,9 +51,6 @@ const StoriesPage = () => {
         );
     }
 
-    const currentGroupIndex = username
-        ? groups.findIndex(g => g.user.username === username || g.user._id.toString() === username)
-        : 0;
 
     const safeIndex = currentGroupIndex === -1 ? 0 : currentGroupIndex;
     const prevGroup = safeIndex > 0 ? groups[safeIndex - 1] : null;
