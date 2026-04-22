@@ -2,24 +2,28 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import useConversationStore from '../../store/zustand/useConversationStore';
 
 const BottomNav = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
+    const { unreadNotificationsCount, totalUnread } = useConversationStore();
+    
     const isChatOpen = location.pathname.startsWith('/conversation/') && location.pathname.split('/').length > 2;
 
     if (isChatOpen) return null;
 
-    const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
+    const cardBg = isDark ? 'bg-black/90 border-neutral-800' : 'bg-white/95 border-gray-200';
+    const msgCount = totalUnread();
 
     const navItems = [
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
         { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse', accent: true },
-        { key: 'users', icon: 'pi-users', to: () => '/discover' },
-        { key: 'messages', icon: 'pi-envelope', to: () => '/conversations' },
+        { key: 'notifications', icon: 'pi-bell', to: () => '/notifications', badge: unreadNotificationsCount },
+        { key: 'messages', icon: 'pi-envelope', to: () => '/conversations', badge: msgCount },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
     ];
 
@@ -42,20 +46,35 @@ const BottomNav = () => {
     };
 
     return (
-        <div className={`lg:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md ${cardBg} p-2 shadow-md`} style={{ zIndex: 1000 }}>
-            <div className="flex justify-around">
-                {navItems.map(item => (
-                    <button key={item.key}
-                        aria-label={item.key.charAt(0).toUpperCase() + item.key.slice(1)}
-                        className={`px-3 py-2 rounded-full border-0 cursor-pointer transition-all ${item.accent ? 'bg-gradient-to-tr from-[#808bf5] to-[#6366f1] text-white shadow-md' :
-                            isActive(item.key, item.to) ? 'bg-[#808bf5] text-white' :
-                                isDark ? 'bg-gray-700 text-gray-300' : 'bg-transparent border border-gray-200 text-gray-600'
-                            }`}
-                        onClick={() => handleClick(item)}>
-                        <i className={`pi ${item.icon}`}></i>
+        <div className={`lg:hidden fixed bottom-0 left-0 right-0 w-full ${cardBg} border-t backdrop-blur-md px-2 py-2 flex justify-around items-center`} style={{ zIndex: 1000, paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
+            {navItems.map(item => {
+                const active = isActive(item.key, item.to);
+                return (
+                    <button 
+                        key={item.key}
+                        aria-label={item.key}
+                        className="relative flex flex-col items-center justify-center border-0 bg-transparent cursor-pointer transition-all duration-300"
+                        onClick={() => handleClick(item)}
+                    >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                            item.accent 
+                                ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/40 scale-110 -translate-y-1' 
+                                : active 
+                                    ? 'bg-indigo-500/10 text-indigo-600' 
+                                    : isDark ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                            <i className={`pi ${item.icon} ${item.accent ? 'text-xl' : 'text-lg'}`}></i>
+                            
+                            {/* Notification Badge */}
+                            {item.badge > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white dark:border-black shadow-sm">
+                                    {item.badge > 9 ? '9+' : item.badge}
+                                </span>
+                            )}
+                        </div>
                     </button>
-                ))}
-            </div>
+                );
+            })}
         </div>
     );
 };

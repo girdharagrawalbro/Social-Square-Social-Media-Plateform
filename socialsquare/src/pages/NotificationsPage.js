@@ -17,6 +17,14 @@ const NotificationsPage = () => {
     const acceptMutation = useAcceptFollowRequest();
     const declineMutation = useDeclineFollowRequest();
 
+    // ✅ Auto-mark all as read when opening page
+    React.useEffect(() => {
+        const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
+        if (unreadIds.length > 0) {
+            markRead.mutate(unreadIds);
+        }
+    }, [notifications.length, markRead]);
+
     const handleMarkRead = (id) => markRead.mutate([id]);
 
     const handleAccept = async (e, requesterId, notificationId) => {
