@@ -150,20 +150,20 @@ export async function deleteFromCloudinary(publicId, resourceType = 'image') {
 
 export function validateImageFile(file) {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 30 * 1024 * 1024; // 30MB
 
     if (!allowedTypes.includes(file.type)) {
         return 'Only JPEG, PNG, GIF and WebP images are allowed.';
     }
     if (file.size > maxSize) {
-        return 'Image must be under 10MB.';
+        return 'Image must be under 30MB.';
     }
     return null;
 }
 
 export function validateVideoFile(file) {
     const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg'];
-    const maxSize = 50 * 1024 * 1024; // 50MB recommended for Cloudinary uploads
+    const maxSize = 100 * 1024 * 1024; // 100MB
 
     if (!allowedTypes.includes(file.type)) {
         return 'Only MP4, WebM, MOV and OGG videos are allowed.';

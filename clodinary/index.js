@@ -20,7 +20,7 @@ app.use(cors({
     credentials: true,
 }));
 
-app.use(express.json({ limit: '20mb' })); // Increased to 20mb to handle ~33% Base64 inflation for 10mb files
+app.use(express.json({ limit: '150mb' })); // Increased to 150mb to handle ~33% Base64 inflation for 100mb files
 
 const cloudinaryRoutes = require('./routes/cloudinary.routes');
 
