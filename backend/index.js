@@ -76,8 +76,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
     : ['http://localhost:3000'];
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ✅ Use 'tiny' morgan format — logs 60% less data than 'combined'
 // In production, skip successful health checks entirely
