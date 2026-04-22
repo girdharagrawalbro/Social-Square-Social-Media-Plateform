@@ -176,6 +176,25 @@ const useAuthStore = create(
                     return { error: msg };
                 }
             },
+            // ── Google Login ──────────────────────────────────────────────────
+            googleLogin: async ({ credential, fingerprint }) => {
+                set({ loading: true, error: null });
+                try {
+                    const res = await axios.post(
+                        `${BASE}/api/auth/google`,
+                        { credential, fingerprint },
+                        { withCredentials: true }
+                    );
+                    const { token, user } = res.data;
+                    setToken(token);
+                    set({ user, loading: false, initialized: true });
+                    return { success: true, user };
+                } catch (err) {
+                    const msg = err.response?.data?.error || err.response?.data?.message || 'Google Login failed';
+                    set({ loading: false, error: msg });
+                    return { error: msg };
+                }
+            },
 
             // ── Signup ────────────────────────────────────────────────────────
             signup: async ({ fullname, email, password, fingerprint }) => {
