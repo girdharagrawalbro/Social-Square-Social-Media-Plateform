@@ -691,7 +691,9 @@ router.get('/get', async (req, res) => {
 router.get("/other-users", verifyToken, async (req, res) => {
     try {
         const loggedUserId = req.userId;
-        const suggestions = await getSuggestedUsers(loggedUserId, 16);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const suggestions = await getSuggestedUsers(loggedUserId, limit, page);
 
         return res.status(200).json(suggestions);
     } catch (error) {

@@ -88,7 +88,7 @@ const EditProfile = ({ users, closeSidebar }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="w-full h-full">
+        <form onSubmit={handleSubmit} className="w-full h-full px-3">
 
             {/* Profile Picture Upload */}
             <div className="mb-4 flex flex-col items-center gap-2">

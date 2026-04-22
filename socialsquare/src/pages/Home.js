@@ -8,13 +8,9 @@ import Conversations from './components/Conversations';
 import Stories from './components/Stories';
 import Explore from './components/Explore';
 import Communities from './components/Communities';
-import UserProfile from './components/UserProfile';
 import useAuthStore from '../store/zustand/useAuthStore';
-import Chatbot from './components/Chatbot';
 import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
-import { Dialog } from 'primereact/dialog';
-import PostDetail from './components/PostDetail';
 
 const Home = () => {
     const activeView = 'feed';
@@ -165,48 +161,6 @@ const Home = () => {
                 </div>
             )}
 
-            <Chatbot />
-
-            <Dialog
-                showHeader={false}
-                visible={!!postDetailId}
-                style={{ width: isDesktop ? '95vw' : '100vw', maxWidth: isDesktop ? '1200px' : 'none', height: isDesktop ? '90vh' : '100dvh' }}
-                className={!isDesktop ? 'p-0' : ''}
-                position="center"
-                onHide={() => setPostDetailId(null)}
-                dismissableMask
-                blockScroll={true}
-                closable={false}
-                modal
-                maskStyle={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}
-            > <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: isDesktop ? '24px' : '0', overflow: 'hidden', border: isDesktop ? '1px solid var(--border-color)' : 'none' }}>
-                    <button
-                        onClick={() => setPostDetailId(null)}
-                        className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
-                    >
-                        <i className="pi pi-times text-sm"></i>
-                    </button>
-                    <React.Suspense fallback={<div className="p-20 text-center text-[var(--text-sub)] bg-[var(--surface-1)]">
-                        <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="font-medium">Loading Post...</p>
-                    </div>}>
-                        {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)} />}
-                    </React.Suspense>
-                </div>
-            </Dialog>
-
-            <Dialog
-                header="Profile"
-                visible={!!profileDetailId}
-                style={{ width: '95vw', maxWidth: '500px' }}
-                position="center"
-                onHide={() => setProfileDetailId(null)}
-                baseZIndex={usePostStore.getState().isStoryViewerOpen ? 20000 : 1000}
-                appendTo={document.body}
-                blockScroll
-            >
-                {profileDetailId && <UserProfile id={profileDetailId} />}
-            </Dialog>
         </section >
     );
 };

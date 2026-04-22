@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 
@@ -64,15 +64,32 @@ export function useUserDetails(ids = []) {
 }
 
 // ─── FETCH OTHER USERS (Suggested Users Sidebar) ────────────────────────────────
-export function useOtherUsers() {
+export function useOtherUsers(limit = 8) {
     return useQuery({
-        queryKey: authKeys.otherUsers,
+        queryKey: [...authKeys.otherUsers, limit],
         queryFn: async () => {
-            const res = await api.get(`/api/auth/other-users`);
+            const res = await api.get(`/api/auth/other-users?limit=${limit}`);
             return Array.isArray(res.data) ? res.data : [];
         },
-        staleTime: 1000 * 60 * 10, // 10 minutes - suggested users don't change often
+        staleTime: 1000 * 60 * 10,
         gcTime: 1000 * 60 * 30,
+    });
+}
+
+// ─── FETCH OTHER USERS INFINITE (Discover Page) ───────────────────────────────
+export function useInfiniteOtherUsers(limit = 10) {
+    return useInfiniteQuery({
+        queryKey: [...authKeys.otherUsers, 'infinite', limit],
+        queryFn: async ({ pageParam = 1 }) => {
+            const res = await api.get(`/api/auth/other-users?page=${pageParam}&limit=${limit}`);
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        getNextPageParam: (lastPage, allPages) => {
+            if (!lastPage || lastPage.length < limit) return undefined;
+            return allPages.length + 1;
+        },
+        initialPageParam: 1,
+        staleTime: 1000 * 60 * 5,
     });
 }
 

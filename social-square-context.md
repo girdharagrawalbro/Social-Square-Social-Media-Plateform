@@ -6675,7 +6675,7 @@ const Login = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) { toast.success('You are already logged in..'); navigate('/'); }
+    if (token) { toast.success('You’re logged in.'); navigate('/'); }
   }, [navigate]);
 
   const handleChange = (e) => {
@@ -7041,7 +7041,7 @@ const Signup = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) { toast.success("You are already logged in.."); setTimeout(() => navigate('/'), 1500); }
+    if (token) { toast.success("You’re logged in."); setTimeout(() => navigate('/'), 1500); }
   }, [navigate]);
 
   const handleChange = (e) => {
