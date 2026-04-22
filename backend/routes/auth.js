@@ -124,9 +124,13 @@ router.post('/login', authRateLimiter, [
             const device = parseDevice(req.headers['user-agent']);
             createNotification({
                 recipientId: user._id,
-                sender: { id: user._id, fullname: 'Security System', profile_picture: 'https://cdn-icons-png.flaticon.com/512/508/508281.png' },
+                sender: { 
+                    id: user._id, 
+                    fullname: 'Security Shield', 
+                    profile_picture: 'https://img.icons8.com/fluency/96/security-shield.png' 
+                },
                 type: 'system',
-                message: { content: `Incorrect login attempt detected from ${device} (${ip})` }
+                message: { content: `⚠️ Security Alert: An incorrect login attempt was made via ${device} at IP ${ip}. If this wasn't you, please secure your account.` }
             }).catch(e => logger.error('Failed to send login alert:', e));
 
             if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
@@ -189,9 +193,13 @@ router.post('/login', authRateLimiter, [
         // ── SECURITY NOTIFICATION FOR SUCCESSFUL LOGIN ──
         createNotification({
             recipientId: user._id,
-            sender: { id: user._id, fullname: 'Security System', profile_picture: 'https://cdn-icons-png.flaticon.com/512/508/508281.png' },
+            sender: { 
+                id: user._id, 
+                fullname: 'Security Shield', 
+                profile_picture: 'https://img.icons8.com/fluency/96/security-shield.png' 
+            },
             type: 'system',
-            message: { content: `New login detected on ${device} (${ip})${location ? ` in ${location}` : ''}` }
+            message: { content: `✅ New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location}` : ''}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
         const accessToken = generateAccessToken(user._id, family);
@@ -262,9 +270,13 @@ router.post('/verify-otp', [
         // ── SECURITY NOTIFICATION FOR SUCCESSFUL LOGIN (OTP) ──
         createNotification({
             recipientId: user._id,
-            sender: { id: user._id, fullname: 'Security System', profile_picture: 'https://cdn-icons-png.flaticon.com/512/508/508281.png' },
+            sender: { 
+                id: user._id, 
+                fullname: 'Security Shield', 
+                profile_picture: 'https://img.icons8.com/fluency/96/security-shield.png' 
+            },
             type: 'system',
-            message: { content: `New login detected (OTP) on ${device} (${ip})${location ? ` in ${location}` : ''}` }
+            message: { content: `✅ Secure Login: Your account was accessed via ${device} (OTP verified) at IP ${ip}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
         const accessToken = generateAccessToken(user._id, family);

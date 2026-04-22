@@ -17,6 +17,7 @@ import FollowFollowingList from './FollowFollowingList';
 import CollabManager from './CollabManager';
 import PostCard from './ui/PostCard';
 import PostDetail from './PostDetail';
+import CreatorAnalytics from './CreatorAnalytics';
 
 /**
  * Profile Component - FLEXIBLE PROFILE VIEW
@@ -191,6 +192,7 @@ const Profile = ({ userId }) => {
                     </div>
                 )
             },
+            { key: 'analytics', label: '📊 Insights' },
         ]
         : [
 
@@ -393,6 +395,11 @@ const Profile = ({ userId }) => {
                     ) : activeTab === 'collabs' ? (
                         // Collabs tab — full width, no grid
                         <CollabManager mode="all" />
+                    ) : activeTab === 'analytics' ? (
+                        // Analytics tab
+                        <div className="px-4">
+                            <CreatorAnalytics userId={profileId} />
+                        </div>
                     ) : (
                         // Posts / Saved — 3-col grid   
                         <div className="grid grid-cols-3 gap-2 pr-1">
