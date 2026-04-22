@@ -6,11 +6,15 @@ import { encryptPassword } from '../utils/crypto';
 import { getFingerprint } from '../utils/fingerprint';
 import PasswordStrengthMeter from './components/PasswordStrengthMeter';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { GoogleLogin } from '@react-oauth/google';
+import { useDarkMode } from '../context/DarkModeContext';
 
 const Signup = () => {
+  const { isDark } = useDarkMode();
   const [formData, setFormData] = useState({ email: '', fullname: '', password: '' });
   const navigate = useNavigate();
   const signup = useAuthStore(s => s.signup);
+  const googleLogin = useAuthStore(s => s.googleLogin);
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
   const initialized = useAuthStore(s => s.initialized);
@@ -72,6 +76,42 @@ const Signup = () => {
               <PasswordStrengthMeter password={formData.password} />
               <button className="py-2 mt-2 bg-themeAccent text-white w-full rounded" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign up'}</button>
             </form>
+
+            <div className="flex items-center my-6">
+              <div className={`flex-1 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}></div>
+              <span className={`px-4 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>OR</span>
+              <div className={`flex-1 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}></div>
+            </div>
+
+            <div className="flex justify-center w-full">
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  try {
+                    const fingerprint = await getFingerprint();
+                    const result = await googleLogin({
+                      credential: credentialResponse.credential,
+                      fingerprint
+                    });
+
+                    if (result?.success) {
+                      toast.success('Google login successful!');
+                      navigate(`/${result.user.username}`);
+                    } else {
+                      toast.error(result?.error || 'Google login failed');
+                    }
+                  } catch (err) {
+                    toast.error('An error occurred during Google login');
+                  }
+                }}
+                onError={() => {
+                  toast.error('Google login failed');
+                }}
+                useOneTap
+                theme={isDark ? 'filled_black' : 'outline'}
+                shape="pill"
+                width="100%"
+              />
+            </div>
             <div className="mt-4 text-center">
               <p>Have an account? <Link to="/login" className="text-themeStart font-semibold">Log in</Link></p>
             </div>

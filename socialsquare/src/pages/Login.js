@@ -7,12 +7,15 @@ import { getFingerprint } from '../utils/fingerprint';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useDarkMode } from '../context/DarkModeContext';
 
+import { GoogleLogin } from '@react-oauth/google';
+
 const Login = () => {
     const { isDark } = useDarkMode();
     const [formData, setFormData] = useState({ identifier: '', password: '' });
     const navigate = useNavigate();
     const location = useLocation();
     const login = useAuthStore(s => s.login);
+    const googleLogin = useAuthStore(s => s.googleLogin);
     const user = useAuthStore(s => s.user);
     const loading = useAuthStore(s => s.loading);
     const initialized = useAuthStore(s => s.initialized);
@@ -83,6 +86,43 @@ const Login = () => {
                                 </button>
                             </div>
                         </form>
+
+                        <div className="flex items-center my-6">
+                            <div className={`flex-1 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}></div>
+                            <span className={`px-4 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>OR</span>
+                            <div className={`flex-1 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}></div>
+                        </div>
+
+                        <div className="flex justify-center w-full">
+                            <GoogleLogin
+                                onSuccess={async (credentialResponse) => {
+                                    try {
+                                        const fingerprint = await getFingerprint();
+                                        const result = await googleLogin({
+                                            credential: credentialResponse.credential,
+                                            fingerprint
+                                        });
+
+                                        if (result?.success) {
+                                            toast.success('Google login successful!');
+                                            navigate(`/${result.user.username}`);
+                                        } else {
+                                            toast.error(result?.error || 'Google login failed');
+                                        }
+                                    } catch (err) {
+                                        toast.error('An error occurred during Google login');
+                                    }
+                                }}
+                                onError={() => {
+                                    toast.error('Google login failed');
+                                }}
+                                useOneTap
+                                theme={isDark ? 'filled_black' : 'outline'}
+                                shape="pill"
+                                width="100%"
+                            />
+                        </div>
+
                         <Link to="/forgot" className="block mt-6 text-[#808bf5] font-semibold hover:underline">Forgot Password?</Link>
                         <div className={`mt-4 pt-6 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
                             <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>Don't have an account? <Link to="/signup" className="text-[#808bf5] font-bold hover:underline">Sign up</Link></p>
