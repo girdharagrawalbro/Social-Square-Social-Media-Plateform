@@ -14,13 +14,13 @@ const {
 // ─────────────────────────────────────────────
 router.post('/upload-base64', async (req, res) => {
     try {
-        const { file, folder, resourceType } = req.body;
+        const { file, folder, resourceType, ...rest } = req.body;
 
         if (!file) {
             return res.status(400).json({ success: false, message: 'File (base64) is required' });
         }
 
-        const result = await uploadBase64(file, { folder, resource_type: resourceType || 'image' });
+        const result = await uploadBase64(file, { folder, resource_type: resourceType || 'image', ...rest });
 
         res.json({
             success: true,

@@ -88,6 +88,8 @@ export async function uploadToCloudinary(file, onProgress, options = {}) {
         file: fileBase64,
         folder: options.folder,
         resourceType: options.resourceType,
+        start_offset: options.start_offset,
+        end_offset: options.end_offset,
     };
 
     const json = await requestCloudinaryApi('/upload-base64', 'POST', payload);
