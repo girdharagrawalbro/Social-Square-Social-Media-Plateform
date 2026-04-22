@@ -167,7 +167,7 @@ const PostItem = React.memo(({
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
 
     return (
-        <article className="relative overflow-hidden w-full rounded-2xl border flex flex-col bg-white dark:bg-black mb-8 px-0 sm:px-0">
+        <article className="relative overflow-hidden w-full rounded-2xl border flex flex-col bg-white dark:bg-black mb-3 px-0 sm:px-0">
             <PostActivityTracker postId={post._id} onDwell={handleDwell} />
             <CollabInviteBanner post={post} user={user} />
 
@@ -686,7 +686,7 @@ const Feed = ({ activeMood = null }) => {
                                     }
                                 </p>
                                 <div className="flex gap-3">
-                                    <button 
+                                <button 
                                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                                         className="px-6 py-2.5 rounded-2xl bg-[#808bf5] text-white font-bold text-sm shadow-lg shadow-indigo-200 hover:scale-105 transition-all cursor-pointer border-0"
                                     >

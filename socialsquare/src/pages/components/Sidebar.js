@@ -116,7 +116,7 @@ export default function Sidebar() {
 
                     <button
                         onClick={() => logout()}
-                        className={`flex items-center ${open ? 'w-full px-4 justify-start gap-3' : 'w-10 h-10 justify-center'} rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border-0 cursor-pointer p-0`}
+                        className={`flex items-center ${open ? 'w-full px-4 py-2 justify-start gap-3' : 'w-10 h-10 justify-center'} rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border-0 cursor-pointer p-0`}
                         aria-label="Logout"
                     >
                         <i className={`pi pi-sign-out ${open ? 'text-lg' : 'text-xl'}`}></i>
