@@ -489,7 +489,7 @@ const Feed = ({ activeMood = null }) => {
         });
 
         return withInjections;
-    }, [serverPosts, recommendedPosts, moodPosts, socketPosts, liveInjectedPosts]);
+    }, [serverPosts, recommendedPosts, moodPosts, socketPosts, liveInjectedPosts, activeMood]);
 
 
     const handleLikeToggle = async (post) => {

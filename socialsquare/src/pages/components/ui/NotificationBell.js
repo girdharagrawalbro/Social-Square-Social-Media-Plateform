@@ -17,7 +17,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     const navigate = useNavigate();
 
     // ✅ Sync with Global Store via hook
-    const { data: notifications = [], markRead, unreadCount, loadMore, hasMore, isLoading } = useNotifications(userId);
+    const { data: notifications = [], markRead, loadMore, hasMore, isLoading } = useNotifications(userId);
     const { data: collabInvites = [] } = useCollabInvites(userId);
     const { unreadNotificationsCount: globalUnreadCount } = useConversationStore();
 

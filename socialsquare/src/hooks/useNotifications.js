@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { socket } from '../socket';
 import { api } from '../store/zustand/useAuthStore';
 import useConversationStore from '../store/zustand/useConversationStore';
 
@@ -24,7 +23,6 @@ export function useNotifications(userId) {
         notifications,
         unreadNotificationsCount,
         setNotifications,
-        addNotification,
         markNotificationsRead
     } = useConversationStore();
 
