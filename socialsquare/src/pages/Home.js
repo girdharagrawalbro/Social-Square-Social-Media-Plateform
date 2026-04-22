@@ -24,9 +24,7 @@ const Home = () => {
     const loggeduser = useAuthStore(s => s.user);
     const loading = useAuthStore(s => s.loading);
     const initialized = useAuthStore(s => s.initialized);
-    const postDetailId = usePostStore(s => s.postDetailId);
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
-    const profileDetailId = usePostStore(s => s.profileDetailId);
     const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
     const setStoryDetailDeepLink = usePostStore(s => s.setStoryDetailDeepLink);
 

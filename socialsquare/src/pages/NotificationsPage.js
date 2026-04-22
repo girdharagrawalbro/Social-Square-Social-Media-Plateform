@@ -23,7 +23,7 @@ const NotificationsPage = () => {
         if (unreadIds.length > 0) {
             markRead.mutate(unreadIds);
         }
-    }, [notifications.length, markRead]);
+    }, [notifications, markRead]);
 
     const handleMarkRead = (id) => markRead.mutate([id]);
 

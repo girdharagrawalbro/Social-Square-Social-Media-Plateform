@@ -81,7 +81,7 @@ function AppInit() {
     }, [initAuth]);
 
     // ✅ Initial Notifications & Messages Fetch
-    const { setNotifications, setUnreadCount } = useConversationStore();
+    const { setNotifications } = useConversationStore();
     const { api } = useAuthStore();
     
     useEffect(() => {
