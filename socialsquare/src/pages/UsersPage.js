@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useInView } from 'react-intersection-observer';
 import { useDarkMode } from '../context/DarkModeContext';
 import useAuthStore, { api } from '../store/zustand/useAuthStore';
 import useConversationStore from '../store/zustand/useConversationStore';
-import { useOtherUsers, useFollowUser, useUnfollowUser } from '../hooks/queries/useAuthQueries';
+import { useInfiniteOtherUsers, useFollowUser, useUnfollowUser } from '../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './components/UserProfile';
 
@@ -13,8 +14,26 @@ const UsersPage = () => {
     const user = useAuthStore(s => s.user);
     const isOnline = useConversationStore(s => s.isOnline);
     
-    // Hooks from our query system
-    const { data: users = [], isLoading } = useOtherUsers();
+    // Infinite Query with limit of 10
+    const { 
+        data, 
+        isLoading, 
+        fetchNextPage, 
+        hasNextPage, 
+        isFetchingNextPage 
+    } = useInfiniteOtherUsers(10);
+
+    const { ref: loadMoreRef, inView } = useInView();
+
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    // Flatten pages into a single users array
+    const users = useMemo(() => data?.pages.flatMap(page => page) || [], [data]);
+
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
 
@@ -37,7 +56,7 @@ const UsersPage = () => {
         e.stopPropagation();
         setLocalDismissed(prev => [...prev, targetUserId]);
         try {
-            await api.post('/auth/dismiss-user', { targetUserId });
+            await api.post('/api/auth/dismiss-user', { targetUserId });
         } catch (err) {
             console.error('Failed to dismiss user:', err);
         }
@@ -47,7 +66,7 @@ const UsersPage = () => {
         return user?.following?.some(f => f?.toString() === userId?.toString());
     };
 
-    if (isLoading) {
+    if (isLoading && !users.length) {
         return (
             <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0d0d0d] text-white' : 'bg-gray-50 text-gray-900'}`}>
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[#808bf5]"></div>
@@ -146,6 +165,16 @@ const UsersPage = () => {
                             </div>
                         );
                     })}
+                </div>
+
+                {/* Loading indicator for infinite scroll */}
+                <div ref={loadMoreRef} className="py-12 flex justify-center w-full">
+                    {isFetchingNextPage && (
+                        <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-[#808bf5]"></div>
+                    )}
+                    {!hasNextPage && filteredUsers.length > 0 && (
+                        <p className="text-gray-500 text-sm italic">You've explored all suggestions!</p>
+                    )}
                 </div>
 
                 {filteredUsers.length === 0 && (

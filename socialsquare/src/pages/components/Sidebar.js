@@ -30,16 +30,16 @@ export default function Sidebar() {
     const links = [
         { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username || 'You'}` },
         { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/search' },
-        { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
         { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
+        { key: 'discover', label: 'Discover', icon: 'pi pi-users', to: '/discover' },
         { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse', accent: true },
-        { key: 'users', label: 'Discover', icon: 'pi pi-users', to: '/users' },
+        { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
         { key: 'communities', label: 'Communities', icon: 'pi pi-map', to: '/communities' },
         { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
         { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
         { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
         { key: 'settings', label: 'Settings', icon: 'pi pi-cog', to: '/settings' },
-    ];  
+    ];
 
 
     return (

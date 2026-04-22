@@ -26,7 +26,7 @@ const Login = () => {
         const isInitialMount = !window.sessionStorage.getItem('just_logged_in');
         if (user && isInitialMount && !hasShownToast.current) {
             hasShownToast.current = true;
-            toast.success('You are already logged in..');
+            toast.success('You’re logged in.');
             navigate(location.search ? `/${user.username}${location.search}` : `/${user.username}`);
         }
     }, [user, navigate, location.search, initialized, loading]);
@@ -138,4 +138,4 @@ const Login = () => {
     );
 };
 
-export default Login;
+export default Login;

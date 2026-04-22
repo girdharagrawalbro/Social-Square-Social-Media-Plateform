@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Search from "./Search";
 import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -12,6 +12,7 @@ import NewPost from "./Newpost";
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isLandingPage = ['/', '/help', '/contact'].includes(location.pathname);
   const { user: loggeduser, logout } = useAuthStore();
   const { setChatbotOpen } = usePostStore();
@@ -146,22 +147,35 @@ const Navbar = () => {
 
         {isAuthenticated && (
           <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-            {isAdminUser && (
-              <Link
-                to="/admin"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`p-2 px-3 rounded-lg no-underline flex items-center gap-4 ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
-              >
-                <i className="pi pi-cog text-lg"></i> Admin Dashboard
-              </Link>
-            )}
-            
+
             <button
-                onClick={() => { setChatbotOpen(true); setMobileMenuOpen(false); }}
-                className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
-              >
-                <i className="pi pi-sparkles text-lg text-blue-400"></i> AI SocialBot
-              </button>
+              onClick={() => { navigate('/communities'); setMobileMenuOpen(false); }}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="pi pi-users text-lg text-blue-400"></i> Communities
+            </button>
+            <button
+              onClick={() => { navigate('/notifications'); setMobileMenuOpen(false); }}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="pi pi-bell text-lg text-blue-400"></i> Notifications
+            </button>
+
+            <button
+              onClick={() => { navigate('/settings'); setMobileMenuOpen(false); }}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="pi pi-cog text-lg text-blue-400"></i> Settings
+            </button>
+
+
+
+            <button
+              onClick={() => { setChatbotOpen(true); setMobileMenuOpen(false); }}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="pi pi-sparkles text-lg text-blue-400"></i> AI SocialBot
+            </button>
 
             <button
               onClick={() => { toggle(); setMobileMenuOpen(false); }}
@@ -169,7 +183,15 @@ const Navbar = () => {
             >
               <i className={`pi ${isDark ? 'pi-sun' : 'pi-moon'} text-lg ${isDark ? 'text-yellow-400' : 'text-indigo-400'}`}></i> {isDark ? 'Light Mode' : 'Dark Mode'}
             </button>
-
+            {isAdminUser && (
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`p-2 px-3 rounded-lg no-underline flex items-center font-medium  gap-4 ${isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-50'}`}
+              >
+                <i className="pi pi-cog text-lg"></i> Admin Dashboard
+              </Link>
+            )}
             <button
               onClick={() => { logout(); setMobileMenuOpen(false); }}
               className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors`}

@@ -74,7 +74,10 @@ async function buildUserInterest(loggedUserId, savedPostIds) {
 }
 
 async function buildCandidateSignals(loggedUserId, followingIds) {
-  const excludeSet = new Set([loggedUserId, ...(followingIds || []).map(toId)]);
+  const mongoose = require('mongoose');
+  const excludeStrings = [String(loggedUserId), ...(followingIds || []).map(id => String(id))];
+  const excludeSet = new Set(excludeStrings);
+  const excludeObjectIds = excludeStrings.map(id => new mongoose.Types.ObjectId(id));
 
   const followingDocs = followingIds?.length
     ? await User.find({ _id: { $in: followingIds } }).select('following').lean()
@@ -84,7 +87,7 @@ async function buildCandidateSignals(loggedUserId, followingIds) {
   for (const doc of followingDocs) {
     if (!Array.isArray(doc.following)) continue;
     for (const candidate of doc.following) {
-      const candidateId = toId(candidate);
+      const candidateId = String(candidate);
       if (!candidateId || excludeSet.has(candidateId)) continue;
       mutualCounts.set(candidateId, (mutualCounts.get(candidateId) || 0) + 1);
     }
@@ -120,7 +123,7 @@ async function buildCandidateSignals(loggedUserId, followingIds) {
 
   const activityByUser = new Map();
   for (const row of activeCreators) {
-    const id = toId(row._id);
+    const id = String(row._id);
     if (!id || excludeSet.has(id)) continue;
 
     const categoryCount = {};
@@ -145,7 +148,7 @@ async function buildCandidateSignals(loggedUserId, followingIds) {
   }
 
   const randomUsers = await User.aggregate([
-    { $match: { _id: { $nin: [...excludeSet] }, isBanned: { $ne: true } } },
+    { $match: { _id: { $nin: excludeObjectIds }, isBanned: { $ne: true } } },
     { $sample: { size: 120 } },
     { $project: { _id: 1 } },
   ]);
@@ -249,7 +252,7 @@ function diversifyByPrimaryCategory(candidates, limit) {
   return result;
 }
 
-async function getSuggestedUsers(loggedUserId, limit = 20) {
+async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
   const user = await User.findById(loggedUserId).select('_id following savedPosts').lean();
   if (!user) return [];
 
@@ -336,7 +339,7 @@ async function getSuggestedUsers(loggedUserId, limit = 20) {
         followersCount: c.followersCount,
         followingCount: c.followingCount,
       })),
-      limit: Math.max(limit * 2, 20),
+      limit: 50, // Rank more candidates to support pagination
     });
 
     if (pyResult?.ranked?.length) {
@@ -353,8 +356,11 @@ async function getSuggestedUsers(loggedUserId, limit = 20) {
     logger.warn('[Suggestions] Python rerank skipped: %s', error.message);
   }
 
-  const diversified = diversifyByPrimaryCategory(ranked, limit * 2);
-  const selected = diversified.slice(0, limit).map(c => ({
+  // Diversify a larger set then slice for current page
+  const diversified = diversifyByPrimaryCategory(ranked, 100); 
+  
+  const startIndex = (page - 1) * limit;
+  const selected = diversified.slice(startIndex, startIndex + limit).map(c => ({
     _id: c._id,
     fullname: c.fullname,
     profile_picture: c.profile_picture,

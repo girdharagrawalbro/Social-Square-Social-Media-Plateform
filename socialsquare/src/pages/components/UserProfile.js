@@ -214,7 +214,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
 
     return (
         <>
-            <div className={`w-full py-2 flex flex-col items-center`}>
+            <div className={`w-full py-2 px-3 flex flex-col items-center`}>
                 <div className={`w-full flex flex-col gap-4 bg-[var(--surface-1)]`} style={{ maxWidth: '400px' }}>
                     <div className="flex items-center justify-center text-center flex-col gap-1 w-full">
                         <div className="relative">

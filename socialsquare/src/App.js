@@ -29,6 +29,10 @@ import Navbar from './pages/components/Navbar';
 
 import Footer from './pages/components/Footer';
 import NotificationBell from './pages/components/ui/NotificationBell';
+import Chatbot from './pages/components/Chatbot';
+import PostDetail from './pages/components/PostDetail';
+import UserProfile from './pages/components/UserProfile';
+import { Dialog } from 'primereact/dialog';
 
 // ─── LAZY PAGES ───────────────────────────────────────────────────────────────
 const Home = lazy(() => import('./pages/Home'));
@@ -369,13 +373,16 @@ function App() {
                                     <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
                                     <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
                                     <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
-                                    <Route path="/users" element={<MainLayout><UsersPage /></MainLayout>} />
+                                    <Route path="/discover" element={<MainLayout><UsersPage /></MainLayout>} />
                                     <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
                                     <Route path="/stories/:username" element={<StoriesPage />} />
                                     <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
                                     <Route path="/stories" element={<StoriesPage />} />
 
                                 </Routes>
+
+                                {/* ─── GLOBAL OVERLAYS (Accessible from any page via Zustand) ─── */}
+                                <GlobalOverlays />
                             </Suspense>
                         </Router>
                     </DarkModeProvider>
@@ -383,6 +390,62 @@ function App() {
             </QueryClientProvider>
         </HelmetProvider>
     );
+}
+
+function GlobalOverlays() {
+    const postDetailId = usePostStore(s => s.postDetailId);
+    const profileDetailId = usePostStore(s => s.profileDetailId);
+    const setPostDetailId = usePostStore(s => s.setPostDetailId);
+    const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
+    const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
+
+    return (
+        <>
+            <Chatbot />
+
+            <Dialog
+                showHeader={false}
+                visible={!!postDetailId}
+                style={{ width: '95vw', maxWidth: '1200px', height: '90vh' }}
+                position="center"
+                onHide={() => setPostDetailId(null)}
+                dismissableMask
+                blockScroll={true}
+                closable={false}
+                modal
+                maskStyle={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}
+            >
+                <div className="relative bg-[var(--surface-1)] h-full w-full shadow-2xl" style={{ borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                    <button
+                        onClick={() => setPostDetailId(null)}
+                        className="absolute top-4 left-4 z-[20005] bg-black/40 hover:bg-black/60 text-white border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer backdrop-blur-md transition-all shadow-lg"
+                    >
+                        <i className="pi pi-times text-sm"></i>
+                    </button>
+                    {postDetailId && (
+                        <PostDetail 
+                            postId={postDetailId} 
+                            onHide={() => setPostDetailId(null)} 
+                        />
+                    )}
+                </div>
+            </Dialog>
+
+            <Dialog
+                header="Profile"
+                visible={!!profileDetailId}
+                style={{ width: '95vw', maxWidth: '500px' }}
+                position="center"
+                onHide={() => setProfileDetailId(null)}
+                baseZIndex={isStoryViewerOpen ? 20000 : 1000}
+                appendTo={document.body}
+                blockScroll
+            >
+                {profileDetailId && <UserProfile id={profileDetailId} />}
+            </Dialog>
+        </>
+    );
+    
 }
 
 export default App;
