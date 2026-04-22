@@ -11,6 +11,7 @@ const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
 const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail, sendSessionRevokedEmail, sendEmail } = require('../utils/mailer');
 const { getSuggestedUsers } = require('../services/suggestionService');
+const { createNotification } = require('../lib/notification');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
 const authRateLimiter = require('../middleware/authRateLimiter');
@@ -114,10 +115,20 @@ router.post('/login', authRateLimiter, [
 
         const decryptedPassword = isEncrypted(password) ? decryptPassword(password) : password;
         const isValid = await bcrypt.compare(decryptedPassword, user.password);
-
         if (!isValid) {
             // ── INCREMENT FAILED ATTEMPTS ──
             user.failedLoginAttempts += 1;
+
+            // ── SECURITY NOTIFICATION FOR FAILED ATTEMPT ──
+            const ip = getIp(req);
+            const device = parseDevice(req.headers['user-agent']);
+            createNotification({
+                recipientId: user._id,
+                sender: { id: user._id, fullname: 'Security System', profile_picture: 'https://cdn-icons-png.flaticon.com/512/508/508281.png' },
+                type: 'system',
+                message: { content: `Incorrect login attempt detected from ${device} (${ip})` }
+            }).catch(e => logger.error('Failed to send login alert:', e));
+
             if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
                 user.lockoutUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
                 user.failedLoginAttempts = 0;
@@ -126,6 +137,7 @@ router.post('/login', authRateLimiter, [
                 sendLockoutEmail(user.email, user.fullname, unlockTime).catch(() => { });
                 return res.status(423).json({ error: 'Too many failed attempts. Account locked for 30 minutes.' });
             }
+
             await user.save();
             const attemptsLeft = MAX_FAILED_ATTEMPTS - user.failedLoginAttempts;
             return res.status(401).json({ error: `Invalid email or password. ${attemptsLeft} attempt(s) remaining.` });
@@ -173,6 +185,14 @@ router.post('/login', authRateLimiter, [
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
                 .catch(err => console.warn('Alert email failed:', err.message));
         }
+
+        // ── SECURITY NOTIFICATION FOR SUCCESSFUL LOGIN ──
+        createNotification({
+            recipientId: user._id,
+            sender: { id: user._id, fullname: 'Security System', profile_picture: 'https://cdn-icons-png.flaticon.com/512/508/508281.png' },
+            type: 'system',
+            message: { content: `New login detected on ${device} (${ip})${location ? ` in ${location}` : ''}` }
+        }).catch(e => logger.error('Failed to send login alert:', e));
 
         const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
@@ -238,6 +258,14 @@ router.post('/verify-otp', [
             sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
                 .catch(() => { });
         }
+
+        // ── SECURITY NOTIFICATION FOR SUCCESSFUL LOGIN (OTP) ──
+        createNotification({
+            recipientId: user._id,
+            sender: { id: user._id, fullname: 'Security System', profile_picture: 'https://cdn-icons-png.flaticon.com/512/508/508281.png' },
+            type: 'system',
+            message: { content: `New login detected (OTP) on ${device} (${ip})${location ? ` in ${location}` : ''}` }
+        }).catch(e => logger.error('Failed to send login alert:', e));
 
         const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
