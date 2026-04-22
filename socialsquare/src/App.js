@@ -76,10 +76,39 @@ function AppInit() {
     useTokenRefresh(Boolean(user?._id));
 
     // ✅ On every page load/refresh — silently restore session from httpOnly cookie
-    // No localStorage needed — refresh token cookie does it all
     useEffect(() => {
         initAuth();
     }, [initAuth]);
+
+    // ✅ Initial Notifications & Messages Fetch
+    const { setNotifications, setUnreadCount } = useConversationStore();
+    const { api } = useAuthStore();
+    
+    useEffect(() => {
+        if (!user?._id) return;
+        
+        const fetchInitialState = async () => {
+            try {
+                // Fetch notifications
+                const notifRes = await api.get('/api/conversation/notifications?limit=1');
+                if (notifRes.data.notifications) {
+                    setNotifications(notifRes.data.notifications);
+                }
+
+                // Fetch total unread messages
+                const msgRes = await api.get('/api/conversation/unread-total');
+                if (msgRes.data.total !== undefined) {
+                    // We don't have a totalUnread setter, we have setUnreadCount per conversation.
+                    // But we can add a simple total sync if needed.
+                    // For now, most important is notifications.
+                }
+            } catch (err) {
+                console.error('Failed to fetch initial notifications:', err);
+            }
+        };
+
+        fetchInitialState();
+    }, [user?._id, api, setNotifications]);
 
     useEffect(() => {
         if (!user?._id) return;

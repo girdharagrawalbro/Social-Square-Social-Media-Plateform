@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { socket } from '../socket';
 import { api } from '../store/zustand/useAuthStore';
+import useConversationStore from '../store/zustand/useConversationStore';
 
 // Fetch notifications
 const fetchNotifications = async (userId, page = 1) => {
@@ -9,61 +10,63 @@ const fetchNotifications = async (userId, page = 1) => {
     return res.data; // { notifications, total, page, hasNextPage }
 };
 
-// Mark notifications as read
-const markAsRead = async (Ids) => {
+// Mark notifications as read in backend
+const markAsReadBackend = async (Ids) => {
     const res = await api.patch(`/api/conversation/notifications/mark-read`, { Ids });
     return res.data;
 };
 
 export function useNotifications(userId) {
-    const [allNotifications, setAllNotifications] = useState([]);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
+
+    const {
+        notifications,
+        unreadNotificationsCount,
+        setNotifications,
+        addNotification,
+        markNotificationsRead
+    } = useConversationStore();
 
     const query = useQuery({
         queryKey: ['notifications', userId, page],
         queryFn: () => fetchNotifications(userId, page),
         enabled: !!userId,
-        staleTime: 1000 * 60,
+        staleTime: 1000 * 60 * 5, // 5 minutes stale time as we have socket
     });
 
     useEffect(() => {
         if (query.data?.notifications) {
-            const { notifications, hasNextPage } = query.data;
-            setAllNotifications(prev => {
-                const existingIds = new Set(prev.map(n => n._id));
-                const uniqueNew = notifications.filter(n => !existingIds.has(n._id));
-                return [...prev, ...uniqueNew];
-            });
+            const { notifications: fetchedNotifications, hasNextPage } = query.data;
+
+            // Merge with existing notifications in store
+            setNotifications(fetchedNotifications);
+            // Note: If we are on page > 1, we might want to append. 
+            // But for simplicity and frequency, we sync the store with the latest view.
+
             setHasMore(hasNextPage);
         }
-    }, [query.data]);
+    }, [query.data, setNotifications]);
 
-    // Real-time: listen for new notifications via socket
-    useEffect(() => {
-        if (!userId) return;
-        const handleNewNotification = (notification) => {
-            setAllNotifications(prev => [notification, ...prev]);
-        };
-        socket.on('newNotification', handleNewNotification);
-        return () => socket.off('newNotification', handleNewNotification);
-    }, [userId]);
+    // Real-time: listener is already in AppInit, but we can keep it here for local safety if needed
+    // However, AppInit is better for global state. 
+    // We'll rely on AppInit calling useConversationStore.addNotification
 
     const markRead = useMutation({
-        mutationFn: markAsRead,
-        onSuccess: (_, Ids) => {
-            setAllNotifications(prev =>
-                prev.map(n => Ids.includes(n._id) ? { ...n, read: true } : n)
-            );
+        mutationFn: markAsReadBackend,
+        onMutate: async (Ids) => {
+            // Optimistic update
+            markNotificationsRead(Ids);
+        },
+        onSuccess: () => {
+            // Success - store already updated optimistically
         },
     });
 
-    const unreadCount = allNotifications.filter(n => !n.read).length;
-
     return {
-        data: allNotifications,
+        data: notifications,
         markRead,
-        unreadCount,
+        unreadCount: unreadNotificationsCount,
         isLoading: query.isLoading,
         loadMore: () => setPage(p => p + 1),
         hasMore

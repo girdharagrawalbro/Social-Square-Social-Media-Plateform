@@ -4,6 +4,7 @@ import { useNotifications } from '../../../hooks/useNotifications';
 import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } from '../../../hooks/queries/useAuthQueries';
 import CollabManager from '../CollabManager';
 import usePostStore from '../../../store/zustand/usePostStore';
+import useConversationStore from '../../../store/zustand/useConversationStore';
 import { Dialog } from 'primereact/dialog';
 import { useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../../../context/DarkModeContext';
@@ -15,9 +16,10 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     const ref = useRef(null);
     const navigate = useNavigate();
 
-    // ✅ TanStack Query - cached, deduplicated requests
+    // ✅ Sync with Global Store via hook
     const { data: notifications = [], markRead, unreadCount, loadMore, hasMore, isLoading } = useNotifications(userId);
     const { data: collabInvites = [] } = useCollabInvites(userId);
+    const { unreadNotificationsCount: globalUnreadCount } = useConversationStore();
 
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     const acceptMutation = useAcceptFollowRequest();
@@ -35,6 +37,16 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    // ✅ Auto-mark as read when opening popup
+    useEffect(() => {
+        if (open && activeTab === 'notifications') {
+            const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
+            if (unreadIds.length > 0) {
+                markRead.mutate(unreadIds);
+            }
+        }
+    }, [open, activeTab, notifications, markRead]);
 
     const handleMarkRead = (id) => markRead.mutate([id]);
     const handleMarkAllRead = () => { const ids = notifications.map(n => n._id); if (ids.length) markRead.mutate(ids); };
@@ -77,7 +89,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
         return 'sent a notification';
     };
 
-    const totalBadge = unreadCount + pendingCollabCount;
+    const totalBadge = globalUnreadCount + pendingCollabCount;
 
     return (
         <div ref={ref}>
@@ -95,7 +107,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                     {totalBadge > 0 && (
                         <Badge
                             value={totalBadge > 99 ? '99+' : totalBadge}
-                            className="absolute -top-1.5 -right-1.5 !bg-red-500 !text-white p-1 py-2  !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] border-white font-bold"
+                            className="absolute -top-1.5 -right-1.5 !bg-red-500 !text-white p-1 py-2 !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] border-white font-bold"
                         />
                     )}
                 </div>
@@ -104,15 +116,14 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
 
             {!useRoute && (
                 <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '500px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
-                    <div>
-
+                    <div className="flex flex-col h-full bg-[var(--surface-1)]">
                         {/* Tabs */}
                         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--surface-1)' }}>
                             <button
                                 onClick={() => setActiveTab('notifications')}
                                 style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'notifications' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'notifications' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                 🔔 Notifications
-                                {unreadCount > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>{unreadCount}</span>}
+                                {globalUnreadCount > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>{globalUnreadCount}</span>}
                             </button>
                             <button
                                 onClick={() => setActiveTab('collabs')}
@@ -124,8 +135,8 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
 
                         {/* Notifications tab */}
                         {activeTab === 'notifications' && (
-                            <>
-                                {unreadCount > 0 && (
+                            <div className="flex flex-col h-full">
+                                {globalUnreadCount > 0 && (
                                     <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', background: 'var(--surface-1)' }}>
                                         <button onClick={handleMarkAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#808bf5', fontWeight: 600 }}>
                                             Mark all as read
@@ -227,7 +238,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                         </div>
                                     )}
                                 </div>
-                            </>
+                            </div>
                         )}
 
                         {/* Collabs tab */}
