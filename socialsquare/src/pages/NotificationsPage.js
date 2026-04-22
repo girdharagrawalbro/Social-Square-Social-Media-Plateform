@@ -194,10 +194,10 @@ const NotificationsPage = () => {
                                                     className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${!n.read ? 'bg-[#808bf5]/5' : 'hover:bg-[var(--surface-2)]'}`}
                                                 >
                                                     <img
-                                                        src={n.sender?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`}
+                                                        src={n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                                         alt=""
                                                         className="w-11 h-11 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
-                                                        onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`; }}
+                                                        onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'; }}
                                                     />
 
                                                     <div className="flex-1 min-w-0 pr-2">

@@ -98,7 +98,7 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                                 title={`Open ${u.fullname} profile`}
                             >
                                 <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-color)]">
-                                    <img src={u.profile_picture || '/default-profile.png'} alt={u.fullname} className="w-full h-full object-cover" />
+                                    <img src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt={u.fullname} className="w-full h-full object-cover" />
                                 </div>
                             </button>
                             <button

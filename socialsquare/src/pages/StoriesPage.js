@@ -127,7 +127,7 @@ const StoriesPage = () => {
                             />
                             <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
-                                    <img src={prevGroup.user.profile_picture || '/default-profile.png'} className="w-full h-full object-cover rounded-full" alt="" />
+                                    <img src={prevGroup.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
                                 <span className="text-white text-xs font-semibold drop-shadow-md">{prevGroup.user.username || prevGroup.user.fullname}</span>
                             </div>
@@ -177,7 +177,7 @@ const StoriesPage = () => {
                             />
                             <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
-                                    <img src={nextGroup.user.profile_picture || '/default-profile.png'} className="w-full h-full object-cover rounded-full" alt="" />
+                                    <img src={nextGroup.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
                                 <span className="text-white text-xs font-semibold drop-shadow-md">{nextGroup.user.username || nextGroup.user.fullname}</span>
                             </div>

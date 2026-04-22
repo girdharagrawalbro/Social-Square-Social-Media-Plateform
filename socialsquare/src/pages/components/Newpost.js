@@ -127,8 +127,11 @@ const NewPost = ({ visible, onHide }) => {
         active: false,
         currentSource: null,
         pendingFiles: [],
-        allProcessed: []
+        allProcessed: [],
+        isVideo: false,
+        originalFile: null
     });
+    const [isCropperLoaded, setIsCropperLoaded] = useState(false);
     const [trimRange, setTrimRange] = useState([0, 60]);
 
     const resetState = () => {
@@ -253,6 +256,7 @@ const NewPost = ({ visible, onHide }) => {
             setImages([]);
             const videoUrl = URL.createObjectURL(videoFile);
             setCroppingState({ active: true, currentSource: videoUrl, pendingFiles: [], allProcessed: [], isVideo: true, originalFile: videoFile, duration });
+            setIsCropperLoaded(false);
             setStep(STEPS.PREVIEW);
             e.target.value = '';
             return;
@@ -273,6 +277,7 @@ const NewPost = ({ visible, onHide }) => {
                 isVideo: false,
                 originalFile: first
             });
+            setIsCropperLoaded(false); // Reset loaded state for new media
             setStep(STEPS.PREVIEW);
         };
         reader.readAsDataURL(first);
@@ -493,6 +498,7 @@ const NewPost = ({ visible, onHide }) => {
         <div className="bg-black flex flex-col w-full h-[600px] relative group overflow-hidden">
             <div className="flex-1 relative bg-[#0a0a0a]">
                 <Cropper
+                    key={croppingState.currentSource}
                     image={!croppingState.isVideo ? croppingState.currentSource : undefined}
                     video={croppingState.isVideo ? croppingState.currentSource : undefined}
                     crop={crop}
@@ -501,8 +507,18 @@ const NewPost = ({ visible, onHide }) => {
                     onCropChange={setCrop}
                     onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
                     onZoomChange={setZoom}
-                    classes={{ containerClassName: 'bg-[#0a0a0a]' }}
+                    showGrid={true}
+                    onMediaLoaded={() => setIsCropperLoaded(true)}
+                    classes={{ 
+                        containerClassName: 'bg-[#0a0a0a]',
+                        cropAreaClassName: 'border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
+                    }}
                 />
+                {!isCropperLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a] z-10">
+                        <i className="pi pi-spin pi-spinner text-3xl text-[#6366f1]"></i>
+                    </div>
+                )}
             </div>
 
             <div className="bg-[#121212] p-4 border-t border-[var(--border-color)]">
@@ -521,7 +537,7 @@ const NewPost = ({ visible, onHide }) => {
                             ))}
                             <button
                                 onClick={() => { setAspect(null); setZoom(1); setCrop({ x: 0, y: 0 }); }}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]`}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === null ? 'bg-[#6366f1] text-white border-[#6366f1]' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'}`}
                             >
                                 Original
                             </button>

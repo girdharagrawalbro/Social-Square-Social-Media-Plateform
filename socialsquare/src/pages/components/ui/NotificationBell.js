@@ -171,7 +171,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                 onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
                                                 onMouseLeave={e => e.currentTarget.style.background = n.read ? 'var(--surface-1)' : 'var(--surface-2)'}>
                                                 <img
-                                                    src={n.sender?.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`}
+                                                    src={n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                                     alt=""
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -180,7 +180,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                         setOpen(false);
                                                     }}
                                                     style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)', cursor: 'pointer' }}
-                                                    onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.sender?.fullname || 'U')}&background=808bf5&color=fff`; }}
+                                                    onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'; }}
                                                 />
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>

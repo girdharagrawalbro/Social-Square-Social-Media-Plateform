@@ -84,7 +84,7 @@ const InviteCard = ({ post, userId, onRespond }) => {
                     <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {post.collaborators?.map((c, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <img src={c.profile_picture || '/default-profile.png'} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
+                                <img src={c.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
                                 <span style={{ fontSize: '12px', flex: 1, color: 'var(--text-main)' }}>{c.fullname}</span>
                                 <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '8px', background: STATUS_STYLE[c.status]?.bg, color: STATUS_STYLE[c.status]?.color, fontWeight: 600 }}>
                                     {STATUS_STYLE[c.status]?.label}

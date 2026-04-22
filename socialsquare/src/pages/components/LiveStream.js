@@ -211,7 +211,7 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                             {messages.map((msg) => (
                                 <div key={msg.id} className="flex items-start gap-2 animate-in slide-in-from-left-4 duration-300">
                                     <img 
-                                        src={msg.user.profile_picture || '/default-profile.png'} 
+                                        src={msg.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} 
                                         alt="" 
                                         className="w-6 h-6 rounded-full border border-white/20 shadow-sm"
                                     />

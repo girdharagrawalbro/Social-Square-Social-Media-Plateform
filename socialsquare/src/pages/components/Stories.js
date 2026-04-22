@@ -255,7 +255,7 @@ const StoryViewer = ({
             <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={group.user.profile_picture || '/default-profile.png'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={group.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
                         <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
@@ -276,7 +276,7 @@ const StoryViewer = ({
 
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#1a1a1a' }}>
                 {story.media.type === 'video'
-                    ? <video src={story.media.url} poster={story.media.thumbnailUrl || getMediaThumbnail(story.media.url, 'video')} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ? <video src={story.media.url} poster={story.media.thumbnailUrl || getMediaThumbnail(story.media.url, 'video')} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     : <ProgressiveImage
                         src={story.media.url}
                         alt="story"
@@ -332,7 +332,7 @@ const StoryViewer = ({
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
                             <img
-                                src={story.sharedPostId.user?.profile_picture || '/default-profile.png'}
+                                src={story.sharedPostId.user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                 style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                                 alt=""
                             />
@@ -641,7 +641,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                     ) : filteredUsers.map(u => (
                         <div key={u._id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition">
                             <div className="flex items-center gap-3">
-                                <img src={u.profile_picture || '/default-profile.png'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
+                                <img src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
                                 <div>
                                     <p className="m-0 text-sm font-semibold text-gray-800">{u.fullname}</p>
                                     <p className="m-0 text-[11px] text-gray-400">@{u.username}</p>
@@ -1031,7 +1031,7 @@ const Stories = () => {
                             >
                                 <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
                                     <img
-                                        src={loggeduser?.profile_picture}
+                                        src={loggeduser?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                         alt=""
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
@@ -1059,7 +1059,7 @@ const Stories = () => {
                                 >
                                     <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }} className={group.user.isOnline ? 'presence-glow' : ''}>
                                         <img
-                                            src={group.user.profile_picture}
+                                            src={group.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                             alt=""
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />

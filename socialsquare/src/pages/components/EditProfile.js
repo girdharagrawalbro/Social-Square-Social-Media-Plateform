@@ -94,7 +94,7 @@ const EditProfile = ({ users, closeSidebar }) => {
             <div className="mb-4 flex flex-col items-center gap-2">
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                     <img
-                        src={preview || '/default-profile.png'}
+                        src={preview || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                         alt="Profile"
                         style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #e5e7eb' }}
                     />

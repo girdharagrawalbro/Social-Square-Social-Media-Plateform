@@ -60,6 +60,7 @@ const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
   const [aspect, setAspect] = useState(1); // 1 for Square
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isCropperLoaded, setIsCropperLoaded] = useState(false);
 
   const onCropChange = (crop) => setCrop(crop);
   const onZoomChange = (zoom) => setZoom(zoom);
@@ -128,6 +129,7 @@ const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
     >
       <div className="relative w-full h-80 bg-gray-900 rounded-lg overflow-hidden">
         <Cropper
+          key={image}
           image={image}
           crop={crop}
           zoom={zoom}
@@ -135,7 +137,18 @@ const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
           onCropChange={onCropChange}
           onCropComplete={onCropCompleteInternal}
           onZoomChange={onZoomChange}
+          showGrid={true}
+          onMediaLoaded={() => setIsCropperLoaded(true)}
+          classes={{
+            containerClassName: 'bg-gray-900',
+            cropAreaClassName: 'border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
+          }}
         />
+        {!isCropperLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
+            <i className="pi pi-spin pi-spinner text-3xl text-indigo-600"></i>
+          </div>
+        )}
       </div>
       <div className="mt-4 px-2">
         <label className="text-xs text-gray-400 block mb-2 font-semibold uppercase tracking-wider">Zoom Level</label>

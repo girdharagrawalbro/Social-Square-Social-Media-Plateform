@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { socket } from '../../socket';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
-import { useConversations, useClearChat, useDeleteChat } from '../../hooks/queries/useConversationQueries';
+import { useConversations, useClearChat, useDeleteChat, convoKeys } from '../../hooks/queries/useConversationQueries';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import ChatPanel from './ChatPanel';
 import UserProfile from './UserProfile';
@@ -13,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
+    const queryClient = useQueryClient();
     const isOnline = useConversationStore(s => s.isOnline);
     const getLastSeen = useConversationStore(s => s.getLastSeen);
     const incrementUnread = useConversationStore(s => s.incrementUnread);
@@ -88,15 +90,35 @@ const Conversations = () => {
 
     // Socket: receive message → increment unread + refetch conversations
     useEffect(() => {
-        const handleReceiveMessage = ({ conversationId }) => {
-            incrementUnread(conversationId);
+        const handleReceiveMessage = (message) => {
+            const { conversationId } = message;
+
+            // Optimistically update query cache for instant feedback
+            queryClient.setQueryData(convoKeys.list(user?._id), (old) => {
+                if (!Array.isArray(old)) return old;
+                return old.map(c => c._id === conversationId ? {
+                    ...c,
+                    lastMessage: { 
+                        message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'), 
+                        isRead: false 
+                    },
+                    lastMessageAt: message.createdAt || new Date().toISOString(),
+                    lastMessageBy: message.senderId || message.sender
+                } : c);
+            });
+
+            // If it's an incoming message, increment unread
+            if ((message.senderId || message.sender) !== user?._id) {
+                incrementUnread(conversationId);
+            }
+
             handleRefetch();
         };
         socket.on('receiveMessage', handleReceiveMessage);
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
         };
-    }, [handleRefetch, incrementUnread]);
+    }, [handleRefetch, incrementUnread, queryClient, user?._id]);
 
     const openChat = (participant, lastMsgId) => {
         setLastMessageId(lastMsgId || null);
@@ -127,6 +149,12 @@ const Conversations = () => {
         return other?.fullname?.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
+    const sortedConversations = [...filteredConversations].sort((a, b) => {
+        const dateA = new Date(a.lastMessageAt || 0);
+        const dateB = new Date(b.lastMessageAt || 0);
+        return dateB - dateA;
+    });
+
     return (
         <div className="flex flex-col flex-1 min-h-0 glass-card overflow-hidden transition-all duration-300" style={{ height: '100%' }}>
             <div className="flex flex-1 min-h-0">
@@ -155,16 +183,16 @@ const Conversations = () => {
                         </div>
                     </div>
                     <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-                        {filteredConversations.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 px-4 opacity-60">
-                                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
-                                    <i className={`pi ${searchQuery ? 'pi-search' : 'pi-envelope'} text-gray-400`}></i>
+                        {sortedConversations.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 px-4 opacity-60">
+                                    <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
+                                        <i className={`pi ${searchQuery ? 'pi-search' : 'pi-envelope'} text-gray-400`}></i>
+                                    </div>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm text-center m-0 font-medium">
+                                        {searchQuery ? 'No results found' : 'No conversations yet'}
+                                    </p>
                                 </div>
-                                <p className="text-gray-500 dark:text-gray-400 text-sm text-center m-0 font-medium">
-                                    {searchQuery ? 'No results found' : 'No conversations yet'}
-                                </p>
-                            </div>
-                        ) : filteredConversations.map((conv) => {
+                            ) : sortedConversations.map((conv) => {
                             const myId = toId(user?._id);
                             const other = conv.participants?.find(p => toId(p.userId) !== myId);
                             if (!other) return null;
@@ -177,7 +205,7 @@ const Conversations = () => {
                                     className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 ${isActive ? 'bg-[#808bf5]/10 ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
                                     onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
                                     <div className="relative flex-shrink-0">
-                                        <img src={other.profilePicture || '/default-profile.png'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
+                                        <img src={other.profilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
                                         {isOnline(other.userId) && (
                                             <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm" />
                                         )}
@@ -217,7 +245,7 @@ const Conversations = () => {
                                         <i className="pi pi-chevron-left text-lg"></i>
                                     </button>
                                     <div className="relative">
-                                        <img src={selectedParticipant.profilePicture || '/default-profile.png'} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
+                                        <img src={selectedParticipant.profilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
                                         {isOnline(selectedParticipant.userId) && (
                                             <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-950" />
                                         )}
@@ -428,7 +456,7 @@ const Conversations = () => {
                                     setGlobalSearch('');
                                 }}
                             >
-                                <img src={u.profilePicture || '/default-profile.png'} className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                                <img src={u.profilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform" alt="" />
                                 <div className="flex flex-col">
                                     <div className="font-bold text-sm text-[var(--text-main)]">{u.fullname}</div>
                                     <div className="text-xs text-gray-400">@{u.username}</div>
