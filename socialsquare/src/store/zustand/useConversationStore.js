@@ -162,14 +162,23 @@ const useConversationStore = create(
                 notifications, 
                 unreadNotificationsCount: notifications.filter(n => !n.read).length 
             }),
-            addNotification: (notification) => set(state => ({
-                notifications: [notification, ...state.notifications],
-                unreadNotificationsCount: state.unreadNotificationsCount + 1
-            })),
-            markNotificationsRead: () => set(state => ({
-                notifications: state.notifications.map(n => ({ ...n, read: true })),
-                unreadNotificationsCount: 0
-            })),
+            addNotification: (notification) => set(state => {
+                const alreadyExists = state.notifications.some(n => n._id === notification._id);
+                if (alreadyExists) return {};
+                return {
+                    notifications: [notification, ...state.notifications],
+                    unreadNotificationsCount: state.unreadNotificationsCount + (notification.read ? 0 : 1)
+                };
+            }),
+            markNotificationsRead: (ids) => set(state => {
+                const nextNotifications = state.notifications.map(n => 
+                    (ids === undefined || ids.includes(n._id)) ? { ...n, read: true } : n
+                );
+                return {
+                    notifications: nextNotifications,
+                    unreadNotificationsCount: nextNotifications.filter(n => !n.read).length
+                };
+            }),
         }),
         { name: 'ConversationStore' }
     )

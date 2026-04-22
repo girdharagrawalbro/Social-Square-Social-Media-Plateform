@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MainSkeleton from './components/MainSkeleton';
 import OtherUsers from './components/OtherUsers';
@@ -8,12 +8,14 @@ import Conversations from './components/Conversations';
 import Stories from './components/Stories';
 import Explore from './components/Explore';
 import Communities from './components/Communities';
+import MoodFeedToggle from './components/MoodFeedToggle';
 import useAuthStore from '../store/zustand/useAuthStore';
 import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 
 const Home = () => {
     const activeView = 'feed';
+    const [activeMood, setActiveMood] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
     const windowWidth = useWindowWidth();
@@ -27,10 +29,7 @@ const Home = () => {
     const profileDetailId = usePostStore(s => s.profileDetailId);
     const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
     const setStoryDetailDeepLink = usePostStore(s => s.setStoryDetailDeepLink);
-    // const resendVerification = useAuthStore(s => s.resendVerification);
-    // const [isResending, setIsResending] = useState(false);
 
-    // ✅ Redirect to landing only after auth check is complete and no user found
     useEffect(() => {
         if (initialized && !loading && !loggeduser) {
             navigate('/');
@@ -92,14 +91,25 @@ const Home = () => {
         }
     }, [initialized, loading, loggeduser, location.search, navigate, setPostDetailId, setProfileDetailId, setStoryDetailDeepLink]);
 
-    // Show skeleton while auth is being checked
     if (!initialized || loading || !loggeduser) return <MainSkeleton />;
 
     const bg = 'bg-[var(--surface-2)]';
 
     const renderMobileView = () => {
         switch (activeView) {
-            case 'feed': return <><Stories /><Feed activeMood={null} /></>;
+            case 'feed': return (
+                <>
+                    <Stories />
+                    <div className="px-2">
+                        <MoodFeedToggle
+                            activeMood={activeMood}
+                            onMoodSelect={setActiveMood}
+                            onClear={() => setActiveMood(null)}
+                        />
+                    </div>
+                    <Feed activeMood={activeMood} />
+                </>
+            );
             case 'explore': return <Explore />;
             case 'communities': return <Communities />;
             case 'profile': return <Profile />;
@@ -109,58 +119,31 @@ const Home = () => {
         }
     };
 
-
-    // const handleResend = async () => {
-    //     setIsResending(true);
-    //     const result = await resendVerification();
-    //     setIsResending(false);
-    //     if (result.success) {
-    //         toast.success(result.message);
-    //     } else {
-    //         toast.error(result.error);
-    //     }
-    // };
-
-    // const VerificationBanner = () => {
-    //     if (!loggeduser || loggeduser.isEmailVerified) return null;
-    //     return (
-    //         <div className="w-full bg-themeAccent/10 border-b border-themeAccent/20 py-3 px-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 animate-in slide-in-from-top-4 duration-500">
-    //             <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-    //                 📧 Your email is not verified. Please check your inbox.
-    //             </p>
-    //             <button
-    //                 onClick={handleResend}
-    //                 disabled={isResending}
-    //                 className="text-xs font-bold bg-themeAccent text-white px-4 py-1.5 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-    //             >
-    //                 {isResending ? 'Sending...' : 'Resend Link'}
-    //             </button>
-    //         </div>
-    //     );
     return (
         <section className={`w-full min-h-full ${bg} transition-colors duration-200 pb-20`}>
-            {/* <VerificationBanner /> */}
-            {/* Desktop */}
             {isDesktop ? (
                 <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3">
                     <div className="flex-1 px-0 sm:px-3">
                         <div className="max-w-screen-md mx-auto w-full">
                             <Stories />
                             <div className="max-w-md mx-auto">
-                                <Feed activeMood={null} />
+                                <MoodFeedToggle
+                                    activeMood={activeMood}
+                                    onMoodSelect={setActiveMood}
+                                    onClear={() => setActiveMood(null)}
+                                />
+                                <Feed activeMood={activeMood} />
                             </div>
                         </div>
                     </div>
                 </div>
             ) : (
-                /* Mobile */
                 <div className="flex flex-col pb-24">
                     <div className={`flex-1 p-2 ${activeView === 'messages' ? 'h-[calc(100dvh-120px)] flex flex-col overflow-hidden' : ''}`}>
                         {renderMobileView()}
                     </div>
                 </div>
             )}
-
         </section >
     );
 };

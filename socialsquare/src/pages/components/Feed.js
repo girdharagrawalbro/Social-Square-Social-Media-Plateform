@@ -389,7 +389,7 @@ const Feed = ({ activeMood = null }) => {
     // ✅ TanStack Query
     const feedQuery = useFeed(user?._id);
     const recommendedQuery = useRecommendedPosts(user?._id);
-    const moodQuery = useMoodFeed(user?.preferredMood || '', user?._id);
+    const moodQuery = useMoodFeed(activeMood || user?.preferredMood || '', user?._id);
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
     const deleteMutation = useDeletePost();
@@ -441,7 +441,15 @@ const Feed = ({ activeMood = null }) => {
     const randomWeights = useRef({});
 
     const displayPosts = useMemo(() => {
-        let all = [...serverPosts, ...recommendedPosts, ...moodPosts];
+        let all = [];
+        
+        if (activeMood) {
+            // Show ONLY mood-matched posts when a filter is active
+            all = [...moodPosts];
+        } else {
+            // Mixed feed for general viewing
+            all = [...serverPosts, ...recommendedPosts, ...moodPosts];
+        }
 
         // prepend socket posts
         const socketNew = socketPosts.filter(sp => !all.some(p => p._id === sp._id));
