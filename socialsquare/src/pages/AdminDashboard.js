@@ -605,12 +605,12 @@ const PostsTab = () => {
                                     <span className="text-[10px] font-black text-[var(--text-sub)] uppercase tracking-widest opacity-70 truncate">{post.user?.fullname || 'System Entity'}</span>
                                 </div>
                                 <p className="text-xs text-[var(--text-main)] font-semibold line-clamp-2 min-h-[36px] leading-relaxed mb-6 opacity-90">{post.caption || '(Meta description only)'}</p>
-                                <div className="flex items-center justify-between pt-5 border-t border-[var(--border-color)]">
+                                <div className="flex items-center justify-between pt-2 border-t border-[var(--border-color)]">
                                     <div className="flex gap-4 text-[10px] font-black text-[var(--text-sub)] uppercase tracking-tighter opacity-60">
                                         <span className="flex items-center gap-1.5"><i className="pi pi-heart-fill text-red-500"></i> {post.likes?.length || 0}</span>
                                         <span className="flex items-center gap-1.5"><i className="pi pi-comment text-[#808bf5]"></i> {post.comments?.length || 0}</span>
                                     </div>
-                                    <button onClick={() => deletePost(post._id)} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-90 shadow-sm">Scrub</button>
+                                    <button onClick={() => deletePost(post._id)} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-90 shadow-sm">Delete</button>
                                 </div>
                             </div>
                         </div>
@@ -770,7 +770,7 @@ const ReportsTab = () => {
                                         </div>
                                         <button onClick={() => setPostPreview({ visible: true, postId: report.targetId })} className="bg-[#808bf5] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-500/20 shrink-0">Investigate</button>
                                     </div>
-                                    <button onClick={() => deletePost(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all shrink-0">Scrub Post</button>
+                                    <button onClick={() => deletePost(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all shrink-0">Delete Post</button>
                                 </div>
                             )}
 
@@ -783,7 +783,7 @@ const ReportsTab = () => {
                                             <span className="text-[11px] font-mono text-[var(--text-main)] font-bold">{report.targetId}</span>
                                         </div>
                                     </div>
-                                    <button onClick={() => deleteComment(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all">Scrub Comment</button>
+                                    <button onClick={() => deleteComment(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all">Delete Comment</button>
                                 </div>
                             )}
 

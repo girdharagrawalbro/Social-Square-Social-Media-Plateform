@@ -7,6 +7,7 @@ import Cropper from "react-easy-crop";
 
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateVideoFile } from '../../utils/cloudinary';
 import { Dialog } from 'primereact/dialog';
+import { Slider } from 'primereact/slider';
 
 const STEPS = {
     SELECT: 'select',
@@ -122,19 +123,21 @@ const NewPost = ({ visible, onHide }) => {
     const [zoom, setZoom] = useState(1);
     const [aspect, setAspect] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
-    const [croppingState, setCroppingState] = useState({ 
-        active: false, 
-        currentSource: null, 
-        pendingFiles: [], 
-        allProcessed: [] 
+    const [croppingState, setCroppingState] = useState({
+        active: false,
+        currentSource: null,
+        pendingFiles: [],
+        allProcessed: []
     });
+    const [trimRange, setTrimRange] = useState([0, 60]);
 
     const resetState = () => {
         setStep(STEPS.SELECT);
         setFormData({ caption: "", category: "Default" });
         setImages([]);
         setVideo(null);
-        setCroppingState({ active: false, currentSource: null, pendingFiles: [], allProcessed: [] });
+        setCroppingState({ active: false, currentSource: null, pendingFiles: [], allProcessed: [], isVideo: false });
+        setTrimRange([0, 60]);
         setLocation({ name: '', lat: null, lng: null });
         setCollaborators([]);
         setAiPrompt("");
@@ -238,8 +241,14 @@ const NewPost = ({ visible, onHide }) => {
                 vid.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
             });
             if (duration === 0) { toast.error('Unable to read video metadata'); e.target.value = ''; return; }
-            if (duration > 60) { toast.error('Video must be 60 seconds or shorter'); e.target.value = ''; return; }
             
+            const initialEnd = Math.min(duration, 60);
+            setTrimRange([0, initialEnd]);
+
+            if (duration > 60) {
+                toast.success('Video selected. Please trim it to max 60 seconds.', { icon: '✂️' });
+            }
+
             // For video, we still set it as the main preview but in cropping mode
             setImages([]);
             const videoUrl = URL.createObjectURL(videoFile);
@@ -251,20 +260,20 @@ const NewPost = ({ visible, onHide }) => {
 
         const validFiles = files.filter(f => !validateImageFile(f));
         if (validFiles.length === 0) { e.target.value = ''; return; }
-        
+
         const first = validFiles[0];
         const reader = new FileReader();
         reader.onload = () => {
-             setImages([]);
-             setCroppingState({
-                 active: true,
-                 currentSource: reader.result,
-                 pendingFiles: validFiles.slice(1),
-                 allProcessed: [],
-                 isVideo: false,
-                 originalFile: first
-             });
-             setStep(STEPS.PREVIEW);
+            setImages([]);
+            setCroppingState({
+                active: true,
+                currentSource: reader.result,
+                pendingFiles: validFiles.slice(1),
+                allProcessed: [],
+                isVideo: false,
+                originalFile: first
+            });
+            setStep(STEPS.PREVIEW);
         };
         reader.readAsDataURL(first);
         e.target.value = '';
@@ -273,7 +282,7 @@ const NewPost = ({ visible, onHide }) => {
     const handleApplyCrop = async () => {
         let processedFile = null;
         let previewUrl = null;
-        
+
         if (croppingState.isVideo) {
             processedFile = croppingState.originalFile;
             previewUrl = croppingState.currentSource;
@@ -295,13 +304,14 @@ const NewPost = ({ visible, onHide }) => {
             }
         }
 
-        const newImgObj = { 
-            file: processedFile, 
-            preview: previewUrl, 
-            url: null, progress: 0, uploaded: false, 
+        const newImgObj = {
+            file: processedFile,
+            preview: previewUrl,
+            url: null, progress: 0, uploaded: false,
             id: Math.random().toString(36).slice(2),
             isVideo: croppingState.isVideo,
-            duration: croppingState.duration
+            duration: croppingState.duration,
+            trimRange: croppingState.isVideo ? trimRange : null
         };
 
         const updatedProcessed = [...croppingState.allProcessed, newImgObj];
@@ -345,8 +355,8 @@ const NewPost = ({ visible, onHide }) => {
                 const result = await uploadToCloudinary(img.file, (p) => setImages(prev => prev.map(i => i.id === img.id ? { ...i, progress: p } : i)));
                 const url = typeof result === 'string' ? result : result?.url;
                 uploaded[idx] = { ...uploaded[idx], url, uploaded: true, progress: 100 };
-            } catch { 
-                toast.error(`Failed: ${img.file?.name || 'Image'}`); 
+            } catch {
+                toast.error(`Failed: ${img.file?.name || 'Image'}`);
                 hasError = true;
             }
         }));
@@ -358,11 +368,20 @@ const NewPost = ({ visible, onHide }) => {
     const uploadVideoIfNeeded = async () => {
         if (!video) return null;
         try {
-            const result = await uploadVideoToCloudinary(video.file, (p) => setVideo(v => v && v.id === video.id ? { ...v, progress: p } : v));
+            const options = {};
+            if (video.trimRange) {
+                options.start_offset = video.trimRange[0];
+                options.end_offset = video.trimRange[1];
+            }
+            const result = await uploadVideoToCloudinary(video.file, (p) => setVideo(v => v && v.id === video.id ? { ...v, progress: p } : v), options);
             const url = typeof result === 'string' ? result : result?.url;
             const thumbnailUrl = result?.thumbnailUrl || null;
             setVideo(v => v ? { ...v, uploaded: true, url, progress: 100 } : v);
-            return { url, thumbnailUrl, duration: video.duration };
+            return { 
+                url, 
+                thumbnailUrl, 
+                duration: video.trimRange ? (video.trimRange[1] - video.trimRange[0]) : video.duration 
+            };
         } catch (err) { toast.error('Video upload failed'); return null; }
     };
 
@@ -439,9 +458,9 @@ const NewPost = ({ visible, onHide }) => {
                         </button>
                     )}
                 </div>
-                
+
                 <h2 className="text-sm font-bold text-[var(--text-main)] m-0">{title}</h2>
-                
+
                 <button
                     onClick={() => step === STEPS.PREVIEW ? handleApplyCrop() : handleSubmit()}
                     disabled={isPosting}
@@ -459,7 +478,7 @@ const NewPost = ({ visible, onHide }) => {
             <div className="text-6xl text-[var(--text-sub)] opacity-40">
                 <i className="pi pi-images"></i>
             </div>
-            <h3 className="text-xl text-[var(--text-main)] font-medium">Drag photos and videos here</h3>
+            <h3 className="text-xl text-[var(--text-main)] font-medium">select photos and videos</h3>
             <button
                 onClick={() => fileInputRef.current?.click()}
                 className="bg-[#6366f1] text-white px-4 py-2 rounded-lg font-bold hover:bg-[#4f46e5] transition"
@@ -485,7 +504,7 @@ const NewPost = ({ visible, onHide }) => {
                     classes={{ containerClassName: 'bg-[#0a0a0a]' }}
                 />
             </div>
-            
+
             <div className="bg-[#121212] p-4 border-t border-[var(--border-color)]">
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
@@ -521,6 +540,48 @@ const NewPost = ({ visible, onHide }) => {
                             <i className="pi pi-plus text-[8px] text-[var(--text-sub)]"></i>
                         </div>
                     </div>
+
+                    {croppingState.isVideo && (
+                        <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-[#6366f1] uppercase tracking-wider">Video Trim (Max 60s)</span>
+                                <span className="text-[10px] text-[var(--text-sub)] font-mono bg-white/5 px-2 py-0.5 rounded">
+                                    {Math.floor(trimRange[0])}s - {Math.floor(trimRange[1])}s ({Math.floor(trimRange[1] - trimRange[0])}s)
+                                </span>
+                            </div>
+                            <div className="px-2">
+                                <Slider 
+                                    value={trimRange} 
+                                    onChange={(e) => {
+                                        const newRange = e.value;
+                                        const start = newRange[0];
+                                        const end = newRange[1];
+                                        
+                                        // Enforce 60s limit
+                                        if (end - start > 60) {
+                                            // If they moved the start handle
+                                            if (start !== trimRange[0]) {
+                                                setTrimRange([start, Math.min(croppingState.duration, start + 60)]);
+                                            } else {
+                                                // They moved the end handle
+                                                setTrimRange([Math.max(0, end - 60), end]);
+                                            }
+                                        } else {
+                                            setTrimRange(newRange);
+                                        }
+                                    }} 
+                                    range 
+                                    min={0} 
+                                    max={croppingState.duration || 60} 
+                                    step={0.1}
+                                    className="w-full"
+                                />
+                            </div>
+                            <p className="text-[9px] text-[var(--text-sub)] opacity-60 italic text-center">
+                                Tip: The selected segment will be shared. Max 60 seconds allowed.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -619,7 +680,7 @@ const NewPost = ({ visible, onHide }) => {
                         </div>
 
                         <div>
-                             <button onClick={() => togglePanel('ai')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group text-[#6366f1]">
+                            <button onClick={() => togglePanel('ai')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group text-[#6366f1]">
                                 <span className="text-sm font-bold flex items-center gap-2">
                                     <span className="animate-pulse">✨</span> AI Magic Tools
                                 </span>
@@ -627,8 +688,8 @@ const NewPost = ({ visible, onHide }) => {
                             </button>
                             {openFeaturePanel === 'ai' && (
                                 <div className=" flex flex-col gap-3 m-1 animate-in zoom-in-95">
-                                     <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
-                                     <div className="flex gap-2">
+                                    <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
+                                    <div className="flex gap-2">
                                         <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
                                             {isGeneratingAi ? <i className="pi pi-spin pi-spinner mr-1"></i> : null}
                                             Generate Text
@@ -636,7 +697,7 @@ const NewPost = ({ visible, onHide }) => {
                                         <button onClick={generateAiImage} disabled={isGeneratingAi} className="flex-1 py-2 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
                                             Generate Image
                                         </button>
-                                     </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
