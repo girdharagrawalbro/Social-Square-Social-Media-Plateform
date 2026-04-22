@@ -17,11 +17,11 @@ router.post('/create', verifyToken, async (req, res) => {
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
 
-        const user = await User.findById(userId).select('fullname profile_picture followers isOnline');
+        const user = await User.findById(userId).select('username fullname profile_picture followers isOnline');
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
         const story = new Story({
-            user: { _id: user._id, fullname: user.fullname, profile_picture: user.profile_picture, isOnline: user.isOnline },
+            user: { _id: user._id, username: user.username, fullname: user.fullname, profile_picture: user.profile_picture, isOnline: user.isOnline },
             media: { url: mediaUrl, type: mediaType, thumbnailUrl: thumbnailUrl || null },
             text: text || {},
             sharedPostId: sharedPostId || null,
@@ -66,16 +66,23 @@ router.get('/feed', verifyToken, async (req, res) => {
 
         // Fetch fresh presence for all users in the feed
         const uniqueUserIds = [...new Set(stories.map(s => s.user._id.toString()))];
-        const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
+        const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline username fullname profile_picture');
         const presenceMap = {};
-        usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
+        usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u);
 
         const grouped = {};
         stories.forEach(story => {
             const uid = story.user._id.toString();
             if (!grouped[uid]) {
+                const freshUser = presenceMap[uid];
                 grouped[uid] = { 
-                    user: { ...story.user.toObject(), isOnline: presenceMap[uid] || false }, 
+                    user: { 
+                        _id: uid,
+                        username: freshUser?.username || story.user.username,
+                        fullname: freshUser?.fullname || story.user.fullname,
+                        profile_picture: freshUser?.profile_picture || story.user.profile_picture,
+                        isOnline: freshUser?.isOnline || false 
+                    }, 
                     stories: [], 
                     hasUnviewed: false 
                 };

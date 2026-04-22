@@ -679,7 +679,7 @@ const Feed = ({ activeMood = null }) => {
                                 <h3 className={`text-2xl font-bold mb-2 font-outfit ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                     {activeMood ? `No ${activeMood} vibes yet` : 'Your feed is waiting'}
                                 </h3>
-                                <p className="text-gray-500 max-w-[280px] text-sm leading-relaxed mb-8">
+                                <p className="text-gray-500 max-w-[280px] text-sm leading-relaxed mb-3">
                                     {activeMood 
                                         ? `Be the first to share a post with the ${activeMood} mood!` 
                                         : "Follow more people or share your first moment to see what's happening around you."

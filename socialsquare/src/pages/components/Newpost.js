@@ -464,7 +464,7 @@ const NewPost = ({ visible, onHide }) => {
                 onClick={() => fileInputRef.current?.click()}
                 className="bg-[#6366f1] text-white px-4 py-2 rounded-lg font-bold hover:bg-[#4f46e5] transition"
             >
-                Select From Computer
+                Select Any Media
             </button>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
         </div>
