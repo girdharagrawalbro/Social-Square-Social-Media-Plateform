@@ -17,12 +17,15 @@ const mongoose = require('mongoose');
 const CACHE_TTL = 60; // 60 seconds
 
 async function getCache(key) {
+    if (redis.status === 'disabled') return null;
     try { const v = await redis.get(key); return v ? JSON.parse(v) : null; } catch { return null; }
 }
 async function setCache(key, data, ttl = CACHE_TTL) {
+    if (redis.status === 'disabled') return;
     try { await redis.set(key, JSON.stringify(data), 'EX', ttl); } catch { }
 }
 async function delCache(...keys) {
+    if (redis.status === 'disabled') return;
     try { if (keys.length) await redis.del(keys); } catch { }
 }
 
@@ -189,17 +192,41 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
     try {
         const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost } = req.body;
         const sender = req.userId;
-        const conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': sender });
-        if (!conv) return res.status(403).json({ error: 'Unauthorized to send message' });
+        
+        let conv;
+        if (conversationId) {
+            conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': sender });
+        } else if (recipientId) {
+            // Find or create conversation by recipientId
+            const participantIds = [sender, recipientId];
+            conv = await Conversation.findOne({ 'participants.userId': { $all: participantIds } });
+            
+            if (!conv) {
+                const [senderUser, recipientUser] = await Promise.all([
+                    User.findById(sender).select('fullname profile_picture').lean(),
+                    User.findById(recipientId).select('fullname profile_picture').lean(),
+                ]);
+                if (!senderUser || !recipientUser) return res.status(404).json({ error: 'User not found' });
+                
+                conv = await Conversation.create({
+                    participants: [
+                        { userId: sender, fullname: senderUser.fullname, profilePicture: senderUser.profile_picture || '' },
+                        { userId: recipientId, fullname: recipientUser.fullname, profilePicture: recipientUser.profile_picture || '' },
+                    ]
+                });
+            }
+        }
+
+        if (!conv) return res.status(403).json({ error: 'Unauthorized or missing conversation/recipient' });
 
         const message = await Message.create({
-            conversationId, sender, content: content || '',
+            conversationId: conv._id, sender, content: content || '',
             media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
             storyReply: storyReply || undefined,
             sharedPost: sharedPost || undefined,
         });
 
-        const updatedConv = await Conversation.findByIdAndUpdate(conversationId, {
+        const updatedConv = await Conversation.findByIdAndUpdate(conv._id, {
             lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
             lastMessageAt: new Date(), lastMessageBy: sender,
         }, { new: true }).lean();
@@ -308,7 +335,8 @@ router.post('/messages/mark-read', verifyToken, async (req, res) => {
             const msg = await Message.findById(lastMessage).lean();
             if (msg) {
                 await Conversation.findByIdAndUpdate(msg.conversationId, { 'lastMessage.isRead': true });
-                await delCache(`convs:${msg.sender}`);
+                // Clear cache for both sender (to update seen status) and receiver (to update unread count)
+                await delCache(`convs:${msg.sender}`, `convs:${userId}`);
             }
         }
         res.json({ success: true });
@@ -332,6 +360,20 @@ router.patch('/notifications/mark-read', verifyToken, async (req, res) => {
         const { Ids } = req.body;
         await Notification.updateMany({ _id: { $in: Ids }, recipient: req.userId }, { $set: { read: true } });
         res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── UNREAD TOTAL (PROTECTED) ────────────────────────────────────────────────
+router.get('/unread-total', verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        // Find conversations where last message is unread AND was NOT sent by current user
+        const conversations = await Conversation.find({ 
+            'participants.userId': userId,
+            'lastMessage.isRead': false,
+            lastMessageBy: { $ne: userId }
+        });
+        res.json({ total: conversations.length });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

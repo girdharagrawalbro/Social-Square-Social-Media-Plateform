@@ -45,9 +45,13 @@ router.post("/view/:postId", async (req, res) => {
 
         const clientId = viewerId || (req.ip || req.connection && req.connection.remoteAddress || 'anonymous');
         const redisKey = `view:${postId}:${clientId}`;
+        let setResult = 'OK';
 
         // SET NX with EX — returns 'OK' if set, null if key exists
-        const setResult = await redis.set(redisKey, '1', 'EX', TTL_SECONDS, 'NX');
+        if (redis.status !== 'disabled') {
+            setResult = await redis.set(redisKey, '1', 'EX', TTL_SECONDS, 'NX');
+        }
+
         if (setResult === 'OK') {
             await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } });
             return res.status(200).json({ success: true, counted: true });

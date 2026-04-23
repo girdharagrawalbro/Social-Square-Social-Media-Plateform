@@ -867,7 +867,7 @@ const ChatPanel = ({
     // ─── SEND ────────────────────────────────────────────────────────────────
     const handleSend = async (e) => {
         e.preventDefault();
-        if (!text.trim() || !conversationId) return;
+        if (!text.trim() || (!conversationId && !participantId)) return;
 
         const optimisticMsg = {
             _id: `temp_${Date.now()}`,
@@ -893,6 +893,12 @@ const ChatPanel = ({
             setMessages(prev => prev.map(m =>
                 m._id === optimisticMsg._id ? res.data : m
             ));
+
+            // If this was a new conversation, set the ID
+            if (!conversationId && res.data.conversationId) {
+                setConversationId(res.data.conversationId);
+                conversationIdRef.current = res.data.conversationId;
+            }
 
             socket.emit('sendMessage', {
                 ...res.data,
