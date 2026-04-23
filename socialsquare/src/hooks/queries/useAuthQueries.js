@@ -1,8 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const authKeys = {

@@ -1,9 +1,6 @@
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const postKeys = {
@@ -30,7 +27,7 @@ export function useFeed(userId) {
             const params = new URLSearchParams({ limit: '10' });
             if (pageParam) params.append('cursor', pageParam);
             if (userId) params.append('userId', userId);
-            const res = await api.get(`${BASE}/api/post/?${params}`);
+            const res = await api.get(`/api/post/?${params}`);
             return res.data; // { posts, nextCursor, hasMore }
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -46,7 +43,7 @@ export function useUserPosts(userId) {
         queryFn: async ({ pageParam = null }) => {
             const params = new URLSearchParams({ limit: '12' });
             if (pageParam) params.append('cursor', pageParam);
-            const res = await api.get(`${BASE}/api/post/user/${userId}?${params}`);
+            const res = await api.get(`/api/post/user/${userId}?${params}`);
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -61,7 +58,7 @@ export function useSavedPosts(userId) {
     return useQuery({
         queryKey: postKeys.saved(userId),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/post/saved/${userId}`);
+            const res = await api.get(`/api/post/saved/${userId}`);
             initSavedIds(res.data.map(p => p._id));
             return res.data;
         },
@@ -75,7 +72,7 @@ export function usePostDetail(postId) {
     return useQuery({
         queryKey: postKeys.detail(postId),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/post/detail/${postId}`);
+            const res = await api.get(`/api/post/detail/${postId}`);
             return res.data;
         },
         enabled: !!postId,
@@ -88,7 +85,7 @@ export function useComments(postId) {
     return useQuery({
         queryKey: postKeys.comments(postId),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/post/comments`, {
+            const res = await api.get(`/api/post/comments`, {
                 params: { postId }
             });
             return res.data;
@@ -103,7 +100,7 @@ export function useMoodFeed(mood, userId) {
     return useQuery({
         queryKey: postKeys.mood(mood, userId),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/ai/mood-feed`, {
+            const res = await api.get(`/api/ai/mood-feed`, {
                 params: { mood }
             });
             return res.data.posts;
@@ -120,7 +117,7 @@ export function useConfessions() {
         queryFn: async ({ pageParam = null }) => {
             const params = new URLSearchParams({ limit: '10' });
             if (pageParam) params.append('cursor', pageParam);
-            const res = await api.get(`${BASE}/api/post/confessions?${params}`);
+            const res = await api.get(`/api/post/confessions?${params}`);
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -132,7 +129,7 @@ export function useConfessions() {
 export function useTrending() {
     return useQuery({
         queryKey: postKeys.trending,
-        queryFn: async () => { const res = await api.get(`${BASE}/api/post/trending`); return res.data; },
+        queryFn: async () => { const res = await api.get(`/api/post/trending`); return res.data; },
         staleTime: 1000 * 60 * 10, // trending changes slowly
     });
 }
@@ -141,7 +138,7 @@ export function useTrending() {
 export function useCategories() {
     return useQuery({
         queryKey: postKeys.categories,
-        queryFn: async () => { const res = await api.get(`${BASE}/api/post/categories`); return res.data; },
+        queryFn: async () => { const res = await api.get(`/api/post/categories`); return res.data; },
         staleTime: Infinity, // categories never change
     });
 }
@@ -151,7 +148,7 @@ export function useRecommendedPosts(userId) {
     return useQuery({
         queryKey: postKeys.recommended(userId),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/recommendation/posts`);
+            const res = await api.get(`/api/recommendation/posts`);
             return res.data.items;
         },
         enabled: !!userId,
@@ -163,7 +160,7 @@ export function useSimilarPosts(postId) {
     return useQuery({
         queryKey: postKeys.similar(postId),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/recommendation/similar/${postId}`);
+            const res = await api.get(`/api/recommendation/similar/${postId}`);
             return res.data.items;
         },
         enabled: !!postId,
@@ -175,7 +172,7 @@ export function usePersonalizedSearch(userId, q) {
     return useQuery({
         queryKey: postKeys.personalizedSearch(userId, q),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/recommendation/search`, {
+            const res = await api.get(`/api/recommendation/search`, {
                 params: { q }
             });
             return res.data.items;
@@ -196,7 +193,7 @@ export function usePrefetchPost() {
         qc.prefetchQuery({
             queryKey: postKeys.detail(postId),
             queryFn: async () => {
-                const res = await api.get(`${BASE}/api/post/detail/${postId}`);
+                const res = await api.get(`/api/post/detail/${postId}`);
                 return res.data;
             },
             staleTime: 1000 * 60 * 5,
@@ -208,7 +205,7 @@ export function useCreatePost() {
     const qc = useQueryClient();
     const user = useAuthStore(s => s.user);
     return useMutation({
-        mutationFn: (data) => api.post(`${BASE}/api/post/create`, data),
+        mutationFn: (data) => api.post(`/api/post/create`, data),
         onSuccess: (res) => {
             qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
                 if (!old?.pages) return old;
@@ -233,7 +230,7 @@ export function useCreatePost() {
 
 export function useIncrementView() {
     return useMutation({
-        mutationFn: ({ postId }) => api.post(`${BASE}/api/post/view/${postId}`),
+        mutationFn: ({ postId }) => api.post(`/api/post/view/${postId}`),
     });
 }
 
@@ -241,7 +238,7 @@ export function useVotePoll() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: ({ postId, optionIndex }) =>
-            api.post(`${BASE}/api/post/vote`, { postId, optionIndex }),
+            api.post(`/api/post/vote`, { postId, optionIndex }),
         onSuccess: (res, { postId }) => {
             qc.invalidateQueries({ queryKey: postKeys.detail(postId) });
             qc.invalidateQueries({ queryKey: postKeys.all });
@@ -253,7 +250,7 @@ export function useReactPost() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: ({ postId, emoji }) =>
-            api.post(`${BASE}/api/post/react`, { postId, emoji }),
+            api.post(`/api/post/react`, { postId, emoji }),
         onMutate: async ({ postId, emoji }) => {
             await qc.cancelQueries({ queryKey: postKeys.detail(postId) });
             const prev = qc.getQueryData(postKeys.detail(postId));
@@ -279,7 +276,7 @@ export function useLikePost() {
 
     return useMutation({
         mutationFn: ({ postId, isLiked }) =>
-            api.post(`${BASE}/api/post/${isLiked ? 'unlike' : 'like'}`, { postId }),
+            api.post(`/api/post/${isLiked ? 'unlike' : 'like'}`, { postId }),
         onMutate: async ({ postId, isLiked, likes = [] }) => {
             // Cancel outgoing refetches
             await qc.cancelQueries({ queryKey: postKeys.all });
@@ -304,7 +301,7 @@ export function useSavePost() {
     const user = useAuthStore(s => s.user);
 
     return useMutation({
-        mutationFn: ({ postId }) => api.post(`${BASE}/api/post/save`, { postId }),
+        mutationFn: ({ postId }) => api.post(`/api/post/save`, { postId }),
         onMutate: async ({ postId }) => {
             // Optimistic toggle in Zustand
             toggleSaved(postId);
@@ -328,7 +325,7 @@ export function useLikeComment() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: ({ commentId }) =>
-            api.post(`${BASE}/api/post/comments/${commentId}/like`),
+            api.post(`/api/post/comments/${commentId}/like`),
         onSuccess: (_, variables) => {
             if (variables?.postId) {
                 qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
@@ -342,7 +339,7 @@ export function useCreateComment() {
     const user = useAuthStore(s => s.user);
 
     return useMutation({
-        mutationFn: (data) => api.post(`${BASE}/api/post/comments/add`, data),
+        mutationFn: (data) => api.post(`/api/post/comments/add`, data),
         onMutate: async (newComment) => {
             if (!newComment.postId) return;
             
@@ -382,7 +379,7 @@ export function useDeleteComment() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: ({ commentId, postId }) =>
-            api.delete(`${BASE}/api/post/comments/${commentId}`),
+            api.delete(`/api/post/comments/${commentId}`),
         onSuccess: (_, variables) => {
             if (variables?.postId) {
                 qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
@@ -396,7 +393,7 @@ export function useDeletePost() {
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ postId }) =>
-            api.delete(`${BASE}/api/post/delete/${postId}`),
+            api.delete(`/api/post/delete/${postId}`),
         onSuccess: (_, variables) => {
             if (variables?.postId) {
                 const { postId } = variables;
@@ -416,7 +413,7 @@ export function useUpdatePost() {
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ postId, caption, category }) =>
-            api.put(`${BASE}/api/post/update/${postId}`, { caption, category }),
+            api.put(`/api/post/update/${postId}`, { caption, category }),
         onSuccess: (res) => {
             qc.setQueryData(postKeys.detail(res.data._id), res.data);
             qc.invalidateQueries({ queryKey: postKeys.feed(user?._id) });
