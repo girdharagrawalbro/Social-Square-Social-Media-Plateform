@@ -31,7 +31,7 @@ const Landing = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center w-full">
                     <PromoVideo />
                 </div>
             </section>

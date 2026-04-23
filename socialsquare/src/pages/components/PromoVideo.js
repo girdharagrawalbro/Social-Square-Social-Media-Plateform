@@ -193,13 +193,37 @@ const PromoVideo = () => {
             <div className="end-content">
               <div className="logo-mark">S²</div>
               <h3>Social Square</h3>
-              <button className="url-btn" onClick={() => window.location.href='/signup'}>Get Started Now</button>
+              <button className="url-btn" onClick={() => window.location.href = '/signup'}>Get Started Now</button>
             </div>
           </div>
 
           {/* Progress Bar */}
           <div className="promo-progress">
             <div className="promo-progress-bar"></div>
+          </div>
+
+          <div className="promo-controls" style={{
+            position: 'absolute',
+            bottom: '40px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: '12px',
+            zIndex: 100,
+            opacity: 0.9,
+            transition: 'all 0.3s ease',
+            background: 'rgba(0,0,0,0.3)',
+            padding: '8px 16px',
+            borderRadius: '24px',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <button onClick={(e) => { e.stopPropagation(); togglePlayPause(); }} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px' }}>
+              <i className={`pi ${isPaused ? 'pi-play' : 'pi-pause'}`} style={{ fontSize: '14px' }}></i>
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); handleReplay(); }} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px' }}>
+              <i className="pi pi-refresh" style={{ fontSize: '14px' }}></i>
+            </button>
           </div>
         </div>
       </div>
