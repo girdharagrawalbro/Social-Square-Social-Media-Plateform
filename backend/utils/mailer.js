@@ -93,6 +93,10 @@ async function sendResetEmail(email, resetUrl) {
 }
 
 async function sendNewDeviceAlert(email, { device, location, time }) {
+    const locationStr = typeof location === 'object' 
+        ? `${location.city || 'Unknown'}, ${location.country || 'Unknown'}`
+        : (location || 'Unknown');
+
     return sendEmail({
         to:      email,
         subject: '⚠️ New device login detected — Social Square',
@@ -102,7 +106,7 @@ async function sendNewDeviceAlert(email, { device, location, time }) {
             <p>Your account was accessed from a new device:</p>
             <ul style="color:#374151">
                 <li><strong>Device:</strong> ${device || 'Unknown'}</li>
-                <li><strong>Location:</strong> ${location || 'Unknown'}</li>
+                <li><strong>Location:</strong> ${locationStr}</li>
                 <li><strong>Time:</strong> ${time || new Date().toUTCString()}</li>
             </ul>
             <p>If this was you, no action needed. If not, <a href="${process.env.CLIENT_URL}/sessions">review your sessions</a> immediately.</p>
