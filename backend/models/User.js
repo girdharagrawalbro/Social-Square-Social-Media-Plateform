@@ -33,12 +33,12 @@ const UserSchema = new mongoose.Schema({
   bannedAt: { type: Date, default: null },
 
   // User Preferences
-  preferredMood: { 
-    type: String, 
-    default: null, 
+  preferredMood: {
+    type: String,
+    default: null,
     trim: true,
     set: v => (v === "" ? null : v),
-    enum: ['happy', 'excited', 'funny', 'romantic', 'inspirational', 'calm', 'nostalgic', 'sad', null] 
+    enum: ['happy', 'excited', 'funny', 'romantic', 'inspirational', 'calm', 'nostalgic', 'sad', null]
   },
   isPrivate: { type: Boolean, default: false },
   followRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -71,6 +71,9 @@ const UserSchema = new mongoose.Schema({
   },
   xp: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
+
+  // Welcome State
+  hasSeenWelcome: { type: Boolean, default: false },
 
   created_at: { type: Date, default: Date.now },
 });
