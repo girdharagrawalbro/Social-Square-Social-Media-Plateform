@@ -802,11 +802,11 @@ const ChatPanel = ({
     useEffect(() => {
         const handleReceive = (message) => {
             // Only handle messages from current participant
-            if (message.senderId !== participantId && message.sender !== participantId) return;
+            if (String(message.senderId) !== String(participantId) && String(message.sender) !== String(participantId)) return;
 
             setMessages(prev => {
                 // Avoid duplicates
-                if (prev.some(m => m._id === message._id)) return prev;
+                if (prev.some(m => String(m._id) === String(message._id))) return prev;
                 return [...prev, message];
             });
 
@@ -822,19 +822,19 @@ const ChatPanel = ({
         };
 
         const handleSeen = ({ messageId }) => {
-            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isRead: true } : m));
+            setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, isRead: true } : m));
         };
 
         const handleEdited = ({ messageId, content, conversationId: cid }) => {
-            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, content, edited: true } : m));
+            setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content, edited: true } : m));
         };
 
         const handleDeleted = ({ messageId }) => {
-            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deletedAt: new Date().toISOString() } : m));
+            setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
         };
 
         const handleReaction = ({ messageId, reactions }) => {
-            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, reactions } : m));
+            setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, reactions } : m));
         };
 
         const handleTyping = ({ senderName }) => {
@@ -938,7 +938,7 @@ const ChatPanel = ({
 
     // ─── EDIT ─────────────────────────────────────────────────────────────────
     const handleEdit = async (messageId, content) => {
-        setMessages(prev => prev.map(m => m._id === messageId ? { ...m, content, edited: true } : m));
+        setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content, edited: true } : m));
         try {
             await editMessageMut.mutateAsync({
                 messageId,
@@ -952,7 +952,7 @@ const ChatPanel = ({
                 recipientId: participantId,
             });
         } catch {
-            setMessages(prev => prev.map(m => m._id === messageId ? { ...m, content: m.content, edited: m.edited } : m));
+            setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content: m.content, edited: m.edited } : m));
             toast.error('Edit failed');
         }
     };
@@ -965,7 +965,7 @@ const ChatPanel = ({
             icon: 'pi pi-exclamation-triangle',
             acceptClassName: 'p-button-danger',
             accept: async () => {
-                setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
+                setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
                 try {
                     await deleteMessageMut.mutateAsync({
                         messageId,
@@ -977,7 +977,7 @@ const ChatPanel = ({
                         recipientId: participantId,
                     });
                 } catch {
-                    setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deletedAt: null, content: m.content } : m));
+                    setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: null, content: m.content } : m));
                     toast.error('Delete failed');
                 }
             }

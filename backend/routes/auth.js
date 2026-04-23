@@ -742,17 +742,23 @@ router.get("/other-users", verifyToken, async (req, res) => {
     }
 });
 
-router.post('/users/details', async (req, res) => {
+router.post('/users/details', verifyToken, async (req, res) => {
     try {
-        const users = await User.find({ _id: { $in: req.body.ids } }).select('fullname username profile_picture');
+        const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+        if (!ids.length) return res.status(200).json({ users: [] });
+        const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture');
         res.status(200).json({ users });
     } catch { res.status(500).json({ error: 'Failed to fetch user details' }); }
 });
 
-router.put('/update-profile', async (req, res) => {
+router.put('/update-profile', verifyToken, async (req, res) => {
     try {
         const { userId, fullname, username, email, profile_picture, bio, preferredMood, isPrivate } = req.body;
-        if (!userId) return res.status(400).json({ message: 'User ID is required.' });
+        const loggedUserId = req.userId;
+
+        if (!userId || String(userId) !== String(loggedUserId)) {
+            return res.status(403).json({ message: 'Unauthorized. You can only update your own profile.' });
+        }
 
         if (username) {
             const exists = await User.findOne({ username, _id: { $ne: userId } });
@@ -768,10 +774,14 @@ router.put('/update-profile', async (req, res) => {
     } catch { res.status(500).json({ message: 'Failed to update profile.' }); }
 });
 
-router.post('/follow', async (req, res) => {
+router.post('/follow', verifyToken, async (req, res) => {
     try {
         const { userId, followUserId } = req.body;
-        if (!userId || !followUserId) return res.status(400).json({ message: 'Empty IDs' });
+        const loggedUserId = req.userId;
+
+        if (!userId || String(userId) !== String(loggedUserId)) {
+            return res.status(403).json({ message: 'Unauthorized.' });
+        }
 
         const targetUser = await User.findById(followUserId);
         if (!targetUser) return res.status(404).json({ message: 'Target user not found' });
@@ -820,9 +830,14 @@ router.post('/follow', async (req, res) => {
     }
 });
 
-router.post('/follow-request/accept', async (req, res) => {
+router.post('/follow-request/accept', verifyToken, async (req, res) => {
     try {
         const { userId, requesterId } = req.body; // userId is ME (the one accepting)
+        const loggedUserId = req.userId;
+
+        if (String(userId) !== String(loggedUserId)) {
+            return res.status(403).json({ message: 'Unauthorized.' });
+        }
 
         // Remove from requests, add to followers
         await User.findByIdAndUpdate(userId, {
@@ -847,26 +862,41 @@ router.post('/follow-request/accept', async (req, res) => {
     } catch { res.status(500).json({ message: 'Failed to accept request' }); }
 });
 
-router.post('/follow-request/decline', async (req, res) => {
+router.post('/follow-request/decline', verifyToken, async (req, res) => {
     try {
         const { userId, requesterId } = req.body; // userId is ME
+        const loggedUserId = req.userId;
+
+        if (String(userId) !== String(loggedUserId)) {
+            return res.status(403).json({ message: 'Unauthorized.' });
+        }
         await User.findByIdAndUpdate(userId, { $pull: { followRequests: requesterId } });
         res.status(200).json({ message: 'Declined' });
     } catch { res.status(500).json({ message: 'Failed to decline request' }); }
 });
 
-router.post('/unfollow', async (req, res) => {
+router.post('/unfollow', verifyToken, async (req, res) => {
     try {
         const { userId, unfollowUserId } = req.body;
+        const loggedUserId = req.userId;
+
+        if (String(userId) !== String(loggedUserId)) {
+            return res.status(403).json({ message: 'Unauthorized.' });
+        }
         await User.findByIdAndUpdate(userId, { $pull: { following: unfollowUserId } });
         const user = await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } }).select("-password");
         res.status(200).json(user);
     } catch { res.status(500).json({ message: 'Failed to unfollow user.' }); }
 });
 
-router.post('/remove-follower', async (req, res) => {
+router.post('/remove-follower', verifyToken, async (req, res) => {
     try {
         const { userId, followerId } = req.body; // userId is ME, followerId is the one to remove
+        const loggedUserId = req.userId;
+
+        if (String(userId) !== String(loggedUserId)) {
+            return res.status(403).json({ message: 'Unauthorized.' });
+        }
         if (!userId || !followerId) return res.status(400).json({ message: 'Empty IDs' });
 
         // Remove follower from MY followers list
@@ -895,14 +925,25 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             User.findByIdAndUpdate(targetUserId, { $inc: { profileViews: 1 } }).catch(e => console.error('[Analytics] View increment failed:', e));
         }
 
-        // Mutual followers: Intersect (My Following) with (Target Followers)
-        const targetFollowerIds = (targetUser.followers || []).map(f => f.toString());
-        const myFollowingIds = (loggedUser?.following || []).map(f => f.toString());
-        const mutualIds = myFollowingIds.filter(id => targetFollowerIds.includes(id));
+        // 🔒 Privacy Guard: If account is private and not followed by logged user
+        const isOwner = loggedUserId.toString() === targetUserId.toString();
+        const isFollower = targetFollowerIds.includes(loggedUserId.toString());
 
-        const mutualDetails = mutualIds.length > 0
-            ? await User.find({ _id: { $in: mutualIds.slice(0, 3) } }).select('fullname profile_picture username').lean()
-            : [];
+        if (targetUser.isPrivate && !isOwner && !isFollower) {
+            return res.status(200).json({
+                _id: targetUser._id,
+                fullname: targetUser.fullname,
+                username: targetUser.username,
+                profile_picture: targetUser.profile_picture,
+                bio: targetUser.bio,
+                isPrivate: true,
+                isOnline: targetUser.isOnline,
+                followersCount: targetFollowerIds.length,
+                followingCount: (targetUser.following || []).length,
+                mutualFollowers: mutualDetails,
+                mutualCount: mutualIds.length
+            });
+        }
 
         return res.status(200).json({
             ...targetUser,
@@ -941,44 +982,35 @@ router.post("/search", async (req, res) => {
 });
 
 // ─── NOTIFICATION SETTINGS ───────────────────────────────────────────────────
-router.get('/notification-settings', async (req, res) => {
+router.get('/notification-settings', verifyToken, async (req, res) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.userId).select('notificationSettings').lean();
+        const user = await User.findById(req.userId).select('notificationSettings').lean();
         res.json(user?.notificationSettings || { emailDigest: false, pushEnabled: true });
-    } catch { res.status(401).json({ message: 'Unauthorized' }); }
+    } catch { res.status(500).json({ message: 'Internal server error' }); }
 });
 
-router.patch('/notification-settings', async (req, res) => {
+router.patch('/notification-settings', verifyToken, async (req, res) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findByIdAndUpdate(decoded.userId, { notificationSettings: req.body }, { new: true }).select('notificationSettings').lean();
+        const user = await User.findByIdAndUpdate(req.userId, { notificationSettings: req.body }, { new: true }).select('notificationSettings').lean();
         res.json(user.notificationSettings);
-    } catch { res.status(401).json({ message: 'Unauthorized' }); }
+    } catch { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 // ─── VERIFY PASSWORD (for admin re-auth gate) ────────────────────────────────
-router.post('/verify-password', async (req, res) => {
+router.post('/verify-password', verifyToken, async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) return res.status(401).json({ message: 'Unauthorized' });
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.userId).select('+password');
+        const user = await User.findById(req.userId).select('+password');
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         // Google/OAuth users have no password
         if (!user.password) return res.status(400).json({ message: 'Password login not available for this account' });
 
-        const bcrypt = require('bcryptjs');
         const isMatch = await bcrypt.compare(req.body.password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
 
         res.status(200).json({ message: 'Verified' });
     } catch (err) {
-        res.status(401).json({ message: 'Invalid token' });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
