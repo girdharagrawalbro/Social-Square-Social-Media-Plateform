@@ -8,11 +8,14 @@
   max-width: 400px;
   margin: 0 auto;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  position: relative; /* Added for controls positioning */
+  min-height: 200px; /* Ensure visibility even if squash happens */
 }
 
 .promo-device {
   width: 100%;
   aspect-ratio: 9/19.2;
+  min-height: 500px; /* Fallback for browsers without aspect-ratio or width issues */
   background: linear-gradient(180deg, #1e1e28, #0d0d12);
   border-radius: 52px;
   padding: 11px;
