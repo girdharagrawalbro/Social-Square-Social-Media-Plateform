@@ -13,10 +13,13 @@ import MoodFeedToggle from './components/MoodFeedToggle';
 import useAuthStore from '../store/zustand/useAuthStore';
 import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
+import OnboardingGuide from './components/OnboardingGuide';
+import { api } from '../store/zustand/useAuthStore';
 
 const Home = () => {
     const activeView = 'feed';
     const [activeMood, setActiveMood] = useState(null);
+    const [showGuide, setShowGuide] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const windowWidth = useWindowWidth();
@@ -28,6 +31,27 @@ const Home = () => {
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
     const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
     const setStoryDetailDeepLink = usePostStore(s => s.setStoryDetailDeepLink);
+
+    // ✅ Welcome Celebration & Guide for new users
+    useEffect(() => {
+        if (initialized && !loading && loggeduser && loggeduser.hasSeenWelcome === false) {
+            import('../utils/confettiUtils').then(({ fireFlowerConfetti }) => {
+                fireFlowerConfetti();
+            });
+
+            // Show guide after a small delay to let confetti shine
+            setTimeout(() => {
+                setShowGuide(true);
+            }, 1500);
+
+            // Mark as seen on backend
+            api.put('/api/auth/mark-welcome-seen')
+                .then(res => {
+                    useAuthStore.setState({ user: { ...loggeduser, hasSeenWelcome: true } });
+                })
+                .catch(err => console.error('Failed to mark welcome as seen:', err));
+        }
+    }, [initialized, loading, loggeduser]);
 
     useEffect(() => {
         if (initialized && !loading && !loggeduser) {
@@ -149,6 +173,12 @@ const Home = () => {
                     </div>
                 )}
             </section >
+
+            <OnboardingGuide
+                visible={showGuide}
+                onHide={() => setShowGuide(false)}
+                userName={loggeduser?.fullname}
+            />
         </>
     );
 };

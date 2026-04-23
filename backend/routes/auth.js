@@ -750,6 +750,16 @@ router.put('/update-profile', verifyToken, async (req, res) => {
     } catch { res.status(500).json({ message: 'Failed to update profile.' }); }
 });
 
+router.put('/mark-welcome-seen', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findByIdAndUpdate(req.userId, { hasSeenWelcome: true }, { new: true }).select('-password');
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        return res.status(200).json(user);
+    } catch (error) {
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 router.post('/follow', verifyToken, async (req, res) => {
     try {
         const { userId, followUserId } = req.body;

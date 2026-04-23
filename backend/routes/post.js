@@ -216,7 +216,11 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             _io.to(loggedUserId.toString()).emit('levelUpdate', rewards);
         }
 
-        res.status(201).json({ ...newPost.toObject(), rewards });
+        // Detect if this is the user's first post
+        const postCount = await Post.countDocuments({ 'user._id': loggedUserId });
+        const isFirstPost = postCount === 1;
+
+        res.status(201).json({ ...newPost.toObject(), rewards, isFirstPost });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

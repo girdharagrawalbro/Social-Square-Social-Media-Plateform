@@ -396,6 +396,14 @@ const NewPost = ({ visible, onHide }) => {
             if (response?.data?._id) {
                 addSocketPost(response.data);
                 toast.success("Post created successfully!", { id: uploadToast });
+
+                // ✅ First Post Celebration
+                if (response.data.isFirstPost) {
+                    import('../../utils/confettiUtils').then(({ fireFlowerConfetti }) => {
+                        fireFlowerConfetti();
+                    });
+                }
+
                 handleCloseInternal(true);
             } else {
                 toast.error("Failed to create post", { id: uploadToast });
