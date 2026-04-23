@@ -426,10 +426,12 @@ function GlobalOverlays() {
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
     const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
     const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
+    const location = useLocation();
 
     return (
         <>
-            <Chatbot />
+            {/* Hide chatbot icon when in chat panel */}
+            {!location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && <Chatbot />}
 
             <Dialog
                 showHeader={false}

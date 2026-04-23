@@ -57,16 +57,16 @@ const BottomNav = () => {
                         onClick={() => handleClick(item)}
                     >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${item.accent
-                                ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/40 scale-10 -translate-y-1'
-                                : active
-                                    ? 'bg-indigo-500/10 text-indigo-600'
-                                    : isDark ? 'text-gray-400' : 'text-gray-600'
+                            ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/40 scale-10 -translate-y-1'
+                            : active
+                                ? 'bg-indigo-500/10 text-indigo-600'
+                                : isDark ? 'text-gray-400' : 'text-gray-600'
                             }`}>
                             <i className={`pi ${item.icon} ${item.accent ? 'text-xl' : 'text-lg'}`}></i>
 
                             {/* Notification Badge */}
                             {item.badge > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white dark:border-black shadow-sm">
+                                <span className="absolute top-1 right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white dark:border-black shadow-sm">
                                     {item.badge > 9 ? '9+' : item.badge}
                                 </span>
                             )}

@@ -3,8 +3,8 @@ const redisClient = require('../lib/redis');
 
 let rateLimiter;
 
-// Initialize the primary Redis-backed limiter if URL is available
-if (process.env.REDIS_URL) {
+// Initialize the primary Redis-backed limiter if URL is available AND not disabled
+if (process.env.REDIS_URL && redisClient.status !== 'disabled') {
   rateLimiter = new RateLimiterRedis({
     storeClient: redisClient,
     points: 10,
@@ -22,8 +22,8 @@ const memoryLimiter = new RateLimiterMemory({
 module.exports = async (req, res, next) => {
   const key = req.ip;
 
-  // 1. If no Redis URL, just use memory limiter and proceed
-  if (!process.env.REDIS_URL || !rateLimiter) {
+  // 1. If no Redis or disabled, just use memory limiter and proceed
+  if (redisClient.status === 'disabled' || !rateLimiter) {
     return memoryLimiter.consume(key)
       .then(() => next())
       .catch(() => res.status(429).json({ error: 'Too many login attempts. Please try again later.' }));
