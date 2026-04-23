@@ -21,6 +21,8 @@ const usePostStore = create(
             isLiveHost: false,
             isStoryViewerOpen: false,
             chatbotOpen: false,
+            isMuted: true,
+            setIsMuted: (muted) => set({ isMuted: muted }),
 
             // ─── Socket Data ─────────────────────────────────────────────
             socketPosts: [],

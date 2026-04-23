@@ -101,6 +101,52 @@ const TimeLockOverlay = ({ unlocksAt }) => {
     );
 };
 
+const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
+    const videoRef = useRef(null);
+    const isMuted = usePostStore(s => s.isMuted);
+    const setIsMuted = usePostStore(s => s.setIsMuted);
+    const { ref, inView } = useInView({
+        threshold: 0.6,
+    });
+
+    useEffect(() => {
+        if (!videoRef.current) return;
+        if (inView && !isLocked) {
+            videoRef.current.play().catch(() => { });
+        } else {
+            videoRef.current.pause();
+        }
+    }, [inView, isLocked]);
+
+    const toggleMute = (e) => {
+        e.stopPropagation();
+        setIsMuted(!isMuted);
+    };
+
+    return (
+        <div ref={ref} className="relative w-full aspect-square bg-black overflow-hidden group">
+            <video
+                ref={videoRef}
+                src={src}
+                poster={poster}
+                loop
+                muted={isMuted}
+                playsInline
+                onDoubleClick={onDoubleClick}
+                onTouchEnd={onTouchEnd}
+                className="w-full h-full object-cover cursor-pointer"
+            />
+            <button
+                onClick={toggleMute}
+                className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-lg"
+                title={isMuted ? "Unmute" : "Mute"}
+            >
+                <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '14px' }}></i>
+            </button>
+        </div>
+    );
+};
+
 // ─── COLLAB INVITE BANNER ─────────────────────────────────────────────────────
 const CollabInviteBanner = ({ post, user }) => {
     const collab = post.collaborators?.find(c => c.userId?.toString() === user?._id?.toString() && c.status === 'pending');
@@ -262,24 +308,13 @@ const PostItem = React.memo(({
 
             {/* Video */}
             {post.video && !post.image_urls?.length && !post.image_url && (
-                <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" style={{ background: '#000' }}>
-                    <video
-                        key={post._id}
+                <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden">
+                    <FeedVideo
                         src={post.video}
                         poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
-                        autoPlay
-                        loop
-                        playsInline
                         onDoubleClick={() => !locked && onImageDoubleClick(post)}
                         onTouchEnd={() => !locked && onImageTap(post)}
-                        style={{
-                            width: '100%',
-                            height: 'auto',
-                            aspectRatio: '1',
-                            objectFit: 'cover',
-                            background: '#000',
-                            cursor: 'pointer'
-                        }}
+                        isLocked={locked}
                     />
                     <HeartBurst visible={heartVisible} />
                     {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}

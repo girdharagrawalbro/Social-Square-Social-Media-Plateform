@@ -708,7 +708,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
         e.target.value = '';
     };
 
-    const handleCropComplete = (croppedFile) => {
+    const handleCropComplete = ({ croppedFile }) => {
         const newPreview = { url: URL.createObjectURL(croppedFile), type: 'image', file: croppedFile };
 
         if (croppingState.pendingFiles.length > 0) {
