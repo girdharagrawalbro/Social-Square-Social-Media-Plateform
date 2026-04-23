@@ -109,7 +109,7 @@ const Signup = () => {
                 useOneTap
                 theme={isDark ? 'filled_black' : 'outline'}
                 shape="pill"
-                width="100%"
+                width="350"
               />
             </div>
             <div className="mt-4 text-center">
