@@ -30,7 +30,7 @@ export function useSessionUserInfo(userId) {
     return useQuery({
         queryKey: miscKeys.userInfo(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/auth/user/${userId}`);
+            const res = await api.get(`${BASE}/api/auth/user/${userId}`);
             return res.data;
         },
         enabled: !!userId,

@@ -10,7 +10,7 @@ const BottomNav = () => {
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
     const { unreadNotificationsCount, totalUnread } = useConversationStore();
-    
+
     const isChatOpen = location.pathname.startsWith('/conversation/') && location.pathname.split('/').length > 2;
 
     if (isChatOpen) return null;
@@ -21,7 +21,7 @@ const BottomNav = () => {
     const navItems = [
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
-        { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse', accent: true },
+        { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse' },
         { key: 'notifications', icon: 'pi-bell', to: () => '/notifications', badge: unreadNotificationsCount },
         { key: 'messages', icon: 'pi-envelope', to: () => '/conversations', badge: msgCount },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
@@ -50,21 +50,20 @@ const BottomNav = () => {
             {navItems.map(item => {
                 const active = isActive(item.key, item.to);
                 return (
-                    <button 
+                    <button
                         key={item.key}
                         aria-label={item.key}
                         className="relative flex flex-col items-center justify-center border-0 bg-transparent cursor-pointer transition-all duration-300"
                         onClick={() => handleClick(item)}
                     >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                            item.accent 
-                                ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/40 scale-110 -translate-y-1' 
-                                : active 
-                                    ? 'bg-indigo-500/10 text-indigo-600' 
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${item.accent
+                                ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/40 scale-10 -translate-y-1'
+                                : active
+                                    ? 'bg-indigo-500/10 text-indigo-600'
                                     : isDark ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
+                            }`}>
                             <i className={`pi ${item.icon} ${item.accent ? 'text-xl' : 'text-lg'}`}></i>
-                            
+
                             {/* Notification Badge */}
                             {item.badge > 0 && (
                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white dark:border-black shadow-sm">

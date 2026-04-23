@@ -57,7 +57,7 @@ export function useSearchUsers(query) {
         queryKey: exploreKeys.search(query),
         queryFn: async () => {
             const res = await api.post('/api/auth/search', { query });
-            return Array.isArray(res.data) ? res.data : [];
+            return res.data?.users || [];
         },
         enabled: !!query && query.length > 0,
         staleTime: 1000 * 60 * 5, // 5 minutes

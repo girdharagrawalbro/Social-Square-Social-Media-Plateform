@@ -164,7 +164,8 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const handleMessage = async () => {
         try {
             await createConvMutation.mutateAsync(id);
-            setChatVisible(true);
+            if (onClose) onClose();
+            navigate(`/conversation/${id}`);
         } catch {
             toast.error('Unable to start conversation');
         }

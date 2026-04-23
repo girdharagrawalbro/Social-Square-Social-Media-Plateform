@@ -950,6 +950,54 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
     }
 });
 
+router.get('/user/:id', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+router.get('/followers/:userId', verifyToken, async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.userId).select('followers isPrivate');
+        if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+        // Privacy check: If private, only owner or followers can see the list
+        const isOwner = req.params.userId === req.userId;
+        const isFollower = targetUser.followers.includes(req.userId);
+        
+        if (targetUser.isPrivate && !isOwner && !isFollower) {
+            return res.status(403).json({ message: 'This account is private' });
+        }
+
+        res.status(200).json(targetUser.followers || []);
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+router.get('/following/:userId', verifyToken, async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.userId).select('following followers isPrivate');
+        if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+        // Privacy check: If private, only owner or followers can see the list
+        const isOwner = req.params.userId === req.userId;
+        const isFollower = targetUser.followers.includes(req.userId);
+
+        if (targetUser.isPrivate && !isOwner && !isFollower) {
+            return res.status(403).json({ message: 'This account is private' });
+        }
+
+        res.status(200).json(targetUser.following || []);
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 router.post("/search", async (req, res) => {
     const { query } = req.body;
     if (!query) return res.status(400).json({ message: "Search query is required." });
