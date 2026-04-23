@@ -15,6 +15,21 @@ const STEPS = {
 
 const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😅', '🥳', '❤️', '🔥', '✨', '🎉', '👍', '🙌', '💯', '🌟', '😭', '🤣', '😊', '🥹', '💪', '🎵', '📍', '🌍', '🍕', '☕', '🌸', '🌈', '👀', '💬'];
 
+const EmojiSelector = ({ onSelect }) => (
+    <div className="flex flex-wrap gap-1.5 py-2 px-1 overflow-x-auto custom-scrollbar no-scrollbar" style={{ maxHeight: '80px' }}>
+        {EMOJIS.map(e => (
+            <button
+                key={e}
+                type="button"
+                className="text-xl hover:scale-125 transition-transform p-1 grayscale-[0.5] hover:grayscale-0"
+                onClick={() => onSelect(e)}
+            >
+                {e}
+            </button>
+        ))}
+    </div>
+);
+
 const NewPost = ({ visible, onHide }) => {
     const loggeduser = useAuthStore(s => s.user);
     const addSocketPost = usePostStore(s => s.addSocketPost);
@@ -40,6 +55,10 @@ const NewPost = ({ visible, onHide }) => {
     const [unlocksAt, setUnlocksAt] = useState('');
     const [isCollaborative] = useState(false);
     const [collaborators, setCollaborators] = useState([]);
+
+    // Voice note
+    const [voiceBlob] = useState(null);
+    const [recordingDuration] = useState(0);
 
     // AI
     const [aiPrompt, setAiPrompt] = useState("");
@@ -110,6 +129,7 @@ const NewPost = ({ visible, onHide }) => {
         setFormData(prev => ({ ...prev, caption: newCaption }));
         setTimeout(() => { input.focus(); input.setSelectionRange(s + emoji.length, s + emoji.length); }, 0);
     };
+
 
     const handleGetLocation = () => {
         if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
