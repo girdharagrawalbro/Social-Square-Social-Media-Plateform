@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/zustand/useAuthStore';
 
+import PromoVideo from './components/PromoVideo';
+
 const Landing = () => {
     const navigate = useNavigate();
     const user = useAuthStore(s => s.user);
@@ -18,7 +20,7 @@ const Landing = () => {
             <section className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">
                 <div className="flex-1 max-w-xl">
                     <h1 className="font-pacifico text-6xl md:text-7xl mb-4">Social Square</h1>
-                    <p className="text-2xl font-semibold mb-4">Connect, Share, and Engage with Your Community</p>
+                    <p className="text-2xl font-semibold mb-4">AI-powered social platform with features you’ve never seen before</p>
                     <p className="text-lg leading-relaxed mb-8 opacity-95">
                         Join thousands of users sharing their moments, connecting with friends,
                         and building meaningful relationships in a safe and vibrant social space.
@@ -30,7 +32,7 @@ const Landing = () => {
                 </div>
 
                 <div className="flex-1 flex items-center justify-center">
-                    <img className="max-w-full h-auto rounded-2xl shadow-2xl" src="https://i.ibb.co/3zgV9GB/image.png" alt="Social Square Community" />
+                    <PromoVideo />
                 </div>
             </section>
         </div>
