@@ -25,11 +25,15 @@ if (isDisabled) {
         },
         get: async (key) => inMemoryData[key] || null,
         set: async (key, value) => { inMemoryData[key] = value; },
-        on: () => {},
-        quit: async () => {},
+        del: async (...keys) => {
+            const flatKeys = Array.isArray(keys[0]) ? keys[0] : keys;
+            flatKeys.forEach(k => delete inMemoryData[k]);
+        },
+        on: () => { },
+        quit: async () => { },
         status: 'disabled',
-        duplicate: function() { return this; },
-        connect: async () => {},
+        duplicate: function () { return this; },
+        connect: async () => { },
     };
 } else {
     redis = new IORedis(redisUrl, {
@@ -38,7 +42,7 @@ if (isDisabled) {
             const MAX_ATTEMPTS = 5;
             if (times > MAX_ATTEMPTS) {
                 console.error('[Redis] Max retry attempts reached. Connection failed.');
-                return null; 
+                return null;
             }
             return Math.min(times * 50, 2000);
         },

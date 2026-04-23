@@ -88,17 +88,18 @@ const Conversations = () => {
         refetch();
     }, [refetch]);
 
-    // Socket: receive message → increment unread + refetch conversations
+    // Socket listeners: receive, edit, delete → update UI
     useEffect(() => {
         const handleReceiveMessage = (message) => {
             const { conversationId } = message;
 
             // Optimistically update query cache for instant feedback
-            queryClient.setQueryData(convoKeys.list(user?._id), (old) => {
+            queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
                 if (!Array.isArray(old)) return old;
-                return old.map(c => c._id === conversationId ? {
+                return old.map(c => toId(c._id) === toId(conversationId) ? {
                     ...c,
                     lastMessage: { 
+                        id: message._id,
                         message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'), 
                         isRead: false 
                     },
@@ -114,9 +115,37 @@ const Conversations = () => {
 
             handleRefetch();
         };
+
+        const handleMessageEdited = ({ messageId, content, conversationId }) => {
+            queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
+                if (!Array.isArray(old)) return old;
+                return old.map(c => (toId(c._id) === toId(conversationId) && (toId(c.lastMessage?.id) === toId(messageId) || toId(c.lastMessage?._id) === toId(messageId))) ? {
+                    ...c,
+                    lastMessage: { ...c.lastMessage, message: content || '📎 Media' }
+                } : c);
+            });
+            handleRefetch();
+        };
+
+        const handleMessageDeleted = ({ messageId, conversationId }) => {
+            queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
+                if (!Array.isArray(old)) return old;
+                return old.map(c => (toId(c._id) === toId(conversationId) && (toId(c.lastMessage?.id) === toId(messageId) || toId(c.lastMessage?._id) === toId(messageId))) ? {
+                    ...c,
+                    lastMessage: { ...c.lastMessage, message: '🚫 Message deleted' }
+                } : c);
+            });
+            handleRefetch();
+        };
+
         socket.on('receiveMessage', handleReceiveMessage);
+        socket.on('messageEdited', handleMessageEdited);
+        socket.on('messageDeleted', handleMessageDeleted);
+
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
+            socket.off('messageEdited', handleMessageEdited);
+            socket.off('messageDeleted', handleMessageDeleted);
         };
     }, [handleRefetch, incrementUnread, queryClient, user?._id]);
 

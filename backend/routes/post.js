@@ -251,12 +251,15 @@ router.post("/collaborate/decline", verifyToken, async (req, res) => {
 });
 
 // ─── COLLABORATION INVITES ────────────────────────────────────────────────────
-router.get("/collaborate/invites/:userId", async (req, res) => {
+router.get("/collaborate/invites/:userId", verifyToken, async (req, res) => {
     try {
+        const { userId } = req.params;
+        if (String(userId) !== String(req.userId)) return res.status(403).json({ error: 'Unauthorized' });
+
         const posts = await Post.find({
             collaborators: {
                 $elemMatch: {
-                    userId: req.params.userId,
+                    userId: userId,
                     status: 'pending'
                 }
             }
@@ -268,15 +271,20 @@ router.get("/collaborate/invites/:userId", async (req, res) => {
 });
 
 // ─── MY COLLABORATIONS ────────────────────────────────────────────────────────
-router.get("/collaborate/mine/:userId", async (req, res) => {
+router.get("/collaborate/mine/:userId", verifyToken, async (req, res) => {
     try {
+        const { userId } = req.params;
+        // Optimization: user can see their own collaborations or those they are part of
+        // We still allow viewing others if the post is public, but let's restrict to 'mine' as requested by the route name
+        if (String(userId) !== String(req.userId)) return res.status(403).json({ error: 'Unauthorized' });
+
         const posts = await Post.find({
             $or: [
-                { 'user._id': req.params.userId },
+                { 'user._id': userId },
                 {
                     collaborators: {
                         $elemMatch: {
-                            userId: req.params.userId,
+                            userId: userId,
                             status: 'accepted'
                         }
                     }
@@ -501,9 +509,12 @@ router.post("/save", verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/saved/:userId", async (req, res) => {
+router.get("/saved/:userId", verifyToken, async (req, res) => {
     try {
-        const user = await User.findById(req.params.userId).select('savedPosts');
+        const { userId } = req.params;
+        if (String(userId) !== String(req.userId)) return res.status(403).json({ error: 'Unauthorized' });
+
+        const user = await User.findById(userId).select('savedPosts');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 });
         res.status(200).json(posts);
@@ -703,14 +714,14 @@ router.get("/categories", async (req, res) => {
 router.get('/comments', async (req, res) => {
     try {
         const { postId } = req.query;
-        if (!postId) return res.status(400).json({ error: 'postId required as query param' });
+        if (!postId || typeof postId !== 'string') return res.status(400).json({ error: 'postId required as query param' });
         const comments = await Comment.find({ postId, parentId: null }).sort({ createdAt: 1 });
         const withReplies = await Promise.all(comments.map(async (comment) => {
             const replies = await Comment.find({ parentId: comment._id }).sort({ createdAt: 1 });
             return { ...comment.toObject(), repliesList: replies };
         }));
         res.status(200).json(withReplies);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // ─── ADD COMMENT (PROTECTED + FILTERED) ───────────────────────────────────────
