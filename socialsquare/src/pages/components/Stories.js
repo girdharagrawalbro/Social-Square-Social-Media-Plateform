@@ -1065,7 +1065,7 @@ const Stories = () => {
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />
                                     </div>
-                                    {group.user.isOnline && <div className="presence-dot" style={{ width: isMobile ? 12 : 16, height: isMobile ? 12 : 16, border: '3px solid var(--surface-1)' }} />}
+                                    {group.user.isOnline && <div className="presence-dot bottom-0 right-2" style={{ width: isMobile ? 12 : 16, height: isMobile ? 12 : 16, border: '2px solid var(--surface-1)' }} />}
                                 </div>
                                 <span
                                     onClick={(e) => handleProfileClick(e, group.user._id)}
