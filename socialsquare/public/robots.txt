@@ -1,3 +1,6 @@
-# https://www.robotstxt.org/robotstxt.html
+# Social Square Robots Configuration
 User-agent: *
-Disallow:
+Allow: /
+
+# Sitemap Location
+Sitemap: https://socialsquare.vercel.app/sitemap.xml

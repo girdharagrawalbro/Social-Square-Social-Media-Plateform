@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import MainSkeleton from './components/MainSkeleton';
 import OtherUsers from './components/OtherUsers';
 import Feed from './components/Feed';
@@ -118,31 +119,37 @@ const Home = () => {
     };
 
     return (
-        <section className={`w-full min-h-full ${bg} transition-colors duration-200 pb-20`}>
-            {isDesktop ? (
-                <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3">
-                    <div className="flex-1 px-0 sm:px-3">
-                        <div className="max-w-screen-md mx-auto w-full">
-                            <Stories />
-                            <div className="max-w-md mx-auto">
-                                <MoodFeedToggle
-                                    activeMood={activeMood}
-                                    onMoodSelect={setActiveMood}
-                                    onClear={() => setActiveMood(null)}
-                                />
-                                <Feed activeMood={activeMood} />
+        <>
+            <Helmet>
+                <title>Feed | Social Square</title>
+                <meta name="description" content="Stay updated with your personalized feed on Social Square. Discover trending posts, connect with friends, and explore AI-generated content." />
+            </Helmet>
+            <section className={`w-full min-h-full ${bg} transition-colors duration-200 pb-20`}>
+                {isDesktop ? (
+                    <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3">
+                        <div className="flex-1 px-0 sm:px-3">
+                            <div className="max-w-screen-md mx-auto w-full">
+                                <Stories />
+                                <div className="max-w-md mx-auto">
+                                    <MoodFeedToggle
+                                        activeMood={activeMood}
+                                        onMoodSelect={setActiveMood}
+                                        onClear={() => setActiveMood(null)}
+                                    />
+                                    <Feed activeMood={activeMood} />
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            ) : (
-                <div className="flex flex-col pb-24">
-                    <div className={`flex-1 p-2 ${activeView === 'messages' ? 'h-[calc(100dvh-120px)] flex flex-col overflow-hidden' : ''}`}>
-                        {renderMobileView()}
+                ) : (
+                    <div className="flex flex-col pb-24">
+                        <div className={`flex-1 p-2 ${activeView === 'messages' ? 'h-[calc(100dvh-120px)] flex flex-col overflow-hidden' : ''}`}>
+                            {renderMobileView()}
+                        </div>
                     </div>
-                </div>
-            )}
-        </section >
+                )}
+            </section >
+        </>
     );
 };
 
