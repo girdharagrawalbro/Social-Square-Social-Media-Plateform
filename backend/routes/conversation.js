@@ -146,13 +146,12 @@ router.post('/messages', verifyToken, async (req, res) => {
         const senderId = req.userId;
         if (!recipientId) return res.status(400).json({ error: 'Recipient ID required' });
 
-        const participantIds = [senderId, recipientId];
-        const cacheKey = `msgs:${participantIds.sort().join(':')}:${before || 'latest'}:${limit}`;
+        const conversation = await Conversation.findOne({ 'participants.userId': { $all: [senderId, recipientId] } }).lean();
+        if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
+
+        const cacheKey = `msgs:${conversation._id}:${before || 'latest'}:${limit}`;
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
-
-        const conversation = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
-        if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
 
         const query = { conversationId: conversation._id, deletedAt: null };
         if (before) query.createdAt = { $lt: new Date(before) };
@@ -191,7 +190,7 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
         const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost } = req.body;
         const sender = req.userId;
         const conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': sender });
-        if (!conv) return res.status(403).json({ error: 'Unauthorized to send message to this conversation' });
+        if (!conv) return res.status(403).json({ error: 'Unauthorized to send message' });
 
         const message = await Message.create({
             conversationId, sender, content: content || '',
@@ -200,10 +199,10 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
             sharedPost: sharedPost || undefined,
         });
 
-        await Conversation.findByIdAndUpdate(conversationId, {
+        const updatedConv = await Conversation.findByIdAndUpdate(conversationId, {
             lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
             lastMessageAt: new Date(), lastMessageBy: sender,
-        });
+        }, { new: true }).lean();
 
         const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
         const notification = await Notification.create({
@@ -212,10 +211,14 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
             message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
         });
 
-        await delCache(`convs:${sender}`, `convs:${recipientId}`, `msgs:${[sender, recipientId].sort().join(':')}`);
+        // Robust cache clearing
+        const participants = updatedConv.participants.map(p => p.userId.toString());
+        await delCache(...participants.map(p => `convs:${p}`), `msgs:${conversationId}*`);
 
         if (_io) {
-            _io.to(recipientId).to(sender).emit('receiveMessage', { ...message.toObject(), senderId: sender, senderName: senderName || senderUser?.fullname });
+            const msgObj = { ...message.toObject(), senderId: sender, senderName: senderName || senderUser?.fullname };
+            _io.to(recipientId).to(sender).emit('receiveMessage', msgObj);
+            _io.to(recipientId).to(sender).emit('conversationUpdated', updatedConv);
             _io.to(recipientId).emit('newNotification', notification);
         }
         res.status(201).json(message);
@@ -233,27 +236,23 @@ router.patch('/messages/:messageId', verifyToken, async (req, res) => {
         message.content = content; message.edited = true; message.editedAt = new Date();
         await message.save();
 
-        // Update last message in conversation if this was the latest one
+        let updatedConv = null;
         const conv = await Conversation.findById(message.conversationId);
         if (conv && conv.lastMessage && conv.lastMessage.id?.toString() === message._id.toString()) {
-            await Conversation.findByIdAndUpdate(message.conversationId, {
+            updatedConv = await Conversation.findByIdAndUpdate(message.conversationId, {
                 'lastMessage.message': content || '📎 Media'
-            });
+            }, { new: true }).lean();
         }
 
-        // Clear Cache to ensure persistence on refresh
+        // Robust cache clearing
         const participants = conv.participants.map(p => p.userId.toString());
-        await delCache(
-            ...participants.map(p => `convs:${p}`),
-            `msgs:${participants.sort().join(':')}`
-        );
+        await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
 
         if (_io) {
-            conv?.participants?.forEach(p => _io.to(p.userId.toString()).emit('messageEdited', {
-                messageId: message._id,
-                content,
-                conversationId: message.conversationId
-            }));
+            participants.forEach(p => {
+                _io.to(p).emit('messageEdited', { messageId: message._id, content, conversationId: message.conversationId });
+                if (updatedConv) _io.to(p).emit('conversationUpdated', updatedConv);
+            });
         }
         res.json(message);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -269,26 +268,23 @@ router.delete('/messages/:messageId', verifyToken, async (req, res) => {
         message.deletedAt = new Date(); message.content = '';
         await message.save();
 
-        // Update last message in conversation if this was the latest one
+        let updatedConv = null;
         const conv = await Conversation.findById(message.conversationId);
         if (conv && conv.lastMessage && conv.lastMessage.id?.toString() === message._id.toString()) {
-            await Conversation.findByIdAndUpdate(message.conversationId, {
+            updatedConv = await Conversation.findByIdAndUpdate(message.conversationId, {
                 'lastMessage.message': '🚫 Message deleted'
-            });
+            }, { new: true }).lean();
         }
 
-        // Clear Cache to ensure persistence on refresh
+        // Robust cache clearing
         const participants = conv.participants.map(p => p.userId.toString());
-        await delCache(
-            ...participants.map(p => `convs:${p}`),
-            `msgs:${participants.sort().join(':')}`
-        );
+        await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
 
         if (_io) {
-            conv?.participants?.forEach(p => _io.to(p.userId.toString()).emit('messageDeleted', {
-                messageId: message._id,
-                conversationId: message.conversationId
-            }));
+            participants.forEach(p => {
+                _io.to(p).emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId });
+                if (updatedConv) _io.to(p).emit('conversationUpdated', updatedConv);
+            });
         }
         res.json({ message: 'Deleted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -297,10 +293,18 @@ router.delete('/messages/:messageId', verifyToken, async (req, res) => {
 // ─── MARK MESSAGES READ (PROTECTED) ───────────────────────────────────────────
 router.post('/messages/mark-read', verifyToken, async (req, res) => {
     try {
-        const { unreadMessageIds, lastMessage } = req.body;
+        let { unreadMessageIds, lastMessage } = req.body;
         const userId = req.userId;
-        await Message.updateMany({ _id: { $in: unreadMessageIds } }, { $set: { isRead: true } });
-        if (lastMessage) {
+
+        // Sanitize: ensure unreadMessageIds is an array of valid ObjectIds
+        if (!Array.isArray(unreadMessageIds)) unreadMessageIds = [];
+        const validMessageIds = unreadMessageIds.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
+
+        if (validMessageIds.length > 0) {
+            await Message.updateMany({ _id: { $in: validMessageIds } }, { $set: { isRead: true } });
+        }
+
+        if (lastMessage && mongoose.Types.ObjectId.isValid(lastMessage)) {
             const msg = await Message.findById(lastMessage).lean();
             if (msg) {
                 await Conversation.findByIdAndUpdate(msg.conversationId, { 'lastMessage.isRead': true });
@@ -308,7 +312,10 @@ router.post('/messages/mark-read', verifyToken, async (req, res) => {
             }
         }
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('[Conversation] Mark read error:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // ─── NOTIFICATIONS (PROTECTED) ────────────────────────────────────────────────

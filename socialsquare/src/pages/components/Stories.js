@@ -854,6 +854,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                 <ImageCropper
                     image={croppingState.imageSrc}
                     visible={croppingState.visible}
+                    initialAspect={9 / 16}
                     onCropComplete={handleCropComplete}
                     onCancel={() => setCroppingState({ visible: false, imageSrc: null, pendingFiles: [] })}
                 />

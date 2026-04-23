@@ -357,16 +357,26 @@ router.get("/", async (req, res) => {
             const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
             userCategories = [...new Set(likedPosts.map(p => p.category))];
         }
+        // 🔒 Privacy Guard: Exclude private users unless followed
+        let privateUserIdsExcluded = [];
+        const privateUsers = await User.find({
+            isPrivate: true,
+            _id: { $nin: [...followingIds, userId].filter(Boolean) }
+        }).select('_id').lean();
+        privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
+
+        excludedUserIds = [...new Set([...excludedUserIds, ...privateUserIdsExcluded])];
+
         // Exclude anonymous posts from normal feed — they appear in confessions feed only
         // Also exclude time-locked posts that haven't unlocked yet
-        // ALSO: Exclude blocked/muted users
+        // ALSO: Exclude blocked/muted/private users
         const query = {
             isAnonymous: { $ne: true },
             'user._id': { $nin: excludedUserIds },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
-        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 3);
+        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 3).lean();
 
         // Split into posts from followed users and others (suggestions)
         const followingPosts = [];
@@ -715,13 +725,33 @@ router.get('/comments', async (req, res) => {
     try {
         const { postId } = req.query;
         if (!postId || typeof postId !== 'string') return res.status(400).json({ error: 'postId required as query param' });
-        const comments = await Comment.find({ postId, parentId: null }).sort({ createdAt: 1 });
-        const withReplies = await Promise.all(comments.map(async (comment) => {
-            const replies = await Comment.find({ parentId: comment._id }).sort({ createdAt: 1 });
-            return { ...comment.toObject(), repliesList: replies };
+
+        // 1. Fetch all parent comments
+        const comments = await Comment.find({ postId, parentId: null }).sort({ createdAt: 1 }).lean();
+        if (!comments.length) return res.status(200).json([]);
+
+        // 2. Fetch all replies for these parents in one single query (Optimized)
+        const parentIds = comments.map(c => c._id);
+        const allReplies = await Comment.find({ parentId: { $in: parentIds } }).sort({ createdAt: 1 }).lean();
+
+        // 3. Map replies to their parents
+        const replyMap = {};
+        allReplies.forEach(reply => {
+            const pid = reply.parentId.toString();
+            if (!replyMap[pid]) replyMap[pid] = [];
+            replyMap[pid].push(reply);
+        });
+
+        const withReplies = comments.map(comment => ({
+            ...comment,
+            repliesList: replyMap[comment._id.toString()] || []
         }));
+
         res.status(200).json(withReplies);
-    } catch (e) { res.status(500).json({ error: 'Internal server error' }); }
+    } catch (e) {
+        console.error('[Post] Fetch comments error:', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // ─── ADD COMMENT (PROTECTED + FILTERED) ───────────────────────────────────────

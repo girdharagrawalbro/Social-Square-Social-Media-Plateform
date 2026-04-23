@@ -32,25 +32,25 @@ const ReportDialog = ({ visible, onHide, onSubmit, loading }) => {
     );
 
     return (
-        <Dialog 
-            header="Why are you reporting this post?" 
-            visible={visible} 
-            onHide={() => { onHide(); setSelectedReason(null); }} 
+        <Dialog
+            header="Why are you reporting this post?"
+            visible={visible}
+            onHide={() => { onHide(); setSelectedReason(null); }}
             footer={footer}
             style={{ width: '500px' }}
             draggable={false}
             resizable={false}
             className="rounded-xl overflow-hidden font-sans"
         >
-            <div className="flex flex-col gap-3 py-3">
+            <div className="flex flex-col gap-3 py-2 px-3">
                 {REASONS.map((reason) => (
                     <div key={reason.value} className="flex items-center gap-3 cursor-pointer p-3 bg-[var(--surface-2)] hover:bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] transition" onClick={() => setSelectedReason(reason.value)}>
-                        <RadioButton 
-                            inputId={reason.value} 
-                            name="reportReason" 
-                            value={reason.value} 
-                            onChange={(e) => setSelectedReason(e.value)} 
-                            checked={selectedReason === reason.value} 
+                        <RadioButton
+                            inputId={reason.value}
+                            name="reportReason"
+                            value={reason.value}
+                            onChange={(e) => setSelectedReason(e.value)}
+                            checked={selectedReason === reason.value}
                         />
                         <label htmlFor={reason.value} className="text-sm cursor-pointer font-bold text-[var(--text-main)] flex-grow">{reason.label}</label>
                     </div>
