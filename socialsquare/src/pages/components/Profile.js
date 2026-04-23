@@ -241,6 +241,25 @@ const Profile = ({ userId }) => {
                             {displayUser?.bio && (
                                 <p className="text-sm text-[var(--text-sub)] m-0 max-w-[260px] leading-6">{displayUser.bio}</p>
                             )}
+                            {!viewingOwnProfile && displayUser?.mutualCount > 0 && (
+                                <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex -space-x-2">
+                                        {displayUser.mutualFollowers?.slice(0, 3).map((m, idx) => (
+                                            <img
+                                                key={m._id}
+                                                src={m.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                                alt={m.fullname}
+                                                className="w-5 h-5 rounded-full border-2 border-[var(--surface-1)] object-cover"
+                                                style={{ zIndex: 3 - idx }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <p className="text-[11px] text-[var(--text-sub)] m-0">
+                                        Followed by <strong>{displayUser.mutualFollowers?.[0]?.fullname || 'someone you know'}</strong>
+                                        {displayUser.mutualCount > 1 ? ` and ${displayUser.mutualCount - 1} other${displayUser.mutualCount > 2 ? 's' : ''}` : ''}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Level/Streak/XP */}
