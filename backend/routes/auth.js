@@ -193,7 +193,7 @@ router.post('/login', authRateLimiter, [
         });
 
         if (isNewDevice) {
-            sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
+            sendNewDeviceAlert(user.email, { device, ip, location, time: new Date().toLocaleString() })
                 .catch(err => console.warn('Alert email failed:', err.message));
         }
 
@@ -206,7 +206,7 @@ router.post('/login', authRateLimiter, [
                 profile_picture: 'https://img.icons8.com/fluency/96/security-shield.png'
             },
             type: 'system',
-            message: { content: `✅ New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location}` : ''}.` }
+            message: { content: `✅ New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
         const accessToken = generateAccessToken(user._id, family);
@@ -270,7 +270,7 @@ router.post('/verify-otp', [
         });
 
         if (isNewDevice) {
-            sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
+            sendNewDeviceAlert(user.email, { device, ip, location, time: new Date().toLocaleString() })
                 .catch(() => { });
         }
 
@@ -426,7 +426,7 @@ router.post('/google', async (req, res) => {
         });
 
         if (isNewDevice) {
-            sendNewDeviceAlert({ email: user.email, fullname: user.fullname, device, ip, location, time: new Date().toLocaleString() })
+            sendNewDeviceAlert(user.email, { device, ip, location, time: new Date().toLocaleString() })
                 .catch(() => { });
         }
 
