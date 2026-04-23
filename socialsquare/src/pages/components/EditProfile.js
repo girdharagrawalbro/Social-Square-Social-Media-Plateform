@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
 import toast from 'react-hot-toast';
+import ImageCropper from './ui/ImageCropper';
 
 const MOODS = [
     { key: null, label: 'None (Default Feed)' },
@@ -23,6 +24,8 @@ const EditProfile = ({ users, closeSidebar }) => {
     const [preview, setPreview] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [cropperVisible, setCropperVisible] = useState(false);
+    const [imageToCrop, setImageToCrop] = useState(null);
 
     useEffect(() => {
         if (users) {
@@ -45,33 +48,45 @@ const EditProfile = ({ users, closeSidebar }) => {
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : finalValue }));
     };
 
-    const handleFileSelect = async (e) => {
+    const handleFileSelect = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const error = validateImageFile(file);
         if (error) { toast.error(error); return; }
 
+        const reader = new FileReader();
+        reader.onload = () => {
+            setImageToCrop(reader.result);
+            setCropperVisible(true);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; // clear input
+    };
+
+    const handleCropComplete = async (croppedFile) => {
+        setCropperVisible(false);
+        setImageToCrop(null);
+
         // Show preview immediately
-        const previewUrl = URL.createObjectURL(file);
+        const previewUrl = URL.createObjectURL(croppedFile);
         setPreview(previewUrl);
         setUploading(true);
         setUploadProgress(0);
 
         try {
-            const result = await uploadToCloudinary(file, (progress) => {
+            const result = await uploadToCloudinary(croppedFile, (progress) => {
                 setUploadProgress(progress);
             });
             const url = typeof result === 'string' ? result : result?.url;
             setFormData(prev => ({ ...prev, profile_picture: url }));
-            toast.success('Photo uploaded!');
+            toast.success('Photo updated!');
         } catch {
             toast.error('Failed to upload image. Please try again.');
             setPreview(users?.profile_picture || null);
         } finally {
             setUploading(false);
             URL.revokeObjectURL(previewUrl);
-            e.target.value = '';
         }
     };
 
@@ -195,6 +210,19 @@ const EditProfile = ({ users, closeSidebar }) => {
             >
                 {uploading ? 'Uploading...' : 'Save Changes'}
             </button>
+
+            {/* Image Cropper Modal */}
+            {cropperVisible && (
+                <ImageCropper
+                    image={imageToCrop}
+                    visible={cropperVisible}
+                    onCropComplete={handleCropComplete}
+                    onCancel={() => {
+                        setCropperVisible(false);
+                        setImageToCrop(null);
+                    }}
+                />
+            )}
         </form>
     );
 };

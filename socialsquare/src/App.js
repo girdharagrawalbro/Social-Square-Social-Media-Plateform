@@ -9,7 +9,7 @@ import { ConfirmDialog } from 'primereact/confirmdialog';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // ✅ All imports from src/ root — no '../' needed
-import useAuthStore from './store/zustand/useAuthStore';
+import useAuthStore, { api } from './store/zustand/useAuthStore';
 import useConversationStore from './store/zustand/useConversationStore';
 import usePostStore from './store/zustand/usePostStore';
 import { socket } from './socket';
@@ -82,7 +82,6 @@ function AppInit() {
 
     // ✅ Initial Notifications & Messages Fetch
     const { setNotifications } = useConversationStore();
-    const { api } = useAuthStore();
     
     useEffect(() => {
         if (!user?._id) return;
