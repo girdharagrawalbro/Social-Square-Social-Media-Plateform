@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { Dialog } from 'primereact/dialog';
-import { Button } from 'primereact/button';
+import { Slider } from 'primereact/slider';
 
 /**
  * Utility to create an image element from a URL
@@ -11,7 +11,9 @@ const createImage = (url) =>
     const image = new Image();
     image.addEventListener('load', () => resolve(image));
     image.addEventListener('error', (error) => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous'); // needed to avoid cross-origin issues on CodeSandbox
+    if (!url.startsWith('data:')) {
+      image.setAttribute('crossOrigin', 'anonymous');
+    }
     image.src = url;
   });
 
@@ -54,13 +56,34 @@ async function getCroppedImg(imageSrc, pixelCrop) {
   });
 }
 
-const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
+const ImageCropper = ({ 
+  image, 
+  video, 
+  onCropComplete, 
+  onCancel, 
+  visible, 
+  initialAspect = 1,
+  duration = 60,
+  isNextImage = false
+}) => {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [aspect, setAspect] = useState(1); // 1 for Square
+  const [aspect, setAspect] = useState(initialAspect);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isCropperLoaded, setIsCropperLoaded] = useState(false);
+  const [imageAspect, setImageAspect] = useState(initialAspect);
+  const [trimRange, setTrimRange] = useState([0, Math.min(duration, 60)]);
+
+  useEffect(() => {
+    if (visible) {
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setAspect(initialAspect);
+      setIsCropperLoaded(false);
+      setTrimRange([0, Math.min(duration, 60)]);
+    }
+  }, [visible, image, video, initialAspect, duration]);
 
   const onCropChange = (crop) => setCrop(crop);
   const onZoomChange = (zoom) => setZoom(zoom);
@@ -68,11 +91,21 @@ const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
+  const onMediaLoaded = (mediaSize) => {
+    const aspect = mediaSize.width / mediaSize.height;
+    setImageAspect(aspect);
+    setIsCropperLoaded(true);
+  };
+
   const handleApplyCrop = async () => {
     setLoading(true);
     try {
-      const croppedFile = await getCroppedImg(image, croppedAreaPixels);
-      onCropComplete(croppedFile);
+      if (video) {
+        onCropComplete({ video, crop, zoom, trimRange, croppedAreaPixels });
+      } else {
+        const croppedFile = await getCroppedImg(image, croppedAreaPixels);
+        onCropComplete({ croppedFile, crop, zoom, croppedAreaPixels });
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -81,87 +114,140 @@ const ImageCropper = ({ image, onCropComplete, onCancel, visible }) => {
   };
 
   const aspectPresets = [
-    { label: 'Square (1:1)', value: 1 },
-    { label: 'Portrait (4:5)', value: 4 / 5 },
-    { label: 'Landscape (16:9)', value: 16 / 9 },
+    { label: 'Square', value: 1 },
+    { label: 'Portrait', value: 9 / 16 },
+    { label: 'Landscape', value: 16 / 9 },
   ];
 
   return (
     <Dialog
-      header="Crop Image"
       visible={visible}
       onHide={onCancel}
-      style={{ width: '90vw', maxWidth: '600px' }}
+      showHeader={false}
+      dismissableMask={true}
       modal
-      baseZIndex={20000}
+      baseZIndex={300000}
       appendTo={document.body}
-      footer={
-        <div className="flex flex-col sm:flex-row justify-between items-center w-full gap-2 p-2">
-          <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto items-center">
-            {aspectPresets.map((preset) => (
-              <Button
-                key={preset.label}
-                label={preset.label.split(' ')[0]}
-                onClick={() => setAspect(preset.value)}
-                className={`p-button-text p-button-sm whitespace-nowrap ${aspect === preset.value ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-gray-500'}`}
-                style={{ fontSize: '11px', padding: '6px 10px' }}
-              />
-            ))}
-            <div className="h-4 w-px bg-gray-200 mx-1 hidden sm:block"></div>
-            <Button 
-                label="No Crop" 
-                onClick={async () => {
-                   const response = await fetch(image);
-                   const blob = await response.blob();
-                   const file = new File([blob], 'original-image.jpg', { type: blob.type });
-                   onCropComplete(file);
-                }} 
-                className="p-button-text p-button-sm text-indigo-600 font-bold whitespace-nowrap" 
-                style={{ fontSize: '11px', padding: '6px 10px' }}
-            />
-          </div>
-          <div className="flex gap-3 w-full sm:w-auto">
-            <Button label="Cancel" onClick={onCancel} className="p-button-text text-gray-500 flex-1 sm:flex-none font-bold" />
-            <Button label="Apply Crop" onClick={handleApplyCrop} loading={loading} className="bg-indigo-600 text-white border-0 flex-1 sm:flex-none font-bold px-6 py-2 rounded-xl shadow-lg shadow-indigo-100" />
+      style={{ width: '95vw', maxWidth: '600px', border: 'none', zIndex: 300000 }}
+      contentStyle={{ padding: 0, overflow: 'hidden', borderRadius: '16px', background: '#121212' }}
+    >
+      <div className="w-full flex flex-col bg-[#121212]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <button onClick={onCancel} className="text-white/70 hover:text-white transition">
+            <i className="pi pi-arrow-left text-lg"></i>
+          </button>
+          <h2 className="text-sm font-bold text-white m-0">{video ? 'Trim & Crop' : 'Crop'}</h2>
+          <button
+            onClick={handleApplyCrop}
+            disabled={loading || !isCropperLoaded}
+            className="text-[#808bf5] text-sm font-bold hover:text-[#a1a9f8] transition disabled:opacity-50"
+          >
+            {loading ? <i className="pi pi-spinner pi-spin mr-1"></i> : (isNextImage ? 'Next Image' : 'Next')}
+          </button>
+        </div>
+
+        {/* Cropper Container */}
+        <div className="relative w-full h-[300px] sm:h-[400px] bg-black overflow-hidden">
+          <Cropper
+            image={image}
+            video={video}
+            crop={crop}
+            zoom={zoom}
+            aspect={aspect}
+            onCropChange={onCropChange}
+            onCropComplete={onCropCompleteInternal}
+            onZoomChange={onZoomChange}
+            onMediaLoaded={onMediaLoaded}
+            showGrid={true}
+            classes={{
+              containerClassName: 'bg-black',
+              cropAreaClassName: 'border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
+            }}
+          />
+          {!isCropperLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+              <i className="pi pi-spin pi-spinner text-3xl text-[#808bf5]"></i>
+            </div>
+          )}
+        </div>
+
+        {/* Controls */}
+        <div className="p-4 bg-[#121212]">
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {aspectPresets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => setAspect(preset.value)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === preset.value ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-white/5 text-white/50 border-white/5 hover:border-white/20'}`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setAspect(imageAspect)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === imageAspect ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-white/5 text-white/50 border-white/5 hover:border-white/20'}`}
+                >
+                  Original
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <i className="pi pi-minus text-[8px] text-white/30"></i>
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  onChange={(e) => setZoom(parseFloat(e.target.value))}
+                  className="w-24 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#808bf5]"
+                />
+                <i className="pi pi-plus text-[8px] text-white/30"></i>
+              </div>
+            </div>
+
+            {video && (
+              <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-[#808bf5] uppercase tracking-wider">Video Trim (Max 60s)</span>
+                  <span className="text-[10px] text-white/50 font-mono bg-white/5 px-2 py-0.5 rounded">
+                    {Math.floor(trimRange[0])}s - {Math.floor(trimRange[1])}s ({Math.floor(trimRange[1] - trimRange[0])}s)
+                  </span>
+                </div>
+                <div className="px-2">
+                  <Slider
+                    value={trimRange}
+                    onChange={(e) => {
+                      const newRange = e.value;
+                      const start = newRange[0];
+                      const end = newRange[1];
+                      if (end - start > 60) {
+                        if (start !== trimRange[0]) {
+                          setTrimRange([start, Math.min(duration, start + 60)]);
+                        } else {
+                          setTrimRange([Math.max(0, end - 60), end]);
+                        }
+                      } else {
+                        setTrimRange(newRange);
+                      }
+                    }}
+                    range
+                    min={0}
+                    max={duration || 60}
+                    step={0.1}
+                    className="w-full"
+                  />
+                </div>
+                <p className="text-[9px] text-white/30 italic text-center m-0">
+                  Tip: The selected segment will be shared. Max 60 seconds allowed.
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      }
-    >
-      <div className="relative w-full h-80 bg-gray-900 rounded-lg overflow-hidden">
-        <Cropper
-          key={image}
-          image={image}
-          crop={crop}
-          zoom={zoom}
-          aspect={aspect}
-          onCropChange={onCropChange}
-          onCropComplete={onCropCompleteInternal}
-          onZoomChange={onZoomChange}
-          showGrid={true}
-          onMediaLoaded={() => setIsCropperLoaded(true)}
-          classes={{
-            containerClassName: 'bg-gray-900',
-            cropAreaClassName: 'border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
-          }}
-        />
-        {!isCropperLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
-            <i className="pi pi-spin pi-spinner text-3xl text-indigo-600"></i>
-          </div>
-        )}
-      </div>
-      <div className="mt-4 px-2">
-        <label className="text-xs text-gray-400 block mb-2 font-semibold uppercase tracking-wider">Zoom Level</label>
-        <input
-          type="range"
-          value={zoom}
-          min={1}
-          max={3}
-          step={0.1}
-          aria-labelledby="Zoom"
-          onChange={(e) => setZoom(e.target.value)}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-        />
       </div>
     </Dialog>
   );

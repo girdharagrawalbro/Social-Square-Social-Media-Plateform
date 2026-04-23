@@ -138,14 +138,27 @@ const Conversations = () => {
             handleRefetch();
         };
 
+        const handleConversationUpdated = (updatedConv) => {
+            queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
+                if (!Array.isArray(old)) return [updatedConv];
+                const exists = old.find(c => toId(c._id) === toId(updatedConv._id));
+                if (exists) {
+                    return old.map(c => toId(c._id) === toId(updatedConv._id) ? updatedConv : c);
+                }
+                return [updatedConv, ...old];
+            });
+        };
+
         socket.on('receiveMessage', handleReceiveMessage);
         socket.on('messageEdited', handleMessageEdited);
         socket.on('messageDeleted', handleMessageDeleted);
+        socket.on('conversationUpdated', handleConversationUpdated);
 
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
             socket.off('messageEdited', handleMessageEdited);
             socket.off('messageDeleted', handleMessageDeleted);
+            socket.off('conversationUpdated', handleConversationUpdated);
         };
     }, [handleRefetch, incrementUnread, queryClient, user?._id]);
 

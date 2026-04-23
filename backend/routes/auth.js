@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
@@ -77,16 +78,22 @@ function generateOtp() {
 async function generateUniqueUsername(fullname) {
     let base = fullname.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15);
     if (!base) base = 'user';
-    let username = base;
-    let exists = await User.findOne({ username });
-    let counter = 1;
 
-    while (exists) {
-        username = `${base}${counter}`;
-        exists = await User.findOne({ username });
+    // Find all usernames that start with the base
+    const existingUsers = await User.find({ 
+        username: new RegExp(`^${base}[0-9]*$`, 'i') 
+    }).select('username').lean();
+
+    if (existingUsers.length === 0) return base;
+
+    const usernames = new Set(existingUsers.map(u => u.username.toLowerCase()));
+    if (!usernames.has(base)) return base;
+
+    let counter = 1;
+    while (usernames.has(`${base}${counter}`)) {
         counter++;
     }
-    return username;
+    return `${base}${counter}`;
 }
 
 // verifyToken middleware imported from ../middleware/Verifytoken
@@ -296,12 +303,9 @@ router.post('/verify-otp', [
 
 // ─── TOGGLE 2FA ───────────────────────────────────────────────────────────────
 
-router.post('/toggle-2fa', async (req, res) => {
+router.post('/toggle-2fa', verifyToken, async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
-        const user = await User.findById(decoded.userId);
+        const user = await User.findById(req.userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         user.twoFactorEnabled = !user.twoFactorEnabled;
@@ -514,27 +518,10 @@ router.post('/logout', async (req, res) => {
 
 // ─── GET SESSIONS ─────────────────────────────────────────────────────────────
 
-router.get('/sessions', async (req, res) => {
+router.get('/sessions', verifyToken, async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-
-        if (!JWT_SECRET) {
-            logger.error('[TOKEN_VERIFY] JWT_SECRET is not set');
-            return res.status(500).json({ message: 'Server configuration error' });
-        }
-
-        const token = authHeader.split(' ')[1];
-        let decoded;
-        try {
-            decoded = jwt.verify(token, JWT_SECRET);
-        } catch (err) {
-            logger.error('[SESSIONS] JWT verification failed:', { error: err.message, name: err.name });
-            return res.status(403).json({ message: 'Invalid or expired token' });
-        }
-
         const sessions = await LoginSession.find({
-            userId: decoded.userId, isRevoked: false, expiresAt: { $gt: new Date() },
+            userId: req.userId, isRevoked: false, expiresAt: { $gt: new Date() },
         }).select('-refreshToken -fingerprint').sort({ lastUsedAt: -1 });
         return res.status(200).json(sessions);
     } catch (error) {
@@ -700,26 +687,9 @@ router.post('/resend-verification', verifyToken, async (req, res) => {
 
 // ─── GET LOGGED USER + OTHER ROUTES ──────────────────────────────────────────
 
-router.get('/get', async (req, res) => {
+router.get('/get', verifyToken, async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized.' });
-
-        if (!JWT_SECRET) {
-            logger.error('[TOKEN_VERIFY] JWT_SECRET is not set');
-            return res.status(500).json({ message: 'Server configuration error' });
-        }
-
-        const token = authHeader.split(' ')[1];
-        let decoded;
-        try {
-            decoded = jwt.verify(token, JWT_SECRET);
-        } catch (err) {
-            logger.error('[GET_USER] JWT verification failed:', { error: err.message, name: err.name });
-            return res.status(403).json({ message: 'Invalid or expired token.' });
-        }
-
-        const user = await User.findById(decoded.userId).select('-password -resetPasswordToken -resetPasswordExpires -twoFactorOtp');
+        const user = await User.findById(req.userId).select('-password -resetPasswordToken -resetPasswordExpires -twoFactorOtp');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         return res.status(200).json(user);
     } catch (error) {
@@ -744,11 +714,17 @@ router.get("/other-users", verifyToken, async (req, res) => {
 
 router.post('/users/details', verifyToken, async (req, res) => {
     try {
-        const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+        let ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+        // Sanitize: filter out any non-string or invalid ObjectIds
+        ids = ids.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
+        
         if (!ids.length) return res.status(200).json({ users: [] });
         const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture');
         res.status(200).json({ users });
-    } catch { res.status(500).json({ error: 'Failed to fetch user details' }); }
+    } catch (e) { 
+        logger.error('[USERS_DETAILS] Error:', e.message);
+        res.status(500).json({ error: 'Failed to fetch user details' }); 
+    }
 });
 
 router.put('/update-profile', verifyToken, async (req, res) => {
@@ -925,6 +901,14 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             User.findByIdAndUpdate(targetUserId, { $inc: { profileViews: 1 } }).catch(e => console.error('[Analytics] View increment failed:', e));
         }
 
+        // Get followers and following for calculation
+        const targetFollowerIds = (targetUser.followers || []).map(id => id.toString());
+        const loggedFollowingIds = (loggedUser?.following || []).map(id => id.toString());
+
+        // Mutual followers: people I follow who also follow the target
+        const mutualIds = loggedFollowingIds.filter(id => targetFollowerIds.includes(id));
+        const mutualDetails = await User.find({ _id: { $in: mutualIds.slice(0, 3) } }).select('fullname username profile_picture').lean();
+
         // 🔒 Privacy Guard: If account is private and not followed by logged user
         const isOwner = loggedUserId.toString() === targetUserId.toString();
         const isFollower = targetFollowerIds.includes(loggedUserId.toString());
@@ -951,7 +935,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             mutualCount: mutualIds.length
         });
     } catch (error) {
-        logger.error('[OTHER_USER_VIEW] Error:', error);
+        console.error('[OTHER_USER_VIEW] Error:', error);
         return res.status(500).json({ message: "Internal server error" });
     }
 });

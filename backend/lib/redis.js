@@ -27,7 +27,16 @@ if (isDisabled) {
         set: async (key, value) => { inMemoryData[key] = value; },
         del: async (...keys) => {
             const flatKeys = Array.isArray(keys[0]) ? keys[0] : keys;
-            flatKeys.forEach(k => delete inMemoryData[k]);
+            flatKeys.forEach(k => {
+                if (k.endsWith('*')) {
+                    const prefix = k.slice(0, -1);
+                    Object.keys(inMemoryData).forEach(key => {
+                        if (key.startsWith(prefix)) delete inMemoryData[key];
+                    });
+                } else {
+                    delete inMemoryData[k];
+                }
+            });
         },
         on: () => { },
         quit: async () => { },

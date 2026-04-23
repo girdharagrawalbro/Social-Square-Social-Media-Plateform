@@ -3,76 +3,17 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
 import toast from "react-hot-toast";
-import Cropper from "react-easy-crop";
+import ImageCropper from './ui/ImageCropper';
 
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateVideoFile } from '../../utils/cloudinary';
 import { Dialog } from 'primereact/dialog';
-import { Slider } from 'primereact/slider';
 
 const STEPS = {
     SELECT: 'select',
-    PREVIEW: 'preview',
     FINALIZE: 'finalize'
 };
 
 const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😅', '🥳', '❤️', '🔥', '✨', '🎉', '👍', '🙌', '💯', '🌟', '😭', '🤣', '😊', '🥹', '💪', '🎵', '📍', '🌍', '🍕', '☕', '🌸', '🌈', '👀', '💬'];
-
-const ASPECT_PRESETS = [
-    { label: 'Square', value: 1, icon: 'pi-stop' },
-    { label: 'Portrait', value: 4 / 5, icon: 'pi-tablet' },
-    { label: 'Landscape', value: 16 / 9, icon: 'pi-desktop' }
-];
-
-const createImage = (url) =>
-    new Promise((resolve, reject) => {
-        const image = new Image();
-        image.addEventListener('load', () => resolve(image));
-        image.addEventListener('error', (error) => {
-            console.error('Image load error:', error);
-            reject(error);
-        });
-        if (!url.startsWith('data:')) {
-            image.setAttribute('crossOrigin', 'anonymous');
-        }
-        image.src = url;
-    });
-
-async function getCroppedImg(imageSrc, pixelCrop) {
-    const image = await createImage(imageSrc);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
-    ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
-    return new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                console.error('Canvas toBlob failed');
-                resolve(null);
-                return;
-            }
-            const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
-            resolve(file);
-        }, 'image/jpeg', 0.9);
-    });
-}
-
-
-const EmojiSelector = ({ onSelect }) => (
-    <div className="flex flex-wrap gap-1.5 py-2 px-1 overflow-x-auto custom-scrollbar no-scrollbar" style={{ maxHeight: '80px' }}>
-        {EMOJIS.map(e => (
-            <button
-                key={e}
-                type="button"
-                className="text-xl hover:scale-125 transition-transform p-1 grayscale-[0.5] hover:grayscale-0"
-                onClick={() => onSelect(e)}
-            >
-                {e}
-            </button>
-        ))}
-    </div>
-);
 
 const NewPost = ({ visible, onHide }) => {
     const loggeduser = useAuthStore(s => s.user);
@@ -89,7 +30,6 @@ const NewPost = ({ visible, onHide }) => {
     const [openFeaturePanel, setOpenFeaturePanel] = useState(null);
 
     // Location & music
-    // Location & music
     const [location, setLocation] = useState({ name: '', lat: null, lng: null });
     const [, setLoadingLocation] = useState(false);
     const [music] = useState({ title: '', artist: '' });
@@ -100,10 +40,6 @@ const NewPost = ({ visible, onHide }) => {
     const [unlocksAt, setUnlocksAt] = useState('');
     const [isCollaborative] = useState(false);
     const [collaborators, setCollaborators] = useState([]);
-
-    // Voice note
-    const [voiceBlob] = useState(null);
-    const [recordingDuration] = useState(0);
 
     // AI
     const [aiPrompt, setAiPrompt] = useState("");
@@ -119,28 +55,21 @@ const NewPost = ({ visible, onHide }) => {
     const [selectedGroupId] = useState(null);
 
     // ── Cropping State ──────────────────────────────────────────────────────
-    const [crop, setCrop] = useState({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState(1);
-    const [aspect, setAspect] = useState(1);
-    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
     const [croppingState, setCroppingState] = useState({
         active: false,
-        currentSource: null,
+        imageSrc: null,
+        videoSrc: null,
         pendingFiles: [],
-        allProcessed: [],
         isVideo: false,
-        originalFile: null
+        duration: 60
     });
-    const [isCropperLoaded, setIsCropperLoaded] = useState(false);
-    const [trimRange, setTrimRange] = useState([0, 60]);
 
     const resetState = () => {
         setStep(STEPS.SELECT);
         setFormData({ caption: "", category: "Default" });
         setImages([]);
         setVideo(null);
-        setCroppingState({ active: false, currentSource: null, pendingFiles: [], allProcessed: [], isVideo: false });
-        setTrimRange([0, 60]);
+        setCroppingState({ active: false, imageSrc: null, videoSrc: null, pendingFiles: [], isVideo: false });
         setLocation({ name: '', lat: null, lng: null });
         setCollaborators([]);
         setAiPrompt("");
@@ -244,20 +173,18 @@ const NewPost = ({ visible, onHide }) => {
                 vid.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
             });
             if (duration === 0) { toast.error('Unable to read video metadata'); e.target.value = ''; return; }
-            
-            const initialEnd = Math.min(duration, 60);
-            setTrimRange([0, initialEnd]);
 
-            if (duration > 60) {
-                toast.success('Video selected. Please trim it to max 60 seconds.', { icon: '✂️' });
-            }
-
-            // For video, we still set it as the main preview but in cropping mode
             setImages([]);
             const videoUrl = URL.createObjectURL(videoFile);
-            setCroppingState({ active: true, currentSource: videoUrl, pendingFiles: [], allProcessed: [], isVideo: true, originalFile: videoFile, duration });
-            setIsCropperLoaded(false);
-            setStep(STEPS.PREVIEW);
+            setCroppingState({ 
+                active: true, 
+                videoSrc: videoUrl, 
+                imageSrc: null, 
+                pendingFiles: [], 
+                isVideo: true, 
+                originalFile: videoFile, 
+                duration 
+            });
             e.target.value = '';
             return;
         }
@@ -271,82 +198,62 @@ const NewPost = ({ visible, onHide }) => {
             setImages([]);
             setCroppingState({
                 active: true,
-                currentSource: reader.result,
+                imageSrc: reader.result,
+                videoSrc: null,
                 pendingFiles: validFiles.slice(1),
-                allProcessed: [],
                 isVideo: false,
                 originalFile: first
             });
-            setIsCropperLoaded(false); // Reset loaded state for new media
-            setStep(STEPS.PREVIEW);
         };
         reader.readAsDataURL(first);
         e.target.value = '';
     };
 
-    const handleApplyCrop = async () => {
-        let processedFile = null;
-        let previewUrl = null;
+    const handleCropComplete = async (result) => {
+        let newMediaObj = null;
 
         if (croppingState.isVideo) {
-            processedFile = croppingState.originalFile;
-            previewUrl = croppingState.currentSource;
-        } else {
-            try {
-                processedFile = await getCroppedImg(croppingState.currentSource, croppedAreaPixels);
-                if (processedFile) {
-                    previewUrl = URL.createObjectURL(processedFile);
-                } else {
-                    // Fallback to original if crop fails
-                    previewUrl = croppingState.currentSource;
-                }
-            } catch (err) {
-                console.error('Crop failed:', err);
-                previewUrl = croppingState.currentSource;
-            }
-            if (!processedFile && croppingState.originalFile) {
-                processedFile = croppingState.originalFile;
-            }
-        }
-
-        const newImgObj = {
-            file: processedFile,
-            preview: previewUrl,
-            url: null, progress: 0, uploaded: false,
-            id: Math.random().toString(36).slice(2),
-            isVideo: croppingState.isVideo,
-            duration: croppingState.duration,
-            trimRange: croppingState.isVideo ? trimRange : null
-        };
-
-        const updatedProcessed = [...croppingState.allProcessed, newImgObj];
-
-        if (croppingState.pendingFiles.length > 0) {
-            const nextFile = croppingState.pendingFiles[0];
-            const reader = new FileReader();
-            reader.onload = () => {
-                setCroppingState(prev => ({
-                    ...prev,
-                    currentSource: reader.result,
-                    pendingFiles: prev.pendingFiles.slice(1),
-                    allProcessed: updatedProcessed,
-                    originalFile: nextFile
-                }));
-                setCrop({ x: 0, y: 0 });
-                setZoom(1);
+            newMediaObj = {
+                file: croppingState.originalFile,
+                preview: croppingState.videoSrc,
+                url: null, progress: 0, uploaded: false,
+                id: Math.random().toString(36).slice(2),
+                isVideo: true,
+                duration: result.trimRange ? (result.trimRange[1] - result.trimRange[0]) : croppingState.duration,
+                trimRange: result.trimRange
             };
-            reader.readAsDataURL(nextFile);
+            setVideo(newMediaObj);
+            setImages([]);
+            setCroppingState(prev => ({ ...prev, active: false }));
+            setStep(STEPS.FINALIZE);
         } else {
-            if (croppingState.isVideo) {
-                setVideo({ ...newImgObj, preview: croppingState.currentSource });
-                setImages([]);
+            newMediaObj = {
+                file: result.croppedFile,
+                preview: URL.createObjectURL(result.croppedFile),
+                url: null, progress: 0, uploaded: false,
+                id: Math.random().toString(36).slice(2),
+                isVideo: false
+            };
+
+            const updatedImages = [...images, newMediaObj];
+            setImages(updatedImages);
+
+            if (croppingState.pendingFiles.length > 0) {
+                const nextFile = croppingState.pendingFiles[0];
+                const reader = new FileReader();
+                reader.onload = () => {
+                    setCroppingState(prev => ({
+                        ...prev,
+                        imageSrc: reader.result,
+                        pendingFiles: prev.pendingFiles.slice(1),
+                        originalFile: nextFile
+                    }));
+                };
+                reader.readAsDataURL(nextFile);
             } else {
-                setImages(updatedProcessed);
-                setVideo(null);
+                setCroppingState(prev => ({ ...prev, active: false }));
+                setStep(STEPS.FINALIZE);
             }
-            setCroppingState(prev => ({ ...prev, active: false, allProcessed: updatedProcessed }));
-            // Give state a moment to settle before changing step to ensure URL stability
-            setTimeout(() => setStep(STEPS.FINALIZE), 50);
         }
     };
 
@@ -382,10 +289,10 @@ const NewPost = ({ visible, onHide }) => {
             const url = typeof result === 'string' ? result : result?.url;
             const thumbnailUrl = result?.thumbnailUrl || null;
             setVideo(v => v ? { ...v, uploaded: true, url, progress: 100 } : v);
-            return { 
-                url, 
-                thumbnailUrl, 
-                duration: video.trimRange ? (video.trimRange[1] - video.trimRange[0]) : video.duration 
+            return {
+                url,
+                thumbnailUrl,
+                duration: video.trimRange ? (video.trimRange[1] - video.trimRange[0]) : video.duration
             };
         } catch (err) { toast.error('Video upload failed'); return null; }
     };
@@ -450,15 +357,13 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     const renderHeader = () => {
-        let title = "Create new post";
-        if (step === STEPS.PREVIEW) title = "Crop";
-        if (step === STEPS.FINALIZE) title = "Create new post";
+        const title = "Create new post";
 
         return (
             <div className="flex items-center justify-between px-2 py-2 border-b border-[var(--border-color)]">
                 <div className="flex items-center gap-3">
                     {step !== STEPS.SELECT && (
-                        <button onClick={() => setStep(step === STEPS.PREVIEW ? STEPS.SELECT : STEPS.PREVIEW)} className="text-[var(--text-main)] text-xl p-1 hover:bg-[var(--surface-2)] rounded-full transition">
+                        <button onClick={() => setStep(STEPS.SELECT)} className="text-[var(--text-main)] text-xl p-1 hover:bg-[var(--surface-2)] rounded-full transition">
                             <i className="pi pi-arrow-left"></i>
                         </button>
                     )}
@@ -467,12 +372,12 @@ const NewPost = ({ visible, onHide }) => {
                 <h2 className="text-sm font-bold text-[var(--text-main)] m-0">{title}</h2>
 
                 <button
-                    onClick={() => step === STEPS.PREVIEW ? handleApplyCrop() : handleSubmit()}
+                    onClick={handleSubmit}
                     disabled={isPosting}
                     className="text-[#6366f1] text-sm font-bold hover:text-[#818cf8] transition disabled:opacity-50 flex items-center gap-2"
                 >
-                    {isPosting && step !== STEPS.PREVIEW && <i className="pi pi-spinner pi-spin text-xs"></i>}
-                    {step === STEPS.SELECT ? "" : (step === STEPS.PREVIEW ? (croppingState.pendingFiles.length > 0 ? "Next Image" : "Next") : (isPosting ? "Posting..." : "Post"))}
+                    {isPosting && <i className="pi pi-spinner pi-spin text-xs"></i>}
+                    {step === STEPS.SELECT ? "" : (isPosting ? "Posting..." : "Post")}
                 </button>
             </div>
         );
@@ -494,119 +399,10 @@ const NewPost = ({ visible, onHide }) => {
         </div>
     );
 
-    const renderPreview = () => (
-        <div className="bg-black flex flex-col w-full h-[600px] relative group overflow-hidden">
-            <div className="flex-1 relative bg-[#0a0a0a]">
-                <Cropper
-                    key={croppingState.currentSource}
-                    image={!croppingState.isVideo ? croppingState.currentSource : undefined}
-                    video={croppingState.isVideo ? croppingState.currentSource : undefined}
-                    crop={crop}
-                    zoom={zoom}
-                    aspect={aspect}
-                    onCropChange={setCrop}
-                    onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
-                    onZoomChange={setZoom}
-                    showGrid={true}
-                    onMediaLoaded={() => setIsCropperLoaded(true)}
-                    classes={{ 
-                        containerClassName: 'bg-[#0a0a0a]',
-                        cropAreaClassName: 'border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
-                    }}
-                />
-                {!isCropperLoaded && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a] z-10">
-                        <i className="pi pi-spin pi-spinner text-3xl text-[#6366f1]"></i>
-                    </div>
-                )}
-            </div>
-
-            <div className="bg-[#121212] p-4 border-t border-[var(--border-color)]">
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                            {ASPECT_PRESETS.map((p) => (
-                                <button
-                                    key={p.label}
-                                    onClick={() => setAspect(p.value)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === p.value ? 'bg-[#6366f1] text-white border-[#6366f1]' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'}`}
-                                >
-                                    <i className={`pi ${p.icon} text-[8px]`}></i>
-                                    {p.label}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() => { setAspect(null); setZoom(1); setCrop({ x: 0, y: 0 }); }}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === null ? 'bg-[#6366f1] text-white border-[#6366f1]' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'}`}
-                            >
-                                Original
-                            </button>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <i className="pi pi-minus text-[8px] text-[var(--text-sub)]"></i>
-                            <input
-                                type="range"
-                                value={zoom}
-                                min={1}
-                                max={3}
-                                step={0.1}
-                                onChange={(e) => setZoom(parseFloat(e.target.value))}
-                                className="w-24 h-1 bg-[var(--surface-2)] rounded-lg appearance-none cursor-pointer accent-[#6366f1]"
-                            />
-                            <i className="pi pi-plus text-[8px] text-[var(--text-sub)]"></i>
-                        </div>
-                    </div>
-
-                    {croppingState.isVideo && (
-                        <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] font-bold text-[#6366f1] uppercase tracking-wider">Video Trim (Max 60s)</span>
-                                <span className="text-[10px] text-[var(--text-sub)] font-mono bg-white/5 px-2 py-0.5 rounded">
-                                    {Math.floor(trimRange[0])}s - {Math.floor(trimRange[1])}s ({Math.floor(trimRange[1] - trimRange[0])}s)
-                                </span>
-                            </div>
-                            <div className="px-2">
-                                <Slider 
-                                    value={trimRange} 
-                                    onChange={(e) => {
-                                        const newRange = e.value;
-                                        const start = newRange[0];
-                                        const end = newRange[1];
-                                        
-                                        // Enforce 60s limit
-                                        if (end - start > 60) {
-                                            // If they moved the start handle
-                                            if (start !== trimRange[0]) {
-                                                setTrimRange([start, Math.min(croppingState.duration, start + 60)]);
-                                            } else {
-                                                // They moved the end handle
-                                                setTrimRange([Math.max(0, end - 60), end]);
-                                            }
-                                        } else {
-                                            setTrimRange(newRange);
-                                        }
-                                    }} 
-                                    range 
-                                    min={0} 
-                                    max={croppingState.duration || 60} 
-                                    step={0.1}
-                                    className="w-full"
-                                />
-                            </div>
-                            <p className="text-[9px] text-[var(--text-sub)] opacity-60 italic text-center">
-                                Tip: The selected segment will be shared. Max 60 seconds allowed.
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-
     const renderFinalize = () => (
-        <div className="flex flex-col md:flex-row w-full min-h-[500px] h-[calc(90vh-45px)] max-h-[600px]">
+        <div className="flex flex-col md:flex-row w-full min-h-[500px] md:h-[calc(90vh-45px)] md:max-h-[600px]">
             {/* Left: Media Preview */}
-            <div className="w-full md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative">
+            <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative">
                 <div className="flex-1 flex items-center justify-center w-full relative">
                     {video ? (
                         <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
@@ -724,26 +520,37 @@ const NewPost = ({ visible, onHide }) => {
     );
 
     return (
-        <Dialog
-            visible={visible}
-            onHide={() => handleCloseInternal()}
-            showHeader={false}
-            dismissableMask={true}
-            modal
-            baseZIndex={20000}
-            style={{ width: '95vw', maxWidth: '900px', border: 'none' }}
-            contentStyle={{ padding: 0, overflow: 'hidden', borderRadius: '12px', background: 'var(--surface-1)' }}
-            className="new-post-dialog"
-        >
-            <div className="w-full flex flex-col bg-[var(--surface-1)]">
-                {renderHeader()}
-                <div className="flex-1 overflow-hidden">
-                    {step === STEPS.SELECT && renderSelect()}
-                    {step === STEPS.PREVIEW && renderPreview()}
-                    {step === STEPS.FINALIZE && renderFinalize()}
+        <>
+            <Dialog
+                visible={visible}
+                onHide={() => handleCloseInternal()}
+                showHeader={false}
+                dismissableMask={true}
+                modal
+                baseZIndex={20000}
+                style={{ width: '95vw', maxWidth: '900px', border: 'none' }}
+                contentStyle={{ padding: 0, overflow: 'hidden', borderRadius: '12px', background: 'var(--surface-1)' }}
+                className="new-post-dialog"
+            >
+                <div className="w-full flex flex-col bg-[var(--surface-1)]">
+                    {renderHeader()}
+                    <div className="flex-1 overflow-hidden">
+                        {step === STEPS.SELECT && renderSelect()}
+                        {step === STEPS.FINALIZE && renderFinalize()}
+                    </div>
                 </div>
-            </div>
-        </Dialog>
+            </Dialog>
+
+            <ImageCropper
+                visible={croppingState.active}
+                image={croppingState.imageSrc}
+                video={croppingState.videoSrc}
+                duration={croppingState.duration}
+                isNextImage={croppingState.pendingFiles.length > 0}
+                onCropComplete={handleCropComplete}
+                onCancel={() => setCroppingState(prev => ({ ...prev, active: false }))}
+            />
+        </>
     );
 };
 
