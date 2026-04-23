@@ -1,8 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 import useAuthStore, { api, getToken } from '../../store/zustand/useAuthStore';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const miscKeys = {
@@ -30,7 +27,7 @@ export function useSessionUserInfo(userId) {
     return useQuery({
         queryKey: miscKeys.userInfo(userId),
         queryFn: async () => {
-            const res = await api.get(`${BASE}/api/auth/user/${userId}`);
+            const res = await api.get(`/api/auth/user/${userId}`);
             return res.data;
         },
         enabled: !!userId,
@@ -60,7 +57,7 @@ export function useChatbot() {
     return useMutation({
         mutationFn: async ({ prompt, conversationHistory }) => {
             const token = getToken();
-            const res = await fetch(`${BASE}/api/chatbot/chat`, {
+            const res = await fetch(`/api/chatbot/chat`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
