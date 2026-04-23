@@ -107,7 +107,7 @@ function AppInit() {
         };
 
         fetchInitialState();
-    }, [user?._id, api, setNotifications]);
+    }, [user?._id, setNotifications]);
 
     useEffect(() => {
         if (!user?._id) return;

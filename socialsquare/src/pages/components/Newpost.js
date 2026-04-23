@@ -53,7 +53,7 @@ const NewPost = ({ visible, onHide }) => {
     const [isAnonymous, setIsAnonymous] = useState(false);
     const [expiresIn, setExpiresIn] = useState('');
     const [unlocksAt, setUnlocksAt] = useState('');
-    const [isCollaborative] = useState(false);
+    const [isCollaborative, setIsCollaborative] = useState(false);
     const [collaborators, setCollaborators] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
@@ -192,21 +192,18 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     const addCollaborator = (user) => {
-        if (collaborators.some(c => c._id === user._id)) {
-            toast.error("Already added");
-            return;
-        }
-        if (collaborators.length >= 3) {
-            toast.error("Max 3 collaborators");
-            return;
-        }
-        setCollaborators([...collaborators, user]);
+        if (collaborators.length >= 3) { toast.error("Max 3 collaborators"); return; }
+        if (collaborators.some(c => c._id === user._id)) return;
+        setCollaborators(prev => [...prev, user]);
+        setIsCollaborative(true);
         setSearchTerm("");
         setSearchResults([]);
     };
 
     const removeCollaborator = (id) => {
-        setCollaborators(collaborators.filter(c => c._id !== id));
+        const updated = collaborators.filter(c => c._id !== id);
+        setCollaborators(updated);
+        if (updated.length === 0) setIsCollaborative(false);
     };
 
     const handleFileSelect = async (e) => {

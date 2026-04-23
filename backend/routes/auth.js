@@ -80,8 +80,8 @@ async function generateUniqueUsername(fullname) {
     if (!base) base = 'user';
 
     // Find all usernames that start with the base
-    const existingUsers = await User.find({ 
-        username: new RegExp(`^${base}[0-9]*$`, 'i') 
+    const existingUsers = await User.find({
+        username: new RegExp(`^${base}[0-9]*$`, 'i')
     }).select('username').lean();
 
     if (existingUsers.length === 0) return base;
@@ -717,13 +717,13 @@ router.post('/users/details', verifyToken, async (req, res) => {
         let ids = Array.isArray(req.body.ids) ? req.body.ids : [];
         // Sanitize: filter out any non-string or invalid ObjectIds
         ids = ids.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
-        
+
         if (!ids.length) return res.status(200).json({ users: [] });
         const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture');
         res.status(200).json({ users });
-    } catch (e) { 
+    } catch (e) {
         logger.error('[USERS_DETAILS] Error:', e.message);
-        res.status(500).json({ error: 'Failed to fetch user details' }); 
+        res.status(500).json({ error: 'Failed to fetch user details' });
     }
 });
 

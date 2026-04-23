@@ -64,7 +64,7 @@ const EditProfile = ({ users, closeSidebar }) => {
         e.target.value = ''; // clear input
     };
 
-    const handleCropComplete = async (croppedFile) => {
+    const handleCropComplete = async ({ croppedFile }) => {
         setCropperVisible(false);
         setImageToCrop(null);
 
