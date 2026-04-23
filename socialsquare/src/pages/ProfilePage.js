@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import Profile from './components/Profile';
 
 /**
@@ -24,6 +25,10 @@ export default function ProfilePage() {
 
     return (
         <div className="bg-[var(--surface-1)]">
+            <Helmet>
+                <title>User Profile | Social Square</title>
+                <meta name="description" content="View this profile on Social Square. Connect, follow, and see their latest posts and AI creations." />
+            </Helmet>
             <div className="flex gap-4 max-w-7xl mx-auto px-4 py-4">
                 <main className="flex mx-auto lg:ml-0 ml-0">
                     <div className="max-w-4xl mx-auto">
