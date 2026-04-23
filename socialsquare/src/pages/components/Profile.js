@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery } from '@tanstack/react-query';
@@ -41,6 +42,7 @@ const Profile = ({ userId }) => {
     const [activeTab, setActiveTab] = useState('posts');
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
+    const navigate = useNavigate();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
 
@@ -315,6 +317,7 @@ const Profile = ({ userId }) => {
                                         {followMutation.isPending || unfollowMutation.isPending ? '...' : (isFollowing ? 'Following' : 'Follow')}
                                     </button>
                                     <button
+                                        onClick={() => navigate(`/conversation/${profileId}`)}
                                         className="h-10 sm:h-11 lg:h-12 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-500 font-semibold text-sm cursor-pointer hover:bg-indigo-500/20 transition flex items-center justify-center gap-2"
                                     >
                                         <i className="pi pi-send"></i>

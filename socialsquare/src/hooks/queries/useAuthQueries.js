@@ -27,7 +27,7 @@ export function usePrefetchUserProfile() {
         qc.prefetchQuery({
             queryKey: authKeys.userProfile(userId),
             queryFn: async () => {
-                const res = await axios.get(`${BASE}/api/auth/user/${userId}`);
+                const res = await api.get(`/api/auth/user/${userId}`);
                 return res.data;
             },
             staleTime: 1000 * 60 * 5,
@@ -54,7 +54,7 @@ export function useUserDetails(ids = []) {
         queryKey: authKeys.userDetails(ids),
         queryFn: async () => {
             if (!ids?.length) return [];
-            const res = await axios.post(`${BASE}/api/auth/users/details`, { ids });
+            const res = await api.post(`/api/auth/users/details`, { ids });
             return res.data?.users || [];
         },
         enabled: !!ids?.length,
@@ -124,7 +124,7 @@ export function useUserProfile(userId) {
     return useQuery({
         queryKey: authKeys.userProfile(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/auth/user/${userId}`);
+            const res = await api.get(`/api/auth/user/${userId}`);
             return res.data;
         },
         enabled: !!userId,
@@ -138,7 +138,7 @@ export function useFollowers(userId) {
     const { data: followerIds } = useQuery({
         queryKey: authKeys.followers(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/auth/followers/${userId}`);
+            const res = await api.get(`/api/auth/followers/${userId}`);
             return res.data;
         },
         enabled: !!userId,
@@ -153,7 +153,7 @@ export function useFollowing(userId) {
     const { data: followingIds } = useQuery({
         queryKey: authKeys.following(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/auth/following/${userId}`);
+            const res = await api.get(`/api/auth/following/${userId}`);
             return res.data;
         },
         enabled: !!userId,

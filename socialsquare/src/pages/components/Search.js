@@ -116,7 +116,7 @@ const Search = ({ onClose }) => {
 
     return (
         <>
-            <div ref={containerRef} className="relative w-full mt-3">
+            <div ref={containerRef} className="relative w-full">
                 {/* Search input */}
                 <div className="relative flex items-center group">
                     <i className="pi pi-search absolute left-4 text-[var(--text-sub)] transition-colors group-focus-within:text-[#808bf5]" style={{ fontSize: '15px' }}></i>

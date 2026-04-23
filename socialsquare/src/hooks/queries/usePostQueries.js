@@ -30,7 +30,7 @@ export function useFeed(userId) {
             const params = new URLSearchParams({ limit: '10' });
             if (pageParam) params.append('cursor', pageParam);
             if (userId) params.append('userId', userId);
-            const res = await axios.get(`${BASE}/api/post/?${params}`);
+            const res = await api.get(`${BASE}/api/post/?${params}`);
             return res.data; // { posts, nextCursor, hasMore }
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -46,7 +46,7 @@ export function useUserPosts(userId) {
         queryFn: async ({ pageParam = null }) => {
             const params = new URLSearchParams({ limit: '12' });
             if (pageParam) params.append('cursor', pageParam);
-            const res = await axios.get(`${BASE}/api/post/user/${userId}?${params}`);
+            const res = await api.get(`${BASE}/api/post/user/${userId}?${params}`);
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -61,7 +61,7 @@ export function useSavedPosts(userId) {
     return useQuery({
         queryKey: postKeys.saved(userId),
         queryFn: async () => {
-            const res = await axios.get(`${BASE}/api/post/saved/${userId}`);
+            const res = await api.get(`${BASE}/api/post/saved/${userId}`);
             initSavedIds(res.data.map(p => p._id));
             return res.data;
         },
@@ -120,7 +120,7 @@ export function useConfessions() {
         queryFn: async ({ pageParam = null }) => {
             const params = new URLSearchParams({ limit: '10' });
             if (pageParam) params.append('cursor', pageParam);
-            const res = await axios.get(`${BASE}/api/post/confessions?${params}`);
+            const res = await api.get(`${BASE}/api/post/confessions?${params}`);
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -132,7 +132,7 @@ export function useConfessions() {
 export function useTrending() {
     return useQuery({
         queryKey: postKeys.trending,
-        queryFn: async () => { const res = await axios.get(`${BASE}/api/post/trending`); return res.data; },
+        queryFn: async () => { const res = await api.get(`${BASE}/api/post/trending`); return res.data; },
         staleTime: 1000 * 60 * 10, // trending changes slowly
     });
 }
@@ -141,7 +141,7 @@ export function useTrending() {
 export function useCategories() {
     return useQuery({
         queryKey: postKeys.categories,
-        queryFn: async () => { const res = await axios.get(`${BASE}/api/post/categories`); return res.data; },
+        queryFn: async () => { const res = await api.get(`${BASE}/api/post/categories`); return res.data; },
         staleTime: Infinity, // categories never change
     });
 }

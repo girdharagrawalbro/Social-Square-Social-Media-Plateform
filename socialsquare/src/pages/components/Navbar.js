@@ -21,6 +21,7 @@ const Navbar = () => {
   const { isDark, toggle } = useDarkMode();
   const [newpostVisible, setnewpostVisible] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchActive, setMobileSearchActive] = useState(false);
   const mobileMenuRef = useRef(null);
 
 
@@ -46,17 +47,25 @@ const Navbar = () => {
 
   return (
     <nav ref={mobileMenuRef} aria-label="Main Navigation" className={`sticky top-0 z-50 w-full h-16 backdrop-blur-md shadow-sm border-b flex items-center justify-between px-3 sm:px-4 transition-all duration-300 ${isDark ? 'bg-black/80 border-[#1a1a1a]' : 'bg-white/80 border-gray-200'}`}>
-      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
-        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className="hidden sm:flex items-center flex-shrink-0">
-          <i className={`pi pi-home text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
-        </Link>
-        <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className={`no-underline flex items-center gap-2 min-w-0 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
-          <h1 className="font-pacifico text-lg sm:text-2xl m-0 truncate whitespace-nowrap">Social Square</h1>
-        </Link>
-      </div>
+      {!mobileSearchActive && (
+        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
+          <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className="hidden sm:flex items-center flex-shrink-0">
+            <i className={`pi pi-home text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+          </Link>
+          <Link to={isAuthenticated && loggeduser?.username ? `/${loggeduser.username}` : "/"} className={`no-underline flex items-center gap-2 min-w-0 ${isDark ? 'text-white' : 'text-gray-800'}`} title="Go to Home">
+            <h1 className="font-pacifico text-lg sm:text-2xl m-0 truncate whitespace-nowrap">Social Square</h1>
+          </Link>
+        </div>
+      )}
+
+      {mobileSearchActive && (
+        <div className="flex-1 md:hidden px-1 slide-in">
+          <Search onClose={() => setMobileSearchActive(false)} />
+        </div>
+      )}
 
       <div className="hidden md:block mx-auto max-w-4xl w-full px-8">
-        {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search onClose={() => setMobileMenuOpen(false)} /> : <Authnav />)}
+        {isLandingPage ? <Authnav /> : (isAuthenticated ? <div className="mt-3"><Search onClose={() => setMobileMenuOpen(false)} /></div> : <Authnav />)}
       </div>
 
 
@@ -107,16 +116,40 @@ const Navbar = () => {
       <div className="md:hidden flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {isAuthenticated && !isLandingPage ? (
           <>
-            <button
-              aria-label="Create post"
-              onClick={() => setnewpostVisible(true)}
-              className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
-              title="Create post"
-            >
-              <i className="pi pi-plus text-xs sm:text-base"></i>
-            </button>
+            {!mobileSearchActive ? (
+              <button
+                aria-label="Search"
+                onClick={() => setMobileSearchActive(true)}
+                className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+                title="Search"
+              >
+                <i className="pi pi-search text-xs sm:text-base"></i>
+              </button>
+            ) : (
+              <button
+                aria-label="Close Search"
+                onClick={() => setMobileSearchActive(false)}
+                className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-red-500/20 text-red-500' : 'bg-red-50 text-red-500'}`}
+                title="Close Search"
+              >
+                <i className="pi pi-times text-xs sm:text-base"></i>
+              </button>
+            )}
 
-            <NotificationBell userId={loggeduser?._id} showLabel={false} />
+            {!mobileSearchActive && (
+              <>
+                <button
+                  aria-label="Create post"
+                  onClick={() => setnewpostVisible(true)}
+                  className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+                  title="Create post"
+                >
+                  <i className="pi pi-plus text-xs sm:text-base"></i>
+                </button>
+
+                <NotificationBell userId={loggeduser?._id} showLabel={false} />
+              </>
+            )}
           </>
         ) : (
           !isAuthenticated && (
@@ -142,7 +175,7 @@ const Navbar = () => {
       <div className={`md:hidden absolute top-full left-0 right-0 border-b shadow-2xl p-2 z-40 flex flex-col gap-4 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
         } ${isDark ? 'bg-[#0f0f0f]/95 border-neutral-800' : 'bg-white/95 border-gray-200'}`}>
         <div className={isAuthenticated ? '' : 'mb-3'}>
-          {isLandingPage ? <Authnav /> : (isAuthenticated ? <Search onClose={() => setMobileMenuOpen(false)} /> : <Authnav />)}
+          {isLandingPage ? <Authnav /> : (isAuthenticated ? null : <Authnav />)}
         </div>
 
         {isAuthenticated && (
