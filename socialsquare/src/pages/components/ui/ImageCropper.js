@@ -129,15 +129,15 @@ const ImageCropper = ({
       baseZIndex={300000}
       appendTo={document.body}
       style={{ width: '95vw', maxWidth: '600px', border: 'none', zIndex: 300000 }}
-      contentStyle={{ padding: 0, overflow: 'hidden', borderRadius: '16px', background: '#121212' }}
+      contentStyle={{ padding: 0, overflow: 'hidden', borderRadius: '16px', background: 'var(--surface-1)' }}
     >
-      <div className="w-full flex flex-col bg-[#121212]">
+      <div className="w-full flex flex-col bg-[var(--surface-1)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-          <button onClick={onCancel} className="text-white/70 hover:text-white transition">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
+          <button onClick={onCancel} className="text-[var(--text-sub)] hover:text-[var(--text-main)] transition">
             <i className="pi pi-arrow-left text-lg"></i>
           </button>
-          <h2 className="text-sm font-bold text-white m-0">{video ? 'Trim & Crop' : 'Crop'}</h2>
+          <h2 className="text-sm font-bold text-[var(--text-main)] m-0">{video ? 'Trim & Crop' : 'Crop'}</h2>
           <button
             onClick={handleApplyCrop}
             disabled={loading || !isCropperLoaded}
@@ -173,7 +173,7 @@ const ImageCropper = ({
         </div>
 
         {/* Controls */}
-        <div className="p-4 bg-[#121212]">
+        <div className="p-4 bg-[var(--surface-1)]">
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -181,21 +181,21 @@ const ImageCropper = ({
                   <button
                     key={preset.label}
                     onClick={() => setAspect(preset.value)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === preset.value ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-white/5 text-white/50 border-white/5 hover:border-white/20'}`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === preset.value ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'}`}
                   >
                     {preset.label}
                   </button>
                 ))}
                 <button
                   onClick={() => setAspect(imageAspect)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === imageAspect ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-white/5 text-white/50 border-white/5 hover:border-white/20'}`}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === imageAspect ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'}`}
                 >
                   Original
                 </button>
               </div>
 
               <div className="flex items-center gap-3">
-                <i className="pi pi-minus text-[8px] text-white/30"></i>
+                <i className="pi pi-minus text-[8px] text-[var(--text-sub)]"></i>
                 <input
                   type="range"
                   value={zoom}
@@ -203,17 +203,17 @@ const ImageCropper = ({
                   max={3}
                   step={0.1}
                   onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="w-24 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#808bf5]"
+                  className="w-24 h-1 bg-[var(--surface-2)] rounded-lg appearance-none cursor-pointer accent-[#808bf5]"
                 />
-                <i className="pi pi-plus text-[8px] text-white/30"></i>
+                <i className="pi pi-plus text-[8px] text-[var(--text-sub)]"></i>
               </div>
             </div>
 
             {video && (
-              <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+              <div className="flex flex-col gap-3 pt-4 border-t border-[var(--border-color)]">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-bold text-[#808bf5] uppercase tracking-wider">Video Trim (Max 60s)</span>
-                  <span className="text-[10px] text-white/50 font-mono bg-white/5 px-2 py-0.5 rounded">
+                  <span className="text-[10px] text-[var(--text-sub)] font-mono bg-[var(--surface-2)] px-2 py-0.5 rounded border border-[var(--border-color)]">
                     {Math.floor(trimRange[0])}s - {Math.floor(trimRange[1])}s ({Math.floor(trimRange[1] - trimRange[0])}s)
                   </span>
                 </div>
@@ -241,7 +241,7 @@ const ImageCropper = ({
                     className="w-full"
                   />
                 </div>
-                <p className="text-[9px] text-white/30 italic text-center m-0">
+                <p className="text-[9px] text-[var(--text-sub)] italic text-center m-0 opacity-60">
                   Tip: The selected segment will be shared. Max 60 seconds allowed.
                 </p>
               </div>

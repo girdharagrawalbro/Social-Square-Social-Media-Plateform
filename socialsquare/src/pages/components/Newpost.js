@@ -16,7 +16,7 @@ const STEPS = {
 const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😅', '🥳', '❤️', '🔥', '✨', '🎉', '👍', '🙌', '💯', '🌟', '😭', '🤣', '😊', '🥹', '💪', '🎵', '📍', '🌍', '🍕', '☕', '🌸', '🌈', '👀', '💬'];
 
 const EmojiSelector = ({ onSelect }) => (
-    <div className="flex flex-wrap gap-1.5 py-2 px-1 overflow-x-auto custom-scrollbar no-scrollbar" style={{ maxHeight: '80px' }}>
+    <div className="flex gap-1.5 p-1 overflow-x-auto custom-scrollbar no-scrollbar" style={{ maxHeight: '45px' }}>
         {EMOJIS.map(e => (
             <button
                 key={e}
@@ -55,6 +55,9 @@ const NewPost = ({ visible, onHide }) => {
     const [unlocksAt, setUnlocksAt] = useState('');
     const [isCollaborative] = useState(false);
     const [collaborators, setCollaborators] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     // Voice note
     const [voiceBlob] = useState(null);
@@ -177,6 +180,35 @@ const NewPost = ({ visible, onHide }) => {
 
 
 
+    const handleSearchUsers = async (query) => {
+        setSearchTerm(query);
+        if (query.length < 2) { setSearchResults([]); return; }
+        setIsSearching(true);
+        try {
+            const res = await api.get(`/api/auth/search?query=${query}`);
+            setSearchResults(res.data.filter(u => u._id !== loggeduser._id));
+        } catch { }
+        finally { setIsSearching(false); }
+    };
+
+    const addCollaborator = (user) => {
+        if (collaborators.some(c => c._id === user._id)) {
+            toast.error("Already added");
+            return;
+        }
+        if (collaborators.length >= 3) {
+            toast.error("Max 3 collaborators");
+            return;
+        }
+        setCollaborators([...collaborators, user]);
+        setSearchTerm("");
+        setSearchResults([]);
+    };
+
+    const removeCollaborator = (id) => {
+        setCollaborators(collaborators.filter(c => c._id !== id));
+    };
+
     const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
@@ -196,14 +228,14 @@ const NewPost = ({ visible, onHide }) => {
 
             setImages([]);
             const videoUrl = URL.createObjectURL(videoFile);
-            setCroppingState({ 
-                active: true, 
-                videoSrc: videoUrl, 
-                imageSrc: null, 
-                pendingFiles: [], 
-                isVideo: true, 
-                originalFile: videoFile, 
-                duration 
+            setCroppingState({
+                active: true,
+                videoSrc: videoUrl,
+                imageSrc: null,
+                pendingFiles: [],
+                isVideo: true,
+                originalFile: videoFile,
+                duration
             });
             e.target.value = '';
             return;
@@ -420,10 +452,10 @@ const NewPost = ({ visible, onHide }) => {
     );
 
     const renderFinalize = () => (
-        <div className="flex flex-col md:flex-row w-full min-h-[500px] md:h-[calc(90vh-45px)] md:max-h-[600px]">
+        <div className="flex flex-col md:flex-row w-full h-[calc(100vh-120px)] md:h-[calc(90vh-45px)] md:max-h-[600px]">
             {/* Left: Media Preview */}
-            <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative">
-                <div className="flex-1 flex items-center justify-center w-full relative">
+            <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative flex-shrink-0">
+                <div className="flex-1 flex h-[40vh] items-center justify-center w-full relative">
                     {video ? (
                         <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
                     ) : (
@@ -442,7 +474,7 @@ const NewPost = ({ visible, onHide }) => {
             </div>
 
             {/* Right: metadata & controls */}
-            <div className="w-full md:w-[40%] flex flex-col bg-[var(--surface-1)] border-l border-[var(--border-color)] overflow-y-auto custom-scrollbar">
+            <div className="w-full md:w-[40%] flex flex-col bg-[var(--surface-1)] border-l border-[var(--border-color)] overflow-y-auto custom-scrollbar flex-1">
                 <div className="p-4 flex flex-col gap-4">
                     <div className="flex items-center gap-3">
                         <img src={loggeduser?.profile_picture} className="w-9 h-9 rounded-full object-cover border border-[var(--border-color)]" alt="" />
@@ -484,6 +516,53 @@ const NewPost = ({ visible, onHide }) => {
                             </span>
                             <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
                         </button>
+                        {openFeaturePanel === 'collab' && (
+                            <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                                <div className="relative">
+                                    <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search users..." 
+                                        value={searchTerm}
+                                        onChange={(e) => handleSearchUsers(e.target.value)}
+                                        className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl py-2 pl-8 pr-3 text-[11px] text-[var(--text-main)] outline-none focus:border-[#6366f1]"
+                                    />
+                                    {isSearching && <i className="pi pi-spin pi-spinner absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#6366f1]"></i>}
+                                </div>
+
+                                {searchResults.length > 0 && (
+                                    <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] shadow-xl p-1">
+                                        {searchResults.map(user => (
+                                            <div 
+                                                key={user._id} 
+                                                onClick={() => addCollaborator(user)}
+                                                className="flex items-center gap-2 p-2 hover:bg-[var(--surface-2)] rounded-lg cursor-pointer transition-colors"
+                                            >
+                                                <img src={user.profile_picture} className="w-6 h-6 rounded-full object-cover" alt="" />
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] font-bold text-[var(--text-main)]">{user.fullname}</span>
+                                                    <span className="text-[9px] text-[var(--text-sub)]">@{user.username}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {collaborators.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border-color)]/30">
+                                        {collaborators.map(user => (
+                                            <div key={user._id} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[#6366f1]/30 pl-1 pr-2 py-1 rounded-full animate-in zoom-in-95">
+                                                <img src={user.profile_picture} className="w-5 h-5 rounded-full object-cover" alt="" />
+                                                <span className="text-[10px] font-medium text-[var(--text-main)]">{user.username}</span>
+                                                <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500 transition-colors">
+                                                    <i className="pi pi-times text-[8px]"></i>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div className="border-b border-[var(--border-color)]/50">
                             <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
