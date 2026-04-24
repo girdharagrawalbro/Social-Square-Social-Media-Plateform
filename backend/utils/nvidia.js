@@ -1,9 +1,11 @@
 const OpenAI = require('openai');
 const { generateText } = require('./gemini');
 
-const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_KEY = process.env.NVIDIA_API_KEY || "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";
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 const NVIDIA_SD3_INVOKE_URL = 'https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium';
+
+const axios = require('axios');
 
 function createClient() {
     if (!NVIDIA_KEY) {
@@ -46,17 +48,13 @@ async function generateNvidiaText(prompt) {
 }
 
 /**
- * Generate image using NVIDIA's Stable Diffusion model (SDXL)
+ * Generate image using NVIDIA's Stable Diffusion model (SD3)
  */
 async function generateNvidiaImage(prompt) {
     if (!NVIDIA_KEY) {
         throw new Error('NVIDIA_API_KEY is not set');
     }
     try {
-        const headers = {
-            "Authorization": `Bearer ${NVIDIA_KEY}`,
-            "Accept": "application/json",
-        }
         const payload = {
             "prompt": prompt,
             "cfg_scale": 5,
@@ -64,24 +62,18 @@ async function generateNvidiaImage(prompt) {
             "seed": 0,
             "steps": 50,
             "negative_prompt": ""
-        }
-        const response = await fetch(
-            NVIDIA_SD3_INVOKE_URL,
-            {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            }
-        );
-        if (response.status !== 200) {
-            const errBody = await response.text();
-            throw new Error(`invocation failed with status ${response.status} ${errBody}`);
-        }
+        };
 
-        const response_body = await response.json();
+        const response = await axios.post(NVIDIA_SD3_INVOKE_URL, payload, {
+            headers: {
+                "Authorization": `Bearer ${NVIDIA_KEY}`,
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            timeout: 30000 // 30s timeout for image gen
+        });
+
+        const response_body = response.data;
         const finishReason = response_body?.finish_reason || null;
         if (finishReason) {
             console.log(`[NVIDIA SD3] finish_reason=${finishReason}`);
@@ -90,9 +82,11 @@ async function generateNvidiaImage(prompt) {
         const b64 = typeof response_body?.image === 'string'
             ? response_body.image
             : response_body?.image?.base64;
+
         if (!b64) {
             throw new Error('No image data received from NVIDIA');
         }
+
         const cleaned = b64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(cleaned, 'base64');
 
@@ -107,6 +101,7 @@ async function generateNvidiaImage(prompt) {
         const details = error.response?.data
             ? JSON.stringify(error.response.data)
             : error.message;
+        console.error('[NVIDIA Image Error]:', details);
         throw new Error(`Image generation failed: ${details}`);
     }
 }
