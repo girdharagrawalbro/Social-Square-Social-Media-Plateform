@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
 import NotificationBell from './ui/NotificationBell';
 
@@ -26,13 +26,25 @@ export default function Sidebar() {
 
     const user = useAuthStore(s => s.user);
     const logout = useAuthStore(s => s.logout);
+    const location = useLocation();
+
+    const isItemActive = (l) => {
+        if (l.key === 'search' && isSearchOpen) return true;
+        if (l.key === 'addpost' && newpostVisible) return true;
+        if (l.to === `/${user?.username}`) return location.pathname === l.to || location.pathname === '/';
+        if (!l.to) return false;
+        return location.pathname === l.to || location.pathname.startsWith(`${l.to}/`);
+    };
+
+    const activeClass = "bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white font-bold shadow-lg shadow-indigo-500/40 relative overflow-hidden";
+    const inactiveClass = "hover:bg-gray-100 dark:hover:bg-neutral-900 text-[var(--text-main)]";
 
     const links = [
         { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username || 'You'}` },
         { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/search' },
         { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
         { key: 'discover', label: 'Discover', icon: 'pi pi-users', to: '/discover' },
-        { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse', accent: true },
+        { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse' },
         { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
         { key: 'communities', label: 'Communities', icon: 'pi pi-map', to: '/communities' },
         { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
@@ -63,20 +75,22 @@ export default function Sidebar() {
                         {links.map(l => (
                             <li key={l.key} className="w-full">
                                 {l.key === 'search' ? (
-                                    <button aria-label={l.label} onClick={() => setIsSearchOpen(true)} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left hover:bg-gray-100 dark:hover:bg-neutral-900 border-0 cursor-pointer`}>
-                                        <i className={`${l.icon} text-xl`} />
-                                        {open && <span className="font-semibold text-base">{l.label}</span>}
+                                    <button aria-label={l.label} onClick={() => setIsSearchOpen(true)} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left ${isItemActive(l) ? activeClass : inactiveClass} border-0 cursor-pointer`}>
+                                        <i className={`${l.icon} text-xl relative z-10`} />
+                                        {open && <span className="font-semibold text-base relative z-10">{l.label}</span>}
+                                        {isItemActive(l) && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
                                     </button>
                                 ) : l.key === 'addpost' ? (
-                                    <button aria-label={l.label} onClick={() => setnewpostVisible(true)} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left hover:bg-gray-100 dark:hover:bg-neutral-900 border-0 cursor-pointer`}>
-                                        <i className={`${l.icon} text-xl`} />
-                                        {open && <span className="font-semibold text-base">{l.label}</span>}
+                                    <button aria-label={l.label} onClick={() => setnewpostVisible(true)} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left ${isItemActive(l) ? activeClass : inactiveClass} border-0 cursor-pointer`}>
+                                        <i className={`${l.icon} text-xl relative z-10`} />
+                                        {open && <span className="font-semibold text-base relative z-10">{l.label}</span>}
+                                        {isItemActive(l) && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
                                     </button>
                                 ) : l.key === 'notifications' ? (
-                                    <NotificationBell userId={user?._id} useRoute={true} showLabel={open} />
+                                    <NotificationBell userId={user?._id} useRoute={true} showLabel={open} active={isItemActive(l)} />
                                 ) : (
-                                    <Link aria-label={l.label} to={l.to || '#'} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left ${l.accent ? 'bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white font-bold shadow-lg shadow-indigo-500/40 relative overflow-hidden' : 'hover:bg-gray-100 dark:hover:bg-neutral-900'}`}>
-                                        {l.accent && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
+                                    <Link aria-label={l.label} to={l.to || '#'} className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full transition-all text-left ${isItemActive(l) || l.accent ? activeClass : inactiveClass}`}>
+                                        {(isItemActive(l) || l.accent) && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
                                         <i className={`${l.icon} text-xl relative z-10`} />
                                         {open && <span className="font-semibold text-base relative z-10">{l.label}</span>}
                                     </Link>
@@ -85,9 +99,10 @@ export default function Sidebar() {
                         ))}
                         {user?.isAdmin && (
                             <li className="w-full">
-                                <Link to="/admin" className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full hover:bg-gray-100 dark:hover:bg-neutral-900 text-left`}>
-                                    <i className={`pi pi-shield text-xl`} />
-                                    {open && <span className="font-semibold text-base">Admin</span>}
+                                <Link to="/admin" className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full ${location.pathname.startsWith('/admin') ? activeClass : inactiveClass} text-left`}>
+                                    <i className={`pi pi-shield text-xl relative z-10`} />
+                                    {open && <span className="font-semibold text-base relative z-10">Admin</span>}
+                                    {location.pathname.startsWith('/admin') && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
                                 </Link>
                             </li>
                         )}

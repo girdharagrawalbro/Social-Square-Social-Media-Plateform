@@ -22,7 +22,7 @@ const BottomNav = () => {
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
         { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse' },
-        { key: 'notifications', icon: 'pi-bell', to: () => '/notifications', badge: unreadNotificationsCount },
+        { key: 'communities', label: 'Communities', icon: 'pi pi-map', to: '/communities' },
         { key: 'messages', icon: 'pi-envelope', to: () => '/conversations', badge: msgCount },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
     ];
@@ -36,11 +36,16 @@ const BottomNav = () => {
         if (key === 'profile') {
             return currentPath.startsWith('/profile');
         }
-        return currentPath.startsWith(to());
+        const target = typeof to === 'function' ? to() : to;
+        if (!target) return false;
+        return currentPath === target || currentPath.startsWith(`${target}/`);
     };
 
+    const activeClass = "bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white shadow-lg shadow-indigo-500/40 scale-110 -translate-y-1";
+    const inactiveClass = isDark ? 'text-gray-400' : 'text-gray-600';
+
     const handleClick = (item) => {
-        const target = item.to();
+        const target = typeof item.to === 'function' ? item.to() : item.to;
         if (!target) return;
         navigate(target);
     };
@@ -56,13 +61,12 @@ const BottomNav = () => {
                         className="relative flex flex-col items-center justify-center border-0 bg-transparent cursor-pointer transition-all duration-300"
                         onClick={() => handleClick(item)}
                     >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${item.accent
-                            ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/40 scale-10 -translate-y-1'
-                            : active
-                                ? 'bg-indigo-500/10 text-indigo-600'
-                                : isDark ? 'text-gray-400' : 'text-gray-600'
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden ${item.accent || active
+                            ? activeClass
+                            : inactiveClass
                             }`}>
-                            <i className={`pi ${item.icon} ${item.accent ? 'text-xl' : 'text-lg'}`}></i>
+                            {(item.accent || active) && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
+                            <i className={`pi ${item.icon} ${item.accent || active ? 'text-xl' : 'text-lg'} relative z-10`}></i>
 
                             {/* Notification Badge */}
                             {item.badge > 0 && (
