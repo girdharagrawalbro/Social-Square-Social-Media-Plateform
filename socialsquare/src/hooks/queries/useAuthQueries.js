@@ -192,11 +192,12 @@ export function useUnfollowUser() {
         mutationFn: ({ targetUserId }) =>
             api.post(`/api/auth/unfollow`, { userId: user._id, unfollowUserId: targetUserId }),
         onSuccess: (_, { targetUserId }) => {
+            // Update local Zustand store so button changes to "Follow" immediately
             unfollowUser(targetUserId);
-            qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
-            qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
+            // Invalidate profile so follower count updates if profile is open
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
-            qc.invalidateQueries({ queryKey: authKeys.otherUsers });
+            // Do NOT invalidate otherUsers — keep the user in the list,
+            // only remove them on next list load/reopen
         },
     });
 }
