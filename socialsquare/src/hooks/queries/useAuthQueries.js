@@ -196,8 +196,8 @@ export function useUnfollowUser() {
             unfollowUser(targetUserId);
             // Invalidate profile so follower count updates if profile is open
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
-            // Do NOT invalidate otherUsers — keep the user in the list,
-            // only remove them on next list load/reopen
+            // Invalidate current user's following list
+            qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
         },
     });
 }

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
+import { confirmDialog } from 'primereact/confirmdialog';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
-import { useOtherUsers, useFollowUser, useUnfollowUser } from '../../hooks/queries/useAuthQueries';
+import { useOtherUsers, useFollowUser, useUnfollowUser, useCancelFollowRequest } from '../../hooks/queries/useAuthQueries';
 import UserProfile from './UserProfile';
 
 const OtherUsers = () => {
@@ -13,6 +14,7 @@ const OtherUsers = () => {
     const { data: users = [], isLoading } = useOtherUsers();
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
+    const cancelMutation = useCancelFollowRequest();
 
     const [selectedId, setSelectedId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
@@ -28,11 +30,29 @@ const OtherUsers = () => {
         }
     };
 
-    const handleFollow = (e, userId) => {
+    const handleFollow = (e, userId, isRequested) => {
         e.stopPropagation();
         const isFollowing = user?.following?.some(f => f?.toString() === userId?.toString());
         if (isFollowing) {
-            unfollowMutation.mutate({ targetUserId: userId });
+            confirmDialog({
+                message: 'Are you sure you want to unfollow this user?',
+                header: 'Unfollow User',
+                icon: 'pi pi-exclamation-triangle',
+                acceptLabel: 'Unfollow',
+                rejectLabel: 'Cancel',
+                acceptClassName: 'p-button-danger',
+                accept: () => unfollowMutation.mutate({ targetUserId: userId }),
+            });
+        } else if (isRequested) {
+            confirmDialog({
+                message: 'Do you want to cancel your follow request?',
+                header: 'Cancel Request',
+                icon: 'pi pi-times-circle',
+                acceptLabel: 'Withdraw Request',
+                rejectLabel: 'Keep',
+                acceptClassName: 'p-button-secondary',
+                accept: () => cancelMutation.mutate({ targetUserId: userId }),
+            });
         } else {
             followMutation.mutate({ targetUserId: userId });
         }
@@ -59,9 +79,11 @@ const OtherUsers = () => {
                         !localDismissed.includes(u._id)
                     ).slice(0, 8).map(u => {
                         const userIsOnline = isOnline(u._id);
-                        const isFollowing = false; // We filtered out already following users
-                        const isThisUserLoading = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
-                            (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id);
+                        const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
+                        const isRequested = u.followRequests?.some(r => r?.toString() === user?._id?.toString());
+                        const isMutating = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
+                            (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id) ||
+                            (cancelMutation.isPending && cancelMutation.variables?.targetUserId === u._id);
                         const followersCount = typeof u.followersCount === 'number' ? u.followersCount : (u.followers?.length || 0);
                         return (
                             <div key={u._id} className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-all duration-200"
@@ -86,11 +108,11 @@ const OtherUsers = () => {
                                         title="Dismiss suggestion">
                                         <i className="pi pi-times" style={{ fontSize: '10px' }}></i>
                                     </button>
-                                    <button onClick={e => handleFollow(e, u._id)}
-                                        disabled={isThisUserLoading}
-                                        className={`text-[11px] px-3.5 py-1.5 rounded-full border-0 cursor-pointer font-bold flex-shrink-0 transition-all shadow-sm ${isFollowing ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-[#808bf5] text-white hover:bg-[#6c79e0] active:scale-95'} ${isThisUserLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                        {isThisUserLoading ? '...' : (isFollowing ? 'Following' : 'Follow')}
-                                    </button>
+                                        <button onClick={(e) => handleFollow(e, u._id, isRequested)}
+                                            disabled={isMutating}
+                                            className={`text-[10px] sm:text-xs px-4 py-1.5 rounded-full border-0 cursor-pointer font-bold transition min-w-[85px] ${isFollowing ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}>
+                                            {isMutating ? '...' : (isFollowing ? 'Unfollow' : isRequested ? 'Requested' : 'Follow')}
+                                        </button>
                                 </div>
                             </div>
                         );

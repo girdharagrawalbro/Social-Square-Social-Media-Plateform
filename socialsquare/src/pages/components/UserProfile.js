@@ -9,6 +9,7 @@ import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
 
+import { confirmDialog } from 'primereact/confirmdialog';
 import toast from 'react-hot-toast';
 import ProgressiveImage from './ui/ProgressiveImage';
 
@@ -160,7 +161,17 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
             toast.error('Failed to send follow request');
         }
     };
-    const handleUnfollow = () => unfollowMutation.mutate({ targetUserId: id });
+    const handleUnfollow = () => {
+        confirmDialog({
+            message: `Are you sure you want to unfollow ${userDetails?.fullname}?`,
+            header: 'Unfollow User',
+            icon: 'pi pi-exclamation-triangle',
+            acceptLabel: 'Unfollow',
+            rejectLabel: 'Cancel',
+            acceptClassName: 'p-button-danger',
+            accept: () => unfollowMutation.mutate({ targetUserId: id }),
+        });
+    };
     const handleCancelRequest = () => cancelRequestMutation.mutate({ targetUserId: id });
 
     const handleMessage = async () => {
@@ -310,10 +321,10 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                         </div>
                     )}
 
-                    {!isBlockedByMe && !isPrivateAndNotFollowing && (
+                    {!isBlockedByMe && (
                         <div className="grid grid-cols-4 gap-1.5  sm:gap-3 mt-2">
                             <div
-                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all ${isFollowing || loggeduser?._id === id ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all ${isFollowing || loggeduser?._id === id ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                 onClick={() => {
                                     if (isFollowing || loggeduser?._id === id) {
                                         setFollowersVisible(true);
@@ -322,11 +333,11 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     }
                                 }}
                             >
-                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followers?.length || 0)}</h6>
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followerCount ?? userDetails?.followers?.length ?? 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                             </div>
                             <div
-                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all ${isFollowing || loggeduser?._id === id ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center transition-all ${isFollowing || loggeduser?._id === id ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                 onClick={() => {
                                     if (isFollowing || loggeduser?._id === id) {
                                         setFollowingVisible(true);
@@ -335,7 +346,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     }
                                 }}
                             >
-                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.following?.length || 0)}</h6>
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followingCount ?? userDetails?.following?.length ?? 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
                             </div>
                             <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">

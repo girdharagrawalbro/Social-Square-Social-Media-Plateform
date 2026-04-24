@@ -179,7 +179,15 @@ router.post('/messages', verifyToken, async (req, res) => {
         const query = { conversationId: conversation._id, deletedAt: null };
         if (before) query.createdAt = { $lt: new Date(before) };
 
-        const messages = await Message.find(query).sort({ createdAt: -1 }).limit(limit).lean();
+        const messages = await Message.find(query)
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .populate({
+                path: 'replyTo',
+                select: 'content media sender',
+                populate: { path: 'sender', select: 'fullname' }
+            })
+            .lean();
         messages.reverse();
 
         const result = { messages, conversation, hasMore: messages.length === limit };
@@ -201,7 +209,15 @@ router.get('/messages/search', verifyToken, async (req, res) => {
         const messages = await Message.find({
             conversationId, deletedAt: null,
             $text: { $search: q },
-        }).sort({ score: { $meta: 'textScore' } }).limit(20).lean();
+        })
+        .sort({ score: { $meta: 'textScore' } })
+        .limit(20)
+        .populate({
+            path: 'replyTo',
+            select: 'content media sender',
+            populate: { path: 'sender', select: 'fullname' }
+        })
+        .lean();
 
         res.json(messages);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -210,7 +226,7 @@ router.get('/messages/search', verifyToken, async (req, res) => {
 // ─── SEND MESSAGE (PROTECTED) ─────────────────────────────────────────────────
 router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
     try {
-        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost } = req.body;
+        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost, replyTo } = req.body;
         const sender = req.userId;
         
         let conv;
@@ -259,15 +275,32 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
             }
         }
 
-        const message = await Message.create({
-            conversationId: conv._id, sender, content: content || '',
+        let message = await Message.create({
+            conversationId: conv._id,
+            sender,
+            content: content || '',
             media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
             storyReply: storyReply || undefined,
             sharedPost: sharedPost || undefined,
+            replyTo: replyTo || null,
         });
 
+        // Populate replyTo for the response
+        if (message.replyTo) {
+            message = await message.populate({
+                path: 'replyTo',
+                select: 'content media sender',
+                populate: { path: 'sender', select: 'fullname' }
+            });
+        }
+
         const updatedConv = await Conversation.findByIdAndUpdate(conv._id, {
-            lastMessage: { id: message._id, message: content || `📎 ${mediaType || 'file'}`, isRead: false },
+            lastMessage: { 
+                id: message._id, 
+                message: content || `📎 ${mediaType || 'file'}`, 
+                isRead: false,
+                isReply: !!message.replyTo
+            },
             lastMessageAt: new Date(), lastMessageBy: sender,
         }, { new: true }).lean();
 

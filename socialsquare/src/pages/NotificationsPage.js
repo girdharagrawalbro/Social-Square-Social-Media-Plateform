@@ -10,13 +10,13 @@ const NotificationsPage = () => {
     const user = useAuthStore(s => s.user);
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'requests' | 'collabs'
-    const { data: notifications = [], markRead, loadMore, hasMore, isLoading } = useNotifications(user?._id);
+    const { data: notifications = [], markRead, loadMore, hasMore, isLoading, updateNotification } = useNotifications(user?._id);
     const { data: collabInvites = [] } = useCollabInvites(user?._id);
-
+ 
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     const acceptMutation = useAcceptFollowRequest();
     const declineMutation = useDeclineFollowRequest();
-
+ 
     // ✅ Auto-mark all as read when opening page
     React.useEffect(() => {
         const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
@@ -24,22 +24,22 @@ const NotificationsPage = () => {
             markRead.mutate(unreadIds);
         }
     }, [notifications, markRead]);
-
+ 
     const handleMarkRead = (id) => markRead.mutate([id]);
-
+ 
     const handleAccept = async (e, requesterId, notificationId) => {
         e.stopPropagation();
         try {
             await acceptMutation.mutateAsync({ requesterId });
-            handleMarkRead(notificationId);
+            updateNotification(notificationId, { status: 'accepted', read: true });
         } catch { }
     };
-
+ 
     const handleDecline = async (e, requesterId, notificationId) => {
         e.stopPropagation();
         try {
             await declineMutation.mutateAsync({ requesterId });
-            handleMarkRead(notificationId);
+            updateNotification(notificationId, { status: 'rejected', read: true });
         } catch { }
     };
 
@@ -232,20 +232,28 @@ const NotificationsPage = () => {
 
                                                         {n.type === 'follow_request' && (
                                                             <div className="flex gap-2 mt-3">
-                                                                <button
-                                                                    onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
-                                                                    disabled={acceptMutation.isPending}
-                                                                    className="bg-[#808bf5] text-white border-0 rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[#6366f1] transition-all transform active:scale-95"
-                                                                >
-                                                                    Confirm
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
-                                                                    disabled={declineMutation.isPending}
-                                                                    className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[var(--surface-3)] transition-all transform active:scale-95"
-                                                                >
-                                                                    Delete
-                                                                </button>
+                                                                 {n.status === 'accepted' ? (
+                                                                     <span className="text-[#808bf5] text-sm font-bold bg-[#808bf5]/10 px-4 py-1.5 rounded-xl">Accepted</span>
+                                                                 ) : n.status === 'rejected' ? (
+                                                                     <span className="text-red-500 text-sm font-bold bg-red-500/10 px-4 py-1.5 rounded-xl">Rejected</span>
+                                                                 ) : (
+                                                                     <>
+                                                                         <button
+                                                                             onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
+                                                                             disabled={acceptMutation.isPending}
+                                                                             className="bg-[#808bf5] text-white border-0 rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[#6366f1] transition-all transform active:scale-95"
+                                                                         >
+                                                                             {acceptMutation.isPending && acceptMutation.variables?.requesterId === (n.sender.id || n.sender._id) ? '...' : 'Confirm'}
+                                                                         </button>
+                                                                         <button
+                                                                             onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
+                                                                             disabled={declineMutation.isPending}
+                                                                             className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[var(--surface-3)] transition-all transform active:scale-95"
+                                                                         >
+                                                                             {declineMutation.isPending && declineMutation.variables?.requesterId === (n.sender.id || n.sender._id) ? '...' : 'Delete'}
+                                                                         </button>
+                                                                     </>
+                                                                 )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -313,18 +321,26 @@ const NotificationsPage = () => {
                                             <p className="m-0 text-[12px] text-[var(--text-sub)]">{getNotificationText(n)}</p>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
-                                                className="bg-[#808bf5] text-white border-0 rounded-lg px-4 py-1.5 text-[12px] font-bold cursor-pointer hover:bg-[#6366f1] transition-all"
-                                            >
-                                                Confirm
-                                            </button>
-                                            <button
-                                                onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
-                                                className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-lg px-4 py-1.5 text-[12px] font-bold cursor-pointer hover:bg-[var(--surface-3)] transition-all"
-                                            >
-                                                Delete
-                                            </button>
+                                            {n.status === 'accepted' ? (
+                                                <span className="text-[#808bf5] text-xs font-bold bg-[#808bf5]/10 px-4 py-1.5 rounded-lg">Accepted</span>
+                                            ) : n.status === 'rejected' ? (
+                                                <span className="text-red-500 text-xs font-bold bg-red-500/10 px-4 py-1.5 rounded-lg">Rejected</span>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
+                                                        className="bg-[#808bf5] text-white border-0 rounded-lg px-4 py-1.5 text-[12px] font-bold cursor-pointer hover:bg-[#6366f1] transition-all"
+                                                    >
+                                                        Confirm
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
+                                                        className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-lg px-4 py-1.5 text-[12px] font-bold cursor-pointer hover:bg-[var(--surface-3)] transition-all"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

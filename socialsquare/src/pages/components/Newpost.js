@@ -10,6 +10,7 @@ import { Dialog } from 'primereact/dialog';
 
 const STEPS = {
     SELECT: 'select',
+    AI_PROMPT: 'ai_prompt',
     FINALIZE: 'finalize'
 };
 
@@ -173,8 +174,42 @@ const NewPost = ({ visible, onHide }) => {
             setImages(prev => [...prev, newImg]);
             setUsedAiForThisPost(true);
             toast.success(`✨ Image generated`);
-        } catch (err) { toast.error(err.response?.data?.error || 'Failed to generate image'); }
+            return newImg;
+        } catch (err) { 
+            toast.error(err.response?.data?.error || 'Failed to generate image');
+            return null;
+        }
         finally { setIsGeneratingAi(false); }
+    };
+
+    const handleAiMagicPost = async () => {
+        if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
+        setIsGeneratingAi(true);
+        try {
+            // Generate both text and image for the "Magic Post"
+            const [textRes, imgRes] = await Promise.all([
+                api.post(`/api/ai/generate-text`, { prompt: aiPrompt }),
+                api.post(`/api/ai/generate-image`, { prompt: aiPrompt })
+            ]);
+
+            const newImg = { 
+                id: Math.random().toString(36).slice(2), 
+                preview: imgRes.data.imageUrl, 
+                url: imgRes.data.imageUrl, 
+                uploaded: true, 
+                progress: 100 
+            };
+
+            setImages([newImg]);
+            setFormData(p => ({ ...p, caption: textRes.data.text }));
+            setUsedAiForThisPost(true);
+            setStep(STEPS.FINALIZE);
+            toast.success(`✨ AI Magic Post ready!`);
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to generate content');
+        } finally {
+            setIsGeneratingAi(false);
+        }
     };
 
 
@@ -441,18 +476,81 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     const renderSelect = () => (
-        <div className="flex flex-col items-center justify-center p-12 min-h-[400px] text-center gap-6">
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 min-h-[400px] text-center gap-6">
             <div className="text-6xl text-[var(--text-sub)] opacity-40">
                 <i className="pi pi-images"></i>
             </div>
-            <h3 className="text-xl text-[var(--text-main)] font-medium">select photos and videos</h3>
-            <button
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-[#6366f1] text-white px-4 py-2 rounded-lg font-bold hover:bg-[#4f46e5] transition"
-            >
-                Select Any Media
-            </button>
+            <div className="flex flex-col gap-2">
+                <h3 className="text-xl text-[var(--text-main)] font-medium m-0">Create new post</h3>
+                <p className="text-xs text-[var(--text-sub)]">Share photos and videos with your friends</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-[400px]">
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
+                >
+                    <i className="pi pi-upload text-sm"></i>
+                    Upload Media
+                </button>
+                <button
+                    onClick={() => setStep(STEPS.AI_PROMPT)}
+                    className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                >
+                    <span className="animate-pulse">✨</span>
+                    AI Magic Post
+                </button>
+            </div>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
+        </div>
+    );
+
+    const renderAiPrompt = () => (
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 min-h-[400px] text-center gap-8 animate-in fade-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-3xl shadow-xl shadow-indigo-500/20">
+                ✨
+            </div>
+            <div className="flex flex-col gap-2 max-w-[400px]">
+                <h3 className="text-2xl text-[var(--text-main)] font-bold m-0">What's on your mind?</h3>
+                <p className="text-sm text-[var(--text-sub)]">Describe the post you want to create, and our AI will generate both a stunning image and a perfect caption for you.</p>
+            </div>
+
+            <div className="w-full max-w-[500px] flex flex-col gap-4">
+                <textarea
+                    autoFocus
+                    placeholder="e.g. A futuristic city in the clouds with glowing neon lights, cinematic style..."
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl p-4 text-sm text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner resize-none min-h-[120px]"
+                />
+                
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setStep(STEPS.SELECT)}
+                        disabled={isGeneratingAi}
+                        className="flex-1 py-3 px-4 rounded-xl font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition disabled:opacity-50"
+                    >
+                        Back
+                    </button>
+                    <button
+                        onClick={handleAiMagicPost}
+                        disabled={isGeneratingAi || !aiPrompt.trim()}
+                        className="flex-[2] bg-[#6366f1] text-white py-3 px-6 rounded-xl font-bold hover:bg-[#4f46e5] transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 disabled:opacity-50"
+                    >
+                        {isGeneratingAi ? (
+                            <>
+                                <i className="pi pi-spin pi-spinner text-sm"></i>
+                                Creating Magic...
+                            </>
+                        ) : (
+                            <>
+                                <i className="pi pi-sparkles text-sm"></i>
+                                Generate Magic Post
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 
@@ -640,6 +738,7 @@ const NewPost = ({ visible, onHide }) => {
                     {renderHeader()}
                     <div className="flex-1 overflow-hidden">
                         {step === STEPS.SELECT && renderSelect()}
+                        {step === STEPS.AI_PROMPT && renderAiPrompt()}
                         {step === STEPS.FINALIZE && renderFinalize()}
                     </div>
                 </div>

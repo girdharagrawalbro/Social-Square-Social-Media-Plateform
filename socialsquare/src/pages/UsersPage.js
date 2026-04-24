@@ -4,8 +4,9 @@ import { useInView } from 'react-intersection-observer';
 import { useDarkMode } from '../context/DarkModeContext';
 import useAuthStore, { api } from '../store/zustand/useAuthStore';
 import useConversationStore from '../store/zustand/useConversationStore';
-import { useInfiniteOtherUsers, useFollowUser, useUnfollowUser } from '../hooks/queries/useAuthQueries';
+import { useInfiniteOtherUsers, useFollowUser, useUnfollowUser, useCancelFollowRequest } from '../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
+import { confirmDialog } from 'primereact/confirmdialog';
 import UserProfile from './components/UserProfile';
 
 const UsersPage = () => {
@@ -36,17 +37,36 @@ const UsersPage = () => {
 
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
+    const cancelMutation = useCancelFollowRequest();
 
     // Local state for UI responsiveness
     const [localDismissed, setLocalDismissed] = useState([]);
     const [selectedId, setSelectedId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
 
-    const handleFollow = (e, targetUserId) => {
+    const handleFollow = (e, targetUserId, isRequested) => {
         e.stopPropagation();
         const isFollowing = user?.following?.some(f => f?.toString() === targetUserId?.toString());
         if (isFollowing) {
-            unfollowMutation.mutate({ targetUserId });
+            confirmDialog({
+                message: 'Are you sure you want to unfollow this user?',
+                header: 'Unfollow User',
+                icon: 'pi pi-exclamation-triangle',
+                acceptLabel: 'Unfollow',
+                rejectLabel: 'Cancel',
+                acceptClassName: 'p-button-danger',
+                accept: () => unfollowMutation.mutate({ targetUserId }),
+            });
+        } else if (isRequested) {
+            confirmDialog({
+                message: 'Do you want to cancel your follow request?',
+                header: 'Cancel Request',
+                icon: 'pi pi-times-circle',
+                acceptLabel: 'Withdraw Request',
+                rejectLabel: 'Keep',
+                acceptClassName: 'p-button-secondary',
+                accept: () => cancelMutation.mutate({ targetUserId }),
+            });
         } else {
             followMutation.mutate({ targetUserId });
         }
@@ -94,8 +114,10 @@ const UsersPage = () => {
                     {filteredUsers.map((u) => {
                         const userIsOnline = isOnline(u._id);
                         const following = isFollowing(u._id);
+                        const isRequested = u.followRequests?.some(r => r?.toString() === user?._id?.toString());
                         const isMutating = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
-                            (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id);
+                            (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id) ||
+                            (cancelMutation.isPending && cancelMutation.variables?.targetUserId === u._id);
 
                         return (
                             <div
@@ -141,13 +163,15 @@ const UsersPage = () => {
                                     <div className="flex gap-2 w-full mt-auto">
                                         <button
                                             disabled={isMutating}
-                                            onClick={(e) => handleFollow(e, u._id)}
+                                            onClick={(e) => handleFollow(e, u._id, isRequested)}
                                             className={`flex-1 py-2.5 rounded-2xl text-xs font-bold transition-all border-0 cursor-pointer ${following
-                                                    ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                                                ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                                                : isRequested
+                                                    ? 'bg-gray-200 text-gray-500 cursor-default'
                                                     : 'bg-[#808bf5] text-white hover:shadow-[0_8px_20px_-6px_rgba(128,139,245,0.6)]'
                                                 } ${isMutating ? 'opacity-50' : ''}`}
                                         >
-                                            {isMutating ? '...' : (following ? 'Following' : 'Follow')}
+                                            {isMutating ? '...' : (following ? 'Following' : isRequested ? 'Requested' : 'Follow')}
                                         </button>
                                         <button
                                             onClick={(e) => {

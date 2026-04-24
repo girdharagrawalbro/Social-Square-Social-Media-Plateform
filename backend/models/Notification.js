@@ -13,7 +13,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['like', 'comment', 'follow', 'follow_request', 'message', 'system', 'new_post'],  // added follow_request
+    enum: ['like', 'comment', 'follow', 'follow_request', 'follow_accept', 'follow_decline', 'message', 'system', 'new_post'],  // added follow_accept/decline
     default: 'message'
   },
   // Optional — only for message notifications
@@ -30,6 +30,7 @@ const notificationSchema = new mongoose.Schema({
   thumbnail: { type: String, required: false },
   url: { type: String, required: false },
   read: { type: Boolean, default: false },
+  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -59,17 +59,21 @@ const Navbar = () => {
       )}
 
       {mobileSearchActive && (
-        <div className="flex-1 lg:hidden px-1 slide-in">
+        <div className="flex-1 sm:hidden px-1 slide-in">
           <Search onClose={() => setMobileSearchActive(false)} />
         </div>
       )}
 
-      {/* <div className="hidden md:block mx-auto max-w-4xl w-full px-8">
-        {isLandingPage ? <Authnav /> : (isAuthenticated ? <div className="mt-3"><Search onClose={() => setMobileMenuOpen(false)} /></div> : <Authnav />)}
-      </div> */}
+      <div className="hidden sm:flex items-center justify-center flex-1 max-w-xl px-4">
+        {!isLandingPage && isAuthenticated && (
+          <div className="w-full">
+            <Search onClose={() => setMobileMenuOpen(false)} />
+          </div>
+        )}
+      </div>
 
 
-      <div className="hidden lg:flex items-center justify-end gap-3 flex-1">
+      <div className="hidden sm:flex items-center justify-end gap-3 flex-1">
         {isAuthenticated && !isLandingPage ? (
           <button
             aria-label="Create post"
@@ -113,7 +117,7 @@ const Navbar = () => {
         )}
       </div>
 
-      <div className="lg:hidden flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+      <div className="sm:hidden flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {isAuthenticated && !isLandingPage ? (
           <>
             {!mobileSearchActive ? (
@@ -172,7 +176,7 @@ const Navbar = () => {
         </button>
       </div>
 
-      <div className={`lg:hidden absolute top-full left-0 right-0 border-b shadow-2xl p-2 z-40 flex flex-col gap-4 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
+      <div className={`sm:hidden absolute top-full left-0 right-0 border-b shadow-2xl p-2 z-40 flex flex-col gap-4 transition-all duration-300 ease-out origin-top ${mobileMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-4 invisible pointer-events-none'
         } ${isDark ? 'bg-[#0f0f0f]/95 border-neutral-800' : 'bg-white/95 border-gray-200'}`}>
         <div className={isAuthenticated ? '' : 'mb-3'}>
           {isLandingPage ? <Authnav /> : (isAuthenticated ? null : <Authnav />)}

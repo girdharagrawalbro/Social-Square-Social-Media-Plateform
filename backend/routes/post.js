@@ -971,35 +971,90 @@ router.get("/confessions", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── EXPLORE REELS (Infinite Scroll) ──────────────────────────────────────────
+// ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
 router.get("/explore-reels", async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 12;
         const cursor = req.query.cursor;
 
-        // 🔒 Privacy Guard: Exclude private users
-        const privateUsers = await User.find({ isPrivate: true }).select('_id').lean();
-        const privateUserIds = privateUsers.map(u => u._id.toString());
+        // 1. Identify Viewer
+        let viewerId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                viewerId = decoded.userId || decoded.id || decoded._id;
+            } catch (err) { /* invalid token */ }
+        }
 
-        const query = { video: { $ne: null }, 'user._id': { $nin: privateUserIds } };
+        let followingIds = [];
+        let excludedUserIds = [];
+
+        if (viewerId) {
+            const viewer = await User.findById(viewerId).select('following blockedUsers mutedUsers').lean();
+            if (viewer) {
+                followingIds = (viewer.following || []).map(id => id.toString());
+                excludedUserIds = [
+                    ...(viewer.blockedUsers || []),
+                    ...(viewer.mutedUsers || []),
+                    viewerId // Exclude self from explore
+                ].map(id => id.toString());
+            }
+        }
+
+        // 🔒 Privacy Guard: Identify private users to exclude (unless followed)
+        const privateUsers = await User.find({ 
+            isPrivate: true, 
+            _id: { $nin: [...followingIds, viewerId].filter(Boolean) } 
+        }).select('_id').lean();
+        const privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
+
+        /**
+         * Query Logic:
+         * 1. From FOLLOWED users: Show ANY post (image or video)
+         * 2. From OTHERS: Show ONLY video posts from PUBLIC accounts
+         */
+        const query = {
+            'user._id': { $nin: [...excludedUserIds, ...privateUserIdsExcluded] },
+            isAnonymous: { $ne: true },
+            $or: [
+                { 'user._id': { $in: followingIds } }, // 1. Followed users (any media)
+                { video: { $ne: null } }               // 2. Public users (only videos)
+            ]
+        };
+
         if (cursor) {
             query._id = { $lt: cursor };
         }
 
         const posts = await Post.find(query)
-            .sort({ _id: -1 }) // Use _id for reliable cursor-based pagination
-            .limit(limit + 1);
+            .sort({ _id: -1 })
+            .limit(limit + 1)
+            .lean();
 
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         const nextCursor = hasMore ? result[result.length - 1]._id : null;
 
+        // Fetch presence for users in results
+        const uniqueUserIds = [...new Set(result.map(p => p.user._id.toString()))];
+        const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
+        const presenceMap = {};
+        usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
+
+        const resultWithPresence = result.map(p => {
+            if (p.user) p.user.isOnline = presenceMap[p.user._id.toString()] || false;
+            return p;
+        });
+
         res.status(200).json({
-            posts: result,
+            posts: resultWithPresence,
             nextCursor,
             hasMore
         });
     } catch (error) {
+        console.error('[Explore] Error:', error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

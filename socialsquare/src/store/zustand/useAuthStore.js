@@ -62,17 +62,17 @@ export const refreshAccessToken = async () => {
     try {
         const { getFingerprint } = await import('../../utils/fingerprint');
         const fingerprint = await getFingerprint();
-        
+
         const res = await axios.post(
             `${BASE}/api/auth/refresh`,
             {},
             { withCredentials: true, headers: { 'x-fingerprint': fingerprint } }
         );
-        
+
         const { token, user } = res.data;
         setToken(token);
         if (user) useAuthStore.getState().setUser(user);
-        
+
         processQueue(null, token);
         return token;
     } catch (err) {
@@ -228,24 +228,21 @@ const useAuthStore = create(
             },
 
             // ── Follow / Unfollow ─────────────────────────────────────────────
-            followUser: async (followUserId) => {
-                const user = get().user;
-                set(s => ({ user: { ...s.user, following: [...(s.user?.following || []), followUserId] } }));
-                try {
-                    await api.post('/api/auth/follow', { userId: user._id, followUserId });
-                } catch {
-                    set(s => ({ user: { ...s.user, following: s.user.following.filter(id => id !== followUserId) } }));
-                }
+            followUser: (followUserId) => {
+                set(s => {
+                    const following = s.user?.following || [];
+                    if (following.includes(followUserId)) return s;
+                    return { user: { ...s.user, following: [...following, followUserId] } };
+                });
             },
 
-            unfollowUser: async (unfollowUserId) => {
-                const user = get().user;
-                set(s => ({ user: { ...s.user, following: s.user.following.filter(id => id !== unfollowUserId) } }));
-                try {
-                    await api.post('/api/auth/unfollow', { userId: user._id, unfollowUserId });
-                } catch {
-                    set(s => ({ user: { ...s.user, following: [...(s.user?.following || []), unfollowUserId] } }));
-                }
+            unfollowUser: (unfollowUserId) => {
+                set(s => ({
+                    user: {
+                        ...s.user,
+                        following: (s.user?.following || []).filter(id => id?.toString() !== unfollowUserId?.toString())
+                    }
+                }));
             },
 
             blockUser: async (targetUserId) => {
