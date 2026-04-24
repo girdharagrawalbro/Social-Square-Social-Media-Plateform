@@ -175,7 +175,7 @@ const NewPost = ({ visible, onHide }) => {
             setUsedAiForThisPost(true);
             toast.success(`✨ Image generated`);
             return newImg;
-        } catch (err) { 
+        } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to generate image');
             return null;
         }
@@ -192,12 +192,12 @@ const NewPost = ({ visible, onHide }) => {
                 api.post(`/api/ai/generate-image`, { prompt: aiPrompt })
             ]);
 
-            const newImg = { 
-                id: Math.random().toString(36).slice(2), 
-                preview: imgRes.data.imageUrl, 
-                url: imgRes.data.imageUrl, 
-                uploaded: true, 
-                progress: 100 
+            const newImg = {
+                id: Math.random().toString(36).slice(2),
+                preview: imgRes.data.imageUrl,
+                url: imgRes.data.imageUrl,
+                uploaded: true,
+                progress: 100
             };
 
             setImages([newImg]);
@@ -221,7 +221,9 @@ const NewPost = ({ visible, onHide }) => {
         setIsSearching(true);
         try {
             const res = await api.get(`/api/auth/search?query=${query}`);
-            setSearchResults(res.data.filter(u => u._id !== loggeduser._id));
+            // The backend returns { users: [], posts: [] }
+            const users = res.data?.users || [];
+            setSearchResults(users.filter(u => u._id !== loggeduser._id));
         } catch { }
         finally { setIsSearching(false); }
     };
@@ -484,7 +486,7 @@ const NewPost = ({ visible, onHide }) => {
                 <h3 className="text-xl text-[var(--text-main)] font-medium m-0">Create new post</h3>
                 <p className="text-xs text-[var(--text-sub)]">Share photos and videos with your friends</p>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-3 w-full max-w-[400px]">
                 <button
                     onClick={() => fileInputRef.current?.click()}
@@ -523,7 +525,7 @@ const NewPost = ({ visible, onHide }) => {
                     onChange={(e) => setAiPrompt(e.target.value)}
                     className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl p-4 text-sm text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner resize-none min-h-[120px]"
                 />
-                
+
                 <div className="flex gap-3">
                     <button
                         onClick={() => setStep(STEPS.SELECT)}
@@ -623,9 +625,9 @@ const NewPost = ({ visible, onHide }) => {
                             <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
                                 <div className="relative">
                                     <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Search users..." 
+                                    <input
+                                        type="text"
+                                        placeholder="Search users..."
                                         value={searchTerm}
                                         onChange={(e) => handleSearchUsers(e.target.value)}
                                         className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl py-2 pl-8 pr-3 text-[11px] text-[var(--text-main)] outline-none focus:border-[#6366f1]"
@@ -636,8 +638,8 @@ const NewPost = ({ visible, onHide }) => {
                                 {searchResults.length > 0 && (
                                     <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] shadow-xl p-1">
                                         {searchResults.map(user => (
-                                            <div 
-                                                key={user._id} 
+                                            <div
+                                                key={user._id}
                                                 onClick={() => addCollaborator(user)}
                                                 className="flex items-center gap-2 p-2 hover:bg-[var(--surface-2)] rounded-lg cursor-pointer transition-colors"
                                             >

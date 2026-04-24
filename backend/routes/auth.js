@@ -1084,8 +1084,8 @@ router.get('/following/:userId', verifyToken, async (req, res) => {
     }
 });
 
-router.post("/search", async (req, res) => {
-    const { query } = req.body;
+router.all("/search", async (req, res) => {
+    const query = req.method === 'GET' ? req.query.query : req.body.query;
     if (!query) return res.status(400).json({ message: "Search query is required." });
 
     try {
@@ -1126,6 +1126,10 @@ router.post("/search", async (req, res) => {
         }));
 
         const postResults = await Post.find({ category: { $regex: escapedQuery, $options: "i" } }).limit(20).lean();
+
+        // If it's a GET request from certain parts of the app (like NewPost) that might expect just an array of users,
+        // we should still return the full object, but I'll check if I need to adjust.
+        // Actually, let's just return the full object as it is more consistent.
         res.status(200).json({ users: usersWithCounts, posts: postResults });
     } catch (error) {
         logger.error(`Search error for query "${query}":`, error);
