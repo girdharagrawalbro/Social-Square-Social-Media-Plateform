@@ -214,6 +214,16 @@ router.post('/reply/:storyId', verifyToken, async (req, res) => {
         const story = await Story.findById(storyId);
         if (!story) return res.status(404).json({ message: 'Story not found.' });
 
+        // 🔒 Privacy Guard: If story owner is private, replier must be a follower
+        const storyOwner = await User.findById(story.user._id).select('isPrivate followers').lean();
+        if (storyOwner && storyOwner.isPrivate) {
+            const isFollower = (storyOwner.followers || []).some(id => id.toString() === userId.toString());
+            const isOwner = storyOwner._id.toString() === userId.toString();
+            if (!isOwner && !isFollower) {
+                return res.status(403).json({ message: 'This story is private. Follow to reply.' });
+            }
+        }
+
         const sender = await User.findById(userId).select('fullname profile_picture').lean();
         if (!sender) return res.status(404).json({ message: 'User not found.' });
 

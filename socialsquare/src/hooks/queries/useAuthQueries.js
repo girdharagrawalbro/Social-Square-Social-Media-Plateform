@@ -248,6 +248,23 @@ export function useDeclineFollowRequest() {
     });
 }
 
+export function useCancelFollowRequest() {
+    const qc = useQueryClient();
+    const loggedUser = useAuthStore(s => s.user);
+    return useMutation({
+        mutationFn: async ({ targetUserId }) =>
+            api.post(`/api/auth/follow-request/cancel`, { targetUserId }),
+        onSuccess: (_, { targetUserId }) => {
+            qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
+            qc.invalidateQueries({ queryKey: authKeys.otherUsers });
+            // Invalidate the notifications list for the current user
+            if (loggedUser?._id) {
+                qc.invalidateQueries({ queryKey: ['notifications', loggedUser._id] });
+            }
+        },
+    });
+}
+
 export function useRemoveFollower() {
     const qc = useQueryClient();
     const user = useAuthStore(s => s.user);

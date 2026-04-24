@@ -4,7 +4,7 @@ import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
-import { useUserDetails, useFollowUser, useUnfollowUser, authKeys } from '../../hooks/queries/useAuthQueries';
+import { useUserDetails, useFollowUser, useUnfollowUser, useCancelFollowRequest, authKeys } from '../../hooks/queries/useAuthQueries';
 import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
@@ -122,6 +122,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
 
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
+    const cancelRequestMutation = useCancelFollowRequest();
 
     const { data: userDetails, isLoading: userLoading } = useQuery({
         queryKey: authKeys.userProfile(id),
@@ -140,8 +141,8 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const { data: postsData } = useUserPosts(id);
     const userPostsList = postsData?.pages?.flatMap(p => p.posts) || [];
 
-    const isFollowing = loggeduser?.following?.some(f => f?.toString() === id?.toString());
-    const isRequested = userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
+    const isFollowing = userDetails?.isFollowing ?? loggeduser?.following?.some(f => f?.toString() === id?.toString());
+    const isRequested = userDetails?.hasPendingRequest ?? userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
     const isBlockedByMe = loggeduser?.blockedUsers?.some(b => b?.toString() === id?.toString());
     const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id && !isBlockedByMe;
 
@@ -160,6 +161,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
         }
     };
     const handleUnfollow = () => unfollowMutation.mutate({ targetUserId: id });
+    const handleCancelRequest = () => cancelRequestMutation.mutate({ targetUserId: id });
 
     const handleMessage = async () => {
         try {
@@ -274,19 +276,20 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                             {!isBlockedByMe ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
-                                        onClick={isFollowing ? handleUnfollow : handleFollow}
-                                        disabled={(isRequested && !isFollowing) || followMutation.isPending || unfollowMutation.isPending}
-                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] cursor-default' : 'border-0 bg-[#808bf5] text-white hover:opacity-95'}`}
+                                        onClick={isFollowing ? handleUnfollow : isRequested ? handleCancelRequest : handleFollow}
+                                        disabled={followMutation.isPending || unfollowMutation.isPending || cancelRequestMutation.isPending}
+                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:bg-[var(--surface-3)]' : 'border-0 bg-[#808bf5] text-white hover:opacity-95'}`}
                                     >
-                                        {((followMutation.isPending && followMutation.variables?.targetUserId === id) || (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === id))
+                                        {((followMutation.isPending && followMutation.variables?.targetUserId === id) || (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === id) || (cancelRequestMutation.isPending && cancelRequestMutation.variables?.targetUserId === id))
                                             ? '...'
                                             : (isFollowing ? 'Following' : isRequested ? 'Requested' : 'Follow')}
                                     </button>
                                     <button
                                         onClick={handleMessage}
-                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                        disabled={isPrivateAndNotFollowing}
+                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border border-[var(--border-color)] font-semibold text-sm cursor-pointer transition ${isPrivateAndNotFollowing ? 'opacity-50 grayscale cursor-not-allowed bg-[var(--surface-2)] text-[var(--text-sub)]' : 'bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]'}`}
                                     >
-                                        <i className="pi pi-send mr-2"></i>Message
+                                        <i className="pi pi-send mr-2"></i>{isPrivateAndNotFollowing ? 'Locked' : 'Message'}
                                     </button>
                                 </div>
                             ) : (

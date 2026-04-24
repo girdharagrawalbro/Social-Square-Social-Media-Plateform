@@ -9,7 +9,7 @@ import CollabManager from './components/CollabManager';
 const NotificationsPage = () => {
     const user = useAuthStore(s => s.user);
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'collabs'
+    const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'requests' | 'collabs'
     const { data: notifications = [], markRead, loadMore, hasMore, isLoading } = useNotifications(user?._id);
     const { data: collabInvites = [] } = useCollabInvites(user?._id);
 
@@ -93,6 +93,11 @@ const NotificationsPage = () => {
         return Object.entries(groups).filter(([_, items]) => items.length > 0);
     }, [notifications]);
 
+    // Follow Requests Filter
+    const followRequests = useMemo(() => {
+        return notifications.filter(n => n.type === 'follow_request');
+    }, [notifications]);
+
     return (
         <div className="flex justify-center min-h-[calc(100vh-64px)] bg-[var(--app-bg)] w-full">
             <div className="w-full max-w-2xl bg-[var(--surface-1)] border-x border-[var(--border-color)]">
@@ -108,6 +113,18 @@ const NotificationsPage = () => {
                         >
                             <i className="pi pi-bell mr-2"></i>
                             Activity
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('requests')}
+                            className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors relative ${activeTab === 'requests' ? 'border-[#808bf5] text-[#808bf5]' : 'border-transparent text-[var(--text-sub)]'}`}
+                        >
+                            <i className="pi pi-user-plus mr-2"></i>
+                            Requests
+                            {followRequests.filter(r => !r.read).length > 0 && (
+                                <span className="ml-1.5 px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[18px] inline-block text-center font-black">
+                                    {followRequests.filter(r => !r.read).length}
+                                </span>
+                            )}
                         </button>
                         <button
                             onClick={() => setActiveTab('collabs')}
@@ -213,7 +230,7 @@ const NotificationsPage = () => {
                                                             <span className="text-[var(--text-sub)] text-[11px] font-medium mt-1 block italic">{formatTime(n.createdAt)}</span>
                                                         </p>
 
-                                                        {n.type === 'follow_request' && !n.read && (
+                                                        {n.type === 'follow_request' && (
                                                             <div className="flex gap-2 mt-3">
                                                                 <button
                                                                     onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
@@ -266,6 +283,54 @@ const NotificationsPage = () => {
                             </div>
                         )}
                     </>
+                ) : activeTab === 'requests' ? (
+                    <div className="pb-20">
+                        {followRequests.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-12 text-[var(--text-sub)]">
+                                <div className="w-20 h-20 rounded-full border-2 border-[var(--border-color)] flex items-center justify-center mb-4">
+                                    <i className="pi pi-user-plus text-3xl"></i>
+                                </div>
+                                <h3 className="text-lg font-bold text-[var(--text-main)] mb-2">No follow requests</h3>
+                                <p className="text-center text-sm">When people request to follow your private account, they'll show up here.</p>
+                            </div>
+                        ) : (
+                            <div>
+                                {followRequests.map(n => (
+                                    <div
+                                        key={n._id}
+                                        className="flex items-center gap-3 px-4 py-4 border-b border-[var(--border-color)] hover:bg-[var(--surface-2)] transition-colors"
+                                    >
+                                        <img
+                                            src={n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                            alt=""
+                                            className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
+                                            onClick={() => navigate(`/profile/${n.sender.id || n.sender._id}`)}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="m-0 text-[14px] font-bold text-[var(--text-main)]" onClick={() => navigate(`/profile/${n.sender.id || n.sender._id}`)}>
+                                                {n.sender?.username || n.sender?.fullname || 'User'}
+                                            </p>
+                                            <p className="m-0 text-[12px] text-[var(--text-sub)]">{getNotificationText(n)}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
+                                                className="bg-[#808bf5] text-white border-0 rounded-lg px-4 py-1.5 text-[12px] font-bold cursor-pointer hover:bg-[#6366f1] transition-all"
+                                            >
+                                                Confirm
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
+                                                className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-lg px-4 py-1.5 text-[12px] font-bold cursor-pointer hover:bg-[var(--surface-3)] transition-all"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <div className="p-4 pb-20">
                         <CollabManager mode="invites" />

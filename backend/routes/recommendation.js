@@ -10,18 +10,31 @@ const {
     getUserMemory
 } = require("../services/recommendationService");
 const Post = require("../models/Post");
+const User = require("../models/User");
 
 router.get("/posts", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const { UserInterest, PostVector } = require("../models/Recommendation");
 
+        // 🔒 Privacy Guard: Exclude private users unless followed
+        const loggedUser = await User.findById(userId).select('following').lean();
+        const followingIds = (loggedUser?.following || []).map(id => id.toString());
+
+        const privateUsers = await User.find({
+            isPrivate: true,
+            _id: { $nin: [...followingIds, userId] }
+        }).select('_id').lean();
+        const privateUserIds = privateUsers.map(u => u._id.toString());
+
         // 1. Get User Interest Profile
         const interest = await UserInterest.findOne({ userId });
 
-        // 2. Fetch candidate posts (exclude own, skip 0-vector if possible)
-        // For simplicity, we'll take the last 200 posts
-        const candidates = await Post.find({ "user._id": { $ne: userId } })
+        // 2. Fetch candidate posts (exclude own, private, anonymous)
+        const candidates = await Post.find({ 
+            "user._id": { $ne: userId, $nin: privateUserIds },
+            isAnonymous: { $ne: true }
+        })
             .sort({ createdAt: -1 })
             .limit(200);
 
@@ -100,8 +113,12 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
 
         const targetVec = targetPostVecDoc.vector;
 
-        // 2. Fetch candidates (exclude the target post)
-        const candidates = await Post.find({ _id: { $ne: postId } })
+        // 🔒 Privacy Guard: Exclude private users unless followed
+        const privateUsers = await User.find({ isPrivate: true }).select('_id').lean();
+        const privateUserIds = privateUsers.map(u => u._id.toString());
+
+        // 2. Fetch candidates (exclude the target post and private users)
+        const candidates = await Post.find({ _id: { $ne: postId }, 'user._id': { $nin: privateUserIds } })
             .sort({ createdAt: -1 })
             .limit(200);
 

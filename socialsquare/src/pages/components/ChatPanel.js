@@ -626,6 +626,7 @@ const ChatPanel = ({
     const [conversationId, setConversationId] = useState(null);
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const [selectedMessageId, setSelectedMessageId] = useState(null);
+    const [privacyError, setPrivacyError] = useState(null);
 
     // ✅ Track conversation ID and notify parent
     useEffect(() => {
@@ -700,6 +701,9 @@ const ChatPanel = ({
             }
         } catch (err) {
             console.error('Failed to fetch messages', err);
+            if (err.response?.status === 403) {
+                setPrivacyError(err.response.data.error || 'This account is private');
+            }
         }
         setLoading(false);
     }, [user?._id, participantId, markRead]);
@@ -1115,22 +1119,41 @@ const ChatPanel = ({
                 borderTop: '1px solid var(--border-color)',
                 boxSizing: 'border-box'
             }}>
-                <form onSubmit={handleSend} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '18px', padding: '4px', flexShrink: 0 }}>
-                        {uploading ? '⏳' : '📎'}
-                    </button>
-                    <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" onChange={handleFileSelect} style={{ display: 'none' }} />
-                    <input type="text" value={text} onChange={handleInputChange} placeholder="Type your message..."
-                        style={{ flex: 1, padding: '10px 16px', borderRadius: '24px', border: '1px solid var(--border-color)', fontSize: '14px', outline: 'none', background: 'var(--surface-2)', color: 'var(--text-main)' }}
-                        onFocus={e => e.target.style.borderColor = '#808bf5'}
-                        onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
-                    />
-                    <button type="submit" disabled={!text.trim() && !uploading}
-                        style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s', background: text.trim() ? '#808bf5' : 'var(--surface-2)' }}>
-                        <i className="pi pi-send" style={{ fontSize: '16px', color: text.trim() ? '#fff' : 'var(--text-sub)' }}></i>
-                    </button>
-                </form>
+                {privacyError ? (
+                    <div style={{
+                        padding: '16px',
+                        textAlign: 'center',
+                        background: 'var(--surface-2)',
+                        borderTop: '1px solid var(--border-color)',
+                        color: 'var(--text-sub)',
+                        fontSize: '13px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <i className="pi pi-lock text-xl opacity-50"></i>
+                        <p style={{ margin: 0, fontWeight: 600 }}>{privacyError}</p>
+                        <p style={{ margin: 0, fontSize: '11px' }}>You must follow this user to send messages.</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSend} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', fontSize: '18px', padding: '4px', flexShrink: 0 }}>
+                            {uploading ? '⏳' : '📎'}
+                        </button>
+                        <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" onChange={handleFileSelect} style={{ display: 'none' }} />
+                        <input type="text" value={text} onChange={handleInputChange} placeholder="Type your message..."
+                            style={{ flex: 1, padding: '10px 16px', borderRadius: '24px', border: '1px solid var(--border-color)', fontSize: '14px', outline: 'none', background: 'var(--surface-2)', color: 'var(--text-main)' }}
+                            onFocus={e => e.target.style.borderColor = '#808bf5'}
+                            onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+                        />
+                        <button type="submit" disabled={!text.trim() && !uploading}
+                            style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s', background: text.trim() ? '#808bf5' : 'var(--surface-2)' }}>
+                            <i className="pi pi-send" style={{ fontSize: '16px', color: text.trim() ? '#fff' : 'var(--text-sub)' }}></i>
+                        </button>
+                    </form>
+                )}
             </div>
 
             <style>{`@keyframes typingDot { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-4px);opacity:1} }`}</style>
