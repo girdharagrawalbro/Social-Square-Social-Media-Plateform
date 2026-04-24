@@ -9,7 +9,7 @@ const BottomNav = () => {
     const location = useLocation();
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
-    const { unreadNotificationsCount, totalUnread } = useConversationStore();
+    const { totalUnread } = useConversationStore();
 
     const isChatOpen = location.pathname.startsWith('/conversation/') && location.pathname.split('/').length > 2;
 

@@ -712,6 +712,60 @@ router.get("/other-users", verifyToken, async (req, res) => {
     }
 });
 
+// ─── OTHER USER PROFILE VIEW ──────────────────────────────────────────────────
+router.get('/other-user/view/:id', verifyToken, async (req, res) => {
+    try {
+        const targetId = req.params.id;
+        const loggedUserId = req.userId;
+
+        if (!mongoose.Types.ObjectId.isValid(targetId)) {
+            return res.status(400).json({ message: 'Invalid user ID.' });
+        }
+
+        const targetUser = await User.findById(targetId)
+            .select('-password -loginSessions')
+            .lean();
+
+        if (!targetUser) return res.status(404).json({ message: 'User not found.' });
+
+        const loggedUser = await User.findById(loggedUserId)
+            .select('following followers blockedUsers')
+            .lean();
+
+        const isFollowing = (loggedUser?.following || []).some(id => id.toString() === targetId.toString());
+        const hasPendingRequest = (targetUser.followRequests || []).some(id => id.toString() === loggedUserId.toString());
+
+        // Mutual followers: people in both logged user's followers AND target's followers
+        const loggedFollowerIds = (loggedUser?.followers || []).map(id => id.toString());
+        const targetFollowerIds = (targetUser.followers || []).map(id => id.toString());
+        const mutualIds = loggedFollowerIds.filter(id => targetFollowerIds.includes(id) && id !== loggedUserId.toString());
+
+        let mutualDetails = [];
+        if (mutualIds.length > 0) {
+            mutualDetails = await User.find({ _id: { $in: mutualIds.slice(0, 3) } })
+                .select('fullname username profile_picture')
+                .lean();
+        }
+
+        // Privacy: if private and not a follower, hide follower/following lists
+        const isOwner = targetId === loggedUserId.toString();
+        const canSeeDetails = isOwner || isFollowing || !targetUser.isPrivate;
+
+        return res.status(200).json({
+            ...targetUser,
+            followers: canSeeDetails ? targetUser.followers : [],
+            following: canSeeDetails ? targetUser.following : [],
+            isFollowing,
+            hasPendingRequest,
+            mutualFollowers: mutualDetails,
+            mutualCount: mutualIds.length,
+        });
+    } catch (error) {
+        logger.error('[OTHER_USER_VIEW] Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 router.post('/users/details', verifyToken, async (req, res) => {
     try {
         let ids = Array.isArray(req.body.ids) ? req.body.ids : [];
@@ -815,6 +869,33 @@ router.post('/follow', verifyToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to follow user.' });
     }
 });
+
+// ─── UNFOLLOW ─────────────────────────────────────────────────────────────────
+router.post('/unfollow', verifyToken, async (req, res) => {
+    try {
+        const { userId, unfollowUserId } = req.body;
+        const loggedUserId = req.userId;
+
+        if (!unfollowUserId) return res.status(400).json({ message: 'Target user ID required.' });
+
+        const targetId = unfollowUserId || userId; // support both param names
+        const meId = userId || loggedUserId;
+
+        // Remove from both sides
+        await User.findByIdAndUpdate(meId, { $pull: { following: targetId } });
+        const updatedTarget = await User.findByIdAndUpdate(
+            targetId,
+            { $pull: { followers: meId } },
+            { new: true }
+        );
+
+        res.status(200).json(updatedTarget || { message: 'Unfollowed' });
+    } catch (error) {
+        console.error('[UNFOLLOW]', error);
+        res.status(500).json({ message: 'Failed to unfollow user.' });
+    }
+});
+
 
 router.post('/follow-request/accept', verifyToken, async (req, res) => {
     try {
