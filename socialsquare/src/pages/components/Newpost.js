@@ -493,13 +493,13 @@ const NewPost = ({ visible, onHide }) => {
                     <i className="pi pi-upload text-sm"></i>
                     Upload Media
                 </button>
-                <button
+                {/* <button
                     onClick={() => setStep(STEPS.AI_PROMPT)}
                     className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
                 >
                     <span className="animate-pulse">✨</span>
                     AI Magic Post
-                </button>
+                </button> */}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
         </div>
