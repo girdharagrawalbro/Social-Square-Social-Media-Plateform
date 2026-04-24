@@ -29,9 +29,9 @@ export default function ProfilePage() {
                 <title>User Profile | Social Square</title>
                 <meta name="description" content="View this profile on Social Square. Connect, follow, and see their latest posts and AI creations." />
             </Helmet>
-            <div className="flex gap-4 max-w-7xl mx-auto px-4 py-4">
-                <main className="flex mx-auto lg:ml-0 ml-0">
-                    <div className="max-w-4xl mx-auto">
+            <div className="max-w-7xl mx-auto">
+                <main className="flex mx-auto">
+                    <div className="max-w-4xl w-full mx-auto">
                         <Profile userId={userId} />
                     </div>
                 </main>
