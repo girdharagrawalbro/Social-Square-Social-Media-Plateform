@@ -23,7 +23,9 @@ export function useNotifications(userId) {
         notifications,
         unreadNotificationsCount,
         setNotifications,
-        markNotificationsRead
+        markNotificationsRead,
+        removeNotification,
+        updateNotification
     } = useConversationStore();
 
     const query = useQuery({
@@ -67,6 +69,8 @@ export function useNotifications(userId) {
         unreadCount: unreadNotificationsCount,
         isLoading: query.isLoading,
         loadMore: () => setPage(p => p + 1),
-        hasMore
+        hasMore,
+        removeNotification,
+        updateNotification
     };
 }

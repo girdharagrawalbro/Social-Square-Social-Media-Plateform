@@ -27,13 +27,22 @@ const Search = ({ onClose }) => {
     const [searchResults, setSearchResults] = useState({ users: [], posts: [] });
     const [searchLoading, setSearchLoading] = useState(false);
 
-    // AI Recommendations
-    const { data: aiResults = [] } = usePersonalizedSearch(user?._id, searchTerm);
+    const [debouncedTerm, setDebouncedTerm] = useState("");
+
+    // AI Recommendations — use debounced term to sync with search results
+    const { data: aiResults = [] } = usePersonalizedSearch(user?._id, debouncedTerm);
     const loading = { search: searchLoading };
     const doSearch = async (term) => {
         setSearchLoading(true);
         try {
-            const res = await fetch(`${BASE}/api/auth/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: term }) });
+            const res = await fetch(`${BASE}/api/auth/search`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}` // Send token if available
+                },
+                body: JSON.stringify({ query: term })
+            });
             const data = await res.json();
             setSearchResults({ users: data.users || [], posts: data.posts || [] });
         } catch { }
@@ -54,6 +63,7 @@ const Search = ({ onClose }) => {
     // Debounced search — fires 400ms after user stops typing
     const debouncedSearch = useMemo(() =>
         debounce((term) => {
+            setDebouncedTerm(term.trim());
             if (term.trim()) doSearch(term.trim());
         }, 400),
         [] // eslint-disable-line react-hooks/exhaustive-deps
@@ -62,7 +72,12 @@ const Search = ({ onClose }) => {
     const handleInputChange = (e) => {
         const term = e.target.value;
         setSearchTerm(term);
-        if (term.trim()) { debouncedSearch(term); } else { setSearchResults({ users: [], posts: [] }); }
+        if (term.trim()) {
+            debouncedSearch(term);
+        } else {
+            setDebouncedTerm("");
+            setSearchResults({ users: [], posts: [] });
+        }
     };
 
     const saveRecentSearch = (term) => {
@@ -112,6 +127,7 @@ const Search = ({ onClose }) => {
         setIsFocused(true);
     };
 
+    const isTyping = searchTerm !== debouncedTerm;
     const hasResults = searchResults?.users?.length > 0 || searchResults?.posts?.length > 0 || aiResults?.length > 0;
 
     return (
@@ -142,7 +158,7 @@ const Search = ({ onClose }) => {
                 </div>
 
 
-                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'}`} style={{ top: '100%', maxHeight: '420px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'}`} style={{ top: '100%', maxHeight: '550px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (
@@ -182,7 +198,7 @@ const Search = ({ onClose }) => {
                     {/* Search results */}
                     {searchTerm && (
                         <div className="p-3">
-                            {loading.search ? (
+                            {(loading.search || isTyping) ? (
                                 <div className="flex items-center gap-2 py-4 justify-center">
                                     <span className="spinner-border spinner-border-sm text-indigo-500" role="status" />
                                     <span className="text-sm text-gray-500">Searching...</span>
@@ -205,10 +221,12 @@ const Search = ({ onClose }) => {
                                                             <div className="flex items-center gap-2 mt-0.5">
                                                                 {u.username && <p className="m-0 text-[11px] text-[#808bf5] font-bold">@{u.username}</p>}
                                                                 <span className="text-[10px] text-[var(--text-sub)] opacity-40">•</span>
-                                                                <p className="m-0 text-[11px] text-[var(--text-sub)] font-medium">{u.followers?.length || 0} followers</p>
-                                                                {user?.following?.some(id => id?.toString() === u._id?.toString()) && (
+                                                                <p className="m-0 text-[11px] text-[var(--text-sub)] font-medium">{u.followerCount || 0} followers</p>
+                                                                {user?.following?.some(id => id?.toString() === u._id?.toString()) ? (
                                                                     <span className="text-[9px] bg-[#808bf5]/10 text-[#808bf5] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">Following</span>
-                                                                )}
+                                                                ) : u.hasPendingRequest ? (
+                                                                    <span className="text-[9px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">Requested</span>
+                                                                ) : null}
                                                             </div>
                                                         </div>
                                                         <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transition-opacity pr-2"></i>

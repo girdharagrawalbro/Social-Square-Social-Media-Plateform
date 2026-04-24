@@ -31,6 +31,10 @@ const conversationSchema = new mongoose.Schema(
       isRead: {
         type: Boolean,
         default: false,
+      },
+      isReply: {
+        type: Boolean,
+        default: false,
       }
     },
     lastMessageBy: {

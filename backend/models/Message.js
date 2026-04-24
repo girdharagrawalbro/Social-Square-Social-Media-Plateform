@@ -5,6 +5,7 @@ const MessageSchema = new mongoose.Schema({
     sender:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     content:        { type: String, default: '' },
 
+
     // Media sharing
     media: {
         url:  { type: String, default: null },
@@ -12,6 +13,9 @@ const MessageSchema = new mongoose.Schema({
         name: { type: String, default: null },
         size: { type: Number, default: null },
     },
+
+    // Reply-to-message
+    replyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
 
     // Reactions: { userId → emoji }
     reactions: { type: Map, of: String, default: {} },

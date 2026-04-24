@@ -48,7 +48,27 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
   }
 };
 
+const deleteNotifications = async (filter) => {
+  try {
+    return await Notification.deleteMany(filter);
+  } catch (err) {
+    console.error('[Notification Delete Error]', err.message);
+    return null;
+  }
+};
+
+const updateNotifications = async (filter, updates) => {
+  try {
+    return await Notification.updateMany(filter, updates);
+  } catch (err) {
+    console.error('[Notification Update Error]', err.message);
+    return null;
+  }
+};
+
 module.exports = {
   setIo,
   createNotification,
+  deleteNotifications,
+  updateNotifications,
 };

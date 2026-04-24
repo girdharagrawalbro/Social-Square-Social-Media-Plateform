@@ -87,6 +87,8 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
         if (n.type === 'comment') return 'commented on your post';
         if (n.type === 'follow') return 'started following you';
         if (n.type === 'follow_request') return 'sent you a follow request';
+        if (n.type === 'follow_accept') return 'accepted your follow request';
+        if (n.type === 'follow_decline') return 'declined your follow request';
         if (n.type === 'system') return n.message?.content || 'Security alert';
         return 'sent a notification';
     };
@@ -165,7 +167,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                             <p style={{ marginTop: '8px', margin: '8px 0 0', fontSize: '13px' }}>No new notifications</p>
                                         </div>
                                     ) : (
-                                        notifications.map(n => (
+                                        notifications.filter(n => n.type !== 'follow_request' || (n.status === 'pending' || !n.status)).map(n => (
                                             <div key={n._id} onClick={() => {
                                                 handleMarkRead(n._id);
                                                 if (n.type === 'message' && n.sender) {
@@ -213,20 +215,28 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                         </strong> {getNotificationText(n)}
                                                     </p>
                                                     <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-sub)' }}>{formatTime(n.createdAt)}</p>
-                                                    {n.type === 'follow_request' && !n.read && (
-                                                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                                                            <button
-                                                                onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
-                                                                disabled={acceptMutation.isPending}
-                                                                style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
-                                                                {acceptMutation.isPending ? 'Accepting...' : 'Accept'}
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
-                                                                disabled={declineMutation.isPending}
-                                                                style={{ background: 'var(--surface-2)', color: 'var(--text-sub)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
-                                                                Decline
-                                                            </button>
+                                                    {n.type === 'follow_request' && (
+                                                        <div style={{ marginTop: '8px' }}>
+                                                            {n.status === 'accepted' ? (
+                                                                <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 700, background: '#10b98110', padding: '4px 10px', borderRadius: '6px' }}>✓ Accepted</span>
+                                                            ) : n.status === 'declined' ? (
+                                                                <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 700, background: '#ef444410', padding: '4px 10px', borderRadius: '6px' }}>✕ Declined</span>
+                                                            ) : !n.read && (
+                                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                                    <button
+                                                                        onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
+                                                                        disabled={acceptMutation.isPending}
+                                                                        style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                                                                        {acceptMutation.isPending ? 'Accepting...' : 'Accept'}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
+                                                                        disabled={declineMutation.isPending}
+                                                                        style={{ background: 'var(--surface-2)', color: 'var(--text-sub)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                                                                        Decline
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -273,10 +283,18 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                     <strong onClick={(e) => { e.stopPropagation(); const id = n.sender?.id || n.sender?._id; if (id) navigate(`/profile/${id}`); }} className="hover:text-indigo-600 transition-colors" style={{ cursor: 'pointer' }}>{n.sender?.fullname}</strong> {getNotificationText(n)}
                                                 </p>
                                                 <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-sub)' }}>{formatTime(n.createdAt)}</p>
-                                                {n.type === 'follow_request' && !n.read && (
-                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                                                        <button onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)} disabled={acceptMutation.isPending} style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>{acceptMutation.isPending ? 'Accepting...' : 'Accept'}</button>
-                                                        <button onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)} disabled={declineMutation.isPending} style={{ background: 'var(--surface-2)', color: 'var(--text-sub)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Decline</button>
+                                                {n.type === 'follow_request' && (
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        {n.status === 'accepted' ? (
+                                                            <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 700, background: '#10b98110', padding: '4px 10px', borderRadius: '6px' }}>✓ Accepted</span>
+                                                        ) : n.status === 'declined' ? (
+                                                            <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 700, background: '#ef444410', padding: '4px 10px', borderRadius: '6px' }}>✕ Declined</span>
+                                                        ) : !n.read && (
+                                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                                <button onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)} disabled={acceptMutation.isPending} style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>{acceptMutation.isPending ? 'Accepting...' : 'Accept'}</button>
+                                                                <button onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)} disabled={declineMutation.isPending} style={{ background: 'var(--surface-2)', color: 'var(--text-sub)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Decline</button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

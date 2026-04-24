@@ -264,4 +264,29 @@ code {
 .animate-float {
     animation: float 3s ease-in-out infinite;
 }
+
+/* ── Chat Reply UI ── */
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.reply-btn-hover {
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+[id^="msg-"]:hover .reply-btn-hover {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: scale(1.1);
+}
+
+.reply-btn-hover:hover {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+.reply-btn-hover:hover i {
+    color: #fff !important;
+}
 

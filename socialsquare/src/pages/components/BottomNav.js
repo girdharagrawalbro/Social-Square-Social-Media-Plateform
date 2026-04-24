@@ -51,7 +51,7 @@ const BottomNav = () => {
     };
 
     return (
-        <div className={`lg:hidden fixed bottom-0 left-0 right-0 w-full ${cardBg} border-t backdrop-blur-md px-2 py-2 flex justify-around items-center`} style={{ zIndex: 1000, paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
+        <div className={`sm:hidden fixed bottom-0 left-0 right-0 w-full ${cardBg} border-t backdrop-blur-md px-2 py-2 flex justify-around items-center`} style={{ zIndex: 1000, paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
             {navItems.map(item => {
                 const active = isActive(item.key, item.to);
                 return (

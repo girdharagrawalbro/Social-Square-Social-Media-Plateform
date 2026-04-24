@@ -13,13 +13,20 @@ const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function getCached(key) {
+    if (process.env.DISABLE_REDIS === 'true') return null; // Bypass cache if disabled
     const entry = cache.get(key);
     if (!entry) return null;
     if (Date.now() - entry.ts > CACHE_TTL) { cache.delete(key); return null; }
     return entry.data;
 }
-function setCached(key, data) { cache.set(key, { data, ts: Date.now() }); }
-function invalidateCache() { cache.clear(); }
+function setCached(key, data) { 
+    if (process.env.DISABLE_REDIS === 'true') return; // Don't cache if disabled
+    cache.set(key, { data, ts: Date.now() }); 
+}
+function invalidateCache() { 
+    if (process.env.DISABLE_REDIS === 'true') return;
+    cache.clear(); 
+}
 
 // ─── ADMIN MIDDLEWARE ─────────────────────────────────────────────────────────
 const requireAdmin = async (req, res, next) => {

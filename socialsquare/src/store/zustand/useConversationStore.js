@@ -54,7 +54,7 @@ const useConversationStore = create(
             removeOnlineUser: (userId, lastSeen) => set(state => {
                 const next = new Set(state.onlineUserIds);
                 next.delete(userId);
-                return { 
+                return {
                     onlineUserIds: next,
                     lastSeenMap: { ...state.lastSeenMap, [userId]: lastSeen || new Date().toISOString() }
                 };
@@ -158,9 +158,9 @@ const useConversationStore = create(
             clearMessageSearch: () => set({ messageSearchQuery: '', messageSearchResults: [] }),
 
             // ─── Notifications ────────────────────────────────────────────
-            setNotifications: (notifications) => set({ 
-                notifications, 
-                unreadNotificationsCount: notifications.filter(n => !n.read).length 
+            setNotifications: (notifications) => set({
+                notifications,
+                unreadNotificationsCount: notifications.filter(n => !n.read).length
             }),
             addNotification: (notification) => set(state => {
                 const alreadyExists = state.notifications.some(n => n._id === notification._id);
@@ -171,8 +171,24 @@ const useConversationStore = create(
                 };
             }),
             markNotificationsRead: (ids) => set(state => {
-                const nextNotifications = state.notifications.map(n => 
+                const nextNotifications = state.notifications.map(n =>
                     (ids === undefined || ids.includes(n._id)) ? { ...n, read: true } : n
+                );
+                return {
+                    notifications: nextNotifications,
+                    unreadNotificationsCount: nextNotifications.filter(n => !n.read).length
+                };
+            }),
+            removeNotification: (id) => set(state => {
+                const nextNotifications = state.notifications.filter(n => n._id !== id);
+                return {
+                    notifications: nextNotifications,
+                    unreadNotificationsCount: nextNotifications.filter(n => !n.read).length
+                };
+            }),
+            updateNotification: (id, updates) => set(state => {
+                const nextNotifications = state.notifications.map(n => 
+                    n._id === id ? { ...n, ...updates } : n
                 );
                 return {
                     notifications: nextNotifications,

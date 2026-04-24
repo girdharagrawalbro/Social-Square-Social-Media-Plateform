@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery } from '@tanstack/react-query';
-import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites } from '../../hooks/queries/useAuthQueries';
+import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
@@ -78,9 +78,11 @@ const Profile = ({ userId }) => {
     // Follow/Unfollow mutations
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
+    const cancelRequestMutation = useCancelFollowRequest();
 
     const displayUser = viewingOwnProfile ? loggeduser : otherUserProfile;
     const isFollowing = loggeduser?.following?.some(f => f?.toString() === profileId?.toString());
+    const isRequested = otherUserProfile?.hasPendingRequest || (otherUserProfile?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString()));
     const isBlockedByMe = loggeduser?.blockedUsers?.some(b => b?.toString() === profileId?.toString());
     const isMuted = loggeduser?.mutedUsers?.some(m => m?.toString() === profileId?.toString());
     const isPrivateAndNotFollowing = displayUser?.isPrivate && !isFollowing && !viewingOwnProfile && !isBlockedByMe;
@@ -98,7 +100,18 @@ const Profile = ({ userId }) => {
         }
     };
 
-    const handleUnfollow = () => unfollowMutation.mutate({ targetUserId: profileId });
+    const handleUnfollow = () => {
+        confirmDialog({
+            message: `Are you sure you want to unfollow ${displayUser.fullname}?`,
+            header: 'Unfollow User',
+            icon: 'pi pi-exclamation-triangle',
+            acceptLabel: 'Unfollow',
+            rejectLabel: 'Cancel',
+            acceptClassName: 'p-button-danger',
+            accept: () => unfollowMutation.mutate({ targetUserId: profileId }),
+        });
+    };
+    const handleCancelRequest = () => cancelRequestMutation.mutate({ targetUserId: profileId });
 
 
     const handleBlock = () => {
@@ -281,10 +294,10 @@ const Profile = ({ userId }) => {
                         )}
 
                         {/* Stats tiles */}
-                        {!isPrivateAndNotFollowing && !isBlockedByMe && (
+                        {!isBlockedByMe && (
                             <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4">
                                 <div
-                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
                                         if (viewingOwnProfile || isFollowing) {
                                             setShowFollowersList(true);
@@ -293,11 +306,11 @@ const Profile = ({ userId }) => {
                                         }
                                     }}
                                 >
-                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followers?.length || 0)}</h6>
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followerCount ?? displayUser?.followers?.length ?? 0)}</h6>
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                                 </div>
                                 <div
-                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-not-allowed'}`}
+                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
                                         if (viewingOwnProfile || isFollowing) {
                                             setShowFollowingList(true);
@@ -306,7 +319,7 @@ const Profile = ({ userId }) => {
                                         }
                                     }}
                                 >
-                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center ">{formatCount(displayUser?.following?.length || 0)}</h6>
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center ">{formatCount(displayUser?.followingCount ?? displayUser?.following?.length ?? 0)}</h6>
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block" style={{ whiteSpace: 'nowrap' }}>Following</span>
                                 </div>
                                 <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4">
@@ -327,13 +340,13 @@ const Profile = ({ userId }) => {
                             ) : !isBlockedByMe && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
-                                        onClick={isFollowing ? handleUnfollow : handleFollow}
-                                        disabled={followMutation.isPending || unfollowMutation.isPending}
-                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing
+                                        onClick={isFollowing ? handleUnfollow : isRequested ? handleCancelRequest : handleFollow}
+                                        disabled={followMutation.isPending || unfollowMutation.isPending || cancelRequestMutation.isPending}
+                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing || isRequested
                                             ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20'
                                             : 'border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:opacity-95 shadow-lg shadow-indigo-500/20'}`}
                                     >
-                                        {followMutation.isPending || unfollowMutation.isPending ? '...' : (isFollowing ? 'Following' : 'Follow')}
+                                        {followMutation.isPending || unfollowMutation.isPending || cancelRequestMutation.isPending ? '...' : (isFollowing ? 'Following' : isRequested ? 'Requested' : 'Follow')}
                                     </button>
                                     <button
                                         onClick={() => navigate(`/conversation/${profileId}`)}

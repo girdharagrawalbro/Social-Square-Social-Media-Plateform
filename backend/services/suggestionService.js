@@ -269,7 +269,7 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
     _id: { $in: candidateSignals.candidateIds },
     isBanned: { $ne: true },
   })
-    .select('_id fullname profile_picture followers following created_at')
+    .select('_id fullname profile_picture followers following created_at isPrivate followRequests')
     .lean();
 
   const maxMutual = Math.max(1, ...candidateUsers.map(u => candidateSignals.mutualCounts.get(toId(u._id)) || 0));
@@ -319,6 +319,8 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
       socialScore,
       freshnessScore,
       primaryCategory: topCategory,
+      isPrivate: candidate.isPrivate,
+      followRequests: candidate.followRequests,
     };
   });
 
@@ -357,14 +359,16 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
   }
 
   // Diversify a larger set then slice for current page
-  const diversified = diversifyByPrimaryCategory(ranked, 100); 
-  
+  const diversified = diversifyByPrimaryCategory(ranked, 100);
+
   const startIndex = (page - 1) * limit;
   const selected = diversified.slice(startIndex, startIndex + limit).map(c => ({
     _id: c._id,
     fullname: c.fullname,
     profile_picture: c.profile_picture,
     followersCount: c.followersCount,
+    isPrivate: c.isPrivate,
+    followRequests: c.followRequests,
     score: Number(c.score.toFixed(4)),
     reason: reasonFromSignals(c, c.mutualCount),
   }));

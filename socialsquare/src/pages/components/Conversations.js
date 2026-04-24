@@ -101,7 +101,8 @@ const Conversations = () => {
                     lastMessage: { 
                         id: message._id,
                         message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'), 
-                        isRead: false 
+                        isRead: false,
+                        isReply: !!message.replyTo
                     },
                     lastMessageAt: message.createdAt || new Date().toISOString(),
                     lastMessageBy: message.senderId || message.sender
@@ -259,7 +260,9 @@ const Conversations = () => {
                                         </div>
                                         <div className="flex justify-between items-center gap-2">
                                             <p className={`p-0 m-0 text-sm truncate flex-1 leading-tight ${isUnread ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 font-normal'}`}>
-                                                {toId(conv.lastMessageBy) === myId ? <span className="text-[#808bf5] font-bold mr-1">You:</span> : ''}{conv.lastMessage?.message || ''}
+                                                {toId(conv.lastMessageBy) === myId ? <span className="text-[#808bf5] font-bold mr-1">You:</span> : ''}
+                                                {conv.lastMessage?.isReply && <i className="pi pi-reply mr-1 text-[10px] opacity-70"></i>}
+                                                {conv.lastMessage?.message || ''}
                                             </p>
                                             {convUnread > 0 && (
                                                 <span className="bg-[#808bf5] text-white rounded-full min-w-[20px] h-[20px] px-1.5 text-[11px] flex items-center justify-center font-bold shadow-lg shadow-indigo-500/20">
