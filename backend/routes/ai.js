@@ -68,9 +68,9 @@ async function uploadGeneratedImageToCloudinary(imageBuffer) {
         throw new Error('No image buffer provided for upload');
     }
     try {
-        const cloudApiBase = process.env.CLOUDINARY_API_BASE_URL;
+        const cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
         const cloudRes = await axios.post(
-            `${cloudApiBase}/upload-base64`,
+            `${cloudApiBase}/api/cloudinary/upload-base64`,
             {
                 file: `data:image/png;base64,${imageBuffer.toString('base64')}`
             },
@@ -92,9 +92,9 @@ async function uploadImageUrlToCloudinary(url, folder = 'ai-generated') {
         throw new Error('No image URL provided for upload');
     }
     try {
-        const cloudApiBase = process.env.CLOUDINARY_API_BASE_URL;
+        const cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
         const cloudRes = await axios.post(
-            `${cloudApiBase}/upload-url`,
+            `${cloudApiBase}/api/cloudinary/upload-url`,
             { url, folder },
             { headers: { 'Content-Type': 'application/json' } }
         );
@@ -114,8 +114,8 @@ async function deleteImageFromCloudinary(publicId, resourceType = 'image') {
         throw new Error('publicId is required for Cloudinary delete');
     }
     try {
-        const cloudApiBase = process.env.CLOUDINARY_API_BASE_URL;
-        const cloudRes = await axios.delete(`${cloudApiBase}/delete`, {
+        const cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
+        const cloudRes = await axios.delete(`${cloudApiBase}/api/cloudinary/delete`, {
             data: { publicId, resourceType },
             headers: { 'Content-Type': 'application/json' }
         });
