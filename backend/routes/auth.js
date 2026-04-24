@@ -831,7 +831,7 @@ router.post('/follow-request/accept', verifyToken, async (req, res) => {
             $addToSet: { followers: requesterId }
         });
 
-        // ADD THIS: Also update the requester's following list
+        // Also update the requester's following list
         await User.findByIdAndUpdate(requesterId, {
             $addToSet: { following: userId }
         });
@@ -843,9 +843,34 @@ router.post('/follow-request/accept', verifyToken, async (req, res) => {
             sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
             type: 'follow', // Person is now following
         });
+        // Remove the follow request notification
+        await require('../lib/notification.js').deleteMany({
+            recipientId: userId,
+            'sender.id': requesterId,
+            type: 'follow_request'
+        });
 
         res.status(200).json({ message: 'Accepted' });
     } catch { res.status(500).json({ message: 'Failed to accept request' }); }
+});
+
+router.post('/follow-request/cancel', verifyToken, async (req, res) => {
+    try {
+        const { targetUserId } = req.body;
+        const loggedUserId = req.userId;
+
+        if (!targetUserId) return res.status(400).json({ message: 'Target user ID required' });
+
+        // Remove loggedUserId from targetUserId's followRequests
+        await User.findByIdAndUpdate(targetUserId, { $pull: { followRequests: loggedUserId } });
+        // Remove any pending follow request notification
+        await require('../lib/notification.js').deleteMany({
+            recipientId: targetUserId,
+            'sender.id': loggedUserId,
+            type: 'follow_request'
+        });
+        res.status(200).json({ message: 'Request cancelled' });
+    } catch { res.status(500).json({ message: 'Failed to cancel request' }); }
 });
 
 router.post('/follow-request/decline', verifyToken, async (req, res) => {
@@ -857,97 +882,14 @@ router.post('/follow-request/decline', verifyToken, async (req, res) => {
             return res.status(403).json({ message: 'Unauthorized.' });
         }
         await User.findByIdAndUpdate(userId, { $pull: { followRequests: requesterId } });
+        // Remove the follow request notification
+        await require('../lib/notification.js').deleteMany({
+            recipientId: userId,
+            'sender.id': requesterId,
+            type: 'follow_request'
+        });
         res.status(200).json({ message: 'Declined' });
     } catch { res.status(500).json({ message: 'Failed to decline request' }); }
-});
-
-router.post('/unfollow', verifyToken, async (req, res) => {
-    try {
-        const { userId, unfollowUserId } = req.body;
-        const loggedUserId = req.userId;
-
-        if (String(userId) !== String(loggedUserId)) {
-            return res.status(403).json({ message: 'Unauthorized.' });
-        }
-        await User.findByIdAndUpdate(userId, { $pull: { following: unfollowUserId } });
-        const user = await User.findByIdAndUpdate(unfollowUserId, { $pull: { followers: userId } }).select("-password");
-        res.status(200).json(user);
-    } catch { res.status(500).json({ message: 'Failed to unfollow user.' }); }
-});
-
-router.post('/remove-follower', verifyToken, async (req, res) => {
-    try {
-        const { userId, followerId } = req.body; // userId is ME, followerId is the one to remove
-        const loggedUserId = req.userId;
-
-        if (String(userId) !== String(loggedUserId)) {
-            return res.status(403).json({ message: 'Unauthorized.' });
-        }
-        if (!userId || !followerId) return res.status(400).json({ message: 'Empty IDs' });
-
-        // Remove follower from MY followers list
-        await User.findByIdAndUpdate(userId, { $pull: { followers: followerId } });
-        // Remove ME from THEIR following list
-        await User.findByIdAndUpdate(followerId, { $pull: { following: userId } });
-
-        res.status(200).json({ message: 'Follower removed' });
-    } catch { res.status(500).json({ message: 'Failed to remove follower.' }); }
-});
-
-router.get('/other-user/view/:id', verifyToken, async (req, res) => {
-    try {
-        const targetUserId = req.params.id;
-        const loggedUserId = req.userId;
-
-        const [targetUser, loggedUser] = await Promise.all([
-            User.findById(targetUserId).select('-password').lean(),
-            User.findById(loggedUserId).select('following').lean()
-        ]);
-
-        if (!targetUser) return res.status(404).json({ message: 'User not found.' });
-
-        // Increment views if someone else views the profile
-        if (loggedUserId.toString() !== targetUserId.toString()) {
-            User.findByIdAndUpdate(targetUserId, { $inc: { profileViews: 1 } }).catch(e => console.error('[Analytics] View increment failed:', e));
-        }
-
-        // Get followers and following for calculation
-        const targetFollowerIds = (targetUser.followers || []).map(id => id.toString());
-        const loggedFollowingIds = (loggedUser?.following || []).map(id => id.toString());
-
-        // Mutual followers: people I follow who also follow the target
-        const mutualIds = loggedFollowingIds.filter(id => targetFollowerIds.includes(id));
-        const mutualDetails = await User.find({ _id: { $in: mutualIds.slice(0, 3) } }).select('fullname username profile_picture').lean();
-
-        // 🔒 Privacy Guard: If account is private and not followed by logged user
-        const isOwner = loggedUserId.toString() === targetUserId.toString();
-        const isFollower = targetFollowerIds.includes(loggedUserId.toString());
-
-        if (targetUser.isPrivate && !isOwner && !isFollower) {
-            return res.status(200).json({
-                _id: targetUser._id,
-                fullname: targetUser.fullname,
-                username: targetUser.username,
-                profile_picture: targetUser.profile_picture,
-                bio: targetUser.bio,
-                isPrivate: true,
-                isOnline: targetUser.isOnline,
-                followersCount: targetFollowerIds.length,
-                followingCount: (targetUser.following || []).length,
-                mutualFollowers: mutualDetails,
-                mutualCount: mutualIds.length
-            });
-        }
-
-        return res.status(200).json({
-            ...targetUser,
-            mutualFollowers: mutualDetails,
-            mutualCount: mutualIds.length
-        });
-    } catch (error) {
-        console.error('[OTHER_USER_VIEW] Error:', error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
 });
 
 router.get('/user/:id', verifyToken, async (req, res) => {
@@ -968,7 +910,7 @@ router.get('/followers/:userId', verifyToken, async (req, res) => {
         // Privacy check: If private, only owner or followers can see the list
         const isOwner = req.params.userId === req.userId;
         const isFollower = targetUser.followers.includes(req.userId);
-        
+
         if (targetUser.isPrivate && !isOwner && !isFollower) {
             return res.status(403).json({ message: 'This account is private' });
         }
@@ -1013,7 +955,7 @@ router.post("/search", async (req, res) => {
                     { fullname: { $regex: escapedQuery, $options: "i" } },
                     { username: { $regex: normalizedQuery, $options: "i" } }
                 ]
-            }).select("-password"),
+            }).select("fullname username profile_picture isPrivate isVerified"),
             Post.find({ category: { $regex: escapedQuery, $options: "i" } }),
         ]);
         res.status(200).json({ users: userResults, posts: postResults });

@@ -106,11 +106,19 @@ router.post('/create', verifyToken, async (req, res) => {
 
         const [senderUser, recipientUser] = await Promise.all([
             User.findById(senderId).select('fullname profile_picture').lean(),
-            User.findById(recipientId).select('fullname profile_picture').lean(),
+            User.findById(recipientId).select('fullname profile_picture isPrivate followers').lean(),
         ]);
 
         if (!senderUser || !recipientUser) {
             return res.status(404).json({ error: 'User not found' });
+        }
+
+        // 🔒 Privacy Guard: If recipient is private, sender must be a follower
+        if (recipientUser.isPrivate) {
+            const isFollower = (recipientUser.followers || []).some(id => id.toString() === senderId.toString());
+            if (!isFollower) {
+                return res.status(403).json({ error: 'This account is private. Follow to start a conversation.' });
+            }
         }
 
         const conversation = await Conversation.create({
@@ -147,9 +155,21 @@ router.post('/messages', verifyToken, async (req, res) => {
     try {
         const { recipientId, before, limit = 20 } = req.body;
         const senderId = req.userId;
-        if (!recipientId) return res.status(400).json({ error: 'Recipient ID required' });
+        if (recipientId === senderId) return res.status(400).json({ error: 'Cannot message yourself' });
 
-        const conversation = await Conversation.findOne({ 'participants.userId': { $all: [senderId, recipientId] } }).lean();
+        const recipient = await User.findById(recipientId).select('fullname username profile_picture isPrivate followers').lean();
+        if (!recipient) return res.status(404).json({ error: 'Recipient not found' });
+
+        // 🔒 Privacy Guard: If recipient is private, sender must be a follower
+        if (recipient.isPrivate) {
+            const isFollower = (recipient.followers || []).some(id => id.toString() === senderId.toString());
+            if (!isFollower) {
+                return res.status(403).json({ error: 'This account is private. Follow to message.' });
+            }
+        }
+
+        // Check if exists
+        let conversation = await Conversation.findOne({ 'participants.userId': { $all: [senderId, recipientId] } }).lean();
         if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
 
         const cacheKey = `msgs:${conversation._id}:${before || 'latest'}:${limit}`;
@@ -204,9 +224,17 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
             if (!conv) {
                 const [senderUser, recipientUser] = await Promise.all([
                     User.findById(sender).select('fullname profile_picture').lean(),
-                    User.findById(recipientId).select('fullname profile_picture').lean(),
+                    User.findById(recipientId).select('fullname profile_picture isPrivate followers').lean(),
                 ]);
                 if (!senderUser || !recipientUser) return res.status(404).json({ error: 'User not found' });
+
+                // 🔒 Privacy Guard: If recipient is private, sender must be a follower
+                if (recipientUser.isPrivate) {
+                    const isFollower = (recipientUser.followers || []).some(id => id.toString() === sender.toString());
+                    if (!isFollower) {
+                        return res.status(403).json({ error: 'This account is private. Follow to message.' });
+                    }
+                }
                 
                 conv = await Conversation.create({
                     participants: [
@@ -218,6 +246,18 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
         }
 
         if (!conv) return res.status(403).json({ error: 'Unauthorized or missing conversation/recipient' });
+
+        // Double check privacy even if conv exists (in case they unfollowed)
+        const otherParticipant = conv.participants.find(p => p.userId.toString() !== sender.toString());
+        if (otherParticipant) {
+            const recipientUser = await User.findById(otherParticipant.userId).select('isPrivate followers').lean();
+            if (recipientUser && recipientUser.isPrivate) {
+                const isFollower = (recipientUser.followers || []).some(id => id.toString() === sender.toString());
+                if (!isFollower) {
+                    return res.status(403).json({ error: 'This account is private. Follow to message.' });
+                }
+            }
+        }
 
         const message = await Message.create({
             conversationId: conv._id, sender, content: content || '',

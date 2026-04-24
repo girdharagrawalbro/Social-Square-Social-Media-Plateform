@@ -12,7 +12,7 @@ import { useDarkMode } from '../../../context/DarkModeContext';
 export default function NotificationBell({ userId, useRoute = false, showLabel = true, active = false }) {
     const { isDark } = useDarkMode();
     const [open, setOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'collabs'
+    const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'collabs' | 'requests'
     const ref = useRef(null);
     const navigate = useNavigate();
 
@@ -22,6 +22,8 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     const { unreadNotificationsCount: globalUnreadCount } = useConversationStore();
 
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
+    // Filter follow request notifications for the Requests tab
+    const followRequests = notifications.filter(n => n.type === 'follow_request');
     const acceptMutation = useAcceptFollowRequest();
     const declineMutation = useDeclineFollowRequest();
     const pendingCollabCount = collabInvites.length;
@@ -125,13 +127,22 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--surface-1)' }}>
                             <button
                                 onClick={() => setActiveTab('notifications')}
-                                style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'notifications' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'notifications' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'notifications' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'notifications' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
                                 🔔 Notifications
                                 {globalUnreadCount > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>{globalUnreadCount}</span>}
                             </button>
                             <button
+                                onClick={() => setActiveTab('requests')}
+                                style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'requests' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'requests' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
+                                🙋‍♂️ Requests
+                                {followRequests.filter(r => !r.read).length > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>{followRequests.filter(r => !r.read).length}</span>}
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('collabs')}
-                                style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'collabs' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'collabs' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, borderBottom: activeTab === 'collabs' ? '2px solid #808bf5' : '2px solid transparent', color: activeTab === 'collabs' ? '#808bf5' : 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
                                 🤝 Collabs
                                 {pendingCollabCount > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>{pendingCollabCount}</span>}
                             </button>
@@ -245,6 +256,35 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                             </div>
                         )}
 
+                        {/* Requests tab */}
+                        {activeTab === 'requests' && (
+                            <div style={{ maxHeight: '440px', overflowY: 'auto', padding: '12px' }}>
+                                {followRequests.length === 0 ? (
+                                    <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-sub)' }}>
+                                        <i className="pi pi-user-plus" style={{ fontSize: '2rem' }}></i>
+                                        <p style={{ marginTop: '8px', fontSize: '13px' }}>No follow requests</p>
+                                    </div>
+                                ) : (
+                                    followRequests.map(n => (
+                                        <div key={n._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onClick={() => { handleMarkRead(n._id); }}>
+                                            <img src={n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
+                                                    <strong onClick={(e) => { e.stopPropagation(); const id = n.sender?.id || n.sender?._id; if (id) navigate(`/profile/${id}`); }} className="hover:text-indigo-600 transition-colors" style={{ cursor: 'pointer' }}>{n.sender?.fullname}</strong> {getNotificationText(n)}
+                                                </p>
+                                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-sub)' }}>{formatTime(n.createdAt)}</p>
+                                                {n.type === 'follow_request' && !n.read && (
+                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                                        <button onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)} disabled={acceptMutation.isPending} style={{ background: '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>{acceptMutation.isPending ? 'Accepting...' : 'Accept'}</button>
+                                                        <button onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)} disabled={declineMutation.isPending} style={{ background: 'var(--surface-2)', color: 'var(--text-sub)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Decline</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
                         {/* Collabs tab */}
                         {activeTab === 'collabs' && (
                             <div style={{ maxHeight: '440px', overflowY: 'auto', padding: '12px' }}>

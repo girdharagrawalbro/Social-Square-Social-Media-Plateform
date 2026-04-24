@@ -286,18 +286,15 @@ router.get("/collaborate/mine/:userId", verifyToken, async (req, res) => {
         // We still allow viewing others if the post is public, but let's restrict to 'mine' as requested by the route name
         if (String(userId) !== String(req.userId)) return res.status(403).json({ error: 'Unauthorized' });
 
+        // Only return posts where this user is an accepted collaborator on SOMEONE ELSE's post
         const posts = await Post.find({
-            $or: [
-                { 'user._id': userId },
-                {
-                    collaborators: {
-                        $elemMatch: {
-                            userId: userId,
-                            status: 'accepted'
-                        }
-                    }
+            'user._id': { $ne: userId }, // exclude their own posts
+            collaborators: {
+                $elemMatch: {
+                    userId: userId,
+                    status: 'accepted'
                 }
-            ]
+            }
         }).sort({ createdAt: -1 });
         res.status(200).json(posts);
     } catch (error) {
@@ -728,13 +725,38 @@ router.get("/categories", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// ─── FETCH COMMENTS ───────────────────────────────────────────────────────────
 router.get('/comments', async (req, res) => {
     try {
         const { postId } = req.query;
         if (!postId || typeof postId !== 'string') return res.status(400).json({ error: 'postId required as query param' });
 
-        // 1. Fetch all parent comments
+        // 1. Fetch post and owner to check privacy
+        const post = await Post.findById(postId).select('user').lean();
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        // Extract viewerId
+        let viewerId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                viewerId = decoded.userId || decoded.id || decoded._id;
+            } catch (err) { /* ignore */ }
+        }
+
+        const ownerId = post.user._id.toString();
+        const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
+
+        if (postOwner && postOwner.isPrivate) {
+            const isOwner = viewerId && viewerId.toString() === ownerId;
+            const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
+            if (!isOwner && !isFollower) {
+                return res.status(403).json({ error: 'This post is private. Follow to see comments.' });
+            }
+        }
+
+        // 2. Fetch all parent comments
         const comments = await Comment.find({ postId, parentId: null }).sort({ createdAt: 1 }).lean();
         if (!comments.length) return res.status(200).json([]);
 
@@ -955,7 +977,11 @@ router.get("/explore-reels", async (req, res) => {
         const limit = parseInt(req.query.limit) || 12;
         const cursor = req.query.cursor;
 
-        const query = { video: { $ne: null } };
+        // 🔒 Privacy Guard: Exclude private users
+        const privateUsers = await User.find({ isPrivate: true }).select('_id').lean();
+        const privateUserIds = privateUsers.map(u => u._id.toString());
+
+        const query = { video: { $ne: null }, 'user._id': { $nin: privateUserIds } };
         if (cursor) {
             query._id = { $lt: cursor };
         }
