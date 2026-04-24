@@ -817,7 +817,7 @@ const ChatPanel = ({
                     lastMessage: message._id,
                     conversationId: conversationIdRef.current,
                 });
-                socket.emit('readMessage', { messageId: message._id, socketId: message.socketId });
+                socket.emit('readMessage', { messageId: message._id, recipientId: message.senderId || message.sender });
             }
         };
 
@@ -900,14 +900,7 @@ const ChatPanel = ({
                 conversationIdRef.current = res.data.conversationId;
             }
 
-            socket.emit('sendMessage', {
-                ...res.data,
-                recipientId: participantId,
-                senderName: user.fullname,
-                sender: user._id,
-                senderId: user._id,
-                socketId: socket.id,
-            });
+            // socket.emit('sendMessage', ...) removed: handled by REST API response emission
 
         } catch {
             setMessages(prev => prev.filter(m => m._id !== optimisticMsg._id));

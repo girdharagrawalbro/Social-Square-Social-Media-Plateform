@@ -250,28 +250,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('sendMessage', async ({ recipientId, content, senderName, sender, conversationId, _id, createdAt, isRead }) => {
-        try {
-            const recipientSocketId = redis ? await redis.hget('online_users', recipientId) : null;
-
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit('receiveMessage', {
-                    senderId: sender, socketId: socket.id,
-                    content, recipientId, senderName, conversationId, _id, createdAt, isRead,
-                });
-            }
-        } catch (err) {
-            console.error('[Socket] Redis error (sendMessage):', err.message);
-        }
-
-        // Save as notification as well
-        await notificationUtils.createNotification({
-            recipientId,
-            sender: { id: sender, fullname: senderName },
-            type: 'message',
-            message: { id: _id, content: content?.substring(0, 100) },
-        });
-    });
+    // sendMessage handler removed: covered by REST API route in conversation.js
 
     socket.on('typing', async ({ recipientId, senderName }) => {
         try {
@@ -291,8 +270,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('readMessage', ({ messageId, socketId }) => {
-        io.to(socketId).emit('seenMessage', { messageId });
+    socket.on('readMessage', ({ messageId, recipientId }) => {
+        if (recipientId) io.to(recipientId).emit('seenMessage', { messageId });
     });
 
     socket.on('collaborationResponse', ({ postId, userId, accepted }) => {

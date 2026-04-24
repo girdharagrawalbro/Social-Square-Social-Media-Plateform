@@ -82,10 +82,10 @@ function AppInit() {
 
     // ✅ Initial Notifications & Messages Fetch
     const { setNotifications } = useConversationStore();
-    
+
     useEffect(() => {
         if (!user?._id) return;
-        
+
         const fetchInitialState = async () => {
             try {
                 // Fetch notifications
@@ -119,37 +119,46 @@ function AppInit() {
         socket.on('userOffline', removeOnlineUser);
 
         const handleNewNotification = (notification) => {
+            if (!notification) return;
+
+            // Skip if I am the sender
+            const senderId = notification.sender?.id || notification.sender?._id;
+            if (senderId === user?._id) return;
+
+            // Add to global state
             addNotification(notification);
 
             // Show toast
-            const { sender, type, message, post, story } = notification;
+            const { type, message, post, story } = notification;
+            const sender = notification.sender;
 
             // Prevent toast for chat message if we are already chatting with that user
-            if (type === 'message' && sender) {
-                const targetId = sender._id || sender.id;
-                if (window.location.pathname.includes(`/conversation/${targetId}`)) {
+            if (type === 'message' && senderId) {
+                if (window.location.pathname.includes(`/conversation/${senderId}`)) {
                     return;
                 }
             }
 
             let icon = '🔔';
-            if (type === 'like') icon = '❤️';
-            if (type === 'comment') icon = '💬';
-            if (type === 'message') icon = '📩';
-            if (type === 'system') icon = '⚠️';
-            if (type === 'new_post') icon = '🖼️';
-            if (type === 'new_story') icon = '📸';
+            let actionText = 'sent a notification';
+            if (type === 'like') { icon = '❤️'; actionText = story ? 'liked your story' : 'liked your post'; }
+            if (type === 'comment') { icon = '💬'; actionText = 'commented on your post'; }
+            if (type === 'follow') { icon = '👤'; actionText = 'started following you'; }
+            if (type === 'follow_request') { icon = '👤'; actionText = 'sent you a follow request'; }
+            if (type === 'message') { icon = '📩'; actionText = message?.content || 'sent you a message'; }
+            if (type === 'system') { icon = '⚠️'; actionText = message?.content || 'Security Alert'; }
+            if (type === 'new_post') { icon = '🖼️'; actionText = 'posted something new'; }
+            if (type === 'new_story') { icon = '📸'; actionText = 'added a new story'; }
 
             toast(
                 (t) => (
                     <div
                         style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                         onClick={() => {
-                            if (type === 'message' && sender) {
-                                const targetId = sender._id || sender.id;
-                                if (targetId) navigate(`/conversation/${targetId}`);
+                            if (type === 'message' && senderId) {
+                                navigate(`/conversation/${senderId}`);
                             } else if ((type === 'like' && story) || type === 'new_story') {
-                                setStoryDetailUserId(sender._id);
+                                setStoryDetailUserId(senderId);
                             } else if (post) {
                                 setPostDetailId(post);
                             }
@@ -164,12 +173,7 @@ function AppInit() {
                                 <span>{icon}</span> {sender?.fullname || 'System'}
                             </p>
                             <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-sub)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {type === 'like' && (story ? 'liked your story' : 'liked your post')}
-                                {type === 'comment' && 'commented on your post'}
-                                {type === 'new_post' && 'posted something new'}
-                                {type === 'new_story' && 'added a new story'}
-                                {type === 'message' && (message?.content || 'sent you a message')}
-                                {type === 'system' && (message?.content || 'Security Alert')}
+                                {actionText}
                             </p>
                         </div>
                     </div>
@@ -453,9 +457,9 @@ function GlobalOverlays() {
                         <i className="pi pi-times text-sm"></i>
                     </button>
                     {postDetailId && (
-                        <PostDetail 
-                            postId={postDetailId} 
-                            onHide={() => setPostDetailId(null)} 
+                        <PostDetail
+                            postId={postDetailId}
+                            onHide={() => setPostDetailId(null)}
                         />
                     )}
                 </div>
@@ -475,7 +479,7 @@ function GlobalOverlays() {
             </Dialog>
         </>
     );
-    
+
 }
 
 export default App;
