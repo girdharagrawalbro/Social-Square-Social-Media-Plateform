@@ -1,131 +1,187 @@
-# 🌐 Social Square — AI-Powered Social Media Platform
+# 🌐 Social Square — Production Documentation
 
-Social Square is a modern, full-stack social media platform that combines AI-powered content tools, real-time communication, premium dark-mode UI, and advanced security. Built for creators, communities, and meaningful connections.
+Social Square is an AI-integrated social ecosystem built with a "Privacy-First" and "Creator-Centric" philosophy. This document provides a deep-dive into every layer of the application.
 
 ---
 
 ## 📖 Table of Contents
-1.  [🚀 Main Overview & Tech Stack](#-main-overview--tech-stack)
-2.  [🧩 Standardized API Documentation](#-standardized-api-documentation)
-3.  [⚡ Real-Time Architecture (Socket.io)](#-real-time-architecture-socketio)
-4.  [🧠 State Management (Zustand & TanStack Query)](#-state-management-zustand--tanstack-query)
-5.  [🛠️ Getting Started](#%EF%B8%8F-getting-started)
+1.  [🚀 Standardized API Reference](#1-standardized-api-reference)
+2.  [⚡ Real-Time Socket Architecture](#2-real-time-socket-architecture)
+3.  [🧠 State Management: Zustand (Client State)](#3-state-management-zustand-client-state)
+4.  [🌀 State Management: TanStack Query (Server State)](#4-state-management-tanstack-query-server-state)
+5.  [🛠️ Technology Stack & Security](#5-technology-stack--security)
 
 ---
 
-## 🚀 Main Overview & Tech Stack
+## 1. Standardized API Reference
 
-### Key Features
-- **AI Magic Post**: Generate stunning images and engaging captions in one click using NVIDIA Llama 3 and Stable Diffusion.
-- **Real-Time Communication**: Instant messaging with voice notes, video, and emoji reactions.
-- **Dynamic Feed**: An algorithmic feed ranked by engagement (likes, comments) and category affinity.
-- **Advanced Security**: 2FA (OTP via email), JWT session management with fingerprinting, and account lockout protection.
-- **Privacy First**: Private account modes, anonymous confessions, and ephemeral (auto-delete) posts.
+All API responses follow the format: `{ "success": true, "data": { ... } }` or `{ "success": false, "message": "..." }`.
 
-### Backend Stack
-- **Runtime**: Node.js + Express.js
-- **Database**: MongoDB (Mongoose) + Redis (Caching & Queues)
-- **Real-Time**: Socket.io (Bi-directional communication)
-- **Queues**: BullMQ (Email digests, background cleanup)
-- **AI/ML**: NVIDIA AI Foundation, Google Gemini 2.0, Mistral AI
-- **Cloud Storage**: Cloudinary (Media assets)
+### 👤 Authentication & Users (`/api/auth`)
 
-### Frontend Stack
-- **Framework**: React.js
-- **State**: Zustand (Global Auth & UI State)
-- **Data Fetching**: TanStack Query (Server State, Caching, Pagination)
-- **UI**: Vanilla CSS + PrimeReact (Customized)
-- **Animations**: Framer Motion
+#### **Login User**
+- **Endpoint:** `POST /api/auth/login`
+- **Payload:**
+  ```json
+  {
+    "identifier": "johndoe@example.com",
+    "password": "SecurePassword123",
+    "fingerprint": "browser_fingerprint_hash"
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "token": "ey...",
+    "user": {
+      "_id": "64a1b2c3d4e5f6a7b8c9d0e1",
+      "username": "johndoe",
+      "fullname": "John Doe",
+      "email": "john@example.com",
+      "profilePicture": "https://...",
+      "followersCount": 120,
+      "followingCount": 85,
+      "isEmailVerified": true
+    }
+  }
+  ```
 
----
-
-## 🧩 Standardized API Documentation
-
-All endpoints return a `success: boolean` flag and use consistent object shapes.
-
-### 👤 Global Schemas
-| Schema | Description | Key Fields |
-|---|---|---|
-| **UserLite** | Compact user info for lists/feeds | `_id`, `username`, `fullname`, `profilePicture` |
-| **UserFull** | Detailed profile data | `email`, `bio`, `followersCount`, `followingCount`, `isFollowing` |
-| **PostStandard** | Core post data | `content`, `mediaUrl`, `category`, `author`, `likesCount`, `isLiked` |
-
-### 🔐 Authentication (`/api/auth`)
-- `POST /register`: Returns `{ success, user: UserFull, token }`
-- `POST /login`: Returns `{ success, user: UserFull, token }`
-- `POST /search`: Returns `{ success, users: UserLite[] }`
-- `POST /follow`: Returns `{ success, action: 'followed'|'unfollowed', isFollowing }`
+#### **Search Users**
+- **Endpoint:** `POST /api/auth/search`
+- **Payload:** `{ "query": "john" }`
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "users": [
+      {
+        "_id": "64a1b2c3d4e5f6a7b8c9d0e1",
+        "username": "johndoe",
+        "fullname": "John Doe",
+        "profilePicture": "...",
+        "isFollowing": false
+      }
+    ]
+  }
+  ```
 
 ### 📝 Post Management (`/api/post`)
-- `GET /feed`: Cursor-based pagination. Returns `{ success, posts: PostStandard[], pagination }`
-- `POST /create`: Returns `{ success, post: PostStandard }`
-- `POST /like`: Toggles like state.
 
-### 💬 Messaging (`/api/conversation`)
-- `GET /list`: Returns active conversations with `lastMessage` and `unreadCount`.
-- `POST /messages`: Fetch thread. Returns `{ success, messages: Message[], nextCursor }`
-- `POST /send`: Returns the newly created `Message` object.
+#### **Create Post**
+- **Endpoint:** `POST /api/post/create`
+- **Payload:**
+  ```json
+  {
+    "caption": "Hello World!",
+    "category": "Photography",
+    "imageURLs": ["https://..."],
+    "isAnonymous": false,
+    "isAiGenerated": true,
+    "location": { "name": "New York", "lat": 40.7, "lng": -74.0 }
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "post": {
+      "_id": "64b2c3d4e5f6a7b8c9d0e1f2",
+      "content": "Hello World!",
+      "mediaUrl": "...",
+      "author": { "username": "johndoe", "profilePicture": "..." },
+      "likesCount": 0,
+      "commentsCount": 0,
+      "createdAt": "2023-08-24T12:00:00Z"
+    }
+  }
+  ```
+
+#### **Fetch Feed (Cursor Pagination)**
+- **Endpoint:** `GET /api/post/feed?limit=10&cursor=timestamp`
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "posts": [...],
+    "nextCursor": "2023-08-24T10:00:00Z",
+    "hasMore": true
+  }
+  ```
 
 ---
 
-## ⚡ Real-Time Architecture (Socket.io)
+## 2. Real-Time Socket Architecture
 
-Social Square uses Socket.io for all live interactions. The backend is backed by **Redis** to ensure stable presence tracking.
+Social Square uses Socket.io with a **Redis Adapter** for cross-instance state synchronization.
 
-### Client -> Server Events
+### ⬆️ Client -> Server (Emits)
 | Event | Payload | Description |
 |---|---|---|
-| `registerUser` | `userId` | Joins a personal room and marks the user as Online. |
-| `typing` | `{ recipientId, senderName }` | Triggers "Typing..." indicator for the recipient. |
-| `stopTyping` | `{ recipientId }` | Removes typing indicator. |
-| `readMessage` | `{ messageId, recipientId }` | Updates read status in real-time. |
-| `messageReaction` | `{ messageId, conversationId, reactions, recipientId }` | Syncs emoji reactions across clients. |
+| `registerUser` | `userId: string` | Maps `socket.id` to `userId` in Redis. Joins a unique room for private signals. |
+| `typing` | `{ recipientId, senderName }` | Sends a volatile "typing" signal to the recipient's room. |
+| `messageReaction` | `{ messageId, conversationId, emoji, recipientId }` | Dispatches an emoji reaction update to the active chat room. |
+| `readMessage` | `{ messageId, recipientId }` | Signals that a specific message has been viewed. |
 
-### Server -> Client Events
+### ⬇️ Server -> Client (Listeners)
 | Event | Payload | Description |
 |---|---|---|
-| `userOnline` | `{ userId, socketId }` | Notifies friends that a user just came online. |
-| `updateUserList` | `OnlineUser[]` | Syncs the global online status list. |
-| `userTyping` | `{ senderName }` | Shows the typing indicator in the chat panel. |
-| `seenMessage` | `{ messageId }` | Updates the checkmark to "Read" in the sender's UI. |
+| `userOnline` | `{ userId, socketId }` | Broadcasted when a user connects. Triggers "Green Dot" in UI. |
+| `userTyping` | `{ senderName }` | Received by recipient to show "X is typing..." in the chat panel. |
+| `seenMessage` | `{ messageId }` | Received by the sender to update the double-checkmark status. |
+| `collaborationUpdate`| `{ postId, accepted }` | Real-time update when an invited collaborator accepts/declines. |
 
 ---
 
-## 🧠 State Management (Zustand & TanStack Query)
+## 3. State Management: Zustand (Client State)
 
-The platform follows a clear separation between **Client State** and **Server State**.
+Zustand manages the **ephemeral lifecycle** of the UI. It is optimized with `devtools` middleware for debugging.
 
-### 1. Zustand (Client State)
-Zustand is used for high-frequency, non-persisted UI state and Auth session management.
-- **`useAuthStore`**: Manages the logged-in user object, JWT tokens, and login/logout logic.
-- **`usePostStore`**: Handles temporary UI states during post creation (selected images, draft captions).
-- **`useConversationStore`**: Manages the active chat window, unread badge totals, and typing status.
+### 🔐 `useAuthStore`
+- **State**: `user`, `token`, `initialized`, `loading`.
+- **Key Actions**:
+  - `initAuth()`: Silent restore of session via `refresh` endpoint on page load.
+  - `login(credentials)`: Authenticates and stores JWT in-memory (not localStorage).
+  - `followUser(id)`: Optimistically updates the `following` array for instant feedback.
 
-### 2. TanStack Query (Server State)
-Used for all API interactions to provide caching, background revalidation, and infinite scroll.
-- **Caching**: Feed posts and user profiles are cached for 5 minutes.
-- **Infinite Scroll**: `usePostQueries.js` implements `useInfiniteQuery` for seamless feed scrolling.
-- **Optimistic Updates**: Likes and follow actions use optimistic updates, providing an instant UI response while the server processes the request.
-- **Automatic Refetching**: Notifications are refetched in the background to ensure the badge count is always accurate.
+### 🖼️ `usePostStore`
+- **State**: `postDetailId`, `isMuted`, `optimisticLikes`, `savedPostIds`.
+- **Key Actions**:
+  - `optimisticLike(postId)`: Instantly updates the heart icon while the API call is in flight.
+  - `rollbackLike(postId)`: Reverts the like if the server request fails.
+  - `addSocketPost(post)`: Injects real-time posts directly into the top of the feed list.
 
 ---
 
-## 🛠️ Getting Started
+## 4. State Management: TanStack Query (Server State)
 
-### 1. Backend Setup
-```bash
-cd backend
-npm install
-# Set REDIS_URL, MONGODB_URI, and AI_KEYS in .env
-npm run dev
-```
+TanStack Query handles the **server source of truth**, providing automatic caching and background synchronization.
 
-### 2. Frontend Setup
-```bash
-cd socialsquare
-npm install
-npm start
-```
+### 🛸 Key Hooks
+- **`useFeed(userId)`**: Uses `useInfiniteQuery` with a `cursor` based strategy for scroll performance.
+- **`useUserProfile(userId)`**: Caches profile data for 5 minutes (`staleTime: 300000`).
+- **`useCreatePost()`**: Handles complex multipart uploads and invalidates the `feed` cache upon success.
+- **`useNotificationQueries()`**: Periodically refetches notification counts to keep the badge updated.
+
+### ⚡ Caching Strategy
+- **Feed/Posts**: 2 minutes `staleTime` | 10 minutes `gcTime`.
+- **Auth/Profile**: 5 minutes `staleTime` | 30 minutes `gcTime`.
+- **Messages**: 30 seconds `staleTime` (to prioritize fresh conversation threads).
+
+---
+
+## 5. Technology Stack & Security
+
+### Architecture
+- **Infrastructure**: Distributed Node.js instances with **NATS** for event distribution.
+- **Caching**: **Redis** used for presence (`online_users` hash) and session fingerprints.
+- **Workers**: **BullMQ** handles background jobs like daily digests and media cleanup.
+
+### Security Implementation
+- **Fingerprinting**: Every login binds the session to a browser fingerprint hash.
+- **Rate Limiting**: `express-rate-limit` enforced on all `/api/auth` write operations.
+- **Session Revocation**: Remote "Logout from all devices" implemented via session hash invalidation in Redis.
+- **2FA**: Email-based OTP mandatory for unrecognized fingerprints/IPs.
 
 ---
 
