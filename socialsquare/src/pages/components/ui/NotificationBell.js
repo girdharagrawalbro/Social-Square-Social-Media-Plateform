@@ -9,7 +9,7 @@ import { Dialog } from 'primereact/dialog';
 import { useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../../../context/DarkModeContext';
 
-export default function NotificationBell({ userId, useRoute = false, showLabel = true }) {
+export default function NotificationBell({ userId, useRoute = false, showLabel = true, active = false }) {
     const { isDark } = useDarkMode();
     const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'collabs'
@@ -91,6 +91,9 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
 
     const totalBadge = globalUnreadCount + pendingCollabCount;
 
+    const activeClass = "bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white font-bold shadow-lg shadow-indigo-500/40 relative overflow-hidden";
+    const inactiveClass = `hover:bg-gray-100 dark:hover:bg-neutral-900 ${isDark ? 'bg-transparent text-white' : 'bg-transparent text-gray-800'}`;
+
     return (
         <div ref={ref}>
             {/* Bell button */}
@@ -99,10 +102,11 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                 className={`flex items-center ${showLabel ? 'justify-start gap-2 px-4 w-full' : 'justify-center px-0 w-12'} 
                            h-12
                            rounded-full 
-                           transition-all hover:bg-gray-100 dark:hover:bg-neutral-900 
-                           ${isDark ? 'bg-transparent text-white' : 'bg-transparent text-gray-800'} border-0 cursor-pointer`}
+                           transition-all 
+                           ${active ? activeClass : inactiveClass} border-0 cursor-pointer`}
             >
-                <div className="relative flex items-center justify-center w-6 shrink-0">
+                {active && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
+                <div className="relative flex items-center justify-center w-6 shrink-0 z-10">
                     <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && (
                         <Badge
@@ -111,7 +115,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                         />
                     )}
                 </div>
-                {showLabel && <span className='hidden md:inline font-medium text-base whitespace-nowrap ml-3'>Notifications</span>}
+                {showLabel && <span className='hidden md:inline font-medium text-base whitespace-nowrap ml-3 z-10'>Notifications</span>}
             </button>
 
             {!useRoute && (
