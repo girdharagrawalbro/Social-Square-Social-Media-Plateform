@@ -1,0 +1,33 @@
+{
+  "name": "gdrive-store",
+  "version": "1.0.0",
+  "description": "Google Drive upload microservice — drop-in Cloudinary alternative",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "google-drive",
+    "upload",
+    "microservice",
+    "storage"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.6.8",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "form-data": "^4.0.0",
+    "googleapis": "^140.0.1",
+    "mime-types": "^2.1.35",
+    "multer": "^2.1.1",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
