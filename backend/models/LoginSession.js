@@ -5,6 +5,7 @@ const LoginSessionSchema = new mongoose.Schema({
 
     // Token family for reuse detection
     tokenFamily: { type: String, required: true }, // unique per login session
+    accessToken: { type: String, required: true }, // hashed
     refreshToken: { type: String, required: true }, // hashed
     isRevoked: { type: Boolean, default: false },
 
@@ -31,6 +32,7 @@ const LoginSessionSchema = new mongoose.Schema({
 });
 
 // Auto-delete expired sessions
+LoginSessionSchema.index({ accessToken: 1 });
 LoginSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('LoginSession', LoginSessionSchema);
