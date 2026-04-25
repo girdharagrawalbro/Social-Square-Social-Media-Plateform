@@ -334,7 +334,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                             transform: isOwn ? 'scaleX(-1)' : 'none',
                         }} />
                         <span style={{ fontWeight: 500 }}>
-                            {isOwn ? 'You' : (message.sender?.fullname?.split(' ')[0] || 'Someone')}
+                            {isOwn ? 'You' : (message.sender?.fullname?.split(' ')[0] || '')}
                             {' replied to '}
                             {message.replyTo.sender?.fullname?.split(' ')[0] || message.replyTo.senderName || 'User'}
                         </span>
@@ -1007,15 +1007,15 @@ const ChatPanel = ({
                             mediaUrl = r?.url;
                         }
 
-                        const res = await sendMessageMut.mutateAsync({ 
-                            conversationId: conversationIdRef.current || conversationId, 
-                            content: i === 0 ? currentText : '', 
-                            recipientId: participantId, 
-                            mediaUrl, 
-                            mediaType, 
-                            mediaName: file.name, 
-                            mediaSize: file.size, 
-                            replyTo: i === 0 && currentReplyTo?._id ? currentReplyTo._id : null 
+                        const res = await sendMessageMut.mutateAsync({
+                            conversationId: conversationIdRef.current || conversationId,
+                            content: i === 0 ? currentText : '',
+                            recipientId: participantId,
+                            mediaUrl,
+                            mediaType,
+                            mediaName: file.name,
+                            mediaSize: file.size,
+                            replyTo: i === 0 && currentReplyTo?._id ? currentReplyTo._id : null
                         });
 
                         const newMsg = res.data;
@@ -1028,10 +1028,10 @@ const ChatPanel = ({
                     }
                 }
             })();
-        } catch (err) { 
-            console.error('Send failed:', err); 
-            toast.error('Failed to send messages'); 
-            setUploading(false); 
+        } catch (err) {
+            console.error('Send failed:', err);
+            toast.error('Failed to send messages');
+            setUploading(false);
         }
     };
 

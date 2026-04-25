@@ -164,6 +164,13 @@ router.post('/login', authRateLimiter, [
         // ── RESET FAILED ATTEMPTS ON SUCCESS ──
         user.failedLoginAttempts = 0;
         user.lockoutUntil = null;
+        
+        // ── CLEANUP DUPLICATE DEVICE SESSIONS ──
+        const hashedFingerprint = hashValue(fingerprint);
+        await LoginSession.deleteMany({
+            userId: user._id,
+            fingerprint: hashedFingerprint
+        });
 
         // ── SESSION LIMIT CHECK ──
         const activeSessionsCount = await LoginSession.countDocuments({
@@ -190,7 +197,6 @@ router.post('/login', authRateLimiter, [
         await user.save();
 
         // ── SESSION CREATION ──
-        const hashedFingerprint = hashValue(fingerprint);
         const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });
         const isNewDevice = !existingSession;
 
@@ -266,6 +272,13 @@ router.post('/verify-otp', [
         user.twoFactorOtpExpires = null;
         await user.save();
 
+        // ── CLEANUP DUPLICATE DEVICE SESSIONS ──
+        const hashedFingerprint = hashValue(fingerprint);
+        await LoginSession.deleteMany({
+            userId: user._id,
+            fingerprint: hashedFingerprint
+        });
+
         // ── SESSION LIMIT CHECK ──
         const activeSessionsCount = await LoginSession.countDocuments({
             userId: user._id,
@@ -277,7 +290,6 @@ router.post('/verify-otp', [
         }
 
         // Create session
-        const hashedFingerprint = hashValue(fingerprint);
         const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });
         const isNewDevice = !existingSession;
 
@@ -434,6 +446,13 @@ router.post('/google', async (req, res) => {
         }
         await user.save();
 
+        // ── CLEANUP DUPLICATE DEVICE SESSIONS ──
+        const hashedFingerprint = hashValue(fingerprint);
+        await LoginSession.deleteMany({
+            userId: user._id,
+            fingerprint: hashedFingerprint
+        });
+
         // ── SESSION LIMIT CHECK ──
         const activeSessionsCount = await LoginSession.countDocuments({
             userId: user._id,
@@ -444,7 +463,6 @@ router.post('/google', async (req, res) => {
             return res.status(403).json({ error: 'login session exceeded logout first' });
         }
 
-        const hashedFingerprint = hashValue(fingerprint);
         const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });
         const isNewDevice = !existingSession;
         const family = generateFamily();
@@ -544,7 +562,7 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
     try {
         const token = req.cookies?.refreshToken;
-        if (token) await LoginSession.findOneAndUpdate({ refreshToken: hashValue(token) }, { isRevoked: true });
+        if (token) await LoginSession.findOneAndDelete({ refreshToken: hashValue(token) });
         clearRefreshTokenCookie(res);
         return res.status(200).json({ message: 'Logged out successfully' });
     } catch {
