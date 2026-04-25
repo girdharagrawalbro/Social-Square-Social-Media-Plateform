@@ -4,6 +4,8 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Report = require('../models/Report');
 const jwt = require('jsonwebtoken');
+const { hashValue } = require('../utils/authSecurity');
+const LoginSession = require('../models/LoginSession');
 const { digestQueue } = require('../queues/digestQueue');
 
 
@@ -33,13 +35,18 @@ const requireAdmin = async (req, res, next) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).json({ error: 'Unauthorized' });
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        const hashedToken = hashValue(token);
+        const session = await LoginSession.findOne({ accessToken: hashedToken });
+        if (!session || session.isRevoked || session.expiresAt < new Date()) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
 
         // Use lean() — plain JS object, no Mongoose overhead
-        const user = await User.findById(decoded.userId).select('isAdmin isBanned').lean();
+        const user = await User.findById(session.userId).select('isAdmin isBanned').lean();
         if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
         if (user.isBanned) return res.status(403).json({ error: 'Account banned' });
-        req.adminId = decoded.userId;
+        req.adminId = session.userId;
         next();
     } catch {
         return res.status(403).json({ error: 'Invalid token' });

@@ -579,19 +579,16 @@ router.get('/sessions', verifyToken, async (req, res) => {
 
 // ─── REVOKE SESSION ───────────────────────────────────────────────────────────
 
-router.delete('/sessions/:sessionId', async (req, res) => {
+router.delete('/sessions/:sessionId', verifyToken, async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
         const session = await LoginSession.findOneAndUpdate(
-            { _id: req.params.sessionId, userId: decoded.userId },
+            { _id: req.params.sessionId, userId: req.userId },
             { isRevoked: true }
         );
         if (!session) return res.status(404).json({ error: 'Session not found' });
 
         // ✅ Security Alert: Send email about revoked session
-        const user = await User.findById(decoded.userId).select('email');
+        const user = await User.findById(req.userId).select('email');
         if (user?.email) {
             sendSessionRevokedEmail(user.email, {
                 device: session.deviceName,
@@ -601,23 +598,22 @@ router.delete('/sessions/:sessionId', async (req, res) => {
         }
 
         return res.status(200).json({ message: 'Session revoked' });
-    } catch { return res.status(500).json({ error: 'Internal server error' }); }
+    } catch (error) { 
+        console.error('Revoke session error:', error);
+        return res.status(500).json({ error: 'Internal server error' }); 
+    }
 });
 
 // ─── REVOKE ALL SESSIONS ──────────────────────────────────────────────────────
-router.delete('/sessions/all/revoke', async (req, res) => {
+router.delete('/sessions/all/revoke', verifyToken, async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
-
         await LoginSession.updateMany(
-            { userId: decoded.userId, tokenFamily: { $ne: decoded.family } },
+            { userId: req.userId, tokenFamily: { $ne: req.family } },
             { isRevoked: true }
         );
 
         // ✅ Security Alert: Notify user that other sessions were cleared
-        const user = await User.findById(decoded.userId).select('email');
+        const user = await User.findById(req.userId).select('email');
         if (user?.email) {
             sendEmail({
                 to: user.email,
@@ -1177,9 +1173,11 @@ router.all("/search", async (req, res) => {
             const authHeader = req.headers.authorization;
             if (authHeader && authHeader.startsWith('Bearer ')) {
                 const token = authHeader.split(' ')[1];
-                const jwt = require('jsonwebtoken');
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                requesterId = decoded.userId;
+                const hashedToken = hashValue(token);
+                const session = await LoginSession.findOne({ accessToken: hashedToken });
+                if (session && !session.isRevoked && session.expiresAt > new Date()) {
+                    requesterId = session.userId;
+                }
             }
         } catch (e) { /* ignore invalid tokens for public search */ }
 

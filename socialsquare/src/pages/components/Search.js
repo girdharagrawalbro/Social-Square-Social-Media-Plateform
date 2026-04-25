@@ -138,7 +138,7 @@ const Search = ({ onClose }) => {
                     <i className="pi pi-search absolute left-4 text-[var(--text-sub)] transition-colors group-focus-within:text-[#808bf5]" style={{ fontSize: '15px' }}></i>
                     <input
                         placeholder="Search users, posts, categories..."
-                        className="py-2.5 pl-11 pr-11 rounded-full bg-[var(--surface-2)] border border-[var(--border-color)] w-full text-sm outline-none focus:bg-[var(--surface-1)] focus:ring-2 focus:ring-[#808bf5]/20 placeholder:text-[var(--text-sub)] text-[var(--text-main)] transition-all "
+                        className="py-2.5 pl-11 pr-11 rounded-full bg-[var(--surface-2)] border border-[var(--border-color)] w-full text-sm outline-none focus:bg-[var(--surface-1)] focus:border-[#808bf5] focus:shadow-[0_0_0_4px_rgba(128,139,245,0.15)] placeholder:text-[var(--text-sub)] text-[var(--text-main)] transition-all duration-300"
                         type="text"
                         value={searchTerm}
                         onChange={handleInputChange}
@@ -158,14 +158,14 @@ const Search = ({ onClose }) => {
                 </div>
 
 
-                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] ring-1 ring-black/5 rounded-2xl z-50 overflow-hidden mt-1 shadow-2xl backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'}`} style={{ top: '100%', maxHeight: '550px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] rounded-2xl z-50 overflow-hidden mt-2 shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'} transition-all duration-300`} style={{ top: '100%', maxHeight: '500px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (
-                        <div className="p-3">
+                        <div className="pt-3 px-1">
                             <div className="flex justify-between items-center mb-2 px-1">
                                 <p className="text-[10px] font-bold text-[var(--text-sub)] m-0 uppercase tracking-widest">Recent Searches</p>
-                                <button onClick={clearRecentSearches} className="text-[10px] font-bold text-[#808bf5] border-0 bg-transparent cursor-pointer p-0 hover:underline uppercase">Clear all</button>
+                                <button onClick={clearRecentSearches} className="text-[10px] font-bold text-[#808bf5] border-0 bg-transparent cursor-pointer p-0 hover:underline uppercase mr-1">Clear</button>
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 {recentSearches.map((term, i) => (
@@ -182,8 +182,8 @@ const Search = ({ onClose }) => {
 
 
                     {!searchTerm && categories.length > 0 && (
-                        <div className="p-4 mt-2">
-                            <h3 className="text-sm font-bold text-[var(--text-sub)] uppercase tracking-widest mb-4 px-1">Browse Categories</h3>
+                        <div className="p-2 mt-2">
+                            <h3 className="text-[10px] font-bold text-[var(--text-sub)] uppercase tracking-widest mb-2">Browse Categories</h3>
                             <div className="flex flex-wrap gap-2">
                                 {categories.slice(0, 8).map((cat, i) => (
                                     <button key={i} onClick={() => handleCategoryClick(cat.category)}
@@ -197,7 +197,7 @@ const Search = ({ onClose }) => {
 
                     {/* Search results */}
                     {searchTerm && (
-                        <div className="p-3">
+                        <div className="pt-3 px-1">
                             {(loading.search || isTyping) ? (
                                 <div className="flex items-center gap-2 py-4 justify-center">
                                     <span className="spinner-border spinner-border-sm text-indigo-500" role="status" />
@@ -212,24 +212,28 @@ const Search = ({ onClose }) => {
                                             <div className="flex flex-col gap-0.5">
                                                 {searchResults.users.map(u => (
                                                     <button key={u._id} onClick={() => handleUserClick(u._id, u.fullname)}
-                                                        className="flex items-center gap-3 px-2 py-2.5 rounded-2xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-[var(--surface-2)] transition-colors group">
-                                                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-color)] shadow-sm">
-                                                            <img src={u.profile_picture} alt="" className="w-full h-full object-cover" />
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{u.fullname}</p>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                {u.username && <p className="m-0 text-[11px] text-[#808bf5] font-bold">@{u.username}</p>}
-                                                                <span className="text-[10px] text-[var(--text-sub)] opacity-40">•</span>
-                                                                <p className="m-0 text-[11px] text-[var(--text-sub)] font-medium">{u.followerCount || 0} followers</p>
-                                                                {user?.following?.some(id => id?.toString() === u._id?.toString()) ? (
-                                                                    <span className="text-[9px] bg-[#808bf5]/10 text-[#808bf5] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">Following</span>
-                                                                ) : u.hasPendingRequest ? (
-                                                                    <span className="text-[9px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">Requested</span>
-                                                                ) : null}
+                                                        className="flex items-center justify-between gap-3 px-1 py-2 rounded-2xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-[var(--surface-2)] transition-all group">
+                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                            <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-color)] shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                                                <img src={u.profile_picture || 'https://via.placeholder.com/150'} alt="" className="w-full h-full object-cover" />
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="m-0 text-sm font-semibold text-[var(--text-main)] truncate">{u.fullname}</p>
+                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                    {u.username && <p className="m-0 text-[11px] text-[#808bf5] font-bold truncate">@{u.username}</p>}
+                                                                    <span className="text-[10px] text-[var(--text-sub)] opacity-40 flex-shrink-0">•</span>
+                                                                    <p className="m-0 text-[11px] text-[var(--text-sub)] font-medium flex-shrink-0">{u.followerCount || 0} followers</p>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transition-opacity pr-2"></i>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            {user?.following?.some(id => id?.toString() === u._id?.toString()) ? (
+                                                                <span className="text-[10px] bg-[#808bf5]/10 text-[#808bf5] px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider shadow-sm">Following</span>
+                                                            ) : u.hasPendingRequest ? (
+                                                                <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider shadow-sm">Requested</span>
+                                                            ) : null}
+                                                            {/* <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transform translate-x-1 group-hover:translate-x-0 transition-all duration-300 pr-1"></i> */}
+                                                        </div>
                                                     </button>
                                                 ))}
                                             </div>
