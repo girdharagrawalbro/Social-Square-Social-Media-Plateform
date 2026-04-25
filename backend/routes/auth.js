@@ -165,6 +165,16 @@ router.post('/login', authRateLimiter, [
         user.failedLoginAttempts = 0;
         user.lockoutUntil = null;
 
+        // ── SESSION LIMIT CHECK ──
+        const activeSessionsCount = await LoginSession.countDocuments({
+            userId: user._id,
+            isRevoked: false,
+            expiresAt: { $gt: new Date() }
+        });
+        if (activeSessionsCount >= 3) {
+            return res.status(403).json({ error: '3 login session exceeded logout first' });
+        }
+
         // ── 2FA CHECK ──
         if (user.twoFactorEnabled) {
             const otp = generateOtp();
@@ -255,6 +265,16 @@ router.post('/verify-otp', [
         user.twoFactorOtp = null;
         user.twoFactorOtpExpires = null;
         await user.save();
+
+        // ── SESSION LIMIT CHECK ──
+        const activeSessionsCount = await LoginSession.countDocuments({
+            userId: user._id,
+            isRevoked: false,
+            expiresAt: { $gt: new Date() }
+        });
+        if (activeSessionsCount >= 3) {
+            return res.status(403).json({ error: 'login session exceeded logout first' });
+        }
 
         // Create session
         const hashedFingerprint = hashValue(fingerprint);
@@ -413,6 +433,16 @@ router.post('/google', async (req, res) => {
             if (!user.profile_picture || user.profile_picture.includes('OIP')) user.profile_picture = picture;
         }
         await user.save();
+
+        // ── SESSION LIMIT CHECK ──
+        const activeSessionsCount = await LoginSession.countDocuments({
+            userId: user._id,
+            isRevoked: false,
+            expiresAt: { $gt: new Date() }
+        });
+        if (activeSessionsCount >= 3) {
+            return res.status(403).json({ error: 'login session exceeded logout first' });
+        }
 
         const hashedFingerprint = hashValue(fingerprint);
         const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });

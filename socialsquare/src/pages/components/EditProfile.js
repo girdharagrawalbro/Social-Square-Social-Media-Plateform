@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { uploadToCloudinary, validateImageFile } from '../../utils/cloudinary';
+import { uploadToCloudinary, validateImageFile, validateImageType } from '../../utils/cloudinary';
+
 import toast from 'react-hot-toast';
 import ImageCropper from './ui/ImageCropper';
 
@@ -52,8 +53,14 @@ const EditProfile = ({ users, closeSidebar }) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const error = validateImageFile(file);
-        if (error) { toast.error(error); return; }
+        // Hard block — wrong file type (Drive cannot help here)
+        const typeError = validateImageType(file);
+        if (typeError) { toast.error(typeError); return; }
+
+        // Size warning — show the message but continue:
+        // uploadToCloudinary will automatically fall back to Drive for large files
+        const sizeWarning = validateImageFile(file);
+        if (sizeWarning) toast.error(sizeWarning);
 
         const reader = new FileReader();
         reader.onload = () => {

@@ -3,6 +3,8 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
 import { uploadToCloudinary, uploadVideoToCloudinary } from '../../utils/cloudinary';
+import { uploadToDrive, getFileIcon, formatFileSize } from '../../utils/drive';
+
 import toast from 'react-hot-toast';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
 import PostDetail from './PostDetail';
@@ -593,14 +595,24 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 
                                     {/* Media */}
                                     {message.media?.url && (
-                                        <div style={{ marginBottom: message.content ? '8px' : 0 }}>
-                                            {message.media.type === 'image' && <img src={message.media.url} alt="" loading="lazy" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', display: 'block' }} />}
+                                        <div style={{ marginBottom: message.content ? '8px' : 0, position: 'relative' }}>
+                                            {message.media.type === 'image' && <img src={message.media.url} alt="" loading="lazy" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', display: 'block', opacity: message.isOptimistic ? 0.6 : 1 }} />}
                                             {message.media.type === 'audio' && <VoiceNotePlayer url={message.media.url} duration={message.media.size} />}
-                                            {message.media.type === 'video' && <video src={message.media.url} controls style={{ maxWidth: '200px', borderRadius: '12px' }} />}
+                                            {message.media.type === 'video' && <video src={message.media.url} controls style={{ maxWidth: '200px', borderRadius: '12px', opacity: message.isOptimistic ? 0.6 : 1 }} />}
                                             {message.media.type === 'file' && (
-                                                <a href={message.media.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isOwn ? '#fff' : '#808bf5', textDecoration: 'none', fontSize: '13px' }}>
+                                                // eslint-disable-next-line jsx-a11y/anchor-is-valid
+                                                <a href={message.isOptimistic ? '#' : message.media.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isOwn ? '#fff' : '#808bf5', textDecoration: 'none', fontSize: '13px', opacity: message.isOptimistic ? 0.6 : 1 }}>
                                                     📎 {message.media.name || 'File'}
                                                 </a>
+                                            )}
+
+                                            {message.isOptimistic && (
+                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', borderRadius: '12px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                        <i className="pi pi-spin pi-spinner" style={{ color: '#fff', fontSize: '16px' }}></i>
+                                                        <span style={{ color: '#fff', fontSize: '10px', fontWeight: 600 }}>{message.uploadProgress || 0}%</span>
+                                                    </div>
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -617,7 +629,15 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                         <span style={{ fontSize: '10px', color: '#9ca3af' }}>
                             {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                         </span>
-                        {isOwn && !isDeleted && <IconDoubleCheck read={message.isRead} />}
+                        {isOwn && !isDeleted && (
+                            message.isOptimistic ? (
+                                <i className="pi pi-clock" style={{ fontSize: '10px', color: '#9ca3af', opacity: 0.8 }}></i>
+                            ) : message.uploadFailed ? (
+                                <i className="pi pi-exclamation-circle" style={{ fontSize: '10px', color: '#ef4444' }}></i>
+                            ) : (
+                                <IconDoubleCheck read={message.isRead} />
+                            )
+                        )}
                     </div>
 
                     {/* ── Reaction chips — in normal flow below bubble ── */}
@@ -909,6 +929,7 @@ const ChatPanel = ({
         setUploading(true);
         const currentText = text.trim();
         const currentFiles = [...selectedFiles];
+        const currentPreviews = [...previews];
         const currentReplyTo = replyTo;
         setText(''); setSelectedFiles([]); setPreviews([]); setReplyTo(null);
         socket.emit('stopTyping', { recipientId: participantId });
@@ -919,22 +940,99 @@ const ChatPanel = ({
                 setMessages(prev => [...prev, newMsg]);
                 socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
                 if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
+                setUploading(false);
                 return;
             }
-            for (let i = 0; i < currentFiles.length; i++) {
-                const file = currentFiles[i];
-                let mediaUrl, mediaType;
-                if (file.type.startsWith('image/')) { const r = await uploadToCloudinary(file); mediaUrl = typeof r === 'string' ? r : r?.url; mediaType = 'image'; }
-                else if (file.type.startsWith('video/')) { const r = await uploadVideoToCloudinary(file); mediaUrl = typeof r === 'string' ? r : r?.url; mediaType = 'video'; }
-                else { const r = await uploadToCloudinary(file); mediaUrl = typeof r === 'string' ? r : r?.url; mediaType = 'file'; }
-                const res = await sendMessageMut.mutateAsync({ conversationId: conversationIdRef.current || conversationId, content: i === 0 ? currentText : '', recipientId: participantId, mediaUrl, mediaType, mediaName: file.name, mediaSize: file.size, replyTo: i === 0 && currentReplyTo?._id ? currentReplyTo._id : null });
-                const newMsg = res.data;
-                setMessages(prev => [...prev, newMsg]);
-                socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
-                if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
-            }
-        } catch (err) { console.error('Send failed:', err); toast.error('Failed to send some messages'); }
-        finally { setUploading(false); }
+
+            // Allow the user to continue chatting while files upload
+            setUploading(false);
+
+            // Process file uploads asynchronously
+            (async () => {
+                for (let i = 0; i < currentFiles.length; i++) {
+                    const file = currentFiles[i];
+                    const tempId = `temp-${Math.random().toString(36).substr(2, 9)}`;
+                    let mediaUrl, mediaType;
+
+                    if (file.type.startsWith('image/')) {
+                        mediaType = 'image';
+                        mediaUrl = URL.createObjectURL(file);
+                    } else if (file.type.startsWith('video/')) {
+                        mediaType = 'video';
+                        mediaUrl = URL.createObjectURL(file);
+                    } else {
+                        mediaType = 'file';
+                        mediaUrl = 'DRIVE_FILE';
+                    }
+
+                    const optimisticMsg = {
+                        _id: tempId,
+                        conversationId: conversationIdRef.current || conversationId,
+                        content: i === 0 ? currentText : '',
+                        sender: user._id,
+                        senderId: user._id,
+                        senderName: user.fullname,
+                        createdAt: new Date().toISOString(),
+                        isOptimistic: true,
+                        uploadProgress: 10,
+                        media: {
+                            type: mediaType,
+                            url: mediaUrl,
+                            name: file.name,
+                            size: file.size
+                        },
+                        replyTo: i === 0 && currentReplyTo?._id ? currentReplyTo : null
+                    };
+
+                    setMessages(prev => [...prev, optimisticMsg]);
+
+                    const onProgress = (percent) => {
+                        setMessages(prev => prev.map(m => m._id === tempId ? { ...m, uploadProgress: percent } : m));
+                    };
+
+                    try {
+                        if (file.type.startsWith('image/')) {
+                            const existing = currentPreviews.find(p => p.file === file);
+                            if (existing && existing.uploadedUrl) {
+                                mediaUrl = existing.uploadedUrl;
+                            } else {
+                                const r = await uploadToCloudinary(file, onProgress);
+                                mediaUrl = typeof r === 'string' ? r : r?.url;
+                            }
+                        } else if (file.type.startsWith('video/')) {
+                            const r = await uploadVideoToCloudinary(file, onProgress);
+                            mediaUrl = typeof r === 'string' ? r : r?.url;
+                        } else {
+                            const r = await uploadToDrive(file, onProgress, { folder: 'chat-files' });
+                            mediaUrl = r?.url;
+                        }
+
+                        const res = await sendMessageMut.mutateAsync({ 
+                            conversationId: conversationIdRef.current || conversationId, 
+                            content: i === 0 ? currentText : '', 
+                            recipientId: participantId, 
+                            mediaUrl, 
+                            mediaType, 
+                            mediaName: file.name, 
+                            mediaSize: file.size, 
+                            replyTo: i === 0 && currentReplyTo?._id ? currentReplyTo._id : null 
+                        });
+
+                        const newMsg = res.data;
+                        setMessages(prev => prev.map(m => m._id === tempId ? newMsg : m));
+                        socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                        if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
+                    } catch (err) {
+                        console.error('Upload failed for file', file.name, err);
+                        setMessages(prev => prev.map(m => m._id === tempId ? { ...m, uploadFailed: true, isOptimistic: false } : m));
+                    }
+                }
+            })();
+        } catch (err) { 
+            console.error('Send failed:', err); 
+            toast.error('Failed to send messages'); 
+            setUploading(false); 
+        }
     };
 
     const handleInputChange = (e) => {
@@ -988,15 +1086,23 @@ const ChatPanel = ({
         if (!files.length) return;
         setSelectedFiles(prev => [...prev, ...files]);
         files.forEach(file => {
+            const id = Math.random().toString(36).substr(2, 9);
             if (file.type.startsWith('image/')) {
-                const id = Math.random().toString(36).substr(2, 9);
+                // Show image preview and pre-upload to Cloudinary
                 const reader = new FileReader();
                 reader.onload = (ev) => {
-                    setPreviews(prev => [...prev, { id, url: ev.target.result, file, uploading: true, uploadedUrl: null, error: null }]);
-                    uploadToCloudinary(file).then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); }).catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
+                    setPreviews(prev => [...prev, { id, url: ev.target.result, file, uploading: true, uploadedUrl: null, error: null, isFile: false }]);
+                    uploadToCloudinary(file)
+                        .then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); })
+                        .catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
                 };
                 reader.readAsDataURL(file);
-            } else { setPreviews(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), url: 'FILE_ICON_PLACEHOLDER', file, uploading: false, uploadedUrl: null, error: null }]); }
+            } else {
+                // Non-image files — show icon, upload to Drive on send
+                const icon = getFileIcon(file.type, file.name);
+                const sizeLabel = formatFileSize(file.size);
+                setPreviews(prev => [...prev, { id, url: 'DRIVE_FILE', file, uploading: false, uploadedUrl: null, error: null, isFile: true, icon, sizeLabel }]);
+            }
         });
         e.target.value = '';
     };
@@ -1124,8 +1230,13 @@ const ChatPanel = ({
                             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px 12px 4px', scrollbarWidth: 'none' }}>
                                 {previews.map((p) => (
                                     <div key={p.id} style={{ minWidth: '72px', height: '72px', background: 'var(--surface-3)', borderRadius: '10px', position: 'relative', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                                        {p.url === 'FILE_ICON_PLACEHOLDER' ? (
-                                            <span style={{ fontSize: '22px' }}>{p.file.type.startsWith('video/') ? '🎥' : '📄'}</span>
+                                        {p.isFile ? (
+                                            // Non-image file — show icon + filename
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '6px' }}>
+                                                <span style={{ fontSize: '22px' }}>{p.icon || '📎'}</span>
+                                                <span style={{ fontSize: '8px', color: 'var(--text-sub)', textAlign: 'center', wordBreak: 'break-all', lineHeight: 1.2, maxWidth: '60px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.file.name}</span>
+                                                {p.sizeLabel && <span style={{ fontSize: '7px', color: 'var(--text-sub)', opacity: 0.7 }}>{p.sizeLabel}</span>}
+                                            </div>
                                         ) : (
                                             <img src={p.url} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: p.uploading ? 0.5 : 1 }} />
                                         )}
@@ -1150,7 +1261,8 @@ const ChatPanel = ({
                                     : <IconPaperclip />
                                 }
                             </button>
-                            <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx" onChange={handleFileSelect} style={{ display: 'none' }} />
+                            <input ref={fileInputRef} type="file" multiple accept="*/*" onChange={handleFileSelect} style={{ display: 'none' }} />
+
                             <input
                                 type="text" value={text} onChange={handleInputChange}
                                 placeholder="Type your message..."

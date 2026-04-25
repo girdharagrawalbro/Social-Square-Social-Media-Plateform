@@ -64,110 +64,111 @@ router.post('/upload-url', async (req, res) => {
 // ✅ Delete Asset
 // DELETE /api/cloudinary/delete
 // ─────────────────────────────────────────────
-router.delete('/delete', async (req, res) => {
-    try {
-        const { publicId, resourceType } = req.body;
+// router.delete('/delete', async (req, res) => {
+//     try {
+//         const { publicId, resourceType } = req.body;
 
-        if (!publicId) {
-            return res.status(400).json({ success: false, message: 'publicId is required' });
-        }
+//         if (!publicId) {
+//             return res.status(400).json({ success: false, message: 'publicId is required' });
+//         }
 
-        const result = await deleteAsset(publicId, resourceType);
+//         const result = await deleteAsset(publicId, resourceType);
 
-        res.json({
-            success: true,
-            data: result
-        });
+//         res.json({
+//             success: true,
+//             data: result
+//         });
 
-    } catch (error) {
-        console.error('Delete Error:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
+//     } catch (error) {
+//         console.error('Delete Error:', error);
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// });
 
 
 // ─────────────────────────────────────────────
 // ✅ Get Transformed URL
 // GET /api/cloudinary/transform
 // ─────────────────────────────────────────────
-router.get('/transform', (req, res) => {
-    try {
-        const { publicId, width, height, crop } = req.query;
+// router.get('/transform', (req, res) => {
+//     try {
+//         const { publicId, width, height, crop } = req.query;
 
-        if (!publicId) {
-            return res.status(400).json({ success: false, message: 'publicId is required' });
-        }
+//         if (!publicId) {
+//             return res.status(400).json({ success: false, message: 'publicId is required' });
+//         }
 
-        const url = transformUrl(publicId, {
-            width,
-            height,
-            crop: crop || 'fill'
-        });
+//         const url = transformUrl(publicId, {
+//             width,
+//             height,
+//             crop: crop || 'fill'
+//         });
 
-        res.json({
-            success: true,
-            url
-        });
+//         res.json({
+//             success: true,
+//             url
+//         });
 
-    } catch (error) {
-        console.error('Transform Error:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
+//     } catch (error) {
+//         console.error('Transform Error:', error);
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// });
 
-router.get('/:publicId', async (req, res) => {
-    try {
-        const { publicId } = req.params;
+// router.get('/:publicId', async (req, res) => {
+//     try {
+//         const { publicId } = req.params;
 
-        if (!publicId) {
-            return res.status(400).json({
-                success: false,
-                message: 'publicId is required'
-            });
-        }
+//         if (!publicId) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'publicId is required'
+//             });
+//         }
 
-        const cld = require('../services/cloudinary.service').getCloudinary();
+//         const cld = require('../services/cloudinary.service').getCloudinary();
 
-        const result = await cld.api.resource(publicId);
+//         const result = await cld.api.resource(publicId);
 
-        res.json({
-            success: true,
-            data: result
-        });
+//         res.json({
+//             success: true,
+//             data: result
+//         });
 
-    } catch (error) {
-        console.error('Get Asset Error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
+//     } catch (error) {
+//         console.error('Get Asset Error:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+//     }
+// });
 
 
-router.get('/', async (req, res) => {
-    try {
-        const { folder = 'uploads', max_results = 10 } = req.query;
+// router.get('/', async (req, res) => {
+//     try {
+//         const { folder = 'uploads', max_results = 0 } = req.query;
 
-        const cld = require('../services/cloudinary.service').getCloudinary();
+//         const cld = require('../services/cloudinary.service').getCloudinary();
 
-        const result = await cld.api.resources({
-            type: 'upload',
-            prefix: folder,
-            max_results: Number(max_results),
-        });
+//         const result = await cld.api.resources({
+//             type: 'upload',
+//             prefix: folder,
+//             max_results: Number(max_results),
+//         });
 
-        res.json({
-            success: true,
-            data: result.resources
-        });
+//         res.json({
+//             success: true,
+//             data: result.resources
+//         });
 
-    } catch (error) {
-        console.error('List Assets Error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
+//     } catch (error) {
+//         console.error('List Assets Error:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+//     }
+// });
+
 module.exports = router;

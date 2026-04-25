@@ -61,12 +61,12 @@ const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
     if (!images?.length) return null;
     if (images.length === 1) return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ background: '#000' }}>
-            <ProgressiveImage src={images[0]} alt="Post" objectFit="contain" />
+            <ProgressiveImage src={images[0]} alt="Post" maxHeight={"600px"} objectFit="contain" />
         </div>
     );
     return (
         <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd} style={{ position: 'relative' }}>
-            <ProgressiveImage src={images[current]} alt={`${current + 1}`} objectFit="cover" style={{ background: '#000' }} />
+            <ProgressiveImage src={images[current]} alt={`${current + 1}`} objectFit="contain" style={{ background: '#000' }} />
             {current > 0 && <button aria-label="Previous image" onClick={e => { e.stopPropagation(); setCurrent(c => c - 1) }} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
             {current < images.length - 1 && <button aria-label="Next image" onClick={e => { e.stopPropagation(); setCurrent(c => c + 1) }} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
             <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 2, background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: '11px', padding: '3px 8px', borderRadius: '999px', fontWeight: 600 }}>{current + 1}/{images.length}</div>
@@ -124,7 +124,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
     };
 
     return (
-        <div ref={ref} className="relative w-full aspect-square bg-black overflow-hidden group">
+        <div ref={ref} className="relative w-full bg-black overflow-hidden group">
             <video
                 ref={videoRef}
                 src={src}
@@ -134,11 +134,11 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
                 playsInline
                 onDoubleClick={onDoubleClick}
                 onTouchEnd={onTouchEnd}
-                className="w-full h-full object-cover cursor-pointer"
+                className="w-full h-full object-contain cursor-pointer max-h-[600px]"
             />
             <button
                 onClick={toggleMute}
-                className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-lg"
+                className="absolute bottom-2 right-2 z-10 w-6 h-6 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-lg"
                 title={isMuted ? "Unmute" : "Mute"}
             >
                 <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '14px' }}></i>
@@ -351,7 +351,7 @@ const PostItem = React.memo(({
                                     <div onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }} className="cursor-pointer">
                                         <Like id={`like-${post._id}`} isliked={isLikedByMe} />
                                     </div>
-                                    <span 
+                                    <span
                                         className="cursor-pointer hover:text-[#808bf5] transition-colors font-bold"
                                         onClick={(e) => { e.stopPropagation(); onLikesClick(post.likes || []); }}
                                     >
@@ -488,7 +488,7 @@ const Feed = ({ activeMood = null }) => {
 
     const displayPosts = useMemo(() => {
         let all = [];
-        
+
         if (activeMood) {
             // Show ONLY mood-matched posts when a filter is active
             all = [...moodPosts];
@@ -735,13 +735,13 @@ const Feed = ({ activeMood = null }) => {
                                     {activeMood ? `No ${activeMood} vibes yet` : 'Your feed is waiting'}
                                 </h3>
                                 <p className="text-gray-500 max-w-[280px] text-sm leading-relaxed mb-3">
-                                    {activeMood 
-                                        ? `Be the first to share a post with the ${activeMood} mood!` 
+                                    {activeMood
+                                        ? `Be the first to share a post with the ${activeMood} mood!`
                                         : "Follow more people or share your first moment to see what's happening around you."
                                     }
                                 </p>
                                 <div className="flex gap-3">
-                                <button 
+                                    <button
                                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                                         className="px-6 py-2.5 rounded-2xl bg-[#808bf5] text-white font-bold text-sm shadow-lg shadow-indigo-200 hover:scale-105 transition-all cursor-pointer border-0"
                                     >
@@ -808,10 +808,10 @@ const Feed = ({ activeMood = null }) => {
                     <UserProfile id={selectedProfileId} maxPosts={3} />
                 </Dialog>
 
-                <Dialog 
-                    header="Liked By" 
-                    visible={likesVisible} 
-                    style={{ width: '95vw', maxWidth: '450px' }} 
+                <Dialog
+                    header="Liked By"
+                    visible={likesVisible}
+                    style={{ width: '95vw', maxWidth: '450px' }}
                     onHide={() => setLikesVisible(false)}
                     contentClassName="custom-scrollbar"
                 >

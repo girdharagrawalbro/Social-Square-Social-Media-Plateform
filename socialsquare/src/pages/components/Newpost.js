@@ -5,7 +5,9 @@ import { useCreatePost } from '../../hooks/queries/usePostQueries';
 import toast from "react-hot-toast";
 import ImageCropper from './ui/ImageCropper';
 
-import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateVideoFile } from '../../utils/cloudinary';
+import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
+
+
 import { Dialog } from 'primereact/dialog';
 
 const STEPS = {
@@ -249,8 +251,12 @@ const NewPost = ({ visible, onHide }) => {
 
         const videoFile = files.find(f => f.type && f.type.startsWith('video/'));
         if (videoFile) {
-            const vErr = validateVideoFile(videoFile);
-            if (vErr) { toast.error(vErr); e.target.value = ''; return; }
+            const typeErr = validateVideoType(videoFile);
+            if (typeErr) { toast.error(typeErr); e.target.value = ''; return; }
+
+            const sizeWarn = validateVideoFile(videoFile);
+            if (sizeWarn) toast.error(sizeWarn);
+
             const duration = await new Promise((resolve) => {
                 const url = URL.createObjectURL(videoFile);
                 const vid = document.createElement('video');
@@ -275,7 +281,15 @@ const NewPost = ({ visible, onHide }) => {
             return;
         }
 
-        const validFiles = files.filter(f => !validateImageFile(f));
+        // Hard-block wrong file types; oversized images are allowed (Drive fallback)
+        const validFiles = files.filter(f => {
+            const typeErr = validateImageType(f);
+            if (typeErr) { toast.error(typeErr); return false; }
+            // Show size warning but still proceed — uploadToCloudinary falls back to Drive
+            const sizeWarn = validateImageFile(f);
+            if (sizeWarn) toast.error(sizeWarn);
+            return true; // allow through regardless of size
+        });
         if (validFiles.length === 0) { e.target.value = ''; return; }
 
         const first = validFiles[0];
@@ -343,6 +357,7 @@ const NewPost = ({ visible, onHide }) => {
         }
     };
 
+    // eslint-disable-next-line no-unused-vars
     const uploadAllImages = async () => {
         const pending = images.filter(img => !img.uploaded);
         const uploaded = [...images];
@@ -363,6 +378,7 @@ const NewPost = ({ visible, onHide }) => {
         return uploaded.filter(i => i.uploaded).map(i => i.url);
     };
 
+    // eslint-disable-next-line no-unused-vars
     const uploadVideoIfNeeded = async () => {
         if (!video) return null;
         try {
@@ -385,70 +401,117 @@ const NewPost = ({ visible, onHide }) => {
 
     const handleSubmit = async () => {
         if (!formData.caption.trim() && images.length === 0 && !video) { toast.error("Please add a caption, image, or video!"); return; }
-        setIsPosting(true);
-        let uploadToast = null;
-        try {
-            let imageURLs = [];
-            if (images.length > 0) imageURLs = await uploadAllImages();
-            let voiceNoteUrl = null, voiceNoteDuration = null;
-            if (voiceBlob) {
-                const voiceFile = new File([voiceBlob], 'voice.webm', { type: voiceBlob.type || 'audio/webm' });
-                const result = await uploadVideoToCloudinary(voiceFile);
-                voiceNoteUrl = typeof result === 'string' ? result : result?.url;
-                voiceNoteDuration = recordingDuration;
-            }
-            let videoUrl = null, videoDuration = null, videoThumbnail = null;
-            if (video) {
-                const v = await uploadVideoIfNeeded();
-                if (!v) { setIsPosting(false); return; }
-                videoUrl = v.url; videoDuration = v.duration; videoThumbnail = v.thumbnailUrl;
-            }
-            let mood = null;
+
+        // 1. Take snapshot of current state
+        const imagesToUpload = [...images];
+        const videoToUpload = video ? { ...video } : null;
+        const postFormData = { ...formData };
+        const voiceBlobToUpload = voiceBlob;
+        const recDuration = recordingDuration;
+        const loc = location.name ? { ...location } : null;
+        const mus = music.title ? { ...music } : null;
+        const isAnon = isAnonymous;
+        const exp = expiresIn;
+        const unl = unlocksAt;
+        const col = [...collaborators];
+        const aiGen = usedAiForThisPost;
+        const poll = openFeaturePanel === 'poll' && pollOptions.filter(o => o.trim()).length >= 2 ? {
+            options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })),
+            correctOptionIndex: isQuiz ? correctOptionIndex : null
+        } : null;
+        const grp = selectedGroupId;
+        const isCollab = isCollaborative;
+
+        // 2. Close popup instantly
+        setIsPosting(false);
+        onHide();
+        resetState();
+
+        // 3. Start background upload toast
+        const uploadToast = toast.loading("Posting content in the background...", {
+            position: 'bottom-right'
+        });
+
+        // 4. Run background task
+        (async () => {
             try {
-                uploadToast = toast.loading("Sharing...");
-                const moodRes = await api.post(`/api/ai/detect-mood`, { caption: formData.caption });
-                mood = moodRes.data.mood;
-            } catch { }
+                let imageURLs = [];
+                if (imagesToUpload.length > 0) {
+                    const pending = imagesToUpload.filter(img => !img.uploaded);
+                    const uploaded = [...imagesToUpload];
 
-            const postData = {
-                ...formData, loggeduser: loggeduser?._id, imageURLs,
-                location: location.name ? location : null,
-                music: music.title ? music : null,
-                isAnonymous,
-                expiresAt: expiresIn ? new Date(Date.now() + parseInt(expiresIn) * 3600000).toISOString() : null,
-                unlocksAt: unlocksAt || null,
-                collaboratorIds: collaborators.map(c => c._id),
-                voiceNoteUrl, voiceNoteDuration,
-                videoURL: videoUrl, videoDuration, videoThumbnail, mood,
-                isAiGenerated: usedAiForThisPost,
-                poll: openFeaturePanel === 'poll' && pollOptions.filter(o => o.trim()).length >= 2 ? {
-                    options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })),
-                    correctOptionIndex: isQuiz ? correctOptionIndex : null
-                } : null,
-                groupId: selectedGroupId,
-                isCollaborative,
-            };
-
-            const response = await createPostMutation.mutateAsync(postData);
-            if (response?.data?._id) {
-                addSocketPost(response.data);
-                toast.success("Post created successfully!", { id: uploadToast });
-
-                // ✅ First Post Celebration
-                if (response.data.isFirstPost) {
-                    import('../../utils/confettiUtils').then(({ fireFlowerConfetti }) => {
-                        fireFlowerConfetti();
-                    });
+                    await Promise.all(pending.map(async (img) => {
+                        const idx = uploaded.findIndex(i => i.id === img.id);
+                        try {
+                            const result = await uploadToCloudinary(img.file);
+                            const url = typeof result === 'string' ? result : result?.url;
+                            uploaded[idx] = { ...uploaded[idx], url, uploaded: true };
+                        } catch (err) {
+                            console.error(`Failed to upload ${img.file?.name}`, err);
+                            throw new Error(`Failed to upload ${img.file?.name || 'Image'}`);
+                        }
+                    }));
+                    imageURLs = uploaded.filter(i => i.uploaded).map(i => i.url);
                 }
 
-                handleCloseInternal(true);
-            } else {
-                toast.error("Failed to create post", { id: uploadToast });
+                let voiceNoteUrl = null, voiceNoteDuration = null;
+                if (voiceBlobToUpload) {
+                    const voiceFile = new File([voiceBlobToUpload], 'voice.webm', { type: voiceBlobToUpload.type || 'audio/webm' });
+                    const result = await uploadVideoToCloudinary(voiceFile);
+                    voiceNoteUrl = typeof result === 'string' ? result : result?.url;
+                    voiceNoteDuration = recDuration;
+                }
+
+                let videoUrl = null, videoDuration = null, videoThumbnail = null;
+                if (videoToUpload) {
+                    const options = {};
+                    if (videoToUpload.trimRange) {
+                        options.start_offset = videoToUpload.trimRange[0];
+                        options.end_offset = videoToUpload.trimRange[1];
+                    }
+                    const result = await uploadVideoToCloudinary(videoToUpload.file, null, options);
+                    videoUrl = typeof result === 'string' ? result : result?.url;
+                    videoThumbnail = result?.thumbnailUrl || null;
+                    videoDuration = videoToUpload.trimRange ? (videoToUpload.trimRange[1] - videoToUpload.trimRange[0]) : videoToUpload.duration;
+                }
+
+                let mood = null;
+                try {
+                    const moodRes = await api.post(`/api/ai/detect-mood`, { caption: postFormData.caption });
+                    mood = moodRes.data.mood;
+                } catch { }
+
+                const postData = {
+                    ...postFormData, loggeduser: loggeduser?._id, imageURLs,
+                    location: loc, music: mus, isAnonymous: isAnon,
+                    expiresAt: exp ? new Date(Date.now() + parseInt(exp) * 3600000).toISOString() : null,
+                    unlocksAt: unl || null,
+                    collaboratorIds: col.map(c => c._id),
+                    voiceNoteUrl, voiceNoteDuration,
+                    videoURL: videoUrl, videoDuration, videoThumbnail, mood,
+                    isAiGenerated: aiGen,
+                    poll, groupId: grp, isCollaborative: isCollab,
+                };
+
+                const response = await createPostMutation.mutateAsync(postData);
+                if (response?.data?._id) {
+                    addSocketPost(response.data);
+                    toast.success("Post shared successfully!", { id: uploadToast });
+
+                    if (response.data.isFirstPost) {
+                        import('../../utils/confettiUtils').then(({ fireFlowerConfetti }) => {
+                            fireFlowerConfetti();
+                        });
+                    }
+                } else {
+                    toast.error("Failed to create post", { id: uploadToast });
+                }
+            } catch (error) {
+                toast.error(error?.message || "Error occurred while posting", { id: uploadToast });
             }
-        } catch (error) {
-            toast.error(error?.message || "Error occurred", { id: uploadToast });
-        } finally { setIsPosting(false); }
+        })();
     };
+
 
     const renderHeader = () => {
         const title = "Create new post";
