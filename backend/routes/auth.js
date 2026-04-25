@@ -40,10 +40,10 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateAccessToken(userId, family) {
-    return jwt.sign({ userId, family }, JWT_SECRET, { expiresIn: '15m' });
+    return crypto.randomBytes(48).toString('hex');
 }
 function generateRefreshToken(userId, family) {
-    return jwt.sign({ userId, family }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+    return crypto.randomBytes(48).toString('hex');
 }
 
 function getRefreshCookieOptions(isForClear = false) {
@@ -201,6 +201,7 @@ router.post('/login', authRateLimiter, [
         const isNewDevice = !existingSession;
 
         const family = generateFamily();
+        const accessToken = generateAccessToken(user._id, family);
         const refreshToken = generateRefreshToken(user._id, family);
         const ip = getIp(req);
         const device = parseDevice(req.headers['user-agent']);
@@ -208,6 +209,7 @@ router.post('/login', authRateLimiter, [
 
         await LoginSession.create({
             userId: user._id, tokenFamily: family,
+            accessToken: hashValue(accessToken),
             refreshToken: hashValue(refreshToken),
             fingerprint: hashedFingerprint,
             ip, userAgent: req.headers['user-agent'] || '',
@@ -232,7 +234,6 @@ router.post('/login', authRateLimiter, [
             message: { content: `✅ New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
-        const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -294,6 +295,7 @@ router.post('/verify-otp', [
         const isNewDevice = !existingSession;
 
         const family = generateFamily();
+        const accessToken = generateAccessToken(user._id, family);
         const refreshToken = generateRefreshToken(user._id, family);
         const ip = getIp(req);
         const device = parseDevice(req.headers['user-agent']);
@@ -301,6 +303,7 @@ router.post('/verify-otp', [
 
         await LoginSession.create({
             userId: user._id, tokenFamily: family,
+            accessToken: hashValue(accessToken),
             refreshToken: hashValue(refreshToken),
             fingerprint: hashedFingerprint,
             ip, userAgent: req.headers['user-agent'] || '',
@@ -325,7 +328,6 @@ router.post('/verify-otp', [
             message: { content: `✅ Secure Login: Your account was accessed via ${device} (OTP verified) at IP ${ip}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
-        const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -396,6 +398,7 @@ router.post('/add', authRateLimiter, [
         // sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
 
         const family = generateFamily();
+        const accessToken = generateAccessToken(newUser._id, family);
         const refreshToken = generateRefreshToken(newUser._id, family);
         const ip = getIp(req);
         const device = parseDevice(req.headers['user-agent']);
@@ -403,6 +406,7 @@ router.post('/add', authRateLimiter, [
 
         await LoginSession.create({
             userId: newUser._id, tokenFamily: family,
+            accessToken: hashValue(accessToken),
             refreshToken: hashValue(refreshToken),
             fingerprint: hashValue(fingerprint),
             ip, userAgent: req.headers['user-agent'] || '',
@@ -410,7 +414,6 @@ router.post('/add', authRateLimiter, [
             expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
 
-        const accessToken = generateAccessToken(newUser._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -466,6 +469,7 @@ router.post('/google', async (req, res) => {
         const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });
         const isNewDevice = !existingSession;
         const family = generateFamily();
+        const accessToken = generateAccessToken(user._id, family);
         const refreshToken = generateRefreshToken(user._id, family);
         const ip = getIp(req);
         const device = parseDevice(req.headers['user-agent']);
@@ -473,6 +477,7 @@ router.post('/google', async (req, res) => {
 
         await LoginSession.create({
             userId: user._id, tokenFamily: family,
+            accessToken: hashValue(accessToken),
             refreshToken: hashValue(refreshToken),
             fingerprint: hashedFingerprint,
             ip, userAgent: req.headers['user-agent'] || '',
@@ -485,7 +490,6 @@ router.post('/google', async (req, res) => {
                 .catch(() => { });
         }
 
-        const accessToken = generateAccessToken(user._id, family);
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -509,48 +513,36 @@ router.post('/refresh', async (req, res) => {
         if (!token) return res.status(401).json({ error: 'No refresh token' });
         if (!fingerprint) return res.status(401).json({ error: 'Missing fingerprint' });
 
-        let decoded;
-        try { decoded = jwt.verify(token, JWT_REFRESH_SECRET); }
-        catch { return res.status(403).json({ error: 'Invalid or expired refresh token' }); }
-
-        const session = await LoginSession.findOne({ userId: decoded.userId, tokenFamily: decoded.family });
+        const hashedToken = hashValue(token);
+        const session = await LoginSession.findOne({ refreshToken: hashedToken });
         if (!session) return res.status(403).json({ error: 'Session not found' });
 
-        // Reuse detection
-        if (session.refreshToken !== hashValue(token)) {
-            console.warn(`[SECURITY] Token reuse detected for user ${decoded.userId}`);
-            await LoginSession.updateMany({ userId: decoded.userId }, { isRevoked: true });
-            return res.status(403).json({ error: 'Token reuse detected. All sessions revoked.' });
-        }
-
         if (session.isRevoked) return res.status(403).json({ error: 'Session revoked' });
+        if (session.expiresAt < new Date()) return res.status(403).json({ error: 'Session expired' });
 
         // Fingerprint check
         if (session.fingerprint !== hashValue(fingerprint)) {
-            console.warn(`[SECURITY] Fingerprint mismatch for user ${decoded.userId}`);
-            console.log(`[DEBUG] Received fingerprint: ${fingerprint?.substring(0, 10)}... (hash: ${hashValue(fingerprint)})`);
-            console.log(`[DEBUG] Stored fingerprint hash: ${session.fingerprint}`);
+            console.warn(`[SECURITY] Fingerprint mismatch for user ${session.userId}`);
             return res.status(403).json({ error: 'Browser fingerprint mismatch' });
         }
 
+        const newAccessToken = generateAccessToken(session.userId, session.tokenFamily);
+        const newRefreshToken = generateRefreshToken(session.userId, session.tokenFamily);
 
-        const newRefreshToken = generateRefreshToken(decoded.userId, decoded.family);
         await LoginSession.findByIdAndUpdate(session._id, {
+            accessToken: hashValue(newAccessToken),
             refreshToken: hashValue(newRefreshToken),
             lastUsedAt: new Date(),
             expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
 
-        const accessToken = generateAccessToken(decoded.userId, decoded.family);
         setRefreshTokenCookie(res, newRefreshToken);
 
-        // ✅ Return user data alongside token so frontend can restore session
-        // without a second /api/auth/get request
-        const user = await User.findById(decoded.userId)
+        const user = await User.findById(session.userId)
             .select(OWN_USER_EXCLUSIONS)
             .lean();
 
-        return res.status(200).json({ token: accessToken, user });
+        return res.status(200).json({ token: newAccessToken, user });
     } catch (error) {
         console.error('Refresh error:', error);
         return res.status(500).json({ error: 'Internal server error' });
