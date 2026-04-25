@@ -171,8 +171,8 @@ router.post('/login', authRateLimiter, [
             isRevoked: false,
             expiresAt: { $gt: new Date() }
         });
-        if (activeSessionsCount >= 3) {
-            return res.status(403).json({ error: '3 login session exceeded logout first' });
+        if (activeSessionsCount >= 10) {
+            return res.status(403).json({ error: '10 login session exceeded logout first' });
         }
 
         // ── 2FA CHECK ──
