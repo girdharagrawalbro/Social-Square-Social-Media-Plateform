@@ -4,7 +4,6 @@
 // Usage:
 //   import { uploadToDrive, uploadFileToDrive } from '../../utils/drive';
 //
-//   const result = await uploadToDrive(file, { folder: 'chat-files' });
 //   console.log(result.url);         // public webContentLink (CDN-style)
 //   console.log(result.fileId);      // Google Drive file ID
 //   console.log(result.name);        // stored filename
@@ -60,7 +59,6 @@ function formatResult(data = {}) {
  * @param {File}     file         Browser File object
  * @param {Function} onProgress   Optional progress callback (0-100)
  * @param {Object}   options
- * @param {string}   [options.folder]  Sub-folder name in Drive (e.g. 'chat-files')
  * @param {string}   [options.name]    Override stored filename
  * @returns {{ url, fileId, name, mimeType, size, webViewLink, webContentLink }}
  */

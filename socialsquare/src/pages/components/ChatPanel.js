@@ -1003,7 +1003,7 @@ const ChatPanel = ({
                             const r = await uploadVideoToCloudinary(file, onProgress);
                             mediaUrl = typeof r === 'string' ? r : r?.url;
                         } else {
-                            const r = await uploadToDrive(file, onProgress, { folder: 'chat-files' });
+                            const r = await uploadToDrive(file, onProgress);
                             mediaUrl = r?.url;
                         }
 
