@@ -87,7 +87,7 @@ export const refreshAccessToken = async () => {
         useAuthStore.getState().setUser(null);
         useAuthStore.getState().setInitialized(true);
         // Only redirect if we are not already on login/landing
-        if (!['/login', '/landing', '/signup'].includes(window.location.pathname)) {
+        if (!['/login', '/landing', '/signup'].includes(window.location.pathname) && !window.location.pathname.startsWith('/profile/')) {
             window.location.href = '/login';
         }
         throw err;

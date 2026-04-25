@@ -12,7 +12,7 @@ const PostCard = ({ post, onClick, isBlur = false }) => {
 
     return (
         <div onClick={() => onClick(post)} 
-            className={`relative rounded-xl overflow-hidden bg-gray-100 cursor-pointer transition-all ${isBlur ? 'blur-md grayscale hover:blur-sm' : ''}`} 
+            className={`relative rounded-xl overflow-hidden bg-gray-100 cursor-pointer transition-all ${isBlur ? 'blur-2xl grayscale' : ''}`} 
             style={{ aspectRatio: '1' }}>
             {previewSrc ? (
                 <img src={previewSrc} alt="post" className="w-full h-full object-cover" />
@@ -35,8 +35,8 @@ const PostCard = ({ post, onClick, isBlur = false }) => {
                 )}
             </div>
             <div className={`absolute bottom-0 left-0 right-0 flex gap-2 px-2 py-1 ${isBlur ? 'hidden' : ''}`} style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.5))' }}>
-                <span className="text-white text-[11px]">❤️ {post.likes?.length || 0}</span>
-                <span className="text-white text-[11px]">💬 {post.comments?.length || 0}</span>
+                <span className="text-white text-[11px]">❤️ {post.likesCount !== undefined ? post.likesCount : (post.likes?.length || 0)}</span>
+                <span className="text-white text-[11px]">💬 {post.commentsCount !== undefined ? post.commentsCount : (post.comments?.length || 0)}</span>
             </div>
         </div>
     );

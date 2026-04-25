@@ -39,19 +39,24 @@ export default function Sidebar() {
     const activeClass = "bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white font-bold shadow-lg shadow-indigo-500/40 relative overflow-hidden";
     const inactiveClass = "hover:bg-gray-100 dark:hover:bg-neutral-900 text-[var(--text-main)]";
 
-    const links = [
-        { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username || 'You'}` },
-        { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/search' },
-        { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
-        { key: 'discover', label: 'Discover', icon: 'pi pi-users', to: '/discover' },
-        { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse' },
-        { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
-        { key: 'communities', label: 'Communities', icon: 'pi pi-map', to: '/communities' },
-        { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
-        { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
-        { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
-        { key: 'settings', label: 'Settings', icon: 'pi pi-cog', to: '/settings' },
-    ];
+    const links = !user
+        ? [
+            { key: 'home', label: 'Home', icon: 'pi pi-home', to: '/' },
+            { key: 'login', label: 'Log In', icon: 'pi pi-sign-in', to: '/login', accent: true },
+        ]
+        : [
+            { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username}` },
+            { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/search' },
+            { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
+            { key: 'discover', label: 'Discover', icon: 'pi pi-users', to: '/discover' },
+            { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse' },
+            { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
+            { key: 'communities', label: 'Communities', icon: 'pi pi-map', to: '/communities' },
+            { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
+            { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
+            { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
+            { key: 'settings', label: 'Settings', icon: 'pi pi-cog', to: '/settings' },
+        ];
 
 
     return (
@@ -115,31 +120,32 @@ export default function Sidebar() {
                     </ul>
                 </nav>
 
-                <div className={`p-3 border-t border-[var(--border-color)] flex flex-col items-${open ? 'start' : 'center'} gap-3`}>
-                    <Link to={user?._id ? `/profile/${user._id}` : '#'}>
-                        <div className="flex items-center gap-3 w-full px-1">
-                            <img
-                                src={user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
-                                alt="me"
-                                className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm"
-                            />
-                            {open && (
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-[var(--text-main)] leading-none">{user?.fullname || 'User'}</span>
-                                </div>
-                            )}
-                        </div>
-
-                    </Link>
-                    <button
-                        onClick={() => logout()}
-                        className={`flex items-center ${open ? 'w-full px-4 py-2 justify-start gap-3' : 'w-10 h-10 justify-center'} rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border-0 cursor-pointer p-0`}
-                        aria-label="Logout"
-                    >
-                        <i className={`pi pi-sign-out ${open ? 'text-lg' : 'text-xl'}`}></i>
-                        {open && <span className="font-bold text-sm">Logout</span>}
-                    </button>
-                </div>
+                {user && (
+                    <div className={`p-3 border-t border-[var(--border-color)] flex flex-col items-${open ? 'start' : 'center'} gap-3 w-full`}>
+                        <Link to={`/profile/${user._id}`}>
+                            <div className="flex items-center gap-3 w-full px-1">
+                                <img
+                                    src={user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                    alt="me"
+                                    className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm"
+                                />
+                                {open && (
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-[var(--text-main)] leading-none">{user?.fullname || 'User'}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </Link>
+                        <button
+                            onClick={() => logout()}
+                            className={`flex items-center ${open ? 'w-full px-4 py-2 justify-start gap-3' : 'w-10 h-10 justify-center'} rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border-0 cursor-pointer p-0`}
+                            aria-label="Logout"
+                        >
+                            <i className={`pi pi-sign-out ${open ? 'text-lg' : 'text-xl'}`}></i>
+                            {open && <span className="font-bold text-sm">Logout</span>}
+                        </button>
+                    </div>
+                )}
             </aside>
 
             <Dialog header={"Search Users , Posts , Categories..."} visible={isSearchOpen} onHide={() => setIsSearchOpen(false)} style={{ width: '50vw', height: '100vh' }} position="center" baseZIndex={2000} appendTo={document.body} draggable={false} resizable={false} modal>

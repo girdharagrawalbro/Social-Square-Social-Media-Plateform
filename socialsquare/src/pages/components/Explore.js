@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { useExploreReels } from '../../hooks/queries/useExploreQueries';
 import { Skeleton } from 'primereact/skeleton';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
+import useAuthStore from '../../store/zustand/useAuthStore';
+import { useNavigate } from 'react-router-dom';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
@@ -82,6 +84,18 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
 });
 
 const Explore = () => {
+  const loggeduser = useAuthStore(s => s.user);
+  const loading = useAuthStore(s => s.loading);
+  const initialized = useAuthStore(s => s.initialized);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (initialized && !loading && !loggeduser) {
+      toast.error('Log in to explore reels', { icon: '🔒' });
+      navigate('/login');
+    }
+  }, [initialized, loading, loggeduser, navigate]);
+
   const {
     data,
     isLoading,
@@ -94,6 +108,8 @@ const Explore = () => {
 
   // Flatten the pages into a single array of videos
   const videos = useMemo(() => data?.pages.flatMap(page => page.posts) || [], [data?.pages]);
+
+
 
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
   const [visible, setVisible] = useState(false);
@@ -147,6 +163,16 @@ const Explore = () => {
     if (now - lastTap.current < 300) handleDoubleClick();
     lastTap.current = now;
   };
+
+  if (!initialized || loading || !loggeduser) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4 px-4 py-20">
+        {[...Array(6)].map((_, i) => (
+          <Skeleton key={i} shape="rectangle" className="rounded-2xl w-full" style={{ aspectRatio: '9/16' }} />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">

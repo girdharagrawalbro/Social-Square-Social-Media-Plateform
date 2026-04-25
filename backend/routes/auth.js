@@ -823,6 +823,48 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
     }
 });
 
+// ─── PUBLIC USER PROFILE VIEW (Logged-out) ────────────────────────────────────
+router.get('/public/profile/:identifier', async (req, res) => {
+    try {
+        const identifier = req.params.identifier;
+        let query = {};
+
+        if (mongoose.Types.ObjectId.isValid(identifier)) {
+            query = { _id: identifier };
+        } else {
+            query = { username: identifier };
+        }
+
+        const user = await User.findOne(query)
+            .select('fullname username profile_picture bio isPrivate followers following level streak xp profileViews')
+            .lean();
+
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        // Set cache headers for aggressive CDN caching (5 minutes)
+        res.setHeader('Cache-Control', 'public, max-age=300');
+
+        // Security: Strictly return ONLY counts and fix data. NO arrays.
+        return res.status(200).json({
+            _id: user._id,
+            fullname: user.fullname,
+            username: user.username,
+            profile_picture: user.profile_picture,
+            bio: user.bio,
+            isPrivate: user.isPrivate,
+            followerCount: (user.followers || []).length,
+            followingCount: (user.following || []).length,
+            level: user.level || 1,
+            streak: user.streak || { count: 0 },
+            xp: user.xp || 0,
+            profileViews: user.profileViews || 0
+        });
+    } catch (error) {
+        logger.error('[PUBLIC_USER_VIEW] Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 router.post('/users/details', verifyToken, async (req, res) => {
     try {
         let ids = Array.isArray(req.body.ids) ? req.body.ids : [];
