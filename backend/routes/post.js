@@ -12,6 +12,8 @@ const contentFilter = require('../middleware/contentFilter');
 const { publishEvent } = require("../services/recommendationPublisher");
 const { updateGamification } = require('../lib/gamification');
 const jwt = require('jsonwebtoken');
+const { hashValue } = require('../utils/authSecurity');
+const LoginSession = require('../models/LoginSession');
 
 const router = express.Router();
 
@@ -35,8 +37,11 @@ router.post("/view/:postId", async (req, res) => {
             const auth = req.headers.authorization || '';
             if (auth.startsWith('Bearer ')) {
                 const token = auth.split(' ')[1];
-                const payload = jwt.verify(token, process.env.JWT_SECRET);
-                viewerId = payload && (payload.userId || payload.id || payload._id) ? (payload.userId || payload.id || payload._id) : null;
+                const hashedToken = hashValue(token);
+                const session = await LoginSession.findOne({ accessToken: hashedToken });
+                if (session && !session.isRevoked && session.expiresAt > new Date()) {
+                    viewerId = session.userId;
+                }
             }
         } catch (e) {
             // ignore token errors — fall back to IP
@@ -450,9 +455,11 @@ router.get("/user/:userId", async (req, res) => {
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
             try {
-                const jwt = require('jsonwebtoken');
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                viewerId = decoded.userId || decoded.id || decoded._id;
+                const hashedToken = hashValue(token);
+                const session = await LoginSession.findOne({ accessToken: hashedToken });
+                if (session && !session.isRevoked && session.expiresAt > new Date()) {
+                    viewerId = session.userId;
+                }
             } catch (err) { }
         }
 
@@ -807,8 +814,11 @@ router.get('/comments', async (req, res) => {
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                viewerId = decoded.userId || decoded.id || decoded._id;
+                const hashedToken = hashValue(token);
+                const session = await LoginSession.findOne({ accessToken: hashedToken });
+                if (session && !session.isRevoked && session.expiresAt > new Date()) {
+                    viewerId = session.userId;
+                }
             } catch (err) { /* ignore */ }
         }
 
@@ -972,8 +982,11 @@ router.get("/detail/:postId", async (req, res) => {
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                viewerId = decoded.userId || decoded.id || decoded._id;
+                const hashedToken = hashValue(token);
+                const session = await LoginSession.findOne({ accessToken: hashedToken });
+                if (session && !session.isRevoked && session.expiresAt > new Date()) {
+                    viewerId = session.userId;
+                }
             } catch (err) { /* ignore invalid token for detail view */ }
         }
 
@@ -1050,8 +1063,11 @@ router.get("/explore-reels", async (req, res) => {
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                viewerId = decoded.userId || decoded.id || decoded._id;
+                const hashedToken = hashValue(token);
+                const session = await LoginSession.findOne({ accessToken: hashedToken });
+                if (session && !session.isRevoked && session.expiresAt > new Date()) {
+                    viewerId = session.userId;
+                }
             } catch (err) { /* invalid token */ }
         }
 
