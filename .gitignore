@@ -60,7 +60,7 @@ model
 evstream
 recommender-service
 gdrive
-
+folder-stracture
 
 node_modules/
 .env
