@@ -428,7 +428,7 @@ const NewPost = ({ visible, onHide }) => {
         resetState();
 
         // 3. Start background upload toast
-        const uploadToast = toast.loading("Posting content in the background...", {
+        const uploadToast = toast.loading("Posting...", {
             position: 'bottom-right'
         });
 
