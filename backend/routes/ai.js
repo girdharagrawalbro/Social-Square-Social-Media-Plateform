@@ -109,26 +109,6 @@ async function uploadImageUrlToCloudinary(url, folder = 'ai-generated') {
     }
 }
 
-async function deleteImageFromCloudinary(publicId, resourceType = 'image') {
-    if (!publicId) {
-        throw new Error('publicId is required for Cloudinary delete');
-    }
-    try {
-        const cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
-        const cloudRes = await axios.delete(`${cloudApiBase}/api/cloudinary/delete`, {
-            data: { publicId, resourceType },
-            headers: { 'Content-Type': 'application/json' }
-        });
-        if (cloudRes.data?.success === false) {
-            throw new Error(cloudRes.data?.message || 'Invalid Cloudinary delete response');
-        }
-        return cloudRes.data?.data;
-    } catch (error) {
-        const reason = error.response?.data?.message || error.response?.data?.error?.message || error.message;
-        throw new Error(`Cloudinary delete failed: ${reason}`);
-    }
-}
-
 // ─── GENERATE TEXT (PROTECTED) ────────────────────────────────────────────────
 router.post('/generate-text', verifyToken, async (req, res) => {
     try {

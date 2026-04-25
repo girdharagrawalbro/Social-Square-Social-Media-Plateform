@@ -1,5 +1,18 @@
-const CLOUDINARY_API_BASE_URL =
-    process.env.REACT_APP_CLOUDINARY_API_BASE_URL;
+// ─── CLOUDINARY + DRIVE BACKUP UTILITY ───────────────────────────────────────
+// All uploads go to Cloudinary (public CDN).
+// Every successful upload is ALSO silently backed up to Google Drive
+// (disaster recovery + raw original storage).
+// If a file EXCEEDS the Cloudinary size limit, it falls back to Drive
+// automatically, and the same { url } shape is returned.
+// ──────────────────────────────────────────────────────────────────────────────
+import { backupUrlToDrive, uploadToDrive } from './drive';
+
+// The hard limit enforced by the Cloudinary service (set in clodinary/index.js).
+// Files LARGER than this are transparently uploaded to Google Drive instead.
+export const IMAGE_CLOUDINARY_MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+export const VIDEO_CLOUDINARY_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+
+const CLOUDINARY_API_BASE_URL = process.env.REACT_APP_CLOUDINARY_API_BASE_URL;
 
 function fileToDataUrl(file, onProgress) {
     return new Promise((resolve, reject) => {
@@ -83,6 +96,19 @@ export function generateVideoThumbnail(videoFile, seekTime = 1) {
 }
 
 export async function uploadToCloudinary(file, onProgress, options = {}) {
+    // ── Drive fallback for oversized files ───────────────────────────────────
+    // If the file exceeds the Cloudinary limit, upload directly to Drive.
+    const limit = options.resourceType === 'video' ? VIDEO_CLOUDINARY_MAX_SIZE : IMAGE_CLOUDINARY_MAX_SIZE;
+    if (file.size > limit) {
+        console.info('[Cloudinary] File exceeds limit, falling back to Drive:', file.name);
+        const driveResult = await uploadToDrive(file, onProgress, {
+            folder: options.folder || 'cloudinary-oversize',
+            name: file.name,
+        });
+        return { url: driveResult.url, publicId: null, source: 'drive' };
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const fileBase64 = await fileToDataUrl(file, onProgress);
     const payload = {
         file: fileBase64,
@@ -101,6 +127,15 @@ export async function uploadToCloudinary(file, onProgress, options = {}) {
     }
 
     if (onProgress) onProgress(100);
+
+    // ── Silent Drive backup (fire-and-forget) ──────────────────────────────────
+    // Backs up the original to Google Drive asynchronously.
+    // Never blocks or fails the main upload flow.
+    backupUrlToDrive(secureUrl, {
+        folder: options.folder ? `backups/${options.folder}` : 'backups/uploads',
+        name: file.name,
+    }).catch(err => console.warn('[DriveBackup] Backup failed (non-critical):', err.message));
+    // ──────────────────────────────────────────────────────────────────────────
 
     return {
         url: secureUrl,
@@ -140,36 +175,59 @@ export async function uploadVideoToCloudinary(file, onProgress, options = {}) {
     };
 }
 
-export async function deleteFromCloudinary(publicId, resourceType = 'image') {
-    const json = await requestCloudinaryApi('/delete', 'DELETE', {
-        publicId,
-        resourceType,
-    });
-    return json?.data;
+// ⚠️  DELETE IS INTENTIONALLY DISABLED.
+// Cloudinary assets are kept forever — deleting a post or piece of content
+// in Social Square does NOT remove the underlying media file from Cloudinary.
+// Do not re-enable this without a deliberate storage-cleanup strategy.
+export async function deleteFromCloudinary(_publicId, _resourceType = 'image') {
+    // no-op — deletion from Cloudinary is disabled by policy
+    return null;
+}
+
+/**
+ * Validates ONLY the file TYPE (not size).
+ * Use this when you want to hard-block unsupported formats but still allow
+ * oversized files to fall back to Google Drive automatically.
+ */
+export function validateImageType(file) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        return 'Only JPEG, PNG, GIF and WebP images are allowed.';
+    }
+    return null;
 }
 
 export function validateImageFile(file) {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const maxSize = 30 * 1024 * 1024; // 30MB
+    const maxSize = IMAGE_CLOUDINARY_MAX_SIZE;
 
     if (!allowedTypes.includes(file.type)) {
         return 'Only JPEG, PNG, GIF and WebP images are allowed.';
     }
     if (file.size > maxSize) {
-        return 'Image must be under 30MB.';
+        return `Image exceeds 20MB — it will be stored on Google Drive instead.`;
+
+    }
+    return null;
+}
+
+export function validateVideoType(file) {
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg'];
+    if (!allowedTypes.includes(file.type)) {
+        return 'Only MP4, WebM, MOV and OGG videos are allowed.';
     }
     return null;
 }
 
 export function validateVideoFile(file) {
     const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg'];
-    const maxSize = 100 * 1024 * 1024; // 100MB
+    const maxSize = VIDEO_CLOUDINARY_MAX_SIZE;
 
     if (!allowedTypes.includes(file.type)) {
         return 'Only MP4, WebM, MOV and OGG videos are allowed.';
     }
     if (file.size > maxSize) {
-        return `Video must be under ${Math.round(maxSize / (1024 * 1024))}MB.`;
+        return `Video exceeds 100MB — it will be stored on Google Drive instead.`;
     }
     return null;
 }

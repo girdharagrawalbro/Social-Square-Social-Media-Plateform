@@ -5,11 +5,11 @@ import React, { useState, useEffect } from 'react';
  * Implements a blur-up loading effect for images to prevent layout shifts
  * and provide a better perceived performance.
  */
-const ProgressiveImage = ({ 
-    src, 
-    alt, 
-    className, 
-    style, 
+const ProgressiveImage = ({
+    src,
+    alt,
+    className,
+    style,
     placeholderColor = 'var(--surface-2)',
     blurIntensity = '10px',
     objectFit = 'cover',
@@ -31,18 +31,15 @@ const ProgressiveImage = ({
     }, [src]);
 
     return (
-        <div 
+        <div
             className={`progressive-image-container ${className || ''}`}
-            style={{ 
-                position: 'relative', 
-                overflow: 'hidden', 
+            style={{
+                position: 'relative',
+                overflow: 'hidden',
                 backgroundColor: placeholderColor,
                 width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                ...style 
+                display: 'block',
+                ...style
             }}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
@@ -54,8 +51,10 @@ const ProgressiveImage = ({
                 alt={alt}
                 style={{
                     width: '100%',
-                    height: '100%',
+                    height: 'auto',
+                    maxHeight: '600px',
                     objectFit: objectFit,
+                    display: 'block',
                     filter: isLoaded ? 'none' : `blur(${blurIntensity})`,
                     transition: 'filter 0.4s ease-out, opacity 0.4s ease-in-out',
                     opacity: isLoaded ? 1 : 0.6,

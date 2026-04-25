@@ -5,7 +5,9 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
-import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile } from '../../utils/cloudinary';
+import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
+
+
 
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -682,11 +684,19 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
         files.forEach(f => {
             const isVideo = f.type.startsWith('video/');
             if (isVideo) {
+                const typeErr = validateVideoType(f);
+                if (typeErr) { toast.error(typeErr); return; } // hard block: wrong type
+                const sizeWarn = validateVideoFile(f);
+                if (sizeWarn) toast.error(sizeWarn); // size warning but proceed
                 validVideos.push({ url: URL.createObjectURL(f), type: 'video', file: f });
             } else {
-                const err = validateImageFile(f);
-                if (err) toast.error(err);
-                else itemsToCrop.push(f);
+                const typeErr = validateImageType(f);
+                if (typeErr) { toast.error(typeErr); return; } // hard block: wrong type
+                // Size warning — still proceed; uploadToCloudinary falls back to Drive
+                const sizeWarn = validateImageFile(f);
+                if (sizeWarn) toast.error(sizeWarn);
+                itemsToCrop.push(f);
+
             }
         });
 

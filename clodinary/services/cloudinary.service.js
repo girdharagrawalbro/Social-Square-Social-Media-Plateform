@@ -9,9 +9,9 @@ function getCloudinary() {
     if (!_cloudinary) {
         const cloudinary = require('cloudinary').v2;
         cloudinary.config({
-            cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dcmrsdydh',
-            api_key:    process.env.CLOUDINARY_API_KEY || '516369855465939',
-            api_secret: process.env.CLOUDINARY_API_SECRET || 'C4UC2KURVT_S4kAtYQzwdCbCk3M',
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET,
         });
         _cloudinary = cloudinary;
     }
@@ -22,7 +22,7 @@ function getCloudinary() {
 async function uploadBase64(base64Data, options = {}) {
     const cld = getCloudinary();
     const uploadOptions = {
-        folder:        options.folder        || 'uploads',
+        folder: options.folder || 'uploads',
         resource_type: options.resource_type || 'image',
         ...options,
     };
@@ -34,7 +34,7 @@ async function uploadBase64(base64Data, options = {}) {
 async function uploadFromUrl(url, options = {}) {
     const cld = getCloudinary();
     return cld.uploader.upload(url, {
-        folder:        options.folder || 'ai-generated',
+        folder: options.folder || 'ai-generated',
         resource_type: 'image',
         ...options,
     });

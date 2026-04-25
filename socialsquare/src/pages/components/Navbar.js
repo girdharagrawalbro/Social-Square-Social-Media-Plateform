@@ -185,12 +185,7 @@ const Navbar = () => {
         {isAuthenticated && (
           <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
 
-            <button
-              onClick={() => { navigate('/communities'); setMobileMenuOpen(false); }}
-              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
-            >
-              <i className="pi pi-users text-lg text-blue-400"></i> Communities
-            </button>
+
             <button
               onClick={() => { navigate('/notifications'); setMobileMenuOpen(false); }}
               className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}

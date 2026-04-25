@@ -116,19 +116,21 @@ export default function Sidebar() {
                 </nav>
 
                 <div className={`p-3 border-t border-[var(--border-color)] flex flex-col items-${open ? 'start' : 'center'} gap-3`}>
-                    <div className="flex items-center gap-3 w-full px-1">
-                        <img
-                            src={user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
-                            alt="me"
-                            className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm"
-                        />
-                        {open && (
-                            <div className="flex flex-col">
-                                <span className="text-sm font-bold text-[var(--text-main)] leading-none">{user?.fullname || 'User'}</span>
-                            </div>
-                        )}
-                    </div>
+                    <Link to={user?._id ? `/profile/${user._id}` : '#'}>
+                        <div className="flex items-center gap-3 w-full px-1">
+                            <img
+                                src={user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                alt="me"
+                                className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm"
+                            />
+                            {open && (
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-[var(--text-main)] leading-none">{user?.fullname || 'User'}</span>
+                                </div>
+                            )}
+                        </div>
 
+                    </Link>
                     <button
                         onClick={() => logout()}
                         className={`flex items-center ${open ? 'w-full px-4 py-2 justify-start gap-3' : 'w-10 h-10 justify-center'} rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border-0 cursor-pointer p-0`}
