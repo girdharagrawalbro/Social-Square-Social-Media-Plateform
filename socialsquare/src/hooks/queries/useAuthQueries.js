@@ -130,6 +130,18 @@ export function useUserProfile(userId) {
     });
 }
 
+export function usePublicUserProfile(userId) {
+    return useQuery({
+        queryKey: ['user', 'public-profile', userId],
+        queryFn: async () => {
+            const res = await api.get(`/api/auth/public/profile/${userId}`);
+            return res.data;
+        },
+        enabled: !!userId,
+        staleTime: 1000 * 60 * 5,
+    });
+}
+
 // ─── FETCH FOLLOWERS ───────────────────────────────────────────────────────────
 export function useFollowers(userId) {
     const { data: followerIds } = useQuery({

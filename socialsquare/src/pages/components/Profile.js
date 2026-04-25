@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
-import { useUserPosts, useSavedPosts } from '../../hooks/queries/usePostQueries';
+import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery } from '@tanstack/react-query';
-import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest } from '../../hooks/queries/useAuthQueries';
+import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest, usePublicUserProfile } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
@@ -48,6 +48,8 @@ const Profile = ({ userId }) => {
 
 
     const loggeduser = useAuthStore(s => s.user);
+    const initialized = useAuthStore(s => s.initialized);
+    const isLoggedOut = initialized && !loggeduser?._id;
 
     const blockUser = useAuthStore(s => s.blockUser);
     const unblockUser = useAuthStore(s => s.unblockUser);
@@ -58,33 +60,40 @@ const Profile = ({ userId }) => {
     const viewingOwnProfile = !userId || loggeduser?._id === userId;
     const profileId = userId || loggeduser?._id;
 
-    // Fetch own posts/saved
-    const { data: userPosts = [], isLoading: loadingUserPosts } = useUserPosts(profileId);
-    const { data: savedPostsData = [] } = useSavedPosts(viewingOwnProfile ? profileId : null);
-    const userPostsList = userPosts?.pages?.flatMap(p => p.posts) || [];
+    // Fetch own posts/saved (Logged In)
+    const { data: userPosts = [], isLoading: loadingUserPosts } = useUserPosts((initialized && loggeduser?._id) ? profileId : null);
+    const { data: savedPostsData = [] } = useSavedPosts((initialized && loggeduser?._id && viewingOwnProfile) ? profileId : null);
+
+    // Fetch public posts (Logged Out)
+    const { data: publicPostsData = [], isLoading: loadingPublicPosts } = usePublicUserPosts((initialized && !loggeduser?._id) ? profileId : null);
+
+    const userPostsList = isLoggedOut ? (publicPostsData?.posts || []) : (userPosts?.pages?.flatMap(p => p.posts) || []);
     const savedPosts = savedPostsData || [];
 
-    // Fetch other user's profile data if viewing someone else
+    // Fetch other user's profile data if viewing someone else (Logged In)
     const { data: otherUserProfile, isLoading: otherUserLoading } = useQuery({
         queryKey: authKeys.userProfile(profileId),
         queryFn: async () => {
             const res = await api.get(`/api/auth/other-user/view/${profileId}`);
             return res.data;
         },
-        enabled: !viewingOwnProfile && !!profileId && !!loggeduser?._id,
+        enabled: initialized && !!loggeduser?._id && !viewingOwnProfile && !!profileId,
         staleTime: 1000 * 60 * 2
     });
+
+    // Fetch public profile data (Logged Out)
+    const { data: publicUserProfile, isLoading: publicUserLoading } = usePublicUserProfile((initialized && !loggeduser?._id) ? profileId : null);
 
     // Follow/Unfollow mutations
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
     const cancelRequestMutation = useCancelFollowRequest();
 
-    const displayUser = viewingOwnProfile ? loggeduser : otherUserProfile;
-    const isFollowing = loggeduser?.following?.some(f => f?.toString() === profileId?.toString());
-    const isRequested = otherUserProfile?.hasPendingRequest || (otherUserProfile?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString()));
-    const isBlockedByMe = loggeduser?.blockedUsers?.some(b => b?.toString() === profileId?.toString());
-    const isMuted = loggeduser?.mutedUsers?.some(m => m?.toString() === profileId?.toString());
+    const displayUser = isLoggedOut ? publicUserProfile : (viewingOwnProfile ? loggeduser : otherUserProfile);
+    const isFollowing = !isLoggedOut && loggeduser?.following?.some(f => f?.toString() === profileId?.toString());
+    const isRequested = !isLoggedOut && (otherUserProfile?.hasPendingRequest || (otherUserProfile?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString())));
+    const isBlockedByMe = !isLoggedOut && loggeduser?.blockedUsers?.some(b => b?.toString() === profileId?.toString());
+    const isMuted = !isLoggedOut && loggeduser?.mutedUsers?.some(m => m?.toString() === profileId?.toString());
     const isPrivateAndNotFollowing = displayUser?.isPrivate && !isFollowing && !viewingOwnProfile && !isBlockedByMe;
 
     const handleFollow = async () => {
@@ -171,17 +180,18 @@ const Profile = ({ userId }) => {
         }
     };
 
-    const { data: collabInvites = [] } = useCollabInvites(viewingOwnProfile ? profileId : null);
+    const { data: collabInvites = [] } = useCollabInvites((initialized && loggeduser?._id && viewingOwnProfile) ? profileId : null);
 
-    if (!loggeduser) return <div className="text-center p-4">Loading...</div>;
-    if (!viewingOwnProfile && otherUserLoading) return <div className="text-center p-4">Loading profile...</div>;
+    if (!initialized) return <div className="text-center p-4">Initializing...</div>;
+    if (isLoggedOut && publicUserLoading) return <div className="text-center p-4">Loading profile...</div>;
+    if (!isLoggedOut && !viewingOwnProfile && otherUserLoading) return <div className="text-center p-4">Loading profile...</div>;
     if (!displayUser) return <div className="text-center p-4">Profile not found</div>;
 
     const pendingCollabCount = collabInvites.length;
 
     // Only posts/saved use the grid
     const tabPosts = activeTab === 'posts' ? userPostsList : savedPosts;
-    const isLoadingTab = activeTab === 'posts' ? loadingUserPosts : false;
+    const isLoadingTab = activeTab === 'posts' ? (isLoggedOut ? loadingPublicPosts : loadingUserPosts) : false;
 
     const formatCount = (count = 0) => {
         if (count >= 1000000) return `${(count / 1000000).toFixed(1).replace('.0', '')}M`;
@@ -299,7 +309,10 @@ const Profile = ({ userId }) => {
                                 <div
                                     className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
-                                        if (viewingOwnProfile || isFollowing) {
+                                        if (isLoggedOut) {
+                                            toast.error('Log in to view followers', { icon: '🔒' });
+                                            navigate('/login');
+                                        } else if (viewingOwnProfile || isFollowing) {
                                             setShowFollowersList(true);
                                         } else {
                                             toast.error('Follow this user to see their followers', { icon: '🔒' });
@@ -312,7 +325,10 @@ const Profile = ({ userId }) => {
                                 <div
                                     className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
-                                        if (viewingOwnProfile || isFollowing) {
+                                        if (isLoggedOut) {
+                                            toast.error('Log in to view following', { icon: '🔒' });
+                                            navigate('/login');
+                                        } else if (viewingOwnProfile || isFollowing) {
                                             setShowFollowingList(true);
                                         } else {
                                             toast.error('Follow this user to see who they follow', { icon: '🔒' });
@@ -335,7 +351,17 @@ const Profile = ({ userId }) => {
 
                         {/* Action buttons */}
                         <div className="mb-4">
-                            {viewingOwnProfile ? (
+                            {isLoggedOut ? (
+                                <div className="grid grid-cols-1">
+                                    <button
+                                        onClick={() => navigate('/login')}
+                                        className="h-10 sm:h-11 lg:h-12 rounded-xl border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold text-sm cursor-pointer hover:opacity-95 shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
+                                    >
+                                        <i className="pi pi-sign-in"></i>
+                                        <span>Log In to Interact</span>
+                                    </button>
+                                </div>
+                            ) : viewingOwnProfile ? (
                                 <></>
                             ) : !isBlockedByMe && (
                                 <div className="grid grid-cols-2 gap-3">
@@ -360,7 +386,7 @@ const Profile = ({ userId }) => {
                         </div>
 
                         {/* OTHER PROFILE - Mute/Block Options */}
-                        {!viewingOwnProfile && (
+                        {!viewingOwnProfile && !isLoggedOut && (
                             <div className="py-2 border-t border-b border-[var(--border-color)] flex divide-x divide-[var(--border-color)] my-2">
                                 <button
                                     onClick={handleMute}
@@ -425,7 +451,17 @@ const Profile = ({ userId }) => {
                                 <i className="pi pi-lock text-3xl text-[var(--text-sub)]"></i>
                             </div>
                             <h4 className="m-0 text-[var(--text-main)] font-bold text-lg mb-2">This Account is Private</h4>
-                            <p className="m-0 text-sm text-[var(--text-sub)]">Follow to see their photos and videos.</p>
+                            <p className="m-0 text-sm text-[var(--text-sub)]">
+                                {isLoggedOut ? 'Log in to see their photos and videos.' : 'Follow to see their photos and videos.'}
+                            </p>
+                            {isLoggedOut && (
+                                <button
+                                    onClick={() => navigate('/login')}
+                                    className="mt-4 px-4 py-2 rounded-xl border-0 bg-indigo-600 text-white font-semibold text-xs cursor-pointer hover:bg-indigo-700 transition"
+                                >
+                                    Log In
+                                </button>
+                            )}
                         </div>
                     ) : activeTab === 'collabs' ? (
                         // Collabs tab — full width, no grid
@@ -443,13 +479,19 @@ const Profile = ({ userId }) => {
                                     <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ aspectRatio: '1' }} />
                                 ))
                             ) : tabPosts.length > 0 ? (
-                                (viewingOwnProfile || isFollowing ? tabPosts : tabPosts.slice(0, 3)).map(post => (
+                                (isLoggedOut
+                                    ? tabPosts.slice(0, 9)
+                                    : (viewingOwnProfile || isFollowing ? tabPosts : tabPosts.slice(0, 3))
+                                ).map((post, index) => (
                                     <PostCard
                                         key={post._id}
                                         post={post}
-                                        isBlur={!(viewingOwnProfile || isFollowing)}
+                                        isBlur={isLoggedOut ? true : !(viewingOwnProfile || isFollowing)}
                                         onClick={(post) => {
-                                            if (viewingOwnProfile || isFollowing) {
+                                            if (isLoggedOut) {
+                                                toast.error('Log in to view full post', { icon: '🔒' });
+                                                navigate('/login');
+                                            } else if (viewingOwnProfile || isFollowing) {
                                                 setPostDetail(post);
                                                 setPostDetailVisible(true);
                                             } else {
@@ -484,6 +526,25 @@ const Profile = ({ userId }) => {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {isLoggedOut && tabPosts.length > 3 && (
+                        <div className="flex flex-col items-center justify-center py-8 px-4 text-center bg-[var(--surface-2)]/80 backdrop-blur-sm rounded-2xl mx-4 mt-4 mb-4 border border-[var(--border-color)]">
+                            <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
+                                <i className="pi pi-lock text-xl text-indigo-600"></i>
+                            </div>
+                            <h4 className="m-0 text-[var(--text-main)] font-bold text-base mb-2">Log in to see more</h4>
+                            <p className="m-0 text-xs text-[var(--text-sub)] max-w-[250px] mb-4">
+                                Log in to view all posts and interact with the community.
+                            </p>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="px-6 py-2.5 rounded-xl border-0 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold text-sm cursor-pointer hover:opacity-95 shadow-md transition flex items-center justify-center gap-2"
+                            >
+                                <i className="pi pi-sign-in"></i>
+                                <span>Log In</span>
+                            </button>
                         </div>
                     )}
 

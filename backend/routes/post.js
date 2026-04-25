@@ -492,6 +492,73 @@ router.get("/user/:userId", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// ─── PUBLIC USER POSTS (Logged-out) ───────────────────────────────────────────
+router.get("/public/user/:userId", async (req, res) => {
+    try {
+        const ownerId = req.params.userId;
+        const postOwner = await User.findById(ownerId).select('isPrivate').lean();
+
+        if (!postOwner) return res.status(404).json({ message: "User not found." });
+
+        // Set cache headers for aggressive CDN caching (5 minutes)
+        res.setHeader('Cache-Control', 'public, max-age=300');
+
+        if (postOwner.isPrivate) {
+            return res.status(200).json({ posts: [], nextCursor: null, hasMore: false, isPrivate: true });
+        }
+
+        // Strict limit of 9 posts for logged-out users, no pagination
+        const limit = 9;
+        const query = {
+            $or: [
+                { 'user._id': ownerId },
+                {
+                    collaborators: {
+                        $elemMatch: {
+                            userId: ownerId,
+                            status: 'accepted'
+                        }
+                    }
+                }
+            ],
+            isAnonymous: { $ne: true } // Exclude anonymous posts
+        };
+        
+        const posts = await Post.find(query)
+            .sort({ _id: -1 })
+            .limit(limit)
+            .select('_id caption image_urls video videoThumbnail category likes comments createdAt user')
+            .lean();
+
+        // Strip sensitive user info and convert arrays to counts
+        const sanitizedPosts = posts.map(post => {
+            return {
+                _id: post._id,
+                caption: post.caption,
+                image_urls: post.image_urls,
+                video: post.video,
+                videoThumbnail: post.videoThumbnail,
+                category: post.category,
+                createdAt: post.createdAt,
+                likesCount: (post.likes || []).length,
+                commentsCount: (post.comments || []).length,
+                // We still provide empty arrays to prevent frontend crashes if it reads .length
+                likes: [],
+                comments: [],
+                user: post.user ? {
+                    _id: post.user._id,
+                    fullname: post.user.fullname,
+                    profile_picture: post.user.profile_picture
+                } : null
+            };
+        });
+
+        res.status(200).json({ posts: sanitizedPosts, nextCursor: null, hasMore: false });
+    } catch (error) { 
+        res.status(500).json({ error: "Internal Server Error" }); 
+    }
+});
+
 // ─── SAVE / UNSAVE (PROTECTED) ───────────────────────────────────────────────────
 router.post("/save", verifyToken, async (req, res) => {
     try {

@@ -14,6 +14,7 @@ const BottomNav = () => {
     const isChatOpen = location.pathname.startsWith('/conversation/') && location.pathname.split('/').length > 2;
 
     if (isChatOpen) return null;
+    if (!user) return null;
 
     const cardBg = isDark ? 'bg-black/90 border-neutral-800' : 'bg-white/95 border-gray-200';
     const msgCount = totalUnread();

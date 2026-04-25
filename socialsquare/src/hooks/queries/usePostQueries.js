@@ -52,6 +52,18 @@ export function useUserPosts(userId) {
     });
 }
 
+export function usePublicUserPosts(userId) {
+    return useQuery({
+        queryKey: ['posts', 'public', userId],
+        queryFn: async () => {
+            const res = await api.get(`/api/post/public/user/${userId}`);
+            return res.data;
+        },
+        enabled: !!userId,
+        staleTime: 1000 * 60 * 5,
+    });
+}
+
 // ─── SAVED POSTS ──────────────────────────────────────────────────────────────
 export function useSavedPosts(userId) {
     const initSavedIds = usePostStore(s => s.initSavedIds);
