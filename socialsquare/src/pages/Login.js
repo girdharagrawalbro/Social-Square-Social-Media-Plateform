@@ -72,7 +72,7 @@ const Login = () => {
         <>
             <Bg>
                 <div className="w-full flex items-center justify-center gap-10 flex-col md:flex-row">
-                    <div className={`w-full max-w-md mx-auto p-8 sm:p-10 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
+                    <div className={`flex flex-col justify-center w-full max-w-md mx-auto p-8 sm:p-10 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
                         <div className="mb-8">
                             <h3 className="font-pacifico text-4xl text-[#808bf5] mb-3">Social Square</h3>
                             <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Log in to your account</p>
