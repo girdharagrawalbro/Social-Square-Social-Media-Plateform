@@ -396,7 +396,7 @@ function App() {
                                     <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
                                     <Route path="/conversations" element={<MainLayout><Conversations /></MainLayout>} />
                                     <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
-                                    <Route path="/settings/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
+                                    <Route path="/sessions/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
                                     <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
                                     <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
                                     <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />

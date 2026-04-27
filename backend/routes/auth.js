@@ -612,8 +612,14 @@ router.get('/sessions', verifyToken, async (req, res) => {
     try {
         const sessions = await LoginSession.find({
             userId: req.userId, isRevoked: false, expiresAt: { $gt: new Date() },
-        }).select('-refreshToken -fingerprint').sort({ lastUsedAt: -1 });
-        return res.status(200).json(sessions);
+        }).select('-refreshToken -fingerprint').sort({ lastUsedAt: -1 }).lean();
+
+        const mappedSessions = sessions.map(session => ({
+            ...session,
+            isCurrentSession: session._id.toString() === req.sessionId.toString()
+        }));
+
+        return res.status(200).json(mappedSessions);
     } catch (error) {
         logger.error('[SESSIONS] Unexpected error:', error);
         return res.status(500).json({ message: 'Internal server error' });

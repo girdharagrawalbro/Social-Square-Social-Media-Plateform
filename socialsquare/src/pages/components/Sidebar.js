@@ -23,13 +23,6 @@ export default function Sidebar() {
     const [pillStyle, setPillStyle] = useState({ top: 0, height: 48, opacity: 0 });
     const [pillReady, setPillReady] = useState(false);
 
-    const isItemActive = (l) => {
-        if (l.key === 'search' && isSearchOpen) return true;
-        if (l.key === 'addpost' && newpostVisible) return true;
-        if (l.to === `/${user?.username}`) return location.pathname === l.to || location.pathname === '/';
-        if (!l.to) return false;
-        return location.pathname === l.to || location.pathname.startsWith(`${l.to}/`);
-    };
 
     const links = !user
         ? [
@@ -47,7 +40,7 @@ export default function Sidebar() {
             { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
             { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
             { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
-            { key: 'settings', label: 'Settings', icon: 'pi pi-cog', to: '/settings' },
+            { key: 'sessions', label: 'Sessions', icon: 'pi pi-cog', to: '/sessions' },
         ];
 
     const allNavItems = [

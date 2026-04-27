@@ -36,6 +36,7 @@ async function verifyToken(req, res, next) {
 
         req.userId = session.userId;
         req.family = session.tokenFamily;
+        req.sessionId = session._id;
         next();
     } catch (err) {
         console.error('Token verification error:', err);

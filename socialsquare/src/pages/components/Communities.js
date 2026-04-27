@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { useConfessions } from '../../hooks/queries/useExploreQueries';
 
 import { Dialog } from 'primereact/dialog';
@@ -118,21 +118,78 @@ const Communities = () => {
     // ✅ Tab: 'discover' | 'confessions'
     const [activeTab, setActiveTab] = useState('communities');
 
+    const tabContainerRef = useRef(null);
+    const tabItemRefs = useRef({});
+    const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
+    const [tabPillReady, setTabPillReady] = useState(false);
+
+    useLayoutEffect(() => {
+        let observer = null;
+        
+        const updatePill = () => {
+            const activeEl = tabItemRefs.current[activeTab];
+            const container = tabContainerRef.current;
+            if (!activeEl || !container) {
+                setTabPill(s => ({ ...s, opacity: 0 }));
+                return;
+            }
+            const cRect = container.getBoundingClientRect();
+            const eRect = activeEl.getBoundingClientRect();
+            setTabPill({
+                left: eRect.left - cRect.left,
+                width: eRect.width,
+                opacity: 1
+            });
+            setTabPillReady(true);
+        };
+
+        updatePill();
+        
+        const container = tabContainerRef.current;
+        if (container) {
+            observer = new ResizeObserver(updatePill);
+            observer.observe(container);
+        }
+        
+        return () => {
+            if (observer) observer.disconnect();
+        };
+    }, [activeTab]);
+
 
     return (
         <div className='max-w-[680px] my-0 mx-auto py-3'>
 
             {/* ── Tabs ── */}
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
+            <div ref={tabContainerRef} style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '20px', border: '1px solid var(--border-color)', position: 'relative' }}>
+                {/* Floating Pill */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '4px',
+                        bottom: '4px',
+                        left: tabPill.left,
+                        width: tabPill.width,
+                        borderRadius: '10px',
+                        background: '#808bf5',
+                        boxShadow: '0 4px 15px rgba(128,139,245,0.35)',
+                        opacity: tabPillReady ? tabPill.opacity : 0,
+                        transition: tabPillReady ? 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s ease, opacity 0.15s ease' : 'none',
+                        zIndex: 0,
+                        pointerEvents: 'none'
+                    }}
+                />
                 {[
                     { key: 'communities', label: '👥 Communities' },
                     { key: 'confessions', label: '🎭 Confessions' },
                 ].map(tab => (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                    <button key={tab.key}
+                        ref={el => tabItemRefs.current[tab.key] = el}
+                        onClick={() => setActiveTab(tab.key)}
                         style={{
-                            flex: 1, padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s',
-                            background: activeTab === tab.key ? '#808bf5' : 'transparent',
-                            color: activeTab === tab.key ? '#fff' : 'var(--text-muted)',
+                            flex: 1, padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s', position: 'relative', zIndex: 1,
+                            background: 'transparent',
+                            color: activeTab === tab.key ? '#fff' : 'var(--text-sub)',
                         }}>
                         {tab.label}
                     </button>
