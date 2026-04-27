@@ -2,13 +2,13 @@ const mongoose = require('mongoose');
 
 const MessageSchema = new mongoose.Schema({
     conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', required: true },
-    sender:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    content:        { type: String, default: '' },
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    content: { type: String, default: '' },
 
 
     // Media sharing
     media: {
-        url:  { type: String, default: null },
+        url: { type: String, default: null },
         type: { type: String, enum: ['image', 'video', 'audio', 'file'], default: null },
         name: { type: String, default: null },
         size: { type: Number, default: null },
@@ -21,9 +21,10 @@ const MessageSchema = new mongoose.Schema({
     reactions: { type: Map, of: String, default: {} },
 
     // Edit/delete
-    edited:    { type: Boolean, default: false },
-    editedAt:  { type: Date,    default: null },
-    deletedAt: { type: Date,    default: null }, // soft delete
+    edited: { type: Boolean, default: false },
+    editedAt: { type: Date, default: null },
+    originalContent: { type: String, default: null },
+    deletedAt: { type: Date, default: null }, // soft delete
 
     isRead: { type: Boolean, default: false },
     storyReply: {
