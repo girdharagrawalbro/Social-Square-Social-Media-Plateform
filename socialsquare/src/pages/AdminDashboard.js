@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
+import AuditLogTab from './components/AuditLogTab';
 
 
 const useAdmin = () => {
@@ -12,10 +13,13 @@ const useAdmin = () => {
     return useMemo(() => ({ headers: { Authorization: `Bearer ${token}` } }), [token]);
 };
 
-const Header = ({ user, onLock, onHome }) => (
-    <div className="sticky top-0 z-50 w-full backdrop-blur-xl bg-[var(--surface-1)] border-b border-[var(--border-color)] px-6 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
-            <button onClick={onHome} className="p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded-2xl transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm">
+const Header = ({ user, onLock, onHome, onToggleSidebar }) => (
+    <div className="sticky top-0 z-50 w-full backdrop-blur-xl bg-[var(--surface-1)] border-b border-[var(--border-color)] px-4 md:px-6 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-2 md:gap-4">
+            <button onClick={onToggleSidebar} className="lg:hidden p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded-2xl transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm flex items-center justify-center">
+                <i className="pi pi-bars text-sm font-bold"></i>
+            </button>
+            <button onClick={onHome} className="p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded-2xl transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm flex items-center justify-center">
                 <i className="pi pi-arrow-left text-sm font-bold"></i>
             </button>
             <div className="flex flex-col">
@@ -294,6 +298,94 @@ const BarChart = ({ data, label }) => {
     );
 };
 
+// ─── DONUT CHART ──────────────────────────────────────────────────────────────
+const DonutChart = ({ data }) => {
+    if (!data?.length) return <p className="text-center text-[var(--text-sub)] text-xs p-4">No category data available</p>;
+    
+    const total = data.reduce((sum, d) => sum + d.count, 0);
+    let currentAngle = 0;
+    const colors = ['#808bf5', '#22c55e', '#f59e0b', '#ec4899', '#3b82f6', '#a855f7'];
+
+    return (
+        <div className="flex flex-col h-full">
+            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-5 m-0 opacity-70">Category Breakdown</p>
+            <div className="flex items-center gap-6 justify-center flex-1">
+                <svg width="100" height="100" viewBox="0 0 42 42" className="transform -rotate-90 flex-shrink-0">
+                    {data.map((d, i) => {
+                        const percentage = (d.count / total) * 100;
+                        const strokeDasharray = `${percentage} ${100 - percentage}`;
+                        const strokeDashoffset = 100 - currentAngle + 25;
+                        currentAngle += percentage;
+
+                        return (
+                            <circle
+                                key={d._id}
+                                cx="21"
+                                cy="21"
+                                r="15.91549430918954"
+                                fill="transparent"
+                                stroke={colors[i % colors.length]}
+                                strokeWidth="4"
+                                strokeDasharray={strokeDasharray}
+                                strokeDashoffset={strokeDashoffset}
+                            />
+                        );
+                    })}
+                </svg>
+                <div className="flex flex-col gap-1">
+                    {data.slice(0, 5).map((d, i) => (
+                        <div key={d._id} className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
+                            <span className="text-[10px] font-bold text-[var(--text-main)] truncate max-w-[80px]">{d._id || 'Other'}</span>
+                            <span className="text-[9px] font-black text-[var(--text-sub)] opacity-60">({d.count})</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─── COHORT CHART ─────────────────────────────────────────────────────────────
+const CohortChart = ({ data }) => {
+    if (!data?.length) return <p className="text-center text-[var(--text-sub)] text-xs p-4">No cohort data available</p>;
+
+    return (
+        <div className="flex flex-col h-full">
+            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-5 m-0 opacity-70">Retention Cohorts</p>
+            <div className="overflow-x-auto custom-scrollbar flex-1">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                        <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border-color)' }}>
+                            {['Cohort', 'Size', 'W1', 'W2', 'W4'].map(h => (
+                                <th key={h} style={{ padding: '8px', textAlign: 'center', fontSize: '8px', fontWeight: 900, color: 'var(--text-sub)', textTransform: 'uppercase', opacity: 0.6 }}>{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-color)]">
+                        {data.map(c => (
+                            <tr key={c.week} className="hover:bg-[var(--surface-2)]/50 transition-all">
+                                <td style={{ padding: '6px 8px', fontSize: '10px', fontWeight: 900, color: 'var(--text-main)', textAlign: 'center' }}>{c.week}</td>
+                                <td style={{ padding: '6px 8px', fontSize: '10px', color: 'var(--text-sub)', textAlign: 'center', fontWeight: 700 }}>{c.size}</td>
+                                {[c.w1, c.w2, c.w4].map((w, idx) => {
+                                    const opacity = Math.max(0.1, w / 100);
+                                    return (
+                                        <td key={idx} style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                            <div className="rounded py-1 text-[9px] font-black" style={{ backgroundColor: `rgba(128, 139, 245, ${opacity})`, color: w > 50 ? '#fff' : 'var(--text-main)' }}>
+                                                {w}%
+                                            </div>
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
 // ─── ANALYTICS TAB ────────────────────────────────────────────────────────────
 const AnalyticsTab = () => {
     const { headers } = useAdmin();
@@ -317,12 +409,15 @@ const AnalyticsTab = () => {
                 <StatCard icon="👥" label="Total Users" value={overview.totalUsers} sub={`+${overview.newUsersLast7} this week`} />
                 <StatCard icon="📝" label="Total Posts" value={overview.totalPosts} sub={`+${overview.newPostsLast7} this week`} color="#22c55e" />
                 <StatCard icon="🚩" label="Pending Reports" value={overview.pendingReports} color="#f59e0b" />
+                <StatCard icon="📊" label="Engagement Rate" value={overview.engagementRate} sub={`${overview.engagementDelta >= 0 ? '↑' : '↓'} ${overview.engagementDelta}% vs last week`} color="#3b82f6" />
                 <StatCard icon="📅" label="New Users (30d)" value={overview.newUsersLast30} color="#8b5cf6" />
                 <StatCard icon="🔥" label="New Posts (30d)" value={overview.newPostsLast30} color="#ec4899" />
             </div>
-            <div className="grid grid-cols-2 gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"><BarChart data={charts.postsPerDay} label="Posts per day (last 7 days)" /></div>
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"><BarChart data={charts.usersPerDay} label="New users per day (last 7 days)" /></div>
+            <div className="grid grid-cols-2 gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><BarChart data={charts.postsPerDay} label="Posts per day (last 7 days)" /></div>
+                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><BarChart data={charts.usersPerDay} label="New users per day (last 7 days)" /></div>
+                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><DonutChart data={charts.categoryBreakdown} /></div>
+                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><CohortChart data={charts.cohorts} /></div>
             </div>
             <div className="grid grid-cols-2 gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
                 <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]">
@@ -372,6 +467,13 @@ const UsersTab = () => {
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
     const [banData, setBanData] = useState({ visible: false, userId: null, reason: '' });
+    const [strikes, setStrikes] = useState({});
+
+    const [selectedUsers, setSelectedUsers] = useState([]);
+    const [drawerUser, setDrawerUser] = useState(null);
+    const [drawerPosts, setDrawerPosts] = useState([]);
+    const [drawerLogs, setDrawerLogs] = useState([]);
+    const [drawerLoading, setDrawerLoading] = useState(false);
 
     const fetchUsers = useCallback(() => {
         setLoading(true);
@@ -381,6 +483,89 @@ const UsersTab = () => {
     }, [page, search, filter, headers]);
 
     useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+    const fetchDrawerDetails = async (user) => {
+        setDrawerUser(user);
+        setDrawerLoading(true);
+        try {
+            const [postsRes, logsRes] = await Promise.all([
+                api.get('/api/admin/posts', { headers, params: { userId: user._id } }),
+                api.get('/api/admin/audit', { headers, params: { targetId: user._id } })
+            ]);
+            setDrawerPosts(postsRes.data.posts || []);
+            setDrawerLogs(logsRes.data.logs || []);
+        } catch (err) {
+            toast.error('Failed to load drawer details');
+        } finally {
+            setDrawerLoading(false);
+        }
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedUsers(users.map(u => u._id));
+        } else {
+            setSelectedUsers([]);
+        }
+    };
+
+    const handleSelectUser = (userId) => {
+        setSelectedUsers(prev => 
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        );
+    };
+
+    const handleBulkBan = async () => {
+        if (!selectedUsers.length) return;
+        const reason = prompt('Enter reason for banning these users:');
+        if (reason === null) return;
+        
+        try {
+            await api.post('/api/admin/users/bulk-ban', { userIds: selectedUsers, reason }, { headers });
+            toast.success(`Successfully banned ${selectedUsers.length} users`);
+            setSelectedUsers([]);
+            fetchUsers();
+        } catch (err) {
+            toast.error('Bulk ban failed');
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (!selectedUsers.length) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedUsers.length} users?`)) return;
+
+        try {
+            await api.post('/api/admin/users/bulk-delete', { userIds: selectedUsers }, { headers });
+            toast.success(`Successfully deleted ${selectedUsers.length} users`);
+            setSelectedUsers([]);
+            fetchUsers();
+        } catch (err) {
+            toast.error('Bulk deletion failed');
+        }
+    };
+
+    const exportUsersCSV = () => {
+        if (!users.length) return;
+        const headersCSV = ['ID', 'Fullname', 'Email', 'Banned', 'Created At'];
+        const rows = users.map(u => [
+            u._id,
+            u.fullname,
+            u.email,
+            u.isBanned ? 'Yes' : 'No',
+            new Date(u.created_at).toLocaleString()
+        ]);
+
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + [headersCSV.join(','), ...rows.map(e => e.join(','))].join('\n');
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', `users_export_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const banUser = async () => {
         if (!banData.reason.trim()) return;
@@ -409,6 +594,19 @@ const UsersTab = () => {
         });
     };
 
+    const warnUser = (userId) => {
+        setStrikes(prev => {
+            const current = (prev[userId] || 0) + 1;
+            toast.success(`Warning issued (${current}/3 strikes)`);
+            if (current >= 3) {
+                api.patch(`/api/admin/users/${userId}/ban`, { reason: 'Accumulated 3 strikes' }, { headers })
+                    .then(() => { toast.success('User auto-banned due to strikes'); fetchUsers(); })
+                    .catch(() => toast.error('Auto-ban failed'));
+            }
+            return { ...prev, [userId]: current };
+        });
+    };
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-4 rounded-3xl border border-[var(--border-color)] shadow-sm">
@@ -422,17 +620,34 @@ const UsersTab = () => {
                     <option value="banned">Banned</option>
                     <option value="admin">Administrators</option>
                 </select>
+                <button onClick={exportUsersCSV} className="px-5 py-3 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded-2xl flex items-center gap-2 text-xs font-black text-[var(--text-main)] uppercase tracking-widest cursor-pointer transition-all shadow-sm">
+                    📥 CSV
+                </button>
                 <div className="px-5 py-3 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse"></span>
                     <span className="text-xs font-black text-[var(--text-main)] uppercase tracking-tight">{total} Members</span>
                 </div>
             </div>
+
+            {selectedUsers.length > 0 && (
+                <div className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-3xl shadow-sm animate-pulse">
+                    <p className="text-xs font-black text-[#808bf5] m-0 uppercase tracking-widest">{selectedUsers.length} users selected</p>
+                    <div className="flex gap-2">
+                        <button onClick={handleBulkBan} className="bg-red-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-0 cursor-pointer hover:bg-red-600 transition-all shadow-lg shadow-red-500/20">Bulk Ban</button>
+                        <button onClick={handleBulkDelete} className="bg-[var(--surface-3)] text-[var(--text-main)] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-400/20 border border-[var(--border-color)] transition-all">Bulk Delete</button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-[var(--surface-1)] rounded-[32px] shadow-sm border border-[var(--border-color)] overflow-hidden flex-1 min-h-0 flex flex-col">
                 <div className="overflow-x-auto flex-1 custom-scrollbar">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead className="sticky top-0 z-10">
                             <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border-color)' }}>
-                                {['User', 'Email', 'Followers', 'Status', 'Joined', 'Actions'].map(h => (
+                                <th style={{ padding: '16px 20px', textAlign: 'left', width: '40px' }}>
+                                    <input type="checkbox" checked={selectedUsers.length === users.length && users.length > 0} onChange={handleSelectAll} className="cursor-pointer w-4 h-4 rounded border-[var(--border-color)] bg-[var(--surface-2)] text-indigo-600 focus:ring-indigo-500" />
+                                </th>
+                                {['User', 'Email', 'Strikes', 'Status', 'Joined', 'Actions'].map(h => (
                                     <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '10px', fontWeight: 900, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6 }}>{h}</th>
                                 ))}
                             </tr>
@@ -453,8 +668,11 @@ const UsersTab = () => {
                                     </div>
                                 </td></tr>
                             ) : users.map(user => (
-                                <tr key={user._id} className="hover:bg-[var(--surface-2)]/50 transition-all duration-200">
-                                    <td style={{ padding: '14px 20px' }}>
+                                <tr key={user._id} className="hover:bg-[var(--surface-2)]/50 transition-all duration-200 cursor-pointer">
+                                    <td style={{ padding: '14px 20px', width: '40px' }}>
+                                        <input type="checkbox" checked={selectedUsers.includes(user._id)} onChange={() => handleSelectUser(user._id)} className="cursor-pointer w-4 h-4 rounded border-[var(--border-color)] bg-[var(--surface-2)] text-indigo-600 focus:ring-indigo-500" />
+                                    </td>
+                                    <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px' }}>
                                         <div className="flex items-center gap-4">
                                             <div className="relative group/avatar">
                                                 <img src={user.profile_picture} alt="" className="w-11 h-11 rounded-2xl object-cover border border-[var(--border-color)] shadow-sm group-hover/avatar:scale-105 transition-transform" />
@@ -466,21 +684,22 @@ const UsersTab = () => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }}>{user.email}</td>
-                                    <td style={{ padding: '14px 20px', fontSize: '12px', textAlign: 'center', fontWeight: 900, color: 'var(--text-main)' }}>{user.followers?.length || 0}</td>
-                                    <td style={{ padding: '14px 20px' }}>
+                                    <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }}>{user.email}</td>
+                                    <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px', fontSize: '12px', textAlign: 'center', fontWeight: 900, color: 'var(--text-main)' }}>{strikes[user._id] || 0} / 3</td>
+                                    <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px' }}>
                                         <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-widest ${user.isBanned ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
                                             <span className={`w-1.5 h-1.5 rounded-full ${user.isBanned ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></span>
                                             {user.isBanned ? 'Banned' : 'Active'}
                                         </span>
                                     </td>
-                                    <td style={{ padding: '14px 20px', fontSize: '11px', color: 'var(--text-sub)', fontWeight: 700, opacity: 0.7 }}>{new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                                    <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px', fontSize: '11px', color: 'var(--text-sub)', fontWeight: 700, opacity: 0.7 }}>{new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                                     <td style={{ padding: '14px 20px' }}>
                                         <div className="flex gap-2">
                                             {user.isBanned
                                                 ? <button onClick={() => unbanUser(user._id)} className="bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 shadow-lg shadow-green-500/20">Unban</button>
                                                 : <button onClick={() => setBanData({ visible: true, userId: user._id, reason: '' })} className="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 shadow-lg shadow-red-500/20">Ban</button>
                                             }
+                                            <button onClick={() => warnUser(user._id)} className="bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 border border-orange-500/20">Warn</button>
                                             <button onClick={() => deleteUser(user._id)} className="bg-[var(--surface-3)] text-[var(--text-main)] hover:bg-gray-400/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 border border-[var(--border-color)]">Delete Account</button>
                                         </div>
                                     </td>
@@ -514,6 +733,80 @@ const UsersTab = () => {
                     </div>
                 </div>
             </Dialog>
+
+            {drawerUser && (
+                <div className="fixed inset-y-0 right-0 w-[420px] bg-[var(--surface-1)] border-l border-[var(--border-color)] shadow-2xl z-[1000] flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
+                        <div className="flex items-center gap-3">
+                            <img src={drawerUser.profile_picture} alt="" className="w-12 h-12 rounded-2xl object-cover border border-[var(--border-color)]" />
+                            <div>
+                                <h3 className="m-0 text-base font-black text-[var(--text-main)]">{drawerUser.fullname}</h3>
+                                <p className="m-0 text-xs font-bold text-[var(--text-sub)] opacity-60">{drawerUser.email}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setDrawerUser(null)} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded-xl text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all">Close</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+                        {drawerLoading ? (
+                            <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                <div className="w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin" />
+                                <span className="text-xs font-black uppercase opacity-60">Gathering data...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 opacity-70">Analytics</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-4 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+                                            <p className="text-2xl font-black text-[var(--text-main)] m-0 tracking-tight">{drawerPosts.length}</p>
+                                            <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-sub)] m-0 mt-1 opacity-60">Posts</p>
+                                        </div>
+                                        <div className="p-4 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+                                            <p className="text-2xl font-black text-[var(--text-main)] m-0 tracking-tight">{drawerLogs.length}</p>
+                                            <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-sub)] m-0 mt-1 opacity-60">Events</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 opacity-70">Recent Posts</p>
+                                    <div className="flex flex-col gap-3">
+                                        {drawerPosts.length === 0 ? (
+                                            <p className="text-xs font-medium text-[var(--text-sub)] opacity-50 italic">No posts published</p>
+                                        ) : drawerPosts.slice(0, 5).map(post => (
+                                            <div key={post._id} className="flex items-center gap-3 p-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+                                                {post.image_urls?.[0] && <img src={post.image_urls[0]} alt="" className="w-10 h-10 rounded-xl object-cover" />}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold text-[var(--text-main)] m-0 truncate">{post.caption || 'Shared moment'}</p>
+                                                    <p className="text-[9px] font-medium text-[var(--text-sub)] m-0 mt-0.5">{new Date(post.createdAt).toLocaleDateString()}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 opacity-70">Activity Timeline</p>
+                                    <div className="flex flex-col gap-3">
+                                        {drawerLogs.length === 0 ? (
+                                            <p className="text-xs font-medium text-[var(--text-sub)] opacity-50 italic">No timeline events</p>
+                                        ) : drawerLogs.slice(0, 10).map(log => (
+                                            <div key={log._id} className="p-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)] text-[11px]">
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <span className="font-black text-[var(--text-main)] uppercase tracking-tight">{log.action?.replace('_', ' ')}</span>
+                                                    <span className="text-[8px] font-bold text-[var(--text-sub)] opacity-60">{new Date(log.createdAt).toLocaleDateString()}</span>
+                                                </div>
+                                                {log.meta?.reason && <p className="m-0 mt-1 text-[10px] text-red-500 font-bold">Reason: {log.meta.reason}</p>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -536,6 +829,30 @@ const PostsTab = () => {
     }, [page, search, filter, headers]);
 
     useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+    const exportPostsCSV = () => {
+        if (!posts.length) return;
+        const headersCSV = ['Post ID', 'Author', 'Caption', 'LikesCount', 'CommentsCount', 'Created At'];
+        const rows = posts.map(p => [
+            p._id,
+            p.user?.fullname || 'Anonymous',
+            (p.caption || '').replace(/[\n,]/g, ' '),
+            p.likesCount || 0,
+            p.commentsCount || 0,
+            new Date(p.createdAt).toLocaleString()
+        ]);
+
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + [headersCSV.join(','), ...rows.map(e => e.join(','))].join('\n');
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', `posts_export_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const deletePost = async (postId) => {
         confirmDialog({
@@ -565,6 +882,9 @@ const PostsTab = () => {
                     <option value="anonymous">Anonymous Feed</option>
                     <option value="timelocked">Time-restricted</option>
                 </select>
+                <button onClick={exportPostsCSV} className="px-6 py-3 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded-[20px] text-xs font-black text-[var(--text-main)] uppercase tracking-widest cursor-pointer transition-all shadow-sm">
+                    📥 CSV
+                </button>
                 <div className="px-6 py-3 bg-[#808bf5]/10 border border-indigo-500/20 rounded-[20px] flex items-center gap-3">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#808bf5] shadow-[0_0_10px_rgba(128,139,245,0.4)]"></span>
                     <span className="text-xs font-black text-[#808bf5] uppercase tracking-widest">{total} Global Posts</span>
@@ -848,10 +1168,49 @@ const SystemTab = () => {
     const { headers } = useAdmin();
     const [loading, setLoading] = useState(false);
 
+    const [flags, setFlags] = useState({
+        ai_features: true,
+        anonymous_posts: true,
+        story_creation: true,
+        maintenance_mode: false
+    });
+    const [flagsLoading, setFlagsLoading] = useState(false);
+
+    const [broadcastContent, setBroadcastContent] = useState('');
+    const [broadcastSegment, setBroadcastSegment] = useState('all');
+    const [broadcastLoading, setBroadcastLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchFlags = async () => {
+            try {
+                const res = await api.get('/api/admin/system/flags', { headers });
+                if (res.data?.success) setFlags(res.data.flags);
+            } catch (err) {
+                console.error('Failed to load flags');
+            }
+        };
+        fetchFlags();
+    }, [headers]);
+
+    const toggleFlag = async (key) => {
+        const updated = { ...flags, [key]: !flags[key] };
+        setFlags(updated);
+        setFlagsLoading(true);
+        try {
+            await api.post('/api/admin/system/flags', { flags: updated }, { headers });
+            toast.success('Feature flag updated');
+        } catch (err) {
+            toast.error('Failed to update feature flag');
+            setFlags(flags);
+        } finally {
+            setFlagsLoading(false);
+        }
+    };
+
     const triggerDigest = async () => {
         setLoading(true);
         try {
-            const res = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/admin/debug/digest`, {}, { headers });
+            const res = await api.post('/api/admin/debug/digest', {}, { headers });
             toast.success(res.data.message || 'Digest job triggered');
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to trigger digest');
@@ -860,9 +1219,92 @@ const SystemTab = () => {
         }
     };
 
+    const handleBroadcast = async (e) => {
+        e.preventDefault();
+        if (!broadcastContent.trim()) return;
+        setBroadcastLoading(true);
+        try {
+            await api.post('/api/admin/broadcast', { content: broadcastContent, segment: broadcastSegment }, { headers });
+            toast.success('Broadcast announcement sent');
+            setBroadcastContent('');
+        } catch (err) {
+            toast.error('Broadcast failed');
+        } finally {
+            setBroadcastLoading(false);
+        }
+    };
+
     return (
-        <div className="flex flex-col gap-8">
-            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)] max-w-3xl">
+        <div className="flex flex-col gap-8 max-w-3xl">
+            {/* Feature Flags Panel */}
+            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
+                <div className="flex items-center gap-6 mb-10">
+                    <div className="w-16 h-16 rounded-[24px] bg-[#808bf5]/10 flex items-center justify-center text-4xl border border-indigo-500/20">⚙️</div>
+                    <div>
+                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Feature Flags</h3>
+                        <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Enable or Disable System Modules</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(flags).map(([key, val]) => (
+                        <div key={key} className="p-6 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-[32px] flex items-center justify-between shadow-inner">
+                            <div>
+                                <p className="text-xs font-black text-[var(--text-main)] m-0 capitalize tracking-wider">{key.replace(/_/g, ' ')}</p>
+                                <p className="text-[9px] font-bold text-[var(--text-sub)] opacity-60 m-0 mt-1 uppercase tracking-widest">Live State Toggle</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={val} onChange={() => toggleFlag(key)} className="sr-only peer" disabled={flagsLoading} />
+                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Global Broadcast */}
+            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
+                <div className="flex items-center gap-6 mb-10">
+                    <div className="w-16 h-16 rounded-[24px] bg-indigo-500/10 flex items-center justify-center text-4xl border border-indigo-500/20">📣</div>
+                    <div>
+                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Broadcast Alerts</h3>
+                        <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Push System Notifications globally</p>
+                    </div>
+                </div>
+
+                <form onSubmit={handleBroadcast} className="flex flex-col gap-4">
+                    <textarea 
+                        value={broadcastContent} 
+                        onChange={e => setBroadcastContent(e.target.value)} 
+                        placeholder="Type a message to dispatch to your user segment..."
+                        rows={4}
+                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-3xl p-5 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none"
+                    />
+                    
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <select 
+                            value={broadcastSegment} 
+                            onChange={e => setBroadcastSegment(e.target.value)} 
+                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer"
+                        >
+                            <option value="all">All Members</option>
+                            <option value="active">Recently Active</option>
+                            <option value="admins">Administrators</option>
+                        </select>
+
+                        <button 
+                            type="submit" 
+                            disabled={broadcastLoading || !broadcastContent.trim()} 
+                            className="px-8 py-3 bg-[#808bf5] text-white rounded-2xl text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {broadcastLoading ? 'Dispatching...' : 'Send Broadcast'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* Original Cluster Digest Module */}
+            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
                 <div className="flex items-center gap-6 mb-10">
                     <div className="w-16 h-16 rounded-[24px] bg-[#808bf5]/10 flex items-center justify-center text-4xl shadow-inner border border-indigo-500/20">📡</div>
                     <div>
@@ -905,6 +1347,93 @@ const SystemTab = () => {
 };
 
 
+// ─── CONTENT FILTER TAB ───────────────────────────────────────────────────────
+const ContentFilterTab = () => {
+    const { headers } = useAdmin();
+    const [bannedWords, setBannedWords] = useState([]);
+    const [newWord, setNewWord] = useState('');
+    const [action, setAction] = useState('flag');
+
+    const fetchWords = useCallback(() => {
+        api.get('/api/admin/content-filter', { headers })
+            .then(r => setBannedWords(r.data))
+            .catch(() => {});
+    }, [headers]);
+
+    useEffect(() => { fetchWords(); }, [fetchWords]);
+
+    const addWord = async (e) => {
+        e.preventDefault();
+        if (!newWord.trim()) return;
+        try {
+            await api.post('/api/admin/content-filter', { word: newWord, action }, { headers });
+            toast.success('Word added');
+            setNewWord('');
+            fetchWords();
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed');
+        }
+    };
+
+    const removeWord = async (id) => {
+        try {
+            await api.delete(`/api/admin/content-filter/${id}`, { headers });
+            toast.success('Word removed');
+            fetchWords();
+        } catch {
+            toast.error('Failed');
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-8 max-w-3xl">
+            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
+                <div className="flex items-center gap-6 mb-10">
+                    <div className="w-16 h-16 rounded-[24px] bg-orange-500/10 flex items-center justify-center text-4xl border border-orange-500/20">🛡️</div>
+                    <div>
+                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Content Moderation Filter</h3>
+                        <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Manage Banned Words & Policies</p>
+                    </div>
+                </div>
+
+                <form onSubmit={addWord} className="flex gap-4 mb-8">
+                    <input 
+                        type="text" 
+                        placeholder="Add new banned word/phrase..." 
+                        value={newWord} 
+                        onChange={e => setNewWord(e.target.value)}
+                        className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all"
+                    />
+                    <button type="submit" className="px-8 py-3 bg-[#808bf5] text-white rounded-2xl text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg">Add</button>
+                </form>
+
+                <div className="p-6 bg-[var(--surface-2)] rounded-[32px] border border-[var(--border-color)] mb-8">
+                    <p className="text-xs font-black text-[var(--text-main)] mb-4 m-0 uppercase tracking-[0.2em] opacity-80">Currently Banned Words</p>
+                    <div className="flex gap-2 flex-wrap">
+                        {bannedWords.map(item => (
+                            <span key={item._id} className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--surface-1)] border border-[var(--border-color)] rounded-2xl text-xs font-bold text-[var(--text-main)] shadow-sm">
+                                {item.word}
+                                <button type="button" onClick={() => removeWord(item._id)} className="border-0 bg-transparent text-red-500 cursor-pointer font-bold hover:scale-110 transition-transform">×</button>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between p-6 border border-[var(--border-color)] rounded-[32px]">
+                    <div>
+                        <p className="text-xs font-black text-[var(--text-main)] m-0 uppercase tracking-wider">Enforcement Policy</p>
+                        <p className="text-[10px] text-[var(--text-sub)] m-0 mt-1 font-bold opacity-60">Choose what happens when a match is found.</p>
+                    </div>
+                    <select value={action} onChange={e => setAction(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer">
+                        <option value="flag">Auto-Flag for Review</option>
+                        <option value="block">Block Publication</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ─── MAIN ADMIN DASHBOARD ─────────────────────────────────────────────────────
 const AdminDashboard = () => {
     const loggeduser = useAuthStore(s => s.user);
@@ -914,6 +1443,7 @@ const AdminDashboard = () => {
     const navigate = useNavigate();
     const [verified, setVerified] = useState(false);
     const [activeTab, setActiveTab] = useState('analytics');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
         if (!initialized || loading) return;
@@ -951,30 +1481,43 @@ const AdminDashboard = () => {
         { key: 'users', icon: '👥', label: 'Users' },
         { key: 'posts', icon: '📝', label: 'Posts' },
         { key: 'reports', icon: '🚩', label: 'Reports' },
+        { key: 'audit_log', icon: '📋', label: 'Audit Log' },
+        { key: 'content_filter', icon: '🛡️', label: 'Content Filter' },
         { key: 'system', icon: '⚙️', label: 'System' },
     ];
 
 
     return (
-        <div className="h-screen flex flex-col overflow-hidden bg-[var(--surface-2)]">
+        <div className="h-screen flex flex-col overflow-hidden bg-[var(--surface-2)] relative">
 
             <Header
                 user={loggeduser}
                 onLock={() => setVerified(false)}
                 onHome={() => navigate('/')}
+                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             />
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Mobile Sidebar Backdrop */}
+                {sidebarOpen && (
+                    <div 
+                        className="fixed inset-0 bg-black/50 z-[40] lg:hidden transition-opacity duration-300 animate-in fade-in"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
                 {/* Sidebar */}
-                <div className="bg-[var(--surface-1)] border-r border-[var(--border-color)] w-64 flex-shrink-0 flex flex-col h-full shadow-lg">
+                <div className={`bg-[var(--surface-1)] border-r border-[var(--border-color)] w-64 flex-shrink-0 flex flex-col h-full shadow-lg 
+                    fixed inset-y-0 left-0 z-[45] lg:static lg:z-0 lg:translate-x-0 transform transition-transform duration-300
+                    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                     <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-2">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-sub)] mb-6 px-4 opacity-50">Master Control</p>
                         {tabs.map(tab => (
                             <button
                                 key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
+                                onClick={() => { setActiveTab(tab.key); setSidebarOpen(false); }}
                                 className={`flex items-center gap-3.5 px-6 py-4 rounded-2xl text-[11px] font-black border-0 cursor-pointer text-left w-full transition-all duration-300 ${activeTab === tab.key
-                                    ? 'bg-[#808bf5] text-white shadow-xl shadow-indigo-500/20 translate-x-2'
+                                    ? 'bg-[#808bf5] text-white shadow-xl shadow-indigo-500/20 lg:translate-x-2'
                                     : 'bg-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)] translate-x-0'
                                     }`}
                             >
@@ -986,12 +1529,14 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 h-full overflow-y-auto p-8 bg-[var(--surface-2)] custom-scrollbar">
+                <div className="flex-1 h-full overflow-y-auto p-4 md:p-8 bg-[var(--surface-2)] custom-scrollbar">
                     <div className="max-w-[1440px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-16">
                         {activeTab === 'analytics' && <AnalyticsTab />}
                         {activeTab === 'users' && <UsersTab />}
                         {activeTab === 'posts' && <PostsTab />}
                         {activeTab === 'reports' && <ReportsTab />}
+                        {activeTab === 'audit_log' && <AuditLogTab />}
+                        {activeTab === 'content_filter' && <ContentFilterTab />}
                         {activeTab === 'system' && <SystemTab />}
                     </div>
                 </div>

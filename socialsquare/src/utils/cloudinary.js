@@ -227,7 +227,7 @@ export function validateVideoFile(file) {
         return 'Only MP4, WebM, MOV and OGG videos are allowed.';
     }
     if (file.size > maxSize) {
-        return `Video exceeds 100MB — it will be stored on Google Drive instead.`;
+        return `Video exceeds 100MB`;
     }
     return null;
 }
