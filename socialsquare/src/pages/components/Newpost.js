@@ -77,7 +77,16 @@ const NewPost = ({ visible, onHide }) => {
     const [correctOptionIndex] = useState(null);
 
     // Groups
-    const [selectedGroupId] = useState(null);
+    const [selectedGroupId, setSelectedGroupId] = useState(null);
+    const [groups, setGroups] = useState([]);
+
+    useEffect(() => {
+        if (visible) {
+            api.get('/api/group/all')
+               .then(res => setGroups(res.data))
+               .catch(err => console.error('Failed to load groups:', err));
+        }
+    }, [visible]);
 
     // ── Cropping State ──────────────────────────────────────────────────────
     const [croppingState, setCroppingState] = useState({
@@ -102,6 +111,7 @@ const NewPost = ({ visible, onHide }) => {
         setIsAnonymous(false);
         setExpiresIn('');
         setUnlocksAt('');
+        setSelectedGroupId(null);
     };
 
     const handleCloseInternal = (force = false) => {
@@ -669,6 +679,24 @@ const NewPost = ({ visible, onHide }) => {
                     </div>
 
                     <div className="flex flex-col gap-0 border-t border-[var(--border-color)] mt-2">
+                        {/* Community Picker */}
+                        <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
+                            <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                <i className="pi pi-globe text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                Share to Community
+                            </span>
+                            <select 
+                                value={selectedGroupId || ""} 
+                                onChange={(e) => setSelectedGroupId(e.target.value || null)}
+                                className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1] max-w-[180px] truncate"
+                            >
+                                <option value="">🌍 General Feed</option>
+                                {groups && groups.map(g => (
+                                    <option key={g._id} value={g._id}>👥 {g.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
                         <button onClick={handleGetLocation} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
                             <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
                                 {location.name ? <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i> : <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>}
