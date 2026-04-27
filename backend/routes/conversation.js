@@ -176,7 +176,7 @@ router.post('/messages', verifyToken, async (req, res) => {
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
 
-        const query = { conversationId: conversation._id, deletedAt: null };
+        const query = { conversationId: conversation._id };
         if (before) query.createdAt = { $lt: new Date(before) };
 
         const messages = await Message.find(query)
@@ -188,9 +188,25 @@ router.post('/messages', verifyToken, async (req, res) => {
                 populate: { path: 'sender', select: 'fullname' }
             })
             .lean();
-        messages.reverse();
 
-        const result = { messages, conversation, hasMore: messages.length === limit };
+        const sanitizedMessages = messages.map(m => {
+            if (m.deletedAt) {
+                return {
+                    ...m,
+                    content: '🚫 Message deleted',
+                    media: null,
+                    voiceNote: null,
+                    replyTo: null,
+                    reactions: {},
+                    storyReply: null,
+                    sharedPost: null
+                };
+            }
+            return m;
+        });
+        sanitizedMessages.reverse();
+
+        const result = { messages: sanitizedMessages, conversation, hasMore: messages.length === limit };
         await setCache(cacheKey, result, 15);
         res.status(200).json(result);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -333,7 +349,12 @@ router.patch('/messages/:messageId', verifyToken, async (req, res) => {
         const message = await Message.findById(req.params.messageId);
         if (!message || message.sender.toString() !== userId) return res.status(403).json({ error: 'Unauthorized' });
 
-        message.content = content; message.edited = true; message.editedAt = new Date();
+        if (!message.originalContent) {
+            message.originalContent = message.content;
+        }
+        message.content = content; 
+        message.edited = true; 
+        message.editedAt = new Date();
         await message.save();
 
         let updatedConv = null;
@@ -365,7 +386,7 @@ router.delete('/messages/:messageId', verifyToken, async (req, res) => {
         const message = await Message.findOne({ _id: req.params.messageId, sender: userId });
         if (!message) return res.status(404).json({ error: 'Not found' });
 
-        message.deletedAt = new Date(); message.content = '';
+        message.deletedAt = new Date();
         await message.save();
 
         let updatedConv = null;

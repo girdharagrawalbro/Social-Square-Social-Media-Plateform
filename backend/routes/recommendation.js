@@ -1,4 +1,6 @@
 const express = require("express");
+const mongoose = require("mongoose");
+
 const router = express.Router();
 const verifyToken = require("../middleware/Verifytoken");
 
@@ -31,8 +33,8 @@ router.get("/posts", verifyToken, async (req, res) => {
         const interest = await UserInterest.findOne({ userId });
 
         // 2. Fetch candidate posts (exclude own, private, anonymous)
-        const candidates = await Post.find({ 
-            "user._id": { $ne: userId, $nin: privateUserIds },
+        const candidates = await Post.find({
+            "user._id": { $ne: new mongoose.Types.ObjectId(userId), $nin: privateUserIds.map(id => new mongoose.Types.ObjectId(id)) },
             isAnonymous: { $ne: true }
         })
             .sort({ createdAt: -1 })
@@ -118,7 +120,7 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
         const privateUserIds = privateUsers.map(u => u._id.toString());
 
         // 2. Fetch candidates (exclude the target post and private users)
-        const candidates = await Post.find({ _id: { $ne: postId }, 'user._id': { $nin: privateUserIds } })
+        const candidates = await Post.find({ _id: { $ne: postId }, 'user._id': { $nin: privateUserIds.map(id => new mongoose.Types.ObjectId(id)) } })
             .sort({ createdAt: -1 })
             .limit(200);
 

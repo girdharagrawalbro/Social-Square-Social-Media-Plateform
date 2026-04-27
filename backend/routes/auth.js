@@ -165,20 +165,21 @@ router.post('/login', authRateLimiter, [
         user.failedLoginAttempts = 0;
         user.lockoutUntil = null;
         
-        // ── CLEANUP DUPLICATE DEVICE SESSIONS ──
         const hashedFingerprint = hashValue(fingerprint);
-        await LoginSession.deleteMany({
-            userId: user._id,
-            fingerprint: hashedFingerprint
-        });
+        let existingSession = await LoginSession.findOne({ 
+            userId: user._id, 
+            fingerprint: hashedFingerprint 
+        }).sort({ createdAt: -1 });
 
-        // ── SESSION LIMIT CHECK ──
+        const isActivatingNewSession = !existingSession || existingSession.isRevoked || existingSession.expiresAt < new Date();
+
         const activeSessionsCount = await LoginSession.countDocuments({
             userId: user._id,
             isRevoked: false,
             expiresAt: { $gt: new Date() }
         });
-        if (activeSessionsCount >= 10) {
+
+        if (isActivatingNewSession && activeSessionsCount >= 10) {
             return res.status(403).json({ error: '10 login session exceeded logout first' });
         }
 
@@ -196,10 +197,8 @@ router.post('/login', authRateLimiter, [
         if (user.preferredMood === "") user.preferredMood = null;
         await user.save();
 
-        // ── SESSION CREATION ──
-        const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });
+        // ── SESSION CREATION OR REUSE ──
         const isNewDevice = !existingSession;
-
         const family = generateFamily();
         const accessToken = generateAccessToken(user._id, family);
         const refreshToken = generateRefreshToken(user._id, family);
@@ -207,15 +206,28 @@ router.post('/login', authRateLimiter, [
         const device = parseDevice(req.headers['user-agent']);
         const location = await getLocation(ip);
 
-        await LoginSession.create({
-            userId: user._id, tokenFamily: family,
-            accessToken: hashValue(accessToken),
-            refreshToken: hashValue(refreshToken),
-            fingerprint: hashedFingerprint,
-            ip, userAgent: req.headers['user-agent'] || '',
-            device, location, isNewDevice,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        });
+        if (existingSession) {
+            existingSession.tokenFamily = family;
+            existingSession.accessToken = hashValue(accessToken);
+            existingSession.refreshToken = hashValue(refreshToken);
+            existingSession.isRevoked = false;
+            existingSession.ip = ip;
+            existingSession.userAgent = req.headers['user-agent'] || '';
+            existingSession.device = device;
+            existingSession.location = location;
+            existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            await existingSession.save();
+        } else {
+            await LoginSession.create({
+                userId: user._id, tokenFamily: family,
+                accessToken: hashValue(accessToken),
+                refreshToken: hashValue(refreshToken),
+                fingerprint: hashedFingerprint,
+                ip, userAgent: req.headers['user-agent'] || '',
+                device, location, isNewDevice,
+                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            });
+        }
 
         if (isNewDevice) {
             sendNewDeviceAlert(user.email, { device, ip, location, time: new Date().toLocaleString() })
@@ -273,27 +285,26 @@ router.post('/verify-otp', [
         user.twoFactorOtpExpires = null;
         await user.save();
 
-        // ── CLEANUP DUPLICATE DEVICE SESSIONS ──
+        // ── SESSION CREATION OR REUSE ──
         const hashedFingerprint = hashValue(fingerprint);
-        await LoginSession.deleteMany({
-            userId: user._id,
-            fingerprint: hashedFingerprint
-        });
+        let existingSession = await LoginSession.findOne({ 
+            userId: user._id, 
+            fingerprint: hashedFingerprint 
+        }).sort({ createdAt: -1 });
 
-        // ── SESSION LIMIT CHECK ──
+        const isActivatingNewSession = !existingSession || existingSession.isRevoked || existingSession.expiresAt < new Date();
+
         const activeSessionsCount = await LoginSession.countDocuments({
             userId: user._id,
             isRevoked: false,
             expiresAt: { $gt: new Date() }
         });
-        if (activeSessionsCount >= 3) {
+
+        if (isActivatingNewSession && activeSessionsCount >= 3) {
             return res.status(403).json({ error: 'login session exceeded logout first' });
         }
 
-        // Create session
-        const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });
         const isNewDevice = !existingSession;
-
         const family = generateFamily();
         const accessToken = generateAccessToken(user._id, family);
         const refreshToken = generateRefreshToken(user._id, family);
@@ -301,15 +312,28 @@ router.post('/verify-otp', [
         const device = parseDevice(req.headers['user-agent']);
         const location = await getLocation(ip);
 
-        await LoginSession.create({
-            userId: user._id, tokenFamily: family,
-            accessToken: hashValue(accessToken),
-            refreshToken: hashValue(refreshToken),
-            fingerprint: hashedFingerprint,
-            ip, userAgent: req.headers['user-agent'] || '',
-            device, location, isNewDevice,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        });
+        if (existingSession) {
+            existingSession.tokenFamily = family;
+            existingSession.accessToken = hashValue(accessToken);
+            existingSession.refreshToken = hashValue(refreshToken);
+            existingSession.isRevoked = false;
+            existingSession.ip = ip;
+            existingSession.userAgent = req.headers['user-agent'] || '';
+            existingSession.device = device;
+            existingSession.location = location;
+            existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            await existingSession.save();
+        } else {
+            await LoginSession.create({
+                userId: user._id, tokenFamily: family,
+                accessToken: hashValue(accessToken),
+                refreshToken: hashValue(refreshToken),
+                fingerprint: hashedFingerprint,
+                ip, userAgent: req.headers['user-agent'] || '',
+                device, location, isNewDevice,
+                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            });
+        }
 
         if (isNewDevice) {
             sendNewDeviceAlert(user.email, { device, ip, location, time: new Date().toLocaleString() })
@@ -449,24 +473,25 @@ router.post('/google', async (req, res) => {
         }
         await user.save();
 
-        // ── CLEANUP DUPLICATE DEVICE SESSIONS ──
+        // ── SESSION CREATION OR REUSE ──
         const hashedFingerprint = hashValue(fingerprint);
-        await LoginSession.deleteMany({
-            userId: user._id,
-            fingerprint: hashedFingerprint
-        });
+        let existingSession = await LoginSession.findOne({ 
+            userId: user._id, 
+            fingerprint: hashedFingerprint 
+        }).sort({ createdAt: -1 });
 
-        // ── SESSION LIMIT CHECK ──
+        const isActivatingNewSession = !existingSession || existingSession.isRevoked || existingSession.expiresAt < new Date();
+
         const activeSessionsCount = await LoginSession.countDocuments({
             userId: user._id,
             isRevoked: false,
             expiresAt: { $gt: new Date() }
         });
-        if (activeSessionsCount >= 3) {
+
+        if (isActivatingNewSession && activeSessionsCount >= 3) {
             return res.status(403).json({ error: 'login session exceeded logout first' });
         }
 
-        const existingSession = await LoginSession.findOne({ userId: user._id, fingerprint: hashedFingerprint, isRevoked: false });
         const isNewDevice = !existingSession;
         const family = generateFamily();
         const accessToken = generateAccessToken(user._id, family);
@@ -475,15 +500,28 @@ router.post('/google', async (req, res) => {
         const device = parseDevice(req.headers['user-agent']);
         const location = await getLocation(ip);
 
-        await LoginSession.create({
-            userId: user._id, tokenFamily: family,
-            accessToken: hashValue(accessToken),
-            refreshToken: hashValue(refreshToken),
-            fingerprint: hashedFingerprint,
-            ip, userAgent: req.headers['user-agent'] || '',
-            device, location, isNewDevice,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        });
+        if (existingSession) {
+            existingSession.tokenFamily = family;
+            existingSession.accessToken = hashValue(accessToken);
+            existingSession.refreshToken = hashValue(refreshToken);
+            existingSession.isRevoked = false;
+            existingSession.ip = ip;
+            existingSession.userAgent = req.headers['user-agent'] || '';
+            existingSession.device = device;
+            existingSession.location = location;
+            existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            await existingSession.save();
+        } else {
+            await LoginSession.create({
+                userId: user._id, tokenFamily: family,
+                accessToken: hashValue(accessToken),
+                refreshToken: hashValue(refreshToken),
+                fingerprint: hashedFingerprint,
+                ip, userAgent: req.headers['user-agent'] || '',
+                device, location, isNewDevice,
+                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            });
+        }
 
         if (isNewDevice) {
             sendNewDeviceAlert(user.email, { device, ip, location, time: new Date().toLocaleString() })
@@ -554,7 +592,12 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
     try {
         const token = req.cookies?.refreshToken;
-        if (token) await LoginSession.findOneAndDelete({ refreshToken: hashValue(token) });
+        if (token) {
+            await LoginSession.findOneAndUpdate(
+                { refreshToken: hashValue(token) },
+                { isRevoked: true, accessToken: null, refreshToken: null }
+            );
+        }
         clearRefreshTokenCookie(res);
         return res.status(200).json({ message: 'Logged out successfully' });
     } catch {

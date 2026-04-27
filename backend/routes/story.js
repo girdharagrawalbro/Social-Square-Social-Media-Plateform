@@ -88,14 +88,14 @@ router.get('/feed', verifyToken, async (req, res) => {
                 };
             }
             grouped[uid].stories.push(story);
-            if (!story.viewers.map(v => v.toString()).includes(userId)) {
+            if (!story.viewers.map(v => v.toString()).includes(userId.toString())) {
                 grouped[uid].hasUnviewed = true;
             }
         });
 
         const result = Object.values(grouped).sort((a, b) => {
-            if (a.user._id.toString() === userId) return -1;
-            if (b.user._id.toString() === userId) return 1;
+            if (a.user._id.toString() === userId.toString()) return -1;
+            if (b.user._id.toString() === userId.toString()) return 1;
             return b.hasUnviewed - a.hasUnviewed;
         });
 
@@ -114,7 +114,7 @@ router.post('/view/:storyId', verifyToken, async (req, res) => {
 
         // Privacy check
         const owner = await User.findById(story.user._id).select('isPrivate followers');
-        if (owner.isPrivate && owner._id.toString() !== userId && !owner.followers.includes(userId)) {
+        if (owner.isPrivate && owner._id.toString() !== userId.toString() && !owner.followers.map(f => f.toString()).includes(userId.toString())) {
             return res.status(403).json({ message: 'This story is private.' });
         }
 
@@ -134,7 +134,7 @@ router.get('/viewers/:storyId', verifyToken, async (req, res) => {
         if (!story) return res.status(404).json({ message: 'Story not found.' });
 
         // Ownership check
-        if (story.user._id.toString() !== req.userId) {
+        if (story.user._id.toString() !== req.userId.toString()) {
             return res.status(403).json({ message: 'Unauthorized to view story analytics.' });
         }
 
@@ -151,11 +151,11 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
         const story = await Story.findById(req.params.storyId);
         if (!story) return res.status(404).json({ message: 'Story not found.' });
 
-        const isLiked = (story.likes || []).some(id => id.toString() === userId);
+        const isLiked = (story.likes || []).some(id => id.toString() === userId.toString());
 
         // Privacy check
         const owner = await User.findById(story.user._id).select('isPrivate followers');
-        if (owner.isPrivate && owner._id.toString() !== userId && !owner.followers.includes(userId)) {
+        if (owner.isPrivate && owner._id.toString() !== userId.toString() && !owner.followers.map(f => f.toString()).includes(userId.toString())) {
             return res.status(403).json({ message: 'This story is private.' });
         }
 
@@ -196,7 +196,7 @@ router.delete('/:storyId', verifyToken, async (req, res) => {
         const userId = req.userId;
         const story = await Story.findById(req.params.storyId);
         if (!story) return res.status(404).json({ message: 'Story not found.' });
-        if (story.user._id.toString() !== userId) return res.status(403).json({ message: 'Unauthorized.' });
+        if (story.user._id.toString() !== userId.toString()) return res.status(403).json({ message: 'Unauthorized.' });
         await Story.findByIdAndDelete(req.params.storyId);
         res.status(200).json({ message: 'Story deleted.' });
     } catch (error) {

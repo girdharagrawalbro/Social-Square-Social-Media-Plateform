@@ -1,4 +1,6 @@
 const express = require('express');
+const mongoose = require('mongoose');
+
 const Post = require('../models/Post');
 const User = require('../models/User');
 const Comment = require('../models/Comment');
@@ -382,7 +384,7 @@ router.get("/", async (req, res) => {
         // ALSO: Exclude blocked/muted/private users
         const query = {
             isAnonymous: { $ne: true },
-            'user._id': { $nin: excludedUserIds },
+            'user._id': { $nin: excludedUserIds.map(id => new mongoose.Types.ObjectId(id)) },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };

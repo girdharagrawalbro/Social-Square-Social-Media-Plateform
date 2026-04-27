@@ -128,6 +128,7 @@ const ImageCropper = ({
       modal
       baseZIndex={300000}
       appendTo={document.body}
+      maskStyle={{ zIndex: 300000 }}
       style={{ width: '95vw', maxWidth: '600px', border: 'none', zIndex: 300000 }}
       contentStyle={{ padding: 0, overflow: 'hidden', borderRadius: '16px', background: 'var(--surface-1)' }}
     >
