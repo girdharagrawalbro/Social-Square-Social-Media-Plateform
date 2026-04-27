@@ -671,7 +671,6 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
     const [text, setText] = useState('');
     const [textColor, setTextColor] = useState('#ffffff');
     const [textPosition, setTextPosition] = useState('center');
-    const [uploading, setUploading] = useState(false);
     const [croppingState, setCroppingState] = useState({ visible: false, imageSrc: null, pendingFiles: [] });
 
     const handleFileSelect = (e) => {
@@ -751,45 +750,56 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
 
     const handleSubmit = async () => {
         if (previews.length === 0 && !sharedPost) { toast.error('Please select an image or video'); return; }
-        setUploading(true);
-        let uploadToast = null;
-        try {
-            const { api } = await import('../../store/zustand/useAuthStore');
-            uploadToast = toast.loading("Uploading story...");
-            if (sharedPost) {
-                // Special case for sharing a post
-                const mediaUrl = sharedPost.image_urls?.[0] || sharedPost.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80';
-                const res = await api.post(`/api/story/create`, {
-                    mediaUrl,
-                    mediaType: 'image',
-                    text: text ? { content: text, color: textColor, position: textPosition } : null,
-                    sharedPostId: sharedPost._id
-                });
-                onCreated(res.data);
-            } else {
-                for (const item of previews) {
-                    let mediaUrl, thumbnailUrl;
-                    if (item.type === 'video') {
-                        const result = await uploadVideoToCloudinary(item.file);
-                        mediaUrl = typeof result === 'string' ? result : result?.url;
-                        thumbnailUrl = result?.thumbnailUrl || null;
-                    } else {
-                        const result = await uploadToCloudinary(item.file);
-                        mediaUrl = typeof result === 'string' ? result : result?.url;
-                    }
+        
+        const previewsToUpload = [...previews];
+        const sharedPostToUpload = sharedPost;
+        const textToUpload = text;
+        const textColorToUpload = textColor;
+        const textPositionToUpload = textPosition;
 
+        onClose();
+
+        const uploadToast = toast.loading("Uploading story...", {
+            position: 'bottom-right'
+        });
+
+        (async () => {
+            try {
+                const { api } = await import('../../store/zustand/useAuthStore');
+                if (sharedPostToUpload) {
+                    const mediaUrl = sharedPostToUpload.image_urls?.[0] || sharedPostToUpload.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80';
                     const res = await api.post(`/api/story/create`, {
-                        mediaUrl, mediaType: item.type,
-                        thumbnailUrl,
-                        text: text ? { content: text, color: textColor, position: textPosition } : null
+                        mediaUrl,
+                        mediaType: 'image',
+                        text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
+                        sharedPostId: sharedPostToUpload._id
                     });
                     onCreated(res.data);
+                } else {
+                    for (const item of previewsToUpload) {
+                        let mediaUrl, thumbnailUrl;
+                        if (item.type === 'video') {
+                            const result = await uploadVideoToCloudinary(item.file);
+                            mediaUrl = typeof result === 'string' ? result : result?.url;
+                            thumbnailUrl = result?.thumbnailUrl || null;
+                        } else {
+                            const result = await uploadToCloudinary(item.file);
+                            mediaUrl = typeof result === 'string' ? result : result?.url;
+                        }
+
+                        const res = await api.post(`/api/story/create`, {
+                            mediaUrl, mediaType: item.type,
+                            thumbnailUrl,
+                            text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null
+                        });
+                        onCreated(res.data);
+                    }
                 }
+                toast.success(sharedPostToUpload ? 'Post shared to story!' : `${previewsToUpload.length} stories created!`, { id: uploadToast });
+            } catch (error) {
+                toast.error('Failed to create story', { id: uploadToast });
             }
-            toast.success(sharedPost ? 'Post shared to story!' : `${previews.length} stories created!`, { id: uploadToast });
-            onClose();
-        } catch { toast.error('Failed to create story', { id: typeof uploadToast !== 'undefined' ? uploadToast : undefined }); }
-        setUploading(false);
+        })();
     };
 
     const currentMedia = previews[currentIndex];
