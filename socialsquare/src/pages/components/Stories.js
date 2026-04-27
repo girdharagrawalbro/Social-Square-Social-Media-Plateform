@@ -671,6 +671,8 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
     const [text, setText] = useState('');
     const [textColor, setTextColor] = useState('#ffffff');
     const [textPosition, setTextPosition] = useState('center');
+    // eslint-disable-next-line no-unused-vars
+    const [uploading, setUploading] = useState(false);
     const [croppingState, setCroppingState] = useState({ visible: false, imageSrc: null, pendingFiles: [] });
 
     const handleFileSelect = (e) => {
@@ -750,7 +752,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
 
     const handleSubmit = async () => {
         if (previews.length === 0 && !sharedPost) { toast.error('Please select an image or video'); return; }
-        
+
         const previewsToUpload = [...previews];
         const sharedPostToUpload = sharedPost;
         const textToUpload = text;
