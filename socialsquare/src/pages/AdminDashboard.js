@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import useAuthStore, { api, getToken } from '../store/zustand/useAuthStore';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -1444,6 +1444,18 @@ const AdminDashboard = () => {
     const [verified, setVerified] = useState(false);
     const [activeTab, setActiveTab] = useState('analytics');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sliderStyle, setSliderStyle] = useState({ top: 0, height: 0 });
+    const navRefs = useRef({});
+
+    useEffect(() => {
+        const activeBtn = navRefs.current[activeTab];
+        if (activeBtn) {
+            setSliderStyle({
+                top: activeBtn.offsetTop,
+                height: activeBtn.offsetHeight
+            });
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         if (!initialized || loading) return;
@@ -1510,14 +1522,29 @@ const AdminDashboard = () => {
                 <div className={`bg-[var(--surface-1)] border-r border-[var(--border-color)] w-64 flex-shrink-0 flex flex-col h-full shadow-lg 
                     fixed inset-y-0 left-0 z-[45] lg:static lg:z-0 lg:translate-x-0 transform transition-transform duration-300
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-2">
+                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-2 relative">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-sub)] mb-6 px-4 opacity-50">Master Control</p>
+
+                        {/* Sliding Active Indicator */}
+                        <div 
+                            style={{
+                                position: 'absolute',
+                                left: 24,
+                                right: 24,
+                                top: sliderStyle.top,
+                                height: sliderStyle.height,
+                                transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                            className="bg-[#808bf5] rounded-2xl shadow-xl shadow-indigo-500/20 pointer-events-none"
+                        />
+
                         {tabs.map(tab => (
                             <button
+                                ref={el => navRefs.current[tab.key] = el}
                                 key={tab.key}
                                 onClick={() => { setActiveTab(tab.key); setSidebarOpen(false); }}
-                                className={`flex items-center gap-3.5 px-6 py-4 rounded-2xl text-[11px] font-black border-0 cursor-pointer text-left w-full transition-all duration-300 ${activeTab === tab.key
-                                    ? 'bg-[#808bf5] text-white shadow-xl shadow-indigo-500/20 lg:translate-x-2'
+                                className={`flex items-center gap-3.5 px-6 py-4 rounded-2xl text-[11px] font-black border-0 cursor-pointer text-left w-full transition-all duration-300 relative z-10 ${activeTab === tab.key
+                                    ? 'text-white lg:translate-x-2'
                                     : 'bg-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)] translate-x-0'
                                     }`}
                             >
