@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
@@ -45,6 +45,44 @@ const Profile = ({ userId }) => {
     const navigate = useNavigate();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
+
+    const tabContainerRef = useRef(null);
+    const tabItemRefs = useRef({});
+    const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
+    const [tabPillReady, setTabPillReady] = useState(false);
+
+    useLayoutEffect(() => {
+        let observer = null;
+
+        const updatePill = () => {
+            const activeEl = tabItemRefs.current[activeTab];
+            const container = tabContainerRef.current;
+            if (!activeEl || !container) {
+                setTabPill(s => ({ ...s, opacity: 0 }));
+                return;
+            }
+            const cRect = container.getBoundingClientRect();
+            const eRect = activeEl.getBoundingClientRect();
+            setTabPill({
+                left: eRect.left - cRect.left,
+                width: eRect.width,
+                opacity: 1
+            });
+            setTabPillReady(true);
+        };
+
+        updatePill();
+
+        const container = tabContainerRef.current;
+        if (container) {
+            observer = new ResizeObserver(updatePill);
+            observer.observe(container);
+        }
+
+        return () => {
+            if (observer) observer.disconnect();
+        };
+    }, [activeTab]);
 
 
     const loggeduser = useAuthStore(s => s.user);
@@ -418,14 +456,30 @@ const Profile = ({ userId }) => {
 
                         {/* Tabs */}
                         {!isPrivateAndNotFollowing && !isBlockedByMe && (
-                            <div className="flex">
+                            <div className="flex relative items-center bg-[var(--surface-2)] p-1 rounded-2xl mb-2 border border-[var(--border-color)]" ref={tabContainerRef}>
+                                {/* Floating Pill */}
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '4px',
+                                        bottom: '4px',
+                                        left: tabPill.left,
+                                        width: tabPill.width,
+                                        borderRadius: '12px',
+                                        background: 'rgba(128, 139, 245, 0.12)',
+                                        border: '1px solid rgba(128, 139, 245, 0.2)',
+                                        opacity: tabPillReady ? tabPill.opacity : 0,
+                                        transition: tabPillReady ? 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s ease, opacity 0.15s ease' : 'none',
+                                        zIndex: 0,
+                                        pointerEvents: 'none'
+                                    }}
+                                />
                                 {TABS.map(tab => (
                                     <button
                                         key={tab.key}
+                                        ref={el => tabItemRefs.current[tab.key] = el}
                                         onClick={() => setActiveTab(tab.key)}
-                                        className={`flex-1 py-2.5 text-xs font-semibold border-0 bg-transparent cursor-pointer capitalize transition-all ${activeTab === tab.key ? 'text-indigo-600' : 'text-[var(--text-sub)]'
-                                            }`}
-                                        style={{ borderBottom: activeTab === tab.key ? '2px solid #808bf5' : '2px solid transparent' }}
+                                        className={`flex-1 py-2.5 text-xs border-0 bg-transparent cursor-pointer relative z-10 transition-all duration-300 ${activeTab === tab.key ? 'text-indigo-600 font-extrabold' : 'text-[var(--text-sub)] font-medium'}`}
                                     >
                                         {tab.label}
                                     </button>

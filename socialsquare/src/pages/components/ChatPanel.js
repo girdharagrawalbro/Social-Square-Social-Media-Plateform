@@ -815,6 +815,50 @@ const ChatPanel = ({
         }
     }, [searchIndex, searchMatches, isSearching]);
 
+    useEffect(() => {
+        if (!isSearching || !searchQ || !searchQ.trim() || !conversationId) return;
+
+        const localMatch = messages.some(m => m.content?.toLowerCase().includes(searchQ.toLowerCase()));
+        if (localMatch || !hasMore) return;
+
+        const delayDebounce = setTimeout(async () => {
+            try {
+                const res = await api.get(`/api/conversation/messages/search`, {
+                    params: { conversationId, q: searchQ }
+                });
+                const searchHits = Array.isArray(res.data) ? res.data : [];
+                if (searchHits.length > 0) {
+                    const oldestMatch = searchHits[searchHits.length - 1];
+                    const before = messages[0]?.createdAt;
+                    
+                    setLoadingMore(true);
+                    const messagesRes = await api.post(`/api/conversation/messages`, {
+                        recipientId: participantId,
+                        before,
+                        targetDate: oldestMatch.createdAt,
+                        limit: 30
+                    });
+                    
+                    const olderMessages = messagesRes.data.messages || [];
+                    if (olderMessages.length > 0) {
+                        setMessages(prev => {
+                            const existingIds = new Set(prev.map(m => String(m._id)));
+                            const uniqueOlder = olderMessages.filter(m => !existingIds.has(String(m._id)));
+                            return [...uniqueOlder, ...prev];
+                        });
+                        setHasMore(messagesRes.data.hasMore || false);
+                    }
+                    setLoadingMore(false);
+                }
+            } catch (err) {
+                console.error('Backend search load failed', err);
+                setLoadingMore(false);
+            }
+        }, 600);
+
+        return () => clearTimeout(delayDebounce);
+    }, [isSearching, searchQ, conversationId, hasMore, participantId, messages]);
+
     const sendMessageMut = useSendMessage();
     const editMessageMut = useEditMessage();
     const deleteMessageMut = useDeleteMessage();

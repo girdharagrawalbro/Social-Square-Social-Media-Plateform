@@ -153,7 +153,7 @@ router.get('/', verifyToken, async (req, res) => {
 // ─── FETCH MESSAGES (PROTECTED) ───────────────────────────────────────────────
 router.post('/messages', verifyToken, async (req, res) => {
     try {
-        const { recipientId, before, limit = 20 } = req.body;
+        const { recipientId, before, limit = 20, targetDate } = req.body;
         const senderId = req.userId;
         if (recipientId === senderId) return res.status(400).json({ error: 'Cannot message yourself' });
 
@@ -172,16 +172,26 @@ router.post('/messages', verifyToken, async (req, res) => {
         let conversation = await Conversation.findOne({ 'participants.userId': { $all: [senderId, recipientId] } }).lean();
         if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
 
-        const cacheKey = `msgs:${conversation._id}:${before || 'latest'}:${limit}`;
+        const cacheKey = `msgs:${conversation._id}:${before || 'latest'}:${limit}:${targetDate || 'none'}`;
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
 
         const query = { conversationId: conversation._id };
         if (before) query.createdAt = { $lt: new Date(before) };
 
+        let customLimit = parseInt(limit);
+        if (targetDate) {
+            const countQuery = { conversationId: conversation._id };
+            countQuery.createdAt = { $gte: new Date(targetDate) };
+            if (before) countQuery.createdAt.$lt = new Date(before);
+            
+            const count = await Message.countDocuments(countQuery);
+            customLimit = Math.max(customLimit, count + 30);
+        }
+
         const messages = await Message.find(query)
             .sort({ createdAt: -1 })
-            .limit(limit)
+            .limit(customLimit)
             .populate({
                 path: 'replyTo',
                 select: 'content media sender',

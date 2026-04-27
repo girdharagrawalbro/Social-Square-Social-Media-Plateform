@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { socket } from '../../socket';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
@@ -71,6 +71,61 @@ const Conversations = () => {
     const [refreshKey, setRefreshKey] = useState(0);
     const [showMenu, setShowMenu] = useState(false);
 
+    const convListRef = useRef(null);
+    const convItemRefs = useRef({});
+    const [convPill, setConvPill] = useState({ top: 0, height: 76, opacity: 0 });
+    const [convPillReady, setConvPillReady] = useState(false);
+
+    useLayoutEffect(() => {
+        let observer = null;
+        
+        const updatePill = () => {
+            const activeEl = convItemRefs.current[routeUserId];
+            const nav = convListRef.current;
+            if (!activeEl || !nav) {
+                setConvPill(s => ({ ...s, opacity: 0 }));
+                return;
+            }
+            const navRect = nav.getBoundingClientRect();
+            const elRect = activeEl.getBoundingClientRect();
+            setConvPill({
+                top: elRect.top - navRect.top + nav.scrollTop,
+                height: elRect.height,
+                opacity: 1
+            });
+            setConvPillReady(true);
+        };
+
+        updatePill();
+        
+        const nav = convListRef.current;
+        if (nav) {
+            observer = new ResizeObserver(updatePill);
+            observer.observe(nav);
+        }
+        
+        return () => {
+            if (observer) observer.disconnect();
+        };
+    }, [routeUserId, conversations.length]);
+
+    useEffect(() => {
+        const nav = convListRef.current;
+        if (!nav) return;
+        const onScroll = () => {
+            const activeEl = convItemRefs.current[routeUserId];
+            if (!activeEl) return;
+            const navRect = nav.getBoundingClientRect();
+            const elRect = activeEl.getBoundingClientRect();
+            setConvPill(s => ({
+                ...s,
+                top: elRect.top - navRect.top + nav.scrollTop,
+            }));
+        };
+        nav.addEventListener('scroll', onScroll);
+        return () => nav.removeEventListener('scroll', onScroll);
+    }, [routeUserId]);
+
     const clearChatMut = useClearChat();
     const deleteChatMut = useDeleteChat();
 
@@ -98,9 +153,9 @@ const Conversations = () => {
                 if (!Array.isArray(old)) return old;
                 return old.map(c => toId(c._id) === toId(conversationId) ? {
                     ...c,
-                    lastMessage: { 
+                    lastMessage: {
                         id: message._id,
-                        message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'), 
+                        message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'),
                         isRead: false,
                         isReply: !!message.replyTo
                     },
@@ -225,17 +280,33 @@ const Conversations = () => {
                             />
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar relative" ref={convListRef}>
+                        {/* Floating pill background */}
+                        <div
+                            style={{
+                                position: 'absolute',
+                                left: '8px',
+                                right: '8px',
+                                top: convPill.top,
+                                height: convPill.height,
+                                borderRadius: '16px',
+                                background: 'var(--surface-2)',
+                                opacity: convPillReady ? convPill.opacity : 0,
+                                transition: convPillReady ? 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.25s ease, opacity 0.15s ease' : 'none',
+                                pointerEvents: 'none',
+                                zIndex: 0,
+                            }}
+                        />
                         {sortedConversations.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 px-4 opacity-60">
-                                    <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
-                                        <i className={`pi ${searchQuery ? 'pi-search' : 'pi-envelope'} text-gray-400`}></i>
-                                    </div>
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm text-center m-0 font-medium">
-                                        {searchQuery ? 'No results found' : 'No conversations yet'}
-                                    </p>
+                            <div className="flex flex-col items-center justify-center py-12 px-4 opacity-60">
+                                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
+                                    <i className={`pi ${searchQuery ? 'pi-search' : 'pi-envelope'} text-gray-400`}></i>
                                 </div>
-                            ) : sortedConversations.map((conv) => {
+                                <p className="text-gray-500 dark:text-gray-400 text-sm text-center m-0 font-medium">
+                                    {searchQuery ? 'No results found' : 'No conversations yet'}
+                                </p>
+                            </div>
+                        ) : sortedConversations.map((conv) => {
                             const myId = toId(user?._id);
                             const other = conv.participants?.find(p => toId(p.userId) !== myId);
                             if (!other) return null;
@@ -245,7 +316,8 @@ const Conversations = () => {
                             const isActive = routeUserId === toId(other.userId);
                             return (
                                 <div key={conv._id}
-                                    className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 ${isActive ? 'bg-[#808bf5]/10 ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
+                                    ref={el => convItemRefs.current[toId(other.userId)] = el}
+                                    className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 relative z-10 ${isActive ? 'ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
                                     onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
                                     <div className="relative flex-shrink-0">
                                         <img src={other.profilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
