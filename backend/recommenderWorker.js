@@ -1,12 +1,15 @@
 const { connect, StringCodec } = require("nats");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-const { pipeline } = require("@xenova/transformers");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { PostVector, UserInterest } = require("./models/Recommendation");
 const Post = require("./models/Post");
 const http = require('http');
 
 dotenv.config();
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
 
 // Configuration
 const NATS_URL = process.env.NATS_URL || "wss://://onrender.com";
@@ -28,8 +31,11 @@ http.createServer((req, res) => {
 
 // 2. EMBEDDING HELPER
 async function getEmbedding(text) {
-  const output = await extractor(text, { pooling: 'mean', normalize: true });
-  return Array.from(output.data);
+  const result = await model.embedContent({
+    content: { parts: [{ text }] },
+    outputDimensionality: 384
+  });
+  return result.embedding.values;
 }
 
 // 3. POST CREATED HANDLER
@@ -108,10 +114,8 @@ async function initWorker() {
     console.log("📦 Connected to MongoDB");
   }
 
-  // AI Model
-  console.log("🧠 Loading Embedding Model (all-MiniLM-L6-v2)...");
-  extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-  console.log("✅ AI Model ready");
+  // AI Model is now handled externally via Gemini API
+  console.log("✅ AI Model ready (using Gemini API)");
 
   // NATS Connection
   try {

@@ -34,7 +34,7 @@ router.get("/posts", verifyToken, async (req, res) => {
 
         // 2. Fetch candidate posts (exclude own, private, anonymous)
         const candidates = await Post.find({
-            "user._id": { $ne: new mongoose.Types.ObjectId(userId), $nin: privateUserIds.map(id => new mongoose.Types.ObjectId(id)) },
+            "user._id": { $ne: userId, $nin: privateUserIds },
             isAnonymous: { $ne: true }
         })
             .sort({ createdAt: -1 })
@@ -120,7 +120,7 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
         const privateUserIds = privateUsers.map(u => u._id.toString());
 
         // 2. Fetch candidates (exclude the target post and private users)
-        const candidates = await Post.find({ _id: { $ne: postId }, 'user._id': { $nin: privateUserIds.map(id => new mongoose.Types.ObjectId(id)) } })
+        const candidates = await Post.find({ _id: { $ne: postId }, 'user._id': { $nin: privateUserIds } })
             .sort({ createdAt: -1 })
             .limit(200);
 
