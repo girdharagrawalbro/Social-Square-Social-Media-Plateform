@@ -6,12 +6,10 @@ Social Square is an AI-integrated social ecosystem built with a "Privacy-First" 
 
 ## 📖 Table of Contents
 1.  [🚀 Standardized API Reference](#1-standardized-api-reference)
-2.  [🧠 Detailed Feature Specifications](#2-detailed-feature-specifications)
-3.  [⚡ Real-Time Socket Architecture](#3-real-time-socket-architecture)
-4.  [🛠️ State Management: Zustand (Client State)](#4-state-management-zustand-client-state)
-5.  [🌀 State Management: TanStack Query (Server State)](#5-state-management-tanstack-query-server-state)
-6.  [☁️ Media Uploading Ecosystem](#6-media-uploading-ecosystem)
-7.  [🛠️ Technology Stack & Security](#7-technology-stack--security)
+2.  [⚡ Real-Time Socket Architecture](#2-real-time-socket-architecture)
+3.  [🧠 State Management: Zustand (Client State)](#3-state-management-zustand-client-state)
+4.  [🌀 State Management: TanStack Query (Server State)](#4-state-management-tanstack-query-server-state)
+5.  [🛠️ Technology Stack & Security](#5-technology-stack--security)
 
 ---
 
@@ -111,92 +109,9 @@ All API responses follow the format: `{ "success": true, "data": { ... } }` or `
   }
   ```
 
-### 🧠 AI Services (`/api/ai`)
-
-#### **Generate Text (Magic Post)**
-- **Endpoint:** `POST /api/ai/generate-text`
-- **Payload:**
-  ```json
-  {
-    "prompt": "Give me a motivational quote about coding."
-  }
-  ```
-- **Description:** Generates engaging text captions using the NVIDIA API.
-
-#### **Generate Image**
-- **Endpoint:** `POST /api/ai/generate-image`
-- **Payload:**
-  ```json
-  {
-    "prompt": "A futuristic city with neon lights"
-  }
-  ```
-- **Description:** Generates high-quality images and uploads them directly to Cloudinary.
-
-#### **Suggest Metadata**
-- **Endpoint:** `POST /api/ai/suggest-meta`
-- **Payload:** `{ "caption": "Beautiful sunset!" }`
-- **Description:** Uses AI to recommend hashtags, pick categories, and detect mood.
-
-#### **AI Direct Post**
-- **Endpoint:** `POST /api/ai/generate-and-post`
-- **Payload:** `{ "prompt": "...", "makeAnonymous": false }`
-- **Description:** Generates text + image and posts to feed in a single background transaction.
-
-### 🎬 Story Management (`/api/story`)
-
-#### **Create Story**
-- **Endpoint:** `POST /api/story/create`
-- **Payload:**
-  ```json
-  {
-    "mediaUrl": "https://...",
-    "mediaType": "image",
-    "text": { "content": "Hello!", "color": "#fff", "position": 10 },
-    "sharedPostId": null
-  }
-  ```
-
-#### **Fetch Stories Feed**
-- **Endpoint:** `GET /api/story/feed`
-- **Description:** Fetches active stories grouped by user, ordered by unviewed status.
-
-#### **Reply to Story (DM)**
-- **Endpoint:** `POST /api/story/reply/:storyId`
-- **Payload:** `{ "content": "Great shot!" }`
-
-### 👥 Group Management (`/api/group`)
-
-#### **Create Group**
-- **Endpoint:** `POST /api/group/create`
-- **Payload:** `{ "name": "Tech Talk", "isPrivate": false }`
-
 ---
 
-## 2. Detailed Feature Specifications
-
-Social Square is packed with cutting-edge features designed for modern social interaction.
-
-### 🧠 AI Suite & Creator Tools
-- **AI Magic Post**: Generates complete posts (text + image) from simple user prompts using NVIDIA models.
-- **Smart Metadata**: Automatically extracts hashtags, categories, and detects mood using Gemini AI.
-- **Usage Guardrails**: Hard limits of **2 Text / 2 Image generations per user per day** to balance API costs.
-
-### 🎬 Stories & Ephemeral Content
-- **24h Lifecycle**: Backed by MongoDB TTL indexes ensuring automatic backend cleanup.
-- **Background Processing**: Uploads large media invisibly via queued Promises while returning UI control immediately.
-
-### 💬 Advanced Messaging Ecosystem
-- **SSE Chat integration**: High-performance Server-Sent Events drive real-time video stream commentary.
-- **Cross-instance Pub/Sub**: Bridged by Redis to route private signals accurately across clusters.
-
-### 👥 Collaborative Dynamics
-- **Public vs Private Spaces**: Dynamic visibility permissions for group contexts.
-- **Interactive Polls**: Real-time voting feedback backed by Socket updates.
-
----
-
-## 3. Real-Time Socket Architecture
+## 2. Real-Time Socket Architecture
 
 Social Square uses Socket.io with a **Redis Adapter** for cross-instance state synchronization.
 
@@ -218,7 +133,7 @@ Social Square uses Socket.io with a **Redis Adapter** for cross-instance state s
 
 ---
 
-## 4. State Management: Zustand (Client State)
+## 3. State Management: Zustand (Client State)
 
 Zustand manages the **ephemeral lifecycle** of the UI. It is optimized with `devtools` middleware for debugging.
 
@@ -236,15 +151,9 @@ Zustand manages the **ephemeral lifecycle** of the UI. It is optimized with `dev
   - `rollbackLike(postId)`: Reverts the like if the server request fails.
   - `addSocketPost(post)`: Injects real-time posts directly into the top of the feed list.
 
-### 💬 `useConversationStore`
-- **State**: `activeConversationId`, `onlineUserIds`, `typingUsers`, `unreadCounts`, `socketMessages`.
-- **Key Actions**:
-  - `openChat(id, participant)`: Sets the currently active DM target.
-  - `addSocketMessage(id, msg)`: Appends incoming real-time messages securely.
-
 ---
 
-## 5. State Management: TanStack Query (Server State)
+## 4. State Management: TanStack Query (Server State)
 
 TanStack Query handles the **server source of truth**, providing automatic caching and background synchronization.
 
@@ -261,22 +170,7 @@ TanStack Query handles the **server source of truth**, providing automatic cachi
 
 ---
 
-## 6. Media Uploading Ecosystem
-
-Social Square leverages a dual-storage media pipeline to guarantee uptime and high-speed delivery.
-
-### ☁️ Cloudinary + Drive Fallback
-- **Primary Target**: Cloudinary (Public CDN optimization).
-- **Background Sync**: Successful uploads trigger fire-and-forget backups to Google Drive.
-- **Transparency Fallback**: Files breaching size constraints (**20MB Image / 100MB Video**) bypass Cloudinary constraints and flow securely into Google Drive.
-
-### 🎥 Video Processing & Making
-- **Client-Side Thumbnails**: Utilizes the browser Canvas API at frame seek `currentTime=1`.
-- **Trimming Utilities**: Supports granular post-processing configurations.
-
----
-
-## 7. Technology Stack & Security
+## 5. Technology Stack & Security
 
 ### Architecture
 - **Infrastructure**: Distributed Node.js instances with **NATS** for event distribution.
