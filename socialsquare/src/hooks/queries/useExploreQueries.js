@@ -14,7 +14,7 @@ export function useExploreReels() {
     return useInfiniteQuery({
         queryKey: exploreKeys.reels,
         queryFn: async ({ pageParam = null }) => {
-            const params = new URLSearchParams({ limit: '12' });
+            const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
             const res = await api.get(`/api/post/explore-reels?${params}`);
             return res.data;

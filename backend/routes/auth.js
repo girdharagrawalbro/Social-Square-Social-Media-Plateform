@@ -164,11 +164,11 @@ router.post('/login', authRateLimiter, [
         // ── RESET FAILED ATTEMPTS ON SUCCESS ──
         user.failedLoginAttempts = 0;
         user.lockoutUntil = null;
-        
+
         const hashedFingerprint = hashValue(fingerprint);
-        let existingSession = await LoginSession.findOne({ 
-            userId: user._id, 
-            fingerprint: hashedFingerprint 
+        let existingSession = await LoginSession.findOne({
+            userId: user._id,
+            fingerprint: hashedFingerprint
         }).sort({ createdAt: -1 });
 
         const isActivatingNewSession = !existingSession || existingSession.isRevoked || existingSession.expiresAt < new Date();
@@ -287,9 +287,9 @@ router.post('/verify-otp', [
 
         // ── SESSION CREATION OR REUSE ──
         const hashedFingerprint = hashValue(fingerprint);
-        let existingSession = await LoginSession.findOne({ 
-            userId: user._id, 
-            fingerprint: hashedFingerprint 
+        let existingSession = await LoginSession.findOne({
+            userId: user._id,
+            fingerprint: hashedFingerprint
         }).sort({ createdAt: -1 });
 
         const isActivatingNewSession = !existingSession || existingSession.isRevoked || existingSession.expiresAt < new Date();
@@ -475,9 +475,9 @@ router.post('/google', async (req, res) => {
 
         // ── SESSION CREATION OR REUSE ──
         const hashedFingerprint = hashValue(fingerprint);
-        let existingSession = await LoginSession.findOne({ 
-            userId: user._id, 
-            fingerprint: hashedFingerprint 
+        let existingSession = await LoginSession.findOne({
+            userId: user._id,
+            fingerprint: hashedFingerprint
         }).sort({ createdAt: -1 });
 
         const isActivatingNewSession = !existingSession || existingSession.isRevoked || existingSession.expiresAt < new Date();
@@ -647,9 +647,9 @@ router.delete('/sessions/:sessionId', verifyToken, async (req, res) => {
         }
 
         return res.status(200).json({ message: 'Session revoked' });
-    } catch (error) { 
+    } catch (error) {
         console.error('Revoke session error:', error);
-        return res.status(500).json({ error: 'Internal server error' }); 
+        return res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1281,6 +1281,8 @@ router.patch('/notification-settings', verifyToken, async (req, res) => {
     } catch { res.status(500).json({ message: 'Internal server error' }); }
 });
 
+const adminAlertCooldowns = new Map();
+
 // ─── VERIFY PASSWORD (for admin re-auth gate) ────────────────────────────────
 router.post('/verify-password', verifyToken, async (req, res) => {
     try {
@@ -1291,7 +1293,41 @@ router.post('/verify-password', verifyToken, async (req, res) => {
         if (!user.password) return res.status(400).json({ message: 'Password login not available for this account' });
 
         const isMatch = await bcrypt.compare(req.body.password, user.password);
-        if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
+        if (!isMatch) {
+            // Rate limiting: max 1 email per 5 minutes per user
+            const now = Date.now();
+            const lastSent = adminAlertCooldowns.get(req.userId) || 0;
+            if (now - lastSent > 5 * 60 * 1000) {
+                adminAlertCooldowns.set(req.userId, now);
+
+                const ip = getIp(req);
+                const device = parseDevice(req.headers['user-agent']);
+
+                // Find all admins
+                const admins = await User.find({ isAdmin: true }).select('email fullname');
+
+                admins.forEach(admin => {
+                    sendEmail({
+                        to: admin.email,
+                        subject: '🚨 Security Alert: Admin Password Failure',
+                        html: `
+                        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px">
+                            <h2 style="color:#ef4444;margin-top:0">⚠️ Admin Panel Security Alert</h2>
+                            <p>An incorrect password was entered on the <strong>Admin Control Panel</strong>.</p>
+                            <div style="background:#f9fafb;padding:16px;border-radius:12px;margin:20px 0;font-size:14px">
+                                <p style="margin:0 0 8px"><strong>Attempted By (User ID):</strong> ${user._id} (${user.fullname})</p>
+                                <p style="margin:0 0 8px"><strong>IP Address:</strong> ${ip}</p>
+                                <p style="margin:0 0 8px"><strong>Device:</strong> ${device}</p>
+                                <p style="margin:0"><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+                            </div>
+                            <p style="color:#ef4444;font-weight:bold">If this wasn't you, someone may be trying to access the Admin Control Panel.</p>
+                            <p style="color:#6b7280;font-size:12px;margin-top:20px">This is an automated security alert from Social Square.</p>
+                        </div>`
+                    }).catch(err => console.error(`[Security] Failed to send admin alert email to ${admin.email}:`, err.message));
+                });
+            }
+            return res.status(401).json({ message: 'Incorrect password' });
+        }
 
         res.status(200).json({ message: 'Verified' });
     } catch (err) {
