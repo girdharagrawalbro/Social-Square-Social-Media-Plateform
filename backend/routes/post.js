@@ -334,7 +334,12 @@ router.delete("/delete/:postId", verifyToken, async (req, res) => {
         const userId = req.userId;
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
-        if (post.user._id.toString() !== userId) return res.status(403).json({ message: "Unauthorized." });
+        
+        const user = await User.findById(userId).select('isAdmin').lean();
+        const isOwner = post.user._id.toString() === userId;
+        const isAdmin = user && user.isAdmin;
+
+        if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
         await Post.findByIdAndDelete(req.params.postId);
 
         // ✅ Notify all users to remove post from feed
@@ -477,7 +482,7 @@ router.get("/user/:userId", async (req, res) => {
             }
         }
 
-        const limit = parseInt(req.query.limit) || 12;
+        const limit = parseInt(req.query.limit);
         const cursor = req.query.cursor;
         // Show all posts where user is owner OR an accepted collaborator
         const query = {
@@ -1056,7 +1061,7 @@ router.get("/confessions", async (req, res) => {
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
 router.get("/explore-reels", async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 12;
+        const limit = parseInt(req.query.limit);
         const cursor = req.query.cursor;
 
         // 1. Identify Viewer

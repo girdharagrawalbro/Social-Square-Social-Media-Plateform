@@ -85,7 +85,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
             User.countDocuments({ isBanned: true }),                                 // uses index
             Report.estimatedDocumentCount(),
             Report.countDocuments({ status: 'pending' }),                            // uses index
-            Post.find().sort({ score: -1 }).limit(5)
+            Post.find().sort({ score: -1 }).limit(8)
                 .select('caption user likes comments createdAt').lean(),
             User.find().sort({ created_at: -1 }).limit(5)
                 .select('fullname email created_at profile_picture').lean(),

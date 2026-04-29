@@ -41,7 +41,7 @@ export function useUserPosts(userId) {
     return useInfiniteQuery({
         queryKey: postKeys.userPosts(userId),
         queryFn: async ({ pageParam = null }) => {
-            const params = new URLSearchParams({ limit: '12' });
+            const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
             const res = await api.get(`/api/post/user/${userId}?${params}`);
             return res.data;
@@ -292,10 +292,10 @@ export function useLikePost() {
         onMutate: async ({ postId, isLiked, likes = [] }) => {
             // Cancel outgoing refetches
             await qc.cancelQueries({ queryKey: postKeys.all });
-            
+
             // Optimistically update zustand store (UI state)
             if (user?._id) optimisticLike(postId, user._id, likes);
-            
+
             return { postId, wasLiked: isLiked };
         },
         onError: (err, { postId }, ctx) => {
@@ -354,13 +354,13 @@ export function useCreateComment() {
         mutationFn: (data) => api.post(`/api/post/comments/add`, data),
         onMutate: async (newComment) => {
             if (!newComment.postId) return;
-            
+
             // Cancel outgoing refetches for comments
             await qc.cancelQueries({ queryKey: postKeys.comments(newComment.postId) });
-            
+
             // Snapshot previous value
             const previousComments = qc.getQueryData(postKeys.comments(newComment.postId));
-            
+
             // Optimistically update to the new value
             qc.setQueryData(postKeys.comments(newComment.postId), (old = []) => [
                 {
@@ -373,7 +373,7 @@ export function useCreateComment() {
                 },
                 ...old
             ]);
-            
+
             return { previousComments, postId: newComment.postId };
         },
         onError: (err, newComment, context) => {

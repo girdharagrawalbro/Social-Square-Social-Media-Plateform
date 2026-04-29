@@ -19,28 +19,86 @@ const Header = ({ user, onLock, onHome, onToggleSidebar }) => (
             <button onClick={onToggleSidebar} className="lg:hidden p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded-2xl transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm flex items-center justify-center">
                 <i className="pi pi-bars text-sm font-bold"></i>
             </button>
-            <button onClick={onHome} className="p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded-2xl transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm flex items-center justify-center">
-                <i className="pi pi-arrow-left text-sm font-bold"></i>
-            </button>
             <div className="flex flex-col">
                 <h1 className="text-xl font-black tracking-tight text-[var(--text-main)] m-0 flex items-center gap-2">
-                    <span className="text-2xl">⚙️</span> Control Center
+                    Admin
                 </h1>
-                <p className="text-[10px] uppercase tracking-widest text-[#808bf5] font-black m-0">Social Square Admin</p>
             </div>
         </div>
-        <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 px-3.5 py-1.5 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+        <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
                 <img src={user?.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-[var(--surface-1)] shadow-sm" />
                 <span className="text-xs font-bold text-[var(--text-main)]">{user?.fullname}</span>
             </div>
-            <button onClick={onLock} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-5 py-2.5 rounded-2xl text-xs font-black transition-all border-0 cursor-pointer shadow-sm active:scale-95">
+            <button onClick={onLock} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-2 rounded-2xl text-xs font-black transition-all border-0 cursor-pointer shadow-sm active:scale-95">
                 <i className="pi pi-lock"></i> LOCK
             </button>
         </div>
     </div>
 );
 
+const UsersIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M17 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M7 21v-2a4 4 0 0 1 3-3.87" />
+        <circle cx="12" cy="7" r="4" />
+    </svg>
+);
+
+const PostsIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <line x1="7" y1="8" x2="17" y2="8" />
+        <line x1="7" y1="12" x2="17" y2="12" />
+    </svg>
+);
+
+const ReportIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M4 4h16l-2 6 2 6H4z" />
+    </svg>
+);
+
+const ChartIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <line x1="4" y1="20" x2="20" y2="20" />
+        <rect x="6" y="10" width="3" height="10" />
+        <rect x="11" y="6" width="3" height="14" />
+        <rect x="16" y="13" width="3" height="7" />
+    </svg>
+);
+
+const CalendarIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <line x1="16" y1="3" x2="16" y2="7" />
+        <line x1="8" y1="3" x2="8" y2="7" />
+    </svg>
+);
+
+const FireIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 2s4 4 4 8-4 8-4 8-4-3-4-8 4-8 4-8z" />
+    </svg>
+);
+const AuditIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 5h6M9 9h6M9 13h6M5 5h.01M5 9h.01M5 13h.01" />
+    </svg>
+);
+
+const ShieldIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z" />
+    </svg>
+);
+
+const SettingsIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2 3.46- .07-.02a1.65 1.65 0 0 0-2.18.66L15 21h-6l-.54-.98a1.65 1.65 0 0 0-2.18-.66l-.07.02-2-3.46.06-.06A1.65 1.65 0 0 0 4.6 15L4 14v-4l.6-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06 2-3.46.07.02a1.65 1.65 0 0 0 2.18-.66L9 3h6l.54.98a1.65 1.65 0 0 0 2.18.66l.07-.02 2 3.46-.06.06A1.65 1.65 0 0 0 19.4 9l.6 1v4l-.6 1z" />
+    </svg>
+);
 // ─── PASSWORD GATE ────────────────────────────────────────────────────────────
 const PasswordGate = ({ onSuccess }) => {
     const [password, setPassword] = useState('');
@@ -79,33 +137,22 @@ const PasswordGate = ({ onSuccess }) => {
                 : 'radial-gradient(ellipse at 60% 40%, #ede9fe 0%, #e0e7ff 60%, #c7d2fe 100%)',
             zIndex: 9999,
         }}>
-            {/* Decorative glow blobs */}
-            <div style={{ position: 'absolute', top: '15%', left: '20%', width: 320, height: 320, borderRadius: '50%', background: 'rgba(128,139,245,0.15)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: '20%', right: '15%', width: 260, height: 260, borderRadius: '50%', background: 'rgba(99,102,241,0.12)', filter: 'blur(70px)', pointerEvents: 'none' }} />
 
             <div style={{
                 position: 'relative',
                 background: 'var(--surface-1)',
                 backdropFilter: 'blur(32px)',
                 WebkitBackdropFilter: 'blur(32px)',
-                borderRadius: '40px',
+                borderRadius: '18px',
                 padding: '60px 48px',
                 width: '100%',
                 maxWidth: '420px',
-                margin: '0 16px',
-                border: '1px solid var(--border-color)',
                 boxShadow: '0 40px 100px rgba(0,0,0,0.5)',
             }}>
                 {/* Glowing icon */}
                 <div style={{ position: 'relative', width: 88, height: 88, margin: '0 auto 32px' }}>
                     <div style={{
-                        position: 'absolute', inset: -12,
-                        borderRadius: '32px',
-                        background: 'radial-gradient(circle, rgba(128,139,245,0.4) 0%, transparent 70%)',
-                        animation: 'pulse 3s ease-in-out infinite',
-                    }} />
-                    <div style={{
-                        width: 88, height: 88, borderRadius: '28px',
+                        width: 88, height: 88, borderRadius: '50%',
                         background: 'linear-gradient(135deg, #818cf8, #6366f1)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '36px',
@@ -242,7 +289,7 @@ const PasswordGate = ({ onSuccess }) => {
 
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, sub, color = '#6366f1', icon }) => (
-    <div className="group relative overflow-hidden bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)] hover:shadow-2xl hover:-translate-y-1 transition-all duration-500">
+    <div className="group relative overflow-hidden bg-[var(--surface-1)] rounded-[12px] px-3 py-2 shadow-sm border border-[var(--border-color)] hover:shadow-2xl hover:-translate-y-1 transition-all duration-500">
         <div
             className="absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-10 group-hover:scale-125 transition-transform duration-700"
             style={{ background: color }}
@@ -274,8 +321,8 @@ const BarChart = ({ data, label }) => {
     const max = Math.max(...data.map(d => d.count), 1);
     return (
         <div className="flex flex-col h-full">
-            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-5 m-0 opacity-70">{label}</p>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '120px', padding: '0 4px' }}>
+            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-5 m-0 opacity  -70">{label}</p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '120px', padding: '0 0px' }}>
                 {data.map((d, i) => (
                     <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', height: '100%', justifyContent: 'flex-end' }}>
                         <div
@@ -283,7 +330,7 @@ const BarChart = ({ data, label }) => {
                                 width: '100%',
                                 height: `${(d.count / max) * 100}%`,
                                 background: 'linear-gradient(to top, #808bf5, #6366f1)',
-                                borderRadius: '12px 12px 4px 4px',
+                                borderRadius: '6px 6px 0px 0px',
                                 minHeight: '6px',
                                 transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
                                 boxShadow: '0 4px 15px rgba(99,102,241,0.2)'
@@ -301,7 +348,7 @@ const BarChart = ({ data, label }) => {
 // ─── DONUT CHART ──────────────────────────────────────────────────────────────
 const DonutChart = ({ data }) => {
     if (!data?.length) return <p className="text-center text-[var(--text-sub)] text-xs p-4">No category data available</p>;
-    
+
     const total = data.reduce((sum, d) => sum + d.count, 0);
     let currentAngle = 0;
     const colors = ['#808bf5', '#22c55e', '#f59e0b', '#ec4899', '#3b82f6', '#a855f7'];
@@ -352,7 +399,7 @@ const CohortChart = ({ data }) => {
 
     return (
         <div className="flex flex-col h-full">
-            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-5 m-0 opacity-70">Retention Cohorts</p>
+            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 m-0 opacity-70">Retention Cohorts</p>
             <div className="overflow-x-auto custom-scrollbar flex-1">
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -404,29 +451,34 @@ const AnalyticsTab = () => {
     const { overview, charts, topPosts, recentUsers } = data;
 
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-                <StatCard icon="👥" label="Total Users" value={overview.totalUsers} sub={`+${overview.newUsersLast7} this week`} />
-                <StatCard icon="📝" label="Total Posts" value={overview.totalPosts} sub={`+${overview.newPostsLast7} this week`} color="#22c55e" />
-                <StatCard icon="🚩" label="Pending Reports" value={overview.pendingReports} color="#f59e0b" />
-                <StatCard icon="📊" label="Engagement Rate" value={overview.engagementRate} sub={`${overview.engagementDelta >= 0 ? '↑' : '↓'} ${overview.engagementDelta}% vs last week`} color="#3b82f6" />
-                <StatCard icon="📅" label="New Users (30d)" value={overview.newUsersLast30} color="#8b5cf6" />
-                <StatCard icon="🔥" label="New Posts (30d)" value={overview.newPostsLast30} color="#ec4899" />
+                <StatCard icon={<UsersIcon />} label="Total Users" value={overview.totalUsers} sub={`+${overview.newUsersLast7} this week`} />
+
+                <StatCard icon={<PostsIcon />} label="Total Posts" value={overview.totalPosts} sub={`+${overview.newPostsLast7} this week`} color="#22c55e" />
+
+                <StatCard icon={<ReportIcon />} label="Pending Reports" value={overview.pendingReports} color="#f59e0b" />
+
+                <StatCard icon={<ChartIcon />} label="Engagement Rate" value={overview.engagementRate} sub={`${overview.engagementDelta >= 0 ? '↑' : '↓'} ${overview.engagementDelta}% vs last week`} color="#3b82f6" />
+
+                <StatCard icon={<CalendarIcon />} label="New Users (30d)" value={overview.newUsersLast30} color="#8b5cf6" />
+
+                <StatCard icon={<FireIcon />} label="New Posts (30d)" value={overview.newPostsLast30} color="#ec4899" />
             </div>
             <div className="grid grid-cols-2 gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
-                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><BarChart data={charts.postsPerDay} label="Posts per day (last 7 days)" /></div>
-                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><BarChart data={charts.usersPerDay} label="New users per day (last 7 days)" /></div>
-                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><DonutChart data={charts.categoryBreakdown} /></div>
-                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]"><CohortChart data={charts.cohorts} /></div>
+                <div className="bg-[var(--surface-1)] rounded-[12px] p-3  shadow-sm border border-[var(--border-color)]"><BarChart data={charts.postsPerDay} label="Posts per day (last 7 days)" /></div>
+                <div className="bg-[var(--surface-1)] rounded-[12px] p-3  shadow-sm border border-[var(--border-color)]"><BarChart data={charts.usersPerDay} label="New users per day (last 7 days)" /></div>
+                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]"><DonutChart data={charts.categoryBreakdown} /></div>
+                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]"><CohortChart data={charts.cohorts} /></div>
             </div>
             <div className="grid grid-cols-2 gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]">
-                    <p className="font-black text-sm mb-5 m-0 text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
-                        <span className="text-xl">🔥</span> Top Posts
+                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]">
+                    <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 m-0 opacity-70">
+                        Top Posts
                     </p>
                     <div className="flex flex-col gap-2">
                         {topPosts.map(post => (
-                            <div key={post._id} className="flex items-center justify-between p-3 rounded-2xl bg-[var(--surface-2)] border border-transparent hover:border-[var(--border-color)] transition-all group">
+                            <div key={post._id} className="flex items-center justify-between px-3 py-2 rounded bg-[var(--surface-2)] border border-transparent hover:border-[var(--border-color)] transition-all group">
                                 <p className="text-xs font-bold text-[var(--text-main)] m-0 truncate flex-1 mr-4">{post.caption?.slice(0, 50) || '(No caption)'}</p>
                                 <div className="flex gap-3 text-[10px] font-black text-[var(--text-sub)] flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
                                     <span className="flex items-center gap-1"><i className="pi pi-heart-fill text-red-500"></i> {post.likes?.length || 0}</span>
@@ -436,13 +488,13 @@ const AnalyticsTab = () => {
                         ))}
                     </div>
                 </div>
-                <div className="bg-[var(--surface-1)] rounded-[32px] p-6 shadow-sm border border-[var(--border-color)]">
-                    <p className="font-black text-sm mb-5 m-0 text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
-                        <span className="text-xl">🆕</span> Recent Users
+                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]">
+                    <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 m-0 opacity-70">
+                        Recent Users
                     </p>
                     <div className="flex flex-col gap-2">
                         {recentUsers.map(user => (
-                            <div key={user._id} className="flex items-center gap-4 p-3 rounded-2xl bg-[var(--surface-2)] border border-transparent hover:border-[var(--border-color)] transition-all">
+                            <div key={user._id} className="flex items-center gap-4 px-3 py-2 rounded bg-[var(--surface-2)] border border-transparent hover:border-[var(--border-color)] transition-all">
                                 <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-2xl object-cover flex-shrink-0 border border-[var(--border-color)] shadow-sm" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-xs font-black text-[var(--text-main)] m-0 truncate">{user.fullname}</p>
@@ -510,7 +562,7 @@ const UsersTab = () => {
     };
 
     const handleSelectUser = (userId) => {
-        setSelectedUsers(prev => 
+        setSelectedUsers(prev =>
             prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
         );
     };
@@ -519,7 +571,7 @@ const UsersTab = () => {
         if (!selectedUsers.length) return;
         const reason = prompt('Enter reason for banning these users:');
         if (reason === null) return;
-        
+
         try {
             await api.post('/api/admin/users/bulk-ban', { userIds: selectedUsers, reason }, { headers });
             toast.success(`Successfully banned ${selectedUsers.length} users`);
@@ -555,7 +607,7 @@ const UsersTab = () => {
             new Date(u.created_at).toLocaleString()
         ]);
 
-        const csvContent = "data:text/csv;charset=utf-8," 
+        const csvContent = "data:text/csv;charset=utf-8,"
             + [headersCSV.join(','), ...rows.map(e => e.join(','))].join('\n');
 
         const encodedUri = encodeURI(csvContent);
@@ -608,22 +660,22 @@ const UsersTab = () => {
     };
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-4 rounded-3xl border border-[var(--border-color)] shadow-sm">
+        <div className="flex flex-col gap-3">
+            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
                 <div className="relative flex-1 min-w-[240px]">
                     <i className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-sub)] opacity-50"></i>
                     <input type="text" placeholder="Search name or email..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl py-3 pl-11 pr-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all" />
+                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded py-2.5 pl-11 pr-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all" />
                 </div>
-                <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all">
+                <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-point  er transition-all">
                     <option value="all">All members</option>
                     <option value="banned">Banned</option>
                     <option value="admin">Administrators</option>
                 </select>
-                <button onClick={exportUsersCSV} className="px-5 py-3 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded-2xl flex items-center gap-2 text-xs font-black text-[var(--text-main)] uppercase tracking-widest cursor-pointer transition-all shadow-sm">
+                <button onClick={exportUsersCSV} className="px-3 py-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded flex items-center gap-2 text-xs font-black text-[var(--text-main)] uppercase tracking-widest cursor-pointer transition-all shadow-sm">
                     📥 CSV
                 </button>
-                <div className="px-5 py-3 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl flex items-center gap-2">
+                <div className="px-3 py-2.5 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse"></span>
                     <span className="text-xs font-black text-[var(--text-main)] uppercase tracking-tight">{total} Members</span>
                 </div>
@@ -639,7 +691,7 @@ const UsersTab = () => {
                 </div>
             )}
 
-            <div className="bg-[var(--surface-1)] rounded-[32px] shadow-sm border border-[var(--border-color)] overflow-hidden flex-1 min-h-0 flex flex-col">
+            <div className="bg-[var(--surface-1)] rounded-[12px] shadow-sm border border-[var(--border-color)] overflow-hidden flex-1 min-h-0 flex flex-col">
                 <div className="overflow-x-auto flex-1 custom-scrollbar">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead className="sticky top-0 z-10">
@@ -709,16 +761,16 @@ const UsersTab = () => {
                     </table>
                 </div>
             </div>
-            <div className="flex justify-between items-center bg-[var(--surface-1)] px-8 py-5 border-t border-[var(--border-color)] rounded-b-[32px]">
+            <div className="flex justify-between items-center bg-[var(--surface-1)] p-2 border-t border-[var(--border-color)] rounded-b-[32px]">
                 <p className="text-[10px] font-black text-[var(--text-sub)] m-0 uppercase tracking-widest opacity-60">Listing {Math.min(20, users.length)} of {total} Members</p>
                 <div className="flex gap-3">
-                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-3 px-6 py-3 text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-3 py-2 px-3 text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
                         <i className="pi pi-chevron-left text-[8px]"></i> Previous
                     </button>
-                    <div className="flex items-center px-6 bg-[var(--surface-2)] rounded-2xl text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] uppercase tracking-widest">
+                    <div className="flex items-center py-2 px-3 bg-[var(--surface-2)] rounded text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] uppercase tracking-widest">
                         Page {page}
                     </div>
-                    <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="flex items-center gap-3 px-6 py-3 text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                    <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="flex items-center gap-3 py-2 px-3  text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
                         Next <i className="pi pi-chevron-right text-[8px]"></i>
                     </button>
                 </div>
@@ -747,7 +799,7 @@ const UsersTab = () => {
                         <button onClick={() => setDrawerUser(null)} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded-xl text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all">Close</button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 custom-scrollbar">
                         {drawerLoading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-3">
                                 <div className="w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin" />
@@ -758,11 +810,11 @@ const UsersTab = () => {
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 opacity-70">Analytics</p>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="p-4 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+                                        <div className="px-4 py-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
                                             <p className="text-2xl font-black text-[var(--text-main)] m-0 tracking-tight">{drawerPosts.length}</p>
                                             <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-sub)] m-0 mt-1 opacity-60">Posts</p>
                                         </div>
-                                        <div className="p-4 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+                                        <div className="px-4 py-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
                                             <p className="text-2xl font-black text-[var(--text-main)] m-0 tracking-tight">{drawerLogs.length}</p>
                                             <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-sub)] m-0 mt-1 opacity-60">Events</p>
                                         </div>
@@ -842,7 +894,7 @@ const PostsTab = () => {
             new Date(p.createdAt).toLocaleString()
         ]);
 
-        const csvContent = "data:text/csv;charset=utf-8," 
+        const csvContent = "data:text/csv;charset=utf-8,"
             + [headersCSV.join(','), ...rows.map(e => e.join(','))].join('\n');
 
         const encodedUri = encodeURI(csvContent);
@@ -869,12 +921,12 @@ const PostsTab = () => {
 
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex gap-4 items-center bg-[var(--surface-1)] p-4 rounded-[32px] border border-[var(--border-color)] shadow-sm flex-wrap">
+        <div className="flex flex-col gap-3">
+            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm ">
                 <div className="relative flex-1 min-w-[240px]">
                     <i className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-sub)] opacity-50"></i>
                     <input type="text" placeholder="Search captions..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-                        className="w-full bg-[var(--surface-2)] pl-11 pr-4 py-3 border border-transparent focus:border-[var(--border-color)] rounded-[20px] text-sm text-[var(--text-main)] outline-none focus:ring-4 ring-indigo-500/5 transition-all font-medium" />
+                        className="bg-[var(--surface-2)] px-6 py-3 border border-transparent hover:border-[var(--border-color)] rounded-[20px] text-sm text-[var(--text-main)] outline-none cursor-pointer hover:bg-[var(--surface-3)] transition-all font-bold" />
                 </div>
                 <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] px-6 py-3 border border-transparent hover:border-[var(--border-color)] rounded-[20px] text-sm text-[var(--text-main)] outline-none bg-[var(--surface-2)] cursor-pointer hover:bg-[var(--surface-3)] transition-all font-bold">
                     <option value="all">Everywhere</option>
@@ -893,7 +945,7 @@ const PostsTab = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                 {loading ? [1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="bg-[var(--surface-1)] rounded-[32px] p-4 border border-[var(--border-color)] shadow-sm animate-pulse">
+                    <div key={i} className="bg-[var(--surface-1)] rounded-[12px] p-4 border border-[var(--border-color)] shadow-sm animate-pulse">
                         <div className="aspect-[4/3] bg-[var(--surface-2)] rounded-[24px] flex items-center justify-center">
                             <i className="pi pi-image text-[var(--surface-3)] text-3xl"></i>
                         </div>
@@ -905,7 +957,7 @@ const PostsTab = () => {
                 )) : posts.map(post => {
                     const postImg = post.image_urls?.[0] || post.image_url;
                     return (
-                        <div key={post._id} className="group bg-[var(--surface-1)] rounded-[32px] border border-[var(--border-color)] shadow-sm overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+                        <div key={post._id} className="group bg-[var(--surface-1)] rounded-[12px] border border-[var(--border-color)] shadow-sm overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
                             <div className="relative aspect-[4/3] overflow-hidden bg-[var(--surface-2)]">
                                 {postImg ? (
                                     <img src={postImg} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -1020,8 +1072,8 @@ const ReportsTab = () => {
     const REASON_COLOR = { spam: '#f59e0b', harassment: '#ef4444', hate_speech: '#dc2626', misinformation: '#f97316', nudity: '#ec4899', violence: '#b91c1c', other: '#6b7280' };
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex gap-4 items-center bg-[var(--surface-1)] p-4 rounded-[32px] border border-[var(--border-color)] shadow-sm">
+        <div className="flex flex-col gap-3">
+            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
                 <select value={status} onChange={e => setStatus(e.target.value)} className="bg-[var(--surface-2)] px-6 py-3 border border-transparent hover:border-[var(--border-color)] rounded-[20px] text-sm text-[var(--text-main)] outline-none cursor-pointer hover:bg-[var(--surface-3)] transition-all font-bold">
                     <option value="pending">Awaiting Review</option>
                     <option value="resolved">Resolved Cases</option>
@@ -1049,7 +1101,7 @@ const ReportsTab = () => {
                         <p className="text-xs text-[var(--text-sub)] mt-3 opacity-60 font-bold tracking-wide">No pending reports found. All community guidelines are being followed.</p>
                     </div>
                 ) : reports.map(report => (
-                    <div key={report._id} className="bg-[var(--surface-1)] rounded-[32px] border border-[var(--border-color)] shadow-sm p-8 hover:shadow-2xl transition-all duration-300">
+                    <div key={report._id} className="bg-[var(--surface-1)] rounded-[12px] border border-[var(--border-color)] shadow-sm p-8 hover:shadow-2xl transition-all duration-300">
                         <div className="flex items-start justify-between gap-6">
                             <div className="flex items-center gap-5">
                                 <div className="relative group/reporter">
@@ -1248,7 +1300,7 @@ const SystemTab = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(flags).map(([key, val]) => (
-                        <div key={key} className="p-6 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-[32px] flex items-center justify-between shadow-inner">
+                        <div key={key} className="p-6 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-[12px] flex items-center justify-between shadow-inner">
                             <div>
                                 <p className="text-xs font-black text-[var(--text-main)] m-0 capitalize tracking-wider">{key.replace(/_/g, ' ')}</p>
                                 <p className="text-[9px] font-bold text-[var(--text-sub)] opacity-60 m-0 mt-1 uppercase tracking-widest">Live State Toggle</p>
@@ -1273,18 +1325,18 @@ const SystemTab = () => {
                 </div>
 
                 <form onSubmit={handleBroadcast} className="flex flex-col gap-4">
-                    <textarea 
-                        value={broadcastContent} 
-                        onChange={e => setBroadcastContent(e.target.value)} 
+                    <textarea
+                        value={broadcastContent}
+                        onChange={e => setBroadcastContent(e.target.value)}
                         placeholder="Type a message to dispatch to your user segment..."
                         rows={4}
                         className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-3xl p-5 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none"
                     />
-                    
+
                     <div className="flex items-center justify-between flex-wrap gap-4">
-                        <select 
-                            value={broadcastSegment} 
-                            onChange={e => setBroadcastSegment(e.target.value)} 
+                        <select
+                            value={broadcastSegment}
+                            onChange={e => setBroadcastSegment(e.target.value)}
                             className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer"
                         >
                             <option value="all">All Members</option>
@@ -1292,9 +1344,9 @@ const SystemTab = () => {
                             <option value="admins">Administrators</option>
                         </select>
 
-                        <button 
-                            type="submit" 
-                            disabled={broadcastLoading || !broadcastContent.trim()} 
+                        <button
+                            type="submit"
+                            disabled={broadcastLoading || !broadcastContent.trim()}
                             className="px-8 py-3 bg-[#808bf5] text-white rounded-2xl text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {broadcastLoading ? 'Dispatching...' : 'Send Broadcast'}
@@ -1314,7 +1366,7 @@ const SystemTab = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="p-8 bg-[var(--surface-2)] rounded-[32px] border border-[var(--border-color)] shadow-inner">
+                    <div className="p-8 bg-[var(--surface-2)] rounded-[12px] border border-[var(--border-color)] shadow-inner">
                         <p className="text-xs font-black text-[var(--text-main)] mb-3 m-0 uppercase tracking-[0.2em] opacity-80">Manual Data Sync</p>
                         <p className="text-xs text-[var(--text-sub)] mb-8 m-0 leading-relaxed font-medium opacity-60">
                             Force an immediate broadcast of the daily activity digest. This will bypass the system cron and deliver
@@ -1331,7 +1383,7 @@ const SystemTab = () => {
                         </button>
                     </div>
 
-                    <div className="p-6 border border-indigo-500/20 bg-indigo-500/5 rounded-[32px]">
+                    <div className="p-6 border border-indigo-500/20 bg-indigo-500/5 rounded-[12px]">
                         <div className="flex gap-4">
                             <i className="pi pi-info-circle text-[#808bf5] mt-1 text-lg"></i>
                             <div className="text-[11px] text-[#808bf5] space-y-3 font-bold uppercase tracking-wider">
@@ -1357,7 +1409,7 @@ const ContentFilterTab = () => {
     const fetchWords = useCallback(() => {
         api.get('/api/admin/content-filter', { headers })
             .then(r => setBannedWords(r.data))
-            .catch(() => {});
+            .catch(() => { });
     }, [headers]);
 
     useEffect(() => { fetchWords(); }, [fetchWords]);
@@ -1397,17 +1449,17 @@ const ContentFilterTab = () => {
                 </div>
 
                 <form onSubmit={addWord} className="flex gap-4 mb-8">
-                    <input 
-                        type="text" 
-                        placeholder="Add new banned word/phrase..." 
-                        value={newWord} 
+                    <input
+                        type="text"
+                        placeholder="Add new banned word/phrase..."
+                        value={newWord}
                         onChange={e => setNewWord(e.target.value)}
                         className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all"
                     />
                     <button type="submit" className="px-8 py-3 bg-[#808bf5] text-white rounded-2xl text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg">Add</button>
                 </form>
 
-                <div className="p-6 bg-[var(--surface-2)] rounded-[32px] border border-[var(--border-color)] mb-8">
+                <div className="p-6 bg-[var(--surface-2)] rounded-[12px] border border-[var(--border-color)] mb-8">
                     <p className="text-xs font-black text-[var(--text-main)] mb-4 m-0 uppercase tracking-[0.2em] opacity-80">Currently Banned Words</p>
                     <div className="flex gap-2 flex-wrap">
                         {bannedWords.map(item => (
@@ -1419,7 +1471,7 @@ const ContentFilterTab = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between p-6 border border-[var(--border-color)] rounded-[32px]">
+                <div className="flex items-center justify-between p-6 border border-[var(--border-color)] rounded-[12px]">
                     <div>
                         <p className="text-xs font-black text-[var(--text-main)] m-0 uppercase tracking-wider">Enforcement Policy</p>
                         <p className="text-[10px] text-[var(--text-sub)] m-0 mt-1 font-bold opacity-60">Choose what happens when a match is found.</p>
@@ -1489,15 +1541,14 @@ const AdminDashboard = () => {
     if (!verified) return <PasswordGate onSuccess={() => setVerified(true)} />;
 
     const tabs = [
-        { key: 'analytics', icon: '📊', label: 'Analytics' },
-        { key: 'users', icon: '👥', label: 'Users' },
-        { key: 'posts', icon: '📝', label: 'Posts' },
-        { key: 'reports', icon: '🚩', label: 'Reports' },
-        { key: 'audit_log', icon: '📋', label: 'Audit Log' },
-        { key: 'content_filter', icon: '🛡️', label: 'Content Filter' },
-        { key: 'system', icon: '⚙️', label: 'System' },
+        { key: 'analytics', icon: <ChartIcon />, label: 'Analytics' },
+        { key: 'users', icon: <UsersIcon />, label: 'Users' },
+        { key: 'posts', icon: <PostsIcon />, label: 'Posts' },
+        { key: 'reports', icon: <ReportIcon />, label: 'Reports' },
+        { key: 'audit_log', icon: <AuditIcon />, label: 'Audit Log' },
+        { key: 'content_filter', icon: <ShieldIcon />, label: 'Content Filter' },
+        { key: 'system', icon: <SettingsIcon />, label: 'System' },
     ];
-
 
     return (
         <div className="h-screen flex flex-col overflow-hidden bg-[var(--surface-2)] relative">
@@ -1512,7 +1563,7 @@ const AdminDashboard = () => {
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Mobile Sidebar Backdrop */}
                 {sidebarOpen && (
-                    <div 
+                    <div
                         className="fixed inset-0 bg-black/50 z-[40] lg:hidden transition-opacity duration-300 animate-in fade-in"
                         onClick={() => setSidebarOpen(false)}
                     />
@@ -1522,11 +1573,11 @@ const AdminDashboard = () => {
                 <div className={`bg-[var(--surface-1)] border-r border-[var(--border-color)] w-64 flex-shrink-0 flex flex-col h-full shadow-lg 
                     fixed inset-y-0 left-0 z-[45] lg:static lg:z-0 lg:translate-x-0 transform transition-transform duration-300
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-2 relative">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-sub)] mb-6 px-4 opacity-50">Master Control</p>
+                    <div className="flex-1 overflow-y-auto py-2  flex flex-col gap-2 relative">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-sub)] p-4  opacity-50">Master Control</p>
 
                         {/* Sliding Active Indicator */}
-                        <div 
+                        <div
                             style={{
                                 position: 'absolute',
                                 left: 24,
@@ -1543,7 +1594,7 @@ const AdminDashboard = () => {
                                 ref={el => navRefs.current[tab.key] = el}
                                 key={tab.key}
                                 onClick={() => { setActiveTab(tab.key); setSidebarOpen(false); }}
-                                className={`flex items-center gap-3.5 px-6 py-4 rounded-2xl text-[11px] font-black border-0 cursor-pointer text-left w-full transition-all duration-300 relative z-10 ${activeTab === tab.key
+                                className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[11px] font-black border-0 cursor-pointer text-left w-full transition-all duration-300 relative z-10 ${activeTab === tab.key
                                     ? 'text-white lg:translate-x-2'
                                     : 'bg-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)] translate-x-0'
                                     }`}
@@ -1556,8 +1607,8 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 h-full overflow-y-auto p-4 md:p-8 bg-[var(--surface-2)] custom-scrollbar">
-                    <div className="max-w-[1440px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-16">
+                <div className="flex-1 h-full overflow-y-auto p-2 bg-[var(--surface-2)] custom-scrollbar">
+                    <div className="max-w-[1440px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
                         {activeTab === 'analytics' && <AnalyticsTab />}
                         {activeTab === 'users' && <UsersTab />}
                         {activeTab === 'posts' && <PostsTab />}
