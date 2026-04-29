@@ -38,7 +38,8 @@ router.get("/posts", verifyToken, async (req, res) => {
             isAnonymous: { $ne: true }
         })
             .sort({ createdAt: -1 })
-            .limit(200);
+            .limit(200)
+            .allowDiskUse(true);
 
         if (!interest || !interest.interestVector.length) {
             return res.json({ items: candidates.slice(0, 20) });
@@ -109,7 +110,7 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
             const fallbackPosts = await Post.find({
                 _id: { $ne: postId },
                 $or: targetPost.category ? [{ category: targetPost.category }, { tags: { $in: targetPost.tags || [] } }] : [{}]
-            }).sort({ createdAt: -1 }).limit(15);
+            }).sort({ createdAt: -1 }).limit(15).allowDiskUse(true);
             return res.json({ items: fallbackPosts });
         }
 
@@ -122,7 +123,8 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
         // 2. Fetch candidates (exclude the target post and private users)
         const candidates = await Post.find({ _id: { $ne: postId }, 'user._id': { $nin: privateUserIds } })
             .sort({ createdAt: -1 })
-            .limit(200);
+            .limit(200)
+            .allowDiskUse(true);
 
         // 3. Get vectors for candidates
         const candidateVecs = await PostVector.find({ postId: { $in: candidates.map(c => c._id) } });
