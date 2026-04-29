@@ -74,6 +74,7 @@ const PostSchema = new mongoose.Schema(
 );
 
 
+PostSchema.index({ createdAt: -1 });
 PostSchema.index({ score: -1, createdAt: -1 });
 PostSchema.index({ category: 1 });
 PostSchema.index({ 'user._id': 1 });
