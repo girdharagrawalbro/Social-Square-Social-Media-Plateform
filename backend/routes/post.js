@@ -16,6 +16,7 @@ const { updateGamification } = require('../lib/gamification');
 const jwt = require('jsonwebtoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
+const RedisBloomFilter = require('../lib/bloomFilter');
 
 const router = express.Router();
 
@@ -61,6 +62,13 @@ router.post("/view/:postId", async (req, res) => {
 
         if (setResult === 'OK') {
             await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } });
+            
+            // Add post to user's "Seen Posts" Bloom Filter if authenticated
+            if (viewerId) {
+                const seenFilter = new RedisBloomFilter(`bf:seen:${viewerId.toString()}`);
+                await seenFilter.add(postId);
+            }
+
             return res.status(200).json({ success: true, counted: true });
         } else {
             // Recently counted — skip increment
@@ -374,32 +382,56 @@ router.get("/", async (req, res) => {
             const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
             userCategories = [...new Set(likedPosts.map(p => p.category))];
         }
-        // 🔒 Privacy Guard: Exclude private users unless followed
-        let privateUserIdsExcluded = [];
-        const privateUsers = await User.find({
-            isPrivate: true,
-            _id: { $nin: [...followingIds, userId].filter(Boolean) }
-        }).select('_id').lean();
-        privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
-
-        excludedUserIds = [...new Set([...excludedUserIds, ...privateUserIdsExcluded])];
+        // 🔒 Removed the OOM-causing global private user fetch.
+        // We now fetch posts first, then filter out private users later.
 
         // Exclude anonymous posts from normal feed — they appear in confessions feed only
         // Also exclude time-locked posts that haven't unlocked yet
-        // ALSO: Exclude blocked/muted/private users
+        // ALSO: Exclude blocked/muted users
         const query = {
             isAnonymous: { $ne: true },
             'user._id': { $nin: excludedUserIds.map(id => new mongoose.Types.ObjectId(id)) },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
-        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 3).lean();
+        // Fetch a larger batch since we might filter some out below
+        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 4).lean();
+
+        // 🔒 Privacy Guard: Find any private users among the fetched posts that we don't follow
+        const fetchedUserIds = [...new Set(posts.map(p => p.user._id.toString()))];
+        const usersToCheck = fetchedUserIds.filter(id => id !== userId && !followingIds.includes(id));
+        
+        let privateUserIdsExcluded = [];
+        if (usersToCheck.length > 0) {
+            const privateUsers = await User.find({
+                _id: { $in: usersToCheck },
+                isPrivate: true
+            }).select('_id').lean();
+            privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
+        }
+
+        // Filter out posts from those private users
+        let filteredPosts = posts.filter(p => !privateUserIdsExcluded.includes(p.user._id.toString()));
+
+        // 🔍 Bloom Filter: Exclude posts the user has already seen
+        if (userId) {
+            const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
+            const postIdsToCheck = filteredPosts.map(p => p._id.toString());
+            const seenResults = await seenFilter.mightContainMultiple(postIdsToCheck);
+            
+            // Only keep posts that the user has NOT seen
+            filteredPosts = filteredPosts.filter((p, index) => !seenResults[index]);
+            
+            // Mark the posts we are about to return as seen so they don't appear in next refresh
+            // (Only marking the ones that make it into the final feed is done after sorting, but doing it here is also fine 
+            // since we're generating them. Let's do it after we select the final `limit` posts to be perfectly accurate).
+        }
 
         // Split into posts from followed users and others (suggestions)
         const followingPosts = [];
         const suggestionPosts = [];
 
-        for (const post of posts) {
+        for (const post of filteredPosts) {
             if (followingIds.includes(post.user._id.toString())) followingPosts.push(post);
             else suggestionPosts.push(post);
         }
@@ -446,6 +478,13 @@ router.get("/", async (req, res) => {
             }
             return po;
         });
+
+        // Add the returned posts to the user's Seen Bloom filter so they don't see them again
+        if (userId && resultWithPresence.length > 0) {
+            const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
+            // Fire and forget adding to bloom filter
+            Promise.all(resultWithPresence.map(p => seenFilter.add(p._id.toString()))).catch(err => console.error("Bloom filter add error:", err));
+        }
 
         const hasMore = posts.length >= limit;
         const nextCursor = result.length > 0 ? result[result.length - 1]._id : null;
