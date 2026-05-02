@@ -472,12 +472,12 @@ router.get('/unread-total', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         // Find conversations where last message is unread AND was NOT sent by current user
-        const conversations = await Conversation.find({ 
+        const total = await Conversation.countDocuments({ 
             'participants.userId': userId,
             'lastMessage.isRead': false,
             lastMessageBy: { $ne: userId }
         });
-        res.json({ total: conversations.length });
+        res.json({ total });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -909,7 +909,7 @@ router.post('/users/details', verifyToken, async (req, res) => {
         ids = ids.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
 
         if (!ids.length) return res.status(200).json({ users: [] });
-        const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture');
+        const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture').lean();
         res.status(200).json({ users });
     } catch (e) {
         logger.error('[USERS_DETAILS] Error:', e.message);

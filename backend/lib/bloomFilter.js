@@ -108,6 +108,27 @@ class RedisBloomFilter {
         
         return answers;
     }
+
+    /**
+     * Batch add multiple items efficiently via a single pipeline.
+     * @param {string[]} items 
+     */
+    async addMultiple(items) {
+        if (!items || items.length === 0) return;
+        if (redis.status === 'disabled') return;
+
+        const pipeline = redis.pipeline();
+        items.forEach(item => {
+            const offsets = this._getOffsets(item);
+            offsets.forEach(offset => pipeline.setbit(this.key, offset, 1));
+        });
+
+        if (this.expireSeconds) {
+            pipeline.expire(this.key, this.expireSeconds);
+        }
+
+        await pipeline.exec();
+    }
 }
 
 module.exports = RedisBloomFilter;

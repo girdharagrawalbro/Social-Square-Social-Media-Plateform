@@ -62,7 +62,7 @@ router.post("/view/:postId", async (req, res) => {
 
         if (setResult === 'OK') {
             await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } });
-            
+
             // Add post to user's "Seen Posts" Bloom Filter if authenticated
             if (viewerId) {
                 const seenFilter = new RedisBloomFilter(`bf:seen:${viewerId.toString()}`);
@@ -286,7 +286,7 @@ router.get("/collaborate/invites/:userId", verifyToken, async (req, res) => {
                     status: 'pending'
                 }
             }
-        });
+        }).lean();
         res.status(200).json(posts);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -310,7 +310,7 @@ router.get("/collaborate/mine/:userId", verifyToken, async (req, res) => {
                     status: 'accepted'
                 }
             }
-        }).sort({ createdAt: -1 });
+        }).sort({ createdAt: -1 }).lean();
         res.status(200).json(posts);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -342,7 +342,7 @@ router.delete("/delete/:postId", verifyToken, async (req, res) => {
         const userId = req.userId;
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
-        
+
         const user = await User.findById(userId).select('isAdmin').lean();
         const isOwner = post.user._id.toString() === userId;
         const isAdmin = user && user.isAdmin;
@@ -400,7 +400,7 @@ router.get("/", async (req, res) => {
         // 🔒 Privacy Guard: Find any private users among the fetched posts that we don't follow
         const fetchedUserIds = [...new Set(posts.map(p => p.user._id.toString()))];
         const usersToCheck = fetchedUserIds.filter(id => id !== userId && !followingIds.includes(id));
-        
+
         let privateUserIdsExcluded = [];
         if (usersToCheck.length > 0) {
             const privateUsers = await User.find({
@@ -418,10 +418,10 @@ router.get("/", async (req, res) => {
             const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
             const postIdsToCheck = filteredPosts.map(p => p._id.toString());
             const seenResults = await seenFilter.mightContainMultiple(postIdsToCheck);
-            
+
             // Only keep posts that the user has NOT seen
             filteredPosts = filteredPosts.filter((p, index) => !seenResults[index]);
-            
+
             // Mark the posts we are about to return as seen so they don't appear in next refresh
             // (Only marking the ones that make it into the final feed is done after sorting, but doing it here is also fine 
             // since we're generating them. Let's do it after we select the final `limit` posts to be perfectly accurate).
@@ -483,7 +483,7 @@ router.get("/", async (req, res) => {
         if (userId && resultWithPresence.length > 0) {
             const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
             // Fire and forget adding to bloom filter
-            Promise.all(resultWithPresence.map(p => seenFilter.add(p._id.toString()))).catch(err => console.error("Bloom filter add error:", err));
+            seenFilter.addMultiple(resultWithPresence.map(p => p._id.toString())).catch(err => console.error("Bloom filter add error:", err));
         }
 
         const hasMore = posts.length >= limit;
@@ -538,7 +538,7 @@ router.get("/user/:userId", async (req, res) => {
             ],
             ...(cursor ? { _id: { $lt: cursor } } : {})
         };
-        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1);
+        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         res.status(200).json({ posts: result, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
@@ -576,7 +576,7 @@ router.get("/public/user/:userId", async (req, res) => {
             ],
             isAnonymous: { $ne: true } // Exclude anonymous posts
         };
-        
+
         const posts = await Post.find(query)
             .sort({ _id: -1 })
             .limit(limit)
@@ -607,8 +607,8 @@ router.get("/public/user/:userId", async (req, res) => {
         });
 
         res.status(200).json({ posts: sanitizedPosts, nextCursor: null, hasMore: false });
-    } catch (error) { 
-        res.status(500).json({ error: "Internal Server Error" }); 
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -651,7 +651,7 @@ router.get("/saved/:userId", verifyToken, async (req, res) => {
 
         const user = await User.findById(userId).select('savedPosts');
         if (!user) return res.status(404).json({ message: 'User not found.' });
-        const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 });
+        const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).lean();
         res.status(200).json(posts);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
@@ -1079,13 +1079,13 @@ router.get("/confessions", async (req, res) => {
             $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
-        const posts = await Post.find(query).sort({ score: -1, _id: -1 }).limit(limit + 1);
+        const posts = await Post.find(query).sort({ score: -1, _id: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
 
         // Strip any identifying info before sending — extra safety layer
         const sanitized = result.map(p => ({
-            ...p.toObject(),
+            ...p,
             user: {
                 _id: null, // never reveal real _id
                 fullname: 'Anonymous',
@@ -1133,9 +1133,9 @@ router.get("/explore-reels", async (req, res) => {
         }
 
         // 🔒 Privacy Guard: Identify private users to exclude (unless followed)
-        const privateUsers = await User.find({ 
-            isPrivate: true, 
-            _id: { $nin: [...followingIds, viewerId].filter(Boolean) } 
+        const privateUsers = await User.find({
+            isPrivate: true,
+            _id: { $nin: [...followingIds, viewerId].filter(Boolean) }
         }).select('_id').lean();
         const privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
 
