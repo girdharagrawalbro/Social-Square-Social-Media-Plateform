@@ -413,7 +413,8 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
         sys.exit(1)
 
     print(f"\n  [OK]  @{profile['username']}")
-    print(f"      Name      : {profile['full_name'] or '—'}")
+    safe_name = (profile['full_name'] or '').encode('ascii', 'ignore').decode('ascii')
+    print(f"      Name      : {safe_name}")
     print(f"      Followers : {profile['followers']:,}")
     print(f"      Posts     : {profile['total_posts']:,}")
     print(f"      Private   : {profile['is_private']}")

@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import UserProfile from './UserProfile';
 import FollowFollowingList from './FollowFollowingList';
 import formatDate from '../../utils/formatDate';
+import { ConfirmDialog } from 'primereact/confirmdialog';
 import { useDarkMode } from '../../context/DarkModeContext';
 
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
@@ -25,7 +26,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 import SharePostDialog from './ui/SharePostDialog';
 import ReactionPicker from './ReactionPicker';
 import PostMenu from './ui/PostMenu';
-import { usePrefetchUserProfile, useFollowUser } from '../../hooks/queries/useAuthQueries';
+import { usePrefetchUserProfile, useFollowUser, useMuteUser, useBlockUser } from '../../hooks/queries/useAuthQueries';
 import { usePrefetchPost } from '../../hooks/queries/usePostQueries';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
@@ -202,14 +203,14 @@ const PostItem = React.memo(({
     onLikeToggle, onImageDoubleClick, onImageTap, onSave, onDelete, onReport,
     onShareToStory, onProfileClick, onSharePost, onEdit,
     setVisibleCommentId, setPickerPostId, handleDwell, handleReact, renderCaption, onFollow,
-    onLikesClick
+    onLikesClick, onMute, onBlock
 }) => {
     const prefetchUser = usePrefetchUserProfile();
     const prefetchPost = usePrefetchPost();
 
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
     const images = getImages(post);
-    const isOwn = !post.isAnonymous && (post.user._id === user?._id || post.user._id?.toString() === user?._id);
+    const isOwn = !post.isAnonymous && (post.user?._id === user?._id || post.user?._id?.toString() === user?._id);
     const locked = post.unlocksAt && new Date(post.unlocksAt) > Date.now() && !isOwn;
     const expiryRemaining = post.expiresAt ? Math.max(0, new Date(post.expiresAt) - Date.now()) : null;
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
@@ -224,10 +225,10 @@ const PostItem = React.memo(({
                 <div className="flex items-center gap-3 min-w-0">
                     <div
                         className="relative w-10 h-10 flex-shrink-0"
-                        onClick={() => onProfileClick(post.user._id)}
-                        onMouseEnter={() => prefetchUser(post.user._id)}
+                        onClick={() => post.user?._id && onProfileClick(post.user._id)}
+                        onMouseEnter={() => post.user?._id && prefetchUser(post.user._id)}
                     >
-                        <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
+                        <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user?.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
                             <img
                                 src={post.user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
                                 alt="Profile"
@@ -235,16 +236,16 @@ const PostItem = React.memo(({
                                 className="w-full h-full object-cover"
                             />
                         </div>
-                        {post.user.isOnline && <div className="presence-dot" />}
+                        {post.user?.isOnline && <div className="presence-dot" />}
                     </div>
                     <div className="flex flex-col justify-center min-w-0">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <div className="m-0 text-sm leading-none flex items-center gap-1 flex-wrap text-[var(--text-main)] shrink-0">
                                 <span
                                     className="font-bold cursor-pointer hover:text-[#808bf5] transition"
-                                    onClick={() => onProfileClick(post.user._id)}
+                                    onClick={() => post.user?._id && onProfileClick(post.user._id)}
                                 >
-                                    {post.user.fullname}
+                                    {post.user?.fullname || 'Unknown User'}
                                 </span>
                                 {post.collaborators?.filter(c => c.status === 'accepted').length > 0 && (() => {
                                     const collab = post.collaborators.find(c => c.status === 'accepted');
@@ -261,14 +262,14 @@ const PostItem = React.memo(({
                                         </>
                                     );
                                 })()}
-                                {post.user.isVerified && <i className="pi pi-check-circle text-blue-500 ml-1" style={{ fontSize: '11px' }}></i>}
+                                {post.user?.isVerified && <i className="pi pi-check-circle text-blue-500 ml-1" style={{ fontSize: '11px' }}></i>}
                             </div>
                             <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider leading-none shrink-0">{formatDate(post.updatedAt)}</span>
                             {/* {post.isAnonymous && <span style={{ fontSize: '10px', background: '#ede9fe', color: '#6366f1', borderRadius: '10px', padding: '1px 6px' }} className="leading-none">🎭 Anonymous</span>} */}
 
                             {!isOwn && !isFollowing && !post.isAnonymous && (
                                 <button
-                                    onClick={() => onFollow(post.user._id)}
+                                    onClick={() => post.user?._id && onFollow(post.user._id)}
                                     className="text-[10px] px-2.5 py-1 rounded-full border border-indigo-500 bg-[#808bf5] text-white cursor-pointer font-semibold transition leading-none h-6 flex items-center"
                                 >
                                     Follow
@@ -292,6 +293,8 @@ const PostItem = React.memo(({
                         onDelete={() => onDelete(post)}
                         onReport={() => onReport(post)}
                         onShareToStory={() => onShareToStory(post)}
+                        onMute={() => onMute(post)}
+                        onBlock={() => onBlock(post)}
                         isSaving={savingPostIds.has(post._id)}
                     />
                 </div>
@@ -391,11 +394,11 @@ const PostItem = React.memo(({
                         <p className="m-0 mt-1 text-sm leading-relaxed">
                             <span
                                 className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
-                                onClick={() => onProfileClick(post.user._id)}
+                                onClick={() => post.user?._id && onProfileClick(post.user._id)}
                             >
-                                {post.user.username || post.user.fullname}
+                                {post.user?.username || post.user?.fullname || 'Unknown'}
                             </span>
-                            {renderCaption(post.caption || '')}
+                            {renderCaption(post.caption || '', post._id)}
                         </p>
                         {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
                             <p key={i} className="m-0 mt-0.5 text-sm leading-relaxed">
@@ -440,6 +443,8 @@ const Feed = ({ activeMood = null }) => {
     const updateMutation = useUpdatePost();
     const reactMutation = useReactPost();
     const followMutation = useFollowUser();
+    const muteMutation = useMuteUser();
+    const blockMutation = useBlockUser();
 
     const [pickerPostId, setPickerPostId] = useState(null);
     const reportMutation = useReportPost();
@@ -639,11 +644,46 @@ const Feed = ({ activeMood = null }) => {
         } catch (e) { toast.error(e.response?.data?.error || 'Failed'); }
     };
 
-    const renderCaption = (caption = '') => caption.split(/(\s+)/).map((token, i) => {
-        if (/^#[\w]+$/.test(token) || /^@[\w.]+$/.test(token))
-            return <span key={i} className="text-indigo-500 font-medium">{token}</span>;
-        return <span key={i}>{token}</span>;
-    });
+    const [expandedCaptions, setExpandedCaptions] = useState(new Set());
+
+    const toggleCaption = (postId) => {
+        setExpandedCaptions(prev => {
+            const next = new Set(prev);
+            if (next.has(postId)) next.delete(postId);
+            else next.add(postId);
+            return next;
+        });
+    };
+
+    const renderCaption = (caption = '', postId) => {
+        const threshold = 100;
+        const safeCaption = caption || '';
+
+        if (safeCaption.length <= threshold) {
+            return <p className="text-sm mt-2">{safeCaption}</p>;
+        }
+
+        const isExpanded = expandedCaptions.has(postId);
+        const displayCaption = isExpanded ? safeCaption : safeCaption.substring(0, threshold) + '...';
+
+        const parts = displayCaption.split(/(\s+)/).map((token, i) => {
+            if (/^#[\w]+$/.test(token) || /^@[\w.]+$/.test(token))
+                return <span key={i} className="text-indigo-500 font-medium">{token}</span>;
+            return <span key={i}>{token}</span>;
+        });
+
+        return (
+            <p className="text-sm mt-2">
+                {parts}
+                <button
+                    onClick={(e) => { e.stopPropagation(); toggleCaption(postId); }}
+                    className="ml-1 border-0 bg-transparent p-0 text-[var(--text-sub)] font-bold text-xs cursor-pointer hover:text-[#808bf5] transition-colors"
+                >
+                    {isExpanded ? ' show less' : ' more'}
+                </button>
+            </p>
+        );
+    };
 
     const isLoading = feedQuery.isLoading && displayPosts.length === 0;
 
@@ -685,8 +725,9 @@ const Feed = ({ activeMood = null }) => {
                 .music-tag{animation:musicPulse 2s ease-in-out infinite}
                 @keyframes musicPulse{0%,100%{opacity:1}50%{opacity:0.6}}
             `}</style>
+            <ConfirmDialog />
 
-            <div>
+            <div className={`feed-container max-w-2xl mx-auto ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'} min-h-screen pb-20`}>
                 {isLoading ? (
                     <div className="mt-1 flex flex-col">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
                 ) : (
@@ -702,7 +743,7 @@ const Feed = ({ activeMood = null }) => {
                                 }
                                 likesCount={optimisticLikes[post._id] ? optimisticLikes[post._id].size : (post.likes?.length || 0)}
                                 isSavedByMe={isSaved(post._id)}
-                                isFollowing={user?.following?.some(f => f?.toString() === post.user._id?.toString())}
+                                isFollowing={user?.following?.some(f => f?.toString() === post.user?._id?.toString())}
                                 heartVisible={!!heartVisible[post._id]}
                                 visiblePostId={visiblePostId}
                                 pickerPostId={pickerPostId}
@@ -724,6 +765,24 @@ const Feed = ({ activeMood = null }) => {
                                 renderCaption={renderCaption}
                                 onFollow={handleFollow}
                                 onLikesClick={(ids) => { setLikesIds(ids); setLikesVisible(true); }}
+                                onMute={(p) => {
+                                    confirmDialog({
+                                        message: `Are you sure you want to mute ${p.user.fullname}? Their posts will be hidden from your feed.`,
+                                        header: 'Mute User',
+                                        icon: 'pi pi-volume-off',
+                                        accept: () => muteMutation.mutate({ targetUserId: p.user?._id }, { onSuccess: () => toast.success('User muted') })
+                                    });
+                                }}
+                                onBlock={(p) => {
+                                    confirmDialog({
+                                        message: `Are you sure you want to block ${p.user.fullname}? You won't be able to see each other's posts.`,
+                                        header: 'Block User',
+                                        icon: 'pi pi-ban',
+                                        acceptClassName: 'p-button-danger',
+                                        accept: () => blockMutation.mutate({ targetUserId: p.user?._id }, { onSuccess: () => toast.success('User blocked') })
+                                    });
+                                }}
+
                             />
                         )) : (
                             <div className="flex flex-col items-center justify-center py-20 px-6 text-center">

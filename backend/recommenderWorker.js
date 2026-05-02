@@ -42,10 +42,10 @@ async function getEmbedding(text) {
 async function handlePostCreated(data) {
   const { postId, caption, category, tags = [] } = data;
   const textToEmbed = `${caption} ${category} ${tags.join(' ')}`.trim();
-  
+
   console.log(`📝 Generating embedding for post ${postId}...`);
   const vector = await getEmbedding(textToEmbed);
-  
+
   await PostVector.findOneAndUpdate(
     { postId },
     { vector, category, tags, createdAt: new Date() },
@@ -60,17 +60,17 @@ async function handleUserActivity(data) {
   if (!userId || !postId) return;
 
   let postVecDoc = await PostVector.findOne({ postId });
-  
+
   if (!postVecDoc) {
     const post = await Post.findById(postId);
     if (post) {
       const text = `${post.caption} ${post.category} ${(post.tags || []).join(' ')}`.trim();
       const vector = await getEmbedding(text);
-      postVecDoc = await PostVector.create({ 
-        postId, 
-        vector, 
-        category: post.category, 
-        tags: post.tags || [] 
+      postVecDoc = await PostVector.create({
+        postId,
+        vector,
+        category: post.category,
+        tags: post.tags || []
       });
     }
   }
@@ -81,14 +81,14 @@ async function handleUserActivity(data) {
   let interest = await UserInterest.findOne({ userId });
 
   if (!interest) {
-    interest = new UserInterest({ 
-      userId, 
-      interestVector: postVecDoc.vector, 
-      likedTags: tags, 
-      topCategories: category ? [category] : [] 
+    interest = new UserInterest({
+      userId,
+      interestVector: postVecDoc.vector,
+      likedTags: tags,
+      topCategories: category ? [category] : []
     });
   } else {
-    const newVector = interest.interestVector.map((val, i) => 
+    const newVector = interest.interestVector.map((val, i) =>
       (1 - ALPHA) * val + ALPHA * postVecDoc.vector[i]
     );
     interest.interestVector = newVector;
@@ -119,16 +119,16 @@ async function initWorker() {
 
   // NATS Connection
   try {
-    const nc = await connect({ 
-      servers: NATS_URL, 
+    const nc = await connect({
+      servers: NATS_URL,
       token: NATS_TOKEN,
       waitOnFirstConnect: true,
-      timeout: 60000 
+      timeout: 60000
     });
     console.log(`🔌 Connected to NATS at ${NATS_URL}`);
 
-    const sub = nc.subscribe(">"); 
-    
+    const sub = nc.subscribe(">");
+
     (async () => {
       for await (const m of sub) {
         try {

@@ -22,7 +22,7 @@ class RedisBloomFilter {
     _getOffsets(item) {
         const offsets = [];
         const hash = crypto.createHash('md5').update(String(item)).digest('hex');
-        
+
         // Use chunks of the MD5 hash as pseudo-independent hash functions
         for (let i = 0; i < this.hashes; i++) {
             const chunk = hash.substring(i * 8, (i + 1) * 8);
@@ -38,18 +38,18 @@ class RedisBloomFilter {
      */
     async add(item) {
         if (redis.status === 'disabled') return;
-        
+
         const offsets = this._getOffsets(item);
         const pipeline = redis.pipeline();
-        
+
         offsets.forEach(offset => {
             pipeline.setbit(this.key, offset, 1);
         });
-        
+
         if (this.expireSeconds) {
             pipeline.expire(this.key, this.expireSeconds);
         }
-        
+
         await pipeline.exec();
     }
 
@@ -62,21 +62,22 @@ class RedisBloomFilter {
      */
     async mightContain(item) {
         if (redis.status === 'disabled') return false; // Fail-open gracefully
-        
+
         const offsets = this._getOffsets(item);
         const pipeline = redis.pipeline();
-        
+
         offsets.forEach(offset => {
             pipeline.getbit(this.key, offset);
         });
-        
+
         const results = await pipeline.exec();
         // pipeline.exec() returns array of [error, result]
         return results.every(res => res[1] === 1);
     }
 
     /**
-     * Batch check multiple items efficiently via a single pipeline.
+     * Batch check multiple items efficiently via a single Lua script.
+     * Reduces Upstash command counts from (hashes * items) down to 1 command.
      * @param {string[]} items 
      * @returns {Promise<boolean[]>} Array of booleans corresponding to each item
      */
@@ -84,50 +85,64 @@ class RedisBloomFilter {
         if (!items || items.length === 0) return [];
         if (redis.status === 'disabled') return items.map(() => false);
 
-        const pipeline = redis.pipeline();
+        const allOffsets = [];
         items.forEach(item => {
-            const offsets = this._getOffsets(item);
-            offsets.forEach(offset => pipeline.getbit(this.key, offset));
+            allOffsets.push(...this._getOffsets(item));
         });
 
-        const results = await pipeline.exec();
-        
+        // 1 Lua script = 1 Redis Command
+        const script = `
+            local results = {}
+            for i, offset in ipairs(ARGV) do
+                local bit = redis.call('GETBIT', KEYS[1], offset)
+                table.insert(results, bit)
+            end
+            return results
+        `;
+
+        const bits = await redis.eval(script, 1, this.key, ...allOffsets);
+
         const answers = [];
         let resultIdx = 0;
-        
+
         for (let i = 0; i < items.length; i++) {
             let contains = true;
             for (let h = 0; h < this.hashes; h++) {
-                if (results[resultIdx][1] === 0) {
+                if (bits[resultIdx] === 0) {
                     contains = false;
                 }
                 resultIdx++;
             }
             answers.push(contains);
         }
-        
+
         return answers;
     }
 
     /**
-     * Batch add multiple items efficiently via a single pipeline.
+     * Batch add multiple items efficiently via a single Lua script.
+     * Reduces Upstash command counts from (hashes * items + 1) down to 1 command.
      * @param {string[]} items 
      */
     async addMultiple(items) {
         if (!items || items.length === 0) return;
         if (redis.status === 'disabled') return;
 
-        const pipeline = redis.pipeline();
+        const allOffsets = [];
         items.forEach(item => {
-            const offsets = this._getOffsets(item);
-            offsets.forEach(offset => pipeline.setbit(this.key, offset, 1));
+            allOffsets.push(...this._getOffsets(item));
         });
 
-        if (this.expireSeconds) {
-            pipeline.expire(this.key, this.expireSeconds);
-        }
+        const script = `
+            for i, offset in ipairs(ARGV) do
+                redis.call('SETBIT', KEYS[1], offset, 1)
+            end
+            if tonumber(KEYS[2]) > 0 then
+                redis.call('EXPIRE', KEYS[1], tonumber(KEYS[2]))
+            end
+        `;
 
-        await pipeline.exec();
+        await redis.eval(script, 2, this.key, this.expireSeconds || 0, ...allOffsets);
     }
 }
 

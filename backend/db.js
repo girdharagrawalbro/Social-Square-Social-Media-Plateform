@@ -12,13 +12,12 @@ const connectToMongo = async () => {
 
             // ─── Timeouts ─────────────────────────────────────────────────────
             serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS:          30000,
-            connectTimeoutMS:         10000,
-
+            socketTimeoutMS:          15000, // Reduced from 30s to 15s to fail faster
+            connectTimeoutMS:         5000,  // Reduced from 10s to 5s
+            
             // ─── Reliability ──────────────────────────────────────────────────
             retryWrites: true,
             retryReads:  true,
-            // Removed w:'majority' — only for replica sets, not needed on Atlas free tier
         });
 
         console.log(`[MongoDB] Connected (PID: ${process.pid})`);

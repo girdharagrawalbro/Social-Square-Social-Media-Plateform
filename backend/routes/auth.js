@@ -843,6 +843,9 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
         const isOwner = targetId === loggedUserId.toString();
         const canSeeDetails = isOwner || isFollowing || !targetUser.isPrivate;
 
+        const isBlockedByMe = (loggedUser?.blockedUsers || []).some(id => id.toString() === targetId.toString());
+        const isBlockingMe = (targetUser.blockedUsers || []).some(id => id.toString() === loggedUserId.toString());
+
         return res.status(200).json({
             ...targetUser,
             followers: canSeeDetails ? targetUser.followers : [],
@@ -850,6 +853,8 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             followerCount: (targetUser.followers || []).length,
             followingCount: (targetUser.following || []).length,
             isFollowing,
+            isBlockedByMe,
+            isBlockingMe,
             hasPendingRequest,
             mutualFollowers: mutualDetails,
             mutualCount: mutualIds.length,
@@ -1165,9 +1170,26 @@ router.post('/follow-request/decline', verifyToken, async (req, res) => {
 
 router.get('/user/:id', verifyToken, async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).select(OTHER_USER_EXCLUSIONS);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-        res.status(200).json(user);
+        const targetId = req.params.id;
+        const loggedUserId = req.userId;
+
+        const targetUser = await User.findById(targetId).select(OTHER_USER_EXCLUSIONS).lean();
+        if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+        const loggedUser = await User.findById(loggedUserId).select('blockedUsers following').lean();
+
+        const isBlockedByMe = (loggedUser?.blockedUsers || []).some(id => id.toString() === targetId);
+        const isBlockingMe = (targetUser.blockedUsers || []).some(id => id.toString() === loggedUserId.toString());
+        const hasPendingRequest = (targetUser.followRequests || []).some(id => id.toString() === loggedUserId.toString());
+        const isFollowing = (loggedUser?.following || []).some(id => id.toString() === targetId);
+
+        res.status(200).json({
+            ...targetUser,
+            isBlockedByMe,
+            isBlockingMe,
+            hasPendingRequest,
+            isFollowing
+        });
     } catch (error) {
         res.status(500).json({ message: 'Internal server error' });
     }
@@ -1368,6 +1390,16 @@ router.post('/mute', verifyToken, async (req, res) => {
         const { targetUserId } = req.body;
         await User.findByIdAndUpdate(req.userId, { $addToSet: { mutedUsers: targetUserId } });
         res.status(200).json({ message: 'User muted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/unmute', verifyToken, async (req, res) => {
+    try {
+        const { targetUserId } = req.body;
+        await User.findByIdAndUpdate(req.userId, { $pull: { mutedUsers: targetUserId } });
+        res.status(200).json({ message: 'User unmuted' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

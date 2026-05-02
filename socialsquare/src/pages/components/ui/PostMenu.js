@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory }) => {
+const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory, onMute, onBlock, buttonClassName, iconClassName }) => {
     const [visible, setVisible] = useState(false);
     const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
 
@@ -36,6 +36,24 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
             }
         ] : [
             {
+                label: 'Mute user',
+                icon: 'pi pi-volume-off',
+                color: 'text-[var(--text-main)]',
+                onClick: () => {
+                    onMute();
+                    setVisible(false);
+                }
+            },
+            {
+                label: 'Block user',
+                icon: 'pi pi-ban',
+                color: 'text-red-500',
+                onClick: () => {
+                    onBlock();
+                    setVisible(false);
+                }
+            },
+            {
                 label: 'Report post',
                 icon: 'pi pi-flag',
                 color: 'text-red-500',
@@ -51,10 +69,10 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
         <div className="relative post-menu-container">
             <button
                 aria-label="Post options"
-                onClick={() => setVisible(true)}
-                className="bg-[var(--surface-2)] border-0 cursor-pointer p-2 rounded-full text-[var(--text-main)] hover:opacity-80 transition flex items-center justify-center shadow-sm"
+                onClick={(e) => { e.stopPropagation(); setVisible(true); }}
+                className={buttonClassName || "bg-[var(--surface-2)] border-0 cursor-pointer p-2 rounded-full text-[var(--text-main)] hover:opacity-80 transition flex items-center justify-center shadow-sm"}
             >
-                <i className="pi pi-ellipsis-h" style={{ fontSize: '16px', fontWeight: 'bold' }}></i>
+                <i className={iconClassName || "pi pi-ellipsis-h"} style={{ fontSize: '16px', fontWeight: 'bold' }}></i>
             </button>
 
             <Dialog

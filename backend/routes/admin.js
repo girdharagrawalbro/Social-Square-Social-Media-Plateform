@@ -9,6 +9,7 @@ const ContentFilter = require('../models/ContentFilter');
 const { logAdminAction } = require('../utils/audit.helper');
 const SystemSetting = require('../models/SystemSetting');
 const Notification = require('../models/Notification');
+const verifyToken = require('../middleware/Verifytoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const { digestQueue } = require('../queues/digestQueue');
@@ -582,11 +583,12 @@ router.patch('/reports/:reportId/resolve', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── SUBMIT REPORT (public, rate limited separately) ─────────────────────────
-router.post('/report', async (req, res) => {
+// ─── SUBMIT REPORT (public, but requires login) ─────────────────────────────
+router.post('/report', verifyToken, async (req, res) => {
     try {
-        const { reporterId, targetType, targetId, reason, description } = req.body;
-        if (!reporterId || !targetType || !targetId || !reason) {
+        const { targetType, targetId, reason, description } = req.body;
+        const reporterId = req.userId;
+        if (!targetType || !targetId || !reason) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
         // Upsert to avoid race condition duplicates

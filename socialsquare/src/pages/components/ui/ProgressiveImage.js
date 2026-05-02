@@ -38,6 +38,7 @@ const ProgressiveImage = ({
                 overflow: 'hidden',
                 backgroundColor: placeholderColor,
                 width: '100%',
+                height: '100%',
                 display: 'block',
                 ...style
             }}
@@ -51,8 +52,7 @@ const ProgressiveImage = ({
                 alt={alt}
                 style={{
                     width: '100%',
-                    height: 'auto',
-                    maxHeight: '600px',
+                    height: '100%',
                     objectFit: objectFit,
                     display: 'block',
                     filter: isLoaded ? 'none' : `blur(${blurIntensity})`,

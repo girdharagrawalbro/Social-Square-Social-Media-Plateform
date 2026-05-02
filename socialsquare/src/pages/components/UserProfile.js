@@ -4,7 +4,7 @@ import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
-import { useUserDetails, useFollowUser, useUnfollowUser, useCancelFollowRequest, authKeys } from '../../hooks/queries/useAuthQueries';
+import { useUserDetails, useFollowUser, useUnfollowUser, useCancelFollowRequest, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, authKeys } from '../../hooks/queries/useAuthQueries';
 import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
@@ -15,7 +15,7 @@ import ProgressiveImage from './ui/ProgressiveImage';
 
 const PostDetail = lazy(() => import('./PostDetail'));
 
-const PostGrid = ({ userId, maxPosts, isBlur }) => {
+const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
 
@@ -124,6 +124,10 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
     const cancelRequestMutation = useCancelFollowRequest();
+    const muteMutation = useMuteUser();
+    const unmuteMutation = useUnmuteUser();
+    const blockMutation = useBlockUser();
+    const unblockMutation = useUnblockUser();
 
     const { data: userDetails, isLoading: userLoading } = useQuery({
         queryKey: authKeys.userProfile(id),
@@ -144,7 +148,9 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
 
     const isFollowing = userDetails?.isFollowing ?? loggeduser?.following?.some(f => f?.toString() === id?.toString());
     const isRequested = userDetails?.hasPendingRequest ?? userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
-    const isBlockedByMe = loggeduser?.blockedUsers?.some(b => b?.toString() === id?.toString());
+    const isBlockedByMe = userDetails?.isBlockedByMe ?? loggeduser?.blockedUsers?.some(b => b?.toString() === id?.toString());
+    const isBlockingMe = userDetails?.isBlockingMe;
+    const isMutedByMe = loggeduser?.mutedUsers?.some(m => m?.toString() === id?.toString());
     const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id && !isBlockedByMe;
 
     const handleFollow = async () => {
@@ -184,7 +190,19 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
         }
     };
 
-    const handleUnblock = () => unblockUser(id);
+    const handleUnblock = () => unblockMutation.mutate({ targetUserId: id });
+    const handleBlock = () => {
+        confirmDialog({
+            message: `Are you sure you want to block ${userDetails?.fullname}? They won't be able to see your posts and you won't see theirs.`,
+            header: 'Block User',
+            icon: 'pi pi-ban',
+            acceptLabel: 'Block',
+            acceptClassName: 'p-button-danger',
+            accept: () => blockMutation.mutate({ targetUserId: id }),
+        });
+    };
+    const handleMute = () => muteMutation.mutate({ targetUserId: id });
+    const handleUnmute = () => unmuteMutation.mutate({ targetUserId: id });
 
     const handleShareProfile = async () => {
         const profileUrl = `${window.location.origin}/profile/${id}`;
@@ -212,16 +230,48 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
 
     if (!id) return null;
     if (userLoading) return (
-        <div className={`w-full p-4`}>
-            <div className={`flex flex-col gap-6 items-center bg-[var(--surface-1)] p-8 `}>
-                <div className="w-24 h-24 rounded-full bg-[var(--surface-2)] animate-pulse" />
-                <div className="flex flex-col items-center gap-2">
-                    <div className="h-5 w-40 bg-[var(--surface-2)] rounded animate-pulse" />
-                    <div className="h-4 w-28 bg-[var(--surface-2)] rounded animate-pulse" />
+        <div className="w-full py-2 px-3 flex flex-col items-center">
+            <div className="w-full flex flex-col gap-4 bg-[var(--surface-1)]" style={{ maxWidth: '400px' }}>
+
+                {/* Avatar */}
+                <div className="flex flex-col items-center gap-3 pt-2">
+                    <div className="skeleton rounded-full border-4 border-[var(--border-color)]" style={{ width: 80, height: 80, borderRadius: '50%' }} />
+                    <div className="flex flex-col items-center gap-2">
+                        <div className="skeleton" style={{ width: 140, height: 18 }} />
+                        <div className="skeleton" style={{ width: 90, height: 13 }} />
+                        <div className="skeleton" style={{ width: 170, height: 12, marginTop: 4 }} />
+                        <div className="skeleton" style={{ width: 130, height: 12 }} />
+                    </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="skeleton" style={{ height: 40, borderRadius: 12 }} />
+                    <div className="skeleton" style={{ height: 40, borderRadius: 12 }} />
+                </div>
+                <div className="flex gap-2">
+                    <div className="skeleton flex-1" style={{ height: 40, borderRadius: 12 }} />
+                    <div className="skeleton flex-1" style={{ height: 40, borderRadius: 12 }} />
+                    <div className="skeleton" style={{ height: 40, width: 40, borderRadius: 12, flexShrink: 0 }} />
+                </div>
+
+                {/* Stats Bar */}
+                <div className="grid grid-cols-4 gap-1.5">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="skeleton" style={{ height: 58, borderRadius: 12 }} />
+                    ))}
+                </div>
+
+                {/* Post Grid */}
+                <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                        <div key={i} className="skeleton" style={{ aspectRatio: '1', borderRadius: 10 }} />
+                    ))}
                 </div>
             </div>
         </div>
     );
+
     if (!userDetails) return <p className="text-center text-[var(--text-sub)] p-4">User not found</p>;
 
 
@@ -312,12 +362,38 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                 </button>
                             )}
 
-                            <button
-                                onClick={handleShareProfile}
-                                className="h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
-                            >
-                                🔗 Share Profile
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleShareProfile}
+                                    className="flex-1 h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                >
+                                    🔗 Share
+                                </button>
+                                {isMutedByMe ? (
+                                    <button
+                                        onClick={handleUnmute}
+                                        className="flex-1 h-10 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-600 font-semibold text-sm cursor-pointer hover:bg-yellow-500/20 transition"
+                                    >
+                                        🔊 Unmute
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleMute}
+                                        className="flex-1 h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                    >
+                                        🔇 Mute
+                                    </button>
+                                )}
+                                {!isBlockedByMe && (
+                                    <button
+                                        onClick={handleBlock}
+                                        className="w-10 h-10 rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 flex items-center justify-center cursor-pointer hover:bg-red-500/20 transition"
+                                        title="Block User"
+                                    >
+                                        <i className="pi pi-ban"></i>
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -370,9 +446,24 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                     )}
 
 
-                    {!isBlockedByMe && !isPrivateAndNotFollowing && (
+                    {isBlockingMe && (
+                        <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                                <i className="pi pi-ban text-2xl text-red-500"></i>
+                            </div>
+                            <h3 className="text-lg font-bold text-[var(--text-main)]">User Unavailable</h3>
+                            <p className="text-sm text-[var(--text-sub)] mt-1">This user has restricted access to their profile.</p>
+                        </div>
+                    )}
+
+                    {!isBlockedByMe && !isBlockingMe && !isPrivateAndNotFollowing && (
                         <div className="flex flex-col gap-2">
-                            <PostGrid userId={id} maxPosts={maxPosts} isCompactPreview={true} isBlur={isFollowing ? false : true} />
+                            <PostGrid
+                                userId={id}
+                                maxPosts={maxPosts}
+                                isCompactPreview={true}
+                                isBlur={!(isFollowing || loggeduser?._id === id)}
+                            />
                             <button onClick={() => {
                                 if (onClose) onClose();
                                 if (id) navigate(`/profile/${id}`);

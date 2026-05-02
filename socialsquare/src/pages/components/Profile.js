@@ -456,7 +456,7 @@ const Profile = ({ userId }) => {
 
                         {/* Tabs */}
                         {!isPrivateAndNotFollowing && !isBlockedByMe && (
-                            <div className="flex relative items-center bg-[var(--surface-2)] p-1 rounded-2xl mb-2 border border-[var(--border-color)]" ref={tabContainerRef}>
+                            <div className="flex relative items-center bg-[var(--surface-2)]  rounded-2xl mb-2 " ref={tabContainerRef}>
                                 {/* Floating Pill */}
                                 <div
                                     style={{

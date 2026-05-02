@@ -15,12 +15,12 @@ const MoodFeedToggle = ({ onMoodSelect, activeMood, onClear }) => {
     return (
         <div className="flex flex-col gap-2.5 mb-6 animate-in fade-in slide-in-from-top-3 duration-500">
             <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
+                {/* <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 rotate-3">
                         <i className="pi pi-sparkles text-[10px]"></i>
                     </div>
                     <span className="text-[13px] font-black text-[var(--text-main)] tracking-tight">VIBE CHECK</span>
-                </div>
+                </div> */}
                 {activeMood && (
                     <button
                         onClick={onClear}

@@ -352,3 +352,50 @@ export function useLeaveGroup() {
         },
     });
 }
+
+// ─── MUTE / BLOCK MUTATIONS ──────────────────────────────────────────────────
+export function useMuteUser() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ targetUserId }) => api.post('/api/auth/mute', { targetUserId }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['posts'] });
+            qc.invalidateQueries({ queryKey: ['user'] });
+        },
+    });
+}
+
+export function useUnmuteUser() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ targetUserId }) => api.post('/api/auth/unmute', { targetUserId }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['posts'] });
+            qc.invalidateQueries({ queryKey: ['user'] });
+        },
+    });
+}
+
+export function useBlockUser() {
+    const qc = useQueryClient();
+    const unfollowUser = useAuthStore(s => s.unfollowUser);
+    return useMutation({
+        mutationFn: ({ targetUserId }) => api.post('/api/auth/block', { targetUserId }),
+        onSuccess: (_, { targetUserId }) => {
+            unfollowUser(targetUserId);
+            qc.invalidateQueries({ queryKey: ['posts'] });
+            qc.invalidateQueries({ queryKey: ['user'] });
+            qc.invalidateQueries({ queryKey: authKeys.otherUsers });
+        },
+    });
+}
+
+export function useUnblockUser() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ targetUserId }) => api.post('/api/auth/unblock', { targetUserId }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['user'] });
+        },
+    });
+}

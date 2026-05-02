@@ -7,6 +7,14 @@ import { Skeleton } from 'primereact/skeleton';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useNavigate } from 'react-router-dom';
+import {
+  useLikePost, useSavePost, useReactPost
+} from '../../hooks/queries/usePostQueries';
+import Comment from './ui/Comment';
+import SharePostDialog from './ui/SharePostDialog';
+import PostMenu from './ui/PostMenu';
+import { useMuteUser, useBlockUser } from '../../hooks/queries/useAuthQueries';
+import usePostStore from '../../store/zustand/usePostStore';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
@@ -117,7 +125,31 @@ const Explore = () => {
   const [muted, setMuted] = useState(true);
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [heartVisible, setHeartVisible] = useState(false);
+  const [expandedCaptions, setExpandedCaptions] = useState(new Set());
   const lastTap = useRef(0);
+
+  const toggleCaption = (postId) => {
+    setExpandedCaptions(prev => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
+  };
+
+  // Social Interaction Hooks
+  const likeMut = useLikePost();
+  const saveMut = useSavePost();
+  const reactMut = useReactPost();
+  const muteMut = useMuteUser();
+  const blockMut = useBlockUser();
+  const savedPostIds = usePostStore(s => s.savedPostIds);
+  const [isCommentVisible, setCommentVisible] = useState(false);
+  const [isShareVisible, setShareVisible] = useState(false);
+
+  const activePost = useMemo(() => videos[activeIndex], [videos, activeIndex]);
+  const isLikedByMe = useMemo(() => activePost?.likes?.includes(loggeduser?._id), [activePost, loggeduser]);
+  const isSavedByMe = useMemo(() => activePost && savedPostIds.includes(activePost._id), [activePost, savedPostIds]);
 
   // Infinite Scroll Trigger
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
@@ -150,12 +182,38 @@ const Explore = () => {
     }, 1200);
   };
 
-  const handleDoubleClick = () => {
+  const handleLike = () => {
+    if (!activePost) return;
     if (navigator.vibrate) navigator.vibrate([10, 30]);
     addFloatingReaction();
     setHeartVisible(true);
-    toast.success('Added to Liked Videos!');
+    
+    if (!isLikedByMe) {
+      likeMut.mutate({ postId: activePost._id, isLiked: false, likes: activePost.likes });
+    }
+    
     setTimeout(() => setHeartVisible(false), 800);
+  };
+
+  const handleToggleLike = (e) => {
+    e?.stopPropagation();
+    if (!activePost) return;
+    likeMut.mutate({ postId: activePost._id, isLiked: isLikedByMe, likes: activePost.likes });
+    if (!isLikedByMe) {
+      addFloatingReaction();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+  };
+
+  const handleToggleSave = (e) => {
+    e?.stopPropagation();
+    if (!activePost) return;
+    saveMut.mutate({ postId: activePost._id });
+    if (navigator.vibrate) navigator.vibrate(10);
+  };
+
+  const handleDoubleClick = () => {
+    handleLike();
   };
 
   const handleTap = () => {
@@ -236,7 +294,7 @@ const Explore = () => {
       <Dialog
         visible={visible}
         onHide={() => setVisible(false)}
-        style={{ width: '100vw', height: '100vh', maxWidth: '100vw', margin: 0, padding: 0 }}
+        style={{ width: '30opx', height: '100vh', maxWidth: '100vw', margin: 0, padding: 0 }}
         modal
         showHeader={false}
         className="explore-reels-dialog"
@@ -284,29 +342,66 @@ const Explore = () => {
 
             {/* Overlay Actions */}
             <div className="absolute bottom-10 right-4 flex flex-col gap-6 items-center text-white z-40">
+              {/* Like */}
               <div className="flex flex-col items-center gap-1">
                 <button
-                  className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 active:scale-90 transition-all"
-                  onClick={() => {
-                    handleDoubleClick();
-                    addFloatingReaction('🔥');
-                  }}
+                  className="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
+                  onClick={handleToggleLike}
                 >
-                  <i className="pi pi-heart-fill text-red-500"></i>
+                  <i className={`pi ${isLikedByMe ? 'pi-heart-fill text-red-500' : 'pi-heart text-white'}`}></i>
                 </button>
-                <span className="text-[10px] font-bold">Liked</span>
+                <span className="text-[10px] font-bold">{activePost?.likes?.length || 0}</span>
               </div>
+
+              {/* Comment */}
               <div className="flex flex-col items-center gap-1">
                 <button
-                  className="bg-transparent border-0 text-white text-2xl p-0 cursor-pointer hover:scale-120 transition"
-                  onClick={() => {
-                    if (navigator.vibrate) navigator.vibrate(10);
-                    addFloatingReaction('💬');
-                  }}
+                  className="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
+                  onClick={(e) => { e.stopPropagation(); setCommentVisible(true); }}
                 >
                   <i className="pi pi-comment"></i>
                 </button>
-                <span className="text-[10px] font-bold">React</span>
+                <span className="text-[10px] font-bold">Comments</span>
+              </div>
+
+              {/* Save */}
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  className="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
+                  onClick={handleToggleSave}
+                >
+                  <i className={`pi ${isSavedByMe ? 'pi-bookmark-fill text-[#808bf5]' : 'pi-bookmark text-white'}`}></i>
+                </button>
+                <span className="text-[10px] font-bold">{isSavedByMe ? 'Saved' : 'Save'}</span>
+              </div>
+
+              {/* Share */}
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  className="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
+                  onClick={(e) => { e.stopPropagation(); setShareVisible(true); }}
+                >
+                  <i className="pi pi-share-alt"></i>
+                </button>
+                <span className="text-[10px] font-bold">Share</span>
+              </div>
+
+              {/* More Menu */}
+              <div className="flex flex-col items-center gap-1">
+                <PostMenu 
+                  post={activePost} 
+                  user={loggeduser} 
+                  isSaved={isSavedByMe}
+                  onMute={() => {
+                    muteMut.mutate({ targetUserId: activePost.user._id }, { onSuccess: () => toast.success('User muted') });
+                  }}
+                  onBlock={() => {
+                    blockMut.mutate({ targetUserId: activePost.user._id }, { onSuccess: () => toast.success('User blocked') });
+                  }}
+                  buttonClassName="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
+                  iconClassName="pi pi-ellipsis-v"
+                />
+                <span className="text-[10px] font-bold">More</span>
               </div>
             </div>
 
@@ -320,7 +415,34 @@ const Explore = () => {
                   <p className="m-0 text-white font-bold text-sm">@{videos[activeIndex]?.user?.username || videos[activeIndex]?.user?.fullname?.toLowerCase().replace(/\s/g, '_') || 'user'}</p>
                 </div>
               </div>
-              <p className="m-0 text-white text-sm mt-2 font-medium">{videos[activeIndex]?.caption}</p>
+              <div className="m-0 text-white text-sm mt-2 font-medium">
+                {(() => {
+                  const caption = videos[activeIndex]?.caption || '';
+                  const postId = videos[activeIndex]?._id;
+                  const isExpanded = expandedCaptions.has(postId);
+                  const limit = 80;
+                  const needsTruncation = caption.length > limit;
+                  const displayCaption = (!isExpanded && needsTruncation) ? caption.substring(0, limit) + '...' : caption;
+
+                  return (
+                    <>
+                      {displayCaption.split(/(\s+)/).map((token, i) => {
+                        if (/^#[\w]+$/.test(token) || /^@[\w.]+$/.test(token))
+                          return <span key={i} className="text-[#808bf5] font-medium">{token}</span>;
+                        return <span key={i}>{token}</span>;
+                      })}
+                      {needsTruncation && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleCaption(postId); }}
+                          className="ml-1 border-0 bg-transparent p-0 text-gray-300 font-bold text-xs cursor-pointer hover:text-white transition-colors underline"
+                        >
+                          {isExpanded ? ' show less' : ' more'}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
 
             {/* Navigation Buttons for PC */}
@@ -362,6 +484,22 @@ const Explore = () => {
             }
         `}</style>
       </Dialog>
+      
+      {/* Social Dialogs */}
+      {activePost && (
+        <>
+          <Comment
+            visible={isCommentVisible}
+            onHide={() => setCommentVisible(false)}
+            postId={activePost._id}
+          />
+          <SharePostDialog
+            visible={isShareVisible}
+            onHide={() => setShareVisible(false)}
+            post={activePost}
+          />
+        </>
+      )}
     </div>
   );
 };

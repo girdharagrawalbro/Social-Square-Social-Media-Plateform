@@ -79,6 +79,7 @@ async function buildCandidateSignals(loggedUserId, followingIds) {
   const excludeSet = new Set(excludeStrings);
   const excludeObjectIds = excludeStrings.map(id => new mongoose.Types.ObjectId(id));
 
+  // 1. Mutual Follows (Friends of Friends)
   const followingDocs = followingIds?.length
     ? await User.find({ _id: { $in: followingIds } }).select('following').lean()
     : [];
@@ -93,6 +94,27 @@ async function buildCandidateSignals(loggedUserId, followingIds) {
     }
   }
 
+  // 2. Followers you don't follow back
+  const followersYouDontFollow = await User.find({
+    following: loggedUserId,
+    _id: { $nin: excludeObjectIds }
+  }).select('_id').limit(50).lean();
+
+  const followerIds = followersYouDontFollow.map(u => String(u._id));
+
+  // 3. Popular Users (Global fallback)
+  const popularUsers = await User.find({
+    _id: { $nin: excludeObjectIds },
+    isBanned: { $ne: true }
+  })
+    .sort({ followersCount: -1 })
+    .select('_id')
+    .limit(50)
+    .lean();
+
+  const popularIds = popularUsers.map(u => String(u._id));
+
+  // 4. Recent Active Creators
   const since = new Date(Date.now() - RECENT_ACTIVITY_DAYS * 24 * 60 * 60 * 1000);
   const activeCreators = await Post.aggregate([
     { $match: { createdAt: { $gte: since } } },
@@ -118,7 +140,7 @@ async function buildCandidateSignals(loggedUserId, followingIds) {
       }
     },
     { $sort: { postsCount: -1, avgLikes: -1, avgScore: -1 } },
-    { $limit: 200 },
+    { $limit: 100 },
   ]);
 
   const activityByUser = new Map();
@@ -147,13 +169,13 @@ async function buildCandidateSignals(loggedUserId, followingIds) {
     });
   }
 
-  const randomUsers = await User.aggregate([
-    { $match: { _id: { $nin: excludeObjectIds }, isBanned: { $ne: true } } },
-    { $sample: { size: 120 } },
-    { $project: { _id: 1 } },
+  const candidateIds = new Set([
+    ...mutualCounts.keys(),
+    ...activityByUser.keys(),
+    ...followerIds,
+    ...popularIds
   ]);
 
-  const candidateIds = new Set([...mutualCounts.keys(), ...activityByUser.keys(), ...randomUsers.map(u => toId(u._id))]);
   return {
     candidateIds: [...candidateIds].slice(0, LIMIT_CANDIDATES),
     mutualCounts,
@@ -294,11 +316,11 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
     const freshnessScore = clamp(1 - (daysSince(candidate.created_at) / 180));
 
     const score = clamp(
-      (mutualScore * 0.38) +
-      (interestScore * 0.28) +
-      (activityScore * 0.22) +
-      (socialScore * 0.08) +
-      (freshnessScore * 0.04)
+      (mutualScore * 0.45) + // Increased from 0.38
+      (socialScore * 0.20) + // Increased from 0.08
+      (interestScore * 0.20) + // Decreased from 0.28
+      (activityScore * 0.12) + // Decreased from 0.22
+      (freshnessScore * 0.03)  // Decreased from 0.04
     );
 
     const topCategory = activity?.categoryCount

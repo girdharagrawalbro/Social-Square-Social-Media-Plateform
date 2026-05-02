@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts, useReactPost, useIncrementView } from '../../hooks/queries/usePostQueries';
+import { useReportPost } from '../../hooks/queries/usePostOperationsQueries';
 import ReactionPicker from './ReactionPicker';
 import PollCard from './PollCard';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -72,6 +73,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const incrementViewMutation = useIncrementView();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
+    const reportMutation = useReportPost();
+    const [expandedCaption, setExpandedCaption] = useState(false);
 
 
     useEffect(() => {
@@ -215,12 +218,14 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         });
     };
 
-    const handleReport = async (reason) => {
-        try {
-            await axios.post(`${BASE}/api/post/report`, { postId: post._id, reason, userId: loggeduser._id });
-            toast.success('Report submitted');
-            setReportVisible(false);
-        } catch { toast.error('Failed to report'); }
+    const handleReport = (reason) => {
+        reportMutation.mutate({ postId: post._id, reason }, {
+            onSuccess: () => {
+                toast.success('Report submitted');
+                setReportVisible(false);
+            },
+            onError: () => toast.error('Failed to report')
+        });
     };
 
     const handleProfileClick = (userId) => {
@@ -442,7 +447,29 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     />
                                 </div>
                                 <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap font-medium">
-                                    {post.caption}
+                                    {post.caption?.length > 150 && !expandedCaption ? (
+                                        <>
+                                            {post.caption.slice(0, 150)}...
+                                            <span
+                                                onClick={() => setExpandedCaption(true)}
+                                                className="text-[#808bf5] cursor-pointer hover:underline ml-1 font-bold"
+                                            >
+                                                more
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {post.caption}
+                                            {post.caption?.length > 150 && expandedCaption && (
+                                                <span
+                                                    onClick={() => setExpandedCaption(false)}
+                                                    className="text-[var(--text-sub)] cursor-pointer hover:underline ml-1 font-bold text-xs"
+                                                >
+                                                    less
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                                 {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
                                     <div key={i} className="mt-2 text-sm leading-relaxed">

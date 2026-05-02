@@ -51,7 +51,9 @@ router.post("/view/:postId", async (req, res) => {
             viewerId = null;
         }
 
-        const clientId = viewerId || (req.ip || req.connection && req.connection.remoteAddress || 'anonymous');
+        // FIX #7: Explicitly call toString() on viewerId (ObjectId) for safe string use
+        const viewerIdStr = viewerId ? viewerId.toString() : null;
+        const clientId = viewerIdStr || (req.ip || req.connection && req.connection.remoteAddress || 'anonymous');
         const redisKey = `view:${postId}:${clientId}`;
         let setResult = 'OK';
 
@@ -64,8 +66,8 @@ router.post("/view/:postId", async (req, res) => {
             await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } });
 
             // Add post to user's "Seen Posts" Bloom Filter if authenticated
-            if (viewerId) {
-                const seenFilter = new RedisBloomFilter(`bf:seen:${viewerId.toString()}`);
+            if (viewerIdStr) {
+                const seenFilter = new RedisBloomFilter(`bf:seen:${viewerIdStr}`);
                 await seenFilter.add(postId);
             }
 
@@ -297,8 +299,6 @@ router.get("/collaborate/invites/:userId", verifyToken, async (req, res) => {
 router.get("/collaborate/mine/:userId", verifyToken, async (req, res) => {
     try {
         const { userId } = req.params;
-        // Optimization: user can see their own collaborations or those they are part of
-        // We still allow viewing others if the post is public, but let's restrict to 'mine' as requested by the route name
         if (String(userId) !== String(req.userId)) return res.status(403).json({ error: 'Unauthorized' });
 
         // Only return posts where this user is an accepted collaborator on SOMEONE ELSE's post
@@ -365,9 +365,14 @@ router.get("/", async (req, res) => {
         const userId = req.query.userId;
         let followingIds = [], userCategories = [], excludedUserIds = [];
         if (userId) {
-            const user = await User.findById(userId).select('following blockedUsers mutedUsers');
+            // Validate userId is a valid 24-character hex string
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                return res.status(400).json({ error: "Invalid userId format" });
+            }
+
+            const user = await User.findById(userId).select('following blockedUsers mutedUsers').lean();
             if (user) {
-                followingIds = user.following.map(id => id.toString());
+                followingIds = (user.following || []).map(id => id.toString());
                 excludedUserIds = [
                     ...(user.blockedUsers || []),
                     ...(user.mutedUsers || [])
@@ -376,29 +381,31 @@ router.get("/", async (req, res) => {
                 // Also find users who have blocked the current user
                 const blockers = await User.find({ blockedUsers: userId }).select('_id');
                 const blockerIds = blockers.map(b => b._id.toString());
-                // Exclude blockers + current user's own posts from feed results
-                excludedUserIds = [...new Set([...excludedUserIds, ...blockerIds, userId.toString()])];
+                // Exclude blockers + muted/blocked from feed results (but NOT self)
+                excludedUserIds = [...new Set([...excludedUserIds, ...blockerIds])];
             }
-            const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
-            userCategories = [...new Set(likedPosts.map(p => p.category))];
+            try {
+                const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
+                userCategories = [...new Set(likedPosts.map(p => p.category))];
+            } catch (catErr) {
+                console.error("[Feed] Failed to fetch liked categories:", catErr.message);
+            }
         }
-        // 🔒 Removed the OOM-causing global private user fetch.
-        // We now fetch posts first, then filter out private users later.
 
         // Exclude anonymous posts from normal feed — they appear in confessions feed only
         // Also exclude time-locked posts that haven't unlocked yet
         // ALSO: Exclude blocked/muted users
         const query = {
             isAnonymous: { $ne: true },
-            'user._id': { $nin: excludedUserIds.map(id => new mongoose.Types.ObjectId(id)) },
+            'user._id': { $nin: excludedUserIds.filter(id => id && id.length === 24).map(id => new mongoose.Types.ObjectId(id)) },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
         // Fetch a larger batch since we might filter some out below
-        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 4).lean();
+        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 4).lean().maxTimeMS(5000);
 
         // 🔒 Privacy Guard: Find any private users among the fetched posts that we don't follow
-        const fetchedUserIds = [...new Set(posts.map(p => p.user._id.toString()))];
+        const fetchedUserIds = [...new Set(posts.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(Boolean))];
         const usersToCheck = fetchedUserIds.filter(id => id !== userId && !followingIds.includes(id));
 
         let privateUserIdsExcluded = [];
@@ -414,17 +421,15 @@ router.get("/", async (req, res) => {
         let filteredPosts = posts.filter(p => !privateUserIdsExcluded.includes(p.user._id.toString()));
 
         // 🔍 Bloom Filter: Exclude posts the user has already seen
-        if (userId) {
-            const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
-            const postIdsToCheck = filteredPosts.map(p => p._id.toString());
-            const seenResults = await seenFilter.mightContainMultiple(postIdsToCheck);
-
-            // Only keep posts that the user has NOT seen
-            filteredPosts = filteredPosts.filter((p, index) => !seenResults[index]);
-
-            // Mark the posts we are about to return as seen so they don't appear in next refresh
-            // (Only marking the ones that make it into the final feed is done after sorting, but doing it here is also fine 
-            // since we're generating them. Let's do it after we select the final `limit` posts to be perfectly accurate).
+        if (userId && filteredPosts.length > 0) {
+            try {
+                const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
+                const postIdsToCheck = filteredPosts.map(p => p._id.toString());
+                const seenResults = await seenFilter.mightContainMultiple(postIdsToCheck);
+                filteredPosts = filteredPosts.filter((p, index) => !seenResults[index]);
+            } catch (bfError) {
+                console.error("[Feed] Bloom filter check failed, failing open:", bfError.message);
+            }
         }
 
         // Split into posts from followed users and others (suggestions)
@@ -464,6 +469,11 @@ router.get("/", async (req, res) => {
         }
         const result = final.slice(0, limit);
 
+        // FIX #1: hasMore should reflect whether filteredPosts had more than `limit` items
+        // (i.e. there are more pages to fetch), not compare against the raw DB batch size
+        const hasMore = filteredPosts.length > limit;
+        const nextCursor = result.length > 0 ? result[result.length - 1]._id : null;
+
         // Fetch fresh presence for all users in the feed
         const uniqueUserIds = [...new Set(result.map(p => p.user._id.toString()))];
         const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
@@ -481,15 +491,39 @@ router.get("/", async (req, res) => {
 
         // Add the returned posts to the user's Seen Bloom filter so they don't see them again
         if (userId && resultWithPresence.length > 0) {
-            const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
-            // Fire and forget adding to bloom filter
-            seenFilter.addMultiple(resultWithPresence.map(p => p._id.toString())).catch(err => console.error("Bloom filter add error:", err));
+            try {
+                const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
+                // Fire and forget adding to bloom filter
+                seenFilter.addMultiple(resultWithPresence.map(p => p._id.toString())).catch(err => console.error("Bloom filter add error:", err));
+            } catch (bfError) {
+                console.error("[Feed] Bloom filter add error:", bfError.message);
+            }
         }
 
-        const hasMore = posts.length >= limit;
-        const nextCursor = result.length > 0 ? result[result.length - 1]._id : null;
         res.status(200).json({ posts: resultWithPresence, nextCursor, hasMore });
-    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (error) {
+        console.error('[Feed] CRITICAL Error:', error.message);
+        
+        // 🛡️ Fail-Safe Fallback: Try a super-minimal query if the complex feed logic crashes/times out
+        try {
+            const simplePosts = await Post.find({ isAnonymous: { $ne: true } })
+                .sort({ _id: -1 })
+                .limit(10)
+                .lean()
+                .maxTimeMS(3000); // Fail fast (3s)
+            
+            return res.status(200).json({ 
+                posts: simplePosts, 
+                nextCursor: null, 
+                hasMore: false,
+                isFallback: true,
+                message: "Basic feed active (Database is slow)"
+            });
+        } catch (innerError) {
+            console.error('[Feed] Fallback also failed:', innerError.message);
+            res.status(503).json({ error: "Service temporarily overloaded. Please try again later." });
+        }
+    }
 });
 
 // ─── USER POSTS ───────────────────────────────────────────────────────────────
@@ -510,6 +544,9 @@ router.get("/user/:userId", async (req, res) => {
         }
 
         const ownerId = req.params.userId;
+        if (!mongoose.Types.ObjectId.isValid(ownerId)) {
+            return res.status(400).json({ posts: [], nextCursor: null, hasMore: false });
+        }
         const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
 
         if (postOwner && postOwner.isPrivate) {
@@ -521,16 +558,25 @@ router.get("/user/:userId", async (req, res) => {
             }
         }
 
-        const limit = parseInt(req.query.limit);
+        const limit = parseInt(req.query.limit) || 12;
         const cursor = req.query.cursor;
         // Show all posts where user is owner OR an accepted collaborator
         const query = {
             $or: [
-                { 'user._id': req.params.userId },
+                { 'user._id': ownerId },
+                { 'user._id': new mongoose.Types.ObjectId(ownerId) },
                 {
                     collaborators: {
                         $elemMatch: {
-                            userId: req.params.userId,
+                            userId: ownerId,
+                            status: 'accepted'
+                        }
+                    }
+                },
+                {
+                    collaborators: {
+                        $elemMatch: {
+                            userId: new mongoose.Types.ObjectId(ownerId),
                             status: 'accepted'
                         }
                     }
@@ -925,27 +971,36 @@ router.post('/comments/add', verifyToken, contentFilter, async (req, res) => {
             await post.save();
         }
 
+        // FIX #4: Combine into one query instead of two separate Post.findById calls
+        const postData = await Post.findById(postId).select('comments image_urls user').lean();
+        const commentsCount = postData?.comments?.length || 0;
+
         // ✅ Broadcast new comment to all users viewing this post
         if (_io) {
             _io.emit('newComment', {
                 postId,
                 comment: { ...newComment.toObject(), repliesList: [] },
                 parentId: parentId || null,
-                commentsCount: (await Post.findById(postId).select('comments'))?.comments?.length || 0,
+                commentsCount,
             });
         }
 
-        // Create notification for post owner or parent comment owner
-        const targetRecipientId = parentId ? (await Comment.findById(parentId).select('user')).user?.id : (await Post.findById(postId).select('user')).user?._id;
+        // FIX #4: Reuse postData for notification instead of another query
+        let targetRecipientId;
+        if (parentId) {
+            const parentComment = await Comment.findById(parentId).select('user').lean();
+            targetRecipientId = parentComment?.user?.id;
+        } else {
+            targetRecipientId = postData?.user?._id;
+        }
 
         if (targetRecipientId) {
-            const postForThumb = await Post.findById(postId).select('image_urls').lean();
             await notificationUtils.createNotification({
                 recipientId: targetRecipientId,
                 sender: { id: user.id || user._id, fullname: user.fullname, profile_picture: user.profile_picture },
                 type: 'comment',
                 postId: postId,
-                thumbnail: postForThumb?.image_urls?.[0],
+                thumbnail: postData?.image_urls?.[0],
                 message: { content: content.substring(0, 50) },
                 url: `/post/${postId}`,
             });
@@ -965,7 +1020,13 @@ router.delete('/comments/:commentId', verifyToken, async (req, res) => {
         const userId = req.userId;
         const comment = await Comment.findById(req.params.commentId);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
-        if (comment.user._id.toString() !== userId) return res.status(403).json({ error: 'Unauthorized' });
+
+        // FIX #5: Allow admins to delete any comment (consistent with post delete)
+        const user = await User.findById(userId).select('isAdmin').lean();
+        const isOwner = comment.user._id.toString() === userId;
+        const isAdmin = user && user.isAdmin;
+
+        if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Unauthorized' });
 
         if (comment.parentId) {
             await Comment.findByIdAndUpdate(comment.parentId, { $pull: { replies: comment._id } });
@@ -1064,7 +1125,17 @@ router.get("/detail/:postId", async (req, res) => {
             timestamp: Date.now() / 1000,
         });
 
-        res.status(200).json(post);
+        // FIX #6: Sanitize anonymous post — never expose real user identity
+        const postObj = post.toObject();
+        if (postObj.isAnonymous) {
+            postObj.user = {
+                _id: null,
+                fullname: 'Anonymous',
+                profile_picture: 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain',
+            };
+        }
+
+        res.status(200).json(postObj);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -1100,7 +1171,8 @@ router.get("/confessions", async (req, res) => {
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
 router.get("/explore-reels", async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit);
+        // FIX #2: Add fallback default to prevent NaN crash
+        const limit = parseInt(req.query.limit) || 10;
         const cursor = req.query.cursor;
 
         // 1. Identify Viewer
@@ -1132,12 +1204,28 @@ router.get("/explore-reels", async (req, res) => {
             }
         }
 
-        // 🔒 Privacy Guard: Identify private users to exclude (unless followed)
-        const privateUsers = await User.find({
-            isPrivate: true,
-            _id: { $nin: [...followingIds, viewerId].filter(Boolean) }
-        }).select('_id').lean();
-        const privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
+        // 🔒 Privacy Guard: Cache private user IDs for 60s to avoid repeated full scans
+        const privCacheKey = `private_users:excl:${viewerId || 'anon'}`;
+        let privateUserIdsExcluded;
+        try {
+            const cached = await redis.get(privCacheKey);
+            if (cached) {
+                privateUserIdsExcluded = JSON.parse(cached);
+            } else {
+                const privateUsers = await User.find({
+                    isPrivate: true,
+                    _id: { $nin: [...followingIds, viewerId].filter(Boolean) }
+                }).select('_id').lean();
+                privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
+                await redis.set(privCacheKey, JSON.stringify(privateUserIdsExcluded), 'EX', 60);
+            }
+        } catch (_) {
+            const privateUsers = await User.find({
+                isPrivate: true,
+                _id: { $nin: [...followingIds, viewerId].filter(Boolean) }
+            }).select('_id').lean();
+            privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
+        }
 
         /**
          * Query Logic:
@@ -1183,8 +1271,26 @@ router.get("/explore-reels", async (req, res) => {
             hasMore
         });
     } catch (error) {
-        console.error('[Explore] Error:', error);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error('[Explore] Error:', error.message);
+        
+        // 🛡️ Fail-Safe Fallback
+        try {
+            const simplePosts = await Post.find({ isAnonymous: { $ne: true } })
+                .sort({ _id: -1 })
+                .limit(10)
+                .lean()
+                .maxTimeMS(3000);
+            
+            return res.status(200).json({ 
+                posts: simplePosts, 
+                nextCursor: null, 
+                hasMore: false,
+                isFallback: true,
+                message: "Basic explore active (Database is slow)"
+            });
+        } catch (innerError) {
+            res.status(503).json({ error: "Explore temporarily unavailable" });
+        }
     }
 });
 

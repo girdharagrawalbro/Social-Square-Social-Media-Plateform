@@ -80,5 +80,7 @@ const UserSchema = new mongoose.Schema({
 
 
 UserSchema.index({ fullname: 1 });
+UserSchema.index({ blockedUsers: 1 });
+UserSchema.index({ mutedUsers: 1 });
 
 module.exports = mongoose.model('User', UserSchema);
