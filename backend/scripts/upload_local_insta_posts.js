@@ -142,22 +142,22 @@ async function run() {
                 continue;
             }
 
-            // ─── CONTENT FILTERING ───
-            const violation = await checkContent(caption);
-            if (violation && violation.action === 'block') {
-                console.warn(`Post ${shortcode} blocked due to violation: ${violation.word}. Skipping.`);
-                continue;
-            }
+            // // ─── CONTENT FILTERING ───
+            // const violation = await checkContent(caption);
+            // if (violation && violation.action === 'block') {
+            //     console.warn(`Post ${shortcode} blocked due to violation: ${violation.word}. Skipping.`);
+            //     continue;
+            // }
 
-            // ─── MOOD DETECTION ───
-            const detectedMood = await detectMoodFromCaption(caption || 'Captivating moment');
-            console.log(`Detected mood: ${detectedMood}`);
+            // // ─── MOOD DETECTION ───
+            // const detectedMood = await detectMoodFromCaption(caption || 'Captivating moment');
+            // console.log(`Detected mood: ${detectedMood}`);
 
             // Create Post in MongoDB
             const newPost = new Post({
                 caption: caption && caption.length > 500 ? caption.substring(0, 497) + '...' : caption,
                 category: 'Default',
-                mood: detectedMood,
+                // mood: detectedMood,
                 image_urls: image_urls,
                 video: isVideo ? secureUrl : null,
                 videoThumbnail: isVideo ? thumbnailUrl : null,
@@ -169,10 +169,10 @@ async function run() {
                 createdAt: postMeta.date_utc ? new Date(postMeta.date_utc) : new Date()
             });
 
-            if (violation && violation.action === 'flag') {
-                newPost.isFlagged = true;
-                newPost.flagReason = `Automated filter: ${violation.word}`;
-            }
+            // if (violation && violation.action === 'flag') {
+            //     newPost.isFlagged = true;
+            //     newPost.flagReason = `Automated filter: ${violation.word}`;
+            // }
 
             await newPost.save();
             console.log(`Post created successfully for ${shortcode} (ID: ${newPost._id})`);
@@ -196,7 +196,7 @@ async function run() {
                     caption: newPost.caption || "",
                     category: newPost.category || "Default",
                     tags: newPost.tags || [],
-                    mood: newPost.mood || detectedMood,
+                    mood: newPost.mood ,
                     likesCount: 0,
                     savesCount: 0,
                     viewsCount: 0,
@@ -204,7 +204,7 @@ async function run() {
                     createdAtTs: Math.floor(new Date(newPost.createdAt).getTime() / 1000),
                 }).catch(err => console.warn('[NATS Sync]:', err.message));
 
-                console.log(`Post ${shortcode} synced with Recommendation engine.`);
+                // console.log(`Post ${shortcode} synced with Recommendation engine.`);
             } catch (syncErr) {
                 console.warn(`Sync failed for ${shortcode}:`, syncErr.message);
             }

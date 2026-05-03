@@ -115,7 +115,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const [followersVisible, setFollowersVisible] = useState(false);
     const [followingVisible, setFollowingVisible] = useState(false);
     const loggeduser = useAuthStore(s => s.user);
-    const unblockUser = useAuthStore(s => s.unblockUser);
+    // const unblockUser = useAuthStore(s => s.unblockUser);
 
     const createConvMutation = useCreateConversation();
     const navigate = useNavigate();

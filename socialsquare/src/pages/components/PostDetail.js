@@ -8,7 +8,7 @@ import PollCard from './PollCard';
 import usePostStore from '../../store/zustand/usePostStore';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
-import axios from 'axios';
+// import axios from 'axios';
 import Comment from './ui/Comment';
 import SharePostDialog from './ui/SharePostDialog';
 import Like from './ui/Like';
@@ -25,7 +25,7 @@ import useWindowWidth from '../../hooks/useWindowWidth';
 
 const UserProfile = lazy(() => import('./UserProfile'));
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
+// const BASE = process.env.REACT_APP_BACKEND_URL;
 
 
 
