@@ -8,7 +8,7 @@ import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 import {
-  useLikePost, useSavePost, useReactPost
+  useLikePost, useSavePost
 } from '../../hooks/queries/usePostQueries';
 import Comment from './ui/Comment';
 import SharePostDialog from './ui/SharePostDialog';
@@ -140,7 +140,7 @@ const Explore = () => {
   // Social Interaction Hooks
   const likeMut = useLikePost();
   const saveMut = useSavePost();
-  const reactMut = useReactPost();
+  // const reactMut = useReactPost();
   const muteMut = useMuteUser();
   const blockMut = useBlockUser();
   const savedPostIds = usePostStore(s => s.savedPostIds);
