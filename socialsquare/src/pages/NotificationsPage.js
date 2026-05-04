@@ -12,11 +12,11 @@ const NotificationsPage = () => {
     const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'requests' | 'collabs'
     const { data: notifications = [], markRead, loadMore, hasMore, isLoading, updateNotification } = useNotifications(user?._id);
     const { data: collabInvites = [] } = useCollabInvites(user?._id);
- 
+
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     const acceptMutation = useAcceptFollowRequest();
     const declineMutation = useDeclineFollowRequest();
- 
+
     // ✅ Auto-mark all as read when opening page
     React.useEffect(() => {
         const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
@@ -24,9 +24,9 @@ const NotificationsPage = () => {
             markRead.mutate(unreadIds);
         }
     }, [notifications, markRead]);
- 
+
     const handleMarkRead = (id) => markRead.mutate([id]);
- 
+
     const handleAccept = async (e, requesterId, notificationId) => {
         e.stopPropagation();
         try {
@@ -34,7 +34,7 @@ const NotificationsPage = () => {
             updateNotification(notificationId, { status: 'accepted', read: true });
         } catch { }
     };
- 
+
     const handleDecline = async (e, requesterId, notificationId) => {
         e.stopPropagation();
         try {
@@ -169,7 +169,7 @@ const NotificationsPage = () => {
                                 {collabInvites.length > 0 && (
                                     <div className="px-4 py-4 border-b border-[var(--border-color)] bg-[var(--surface-2)] mx-4 my-3 rounded-2xl">
                                         <h3 className="text-[10px] font-black text-[var(--text-sub)] mb-2 uppercase tracking-widest">Collab Requests</h3>
-                                        <button 
+                                        <button
                                             onClick={() => setActiveTab('collabs')}
                                             className="w-full text-left bg-transparent border-0 cursor-pointer flex items-center justify-between text-[#808bf5] font-bold"
                                         >
@@ -211,7 +211,7 @@ const NotificationsPage = () => {
                                                     className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${!n.read ? 'bg-[#808bf5]/5' : 'hover:bg-[var(--surface-2)]'}`}
                                                 >
                                                     <img
-                                                        src={n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                                        src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain')}
                                                         alt=""
                                                         className="w-11 h-11 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
                                                         onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'; }}
@@ -221,10 +221,10 @@ const NotificationsPage = () => {
                                                         <p className="m-0 text-[14px] text-[var(--text-main)] leading-tight">
                                                             <span className="font-bold cursor-pointer hover:underline" onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                const id = n.sender.id || n.sender._id;
-                                                                if (id) navigate(`/profile/${id}`);
+                                                                const id = n.sender?.id || n.sender?._id;
+                                                                if (id && n.type !== 'system') navigate(`/profile/${id}`);
                                                             }}>
-                                                                {n.sender?.username || n.sender?.fullname || 'User'}
+                                                                {n.type === 'system' ? 'Security Alert' : (n.sender?.username || n.sender?.fullname || 'User')}
                                                             </span>{' '}
                                                             <span className="text-[var(--text-main)] opacity-90">{getNotificationText(n)}</span>{' '}<br />
                                                             <span className="text-[var(--text-sub)] text-[11px] font-medium mt-1 block italic">{formatTime(n.createdAt)}</span>
@@ -232,28 +232,28 @@ const NotificationsPage = () => {
 
                                                         {n.type === 'follow_request' && (
                                                             <div className="flex gap-2 mt-3">
-                                                                 {n.status === 'accepted' ? (
-                                                                     <span className="text-[#808bf5] text-sm font-bold bg-[#808bf5]/10 px-4 py-1.5 rounded-xl">Accepted</span>
-                                                                 ) : n.status === 'rejected' ? (
-                                                                     <span className="text-red-500 text-sm font-bold bg-red-500/10 px-4 py-1.5 rounded-xl">Rejected</span>
-                                                                 ) : (
-                                                                     <>
-                                                                         <button
-                                                                             onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
-                                                                             disabled={acceptMutation.isPending}
-                                                                             className="bg-[#808bf5] text-white border-0 rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[#6366f1] transition-all transform active:scale-95"
-                                                                         >
-                                                                             {acceptMutation.isPending && acceptMutation.variables?.requesterId === (n.sender.id || n.sender._id) ? '...' : 'Confirm'}
-                                                                         </button>
-                                                                         <button
-                                                                             onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
-                                                                             disabled={declineMutation.isPending}
-                                                                             className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[var(--surface-3)] transition-all transform active:scale-95"
-                                                                         >
-                                                                             {declineMutation.isPending && declineMutation.variables?.requesterId === (n.sender.id || n.sender._id) ? '...' : 'Delete'}
-                                                                         </button>
-                                                                     </>
-                                                                 )}
+                                                                {n.status === 'accepted' ? (
+                                                                    <span className="text-[#808bf5] text-sm font-bold bg-[#808bf5]/10 px-4 py-1.5 rounded-xl">Accepted</span>
+                                                                ) : n.status === 'rejected' ? (
+                                                                    <span className="text-red-500 text-sm font-bold bg-red-500/10 px-4 py-1.5 rounded-xl">Rejected</span>
+                                                                ) : (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={(e) => handleAccept(e, n.sender.id || n.sender._id, n._id)}
+                                                                            disabled={acceptMutation.isPending}
+                                                                            className="bg-[#808bf5] text-white border-0 rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[#6366f1] transition-all transform active:scale-95"
+                                                                        >
+                                                                            {acceptMutation.isPending && acceptMutation.variables?.requesterId === (n.sender.id || n.sender._id) ? '...' : 'Confirm'}
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => handleDecline(e, n.sender.id || n.sender._id, n._id)}
+                                                                            disabled={declineMutation.isPending}
+                                                                            className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl px-4 py-1.5 text-[13px] font-bold cursor-pointer hover:bg-[var(--surface-3)] transition-all transform active:scale-95"
+                                                                        >
+                                                                            {declineMutation.isPending && declineMutation.variables?.requesterId === (n.sender.id || n.sender._id) ? '...' : 'Delete'}
+                                                                        </button>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -309,14 +309,20 @@ const NotificationsPage = () => {
                                         className="flex items-center gap-3 px-4 py-4 border-b border-[var(--border-color)] hover:bg-[var(--surface-2)] transition-colors"
                                     >
                                         <img
-                                            src={n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain')}
                                             alt=""
                                             className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
-                                            onClick={() => navigate(`/profile/${n.sender.id || n.sender._id}`)}
+                                            onClick={() => {
+                                                const id = n.sender?.id || n.sender?._id;
+                                                if (id && n.type !== 'system') navigate(`/profile/${id}`);
+                                            }}
                                         />
                                         <div className="flex-1 min-w-0">
-                                            <p className="m-0 text-[14px] font-bold text-[var(--text-main)]" onClick={() => navigate(`/profile/${n.sender.id || n.sender._id}`)}>
-                                                {n.sender?.username || n.sender?.fullname || 'User'}
+                                            <p className="m-0 text-[14px] font-bold text-[var(--text-main)]" onClick={() => {
+                                                const id = n.sender?.id || n.sender?._id;
+                                                if (id && n.type !== 'system') navigate(`/profile/${id}`);
+                                            }}>
+                                                {n.type === 'system' ? 'Security Alert' : (n.sender?.username || n.sender?.fullname || 'User')}
                                             </p>
                                             <p className="m-0 text-[12px] text-[var(--text-sub)]">{getNotificationText(n)}</p>
                                         </div>

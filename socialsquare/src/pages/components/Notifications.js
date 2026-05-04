@@ -75,7 +75,7 @@ const Notification = () => {
                     const isUnread = !notification.read;
 
                     return (
-                        <div 
+                        <div
                             key={notification._id}
                             className={`relative group flex items-start gap-4 p-4 rounded-3xl transition-all duration-300 border border-transparent hover:border-[var(--border-color)] ${isUnread ? 'bg-indigo-500/[0.03]' : 'hover:bg-[var(--surface-2)]'}`}
                         >
@@ -90,12 +90,12 @@ const Notification = () => {
                                     {isSystem ? (
                                         <i className="pi pi-shield text-2xl text-orange-500"></i>
                                     ) : (
-                                        <img 
-                                            src={notification.sender.profile_picture} 
-                                            alt="" 
+                                        <img
+                                            src={notification.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                            alt=""
                                             className="w-full h-full object-cover"
                                             onClick={() => {
-                                                const id = notification.sender.id || notification.sender._id;
+                                                const id = notification.sender?.id || notification.sender?._id;
                                                 if (id) navigate(`/profile/${id}`);
                                             }}
                                         />
@@ -118,18 +118,20 @@ const Notification = () => {
                                 </div>
 
                                 <div className="text-sm leading-relaxed text-[var(--text-main)]">
-                                    {!isSystem && (
-                                        <b 
+                                    {isSystem ? (
+                                        <b className="font-black text-orange-600 mr-1.5">Security Alert</b>
+                                    ) : (
+                                        <b
                                             className="font-black hover:text-indigo-600 transition-colors cursor-pointer mr-1.5"
                                             onClick={() => {
-                                                const id = notification.sender.id || notification.sender._id;
+                                                const id = notification.sender?.id || notification.sender?._id;
                                                 if (id) navigate(`/profile/${id}`);
                                             }}
                                         >
-                                            {notification.sender.fullname || notification.sender.username || 'User'}
+                                            {notification.sender?.fullname || notification.sender?.username || 'User'}
                                         </b>
                                     )}
-                                    
+
                                     <span className={isSystem ? 'font-bold text-orange-600/90' : 'text-[var(--text-sub)]'}>
                                         {notification.type === 'like' && 'liked your post'}
                                         {notification.type === 'comment' && 'commented on your post'}
@@ -144,13 +146,13 @@ const Notification = () => {
                                 {notification.type === 'follow_request' && (
                                     <div className="flex gap-3 mt-4">
                                         <button
-                                            onClick={() => handleAccept(notification.sender.id)}
+                                            onClick={() => handleAccept(notification.sender?.id || notification.sender?._id)}
                                             className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-0 py-2.5 rounded-2xl text-[11px] font-black cursor-pointer hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-indigo-500/20"
                                         >
                                             ACCEPT
                                         </button>
                                         <button
-                                            onClick={() => handleDecline(notification.sender.id)}
+                                            onClick={() => handleDecline(notification.sender?.id || notification.sender?._id)}
                                             className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] py-2.5 rounded-2xl text-[11px] font-black cursor-pointer hover:bg-[var(--surface-1)] active:scale-95 transition-all"
                                         >
                                             DECLINE

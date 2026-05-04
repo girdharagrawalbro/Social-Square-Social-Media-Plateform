@@ -77,7 +77,7 @@ async function run() {
             user = new User({
                 fullname: fullname,
                 username: username,
-                email: `${username}@instagram.placeholder.com`,
+                email: `${username}@gmail.com`,
                 password: "InstaUserPassword123!", // Placeholder
                 authProvider: 'local',
                 isEmailVerified: true,
@@ -87,6 +87,26 @@ async function run() {
             console.log(`User created with ID: ${user._id}`);
         } else {
             console.log(`User already exists: ${username} (ID: ${user._id})`);
+        }
+
+        // Handle profile picture update if profile_pic.jpg exists
+        const profilePicPath = path.join(postsDir, 'profile_pic.jpg');
+        if (fs.existsSync(profilePicPath)) {
+            console.log(`Found profile picture for ${username}, uploading...`);
+            const pb = fs.readFileSync(profilePicPath);
+            const pUrl = await uploadToCloudinary(pb.toString('base64'), 'image/jpeg', `${username}_profile`);
+            if (pUrl) {
+                user.profile_picture = pUrl;
+                await user.save();
+                console.log(`User profile picture updated to: ${pUrl}`);
+
+                // Synchronize profile picture in all existing posts for this user
+                const postUpdateResult = await Post.updateMany(
+                    { 'user._id': user._id },
+                    { $set: { 'user.profile_picture': pUrl } }
+                );
+                console.log(`Synchronized profile picture in ${postUpdateResult.modifiedCount} existing posts for ${username}.`);
+            }
         }
 
         // Iterate posts
@@ -183,10 +203,10 @@ async function run() {
                 const { publishEvent } = require('../services/recommendationPublisher');
 
                 // 1. Pusher publish
-                await publish('posts.created', { 
-                    id: newPost._id, 
-                    user: newPost.user, 
-                    category: newPost.category 
+                await publish('posts.created', {
+                    id: newPost._id,
+                    user: newPost.user,
+                    category: newPost.category
                 }).catch(err => console.warn('[Pusher Sync]:', err.message));
 
                 // 2. Recommendation Event publish
@@ -196,7 +216,7 @@ async function run() {
                     caption: newPost.caption || "",
                     category: newPost.category || "Default",
                     tags: newPost.tags || [],
-                    mood: newPost.mood ,
+                    mood: newPost.mood,
                     likesCount: 0,
                     savesCount: 0,
                     viewsCount: 0,
