@@ -392,18 +392,18 @@
 // ⚠️ Redux has been removed. This file is a compatibility stub.
 // Migrate to: import usePostStore from '../zustand/usePostStore'
 //             and TanStack Query hooks from '../../hooks/queries/usePostQueries'
-export const fetchPosts = () => () => {};
-export const fetchUserPosts = () => () => {};
-export const fetchSavedPosts = () => () => {};
-export const fetchCategories = () => () => {};
-export const likepost = () => () => {};
-export const unlikepost = () => () => {};
-export const fetchComments = () => () => {};
-export const createComment = () => () => {};
-export const updatePost = () => () => {};
-export const deletePost = () => () => {};
-export const savePost = () => () => {};
-export const fetchMoodFeed = () => () => {};
+export const fetchPosts = () => () => { };
+export const fetchUserPosts = () => () => { };
+export const fetchSavedPosts = () => () => { };
+export const fetchCategories = () => () => { };
+export const likepost = () => () => { };
+export const unlikepost = () => () => { };
+export const fetchComments = () => () => { };
+export const createComment = () => () => { };
+export const updatePost = () => () => { };
+export const deletePost = () => () => { };
+export const savePost = () => () => { };
+export const fetchMoodFeed = () => () => { };
 export const addNewPost = () => ({ type: 'NOOP' });
 export const resetUserPosts = () => ({ type: 'NOOP' });
 export const socketNewFeedPost = () => ({ type: 'NOOP' });

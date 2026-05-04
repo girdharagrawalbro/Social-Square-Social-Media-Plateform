@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { confirmDialog } from "primereact/confirmdialog";
 import { api } from "../../store/zustand/useAuthStore";
+import SkeletonSessions from "./ui/SkeletonSessions";
 
 const deviceIcon = (device = "") => {
   const d = device.toLowerCase();
@@ -170,14 +171,7 @@ const ActiveSessions = () => {
         {/* Sessions list */}
         <div className="flex-1 overflow-auto py-2 pr-1">
           {loading ? (
-            <div className="flex flex-col gap-3">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-20 bg-gray-100 rounded-2xl animate-pulse"
-                />
-              ))}
-            </div>
+            <SkeletonSessions />
           ) : sessions.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">
               No active sessions found.

@@ -3,6 +3,7 @@ import { useGroups, useCreateGroup, useJoinGroup, useLeaveGroup } from '../../ho
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
+import SkeletonCommunities from './ui/SkeletonCommunities';
 
 const Groups = () => {
     const user = useAuthStore(s => s.user);
@@ -42,9 +43,7 @@ const Groups = () => {
         } catch { toast.error('Failed to leave'); }
     };
 
-    if (isLoading) return <div className="p-4 flex flex-col gap-4 animate-pulse">
-        {[1, 2, 3].map(i => <div key={i} className="h-24 bg-[var(--surface-2)] rounded-3xl" />)}
-    </div>;
+    if (isLoading) return <SkeletonCommunities />;
 
     const filteredGroups = groups?.filter(g =>
         g.name.toLowerCase().includes(search.toLowerCase()) ||

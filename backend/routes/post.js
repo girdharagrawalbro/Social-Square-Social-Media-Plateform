@@ -420,17 +420,9 @@ router.get("/", async (req, res) => {
         // Filter out posts from those private users
         let filteredPosts = posts.filter(p => !privateUserIdsExcluded.includes(p.user._id.toString()));
 
-        // 🔍 Bloom Filter: Exclude posts the user has already seen
-        if (userId && filteredPosts.length > 0) {
-            try {
-                const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
-                const postIdsToCheck = filteredPosts.map(p => p._id.toString());
-                const seenResults = await seenFilter.mightContainMultiple(postIdsToCheck);
-                filteredPosts = filteredPosts.filter((p, index) => !seenResults[index]);
-            } catch (bfError) {
-                console.error("[Feed] Bloom filter check failed, failing open:", bfError.message);
-            }
-        }
+        // NOTE: Bloom Filter (seen-post deduplication) is intentionally NOT applied to the main feed.
+        // The main feed should always show posts from followed users, even if seen before.
+        // Bloom Filter deduplication is appropriate for Explore/Recommendations only.
 
         // Split into posts from followed users and others (suggestions)
         const followingPosts = [];
@@ -489,16 +481,8 @@ router.get("/", async (req, res) => {
             return po;
         });
 
-        // Add the returned posts to the user's Seen Bloom filter so they don't see them again
-        if (userId && resultWithPresence.length > 0) {
-            try {
-                const seenFilter = new RedisBloomFilter(`bf:seen:${userId.toString()}`);
-                // Fire and forget adding to bloom filter
-                seenFilter.addMultiple(resultWithPresence.map(p => p._id.toString())).catch(err => console.error("Bloom filter add error:", err));
-            } catch (bfError) {
-                console.error("[Feed] Bloom filter add error:", bfError.message);
-            }
-        }
+        // NOTE: We no longer add feed posts to the Bloom Filter seen-set.
+        // The Bloom Filter is reserved for the Explore/Recommendations engine.
 
         res.status(200).json({ posts: resultWithPresence, nextCursor, hasMore });
     } catch (error) {
@@ -558,7 +542,7 @@ router.get("/user/:userId", async (req, res) => {
             }
         }
 
-        const limit = parseInt(req.query.limit) || 12;
+        const limit = parseInt(req.query.limit);
         const cursor = req.query.cursor;
         // Show all posts where user is owner OR an accepted collaborator
         const query = {

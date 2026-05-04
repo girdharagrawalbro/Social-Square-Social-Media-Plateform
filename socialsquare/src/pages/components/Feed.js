@@ -391,7 +391,7 @@ const PostItem = React.memo(({
                                 <i className={`pi ${isSavedByMe ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: isSavedByMe ? '#808bf5' : 'currentColor' }}></i>
                             </button>
                         </div>
-                        <p className="m-0 mt-1 text-sm leading-relaxed">
+                        <div className="m-0 mt-1 text-sm leading-relaxed">
                             <span
                                 className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
                                 onClick={() => post.user?._id && onProfileClick(post.user._id)}
@@ -399,9 +399,9 @@ const PostItem = React.memo(({
                                 {post.user?.username || post.user?.fullname || 'Unknown'}
                             </span>
                             {renderCaption(post.caption || '', post._id)}
-                        </p>
+                        </div>
                         {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
-                            <p key={i} className="m-0 mt-0.5 text-sm leading-relaxed">
+                            <div key={i} className="m-0 mt-0.5 text-sm leading-relaxed">
                                 <span
                                     className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
                                     onClick={() => onProfileClick(c.userId)}
@@ -409,7 +409,7 @@ const PostItem = React.memo(({
                                     {c.username || c.fullname}
                                 </span>
                                 {renderCaption(c.contribution || '')}
-                            </p>
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -656,11 +656,11 @@ const Feed = ({ activeMood = null }) => {
     };
 
     const renderCaption = (caption = '', postId) => {
-        const threshold = 100;
+        const threshold = 80;
         const safeCaption = caption || '';
 
         if (safeCaption.length <= threshold) {
-            return <p className="text-sm mt-2">{safeCaption}</p>;
+            return <span className="text-sm">{safeCaption}</span>;
         }
 
         const isExpanded = expandedCaptions.has(postId);
@@ -673,7 +673,7 @@ const Feed = ({ activeMood = null }) => {
         });
 
         return (
-            <p className="text-sm mt-2">
+            <span className="text-sm">
                 {parts}
                 <button
                     onClick={(e) => { e.stopPropagation(); toggleCaption(postId); }}
@@ -681,7 +681,7 @@ const Feed = ({ activeMood = null }) => {
                 >
                     {isExpanded ? ' show less' : ' more'}
                 </button>
-            </p>
+            </span>
         );
     };
 

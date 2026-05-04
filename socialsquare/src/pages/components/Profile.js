@@ -19,6 +19,7 @@ import CollabManager from './CollabManager';
 import PostCard from './ui/PostCard';
 import PostDetail from './PostDetail';
 import CreatorAnalytics from './CreatorAnalytics';
+import SkeletonProfile from './ui/SkeletonProfile';
 
 /**
  * Profile Component - FLEXIBLE PROFILE VIEW
@@ -220,9 +221,9 @@ const Profile = ({ userId }) => {
 
     const { data: collabInvites = [] } = useCollabInvites((initialized && loggeduser?._id && viewingOwnProfile) ? profileId : null);
 
-    if (!initialized) return <div className="text-center p-4">Initializing...</div>;
-    if (isLoggedOut && publicUserLoading) return <div className="text-center p-4">Loading profile...</div>;
-    if (!isLoggedOut && !viewingOwnProfile && otherUserLoading) return <div className="text-center p-4">Loading profile...</div>;
+    if (!initialized) return <SkeletonProfile />;
+    if (isLoggedOut && publicUserLoading) return <SkeletonProfile />;
+    if (!isLoggedOut && !viewingOwnProfile && otherUserLoading) return <SkeletonProfile />;
     if (!displayUser) return <div className="text-center p-4">Profile not found</div>;
 
     const pendingCollabCount = collabInvites.length;

@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../store/zustand/useAuthStore';
 import { useNavigate } from 'react-router-dom';
+import SkeletonPulse from './components/ui/SkeletonPulse';
 
 const Pulse = () => {
     const navigate = useNavigate();
@@ -37,11 +38,7 @@ const Pulse = () => {
                 </div>
 
                 {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="h-64 bg-[var(--surface-2)] rounded-3xl animate-pulse" />
-                        ))}
-                    </div>
+                    <SkeletonPulse />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 

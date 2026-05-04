@@ -18,7 +18,7 @@ async function publishEvent(subject, payload) {
     try {
         const conn = await initNatsPublisher();
         conn.publish(subject, sc.encode(JSON.stringify(payload)));
-        console.log(`📤 Published to ${subject}`, payload);
+        // console.log(`📤 Published to ${subject}`, payload);
     } catch (err) {
         console.error("❌ NATS publish error:", err.message);
     }

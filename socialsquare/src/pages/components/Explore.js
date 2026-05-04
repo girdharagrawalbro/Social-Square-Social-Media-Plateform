@@ -15,6 +15,7 @@ import SharePostDialog from './ui/SharePostDialog';
 import PostMenu from './ui/PostMenu';
 import { useMuteUser, useBlockUser } from '../../hooks/queries/useAuthQueries';
 import usePostStore from '../../store/zustand/usePostStore';
+import SkeletonExplore from './ui/SkeletonExplore';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
@@ -149,7 +150,7 @@ const Explore = () => {
 
   const activePost = useMemo(() => videos[activeIndex], [videos, activeIndex]);
   const isLikedByMe = useMemo(() => activePost?.likes?.includes(loggeduser?._id), [activePost, loggeduser]);
-  const isSavedByMe = useMemo(() => activePost && savedPostIds.includes(activePost._id), [activePost, savedPostIds]);
+  const isSavedByMe = useMemo(() => activePost && savedPostIds.has(activePost._id), [activePost, savedPostIds]);
 
   // Infinite Scroll Trigger
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
@@ -187,11 +188,11 @@ const Explore = () => {
     if (navigator.vibrate) navigator.vibrate([10, 30]);
     addFloatingReaction();
     setHeartVisible(true);
-    
+
     if (!isLikedByMe) {
       likeMut.mutate({ postId: activePost._id, isLiked: false, likes: activePost.likes });
     }
-    
+
     setTimeout(() => setHeartVisible(false), 800);
   };
 
@@ -224,10 +225,8 @@ const Explore = () => {
 
   if (!initialized || loading || !loggeduser) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4 px-4 py-20">
-        {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} shape="rectangle" className="rounded-2xl w-full" style={{ aspectRatio: '9/16' }} />
-        ))}
+      <div className="max-w-4xl mx-auto py-20 px-4">
+        <SkeletonExplore />
       </div>
     );
   }
@@ -388,9 +387,9 @@ const Explore = () => {
 
               {/* More Menu */}
               <div className="flex flex-col items-center gap-1">
-                <PostMenu 
-                  post={activePost} 
-                  user={loggeduser} 
+                <PostMenu
+                  post={activePost}
+                  user={loggeduser}
                   isSaved={isSavedByMe}
                   onMute={() => {
                     muteMut.mutate({ targetUserId: activePost.user._id }, { onSuccess: () => toast.success('User muted') });
@@ -484,7 +483,7 @@ const Explore = () => {
             }
         `}</style>
       </Dialog>
-      
+
       {/* Social Dialogs */}
       {activePost && (
         <>

@@ -8,6 +8,7 @@ import { useInfiniteOtherUsers, useFollowUser, useUnfollowUser, useCancelFollowR
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import UserProfile from './components/UserProfile';
+import SkeletonUsers from './components/ui/SkeletonUsers';
 
 const UsersPage = () => {
     const { isDark } = useDarkMode();
@@ -88,8 +89,14 @@ const UsersPage = () => {
 
     if (isLoading && !users.length) {
         return (
-            <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0d0d0d] text-white' : 'bg-gray-50 text-gray-900'}`}>
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[#808bf5]"></div>
+            <div className={`p-4 md:p-8 min-h-screen ${isDark ? 'bg-[#0d0d0d]' : 'bg-gray-50'}`}>
+                <div className="max-w-6xl mx-auto">
+                    <div className="flex flex-col gap-4 mb-8">
+                        <div className="skeleton w-48 h-8 rounded mb-2"></div>
+                        <div className="skeleton w-64 h-4 rounded"></div>
+                    </div>
+                    <SkeletonUsers />
+                </div>
             </div>
         );
     }

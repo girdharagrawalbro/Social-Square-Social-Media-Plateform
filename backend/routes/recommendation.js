@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 
+const logger = require("../utils/logger");
 const router = express.Router();
 const verifyToken = require("../middleware/Verifytoken");
 const redis = require("../lib/redis");
@@ -14,20 +15,36 @@ const User = require("../models/User");
 
 // ─── RECOMMENDED POSTS ────────────────────────────────────────────────────────
 router.get("/posts", verifyToken, async (req, res) => {
+    const _tag = '[REC /posts]';
+    const _t0 = Date.now();
+    console.log(`${_tag} ── START ── userId=${req.userId}`);
+
     try {
         const userId = req.userId;
-        const { UserInterest, PostVector } = require("../models/Recommendation");
+        if (!userId) {
+            console.error(`${_tag} ❌ No userId from token — verifyToken may have failed silently`);
+            return res.status(401).json({ items: [], message: "Unauthorized" });
+        }
 
-        // 🔒 Privacy Guard: Cache private user IDs per user for 60s
+        // ── Step 1: Load logged-in user ──────────────────────────────────────
+        console.log(`${_tag} [1] Fetching loggedUser (following list)...`);
         const loggedUser = await User.findById(userId).select('following').lean();
+        if (!loggedUser) {
+            console.error(`${_tag} ❌ User not found in DB for userId=${userId}`);
+            return res.status(404).json({ items: [], message: "User not found" });
+        }
         const followingIds = (loggedUser?.following || []).map(id => id.toString());
+        console.log(`${_tag} [1] ✅ User found — following ${followingIds.length} people`);
 
+        // ── Step 2: Private user exclusion list (Redis cached) ───────────────
+        console.log(`${_tag} [2] Loading private user exclusion list...`);
         const cacheKey = `private_users:excl:${userId}`;
-        let privateUserIds;
+        let privateUserIds = [];
         try {
             const cached = await redis.get(cacheKey);
             if (cached) {
                 privateUserIds = JSON.parse(cached);
+                console.log(`${_tag} [2] ✅ Private users list from Redis cache — ${privateUserIds.length} excluded`);
             } else {
                 const privateUsers = await User.find({
                     isPrivate: true,
@@ -35,87 +52,139 @@ router.get("/posts", verifyToken, async (req, res) => {
                 }).select('_id').lean();
                 privateUserIds = privateUsers.map(u => u._id.toString());
                 await redis.set(cacheKey, JSON.stringify(privateUserIds), 'EX', 60);
+                console.log(`${_tag} [2] ✅ Private users fetched from DB — ${privateUserIds.length} excluded, cached for 60s`);
             }
-        } catch (_) {
+        } catch (redisErr) {
+            console.warn(`${_tag} [2] ⚠️ Redis unavailable (${redisErr.message}), falling back to DB query`);
             const privateUsers = await User.find({
                 isPrivate: true,
                 _id: { $nin: [...followingIds, userId] }
             }).select('_id').lean();
             privateUserIds = privateUsers.map(u => u._id.toString());
+            console.log(`${_tag} [2] ✅ Private users (DB fallback) — ${privateUserIds.length} excluded`);
         }
 
-        // 1. Get User Interest Profile
-        const interest = await UserInterest.findOne({ userId }).lean();
+        // ── Step 3: Load user interest vector ────────────────────────────────
+        console.log(`${_tag} [3] Loading UserInterest & PostVector models...`);
+        let UserInterest, PostVector;
+        try {
+            ({ UserInterest, PostVector } = require("../models/Recommendation"));
+        } catch (modelErr) {
+            console.error(`${_tag} ❌ Failed to require Recommendation models: ${modelErr.message}`);
+            throw modelErr;
+        }
 
-        // 2. Fetch candidate posts
+        console.log(`${_tag} [3] Querying UserInterest for userId=${userId}...`);
+        const interest = await UserInterest.findOne({ userId }).lean();
+        if (!interest) {
+            console.warn(`${_tag} [3] ⚠️ No UserInterest document found for user — cold start, returning chronological posts`);
+        } else if (!interest.interestVector || !interest.interestVector.length) {
+            console.warn(`${_tag} [3] ⚠️ UserInterest exists but interestVector is empty — cold start`);
+        } else {
+            console.log(`${_tag} [3] ✅ Interest vector found — dim=${interest.interestVector.length}`);
+        }
+
+        // ── Step 4: Fetch candidate posts ─────────────────────────────────────
+        console.log(`${_tag} [4] Fetching candidate posts (limit=100)...`);
         const candidates = await Post.find({
             "user._id": { $ne: userId, $nin: privateUserIds },
             isAnonymous: { $ne: true }
         })
             .sort({ createdAt: -1 })
             .limit(100)
-            .select('_id createdAt likes category tags score user')
-            .lean();
+            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll')
+            .lean()
+            .maxTimeMS(10000);
 
-        if (!interest || !interest.interestVector || !interest.interestVector.length) {
-            return res.json({ items: candidates.slice(0, 20) });
+        console.log(`${_tag} [4] ✅ Fetched ${candidates.length} candidate posts`);
+
+        if (candidates.length > 0) {
+            // Update fallback cache in background (fire and forget)
+            redis.set('cache:fallback_posts', JSON.stringify(candidates.slice(0, 20)), 'EX', 600).catch(() => {});
         }
 
-        // 3. Get Vectors for candidates
+        if (!interest || !interest.interestVector || !interest.interestVector.length) {
+            console.log(`${_tag} [4] Returning top ${Math.min(candidates.length, 20)} posts (no interest vector — chronological)`);
+            return res.json({ items: candidates.slice(0, 20), isColdStart: true });
+        }
+
+        // ── Step 5: Fetch post vectors ────────────────────────────────────────
+        console.log(`${_tag} [5] Fetching PostVectors for ${candidates.length} candidates...`);
         const postVecs = await PostVector.find({ postId: { $in: candidates.map(c => c._id) } })
             .select('postId vector')
-            .lean();
+            .lean()
+            .maxTimeMS(5000);
         const vecMap = new Map(postVecs.map(v => [v.postId.toString(), v.vector]));
+        console.log(`${_tag} [5] ✅ Got ${postVecs.length} vectors`);
 
-        // 4. Rank using formula: score = 0.5*sim + 0.3*recency + 0.2*popularity
+        // ── Step 6: Rank by cosine similarity + recency + popularity ──────────
+        console.log(`${_tag} [6] Ranking candidates...`);
         const userVec = interest.interestVector;
         const userMag = Math.sqrt(userVec.reduce((sum, val) => sum + val * val, 0));
 
         const ranked = candidates.map(post => {
             const postVec = vecMap.get(post._id.toString());
             let similarity = 0;
-
             if (postVec && userMag) {
                 const dotProduct = userVec.reduce((sum, val, i) => sum + val * (postVec[i] || 0), 0);
                 const postMag = Math.sqrt(postVec.reduce((sum, val) => sum + val * val, 0));
                 similarity = postMag ? dotProduct / (userMag * postMag) : 0;
             }
-
             const hoursOld = (Date.now() - new Date(post.createdAt)) / (1000 * 60 * 60);
             const recency = Math.exp(-hoursOld / 24);
             const popularity = Math.min(1, (post.likes?.length || 0) / 50);
             const score = (0.5 * similarity) + (0.3 * recency) + (0.2 * popularity);
-            return { post, score };
+            return { ...post, score }; // Embed score directly
         });
-
         ranked.sort((a, b) => b.score - a.score);
+        console.log(`${_tag} [6] ✅ Ranked ${ranked.length} posts`);
 
-        const topIds = ranked.slice(0, 30).map(r => r.post._id);
-        const fullPosts = await Post.find({ _id: { $in: topIds } }).lean();
-        const idOrder = new Map(topIds.map((id, i) => [id.toString(), i]));
-        fullPosts.sort((a, b) => (idOrder.get(a._id.toString()) || 0) - (idOrder.get(b._id.toString()) || 0));
+        const result = ranked.slice(0, 30);
+        const elapsed = Date.now() - _t0;
+        console.log(`${_tag} ✅ SUCCESS — returning ${result.length} posts in ${elapsed}ms`);
+        res.json({ items: result });
 
-        res.json({ items: fullPosts });
     } catch (err) {
-        console.error('[Recommendation /posts] CRITICAL:', err.message);
+        const elapsed = Date.now() - _t0;
+        console.error(`${_tag} ❌ MAIN HANDLER FAILED after ${elapsed}ms: ${err.message}`);
         
-        // 🛡️ Robust Fallback: Try a super-simple chronological query if recommendations fail
+        // ── Fallback 1: Try Redis Cache ───────────────────────────────────────
+        try {
+            const cachedFallback = await redis.get('cache:fallback_posts');
+            if (cachedFallback) {
+                console.log(`${_tag} 🔄 Serving from Redis fallback cache`);
+                return res.json({
+                    items: JSON.parse(cachedFallback),
+                    isFallback: true,
+                    isCached: true,
+                    message: "Showing cached posts (Database is slow)"
+                });
+            }
+        } catch (cacheErr) {
+            console.error(`${_tag} ❌ Redis cache fallback failed: ${cacheErr.message}`);
+        }
+
+        // ── Fallback 2: Simple DB query ────────────────────────────────────────
+        console.log(`${_tag} 🔄 Attempting DB fallback (simple chronological query)...`);
         try {
             const fallback = await Post.find({ isAnonymous: { $ne: true } })
                 .sort({ createdAt: -1 })
                 .limit(20)
                 .lean()
-                .maxTimeMS(3000); // Fail fast (3s)
-            
-            return res.json({ 
-                items: fallback, 
+                .maxTimeMS(4000);
+
+            console.log(`${_tag} ✅ DB Fallback succeeded`);
+            return res.json({
+                items: fallback,
                 isFallback: true,
-                message: "Showing latest posts (AI engine temporarily slow)" 
+                message: "Showing latest posts (AI engine temporarily slow)"
             });
         } catch (innerErr) {
-            console.error('[Recommendation /posts] Fallback failed:', innerErr.message);
-            // Last resort: Return empty items instead of 500
-            res.json({ items: [], message: "Service temporarily unavailable" });
+            console.error(`${_tag} ❌ ALL FALLBACKS FAILED: ${innerErr.message}`);
+            res.json({
+                items: [],
+                message: "Service temporarily unavailable. Please refresh."
+            });
         }
     }
 });
