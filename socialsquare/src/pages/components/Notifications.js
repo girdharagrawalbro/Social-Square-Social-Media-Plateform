@@ -3,11 +3,12 @@ import useConversationStore from '../../store/zustand/useConversationStore';
 import { useAcceptFollowRequest, useDeclineFollowRequest } from '../../hooks/queries/useAuthQueries';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import SkeletonNotifications from './ui/SkeletonNotifications';
 
 const Notification = () => {
     const navigate = useNavigate();
     const { notifications, unreadNotificationsCount } = useConversationStore();
-    const loading = false;
+    const loading = false; // You might want to pass this from parent or use local state
     const error = null;
 
     const acceptMutation = useAcceptFollowRequest();
@@ -59,17 +60,7 @@ const Notification = () => {
     return (
         <div className="flex flex-col gap-1 py-2">
             {loading ? (
-                <div className="flex flex-col gap-4 p-4">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="flex gap-3 animate-pulse">
-                            <div className="w-10 h-10 bg-[var(--surface-2)] rounded-full"></div>
-                            <div className="flex-1 space-y-2 py-1">
-                                <div className="h-2 bg-[var(--surface-2)] rounded w-3/4"></div>
-                                <div className="h-2 bg-[var(--surface-2)] rounded w-1/2"></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <SkeletonNotifications />
             ) : error ? (
                 <div className="p-10 text-center">
                     <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">

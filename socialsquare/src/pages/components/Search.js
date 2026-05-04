@@ -5,6 +5,7 @@ import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
 import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
 import useAuthStore from "../../store/zustand/useAuthStore";
+import SkeletonSearch from './ui/SkeletonSearch';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -199,10 +200,7 @@ const Search = ({ onClose }) => {
                     {searchTerm && (
                         <div className="pt-3 px-1">
                             {(loading.search || isTyping) ? (
-                                <div className="flex items-center gap-2 py-4 justify-center">
-                                    <span className="spinner-border spinner-border-sm text-indigo-500" role="status" />
-                                    <span className="text-sm text-gray-500">Searching...</span>
-                                </div>
+                                <SkeletonSearch />
                             ) : hasResults ? (
                                 <>
                                     {/* User results */}

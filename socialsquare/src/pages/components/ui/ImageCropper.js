@@ -3,9 +3,6 @@ import Cropper from 'react-easy-crop';
 import { Dialog } from 'primereact/dialog';
 import { Slider } from 'primereact/slider';
 
-/**
- * Utility to create an image element from a URL
- */
 const createImage = (url) =>
   new Promise((resolve, reject) => {
     const image = new Image();
@@ -17,17 +14,12 @@ const createImage = (url) =>
     image.src = url;
   });
 
-/**
- * Utility to get a cropped image as a Blob/File
- */
 async function getCroppedImg(imageSrc, pixelCrop) {
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  if (!ctx) {
-    return null;
-  }
+  if (!ctx) return null;
 
   canvas.width = pixelCrop.width;
   canvas.height = pixelCrop.height;
@@ -56,12 +48,12 @@ async function getCroppedImg(imageSrc, pixelCrop) {
   });
 }
 
-const ImageCropper = ({ 
-  image, 
-  video, 
-  onCropComplete, 
-  onCancel, 
-  visible, 
+const ImageCropper = ({
+  image,
+  video,
+  onCropComplete,
+  onCancel,
+  visible,
   initialAspect = 1,
   duration = 60,
   isNextImage = false
@@ -92,8 +84,8 @@ const ImageCropper = ({
   }, []);
 
   const onMediaLoaded = (mediaSize) => {
-    const aspect = mediaSize.width / mediaSize.height;
-    setImageAspect(aspect);
+    const ratio = mediaSize.width / mediaSize.height;
+    setImageAspect(ratio);
     setIsCropperLoaded(true);
   };
 
@@ -113,10 +105,12 @@ const ImageCropper = ({
     }
   };
 
+  // ✅ Original is now part of the presets array, using live imageAspect
   const aspectPresets = [
     { label: 'Square', value: 1 },
     { label: 'Portrait', value: 9 / 16 },
     { label: 'Landscape', value: 16 / 9 },
+    { label: 'Original', value: imageAspect },
   ];
 
   return (
@@ -177,22 +171,20 @@ const ImageCropper = ({
         <div className="p-4 bg-[var(--surface-1)]">
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
+              {/* ✅ Single unified loop — no separate Original button */}
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                 {aspectPresets.map((preset) => (
                   <button
                     key={preset.label}
                     onClick={() => setAspect(preset.value)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === preset.value ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'}`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === preset.value
+                        ? 'bg-[#808bf5] text-white border-[#808bf5]'
+                        : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'
+                      }`}
                   >
                     {preset.label}
                   </button>
                 ))}
-                <button
-                  onClick={() => setAspect(imageAspect)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === imageAspect ? 'bg-[#808bf5] text-white border-[#808bf5]' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'}`}
-                >
-                  Original
-                </button>
               </div>
 
               <div className="flex items-center gap-3">

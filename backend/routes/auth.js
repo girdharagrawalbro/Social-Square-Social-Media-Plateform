@@ -16,6 +16,7 @@ const { createNotification } = require('../lib/notification');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
 const authRateLimiter = require('../middleware/authRateLimiter');
+const { propagateUserProfileUpdate } = require('../utils/userPropagation');
 
 const router = express.Router();
 
@@ -941,6 +942,14 @@ router.put('/update-profile', verifyToken, async (req, res) => {
 
         const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select(OWN_USER_EXCLUSIONS);
         if (!updatedUser) return res.status(404).json({ message: 'User not found.' });
+
+        // ✅ Propagate changes to denormalized collections (Posts, Comments, etc.)
+        if (fullname || profile_picture || username) {
+            propagateUserProfileUpdate(userId, { fullname, username, profile_picture }).catch(err => {
+                console.error(`[Propagation Error] for user ${userId}:`, err.message);
+            });
+        }
+
         res.status(200).json(updatedUser);
     } catch { res.status(500).json({ message: 'Failed to update profile.' }); }
 });

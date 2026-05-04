@@ -18,6 +18,7 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const redis = require('./lib/redis');
 const User = require('./models/User'); // Update: Import User for presence
+require('./models/Recommendation');
 
 
 // ✅ NO cluster in single-dyno/512MB deployments

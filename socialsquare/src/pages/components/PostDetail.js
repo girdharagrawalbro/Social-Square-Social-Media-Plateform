@@ -447,9 +447,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     />
                                 </div>
                                 <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap font-medium">
-                                    {post.caption?.length > 150 && !expandedCaption ? (
+                                    {post.caption?.length > 35 && !expandedCaption ? (
                                         <>
-                                            {post.caption.slice(0, 150)}...
+                                            {post.caption.slice(0, 35)}...
                                             <span
                                                 onClick={() => setExpandedCaption(true)}
                                                 className="text-[#808bf5] cursor-pointer hover:underline ml-1 font-bold"
@@ -460,12 +460,12 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     ) : (
                                         <>
                                             {post.caption}
-                                            {post.caption?.length > 150 && expandedCaption && (
+                                            {post.caption?.length > 35 && expandedCaption && (
                                                 <span
                                                     onClick={() => setExpandedCaption(false)}
                                                     className="text-[var(--text-sub)] cursor-pointer hover:underline ml-1 font-bold text-xs"
                                                 >
-                                                    less
+                                                    show less
                                                 </span>
                                             )}
                                         </>

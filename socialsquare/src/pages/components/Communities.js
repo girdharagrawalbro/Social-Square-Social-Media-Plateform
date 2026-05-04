@@ -1,9 +1,9 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { useConfessions } from '../../hooks/queries/useExploreQueries';
-
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import Groups from './Groups';
+import SkeletonCommunities from './ui/SkeletonCommunities';
 
 // ─── CONFESSIONS FEED ─────────────────────────────────────────────────────────
 const ConfessionsFeed = () => {
@@ -15,13 +15,7 @@ const ConfessionsFeed = () => {
     const loading = confessionsQuery.isLoading;
     const loadingMore = confessionsQuery.isFetchingNextPage;
 
-    if (loading) return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
-            {[1, 2, 3].map(i => (
-                <div key={i} style={{ height: '100px', background: 'var(--surface-3)', borderRadius: '16px', animation: 'pulse 1.5s infinite' }} />
-            ))}
-        </div>
-    );
+    if (loading) return <SkeletonCommunities />;
 
     if (posts.length === 0) return (
         <div style={{ textAlign: 'center', padding: '48px 16px' }}>
@@ -76,7 +70,7 @@ const ConfessionsFeed = () => {
                             <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6, color: 'var(--text-main)' }}>
                                 {isExpanded || post.caption?.length <= 140
                                     ? post.caption
-                                    : <>{post.caption?.slice(0, 140)}... <button onClick={() => setExpanded(post._id)} style={{ background: 'none', border: 'none', color: '#808bf5', cursor: 'pointer', fontWeight: 600, fontSize: '13px', padding: 0 }}>more</button></>
+                                    : <>{post.caption?.slice(0, 80)}... <button onClick={() => setExpanded(post._id)} style={{ background: 'none', border: 'none', color: '#808bf5', cursor: 'pointer', fontWeight: 600, fontSize: '13px', padding: 0 }}>more</button></>
                                 }
                                 {isExpanded && post.caption?.length > 140 && (
                                     <button onClick={() => setExpanded(null)} style={{ background: 'none', border: 'none', color: '#808bf5', cursor: 'pointer', fontWeight: 600, fontSize: '13px', padding: '0 0 0 4px' }}>less</button>
@@ -125,7 +119,7 @@ const Communities = () => {
 
     useLayoutEffect(() => {
         let observer = null;
-        
+
         const updatePill = () => {
             const activeEl = tabItemRefs.current[activeTab];
             const container = tabContainerRef.current;
@@ -144,13 +138,13 @@ const Communities = () => {
         };
 
         updatePill();
-        
+
         const container = tabContainerRef.current;
         if (container) {
             observer = new ResizeObserver(updatePill);
             observer.observe(container);
         }
-        
+
         return () => {
             if (observer) observer.disconnect();
         };
