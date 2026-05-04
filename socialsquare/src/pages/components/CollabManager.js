@@ -4,7 +4,7 @@ import { useAcceptCollaboration, useDeclineCollaboration } from '../../hooks/que
 import toast from 'react-hot-toast';
 
 const STATUS_STYLE = {
-    pending:  { bg: 'var(--surface-2)', color: '#d97706', label: '⏳ Pending' },
+    pending: { bg: 'var(--surface-2)', color: '#d97706', label: '⏳ Pending' },
     accepted: { bg: '#d1fae5', color: '#059669', label: '✅ Accepted' },
     declined: { bg: '#fee2e2', color: '#ef4444', label: '❌ Declined' },
 };
@@ -196,8 +196,28 @@ const CollabManager = ({ mode = 'invites', compact = false }) => {
     };
 
     if (loading) return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[1, 2].map(i => <div key={i} style={{ height: 100, background: '#f3f4f6', borderRadius: '14px', animation: 'pulse 1.5s infinite' }} />)}
+        <div className="flex flex-col gap-3">
+            {[1, 2, 3].map(i => (
+                <div key={i} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-sm">
+                    <div className="flex gap-3 p-3">
+                        {/* Thumbnail */}
+                        <div className="skeleton w-14 h-14 rounded-xl shrink-0" />
+                        {/* Info */}
+                        <div className="flex-1 flex flex-col gap-2 py-1">
+                            <div className="flex items-center gap-2">
+                                <div className="skeleton w-6 h-6 rounded-full" />
+                                <div className="skeleton w-24 h-3 rounded" />
+                            </div>
+                            <div className="skeleton w-full h-3 rounded" />
+                            <div className="skeleton w-1/3 h-3 rounded" />
+                        </div>
+                    </div>
+                    {/* Expand bar */}
+                    <div className="border-t border-[var(--border-color)] p-2">
+                        <div className="skeleton w-24 h-3 rounded mx-2" />
+                    </div>
+                </div>
+            ))}
         </div>
     );
 
@@ -225,7 +245,7 @@ const CollabManager = ({ mode = 'invites', compact = false }) => {
         <div className="flex flex-col gap-6">
             {!compact && pendingInvites.length > 0 && (
                 <div>
-                     <p className="text-[10px] uppercase font-bold text-[var(--text-sub)] tracking-wider mb-3 px-2">
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-sub)] tracking-wider mb-3 px-2">
                         Pending Invites ({pendingInvites.length})
                     </p>
                     {pendingInvites.map(post => (
@@ -235,7 +255,7 @@ const CollabManager = ({ mode = 'invites', compact = false }) => {
             )}
 
             {!compact && acceptedPosts.length > 0 && (
-                 <div>
+                <div>
                     <p className="text-[10px] uppercase font-bold text-[var(--text-sub)] tracking-wider mb-3 px-2">
                         Collaborative Posts ({acceptedPosts.length})
                     </p>
@@ -243,14 +263,14 @@ const CollabManager = ({ mode = 'invites', compact = false }) => {
                         {acceptedPosts.map(post => {
                             const images = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
                             return (
-                                <div 
-                                    key={post._id} 
+                                <div
+                                    key={post._id}
                                     className="aspect-square relative group cursor-pointer rounded-xl overflow-hidden bg-[var(--surface-2)]"
                                     onClick={() => {
-                                      // Trigger parent's post detail if possible, 
-                                      // but CollabManager is often inside a Dialog.
-                                      // For now, we'll use a simple alert or standard detail logic
-                                      window.location.href = `/${loggeduser.username}?post=${post._id}`;
+                                        // Trigger parent's post detail if possible, 
+                                        // but CollabManager is often inside a Dialog.
+                                        // For now, we'll use a simple alert or standard detail logic
+                                        window.location.href = `/${loggeduser.username}?post=${post._id}`;
                                     }}
                                 >
                                     {images[0] ? (
@@ -270,7 +290,7 @@ const CollabManager = ({ mode = 'invites', compact = false }) => {
             )}
 
             {compact && posts.map(post => (
-                 <InviteCard key={post._id} post={post} userId={loggeduser._id} onRespond={handleRespond} />
+                <InviteCard key={post._id} post={post} userId={loggeduser._id} onRespond={handleRespond} />
             ))}
         </div>
     );

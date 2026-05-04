@@ -125,9 +125,7 @@ def get_profile(s: requests.Session, username: str) -> dict:
         if r.status_code == 404:
             raise ValueError(f"@{username} not found.")
         if r.status_code in (401, 403):
-            raise PermissionError("Session invalid or expired.")
-    except (ValueError, PermissionError):
-        raise
+            print("  [WARN]  Session-based profile API rejected. Trying fallback...")
     except Exception:
         pass
 
@@ -236,6 +234,7 @@ def _normalize(u: dict) -> dict:
         "total_posts":  int(total),
         "is_private":   bool(u.get("is_private", False)),
         "is_verified":  bool(u.get("is_verified", False)),
+        "profile_pic_url": u.get("profile_pic_url_hd") or u.get("profile_pic_url") or "",
     }
 
 
@@ -424,18 +423,30 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
         sys.exit(1)
 
     # ── Fetch post list ────────────────────────────────────
-    print(f"\n  [INFO]  Fetching post metadata...")
-    raw = fetch_posts(s, profile["id"], limit)
+    raw = []
+    if limit > 0:
+        print(f"\n  [INFO]  Fetching post metadata...")
+        raw = fetch_posts(s, profile["id"], limit)
 
-    if not raw:
-        print("  ❌  No posts returned. Try refreshing your sessionid cookie.")
-        sys.exit(1)
-
-    print(f"  [OK]  {len(raw)} post(s) ready.\n")
+        if not raw:
+            print("  ❌  No posts returned. Try refreshing your sessionid cookie.")
+            sys.exit(1)
+        print(f"  [OK]  {len(raw)} post(s) ready.\n")
+    else:
+        print(f"\n  [INFO]  Limit is 0; skipping post metadata fetch.")
 
     # ── Download ───────────────────────────────────────────
     os.makedirs(output_dir, exist_ok=True)
     print(f"  [PATH]  {os.path.abspath(output_dir)}\n")
+
+    # NEW: Download profile picture
+    if profile.get("profile_pic_url"):
+        print(f"  [INFO]  Downloading profile picture...")
+        dest = os.path.join(output_dir, "profile_pic.jpg")
+        if download_file(s, profile["profile_pic_url"], dest):
+            print(f"  [OK]  Profile picture saved to profile_pic.jpg")
+        else:
+            print(f"  [WARN]  Failed to download profile picture.")
 
     metadata_list = []
     downloaded = skipped = 0
@@ -477,6 +488,7 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
             "biography":       profile["biography"],
             "external_url":    profile["external_url"],
             "is_verified":     profile["is_verified"],
+            "profile_pic_url": profile.get("profile_pic_url", ""),
             "followers":       profile["followers"],
             "following":       profile["following"],
             "total_posts":     profile["total_posts"],

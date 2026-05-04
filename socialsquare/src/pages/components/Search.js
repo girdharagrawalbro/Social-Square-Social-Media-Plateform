@@ -95,6 +95,7 @@ const Search = ({ onClose }) => {
 
     const handleRecentClick = (term) => {
         setSearchTerm(term);
+        setDebouncedTerm(term);
         doSearch(term);
     };
 
@@ -118,13 +119,16 @@ const Search = ({ onClose }) => {
     };
 
     const handleCategoryClick = (category) => {
-        setSearchTerm(`#${category}`);
+        const term = `#${category}`;
+        setSearchTerm(term);
+        setDebouncedTerm(term);
         doSearch(category);
-        saveRecentSearch(`#${category}`);
+        saveRecentSearch(term);
     };
 
     const handleClear = () => {
         setSearchTerm('');
+        setDebouncedTerm('');
         setIsFocused(true);
     };
 
