@@ -5,7 +5,7 @@
             "headers": [
                 {
                     "key": "Content-Security-Policy",
-                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self';"
+                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://social-square-social-media-plateform-l1ar.onrender.com; frame-ancestors 'none';"
                 },
                 {
                     "key": "X-Frame-Options",
@@ -24,22 +24,10 @@
                     "value": "camera=(), microphone=(), geolocation=(), payment=()"
                 },
                 {
-                    "key": "Cross-Origin-Embedder-Policy",
-                    "value": "require-corp"
-                },
-                {
                     "key": "Cross-Origin-Opener-Policy",
                     "value": "same-origin"
-                },
-                {
-                    "key": "Cross-Origin-Resource-Policy",
-                    "value": "same-origin"
-                },
-                {
-                    "key": "Access-Control-Allow-Origin",
-                    "value": "https://socialsquares.vercel.app"
                 }
             ]
         }
     ]
-}
+} 
