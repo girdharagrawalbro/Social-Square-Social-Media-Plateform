@@ -28,6 +28,10 @@ const ProgressiveImage = ({
             setCurrentSrc(src);
             setIsLoaded(true);
         };
+        img.onerror = () => {
+            setIsLoaded(true); // Stop spinner
+            // No specific fallback image change here yet, but we stop the loading state
+        };
     }, [src]);
 
     return (

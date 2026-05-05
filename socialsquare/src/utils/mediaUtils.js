@@ -5,26 +5,23 @@
 export const getMediaThumbnail = (url, type = 'image', options = {}) => {
   if (!url) return null;
 
-  // If it's a Cloudinary URL, we can perform transformations
+  // 1. If it's a Cloudinary URL, we can perform transformations
   if (url.includes('cloudinary.com')) {
     if (type === 'video') {
-      // 1. Convert extension to .jpg
-      // 2. Add thumbnail transformations: 
-      //    c_fill: crop/fill to size
-      //    g_auto: automatic gravity (focus on subject)
-      //    so_auto: automatic start offset (find a good frame)
-      //    w, h: dimensions (default to 600 for high quality previews)
-      
-      
       // Cloudinary video URLs handle transformations differently than images
       // Format: .../video/upload/[transformations]/v[version]/[public_id].[ext]
       
-      // Replace extension
-      let thumbnailUrl = url.replace(/\.(mp4|webm|mov|ogg)$/i, '.jpg');
+      // Handle extension replacement or appending
+      let thumbnailUrl = url;
+      if (/\.(mp4|webm|mov|ogg)$/i.test(url)) {
+        thumbnailUrl = url.replace(/\.(mp4|webm|mov|ogg)$/i, '.jpg');
+      } else if (!url.toLowerCase().endsWith('.jpg') && !url.toLowerCase().endsWith('.png') && !url.toLowerCase().endsWith('.jpeg')) {
+        // If no extension, append .jpg to tell Cloudinary we want a frame
+        thumbnailUrl = `${url}.jpg`;
+      }
       
-      // Inject transformations after /video/upload/
-      // Match the exact eager transformation string used in the backend for authorization
-      const transformString = `c_fill,g_auto,so_auto,w_600,h_600`;
+      // Inject transformations after /video/upload/ or /image/upload/
+      const transformString = `c_fill,g_auto,so_1,w_600,h_600`;
       
       if (thumbnailUrl.includes('/video/upload/')) {
         thumbnailUrl = thumbnailUrl.replace('/video/upload/', `/video/upload/${transformString}/`);
@@ -42,8 +39,16 @@ export const getMediaThumbnail = (url, type = 'image', options = {}) => {
     }
   }
 
+  // 2. Fallback for non-Cloudinary videos (Google Drive, raw MP4s, etc.)
+  // We cannot easily generate client-side thumbnails for these, so we return 
+  // a stylized placeholder instead of the video URL (which fails in <img> tags)
+  if (type === 'video') {
+    return 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&q=80';
+  }
+
   return url;
 };
+
 
 /**
  * Checks if a URL is likely a video based on extension

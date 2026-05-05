@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts, useReactPost, useIncrementView } from '../../hooks/queries/usePostQueries';
 import { useReportPost } from '../../hooks/queries/usePostOperationsQueries';
+import { useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser } from '../../hooks/queries/useAuthQueries';
 import ReactionPicker from './ReactionPicker';
 import PollCard from './PollCard';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -75,6 +76,12 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const isDesktop = windowWidth >= 1024;
     const reportMutation = useReportPost();
     const [expandedCaption, setExpandedCaption] = useState(false);
+
+    // Mute/Block mutations
+    const muteMutation = useMuteUser();
+    const unmuteMutation = useUnmuteUser();
+    const blockMutation = useBlockUser();
+    const unblockMutation = useUnblockUser();
 
 
     useEffect(() => {
@@ -198,17 +205,55 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         confirmDialog({
             message: 'Are you sure you want to delete this post?',
             header: 'Delete Confirmation',
-            icon: 'pi pi-exclamation-triangle',
-            acceptClassName: 'p-button-danger',
-            accept: () => {
-                deleteMutation.mutate({ postId: post._id }, {
-                    onSuccess: () => {
-                        toast.success('Post deleted');
-                        onHide();
-                    },
-                });
-            }
+            icon: 'pi pi-info-circle',
+            acceptLabel: 'Delete',
+            acceptClassName: 'p-button-danger border-0 rounded-xl',
+            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+            accept: () => deleteMutation.mutate({ postId: post._id, folder: post.user.username }, {
+                onSuccess: () => {
+                    toast.success('Post deleted successfully');
+                    if (onHide) onHide();
+                }
+            }),
         });
+    };
+
+    const handleMute = () => {
+        const isMuted = loggeduser?.mutedUsers?.some(id => id?.toString() === post?.user?._id?.toString());
+        if (isMuted) {
+            unmuteMutation.mutate({ targetUserId: post.user._id });
+        } else {
+            confirmDialog({
+                message: `Are you sure you want to mute ${post.user.fullname}? Their posts will be hidden from your feed.`,
+                header: 'Mute User',
+                icon: 'pi pi-volume-off',
+                acceptLabel: 'Mute',
+                acceptClassName: 'p-button-warning border-0 rounded-xl',
+                rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                accept: () => muteMutation.mutate({ targetUserId: post.user._id }),
+            });
+        }
+    };
+
+    const handleBlock = () => {
+        const isBlocked = loggeduser?.blockedUsers?.some(id => id?.toString() === post?.user?._id?.toString());
+        if (isBlocked) {
+            unblockMutation.mutate({ targetUserId: post.user._id });
+        } else {
+            confirmDialog({
+                message: `Are you sure you want to block ${post.user.fullname}? They won't be able to see your profile or posts, and you won't see theirs.`,
+                header: 'Block Confirmation',
+                icon: 'pi pi-ban',
+                acceptLabel: 'Block',
+                acceptClassName: 'p-button-danger border-0 rounded-xl',
+                rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                accept: () => blockMutation.mutate({ targetUserId: post.user._id }, {
+                    onSuccess: () => {
+                        if (onHide) onHide();
+                    }
+                }),
+            });
+        }
     };
 
     const handleEditSubmit = () => {
@@ -299,7 +344,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                     <i className="pi pi-chevron-right"></i>
                                                 </button>
                                             )}
-                                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-sm p-1.5 rounded-full">
+                                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
                                                 {images.map((_, i) => (
                                                     <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
                                                 ))}
@@ -375,7 +420,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                             <i className="pi pi-chevron-right"></i>
                                                         </button>
                                                     )}
-                                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-sm p-1.5 rounded-full">
+                                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
                                                         {images.map((_, i) => (
                                                             <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
                                                         ))}
@@ -436,14 +481,16 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     </div>
                                     <PostMenu
                                         post={post}
-                                        user={loggeduser}
-                                        isSaved={isSaved}
-                                        onSave={handleSave}
+                                        isOwner={loggeduser?._id === post?.user?._id}
                                         onEdit={() => { setEditingPost(post); setEditCaption(post.caption); }}
                                         onDelete={handleDelete}
                                         onReport={() => setReportVisible(true)}
+                                        onMute={handleMute}
+                                        onBlock={handleBlock}
                                         onShareToStory={() => setSharingPostToStory(post)}
                                         isSaving={isSaving}
+                                        onSave={handleSave}
+                                        isSaved={isSaved}
                                     />
                                 </div>
                                 <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap font-medium">
@@ -678,8 +725,8 @@ const SimilarPosts = ({ postId, onPostClick }) => {
             <div className="grid grid-cols-3 gap-2">
                 {items.slice(0, 3).map(item => (
                     <div key={item._id} onClick={() => onPostClick(item._id)} className="aspect-square rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-80 transition-opacity">
-                        {(item.image_urls?.[0] || item.image_url) ? (
-                            <img src={item.image_urls?.[0] || item.image_url} alt="" className="w-full h-full object-cover" />
+                        {(item.image_urls?.[0] || item.image_url || item.video) ? (
+                            <img src={item.image_urls?.[0] || item.image_url || item.videoThumbnail || getMediaThumbnail(item.video, 'video')} alt="" className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-[10px] text-[var(--text-sub)]">Post</div>
                         )}

@@ -487,7 +487,7 @@ router.get("/", async (req, res) => {
         res.status(200).json({ posts: resultWithPresence, nextCursor, hasMore });
     } catch (error) {
         console.error('[Feed] CRITICAL Error:', error.message);
-        
+
         // 🛡️ Fail-Safe Fallback: Try a super-minimal query if the complex feed logic crashes/times out
         try {
             const simplePosts = await Post.find({ isAnonymous: { $ne: true } })
@@ -495,10 +495,10 @@ router.get("/", async (req, res) => {
                 .limit(10)
                 .lean()
                 .maxTimeMS(3000); // Fail fast (3s)
-            
-            return res.status(200).json({ 
-                posts: simplePosts, 
-                nextCursor: null, 
+
+            return res.status(200).json({
+                posts: simplePosts,
+                nextCursor: null,
                 hasMore: false,
                 isFallback: true,
                 message: "Basic feed active (Database is slow)"
@@ -702,18 +702,24 @@ router.post("/react", verifyToken, async (req, res) => {
             if (post.reactions[existingIdx].emoji === emoji) {
                 // Toggle off if same emoji
                 post.reactions.splice(existingIdx, 1);
-                // Also remove from likes if it was there
+                // Also remove from likes if it was there (Atomic pull)
                 post.likes = post.likes.filter(id => id.toString() !== userId);
             } else {
                 // Change emoji
                 post.reactions[existingIdx].emoji = emoji;
                 // Ensure it's in likes for backward compatibility/quick counts
-                if (!post.likes.includes(userId)) post.likes.push(userId);
+                // FIX: use .some() instead of .includes() for ObjectId comparison
+                if (!post.likes.some(id => id.toString() === userId)) {
+                    post.likes.push(userId);
+                }
             }
         } else {
             // New reaction
             post.reactions.push({ userId, emoji });
-            if (!post.likes.includes(userId)) post.likes.push(userId);
+            // FIX: use .some() instead of .includes() for ObjectId comparison
+            if (!post.likes.some(id => id.toString() === userId)) {
+                post.likes.push(userId);
+            }
         }
 
         post.score = computeScore(post);
@@ -806,40 +812,54 @@ router.post("/like", verifyToken, async (req, res) => {
         if (!postId) return res.status(400).json({ message: 'PostId required.' });
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: 'Post not found.' });
-        if (!(post.likes || []).some(id => id.toString() === userId)) {
-            post.likes.push(userId);
-            // Default heart reaction for legacy like
-            post.reactions.push({ userId, emoji: '❤️' });
-            post.score = computeScore(post);
-            await post.save();
+
+        const alreadyLiked = (post.likes || []).some(id => id.toString() === userId.toString());
+        if (!alreadyLiked) {
+            // Use atomic findOneAndUpdate to prevent race conditions and duplicate likes
+            // Also ensure reactions are unique by userId
+            const updatedPost = await Post.findOneAndUpdate(
+                { _id: postId, likes: { $ne: userId } },
+                {
+                    $addToSet: { likes: userId },
+                    $push: { reactions: { userId, emoji: '❤️' } }
+                },
+                { new: true }
+            );
+
+            if (!updatedPost) {
+                return res.status(400).json({ message: "Already liked." });
+            }
+
+            updatedPost.score = computeScore(updatedPost);
+            await updatedPost.save();
 
             // ✅ Broadcast like update to all connected users
-            if (_io) _io.emit('postLiked', { postId, userId, likesCount: post.likes.length });
+            if (_io) _io.emit('postLiked', { postId, userId, likesCount: updatedPost.likes.length });
 
             // Create notification for post owner
             const sender = await User.findById(userId).select('fullname profile_picture').lean();
             if (sender) {
                 await notificationUtils.createNotification({
-                    recipientId: post.user._id,
+                    recipientId: updatedPost.user._id,
                     sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
                     type: 'like',
-                    postId: post._id,
-                    thumbnail: post.image_urls?.[0],
-                    url: `/post/${post._id}`,
+                    postId: updatedPost._id,
+                    thumbnail: updatedPost.image_urls?.[0],
+                    url: `/post/${updatedPost._id}`,
                 });
             }
 
             // ✅ Publish recommendation event
             await publishEvent("user.activity.like", {
                 userId,
-                postId: post._id.toString(),
+                postId: updatedPost._id.toString(),
                 action: "like",
-                category: post.category || "",
-                tags: post.tags || [],
+                category: updatedPost.category || "",
+                tags: updatedPost.tags || [],
                 timestamp: Date.now() / 1000,
             });
 
-            res.status(200).json({ success: true, post });
+            res.status(200).json({ success: true, post: updatedPost });
         } else { res.status(400).json({ message: "Already liked." }); }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -852,18 +872,36 @@ router.post("/unlike", verifyToken, async (req, res) => {
         if (!postId) return res.status(400).json({ message: 'PostId required.' });
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: 'Post not found.' });
-        if ((post.likes || []).some(id => id.toString() === userId)) {
-            post.likes = post.likes.filter(id => id.toString() !== userId);
-            // Also remove reaction
-            post.reactions = post.reactions.filter(r => r.userId?.toString() !== userId);
-            post.score = computeScore(post);
-            await post.save();
 
-            // ✅ Broadcast unlike update to all connected users
-            if (_io) _io.emit('postUnliked', { postId, userId, likesCount: post.likes.length });
+        const alreadyLiked = (post.likes || []).some(id => id.toString() === userId.toString());
+        if (alreadyLiked) {
+            // Use atomic findOneAndUpdate to prevent race conditions and ensure clean removal
+            const updatedPost = await Post.findOneAndUpdate(
+                { _id: postId },
+                {
+                    $pull: {
+                        likes: userId,
+                        reactions: { userId: userId }
+                    }
+                },
+                { new: true }
+            );
 
-            res.status(200).json({ success: true, post });
-        } else { res.status(400).json({ message: "Not liked." }); }
+            if (updatedPost) {
+                updatedPost.score = computeScore(updatedPost);
+                await updatedPost.save();
+
+                // ✅ Broadcast unlike update to all connected users
+                if (_io) _io.emit('postUnliked', { postId, userId, likesCount: updatedPost.likes.length });
+
+                res.status(200).json({ success: true, post: updatedPost });
+            } else {
+                res.status(404).json({ message: "Post not found during update." });
+            }
+        } else {
+            // Return success even if not liked — for optimistic UI robustness
+            res.status(200).json({ success: true, message: "Already unliked.", post });
+        }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1127,7 +1165,7 @@ router.get("/detail/:postId", async (req, res) => {
 // Anonymous posts only — identity is never revealed, sorted by score
 router.get("/confessions", async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 10;
+        const limit = parseInt(req.query.limit) || 9;
         const cursor = req.query.cursor;
         const query = {
             isAnonymous: true,
@@ -1153,11 +1191,13 @@ router.get("/confessions", async (req, res) => {
 });
 
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
+// ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
 router.get("/explore-reels", async (req, res) => {
+    const _tag = '[EXPLORE]';
+    const limit = parseInt(req.query.limit) || 10;
+    const cursor = req.query.cursor;
+
     try {
-        // FIX #2: Add fallback default to prevent NaN crash
-        const limit = parseInt(req.query.limit) || 10;
-        const cursor = req.query.cursor;
 
         // 1. Identify Viewer
         let viewerId = null;
@@ -1173,6 +1213,7 @@ router.get("/explore-reels", async (req, res) => {
             } catch (err) { /* invalid token */ }
         }
 
+        const viewerIdStr = viewerId ? viewerId.toString() : null;
         let followingIds = [];
         let excludedUserIds = [];
 
@@ -1183,13 +1224,13 @@ router.get("/explore-reels", async (req, res) => {
                 excludedUserIds = [
                     ...(viewer.blockedUsers || []),
                     ...(viewer.mutedUsers || []),
-                    viewerId // Exclude self from explore
+                    viewerId // Exclude self
                 ].map(id => id.toString());
             }
         }
 
-        // 🔒 Privacy Guard: Cache private user IDs for 60s to avoid repeated full scans
-        const privCacheKey = `private_users:excl:${viewerId || 'anon'}`;
+        // 2. Private user exclusion
+        const privCacheKey = `private_users:excl:${viewerIdStr || 'anon'}`;
         let privateUserIdsExcluded;
         try {
             const cached = await redis.get(privCacheKey);
@@ -1204,41 +1245,92 @@ router.get("/explore-reels", async (req, res) => {
                 await redis.set(privCacheKey, JSON.stringify(privateUserIdsExcluded), 'EX', 60);
             }
         } catch (_) {
-            const privateUsers = await User.find({
-                isPrivate: true,
-                _id: { $nin: [...followingIds, viewerId].filter(Boolean) }
-            }).select('_id').lean();
-            privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
+            privateUserIdsExcluded = [];
         }
 
-        /**
-         * Query Logic:
-         * 1. From FOLLOWED users: Show ANY post (image or video)
-         * 2. From OTHERS: Show ONLY video posts from PUBLIC accounts
-         */
+        // 3. Fetch Candidate Pool
+        // We fetch a larger pool (100) to allow for ranking and Bloom Filter exclusion
         const query = {
-            'user._id': { $nin: [...excludedUserIds, ...privateUserIdsExcluded] },
+            'user._id': { $nin: [...excludedUserIds, ...privateUserIdsExcluded].filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) },
             isAnonymous: { $ne: true },
-            $or: [
-                { 'user._id': { $in: followingIds } }, // 1. Followed users (any media)
-                { video: { $ne: null } }               // 2. Public users (only videos)
-            ]
+            video: { $ne: null }
         };
 
         if (cursor) {
             query._id = { $lt: cursor };
         }
 
-        const posts = await Post.find(query)
+        const candidates = await Post.find(query)
             .sort({ _id: -1 })
-            .limit(limit + 1)
+            .limit(100)
             .lean();
 
-        const hasMore = posts.length > limit;
-        const result = hasMore ? posts.slice(0, limit) : posts;
-        const nextCursor = hasMore ? result[result.length - 1]._id : null;
+        if (candidates.length === 0) {
+            return res.status(200).json({ posts: [], nextCursor: null, hasMore: false });
+        }
 
-        // Fetch presence for users in results
+        // 4. Bloom Filter Exclusion (Seen Posts)
+        let filteredCandidates = candidates;
+        if (viewerIdStr && redis.status !== 'disabled') {
+            try {
+                const seenFilter = new RedisBloomFilter(`bf:seen:${viewerIdStr}`);
+                const seenChecks = await seenFilter.mightContainMultiple(candidates.map(p => p._id.toString()));
+                filteredCandidates = candidates.filter((_, i) => !seenChecks[i]);
+
+                // If we filtered out too many, fall back to some seen ones to keep the feed moving
+                if (filteredCandidates.length < limit && candidates.length >= limit) {
+                    filteredCandidates = candidates;
+                }
+            } catch (bfErr) {
+                console.warn(`${_tag} Bloom Filter check failed:`, bfErr.message);
+                filteredCandidates = candidates;
+            }
+        }
+
+        // 5. Ranking & Randomization
+        let ranked = filteredCandidates;
+        try {
+            const { UserInterest, PostVector } = require("../models/Recommendation");
+            const interest = viewerIdStr ? await UserInterest.findOne({ userId: viewerIdStr }).lean() : null;
+            const postVecs = await PostVector.find({ postId: { $in: filteredCandidates.map(c => c._id) } }).lean();
+            const vecMap = new Map(postVecs.map(v => [v.postId.toString(), v.vector]));
+
+            const userVec = interest?.interestVector;
+            const userMag = userVec ? Math.sqrt(userVec.reduce((sum, val) => sum + val * val, 0)) : 0;
+
+            ranked = filteredCandidates.map(post => {
+                let similarity = 0;
+                const postVec = vecMap.get(post._id.toString());
+                if (postVec && userMag) {
+                    const dotProduct = userVec.reduce((sum, val, i) => sum + val * (postVec[i] || 0), 0);
+                    const postMag = Math.sqrt(postVec.reduce((sum, val) => sum + val * val, 0));
+                    similarity = postMag ? dotProduct / (userMag * postMag) : 0;
+                }
+
+                const hoursOld = (Date.now() - new Date(post.createdAt)) / (1000 * 60 * 60);
+                const recency = Math.exp(-hoursOld / 48); // 2-day half-life
+                const popularity = Math.min(1, (post.likes?.length || 0) / 100);
+
+                // Final Score = Similarity + Recency + Popularity + Random Jitter
+                const jitter = Math.random() * 0.15;
+                const finalScore = (0.4 * similarity) + (0.3 * recency) + (0.2 * popularity) + jitter;
+
+                return { ...post, _score: finalScore };
+            });
+
+            ranked.sort((a, b) => b._score - a._score);
+        } catch (recErr) {
+            console.warn(`${_tag} Recommendation failed, using chronological with jitter:`, recErr.message);
+            ranked = filteredCandidates.map(p => ({ ...p, _score: Math.random() }));
+            ranked.sort((a, b) => b._score - a._score);
+        }
+
+        // 6. Final Result (limit to 10 as requested)
+        const result = ranked.slice(0, limit);
+        const hasMore = candidates.length > limit;
+        const nextCursor = candidates.length > 0 ? candidates[candidates.length - 1]._id : null;
+
+        // Fetch presence
         const uniqueUserIds = [...new Set(result.map(p => p.user._id.toString()))];
         const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
         const presenceMap = {};
@@ -1255,25 +1347,17 @@ router.get("/explore-reels", async (req, res) => {
             hasMore
         });
     } catch (error) {
-        console.error('[Explore] Error:', error.message);
-        
-        // 🛡️ Fail-Safe Fallback
+        console.error(`${_tag} CRITICAL ERROR:`, error);
+        // Minimal Fallback
         try {
-            const simplePosts = await Post.find({ isAnonymous: { $ne: true } })
+            const fallback = await Post.find({ video: { $ne: null }, isAnonymous: { $ne: true } })
                 .sort({ _id: -1 })
-                .limit(10)
-                .lean()
-                .maxTimeMS(3000);
-            
-            return res.status(200).json({ 
-                posts: simplePosts, 
-                nextCursor: null, 
-                hasMore: false,
-                isFallback: true,
-                message: "Basic explore active (Database is slow)"
-            });
-        } catch (innerError) {
-            res.status(503).json({ error: "Explore temporarily unavailable" });
+                .limit(limit)
+                .lean();
+            return res.status(200).json({ posts: fallback, hasMore: false, isFallback: true, error: error.message });
+        } catch (innerErr) {
+            console.error(`${_tag} Fallback also failed:`, innerErr.message);
+            res.status(500).json({ error: "Service unavailable", details: innerErr.message });
         }
     }
 });

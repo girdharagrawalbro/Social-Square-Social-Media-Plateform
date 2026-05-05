@@ -36,8 +36,8 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
             }
         ] : [
             {
-                label: 'Mute user',
-                icon: 'pi pi-volume-off',
+                label: user?.mutedUsers?.some(m => m?.toString() === post.user?._id?.toString()) ? 'Unmute user' : 'Mute user',
+                icon: user?.mutedUsers?.some(m => m?.toString() === post.user?._id?.toString()) ? 'pi pi-volume-up' : 'pi pi-volume-off',
                 color: 'text-[var(--text-main)]',
                 onClick: () => {
                     onMute();
@@ -45,7 +45,7 @@ const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isS
                 }
             },
             {
-                label: 'Block user',
+                label: user?.blockedUsers?.some(b => b?.toString() === post.user?._id?.toString()) ? 'Unblock user' : 'Block user',
                 icon: 'pi pi-ban',
                 color: 'text-red-500',
                 onClick: () => {

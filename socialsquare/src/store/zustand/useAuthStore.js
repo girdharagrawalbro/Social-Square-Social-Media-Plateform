@@ -87,7 +87,7 @@ export const refreshAccessToken = async () => {
         useAuthStore.getState().setUser(null);
         useAuthStore.getState().setInitialized(true);
         // Only redirect if we are not already on login/landing
-        if (!['/login', '/landing', '/signup'].includes(window.location.pathname) && !window.location.pathname.startsWith('/profile/')) {
+        if (!['/login', '/landing', '/signup'].includes(window.location.pathname) && !window.location.pathname.startsWith('/profile/') && !window.location.pathname.startsWith('/stories/')) {
             window.location.href = '/login';
         }
         throw err;
@@ -244,6 +244,22 @@ const useAuthStore = create(
                     }
                 }));
             },
+
+            addMutedUser: (id) => set(s => ({
+                user: s.user ? { ...s.user, mutedUsers: [...(s.user.mutedUsers || []).filter(mid => mid?.toString() !== id?.toString()), id] } : null
+            })),
+
+            removeMutedUser: (id) => set(s => ({
+                user: s.user ? { ...s.user, mutedUsers: (s.user.mutedUsers || []).filter(mid => mid?.toString() !== id?.toString()) } : null
+            })),
+
+            addBlockedUser: (id) => set(s => ({
+                user: s.user ? { ...s.user, blockedUsers: [...(s.user.blockedUsers || []).filter(bid => bid?.toString() !== id?.toString()), id] } : null
+            })),
+
+            removeBlockedUser: (id) => set(s => ({
+                user: s.user ? { ...s.user, blockedUsers: (s.user.blockedUsers || []).filter(bid => bid?.toString() !== id?.toString()) } : null
+            })),
 
             blockUser: async (targetUserId) => {
                 const user = get().user;

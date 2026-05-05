@@ -1,7 +1,7 @@
 import './App.css';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
@@ -26,6 +26,7 @@ import Explore from './pages/components/Explore';
 import Communities from './pages/components/Communities';
 import BottomNav from './pages/components/BottomNav';
 import Navbar from './pages/components/Navbar';
+import { CreateStoryModal } from './pages/components/Stories';
 
 import Footer from './pages/components/Footer';
 import NotificationBell from './pages/components/ui/NotificationBell';
@@ -376,7 +377,7 @@ function App() {
             <QueryClientProvider client={queryClient}>
                 <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
                     <DarkModeProvider>
-                        <ConfirmDialog />
+                        <ConfirmDialog baseZIndex={1000000} />
                         <Router>
                             <AppInit />
                             <Suspense fallback={<PageLoader />}>
@@ -425,10 +426,9 @@ function App() {
 }
 
 function GlobalOverlays() {
-    const postDetailId = usePostStore(s => s.postDetailId);
-    const profileDetailId = usePostStore(s => s.profileDetailId);
-    const setPostDetailId = usePostStore(s => s.setPostDetailId);
-    const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
+    const { postDetailId, profileDetailId, setPostDetailId, setProfileDetailId, sharingPostToStory, clearSharingPostToStory } = usePostStore();
+    const user = useAuthStore(s => s.user);
+    const qc = useQueryClient();
     const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
     const location = useLocation();
 
@@ -469,14 +469,27 @@ function GlobalOverlays() {
                 header="Profile"
                 visible={!!profileDetailId}
                 style={{ width: '95vw', maxWidth: '500px' }}
-                position="center"
+                position={window.innerWidth < 768 ? "bottom" : "center"}
                 onHide={() => setProfileDetailId(null)}
                 baseZIndex={isStoryViewerOpen ? 20000 : 1000}
                 appendTo={document.body}
                 blockScroll
+                draggable={false}
+                resizable={false}
+                className={window.innerWidth < 768 ? "profile-dialog-mobile" : ""}
             >
                 {profileDetailId && <UserProfile id={profileDetailId} />}
             </Dialog>
+
+
+            {sharingPostToStory && (
+                <CreateStoryModal
+                    onClose={clearSharingPostToStory}
+                    onCreated={() => queryClient.invalidateQueries(['story-feed'])}
+                    loggeduser={user}
+                    sharedPost={sharingPostToStory}
+                />
+            )}
         </>
     );
 

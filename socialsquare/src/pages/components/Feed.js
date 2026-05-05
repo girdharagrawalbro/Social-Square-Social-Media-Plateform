@@ -26,7 +26,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 import SharePostDialog from './ui/SharePostDialog';
 import ReactionPicker from './ReactionPicker';
 import PostMenu from './ui/PostMenu';
-import { usePrefetchUserProfile, useFollowUser, useMuteUser, useBlockUser } from '../../hooks/queries/useAuthQueries';
+import { usePrefetchUserProfile, useFollowUser, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser } from '../../hooks/queries/useAuthQueries';
 import { usePrefetchPost } from '../../hooks/queries/usePostQueries';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
@@ -444,7 +444,9 @@ const Feed = ({ activeMood = null }) => {
     const reactMutation = useReactPost();
     const followMutation = useFollowUser();
     const muteMutation = useMuteUser();
+    const unmuteMutation = useUnmuteUser();
     const blockMutation = useBlockUser();
+    const unblockMutation = useUnblockUser();
 
     const [pickerPostId, setPickerPostId] = useState(null);
     const reportMutation = useReportPost();
@@ -725,7 +727,6 @@ const Feed = ({ activeMood = null }) => {
                 .music-tag{animation:musicPulse 2s ease-in-out infinite}
                 @keyframes musicPulse{0%,100%{opacity:1}50%{opacity:0.6}}
             `}</style>
-            <ConfirmDialog />
 
             <div className={`feed-container max-w-2xl mx-auto ${isDark ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'} min-h-screen pb-20`}>
                 {isLoading ? (
@@ -766,21 +767,36 @@ const Feed = ({ activeMood = null }) => {
                                 onFollow={handleFollow}
                                 onLikesClick={(ids) => { setLikesIds(ids); setLikesVisible(true); }}
                                 onMute={(p) => {
-                                    confirmDialog({
-                                        message: `Are you sure you want to mute ${p.user.fullname}? Their posts will be hidden from your feed.`,
-                                        header: 'Mute User',
-                                        icon: 'pi pi-volume-off',
-                                        accept: () => muteMutation.mutate({ targetUserId: p.user?._id }, { onSuccess: () => toast.success('User muted') })
-                                    });
+                                    const isMuted = user?.mutedUsers?.some(m => m?.toString() === p.user?._id?.toString());
+                                    if (isMuted) {
+                                        unmuteMutation.mutate({ targetUserId: p.user._id });
+                                    } else {
+                                        confirmDialog({
+                                            message: `Are you sure you want to mute ${p.user.fullname}? Their posts will be hidden from your feed.`,
+                                            header: 'Mute User',
+                                            icon: 'pi pi-volume-off',
+                                            acceptLabel: 'Mute',
+                                            acceptClassName: 'p-button-warning border-0 rounded-xl',
+                                            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                                            accept: () => muteMutation.mutate({ targetUserId: p.user._id }),
+                                        });
+                                    }
                                 }}
                                 onBlock={(p) => {
-                                    confirmDialog({
-                                        message: `Are you sure you want to block ${p.user.fullname}? You won't be able to see each other's posts.`,
-                                        header: 'Block User',
-                                        icon: 'pi pi-ban',
-                                        acceptClassName: 'p-button-danger',
-                                        accept: () => blockMutation.mutate({ targetUserId: p.user?._id }, { onSuccess: () => toast.success('User blocked') })
-                                    });
+                                    const isBlocked = user?.blockedUsers?.some(b => b?.toString() === p.user?._id?.toString());
+                                    if (isBlocked) {
+                                        unblockMutation.mutate({ targetUserId: p.user._id });
+                                    } else {
+                                        confirmDialog({
+                                            message: `Are you sure you want to block ${p.user.fullname}? They won't be able to see your profile or posts, and you won't see theirs.`,
+                                            header: 'Block Confirmation',
+                                            icon: 'pi pi-ban',
+                                            acceptLabel: 'Block',
+                                            acceptClassName: 'p-button-danger border-0 rounded-xl',
+                                            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                                            accept: () => blockMutation.mutate({ targetUserId: p.user._id }),
+                                        });
+                                    }
                                 }}
 
                             />

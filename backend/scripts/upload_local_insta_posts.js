@@ -12,7 +12,7 @@ const Post = require('../models/Post');
 const { detectMoodFromCaption } = require('../utils/gemini');
 const { checkContent } = require('../middleware/contentFilter');
 
-const CLOUDINARY_URL = "https://cloudinary-service-mdl5.onrender.com/api/cloudinary/upload-base64";
+const CLOUDINARY_URL = "http://localhost:5001/api/cloudinary/upload-base64";
 
 async function uploadToCloudinary(base64Data, mimeType, shortcode) {
     try {
@@ -139,16 +139,22 @@ async function run() {
                     if (!videoPath) {
                         videoPath = filePath;
                         const cUrl = await uploadToCloudinary(base64Data, 'video/mp4', shortcode);
-                        secureUrl = cUrl || `data:video/mp4;base64,${base64Data}`;
+                        if (!cUrl) {
+                            console.error(`Failed to upload video for ${shortcode}. Skipping post to avoid DB size limits.`);
+                            secureUrl = null;
+                            break; // Skip this post
+                        }
+                        secureUrl = cUrl;
                     }
                 } else if (file.endsWith('.jpg')) {
                     if (isVideo && !thumbPath) {
                         thumbPath = filePath;
                         const cUrl = await uploadToCloudinary(base64Data, 'image/jpeg', shortcode);
-                        thumbnailUrl = cUrl || `data:image/jpeg;base64,${base64Data}`;
+                        if (cUrl) thumbnailUrl = cUrl;
                     } else {
                         const cUrl = await uploadToCloudinary(base64Data, 'image/jpeg', shortcode);
-                        image_urls.push(cUrl || `data:image/jpeg;base64,${base64Data}`);
+                        if (cUrl) image_urls.push(cUrl);
+                        else console.warn(`Failed to upload image part for ${shortcode}. Skipping this image.`);
                     }
                 }
             }
