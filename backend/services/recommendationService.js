@@ -81,7 +81,9 @@ async function getSimilarPosts(postId) {
             _id: { $ne: postId },
             category: targetPost.category,
             isAnonymous: { $ne: true }
-        }).sort({ createdAt: -1 }).limit(10).lean();
+        }).sort({ createdAt: -1 }).limit(10)
+            .select('_id caption image_urls video videoThumbnail category user createdAt')
+            .lean();
 
         return similar;
     } catch (err) {
@@ -96,7 +98,9 @@ async function getPersonalizedTrending(userId) {
         return await Post.find({
             isAnonymous: { $ne: true },
             createdAt: { $gte: sevenDaysAgo }
-        }).sort({ score: -1, views: -1 }).limit(10).lean();
+        }).sort({ score: -1, views: -1 }).limit(10)
+            .select('_id caption image_urls video videoThumbnail category user createdAt score views')
+            .lean();
     } catch (err) {
         console.error("[RecommendationService] getPersonalizedTrending error:", err.message);
         return [];

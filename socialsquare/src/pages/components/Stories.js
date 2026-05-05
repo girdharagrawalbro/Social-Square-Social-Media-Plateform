@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { debounce } from 'lodash';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
@@ -72,6 +73,8 @@ const StoryViewer = ({
     const [isPaused, setIsPaused] = useState(false);
     const [viewers, setViewers] = useState([]);
     const [viewersVisible, setViewersVisible] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState(null);
+    const [profileVisible, setProfileVisible] = useState(false);
 
     useEffect(() => {
         if (story) {
@@ -168,15 +171,26 @@ const StoryViewer = ({
 
     }, [story, DURATION, loggeduser?._id, goNext, isPaused]);
 
-    const handleLike = async (e) => {
+    const debouncedLike = useMemo(
+        () => debounce(async (storyId) => {
+            try {
+                const { api } = await import('../../store/zustand/useAuthStore');
+                const res = await api.post(`/api/story/like/${storyId}`);
+                setIsLiked(res.data.likes.some(id => id.toString() === loggeduser?._id?.toString()));
+                onStoryLiked(storyId, res.data.likes);
+            } catch { toast.error('Failed to like story'); }
+        }, 400),
+        [loggeduser?._id, onStoryLiked]
+    );
+
+    const handleLike = (e) => {
         e.stopPropagation();
         if (!story?._id) return;
-        try {
-            const { api } = await import('../../store/zustand/useAuthStore');
-            const res = await api.post(`/api/story/like/${story._id}`);
-            setIsLiked(res.data.likes.some(id => id.toString() === loggeduser?._id?.toString()));
-            onStoryLiked(story._id, res.data.likes);
-        } catch { toast.error('Failed to like story'); }
+        
+        // Optimistic UI update
+        setIsLiked(!isLiked);
+        
+        debouncedLike(story._id);
     };
 
     const goPrev = (e) => {
@@ -222,7 +236,8 @@ const StoryViewer = ({
             icon: 'pi pi-exclamation-triangle',
             accept: confirmDelete,
             reject: () => setIsPaused(false),
-            onHide: () => setIsPaused(false)
+            onHide: () => setIsPaused(false),
+            baseZIndex: 1000000
         });
     };
 
@@ -256,10 +271,13 @@ const StoryViewer = ({
             {/* Header */}
             <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                    <div 
+                        style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
+                        onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}
+                    >
                         <img src={group.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                    <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}>
                         <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
                         <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>
                             {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -346,9 +364,9 @@ const StoryViewer = ({
                         </div>
 
                         <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                            {(story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url) ? (
+                            {(story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url || story.sharedPostId.video) ? (
                                 <ProgressiveImage
-                                    src={story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url}
+                                    src={story.sharedPostId.image_urls?.[0] || story.sharedPostId.image_url || getMediaThumbnail(story.sharedPostId.video, 'video')}
                                     style={{ width: '100%', height: '100%' }}
                                     alt=""
                                 />
@@ -536,6 +554,20 @@ const StoryViewer = ({
                     </div>
                 </div>
             )}
+            
+            <Dialog 
+                header="Profile" 
+                visible={profileVisible} 
+                style={{ width: '95vw', maxWidth: '500px' }} 
+                onHide={() => { setProfileVisible(false); setIsPaused(false); }}
+                breakpoints={{ '640px': '100vw' }}
+                baseZIndex={2000000}
+                dismissableMask
+            >
+                <React.Suspense fallback={<div className="p-4 text-center text-[var(--text-sub)]">Loading Profile...</div>}>
+                    <UserProfile id={selectedProfileId} />
+                </React.Suspense>
+            </Dialog>
         </div>
     );
 };
@@ -664,7 +696,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
     );
 };
 
-const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null }) => {
+export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null }) => {
     const fileInputRef = useRef(null);
     const [previews, setPreviews] = useState([]); // [{url, type, file}]
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -807,13 +839,20 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
     const currentMedia = previews[currentIndex];
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.25)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: 'var(--surface-1)', color: 'var(--text-main)', borderRadius: '16px', padding: '24px', width: '360px', maxHeight: '90vh', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Create Story {previews.length > 0 && `(${previews.length})`}</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
-                </div>
-
+        <Dialog
+            visible={true}
+            onHide={onClose}
+            showHeader={true}
+            header={`Create Story ${previews.length > 0 ? `(${previews.length})` : ''}`}
+            style={{ width: '95vw', maxWidth: '400px' }}
+            modal
+            appendTo={document.body}
+            baseZIndex={10000}
+            draggable={false}
+            resizable={false}
+            contentStyle={{ padding: '20px', background: 'var(--surface-1)', borderRadius: '16px' }}
+        >
+            <div className="flex flex-col">
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
                     <div onClick={() => !sharedPost && fileInputRef.current?.click()} style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: sharedPost ? 'default' : 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                         {sharedPost ? (
@@ -843,12 +882,20 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                         <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', marginTop: '8px', paddingBottom: '4px' }}>
                             {previews.map((p, i) => (
                                 <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-                                    <img
-                                        src={p.url}
-                                        onClick={() => setCurrentIndex(i)}
-                                        style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
-                                        alt=""
-                                    />
+                                    {p.type === 'video' ? (
+                                        <video
+                                            src={p.url}
+                                            onClick={() => setCurrentIndex(i)}
+                                            style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                                        />
+                                    ) : (
+                                        <img
+                                            src={p.url}
+                                            onClick={() => setCurrentIndex(i)}
+                                            style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                                            alt=""
+                                        />
+                                    )}
                                     <button onClick={(e) => { e.stopPropagation(); removePreview(i); }} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                                 </div>
                             ))}
@@ -881,7 +928,7 @@ const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null })
                     onCancel={() => setCroppingState({ visible: false, imageSrc: null, pendingFiles: [] })}
                 />
             )}
-        </div>
+        </Dialog>
     );
 };
 
@@ -1123,14 +1170,7 @@ const Stories = () => {
                 `}</style>
             </div>
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}
-            {sharingPostToStory && (
-                <CreateStoryModal
-                    onClose={clearSharingPostToStory}
-                    onCreated={handleStoryCreated}
-                    loggeduser={loggeduser}
-                    sharedPost={sharingPostToStory}
-                />
-            )}
+
 
             <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)} baseZIndex={20000} appendTo={document.body}>
                 <React.Suspense fallback={<div className="p-4 text-center">Loading Profile...</div>}>

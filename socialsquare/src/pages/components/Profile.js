@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery } from '@tanstack/react-query';
-import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest, usePublicUserProfile } from '../../hooks/queries/useAuthQueries';
+import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
@@ -90,10 +90,10 @@ const Profile = ({ userId }) => {
     const initialized = useAuthStore(s => s.initialized);
     const isLoggedOut = initialized && !loggeduser?._id;
 
-    const blockUser = useAuthStore(s => s.blockUser);
-    const unblockUser = useAuthStore(s => s.unblockUser);
-    const muteUser = useAuthStore(s => s.muteUser);
-    const unmuteUser = useAuthStore(s => s.unmuteUser);
+    const { mutate: blockUserMut } = useBlockUser();
+    const { mutate: unblockUserMut } = useUnblockUser();
+    const { mutate: muteUserMut } = useMuteUser();
+    const { mutate: unmuteUserMut } = useUnmuteUser();
 
     // Determine whose profile to show
     const viewingOwnProfile = !userId || loggeduser?._id === userId;
@@ -171,7 +171,7 @@ const Profile = ({ userId }) => {
             acceptLabel: 'Yes, Block',
             rejectLabel: 'Cancel',
             accept: () => {
-                blockUser(profileId);
+                blockUserMut({ targetUserId: profileId });
                 toast.success(`Blocked ${displayUser.fullname}`);
             },
         });
@@ -185,7 +185,7 @@ const Profile = ({ userId }) => {
             acceptLabel: 'Yes, Unblock',
             rejectLabel: 'Cancel',
             accept: () => {
-                unblockUser(profileId);
+                unblockUserMut({ targetUserId: profileId });
                 toast.success(`Unblocked ${displayUser.fullname}`);
             },
         });
@@ -200,7 +200,7 @@ const Profile = ({ userId }) => {
                 acceptLabel: 'Yes, Unmute',
                 rejectLabel: 'Cancel',
                 accept: () => {
-                    unmuteUser(profileId);
+                    unmuteUserMut({ targetUserId: profileId });
                     toast.success(`Unmuted ${displayUser.fullname}`);
                 },
             });
@@ -212,7 +212,7 @@ const Profile = ({ userId }) => {
                 acceptLabel: 'Yes, Mute',
                 rejectLabel: 'Cancel',
                 accept: () => {
-                    muteUser(profileId);
+                    muteUserMut({ targetUserId: profileId });
                     toast.success(`Muted ${displayUser.fullname}`);
                 },
             });
@@ -241,34 +241,29 @@ const Profile = ({ userId }) => {
     // Tabs: own profile shows Posts/Saved/Collabs, other profiles show Posts only
     const TABS = viewingOwnProfile
         ? [
-            { key: 'posts', label: `Posts (${userPostsList.length})` },
-            { key: 'saved', label: `Saved (${savedPosts.length})` },
+            { key: 'posts', icon: 'pi pi-table', label: 'Posts' },
+            { key: 'reels', icon: 'pi pi-video', label: 'Reels' },
+            { key: 'saved', icon: 'pi pi-bookmark', label: 'Saved' },
             {
                 key: 'collabs',
-                label: (
-                    <div className="flex items-center justify-center gap-1.5">
-                        <span>🤝 Collabs</span>
-                        {pendingCollabCount > 0 && (
-                            <span className="bg-[#ef4444] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                                {pendingCollabCount}
-                            </span>
-                        )}
-                    </div>
-                )
+                icon: 'pi pi-users',
+                label: 'Collabs',
+                badge: pendingCollabCount > 0 ? pendingCollabCount : null
             },
-            { key: 'analytics', label: '📊 Insights' },
+            { key: 'analytics', icon: 'pi pi-chart-bar', label: 'Insights' },
         ]
         : [
-
+            { key: 'posts', icon: 'pi pi-table', label: 'Posts' },
+            { key: 'reels', icon: 'pi pi-video', label: 'Reels' },
         ];
 
     return (
         <>
-            <div className="w-full max-w-xl lg:max-w-xl xl:max-w-lg 2xl:max-w-xl mx-auto">
-                <div className="bg-[var(--surface-1)] flex flex-col gap-4 min-h-screen">
+            <div className="w-full max-w-4xl mx-auto">
+                <div className="bg-[var(--surface-1)] flex flex-col  min-h-screen">
 
                     {/* Header: Sticky Profile Info */}
-                    <div className="sticky top-0 z-30 bg-[var(--surface-1)] bg-opacity-90 backdrop-blur-md py-2 px-4 sm:py-0 sm:px-0 sm:mx-0 sm:px-0">
+                    <div className="bg-[var(--surface-1)] bg-opacity-90 backdrop-blur-md py-2 sm:py-0 sm:px-0 sm:mx-0 sm:px-0 max-w-xl w-full mx-auto">
                         {/* Avatar + identity */}
                         <div className="flex items-center justify-center text-center flex-col gap-1 mb-4">
                             <div className="relative">
@@ -457,22 +452,19 @@ const Profile = ({ userId }) => {
 
                         {/* Tabs */}
                         {!isPrivateAndNotFollowing && !isBlockedByMe && (
-                            <div className="flex relative items-center bg-[var(--surface-2)]  rounded-2xl mb-2 " ref={tabContainerRef}>
-                                {/* Floating Pill */}
+                            <div className="flex relative items-center bg-[var(--surface-1)] border-t border-[var(--border-color)]" ref={tabContainerRef}>
+                                {/* Floating Indicator Line (Top) */}
                                 <div
                                     style={{
                                         position: 'absolute',
-                                        top: '4px',
-                                        bottom: '4px',
+                                        top: '-1px',
                                         left: tabPill.left,
                                         width: tabPill.width,
-                                        borderRadius: '12px',
-                                        background: 'rgba(128, 139, 245, 0.12)',
-                                        border: '1px solid rgba(128, 139, 245, 0.2)',
+                                        height: '1px',
+                                        background: 'var(--text-main)',
                                         opacity: tabPillReady ? tabPill.opacity : 0,
-                                        transition: tabPillReady ? 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s ease, opacity 0.15s ease' : 'none',
-                                        zIndex: 0,
-                                        pointerEvents: 'none'
+                                        transition: tabPillReady ? 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s ease' : 'none',
+                                        zIndex: 20
                                     }}
                                 />
                                 {TABS.map(tab => (
@@ -480,9 +472,17 @@ const Profile = ({ userId }) => {
                                         key={tab.key}
                                         ref={el => tabItemRefs.current[tab.key] = el}
                                         onClick={() => setActiveTab(tab.key)}
-                                        className={`flex-1 py-2.5 text-xs border-0 bg-transparent cursor-pointer relative z-10 transition-all duration-300 ${activeTab === tab.key ? 'text-indigo-600 font-extrabold' : 'text-[var(--text-sub)] font-medium'}`}
+                                        className={`flex-1 py-2.5 flex flex-col items-center justify-center border-0 bg-transparent cursor-pointer relative z-10 transition-all ${activeTab === tab.key ? 'text-[var(--text-main)]' : 'text-[var(--text-sub)] opacity-50 hover:opacity-100'}`}
+                                        title={tab.label}
                                     >
-                                        {tab.label}
+                                        <div className="relative">
+                                            <i className={`${tab.icon} text-lg`}></i>
+                                            {tab.badge && (
+                                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] px-1 rounded-full font-bold">
+                                                    {tab.badge}
+                                                </span>
+                                            )}
+                                        </div>
                                     </button>
                                 ))}
                             </div>
@@ -528,64 +528,58 @@ const Profile = ({ userId }) => {
                         </div>
                     ) : (
                         // Posts / Saved — 3-col grid   
-                        <div className="grid grid-cols-3 gap-2 pr-1">
+                        <div className="grid grid-cols-3 gap-[2px] sm:gap-1">
                             {isLoadingTab ? (
                                 [1, 2, 3, 4, 5, 6].map(i => (
-                                    <div key={i} className="bg-gray-100 rounded-xl animate-pulse" style={{ aspectRatio: '1' }} />
+                                    <div key={i} className="bg-[var(--surface-2)] animate-pulse" style={{ aspectRatio: '1' }} />
                                 ))
-                            ) : tabPosts.length > 0 ? (
-                                (isLoggedOut
-                                    ? tabPosts.slice(0, 9)
-                                    : (viewingOwnProfile || isFollowing ? tabPosts : tabPosts.slice(0, 3))
-                                ).map((post, index) => (
-                                    <PostCard
-                                        key={post._id}
-                                        post={post}
-                                        isBlur={isLoggedOut ? true : !(viewingOwnProfile || isFollowing)}
-                                        onClick={(post) => {
-                                            if (isLoggedOut) {
-                                                toast.error('Log in to view full post', { icon: '🔒' });
-                                                navigate('/login');
-                                            } else if (viewingOwnProfile || isFollowing) {
-                                                setPostDetail(post);
-                                                setPostDetailVisible(true);
-                                            } else {
-                                                toast.error('Follow this user to see the full post', { icon: '🔒' });
-                                            }
-                                        }}
-                                    />
-                                ))
-                            ) : (
-                                <div className="col-span-3">
-                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                        <div className="relative w-full mb-8">
-                                            <div className="grid grid-cols-3 gap-3 opacity-5">
-                                                {[1, 2, 3, 4, 5, 6].map(i => (
-                                                    <div key={i} className="bg-[var(--surface-2)] rounded-lg animate-pulse" style={{ aspectRatio: '1' }} />
-                                                ))}
-                                            </div>
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                <div className="w-16 h-16 bg-[var(--surface-1)] rounded-full flex items-center justify-center shadow-lg mb-4 border border-[var(--border-color)]">
-                                                    <i className="pi pi-images text-3xl text-[var(--text-sub)] opacity-20"></i>
-                                                </div>
-                                                <h3 className="m-0 text-[var(--text-main)] font-bold text-lg">
-                                                    {activeTab === 'posts' ? 'No posts yet' : 'No saved posts'}
-                                                </h3>
-                                                <p className="m-0 text-sm text-[var(--text-sub)] mt-1 max-w-[200px]">
-                                                    {activeTab === 'posts'
-                                                        ? "This user hasn't shared anything yet."
-                                                        : "Posts you save will appear here."}
-                                                </p>
-                                            </div>
+                            ) : (() => {
+                                let displayPosts = [];
+                                if (activeTab === 'posts') {
+                                    displayPosts = userPostsList;
+                                } else if (activeTab === 'reels') {
+                                    displayPosts = userPostsList.filter(p => !!p.video);
+                                } else if (activeTab === 'saved') {
+                                    displayPosts = savedPosts;
+                                }
+
+                                if (!isLoggedOut && !viewingOwnProfile && !isFollowing) {
+                                    displayPosts = displayPosts.slice(0, 3);
+                                }
+
+                                return displayPosts.length > 0 ? (
+                                    displayPosts.map((post, index) => (
+                                        <PostCard
+                                            key={post._id}
+                                            post={post}
+                                            isBlur={(isLoggedOut && index > 8) || (!viewingOwnProfile && !isFollowing)}
+                                            onClick={(post) => {
+                                                if (isLoggedOut) {
+                                                    toast.error('Log in to view full post', { icon: '🔒' });
+                                                    navigate('/login');
+                                                } else if (viewingOwnProfile || isFollowing) {
+                                                    setPostDetail(post);
+                                                    setPostDetailVisible(true);
+                                                } else {
+                                                    toast.error('Follow this user to see the full post', { icon: '🔒' });
+                                                }
+                                            }}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="col-span-3">
+                                        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                                            <i className={`pi ${activeTab === 'reels' ? 'pi-video' : 'pi-images'} text-4xl text-[var(--text-sub)] opacity-20 mb-4`}></i>
+                                            <h3 className="m-0 text-[var(--text-main)] font-bold text-base">No {activeTab} yet</h3>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </div>
                     )}
 
                     {isLoggedOut && tabPosts.length > 3 && (
-                        <div className="flex flex-col items-center justify-center py-8 px-4 text-center bg-[var(--surface-2)]/80 backdrop-blur-sm rounded-2xl mx-4 mt-4 mb-4 border border-[var(--border-color)]">
+                        <div className="flex flex-col items-center justify-center py-8 px-4 text-center bg-[var(--surface-2)]/80 backdrop-blur-lg rounded-2xl mx-4 mt-4 mb-4 border border-[var(--border-color)]">
                             <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
                                 <i className="pi pi-lock text-xl text-indigo-600"></i>
                             </div>

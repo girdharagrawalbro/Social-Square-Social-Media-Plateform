@@ -3,6 +3,7 @@ import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
 import { useUserDetails } from '../../../hooks/queries/useAuthQueries';
 import { useConversations, useSendMessage } from '../../../hooks/queries/useConversationQueries';
+import { useSearchUsers } from '../../../hooks/queries/useExploreQueries';
 
 const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -11,18 +12,23 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     // 1. Fetch recent conversations to prioritize frequent contacts
     const { data: conversations = [], isLoading: convLoading } = useConversations(visible ? user?._id : null);
 
-    // 2. Collect all follower/following IDs for a full list
-    const followerIds = (user?.followers || []).map(f => f.toString());
-    const followingIds = (user?.following || []).map(f => f.toString());
-    const allUniqueIds = Array.from(new Set([...followerIds, ...followingIds]));
+    // 2. Only show following users by default
+    const followingIds = useMemo(() => (user?.following || []).map(f => (f?._id || f)?.toString()), [user?.following]);
 
-    // 3. Fetch detailed user info for all unique IDs
-    const { data: users = [], isLoading: usersLoading } = useUserDetails(visible ? allUniqueIds : []);
+    // 3. Fetch detailed info for following list (only when not searching)
+    const { data: followingUsers = [], isLoading: usersLoading } = useUserDetails(visible && searchQuery.length === 0 ? followingIds : []);
+
+    // 4. Global search functionality
+    const { data: searchResults = [], isLoading: searchLoading } = useSearchUsers(searchQuery);
 
     const sendMessageMut = useSendMessage();
 
-    // 4. Combine and Sort: Frequent/Recent Chats first
+    const isSearching = searchQuery.length > 0;
+
+    // 5. Combine and Sort: Frequent/Recent Chats first
     const sortedUsers = useMemo(() => {
+        const baseList = isSearching ? searchResults : followingUsers;
+        
         // Map of userId -> lastMessageAt for sorting
         const convMap = new Map();
         conversations.forEach(c => {
@@ -30,17 +36,13 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
             if (other) convMap.set(other.userId, new Date(c.updatedAt).getTime());
         });
 
-        return [...users]
-            .filter(u =>
-                u.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                u.username?.toLowerCase().includes(searchQuery.toLowerCase())
-            )
+        return [...baseList]
             .sort((a, b) => {
                 const timeA = convMap.get(a._id) || 0;
                 const timeB = convMap.get(b._id) || 0;
                 return timeB - timeA; // Descending: most recent first
             });
-    }, [users, conversations, searchQuery, user?._id]);
+    }, [followingUsers, searchResults, isSearching, conversations, user?._id]);
 
     const handleShare = async (targetUser) => {
         if (!post?._id || !targetUser?._id) return;
@@ -127,7 +129,7 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
 
                 {/* User List */}
                 <div className="max-h-[350px] overflow-y-auto pr-1 flex flex-col gap-1 custom-scrollbar">
-                    {convLoading || usersLoading ? (
+                    {convLoading || usersLoading || searchLoading ? (
                         [1, 2, 3, 4].map(i => (
                             <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
                                 <div className="w-10 h-10 bg-gray-100 rounded-full"></div>
@@ -139,7 +141,9 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
                         ))
                     ) : sortedUsers.length === 0 ? (
                         <div className="py-10 text-center">
-                            <p className="text-gray-400 text-sm m-0">No users found</p>
+                            <p className="text-gray-400 text-sm m-0">
+                                {isSearching ? 'No users found for this search' : 'No followed users found'}
+                            </p>
                         </div>
                     ) : (
                         sortedUsers.map(u => (

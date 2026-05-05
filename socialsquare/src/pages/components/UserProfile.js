@@ -12,6 +12,7 @@ import ChatPanel from './ChatPanel';
 import { confirmDialog } from 'primereact/confirmdialog';
 import toast from 'react-hot-toast';
 import ProgressiveImage from './ui/ProgressiveImage';
+import { getMediaThumbnail } from '../../utils/mediaUtils';
 
 const PostDetail = lazy(() => import('./PostDetail'));
 
@@ -60,19 +61,19 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
                             key={post._id}
 
                             onClick={() => { setPostDetail(post); setPostDetailVisible(isBlur ? false : true); }}
-                            className={`relative rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-90 transition group ${isBlur ? 'blur-sm' : ''}`}
+                            className={`relative rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-90 transition group ${isBlur ? 'blur-lg' : ''}`}
                             style={{ aspectRatio: '1' }}
                         >
-                            {imgs[0]
+                            {imgs[0] || post.video
                                 ? (
                                     <ProgressiveImage
-                                        src={imgs[0]}
+                                        src={imgs[0] || post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                                         alt=""
-                                        className={isBlur ? 'blur-sm' : ''}
+                                        className={isBlur ? 'blur-lg' : ''}
                                         objectFit="cover"
                                     />
                                 )
-                                : <div className={`w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center ${isBlur ? 'blur-sm' : ''}`}>{post.caption?.slice(0, 30)}</div>
+                                : <div className={`w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center ${isBlur ? 'blur-lg' : ''}`}>{post.caption?.slice(0, 30)}</div>
                             }
                         </div>
                     );
@@ -190,19 +191,31 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
         }
     };
 
-    const handleUnblock = () => unblockMutation.mutate({ targetUserId: id });
+    const handleMute = () => {
+        confirmDialog({
+            message: `Are you sure you want to mute ${userDetails.fullname}? Their posts will be hidden from your feed.`,
+            header: 'Mute User',
+            icon: 'pi pi-volume-off',
+            acceptLabel: 'Mute',
+            acceptClassName: 'p-button-warning border-0 rounded-xl',
+            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+            accept: () => muteMutation.mutate({ targetUserId: id }),
+        });
+    };
+    const handleUnmute = () => unmuteMutation.mutate({ targetUserId: id });
+
     const handleBlock = () => {
         confirmDialog({
-            message: `Are you sure you want to block ${userDetails?.fullname}? They won't be able to see your posts and you won't see theirs.`,
-            header: 'Block User',
+            message: `Are you sure you want to block ${userDetails.fullname}? They won't be able to see your profile or posts, and you won't see theirs.`,
+            header: 'Block Confirmation',
             icon: 'pi pi-ban',
             acceptLabel: 'Block',
-            acceptClassName: 'p-button-danger',
+            acceptClassName: 'p-button-danger border-0 rounded-xl',
+            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
             accept: () => blockMutation.mutate({ targetUserId: id }),
         });
     };
-    const handleMute = () => muteMutation.mutate({ targetUserId: id });
-    const handleUnmute = () => unmuteMutation.mutate({ targetUserId: id });
+    const handleUnblock = () => unblockMutation.mutate({ targetUserId: id });
 
     const handleShareProfile = async () => {
         const profileUrl = `${window.location.origin}/profile/${id}`;
@@ -335,22 +348,22 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                     {loggeduser?._id !== id && (
                         <div className="flex flex-col gap-4">
                             {!isBlockedByMe ? (
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                                     <button
                                         onClick={isFollowing ? handleUnfollow : isRequested ? handleCancelRequest : handleFollow}
                                         disabled={followMutation.isPending || unfollowMutation.isPending || cancelRequestMutation.isPending}
-                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border font-semibold text-sm cursor-pointer transition ${isFollowing ? 'border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:bg-[var(--surface-3)]' : 'border-0 bg-[#808bf5] text-white hover:opacity-95'}`}
+                                        className={`h-10 sm:h-11 rounded-xl border font-bold text-xs sm:text-sm cursor-pointer transition ${isFollowing ? 'border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:bg-[var(--surface-3)]' : 'border-0 bg-[#808bf5] text-white hover:opacity-95 shadow-sm shadow-indigo-500/10'}`}
                                     >
                                         {((followMutation.isPending && followMutation.variables?.targetUserId === id) || (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === id) || (cancelRequestMutation.isPending && cancelRequestMutation.variables?.targetUserId === id))
-                                            ? '...'
+                                            ? <i className="pi pi-spin pi-spinner text-xs"></i>
                                             : (isFollowing ? 'Following' : isRequested ? 'Requested' : 'Follow')}
                                     </button>
                                     <button
                                         onClick={handleMessage}
                                         disabled={isPrivateAndNotFollowing}
-                                        className={`h-10 sm:h-11 lg:h-12 rounded-xl border border-[var(--border-color)] font-semibold text-sm cursor-pointer transition ${isPrivateAndNotFollowing ? 'opacity-50 grayscale cursor-not-allowed bg-[var(--surface-2)] text-[var(--text-sub)]' : 'bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]'}`}
+                                        className={`h-10 sm:h-11 rounded-xl border border-[var(--border-color)] font-bold text-xs sm:text-sm cursor-pointer transition ${isPrivateAndNotFollowing ? 'opacity-50 grayscale cursor-not-allowed bg-[var(--surface-2)] text-[var(--text-sub)]' : 'bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)]'}`}
                                     >
-                                        <i className="pi pi-send mr-2"></i>{isPrivateAndNotFollowing ? 'Locked' : 'Message'}
+                                        <i className="pi pi-send mr-1.5 sm:mr-2 text-[10px] sm:text-xs"></i>{isPrivateAndNotFollowing ? 'Locked' : 'Message'}
                                     </button>
                                 </div>
                             ) : (
@@ -362,38 +375,38 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                 </button>
                             )}
 
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleShareProfile}
-                                    className="flex-1 h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
-                                >
-                                    🔗 Share
-                                </button>
-                                {isMutedByMe ? (
-                                    <button
-                                        onClick={handleUnmute}
-                                        className="flex-1 h-10 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-600 font-semibold text-sm cursor-pointer hover:bg-yellow-500/20 transition"
-                                    >
-                                        🔊 Unmute
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={handleMute}
-                                        className="flex-1 h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-semibold text-sm cursor-pointer hover:bg-[var(--surface-1)] transition"
-                                    >
-                                        🔇 Mute
-                                    </button>
-                                )}
-                                {!isBlockedByMe && (
-                                    <button
-                                        onClick={handleBlock}
-                                        className="w-10 h-10 rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 flex items-center justify-center cursor-pointer hover:bg-red-500/20 transition"
-                                        title="Block User"
-                                    >
-                                        <i className="pi pi-ban"></i>
-                                    </button>
-                                )}
-                            </div>
+                             <div className="flex gap-2">
+                                 <button
+                                     onClick={handleShareProfile}
+                                     className="flex-1 h-9 sm:h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                 >
+                                     🔗 Share
+                                 </button>
+                                 {isMutedByMe ? (
+                                     <button
+                                         onClick={handleUnmute}
+                                         className="flex-1 h-9 sm:h-10 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-600 font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-yellow-500/20 transition"
+                                     >
+                                         🔊 Unmute
+                                     </button>
+                                 ) : (
+                                     <button
+                                         onClick={handleMute}
+                                         className="flex-1 h-9 sm:h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                     >
+                                         🔇 Mute
+                                     </button>
+                                 )}
+                                 {!isBlockedByMe && (
+                                     <button
+                                         onClick={handleBlock}
+                                         className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 flex items-center justify-center cursor-pointer hover:bg-red-500/20 transition"
+                                         title="Block User"
+                                     >
+                                         <i className="pi pi-ban text-xs sm:text-sm"></i>
+                                     </button>
+                                 )}
+                             </div>
                         </div>
                     )}
 

@@ -6,11 +6,11 @@ import { useConversations, useClearChat, useDeleteChat, convoKeys } from '../../
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import ChatPanel from './ChatPanel';
-import UserProfile from './UserProfile';
 import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { useNavigate, useParams } from 'react-router-dom';
+import usePostStore from '../../store/zustand/usePostStore';
 
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
@@ -57,8 +57,7 @@ const Conversations = () => {
     }, [routeUserId, selectedParticipant?.conversationId]); // eslint-disable-line
 
     const [lastMessageId, setLastMessageId] = useState(null);
-    const [profileVisible, setProfileVisible] = useState(false);
-    const [selectedUserId, setSelectedUserId] = useState(null);
+    const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
 
     const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [globalSearch, setGlobalSearch] = useState('');
@@ -78,7 +77,7 @@ const Conversations = () => {
 
     useLayoutEffect(() => {
         let observer = null;
-        
+
         const updatePill = () => {
             const activeEl = convItemRefs.current[routeUserId];
             const nav = convListRef.current;
@@ -97,13 +96,13 @@ const Conversations = () => {
         };
 
         updatePill();
-        
+
         const nav = convListRef.current;
         if (nav) {
             observer = new ResizeObserver(updatePill);
             observer.observe(nav);
         }
-        
+
         return () => {
             if (observer) observer.disconnect();
         };
@@ -135,7 +134,6 @@ const Conversations = () => {
         setSearchQ('');
         setSearchIndex(0);
         setSearchCount(0);
-        setProfileVisible(false);
     }, [routeUserId]);
 
     // Memoize the refetch callback to prevent unnecessary effect re-runs
@@ -229,8 +227,7 @@ const Conversations = () => {
 
     const handleProfileClick = (userId) => {
         if (!userId) return;
-        setSelectedUserId(userId);
-        setProfileVisible(true);
+        setProfileDetailId(userId);
     };
 
     const formatDateTime = (dateString) => {
@@ -258,7 +255,7 @@ const Conversations = () => {
             <div className="flex flex-1 min-h-0">
                 {/* Conversation list - left column */}
                 <div className={`w-full sm:w-80 md:w-[30rem] border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden ${selectedParticipant ? 'hidden sm:flex' : 'flex'}`}>
-                    <div className="p-4 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
+                    <div className="p-4 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-lg">
                         <div className="flex items-center justify-between mb-3">
                             <h2 className="m-0 text-xl font-black text-[var(--test-main)]">Conversations</h2>
                             <button
@@ -465,15 +462,6 @@ const Conversations = () => {
                     )}
                 </div>
 
-                {/* Profile panel - right column (optional) */}
-                {profileVisible && (
-                    <div className="w-80 border-l border-gray-100 dark:border-gray-800 overflow-y-auto" style={{ width: '30rem' }}>
-                        <div className="p-3">
-                            <button className="mb-3 text-sm text-gray-500" onClick={() => setProfileVisible(false)}>Close</button>
-                            <UserProfile id={selectedUserId} onClose={() => setProfileVisible(false)} maxPosts={9} />
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Chat Options Menu */}
@@ -497,7 +485,9 @@ const Conversations = () => {
                                 acceptClassName: 'p-button-danger rounded-xl',
                                 accept: () => clearChatMut.mutate(selectedParticipant?.conversationId, {
                                     onSuccess: () => setRefreshKey(prev => prev + 1)
-                                })
+                                }),
+                                appendTo: document.body,
+                                baseZIndex: 1000000
                             });
                         }}
                         disabled={!selectedParticipant?.conversationId}
@@ -521,7 +511,9 @@ const Conversations = () => {
                                     closeChat();
                                     setShowMenu(false);
                                     deleteChatMut.mutate(cid);
-                                }
+                                },
+                                appendTo: document.body,
+                                baseZIndex: 1000000
                             });
                         }}
                         disabled={!selectedParticipant?.conversationId}

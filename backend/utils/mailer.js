@@ -114,15 +114,52 @@ async function sendNewDeviceAlert(email, { device, location, time }) {
     });
 }
 
-async function sendLockoutEmail(email, unlockTime) {
+async function sendSessionRevokedEmail(email, { device, location, ip }) {
+    const locationStr = typeof location === 'object' 
+        ? `${location.city || 'Unknown'}, ${location.country || 'Unknown'}`
+        : (location || 'Unknown');
+
+    return sendEmail({
+        to:      email,
+        subject: '🛡️ Session terminated — Social Square',
+        html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#6366f1">Session Revoked</h2>
+            <p>The following login session has been successfully terminated as per your request:</p>
+            <ul style="color:#374151">
+                <li><strong>Device:</strong> ${device || 'Unknown'}</li>
+                <li><strong>Location:</strong> ${locationStr}</li>
+                <li><strong>IP Address:</strong> ${ip || 'Unknown'}</li>
+            </ul>
+            <p style="color:#6b7280;font-size:12px">If this wasn't you, your account may be compromised. Please change your password immediately.</p>
+        </div>`
+    });
+}
+
+async function sendVerificationEmail(email, verificationUrl) {
+    return sendEmail({
+        to:      email,
+        subject: 'Verify your Social Square account',
+        html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#808bf5">Welcome to Social Square!</h2>
+            <p>Please click the button below to verify your email address and activate your account.</p>
+            <a href="${verificationUrl}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Verify Email</a>
+            <p style="color:#6b7280;font-size:12px">If you didn't create an account, ignore this email.</p>
+        </div>`
+    });
+}
+
+async function sendLockoutEmail(email, fullname, unlockTime) {
     return sendEmail({
         to:      email,
         subject: '🔒 Account temporarily locked — Social Square',
         html: `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
             <h2 style="color:#f59e0b">Account Locked</h2>
+            <p>Hi ${fullname},</p>
             <p>Too many failed login attempts. Your account is locked until:</p>
-            <p style="font-size:18px;font-weight:bold;color:#808bf5">${new Date(unlockTime).toLocaleString()}</p>
+            <p style="font-size:18px;font-weight:bold;color:#808bf5">${unlockTime}</p>
             <p style="color:#6b7280;font-size:12px">If this wasn't you, consider resetting your password after the lockout expires.</p>
         </div>`
     });
@@ -179,4 +216,6 @@ module.exports = {
     sendNewDeviceAlert,
     sendLockoutEmail,
     sendDigestEmail,
+    sendSessionRevokedEmail,
+    sendVerificationEmail
 };

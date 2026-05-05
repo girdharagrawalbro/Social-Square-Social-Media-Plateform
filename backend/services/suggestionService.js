@@ -291,7 +291,7 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
     _id: { $in: candidateSignals.candidateIds },
     isBanned: { $ne: true },
   })
-    .select('_id fullname profile_picture followers following created_at isPrivate followRequests')
+    .select('_id fullname profile_picture followers following created_at isPrivate')
     .lean();
 
   const maxMutual = Math.max(1, ...candidateUsers.map(u => candidateSignals.mutualCounts.get(toId(u._id)) || 0));
@@ -390,7 +390,6 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
     profile_picture: c.profile_picture,
     followersCount: c.followersCount,
     isPrivate: c.isPrivate,
-    followRequests: c.followRequests,
     score: Number(c.score.toFixed(4)),
     reason: reasonFromSignals(c, c.mutualCount),
   }));

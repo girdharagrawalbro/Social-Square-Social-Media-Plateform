@@ -48,7 +48,7 @@ router.get('/feed', verifyToken, async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
         const userIds = [userId, ...user.following.map(id => id.toString())];
-        
+
         // Fetch stories and then manually attach presence from current User state if needed, 
         // OR better, populate the user info with isOnline.
         // Since story.user is a subdocument saved at creation time, it might be stale.
@@ -58,11 +58,11 @@ router.get('/feed', verifyToken, async (req, res) => {
             'user._id': { $in: userIds },
             expiresAt: { $gt: new Date() },
         })
-        .populate({
-            path: 'sharedPostId',
-            populate: { path: 'user', select: 'fullname profile_picture isOnline' }
-        })
-        .sort({ createdAt: 1 });
+            .populate({
+                path: 'sharedPostId',
+                populate: { path: 'user', select: 'fullname profile_picture isOnline' }
+            })
+            .sort({ createdAt: 1 });
 
         // Fetch fresh presence for all users in the feed
         const uniqueUserIds = [...new Set(stories.map(s => s.user._id.toString()))];
@@ -75,19 +75,32 @@ router.get('/feed', verifyToken, async (req, res) => {
             const uid = story.user._id.toString();
             if (!grouped[uid]) {
                 const freshUser = presenceMap[uid];
-                grouped[uid] = { 
-                    user: { 
+                grouped[uid] = {
+                    user: {
                         _id: uid,
                         username: freshUser?.username || story.user.username,
                         fullname: freshUser?.fullname || story.user.fullname,
                         profile_picture: freshUser?.profile_picture || story.user.profile_picture,
-                        isOnline: freshUser?.isOnline || false 
-                    }, 
-                    stories: [], 
-                    hasUnviewed: false 
+                        isOnline: freshUser?.isOnline || false
+                    },
+                    stories: [],
+                    hasUnviewed: false
                 };
             }
-            grouped[uid].stories.push(story);
+            // 🔒 Privacy: Mask viewers and likes for non-owners
+            const isOwner = uid === userId.toString();
+            const sObj = story.toObject ? story.toObject() : story;
+            
+            sObj.viewersCount = (sObj.viewers || []).length;
+            sObj.likesCount = (sObj.likes || []).length;
+            sObj.isLiked = (sObj.likes || []).some(id => id.toString() === userId.toString());
+
+            if (!isOwner) {
+                sObj.viewers = []; // Hide identities
+                sObj.likes = [];   // Hide identities
+            }
+
+            grouped[uid].stories.push(sObj);
             if (!story.viewers.map(v => v.toString()).includes(userId.toString())) {
                 grouped[uid].hasUnviewed = true;
             }
@@ -160,31 +173,55 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
         }
 
         if (isLiked) {
-            story.likes = story.likes.filter(id => id.toString() !== userId.toString());
+            // Atomic pull to ensure removal
+            const updatedStory = await Story.findByIdAndUpdate(
+                req.params.storyId,
+                { $pull: { likes: userId } },
+                { new: true }
+            );
+
+            if (_io) {
+                _io.emit('storyUpdate', { 
+                    storyId: updatedStory._id, 
+                    likesCount: updatedStory.likes.length 
+                });
+            }
+            const resObj = updatedStory.toObject();
+            resObj.likesCount = updatedStory.likes.length;
+            resObj.isLiked = false;
+            return res.status(200).json(resObj);
         } else {
-            story.likes.push(userId);
-        }
-        await story.save();
+            // Atomic addToSet to prevent duplicates
+            const updatedStory = await Story.findByIdAndUpdate(
+                req.params.storyId,
+                { $addToSet: { likes: userId } },
+                { new: true }
+            );
 
-        if (_io) {
-            _io.emit('storyUpdate', { storyId: story._id, likes: story.likes });
-        }
+            if (_io) {
+                _io.emit('storyUpdate', { 
+                    storyId: updatedStory._id, 
+                    likesCount: updatedStory.likes.length 
+                });
+            }
 
-        // Create notification for story owner
-        if (!isLiked) {
+            // Create notification for story owner
             const sender = await User.findById(userId).select('fullname profile_picture').lean();
             if (sender) {
                 await notificationUtils.createNotification({
-                    recipientId: story.user._id,
+                    recipientId: updatedStory.user._id,
                     sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
                     type: 'like',
-                    thumbnail: story.media?.url,
-                    url: `/stories?user=${story.user._id}`,
+                    thumbnail: updatedStory.media?.url,
+                    url: `/stories?user=${updatedStory.user._id}`,
                 });
             }
-        }
 
-        res.status(200).json(story);
+            const resObj = updatedStory.toObject();
+            resObj.likesCount = updatedStory.likes.length;
+            resObj.isLiked = true;
+            return res.status(200).json(resObj);
+        }
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -356,9 +356,11 @@ export function useLeaveGroup() {
 // ─── MUTE / BLOCK MUTATIONS ──────────────────────────────────────────────────
 export function useMuteUser() {
     const qc = useQueryClient();
+    const addMutedUser = useAuthStore(s => s.addMutedUser);
     return useMutation({
         mutationFn: ({ targetUserId }) => api.post('/api/auth/mute', { targetUserId }),
-        onSuccess: () => {
+        onSuccess: (_, { targetUserId }) => {
+            addMutedUser(targetUserId);
             qc.invalidateQueries({ queryKey: ['posts'] });
             qc.invalidateQueries({ queryKey: ['user'] });
         },
@@ -367,9 +369,11 @@ export function useMuteUser() {
 
 export function useUnmuteUser() {
     const qc = useQueryClient();
+    const removeMutedUser = useAuthStore(s => s.removeMutedUser);
     return useMutation({
         mutationFn: ({ targetUserId }) => api.post('/api/auth/unmute', { targetUserId }),
-        onSuccess: () => {
+        onSuccess: (_, { targetUserId }) => {
+            removeMutedUser(targetUserId);
             qc.invalidateQueries({ queryKey: ['posts'] });
             qc.invalidateQueries({ queryKey: ['user'] });
         },
@@ -379,10 +383,12 @@ export function useUnmuteUser() {
 export function useBlockUser() {
     const qc = useQueryClient();
     const unfollowUser = useAuthStore(s => s.unfollowUser);
+    const addBlockedUser = useAuthStore(s => s.addBlockedUser);
     return useMutation({
         mutationFn: ({ targetUserId }) => api.post('/api/auth/block', { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             unfollowUser(targetUserId);
+            addBlockedUser(targetUserId);
             qc.invalidateQueries({ queryKey: ['posts'] });
             qc.invalidateQueries({ queryKey: ['user'] });
             qc.invalidateQueries({ queryKey: authKeys.otherUsers });
@@ -392,9 +398,11 @@ export function useBlockUser() {
 
 export function useUnblockUser() {
     const qc = useQueryClient();
+    const removeBlockedUser = useAuthStore(s => s.removeBlockedUser);
     return useMutation({
         mutationFn: ({ targetUserId }) => api.post('/api/auth/unblock', { targetUserId }),
-        onSuccess: () => {
+        onSuccess: (_, { targetUserId }) => {
+            removeBlockedUser(targetUserId);
             qc.invalidateQueries({ queryKey: ['user'] });
         },
     });

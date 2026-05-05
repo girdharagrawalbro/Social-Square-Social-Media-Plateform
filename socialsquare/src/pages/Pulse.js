@@ -24,7 +24,7 @@ const Pulse = () => {
         <div className="w-full">
             <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
                 {/* Header Header */}
-                <div className="flex flex-col gap-2 mb-8 animate-float">
+                <div className="flex flex-col gap-2 mb-8">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl pulse-gradient flex items-center justify-center text-white shadow-lg overflow-hidden relative">
                             <div className="absolute inset-0 bg-white/20 animate-pulse" />

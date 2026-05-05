@@ -13,6 +13,7 @@ import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import ProgressiveImage from './ui/ProgressiveImage';
 import useWindowWidth from '../../hooks/useWindowWidth';
+import usePostStore from '../../store/zustand/usePostStore';
 
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
@@ -194,8 +195,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
     const [editText, setEditText] = useState(message.content);
     const [showPostModal, setShowPostModal] = useState(false);
     const [selectedPostId, setSelectedPostId] = useState(null);
-    const [showProfileModal, setShowProfileModal] = useState(false);
-    const [selectedProfileId, setSelectedProfileId] = useState(null);
+    const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
     const [storyModalOpen, setStoryModalOpen] = useState(false);
     const [storyModalGroups, setStoryModalGroups] = useState([]);
     const [storyModalGroupIndex, setStoryModalGroupIndex] = useState(0);
@@ -570,7 +570,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
 
                                     {/* Shared profile */}
                                     {isSharedProfile && (
-                                        <div onClick={(e) => { e.stopPropagation(); setSelectedProfileId(sharedLinkData.profileId); setShowProfileModal(true); }}
+                                        <div onClick={(e) => { e.stopPropagation(); setProfileDetailId(sharedLinkData.profileId); }}
                                             className="cursor-pointer p-3 rounded-xl mb-2 flex items-center gap-4 transition-all"
                                             style={{ background: isOwn ? 'rgba(255,255,255,0.15)' : 'var(--surface-3)', border: isOwn ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-color)' }}>
                                             <div className="w-10 h-10 rounded-lg bg-[#808bf5]/20 flex items-center justify-center text-lg flex-shrink-0">👤</div>
@@ -732,13 +732,6 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                     <PostDetail postId={selectedPostId} onHide={() => setShowPostModal(false)} />
                                 </React.Suspense>
                             </div>
-                        </Dialog>
-                    )}
-                    {showProfileModal && selectedProfileId && (
-                        <Dialog header="Profile" aria-label="Profile" aria-modal="true" role="dialog" visible={showProfileModal}
-                            appendTo={document.body} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }}
-                            onHide={() => setShowProfileModal(false)} modal>
-                            <UserProfile id={selectedProfileId} onClose={() => setShowProfileModal(false)} />
                         </Dialog>
                     )}
                     {storyModalOpen && StoryViewerComp && (

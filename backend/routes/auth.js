@@ -32,7 +32,7 @@ const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const OWN_USER_EXCLUSIONS = '-password -twoFactorOtp -twoFactorOtpExpires -resetPasswordToken -resetPasswordExpires -emailVerificationToken -emailVerificationTokenSentAt -loginSessions -__v';
 
 // For other users (OTHER), we exclude almost everything personal/sensitive
-const OTHER_USER_EXCLUSIONS = '-password -email -loginSessions -notificationSettings -resetPasswordToken -resetPasswordExpires -twoFactorOtp -twoFactorOtpExpires -failedLoginAttempts -lockoutUntil -googleId -githubId -emailVerificationToken -emailVerificationTokenSentAt -dismissedUsers -__v';
+const OTHER_USER_EXCLUSIONS = '-password -email -loginSessions -notificationSettings -resetPasswordToken -resetPasswordExpires -twoFactorOtp -twoFactorOtpExpires -failedLoginAttempts -lockoutUntil -googleId -githubId -emailVerificationToken -emailVerificationTokenSentAt -dismissedUsers -__v -twoFactorEnabled -authProvider -isAdmin -isVerified -creatorTier -isBanned -banReason -bannedAt -isEmailVerified -hasSeenWelcome -savedPosts';
 
 if (!JWT_SECRET || !JWT_REFRESH_SECRET) { console.error('Missing JWT secrets'); process.exit(1); }
 
@@ -626,7 +626,7 @@ router.delete('/sessions/:sessionId', verifyToken, async (req, res) => {
         const user = await User.findById(req.userId).select('email');
         if (user?.email) {
             sendSessionRevokedEmail(user.email, {
-                device: session.deviceName,
+                device: session.device,
                 location: session.location,
                 ip: session.ip
             }).catch(err => console.error('[Security] Failed to send revocation email:', err.message));
@@ -767,7 +767,7 @@ router.post('/resend-verification', verifyToken, async (req, res) => {
 
 router.get('/get', verifyToken, async (req, res) => {
     try {
-        const user = await User.findById(req.userId).select('-password -resetPasswordToken -resetPasswordExpires -twoFactorOtp');
+        const user = await User.findById(req.userId).select(OWN_USER_EXCLUSIONS);
         if (!user) return res.status(404).json({ message: 'User not found.' });
         return res.status(200).json(user);
     } catch (error) {
@@ -801,7 +801,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
         }
 
         const targetUser = await User.findById(targetId)
-            .select('-password -email -loginSessions -notificationSettings -resetPasswordToken -resetPasswordExpires -twoFactorOtp -twoFactorOtpExpires -failedLoginAttempts -lockoutUntil -googleId -githubId -emailVerificationToken')
+            .select('fullname username profile_picture bio isPrivate followers following level streak xp profileViews isOnline followRequests blockedUsers')
             .lean();
 
         if (!targetUser) return res.status(404).json({ message: 'User not found.' });

@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { debounce } from 'lodash';
 import { useInView } from 'react-intersection-observer';
 import { Dialog } from 'primereact/dialog';
+import { confirmDialog } from 'primereact/confirmdialog';
 import toast from 'react-hot-toast';
 import { useExploreReels } from '../../hooks/queries/useExploreQueries';
 import { Skeleton } from 'primereact/skeleton';
@@ -115,8 +117,17 @@ const Explore = () => {
     isRefetching
   } = useExploreReels();
 
-  // Flatten the pages into a single array of videos
-  const videos = useMemo(() => data?.pages.flatMap(page => page.posts) || [], [data?.pages]);
+  // Flatten the pages into a single array of videos and deduplicate by _id
+  const videos = useMemo(() => {
+    const allPosts = data?.pages.flatMap(page => page.posts) || [];
+    const seen = new Set();
+    return allPosts.filter(p => {
+      if (!p || !p._id) return false;
+      if (seen.has(p._id)) return false;
+      seen.add(p._id);
+      return true;
+    });
+  }, [data?.pages]);
 
 
 
@@ -145,11 +156,31 @@ const Explore = () => {
   const muteMut = useMuteUser();
   const blockMut = useBlockUser();
   const savedPostIds = usePostStore(s => s.savedPostIds);
+  const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
   const [isCommentVisible, setCommentVisible] = useState(false);
   const [isShareVisible, setShareVisible] = useState(false);
 
   const activePost = useMemo(() => videos[activeIndex], [videos, activeIndex]);
-  const isLikedByMe = useMemo(() => activePost?.likes?.includes(loggeduser?._id), [activePost, loggeduser]);
+  const optimisticLikes = usePostStore(s => s.optimisticLikes);
+
+  const { isLikedByMe, likesCount } = useMemo(() => {
+    if (!activePost) return { isLikedByMe: false, likesCount: 0 };
+    const opt = optimisticLikes[activePost._id];
+    const loggedUserId = loggeduser?._id?.toString();
+
+    if (opt) {
+      const optList = Array.from(opt);
+      return {
+        isLikedByMe: optList.some(id => id?.toString() === loggedUserId),
+        likesCount: opt.size
+      };
+    }
+    return {
+      isLikedByMe: (activePost.likes || []).some(id => (id._id || id)?.toString() === loggedUserId),
+      likesCount: activePost.likes?.length || 0
+    };
+  }, [activePost, loggeduser?._id, optimisticLikes]);
+
   const isSavedByMe = useMemo(() => activePost && savedPostIds.has(activePost._id), [activePost, savedPostIds]);
 
   // Infinite Scroll Trigger
@@ -170,7 +201,7 @@ const Explore = () => {
     }
   }, [videos, currentlyPlayingId]);
 
-  const handleVisible = React.useCallback((id) => {
+  const handleVisible = useCallback((id) => {
     setCurrentlyPlayingId(id);
   }, []);
 
@@ -196,14 +227,25 @@ const Explore = () => {
     setTimeout(() => setHeartVisible(false), 800);
   };
 
+  const debouncedLikeToggle = useMemo(
+    () => debounce((postId, isLiked, likes) => {
+      likeMut.mutate({ postId, isLiked, likes });
+    }, 400),
+    [likeMut]
+  );
+
   const handleToggleLike = (e) => {
     e?.stopPropagation();
     if (!activePost) return;
-    likeMut.mutate({ postId: activePost._id, isLiked: isLikedByMe, likes: activePost.likes });
+
+    // UI feedback immediately
     if (!isLikedByMe) {
       addFloatingReaction();
       if (navigator.vibrate) navigator.vibrate(10);
     }
+
+    // Call debounced mutation
+    debouncedLikeToggle(activePost._id, isLikedByMe, activePost.likes);
   };
 
   const handleToggleSave = (e) => {
@@ -349,7 +391,7 @@ const Explore = () => {
                 >
                   <i className={`pi ${isLikedByMe ? 'pi-heart-fill text-red-500' : 'pi-heart text-white'}`}></i>
                 </button>
-                <span className="text-[10px] font-bold">{activePost?.likes?.length || 0}</span>
+                <span className="text-[10px] font-bold">{likesCount}</span>
               </div>
 
               {/* Comment */}
@@ -392,10 +434,28 @@ const Explore = () => {
                   user={loggeduser}
                   isSaved={isSavedByMe}
                   onMute={() => {
-                    muteMut.mutate({ targetUserId: activePost.user._id }, { onSuccess: () => toast.success('User muted') });
+                    const targetUser = activePost.user;
+                    confirmDialog({
+                      message: `Are you sure you want to mute ${targetUser.fullname}? Their posts will be hidden from your feed.`,
+                      header: 'Mute User',
+                      icon: 'pi pi-volume-off',
+                      acceptLabel: 'Mute',
+                      acceptClassName: 'p-button-warning border-0 rounded-xl',
+                      rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                      accept: () => muteMut.mutate({ targetUserId: targetUser._id }),
+                    });
                   }}
                   onBlock={() => {
-                    blockMut.mutate({ targetUserId: activePost.user._id }, { onSuccess: () => toast.success('User blocked') });
+                    const targetUser = activePost.user;
+                    confirmDialog({
+                      message: `Are you sure you want to block ${targetUser.fullname}? They won't be able to see your profile or posts, and you won't see theirs.`,
+                      header: 'Block Confirmation',
+                      icon: 'pi pi-ban',
+                      acceptLabel: 'Block',
+                      acceptClassName: 'p-button-danger border-0 rounded-xl',
+                      rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                      accept: () => blockMut.mutate({ targetUserId: targetUser._id }),
+                    });
                   }}
                   buttonClassName="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
                   iconClassName="pi pi-ellipsis-v"
@@ -447,13 +507,13 @@ const Explore = () => {
             {/* Navigation Buttons for PC */}
             <button
               onClick={() => setActiveIndex(prev => (prev > 0 ? prev - 1 : videos.length - 1))}
-              className="hidden md:flex absolute top-1/2 left-10 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-sm z-50 transition"
+              className="hidden md:flex absolute top-1/2 left-10 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
             >
               <i className="pi pi-chevron-left"></i>
             </button>
             <button
               onClick={() => setActiveIndex(prev => (prev < videos.length - 1 ? prev + 1 : 0))}
-              className="hidden md:flex absolute top-1/2 right-40 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-sm z-50 transition"
+              className="hidden md:flex absolute top-1/2 right-40 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
             >
               <i className="pi pi-chevron-right"></i>
             </button>
@@ -473,6 +533,33 @@ const Explore = () => {
                 background: #000;
                 overflow: hidden;
             }
+            .comment-dialog-bottom {
+                border-top-left-radius: 24px !important;
+                border-top-right-radius: 24px !important;
+                overflow: hidden;
+                box-shadow: 0 -10px 40px rgba(0,0,0,0.2) !important;
+            }
+            .comment-dialog-bottom .p-dialog-header {
+                padding: 1rem !important;
+                border-bottom: 1px solid var(--border-color) !important;
+                background: var(--surface-1) !important;
+            }
+            .comment-dialog-bottom .p-dialog-content {
+                background: var(--surface-1) !important;
+            }
+            .comment-dialog-center {
+                border-radius: 24px !important;
+                overflow: hidden;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.4) !important;
+                border: 1px solid var(--border-color) !important;
+            }
+            .comment-dialog-center .p-dialog-header {
+                background: var(--surface-1) !important;
+                border-bottom: 1px solid var(--border-color) !important;
+            }
+            .comment-dialog-center .p-dialog-content {
+                background: var(--surface-1) !important;
+            }
             @keyframes reelHeartBurst {
                 0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; }
                 50% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
@@ -487,15 +574,34 @@ const Explore = () => {
       {/* Social Dialogs */}
       {activePost && (
         <>
-          <Comment
+          <Dialog
+            header="Comments"
             visible={isCommentVisible}
             onHide={() => setCommentVisible(false)}
-            postId={activePost._id}
-          />
+            position={window.innerWidth < 768 ? "bottom" : "center"}
+            style={{ width: '100vw', maxWidth: '500px', margin: '0' }}
+            contentStyle={{ height: window.innerWidth < 768 ? '60vh' : '80vh', padding: '0' }}
+            draggable={false}
+            resizable={false}
+            showHeader={true}
+            className={window.innerWidth < 768 ? "comment-dialog-bottom" : "comment-dialog-center"}
+          >
+            <Comment
+              postId={activePost._id}
+              setVisible={setCommentVisible}
+              onProfileClick={(userId) => {
+                setCommentVisible(false);
+                setVisible(false);
+                navigate(`/profile/${userId}`);
+              }}
+            />
+          </Dialog>
           <SharePostDialog
             visible={isShareVisible}
             onHide={() => setShareVisible(false)}
             post={activePost}
+            user={loggeduser}
+            onShareToStory={(post) => setSharingPostToStory(post)}
           />
         </>
       )}

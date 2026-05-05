@@ -74,11 +74,11 @@ app.use('/api', apiLimiter);
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-    : ['http://localhost:3000'];
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
 app.use(cors({
     origin: allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-fingerprint']
 }));
 
 app.use(express.json({ limit: '100mb' }));
