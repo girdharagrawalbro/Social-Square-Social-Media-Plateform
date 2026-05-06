@@ -1269,17 +1269,28 @@ router.get("/explore-reels", async (req, res) => {
             return res.status(200).json({ posts: [], nextCursor: null, hasMore: false });
         }
 
+        // 3b. Deduplicate Candidates by Video URL (if duplicate uploads exist)
+        const uniqueCandidates = [];
+        const seenUrls = new Set();
+        for (const cand of candidates) {
+            if (cand.video) {
+                if (seenUrls.has(cand.video)) continue;
+                seenUrls.add(cand.video);
+            }
+            uniqueCandidates.push(cand);
+        }
+
         // 4. Bloom Filter Exclusion (Seen Posts)
-        let filteredCandidates = candidates;
+        let filteredCandidates = uniqueCandidates;
         if (viewerIdStr && redis.status !== 'disabled') {
             try {
                 const seenFilter = new RedisBloomFilter(`bf:seen:${viewerIdStr}`);
-                const seenChecks = await seenFilter.mightContainMultiple(candidates.map(p => p._id.toString()));
-                filteredCandidates = candidates.filter((_, i) => !seenChecks[i]);
+                const seenChecks = await seenFilter.mightContainMultiple(uniqueCandidates.map(p => p._id.toString()));
+                filteredCandidates = uniqueCandidates.filter((_, i) => !seenChecks[i]);
 
                 // If we filtered out too many, fall back to some seen ones to keep the feed moving
-                if (filteredCandidates.length < limit && candidates.length >= limit) {
-                    filteredCandidates = candidates;
+                if (filteredCandidates.length < limit && uniqueCandidates.length >= limit) {
+                    filteredCandidates = uniqueCandidates;
                 }
             } catch (bfErr) {
                 console.warn(`${_tag} Bloom Filter check failed:`, bfErr.message);
