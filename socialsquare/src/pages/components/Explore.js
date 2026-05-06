@@ -120,11 +120,19 @@ const Explore = () => {
   // Flatten the pages into a single array of videos and deduplicate by _id
   const videos = useMemo(() => {
     const allPosts = data?.pages.flatMap(page => page.posts) || [];
-    const seen = new Set();
+    const seenIds = new Set();
+    const seenUrls = new Set();
+    
     return allPosts.filter(p => {
       if (!p || !p._id) return false;
-      if (seen.has(p._id)) return false;
-      seen.add(p._id);
+      const id = p._id.toString();
+      const videoUrl = p.video;
+      
+      if (seenIds.has(id)) return false;
+      if (videoUrl && seenUrls.has(videoUrl)) return false;
+      
+      seenIds.add(id);
+      if (videoUrl) seenUrls.add(videoUrl);
       return true;
     });
   }, [data?.pages]);

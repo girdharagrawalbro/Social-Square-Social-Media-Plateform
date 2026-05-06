@@ -11,7 +11,6 @@ import toast from 'react-hot-toast';
 import UserProfile from './UserProfile';
 import FollowFollowingList from './FollowFollowingList';
 import formatDate from '../../utils/formatDate';
-import { ConfirmDialog } from 'primereact/confirmdialog';
 import { useDarkMode } from '../../context/DarkModeContext';
 
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';

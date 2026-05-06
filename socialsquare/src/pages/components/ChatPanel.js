@@ -8,7 +8,7 @@ import { uploadToDrive, getFileIcon, formatFileSize } from '../../utils/drive';
 import toast from 'react-hot-toast';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
 import PostDetail from './PostDetail';
-import UserProfile from './UserProfile';
+// import UserProfile from './UserProfile';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import ProgressiveImage from './ui/ProgressiveImage';
@@ -823,7 +823,7 @@ const ChatPanel = ({
                 if (searchHits.length > 0) {
                     const oldestMatch = searchHits[searchHits.length - 1];
                     const before = messages[0]?.createdAt;
-                    
+
                     setLoadingMore(true);
                     const messagesRes = await api.post(`/api/conversation/messages`, {
                         recipientId: participantId,
@@ -831,7 +831,7 @@ const ChatPanel = ({
                         targetDate: oldestMatch.createdAt,
                         limit: 30
                     });
-                    
+
                     const olderMessages = messagesRes.data.messages || [];
                     if (olderMessages.length > 0) {
                         setMessages(prev => {

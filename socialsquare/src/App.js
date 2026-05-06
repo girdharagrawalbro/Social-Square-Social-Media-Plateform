@@ -1,7 +1,7 @@
 import './App.css';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
@@ -428,7 +428,7 @@ function App() {
 function GlobalOverlays() {
     const { postDetailId, profileDetailId, setPostDetailId, setProfileDetailId, sharingPostToStory, clearSharingPostToStory } = usePostStore();
     const user = useAuthStore(s => s.user);
-    const qc = useQueryClient();
+    // const qc = useQueryClient();
     const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
     const location = useLocation();
 
