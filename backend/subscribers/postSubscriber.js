@@ -3,6 +3,8 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Feed = require('../models/Feed');
 const Analytics = require('../models/Analytics');
+const Post = require('../models/Post');
+
 
 let _io;
 function setIo(io) { _io = io; }
@@ -13,7 +15,9 @@ async function initPostSubscriber() {
         const { id: postId, user, category } = data;
 
         const author = await User.findById(user._id).select('followers fullname profile_picture');
-        console.log('[NATS] Author found:', author);
+        const fullPost = await Post.findById(postId);
+        console.log('[NATS] Author and Full Post found');
+
 
         if (!author || !author.followers.length) {
             console.log('[NATS] No followers, skipping...');
@@ -45,7 +49,16 @@ async function initPostSubscriber() {
                 });
             });
             console.log(`[NATS] Real-time notifications emitted to ${followerIds.length} followers`);
+
+            // 2b. Emit full post for instant feed update
+            if (fullPost) {
+                followerIds.forEach(followerId => {
+                    _io.to(followerId.toString()).emit('newFeedPost', fullPost);
+                });
+                console.log(`[NATS] newFeedPost emitted to ${followerIds.length} followers`);
+            }
         }
+
 
         // 3. Update followers' feeds
         const feedEntries = followerIds.map(followerId => ({ userId: followerId, post: postId }));

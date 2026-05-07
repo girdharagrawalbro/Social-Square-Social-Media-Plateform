@@ -19,6 +19,8 @@ import useTokenRefresh from './hooks/useTokenRefresh';
 import Conversations from './pages/components/Conversations';
 import SettingsLayout from './pages/components/SettingsLayout';
 import useTabTitle from './hooks/useTabTitle';
+import useFeedSocket from './hooks/useFeedSocket';
+
 
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
 import Sidebar from './pages/components/Sidebar';
@@ -73,6 +75,8 @@ function AppInit() {
     const user = useAuthStore(s => s.user);
     const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification } = useConversationStore();
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
+    useFeedSocket();
+
 
     useTokenRefresh(Boolean(user?._id));
 

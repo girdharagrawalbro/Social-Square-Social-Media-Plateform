@@ -496,33 +496,33 @@ const Feed = ({ activeMood = null }) => {
         let all = [];
 
         if (activeMood) {
-            // Show ONLY mood-matched posts when a filter is active
             all = [...moodPosts];
         } else {
-            // Mixed feed for general viewing
             all = [...serverPosts, ...recommendedPosts, ...moodPosts];
         }
 
-        // prepend socket posts
+        // 1. Separate socket posts from the rest to keep them at the top
         const socketNew = socketPosts.filter(sp => !all.some(p => p._id === sp._id));
-        all = [...socketNew, ...all];
+        
+        // 2. Deduplicate the base posts
+        const uniqueBaseEntries = Array.from(new Map(all.map(p => [p._id, p])).values());
 
-        // Deduplicate
-        const uniqueEntries = Array.from(new Map(all.map(p => [p._id, p])).values());
-
-        // Assign stable random weights for this session if not already assigned
-        uniqueEntries.forEach(p => {
+        // 3. Assign stable random weights for shuffling base posts
+        uniqueBaseEntries.forEach(p => {
             if (randomWeights.current[p._id] === undefined) {
                 randomWeights.current[p._id] = Math.random();
             }
         });
 
-        // Shuffle by random weights (Stable per session, random on refresh)
-        let finalArray = uniqueEntries.sort((a, b) =>
+        // 4. Shuffle only the base posts (Following + Discovery)
+        let shuffledBase = uniqueBaseEntries.sort((a, b) =>
             randomWeights.current[a._id] - randomWeights.current[b._id]
         );
 
-        // Inject live recommendations
+        // 5. Prepend new socket posts (Instantly appear at top)
+        let finalArray = [...socketNew, ...shuffledBase];
+
+        // 6. Inject live recommendations
         let withInjections = [];
         let seen = new Set();
         finalArray.forEach(p => {
@@ -542,6 +542,7 @@ const Feed = ({ activeMood = null }) => {
 
         return withInjections;
     }, [serverPosts, recommendedPosts, moodPosts, socketPosts, liveInjectedPosts, activeMood]);
+
 
 
     const handleLikeToggle = async (post) => {

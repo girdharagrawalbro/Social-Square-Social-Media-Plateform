@@ -190,22 +190,7 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             });
         }
 
-        // Anonymous posts do NOT go to followers' feeds
-        if (!isAnonymous && !unlocksAt && _io && userDetails.followers?.length > 0) {
-            userDetails.followers.forEach(async (followerId) => {
-                _io.to(followerId.toString()).emit('newFeedPost', newPost);
-
-                // Also create a notification
-                await notificationUtils.createNotification({
-                    recipientId: followerId,
-                    sender: { id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
-                    type: 'new_post',
-                    postId: newPost._id,
-                    thumbnail: newPost.image_urls?.[0],
-                    url: `/post/${newPost._id}`,
-                });
-            });
-        }
+        // Logic for followers' feed and notifications moved to postSubscriber (via NATS posts.created event)
 
         if (isAnonymous && _io) {
             _io.emit('newConfessionPost', newPost);
@@ -1194,7 +1179,7 @@ router.get("/confessions", async (req, res) => {
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
 router.get("/explore-reels", async (req, res) => {
     const _tag = '[EXPLORE]';
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 9;
     const cursor = req.query.cursor;
 
     try {
