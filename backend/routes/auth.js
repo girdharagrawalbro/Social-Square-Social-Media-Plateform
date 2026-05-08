@@ -767,9 +767,11 @@ router.post('/resend-verification', verifyToken, async (req, res) => {
 
 router.get('/get', verifyToken, async (req, res) => {
     try {
-        const user = await User.findById(req.userId).select(OWN_USER_EXCLUSIONS);
+        const user = await User.findById(req.userId).select(OWN_USER_EXCLUSIONS).lean();
         if (!user) return res.status(404).json({ message: 'User not found.' });
-        return res.status(200).json(user);
+
+        const postCount = await Post.countDocuments({ owner: req.userId });
+        return res.status(200).json({ ...user, postCount });
     } catch (error) {
         logger.error('[GET_USER] Unexpected error:', error);
         return res.status(500).json({ message: 'Internal server error' });
@@ -806,6 +808,9 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
 
         if (!targetUser) return res.status(404).json({ message: 'User not found.' });
 
+        // Optimization: Count posts for private profile visibility
+        const postCount = await Post.countDocuments({ owner: targetId });
+
         const loggedUser = await User.findById(loggedUserId)
             .select('following followers blockedUsers')
             .lean();
@@ -838,6 +843,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             following: canSeeDetails ? targetUser.following : [],
             followerCount: (targetUser.followers || []).length,
             followingCount: (targetUser.following || []).length,
+            postCount,
             isFollowing,
             isBlockedByMe,
             isBlockingMe,
@@ -869,6 +875,8 @@ router.get('/public/profile/:identifier', async (req, res) => {
 
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
+        const postCount = await Post.countDocuments({ owner: user._id });
+
         // Set cache headers for aggressive CDN caching (5 minutes)
         res.setHeader('Cache-Control', 'public, max-age=300');
 
@@ -882,6 +890,7 @@ router.get('/public/profile/:identifier', async (req, res) => {
             isPrivate: user.isPrivate,
             followerCount: (user.followers || []).length,
             followingCount: (user.following || []).length,
+            postCount,
             level: user.level || 1,
             streak: user.streak || { count: 0 },
             xp: user.xp || 0,
@@ -1259,6 +1268,18 @@ router.all("/search", async (req, res) => {
             .limit(20)
             .lean();
 
+        // Efficiently fetch post counts for all users in one go
+        const userIds = userResults.map(u => u._id);
+        const postCounts = await Post.aggregate([
+            { $match: { owner: { $in: userIds } } },
+            { $group: { _id: "$owner", count: { $sum: 1 } } }
+        ]);
+
+        const postCountMap = postCounts.reduce((acc, curr) => {
+            acc[curr._id.toString()] = curr.count;
+            return acc;
+        }, {});
+
         const usersWithCounts = userResults.map(u => ({
             _id: u._id,
             fullname: u.fullname,
@@ -1267,6 +1288,8 @@ router.all("/search", async (req, res) => {
             isVerified: u.isVerified,
             creatorTier: u.creatorTier,
             followerCount: (u.followers || []).length,
+            followingCount: (u.following || []).length,
+            postCount: postCountMap[u._id.toString()] || 0,
             hasPendingRequest: (u.followRequests || []).some(id => id.toString() === requesterId?.toString())
         }));
 

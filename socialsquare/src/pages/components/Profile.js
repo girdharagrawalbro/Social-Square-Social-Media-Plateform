@@ -373,7 +373,7 @@ const Profile = ({ userId }) => {
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block" style={{ whiteSpace: 'nowrap' }}>Following</span>
                                 </div>
                                 <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4">
-                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(userPostsList.length)}</h6>
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.postCount ?? userPostsList.length)}</h6>
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
                                 </div>
                                 <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4" title="Total profile views">

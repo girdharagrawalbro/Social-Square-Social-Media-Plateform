@@ -439,7 +439,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
                             </div>
                             <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
-                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userPostsList.length)}</h6>
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.postCount ?? userPostsList.length)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
                             </div>
                             <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center" title="Total profile views">

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Geolocation } from '@capacitor/geolocation';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
@@ -83,8 +84,8 @@ const NewPost = ({ visible, onHide }) => {
     useEffect(() => {
         if (visible) {
             api.get('/api/group/all')
-               .then(res => setGroups(res.data))
-               .catch(err => console.error('Failed to load groups:', err));
+                .then(res => setGroups(res.data))
+                .catch(err => console.error('Failed to load groups:', err));
         }
     }, [visible]);
 
@@ -147,20 +148,26 @@ const NewPost = ({ visible, onHide }) => {
     };
 
 
-    const handleGetLocation = () => {
-        if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
+    const handleGetLocation = async () => {
         setLoadingLocation(true);
-        navigator.geolocation.getCurrentPosition(async pos => {
-            const { latitude: lat, longitude: lng } = pos.coords;
+        try {
+            const coordinates = await Geolocation.getCurrentPosition();
+            const { latitude: lat, longitude: lng } = coordinates.coords;
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                 const data = await res.json();
                 const name = data.address?.city || data.address?.town || data.address?.village || 'Unknown';
                 setLocation({ name, lat, lng });
                 toast.success(`📍 ${name}`);
-            } catch { setLocation({ name: `${lat.toFixed(3)}, ${lng.toFixed(3)}`, lat, lng }); }
+            } catch {
+                setLocation({ name: `${lat.toFixed(3)}, ${lng.toFixed(3)}`, lat, lng });
+            }
+        } catch (err) {
+            toast.error('Could not get location. Please enable location permissions.');
+            console.error('Geolocation error:', err);
+        } finally {
             setLoadingLocation(false);
-        }, () => { toast.error('Could not get location'); setLoadingLocation(false); });
+        }
     };
 
 
@@ -685,8 +692,8 @@ const NewPost = ({ visible, onHide }) => {
                                 <i className="pi pi-globe text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
                                 Share to Community
                             </span>
-                            <select 
-                                value={selectedGroupId || ""} 
+                            <select
+                                value={selectedGroupId || ""}
                                 onChange={(e) => setSelectedGroupId(e.target.value || null)}
                                 className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1] max-w-[180px] truncate"
                             >
