@@ -1,4 +1,7 @@
 import './App.css';
+import { Network } from '@capacitor/network';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { Capacitor } from '@capacitor/core';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,6 +10,7 @@ import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import { ConfirmDialog } from 'primereact/confirmdialog';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 // ✅ All imports from src/ root — no '../' needed
 import useAuthStore, { api } from './store/zustand/useAuthStore';
@@ -83,6 +87,13 @@ function AppInit() {
     // ✅ On every page load/refresh — silently restore session from httpOnly cookie
     useEffect(() => {
         initAuth();
+        if (Capacitor.isNativePlatform()) {
+            GoogleAuth.initialize({
+                clientId: '438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com',
+                scopes: ['profile', 'email'],
+                grantOfflineAccess: true,
+            });
+        }
     }, [initAuth]);
 
     // ✅ Initial Notifications & Messages Fetch
@@ -90,6 +101,37 @@ function AppInit() {
 
     useEffect(() => {
         if (!user?._id) return;
+
+        const setupPushNotifications = async () => {
+            if (!Capacitor.isNativePlatform()) return;
+
+            let permStatus = await PushNotifications.checkPermissions();
+
+            if (permStatus.receive === 'prompt') {
+                permStatus = await PushNotifications.requestPermissions();
+            }
+
+            if (permStatus.receive !== 'granted') {
+                console.warn('User denied push notification permissions');
+                return;
+            }
+
+            await PushNotifications.register();
+
+            PushNotifications.addListener('registration', (token) => {
+                console.log('Push registration success, token: ' + token.value);
+            });
+
+            PushNotifications.addListener('registrationError', (err) => {
+                console.error('Push registration error: ', err.error);
+            });
+
+            PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('Push notification received: ', notification);
+            });
+        };
+
+        setupPushNotifications();
 
         const fetchInitialState = async () => {
             try {
@@ -158,8 +200,11 @@ function AppInit() {
             toast(
                 (t) => (
                     <div
-                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-                        onClick={() => {
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: '100%', position: 'relative' }}
+                        onClick={(e) => {
+                            // Only navigate if we didn't click the close button
+                            if (e.target.closest('.close-toast')) return;
+
                             if (type === 'message' && senderId) {
                                 navigate(`/conversation/${senderId}`);
                             } else if ((type === 'like' && story) || type === 'new_story') {
@@ -173,7 +218,7 @@ function AppInit() {
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid var(--primary)' }}>
                             <img src={sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ minWidth: 0, flex: 1, paddingRight: '20px' }}>
                             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <span>{icon}</span> {sender?.fullname || 'System'}
                             </p>
@@ -181,6 +226,20 @@ function AppInit() {
                                 {actionText}
                             </p>
                         </div>
+                        <button
+                            className="close-toast"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toast.dismiss(t.id);
+                            }}
+                            style={{
+                                position: 'absolute', right: '-4px', top: '50%', transform: 'translateY(-50%)',
+                                background: 'none', border: 'none', color: 'var(--text-sub)',
+                                fontSize: '18px', cursor: 'pointer', padding: '8px'
+                            }}
+                        >
+                            ×
+                        </button>
                     </div>
                 ),
                 { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' } }
@@ -194,8 +253,9 @@ function AppInit() {
             toast(
                 (t) => (
                     <div
-                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-                        onClick={() => {
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', position: 'relative', width: '100%' }}
+                        onClick={(e) => {
+                            if (e.target.closest('.close-toast')) return;
                             setStoryDetailUserId(storyUser._id);
                             toast.dismiss(t.id);
                         }}
@@ -203,12 +263,26 @@ function AppInit() {
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid #ff4b2b' }}>
                             <img src={storyUser?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ minWidth: 0, flex: 1, paddingRight: '20px' }}>
                             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)' }}>
-                                📸 {user.fullname}
+                                📸 {storyUser?.fullname}
                             </p>
                             <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-sub)' }}>Added a new story</p>
                         </div>
+                        <button
+                            className="close-toast"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toast.dismiss(t.id);
+                            }}
+                            style={{
+                                position: 'absolute', right: '-4px', top: '50%', transform: 'translateY(-50%)',
+                                background: 'none', border: 'none', color: 'var(--text-sub)',
+                                fontSize: '18px', cursor: 'pointer', padding: '8px'
+                            }}
+                        >
+                            ×
+                        </button>
                     </div>
                 ),
                 { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)' } }
@@ -339,18 +413,28 @@ function MainLayout({ children }) {
 
 function App() {
     useTabTitle();
-    const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    const [isOffline, setIsOffline] = useState(false);
 
     useEffect(() => {
-        const handleOnline = () => setIsOffline(false);
-        const handleOffline = () => setIsOffline(true);
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
+        const initNetwork = async () => {
+            try {
+                const status = await Network.getStatus();
+                setIsOffline(!status.connected);
+            } catch (err) {
+                console.warn('Network status check failed:', err);
+            }
         };
-    }, []);
+
+        const handler = Network.addListener('networkStatusChange', status => {
+            setIsOffline(!status.connected);
+        });
+
+        initNetwork();
+
+        return () => {
+            handler.then(h => h.remove());
+        };
+    }, [setIsOffline]);
 
     return (
         <HelmetProvider>

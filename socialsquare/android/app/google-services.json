@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "438982943802",
+    "project_id": "social-square-official",
+    "storage_bucket": "social-square-official.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:438982943802:android:94cce1f39293ebb1850103",
+        "android_client_info": {
+          "package_name": "com.socialsquare.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "438982943802-fofub9ccgd5li92f2spmipucio65pjsg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.socialsquare.app",
+            "certificate_hash": "eec71fc0fd9d2955eb45abdbe02a5e9f4e88dcd9"
+          }
+        },
+        {
+          "client_id": "438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeweBwr-a_C2292XUTsfYf0S1oMmfLslE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

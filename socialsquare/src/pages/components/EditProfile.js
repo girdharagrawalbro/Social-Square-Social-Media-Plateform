@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { uploadToCloudinary, validateImageFile, validateImageType } from '../../utils/cloudinary';
+import { Camera, CameraResultType } from '@capacitor/camera';
 
 import toast from 'react-hot-toast';
 import ImageCropper from './ui/ImageCropper';
@@ -49,26 +50,30 @@ const EditProfile = ({ users, closeSidebar }) => {
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : finalValue }));
     };
 
-    const handleFileSelect = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const handleFileSelect = async () => {
+        try {
+            const image = await Camera.getPhoto({
+                quality: 90,
+                allowEditing: true,
+                resultType: CameraResultType.Uri
+            });
 
-        // Hard block — wrong file type (Drive cannot help here)
-        const typeError = validateImageType(file);
-        if (typeError) { toast.error(typeError); return; }
-
-        // Size warning — show the message but continue:
-        // uploadToCloudinary will automatically fall back to Drive for large files
-        const sizeWarning = validateImageFile(file);
-        if (sizeWarning) toast.error(sizeWarning);
-
-        const reader = new FileReader();
-        reader.onload = () => {
-            setImageToCrop(reader.result);
-            setCropperVisible(true);
-        };
-        reader.readAsDataURL(file);
-        e.target.value = ''; // clear input
+            if (image.webPath) {
+                // Fetch the image as a blob to pass it to the cropper/uploader
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                
+                // Show cropper
+                setImageToCrop(image.webPath);
+                setCropperVisible(true);
+            }
+        } catch (err) {
+            console.error('Camera error:', err);
+            // Don't show toast on cancel
+            if (err.message !== 'User cancelled photos app') {
+                toast.error('Failed to get photo');
+            }
+        }
     };
 
     const handleCropComplete = async ({ croppedFile }) => {
@@ -147,14 +152,12 @@ const EditProfile = ({ users, closeSidebar }) => {
 
                 <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleFileSelect}
                     disabled={uploading}
                     style={{ fontSize: '12px', color: '#808bf5', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                     {uploading ? `Uploading ${uploadProgress}%...` : 'Change photo'}
                 </button>
-
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: 'none' }} />
             </div>
 
             <div className="mb-3 flex flex-col gap-1">
