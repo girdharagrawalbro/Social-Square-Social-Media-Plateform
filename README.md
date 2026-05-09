@@ -22,7 +22,7 @@ All API responses follow the format: `{ "success": true, "data": { ... } }` or `
 #### **Login User**
 - **Endpoint:** `POST /api/auth/login`
 - **Payload:**
-  ```json
+  ```json 
   {
     "identifier": "johndoe@example.com",
     "password": "SecurePassword123",
