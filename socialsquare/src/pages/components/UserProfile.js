@@ -22,7 +22,10 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
 
     const {
         data,
-        isLoading
+        isLoading,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
     } = useUserPosts(userId);
 
     const allPosts = data?.pages.flatMap(page => page.posts) || [];
@@ -79,6 +82,18 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
                     );
                 })}
             </div>
+
+            {hasNextPage && !maxPosts && (
+                <div className="flex justify-center mt-4">
+                    <button
+                        onClick={() => fetchNextPage()}
+                        disabled={isFetchingNextPage}
+                        className="w-full py-2 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-sub)] font-bold text-xs cursor-pointer hover:bg-[var(--surface-1)] transition flex items-center justify-center gap-2"
+                    >
+                        {isFetchingNextPage ? <i className="pi pi-spin pi-spinner"></i> : <span>Load More</span>}
+                    </button>
+                </div>
+            )}
 
             <Dialog
                 showHeader={false}
@@ -143,9 +158,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const followersList = useUserDetails(userDetails?.followers?.length > 0 ? userDetails.followers : null).data || [];
     const followingList = useUserDetails(userDetails?.following?.length > 0 ? userDetails.following : null).data || [];
 
-    // posts count for compact preview tiles
-    const { data: postsData } = useUserPosts(id);
-    const userPostsList = postsData?.pages?.flatMap(p => p.posts) || [];
+    // ─── RELATIONSHIP CHECKS ──────────────────────────────────────────────────
 
     const isFollowing = userDetails?.isFollowing ?? loggeduser?.following?.some(f => f?.toString() === id?.toString());
     const isRequested = userDetails?.hasPendingRequest ?? userDetails?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString());
@@ -439,7 +452,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Following</span>
                             </div>
                             <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center">
-                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.postCount ?? userPostsList.length)}</h6>
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.postCount ?? 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
                             </div>
                             <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-3 text-center" title="Total profile views">

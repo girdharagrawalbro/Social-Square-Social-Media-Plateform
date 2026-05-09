@@ -181,6 +181,7 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             poll: poll || null
         });
         await newPost.save();
+        await User.findByIdAndUpdate(loggedUserId, { $inc: { postsCount: 1 } });
 
         // DEBUG: Log saved post video field
         console.log('✅ Post saved with video field:', newPost.video ? 'YES' : 'NO (null or undefined)');
@@ -353,6 +354,7 @@ router.delete("/delete/:postId", verifyToken, async (req, res) => {
 
         if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
         await Post.findByIdAndDelete(req.params.postId);
+        await User.findByIdAndUpdate(post.user._id, { $inc: { postsCount: -1 } });
 
         // ✅ Notify all users to remove post from feed
         if (_io) _io.emit('postDeleted', { postId: req.params.postId });
@@ -527,9 +529,21 @@ router.get("/user/:userId", async (req, res) => {
                 const hashedToken = hashValue(token);
                 const session = await LoginSession.findOne({ accessToken: hashedToken });
                 if (session && !session.isRevoked && session.expiresAt > new Date()) {
+                    // Update sliding window TTL safely like in verifyToken
+                    await LoginSession.updateOne(
+                        { _id: session._id },
+                        {
+                            $set: {
+                                lastUsedAt: new Date(),
+                                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            }
+                        }
+                    );
                     viewerId = session.userId;
                 }
-            } catch (err) { }
+            } catch (err) {
+                console.error('[Post Route] Soft token verification failed:', err);
+            }
         }
 
         const ownerId = req.params.userId;
@@ -538,16 +552,16 @@ router.get("/user/:userId", async (req, res) => {
         }
         const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
 
-        if (postOwner && postOwner.isPrivate) {
-            const isOwner = viewerId && viewerId.toString() === ownerId;
-            const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
+        const isOwner = viewerId && viewerId.toString() === ownerId;
+        const isFollower = viewerId && postOwner?.followers?.some(f => f.toString() === viewerId.toString());
 
+        if (postOwner && postOwner.isPrivate) {
             if (!isOwner && !isFollower) {
                 return res.status(200).json({ posts: [], nextCursor: null, hasMore: false, isPrivate: true });
             }
         }
 
-        const limit = parseInt(req.query.limit);
+        const limit = parseInt(req.query.limit) || 9;
         const cursor = req.query.cursor;
         // Show all posts where user is owner OR an accepted collaborator
         const query = {
@@ -579,7 +593,10 @@ router.get("/user/:userId", async (req, res) => {
         const result = hasMore ? posts.slice(0, limit) : posts;
         const sanitized = result.map(p => sanitizePost(p, viewerId));
         res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
-    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (error) {
+        console.error('[Post Route] /user/:userId error:', error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 // ─── PUBLIC USER POSTS (Logged-out) ───────────────────────────────────────────

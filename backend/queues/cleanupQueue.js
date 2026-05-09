@@ -83,6 +83,7 @@ if (!isRedisDisabled) {
         connection: redis,
         concurrency: 2,
         limiter: { max: 5, duration: 1000 },
+        stalledInterval: 12 * 60 * 60 * 1000, // Reduced polling frequency to save Redis quota
     });
 
     worker.on('failed', (job, err) => console.error('[Cleanup] Job failed:', err.message));
