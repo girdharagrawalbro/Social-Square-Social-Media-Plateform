@@ -20,14 +20,27 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-
-    // ✅ ADD THIS BLOCK — forces consistent androidx.core versions
     configurations.all {
         resolutionStrategy {
             force 'androidx.core:core:1.15.0'
             force 'androidx.core:core-ktx:1.15.0'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file('socialsquare.jks')
+            storePassword '7905038'
+            keyAlias 'socialsquare'
+            keyPassword '7905038'
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release  
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    } 
 }
 
 repositories {

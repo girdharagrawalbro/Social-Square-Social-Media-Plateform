@@ -769,6 +769,7 @@ const ChatPanel = ({
     onConversationIdFetched, refreshKey
 }) => {
     const user = useAuthStore(s => s.user);
+    const activeParticipant = useConversationStore(s => s.activeParticipant);
     const setTyping = useConversationStore(s => s.setTyping);
     const clearTyping = useConversationStore(s => s.clearTyping);
     const isTyping = useConversationStore(s => s.isTyping);
@@ -1214,7 +1215,9 @@ const ChatPanel = ({
                         {loadingMore && <div style={{ textAlign: 'center', padding: '10px', color: '#808bf5' }}><i className="pi pi-spin pi-spinner" style={{ fontSize: '14px' }}></i></div>}
                         {!hasMore && (
                             <div style={{ textAlign: 'center', padding: '10px 20px', opacity: 0.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#808bf5', marginTop: '12px' }}>✨ Reached the start of the chat ✨</p>
+                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#808bf5', marginTop: '12px' }}>
+                                    ✨ Reached the start of your chat with {activeParticipant?.fullname?.split(' ')[0] || 'this user'} ✨
+                                </p>
                             </div>
                         )}
                         {messages.map(message => (

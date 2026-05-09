@@ -5,12 +5,14 @@ import useConversationStore from '../../store/zustand/useConversationStore';
 import { useConversations, useClearChat, useDeleteChat, convoKeys } from '../../hooks/queries/useConversationQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
+import { useUserProfile } from '../../hooks/queries/useAuthQueries';
 import ChatPanel from './ChatPanel';
 import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { useNavigate, useParams } from 'react-router-dom';
 import usePostStore from '../../store/zustand/usePostStore';
+import { useMemo } from 'react';
 
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
@@ -26,20 +28,28 @@ const Conversations = () => {
     const { userId: routeUserId } = useParams();
     const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
 
-    const selectedParticipant = routeUserId
-        ? (() => {
-            const myId = toId(user?._id);
-            const conv = conversations.find(c => {
-                const other = c.participants?.find(p => toId(p.userId) !== myId);
-                return other && toId(other.userId) === routeUserId;
-            });
-            if (conv) {
-                const other = conv.participants?.find(p => toId(p.userId) !== myId);
-                return other ? { ...other, userId: toId(other.userId), conversationId: conv._id } : { userId: routeUserId };
+    const { data: fetchedProfile } = useUserProfile(routeUserId);
+
+    const selectedParticipant = useMemo(() => {
+        if (!routeUserId) return null;
+        const myId = toId(user?._id);
+        const conv = conversations.find(c => {
+            const other = c.participants?.find(p => toId(p.userId) !== myId);
+            return other && toId(other.userId) === routeUserId;
+        });
+        let base = { userId: routeUserId };
+        if (conv) {
+            const other = conv.participants?.find(p => toId(p.userId) !== myId);
+            if (other) {
+                base = { ...other, userId: toId(other.userId), conversationId: conv._id };
             }
-            return { userId: routeUserId }; // Fallback for new conversations
-        })()
-        : null;
+        }
+        return {
+            ...base,
+            fullname: base.fullname || fetchedProfile?.fullname,
+            profilePicture: base.profilePicture || base.profile_picture || fetchedProfile?.profilePicture || fetchedProfile?.profile_picture,
+        };
+    }, [routeUserId, conversations, fetchedProfile, user?._id]);
 
     // Sync global store with routing-derived participant
     const openChatGlobal = useConversationStore(s => s.openChat);
@@ -54,7 +64,7 @@ const Conversations = () => {
         } else {
             closeChatGlobal();
         }
-    }, [routeUserId, selectedParticipant?.conversationId]); // eslint-disable-line
+    }, [selectedParticipant, openChatGlobal, closeChatGlobal, clearUnread]);
 
     const [lastMessageId, setLastMessageId] = useState(null);
     const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
@@ -317,8 +327,8 @@ const Conversations = () => {
                                     className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 relative z-10 ${isActive ? 'ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
                                     onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
                                     <div className="relative flex-shrink-0">
-                                        <img src={other.profilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
-                                        {isOnline(other.userId) && (
+                                        <img src={other.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
+                                        {isOnline(other._id) && (
                                             <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm" />
                                         )}
                                     </div>
