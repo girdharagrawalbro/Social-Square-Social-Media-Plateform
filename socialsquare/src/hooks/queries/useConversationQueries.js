@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { api } from '../../store/zustand/useAuthStore';
+import { Capacitor } from '@capacitor/core';
+import cacheService from '../../utils/CacheService';
 
 const BASE = (process.env.REACT_APP_BACKEND_URL || '').trim();
 
@@ -18,6 +20,12 @@ export function useConversations(userId) {
     return useQuery({
         queryKey: convoKeys.list(userId),
         queryFn: async () => {
+            // ✅ NATIVE CACHE HYDRATION
+            if (Capacitor.isNativePlatform()) {
+                const cached = await cacheService.get(`conversations_${userId}`);
+                if (cached) return cached;
+            }
+
             const res = await api.get(`${BASE}/api/conversation`);
             // Sync unread counts into Zustand
             res.data.forEach(conv => {
@@ -25,6 +33,12 @@ export function useConversations(userId) {
                     setUnreadCount(conv._id, 1);
                 }
             });
+
+            // ✅ UPDATE CACHE
+            if (Capacitor.isNativePlatform() && res.data) {
+                cacheService.set(`conversations_${userId}`, res.data);
+            }
+
             return res.data;
         },
         enabled: !!userId,
@@ -40,7 +54,21 @@ export function useMessages(participantIds) {
     return useQuery({
         queryKey: convoKeys.messages(participantIds?.sort().join('-')),
         queryFn: async () => {
+            const cacheKey = `messages_${participantIds?.sort().join('-')}`;
+            
+            // ✅ NATIVE CACHE HYDRATION
+            if (Capacitor.isNativePlatform()) {
+                const cached = await cacheService.get(cacheKey);
+                if (cached) return cached;
+            }
+
             const res = await api.post(`${BASE}/api/conversation/messages`, { recipientId });
+            
+            // ✅ UPDATE CACHE
+            if (Capacitor.isNativePlatform() && res.data) {
+                cacheService.set(cacheKey, res.data);
+            }
+
             return res.data; // { messages, conversation }
         },
         enabled: !!participantIds && participantIds.length === 2,

@@ -2,7 +2,7 @@ import './App.css';
 import { Network } from '@capacitor/network';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
@@ -24,6 +24,7 @@ import Conversations from './pages/components/Conversations';
 import SettingsLayout from './pages/components/SettingsLayout';
 import useTabTitle from './hooks/useTabTitle';
 import useFeedSocket from './hooks/useFeedSocket';
+import useAuthCheck from './hooks/useAuthCheck';
 
 
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
@@ -414,6 +415,8 @@ function MainLayout({ children }) {
 function App() {
     useTabTitle();
     const [isOffline, setIsOffline] = useState(false);
+    const authState = useAuthCheck();
+    const user = useAuthStore(s => s.user);
 
     useEffect(() => {
         const initNetwork = async () => {
@@ -435,6 +438,10 @@ function App() {
             handler.then(h => h.remove());
         };
     }, [setIsOffline]);
+
+    if (authState === 'loading') {
+        return <PageLoader />;
+    }
 
     return (
         <HelmetProvider>
@@ -470,36 +477,56 @@ function App() {
                             <AppInit />
                             <Suspense fallback={<PageLoader />}>
                                 <Routes>
-                                    {/* Public Routes - With PublicLayout (Navbar) */}
-                                    <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
-                                    <Route path="/signup" element={<PublicLayout><Signup /></PublicLayout>} />
-                                    <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
-                                    <Route path="/forgot" element={<PublicLayout><Forgot /></PublicLayout>} />
-                                    <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
-                                    <Route path="/help" element={<PublicLayout><Help /></PublicLayout>} />
-                                    <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
-                                    <Route path="/verify-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
-                                    <Route path="/verify-email/:token" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
+                                    {user ? (
+                                        // ✅ AUTHENTICATED ROUTES
+                                        <>
+                                            <Route path="/" element={<Navigate to={`/${user.username}`} replace />} />
+                                            <Route path="/signup" element={<Navigate to={`/${user.username}`} replace />} />
+                                            <Route path="/login" element={<Navigate to={`/${user.username}`} replace />} />
+                                            
+                                            <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
+                                            <Route path="/conversations" element={<MainLayout><Conversations /></MainLayout>} />
+                                            <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
+                                            <Route path="/sessions/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
+                                            <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
+                                            <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
+                                            <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />
+                                            <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
+                                            <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
+                                            <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
+                                            <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
+                                            <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
+                                            <Route path="/discover" element={<MainLayout><UsersPage /></MainLayout>} />
+                                            <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
+                                            <Route path="/stories/:username" element={<StoriesPage />} />
+                                            <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
+                                            <Route path="/stories" element={<StoriesPage />} />
+                                            
+                                            {/* Catch-all for logged in users -> Feed */}
+                                            <Route path="*" element={<Navigate to={`/${user.username}`} replace />} />
+                                        </>
+                                    ) : (
+                                        // ❌ UNAUTHENTICATED ROUTES
+                                        <>
+                                            <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
+                                            <Route path="/signup" element={<PublicLayout><Signup /></PublicLayout>} />
+                                            <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
+                                            <Route path="/forgot" element={<PublicLayout><Forgot /></PublicLayout>} />
+                                            <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+                                            <Route path="/help" element={<PublicLayout><Help /></PublicLayout>} />
+                                            <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
+                                            <Route path="/verify-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
+                                            <Route path="/verify-email/:token" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
 
-                                    {/* Protected Routes - With MainLayout (Navbar + Sidebar) */}
-                                    <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
-                                    <Route path="/conversations" element={<MainLayout><Conversations /></MainLayout>} />
-                                    <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
-                                    <Route path="/sessions/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
-                                    <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
-                                    <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
-                                    <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />
-                                    <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
-                                    <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
-                                    <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
-                                    <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
-                                    <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
-                                    <Route path="/discover" element={<MainLayout><UsersPage /></MainLayout>} />
-                                    <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
-                                    <Route path="/stories/:username" element={<StoriesPage />} />
-                                    <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
-                                    <Route path="/stories" element={<StoriesPage />} />
+                                            {/* Public access to posts/stories even when logged out (optional, but keep for SEO/sharing) */}
+                                            <Route path="/post/:postId" element={<PublicLayout><SharedPostRedirect /></PublicLayout>} />
+                                            <Route path="/story/:userId/:storyId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
+                                            <Route path="/story/:userId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
 
+                                            {/* Catch-all for logged out users -> Landing */}
+                                            <Route path="*" element={<Navigate to="/" replace />} />
+                                        </>
+                                    )}
                                 </Routes>
 
                                 {/* ─── GLOBAL OVERLAYS (Accessible from any page via Zustand) ─── */}

@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Geolocation } from '@capacitor/geolocation';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
 import toast from "react-hot-toast";
 import ImageCropper from './ui/ImageCropper';
+import { urlToFile } from "../../utils/nativeUtils";
 
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 
@@ -326,6 +329,34 @@ const NewPost = ({ visible, onHide }) => {
         e.target.value = '';
     };
 
+    const handleNativeCapture = async (source) => {
+        try {
+            const image = await Camera.getPhoto({
+                quality: 90,
+                allowEditing: false,
+                resultType: CameraResultType.Uri,
+                source: source // CameraSource.Camera or CameraSource.Photos
+            });
+
+            if (image.webPath) {
+                const file = await urlToFile(image.webPath, `captured-${Date.now()}.jpg`, 'image/jpeg');
+                
+                setImages([]);
+                setCroppingState({
+                    active: true,
+                    imageSrc: image.webPath, // resultType: Uri gives webPath
+                    videoSrc: null,
+                    pendingFiles: [],
+                    isVideo: false,
+                    originalFile: file
+                });
+            }
+        } catch (error) {
+            // User likely cancelled
+            console.log('Native capture cancelled or failed', error);
+        }
+    };
+
     const handleCropComplete = async (result) => {
         let newMediaObj = null;
 
@@ -568,20 +599,32 @@ const NewPost = ({ visible, onHide }) => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full max-w-[400px]">
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
-                >
-                    <i className="pi pi-upload text-sm"></i>
-                    Upload Media
-                </button>
-                {/* <button
-                    onClick={() => setStep(STEPS.AI_PROMPT)}
-                    className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
-                >
-                    <span className="animate-pulse">✨</span>
-                    AI Magic Post
-                </button> */}
+                {Capacitor.isNativePlatform() ? (
+                    <>
+                        <button
+                            onClick={() => handleNativeCapture(CameraSource.Camera)}
+                            className="flex-1 bg-[#6366f1] text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                        >
+                            <i className="pi pi-camera text-sm"></i>
+                            Take Photo
+                        </button>
+                        <button
+                            onClick={() => handleNativeCapture(CameraSource.Photos)}
+                            className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
+                        >
+                            <i className="pi pi-images text-sm"></i>
+                            Gallery
+                        </button>
+                    </>
+                ) : (
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
+                    >
+                        <i className="pi pi-upload text-sm"></i>
+                        Upload Media
+                    </button>
+                )}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
         </div>
