@@ -1388,7 +1388,7 @@ router.post('/block', verifyToken, async (req, res) => {
 
         res.status(200).json({ message: 'User blocked' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -1398,7 +1398,7 @@ router.post('/unblock', verifyToken, async (req, res) => {
         await User.findByIdAndUpdate(req.userId, { $pull: { blockedUsers: targetUserId } });
         res.status(200).json({ message: 'User unblocked' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -1408,7 +1408,7 @@ router.post('/mute', verifyToken, async (req, res) => {
         await User.findByIdAndUpdate(req.userId, { $addToSet: { mutedUsers: targetUserId } });
         res.status(200).json({ message: 'User muted' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -1418,7 +1418,7 @@ router.post('/unmute', verifyToken, async (req, res) => {
         await User.findByIdAndUpdate(req.userId, { $pull: { mutedUsers: targetUserId } });
         res.status(200).json({ message: 'User unmuted' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -1463,7 +1463,7 @@ router.get('/analytics/:userId', verifyToken, async (req, res) => {
             topPosts
         });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 

@@ -18,6 +18,25 @@ const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
 
+/**
+ * Sanitizes a post object to protect user privacy, especially for anonymous posts.
+ */
+function sanitizePost(post, viewerId = null) {
+    if (!post) return post;
+    // Handle both Mongoose documents and plain objects
+    const userIdInPost = post.user?._id?.toString() || post.user?.toString();
+    const isOwner = viewerId && userIdInPost === viewerId.toString();
+
+    if (post.isAnonymous && !isOwner) {
+        if (post.user && typeof post.user === 'object') {
+            post.user._id = "anonymous_user";
+        }
+        post.collaborators = [];
+    }
+    return post;
+}
+
+
 const router = express.Router();
 
 
@@ -76,7 +95,7 @@ router.post("/view/:postId", async (req, res) => {
             // Recently counted — skip increment
             return res.status(200).json({ success: true, counted: false });
         }
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── VOTE (PROTECTED) ────────────────────────────────────────────────────────
@@ -104,7 +123,7 @@ router.post("/vote", verifyToken, async (req, res) => {
         if (_io) _io.emit('pollUpdate', { postId, poll: post.poll });
 
         res.status(200).json({ poll: post.poll, rewards });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 function computeScore(post, followingIds = []) {
@@ -227,7 +246,7 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
         const isFirstPost = postCount === 1;
 
         res.status(201).json({ ...newPost.toObject(), rewards, isFirstPost });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── ACCEPT COLLABORATION (PROTECTED) ──────────────────────────────────────────
@@ -244,7 +263,7 @@ router.post("/collaborate/accept", verifyToken, async (req, res) => {
         await post.save();
         if (_io) _io.to(post.user._id.toString()).emit('collaborationAccepted', { postId, userId });
         res.status(200).json(post);
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── DECLINE COLLABORATION (PROTECTED) ───────────────────────────────────────────
@@ -257,7 +276,7 @@ router.post("/collaborate/decline", verifyToken, async (req, res) => {
         const idx = post.collaborators.findIndex(c => c.userId.toString() === userId);
         if (idx !== -1) { post.collaborators[idx].status = 'declined'; await post.save(); }
         res.status(200).json({ message: "Declined." });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── COLLABORATION INVITES ────────────────────────────────────────────────────
@@ -276,7 +295,7 @@ router.get("/collaborate/invites/:userId", verifyToken, async (req, res) => {
         }).lean();
         res.status(200).json(posts);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -298,7 +317,7 @@ router.get("/collaborate/mine/:userId", verifyToken, async (req, res) => {
         }).sort({ createdAt: -1 }).lean();
         res.status(200).json(posts);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -469,7 +488,8 @@ router.get("/", async (req, res) => {
         // NOTE: We no longer add feed posts to the Bloom Filter seen-set.
         // The Bloom Filter is reserved for the Explore/Recommendations engine.
 
-        res.status(200).json({ posts: resultWithPresence, nextCursor, hasMore });
+        const finalPosts = resultWithPresence.map(p => sanitizePost(p, userId));
+        res.status(200).json({ posts: finalPosts, nextCursor, hasMore });
     } catch (error) {
         console.error('[Feed] CRITICAL Error:', error.message);
 
@@ -551,12 +571,14 @@ router.get("/user/:userId", async (req, res) => {
                     }
                 }
             ],
-            ...(cursor ? { _id: { $lt: cursor } } : {})
+            ...(cursor ? { _id: { $lt: cursor } } : {}),
+            ...(!isOwner ? { isAnonymous: { $ne: true } } : {})
         };
         const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
-        res.status(200).json({ posts: result, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
+        const sanitized = result.map(p => sanitizePost(p, viewerId));
+        res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -656,7 +678,7 @@ router.post("/save", verifyToken, async (req, res) => {
 
             return res.status(200).json({ saved: true });
         }
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.get("/saved/:userId", verifyToken, async (req, res) => {
@@ -667,7 +689,8 @@ router.get("/saved/:userId", verifyToken, async (req, res) => {
         const user = await User.findById(userId).select('savedPosts');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).lean();
-        res.status(200).json(posts);
+        const sanitized = posts.map(p => sanitizePost(p, req.userId));
+        res.status(200).json(sanitized);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -733,7 +756,7 @@ router.post("/react", verifyToken, async (req, res) => {
         if (rewards && _io) _io.to(userId.toString()).emit('levelUpdate', rewards);
 
         res.status(200).json({ ...post.toObject(), rewards });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── PULSE / TRENDING ────────────────────────────────────────────────────────
@@ -786,7 +809,7 @@ router.get("/trending", async (req, res) => {
         });
 
         res.status(200).json({ categories, hashtags, topUsers });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── LIKE (PROTECTED) ─────────────────────────────────────────────────────────
@@ -846,7 +869,7 @@ router.post("/like", verifyToken, async (req, res) => {
 
             res.status(200).json({ success: true, post: updatedPost });
         } else { res.status(400).json({ message: "Already liked." }); }
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── UNLIKE (PROTECTED) ───────────────────────────────────────────────────────
@@ -887,7 +910,7 @@ router.post("/unlike", verifyToken, async (req, res) => {
             // Return success even if not liked — for optimistic UI robustness
             res.status(200).json({ success: true, message: "Already unliked.", post });
         }
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── CATEGORIES ───────────────────────────────────────────────────────────────
@@ -1132,17 +1155,8 @@ router.get("/detail/:postId", async (req, res) => {
             timestamp: Date.now() / 1000,
         });
 
-        // FIX #6: Sanitize anonymous post — never expose real user identity
-        const postObj = post.toObject();
-        if (postObj.isAnonymous) {
-            postObj.user = {
-                _id: null,
-                fullname: 'Anonymous',
-                profile_picture: 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain',
-            };
-        }
-
-        res.status(200).json(postObj);
+        const sanitized = sanitizePost(post.toObject(), viewerId);
+        res.status(200).json(sanitized);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -1337,8 +1351,9 @@ router.get("/explore-reels", async (req, res) => {
             return p;
         });
 
+        const finalPosts = resultWithPresence.map(p => sanitizePost(p, viewerId));
         res.status(200).json({
-            posts: resultWithPresence,
+            posts: finalPosts,
             nextCursor,
             hasMore
         });
@@ -1350,10 +1365,10 @@ router.get("/explore-reels", async (req, res) => {
                 .sort({ _id: -1 })
                 .limit(limit)
                 .lean();
-            return res.status(200).json({ posts: fallback, hasMore: false, isFallback: true, error: error.message });
+            return res.status(200).json({ posts: fallback, hasMore: false, isFallback: true, error: "An unexpected error occurred" });
         } catch (innerErr) {
             console.error(`${_tag} Fallback also failed:`, innerErr.message);
-            res.status(500).json({ error: "Service unavailable", details: innerErr.message });
+            res.status(500).json({ error: "Service unavailable", details: "Could not fetch fallback content" });
         }
     }
 });

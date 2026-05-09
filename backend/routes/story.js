@@ -36,7 +36,7 @@ router.post('/create', verifyToken, async (req, res) => {
 
         res.status(201).json(story);
     } catch (error) {
-        res.status(500).json({ message: 'Internal server error', error: error.message });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -90,7 +90,7 @@ router.get('/feed', verifyToken, async (req, res) => {
             // 🔒 Privacy: Mask viewers and likes for non-owners
             const isOwner = uid === userId.toString();
             const sObj = story.toObject ? story.toObject() : story;
-            
+
             sObj.viewersCount = (sObj.viewers || []).length;
             sObj.likesCount = (sObj.likes || []).length;
             sObj.isLiked = (sObj.likes || []).some(id => id.toString() === userId.toString());
@@ -114,7 +114,7 @@ router.get('/feed', verifyToken, async (req, res) => {
 
         res.status(200).json(result);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -134,7 +134,7 @@ router.post('/view/:storyId', verifyToken, async (req, res) => {
         await Story.findByIdAndUpdate(req.params.storyId, { $addToSet: { viewers: userId } });
         res.status(200).json({ message: 'Viewed' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -153,7 +153,7 @@ router.get('/viewers/:storyId', verifyToken, async (req, res) => {
 
         res.status(200).json(story.viewers || []);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -181,9 +181,9 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
             );
 
             if (_io) {
-                _io.emit('storyUpdate', { 
-                    storyId: updatedStory._id, 
-                    likesCount: updatedStory.likes.length 
+                _io.emit('storyUpdate', {
+                    storyId: updatedStory._id,
+                    likesCount: updatedStory.likes.length
                 });
             }
             const resObj = updatedStory.toObject();
@@ -199,9 +199,9 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
             );
 
             if (_io) {
-                _io.emit('storyUpdate', { 
-                    storyId: updatedStory._id, 
-                    likesCount: updatedStory.likes.length 
+                _io.emit('storyUpdate', {
+                    storyId: updatedStory._id,
+                    likesCount: updatedStory.likes.length
                 });
             }
 
@@ -223,7 +223,7 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
             return res.status(200).json(resObj);
         }
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -237,7 +237,7 @@ router.delete('/:storyId', verifyToken, async (req, res) => {
         await Story.findByIdAndDelete(req.params.storyId);
         res.status(200).json({ message: 'Story deleted.' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -316,7 +316,7 @@ router.post('/reply/:storyId', verifyToken, async (req, res) => {
 
         res.status(200).json({ message: 'Reply sent' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
