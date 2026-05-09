@@ -11,7 +11,7 @@ if (require.main === module && !isRedisDisabled) {
   const w = new Worker('email', async job => {
     // job processing
     console.log('Processing email job', job.id, job.name, job.data);
-  }, { connection: redis, concurrency: 2, limiter: { max: 5, duration: 1000 } });
+  }, { connection: redis, concurrency: 2, limiter: { max: 5, duration: 1000 }, stalledInterval: 12 * 60 * 60 * 1000 });
 }
 
 module.exports = { emailQueue };

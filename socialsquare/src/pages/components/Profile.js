@@ -100,7 +100,13 @@ const Profile = ({ userId }) => {
     const profileId = userId || loggeduser?._id;
 
     // Fetch own posts/saved (Logged In)
-    const { data: userPosts = [], isLoading: loadingUserPosts } = useUserPosts((initialized && loggeduser?._id) ? profileId : null);
+    const { 
+        data: userPosts, 
+        isLoading: loadingUserPosts,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
+    } = useUserPosts((initialized && loggeduser?._id) ? profileId : null);
     const { data: savedPostsData = [] } = useSavedPosts((initialized && loggeduser?._id && viewingOwnProfile) ? profileId : null);
 
     // Fetch public posts (Logged Out)
@@ -373,7 +379,7 @@ const Profile = ({ userId }) => {
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block" style={{ whiteSpace: 'nowrap' }}>Following</span>
                                 </div>
                                 <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4">
-                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.postCount ?? userPostsList.length)}</h6>
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.postCount ?? 0)}</h6>
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Posts</span>
                                 </div>
                                 <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center cursor-pointer px-1 sm:px-4" title="Total profile views">
@@ -578,6 +584,29 @@ const Profile = ({ userId }) => {
                         </div>
                     )}
 
+                    {/* Load More Button */}
+                    {activeTab === 'posts' && hasNextPage && (
+                        <div className="flex justify-center mt-6 mb-8">
+                            <button
+                                onClick={() => fetchNextPage()}
+                                disabled={isFetchingNextPage}
+                                className="px-8 py-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 text-indigo-500 font-bold text-sm cursor-pointer hover:bg-indigo-500/10 transition flex items-center gap-2"
+                            >
+                                {isFetchingNextPage ? (
+                                    <>
+                                        <i className="pi pi-spin pi-spinner"></i>
+                                        <span>Loading...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="pi pi-plus-circle"></i>
+                                        <span>Load More Posts</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
+
                     {isLoggedOut && tabPosts.length > 3 && (
                         <div className="flex flex-col items-center justify-center py-8 px-4 text-center bg-[var(--surface-2)]/80 backdrop-blur-lg rounded-2xl mx-4 mt-4 mb-4 border border-[var(--border-color)]">
                             <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
@@ -620,7 +649,7 @@ const Profile = ({ userId }) => {
                 onHide={() => setShowFollowersList(false)}
                 className="rounded-3xl"
             >
-                <FollowFollowingList isfollowing={false} ids={displayUser?.followers} />
+                <FollowFollowingList isfollowing={false} userId={displayUser?._id} />
             </Dialog>
             <Dialog
                 header="Following"
@@ -629,7 +658,7 @@ const Profile = ({ userId }) => {
                 onHide={() => setShowFollowingList(false)}
                 className="rounded-3xl"
             >
-                <FollowFollowingList isfollowing={true} ids={displayUser?.following} />
+                <FollowFollowingList isfollowing={true} userId={displayUser?._id} />
             </Dialog>
 
 

@@ -231,6 +231,7 @@ if (!isRedisDisabled) {
         connection: redis,
         concurrency: 2,
         limiter: { max: 5, duration: 1000 },
+        stalledInterval: 12 * 60 * 60 * 1000, // Check for stalled jobs every 12 hours (reduces Redis traffic)
     });
 
     worker.on('failed', (job, err) => console.error('[Digest] Job failed:', err.message));

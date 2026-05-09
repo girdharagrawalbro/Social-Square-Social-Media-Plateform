@@ -1,18 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog } from 'primereact/dialog';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useUserDetails, useFollowUser, useUnfollowUser, useRemoveFollower, useCancelFollowRequest } from '../../hooks/queries/useAuthQueries';
+import { 
+    useInfiniteFollowers, 
+    useInfiniteFollowing, 
+    useFollowUser, 
+    useUnfollowUser, 
+    useRemoveFollower, 
+    useCancelFollowRequest,
+    useUserDetails 
+} from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
+import { useInView } from 'react-intersection-observer';
 import UserProfile from './UserProfile';
 
-const FollowFollowingList = ({ ids = [], isfollowing }) => {
+const FollowFollowingList = ({ userId, ids, isfollowing }) => {
     const user = useAuthStore(s => s.user);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
-
-    // ✅ TanStack Query for fetching user details
     const [searchQuery, setSearchQuery] = useState('');
-    const { data: users = [], isLoading } = useUserDetails(ids);
+
+    const { ref, inView } = useInView();
+
+    // ✅ Fix: Call hooks unconditionally to satisfy Rules of Hooks
+    // Case 1: Static list (e.g. Likes)
+    const { data: staticUsers = [], isLoading: staticLoading } = useUserDetails(ids);
+
+    // Case 2: Following list
+    const followingQuery = useInfiniteFollowing(userId, 10, { enabled: !!userId && isfollowing === true });
+    
+    // Case 3: Followers list
+    const followersQuery = useInfiniteFollowers(userId, 10, { enabled: !!userId && isfollowing === false });
+
+    // Consolidate Data
+    let users = [];
+    let isLoading = false;
+    let hasNextPage = false;
+    let isFetchingNextPage = false;
+
+    if (ids) {
+        users = staticUsers;
+        isLoading = staticLoading;
+    } else if (isfollowing) {
+        users = followingQuery.data?.pages.flatMap(page => page.users) || [];
+        isLoading = followingQuery.isLoading;
+        hasNextPage = followingQuery.hasNextPage;
+        isFetchingNextPage = followingQuery.isFetchingNextPage;
+    } else {
+        users = followersQuery.data?.pages.flatMap(page => page.users) || [];
+        isLoading = followersQuery.isLoading;
+        hasNextPage = followersQuery.hasNextPage;
+        isFetchingNextPage = followersQuery.isFetchingNextPage;
+    }
+
+    useEffect(() => {
+        if (ids || !inView || !hasNextPage || isFetchingNextPage) return;
+
+        if (isfollowing) {
+            followingQuery.fetchNextPage();
+        } else {
+            followersQuery.fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, ids, isfollowing, followingQuery, followersQuery]);
 
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
@@ -24,7 +73,6 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
         u.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // ... handleFollow, handleRemoveFollower, openUserProfile ...
     const handleFollow = (targetUserId, isRequested) => {
         const isFollowing = user?.following?.some(f => f?.toString() === targetUserId?.toString());
         if (isFollowing) {
@@ -69,9 +117,17 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
         setProfileVisible(true);
     };
 
-    if (isLoading) return (
+    if (isLoading && users.length === 0) return (
         <div className="flex flex-col gap-2 p-2">
-            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
+            {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex items-center gap-3 p-2">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                        <div className="h-3 bg-gray-100 rounded w-1/3 animate-pulse" />
+                        <div className="h-2 bg-gray-50 rounded w-1/4 animate-pulse" />
+                    </div>
+                </div>
+            ))}
         </div>
     );
 
@@ -108,6 +164,8 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                     </div>
                 ) : filteredUsers.map(u => {
                     const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
+                    const isMyProfile = userId === user?._id;
+
                     return (
                         <div key={u._id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[var(--surface-2)] transition-colors">
                             <button
@@ -135,7 +193,7 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                                 {u._id !== user?._id && (
                                     <>
                                         {/* If it's followers list AND it's MY list, show Remove button */}
-                                        {!isfollowing && ids.some(id => id.toString() === u._id.toString()) && user.followers?.some(fid => fid.toString() === u._id.toString()) && (
+                                        {!isfollowing && isMyProfile && (
                                             <button
                                                 onClick={() => handleRemoveFollower(u._id)}
                                                 disabled={removeFollowerMutation.isPending}
@@ -167,6 +225,13 @@ const FollowFollowingList = ({ ids = [], isfollowing }) => {
                         </div>
                     );
                 })}
+
+                {/* Infinite Scroll Trigger */}
+                {!ids && hasNextPage && (
+                    <div ref={ref} className="h-10 flex items-center justify-center">
+                        {isFetchingNextPage && <i className="pi pi-spin pi-spinner text-[#808bf5]"></i>}
+                    </div>
+                )}
             </div>
 
             <Dialog

@@ -36,7 +36,7 @@ export function useFeed(userId) {
             if (pageParam) params.append('cursor', pageParam);
             if (userId) params.append('userId', userId);
             const res = await api.get(`/api/post/?${params}`);
-            
+
             // ✅ UPDATE CACHE
             if (!pageParam && Capacitor.isNativePlatform() && res.data) {
                 cacheService.set(`feed_${userId}`, res.data);
@@ -52,11 +52,12 @@ export function useFeed(userId) {
 
 // ─── USER POSTS ───────────────────────────────────────────────────────────────
 export function useUserPosts(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useInfiniteQuery({
         queryKey: postKeys.userPosts(userId),
         queryFn: async ({ pageParam = null }) => {
-             // ✅ NATIVE CACHE HYDRATION
-             if (!pageParam && Capacitor.isNativePlatform()) {
+            // ✅ NATIVE CACHE HYDRATION
+            if (!pageParam && Capacitor.isNativePlatform()) {
                 const cached = await cacheService.get(`user_posts_${userId}`);
                 if (cached) return cached;
             }
@@ -73,7 +74,7 @@ export function useUserPosts(userId) {
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
-        enabled: !!userId,
+        enabled: !!userId && initialized,
         staleTime: 1000 * 60 * 5,
     });
 }

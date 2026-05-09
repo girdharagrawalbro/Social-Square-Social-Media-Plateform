@@ -291,12 +291,12 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
     _id: { $in: candidateSignals.candidateIds },
     isBanned: { $ne: true },
   })
-    .select('_id fullname profile_picture followers following created_at isPrivate')
+    .select('_id fullname profile_picture followersCount followingCount created_at isPrivate')
     .lean();
 
   const maxMutual = Math.max(1, ...candidateUsers.map(u => candidateSignals.mutualCounts.get(toId(u._id)) || 0));
-  const maxFollowers = Math.max(1, ...candidateUsers.map(u => (u.followers || []).length));
-  const maxPosts = Math.max(1, ...candidateUsers.map(u => candidateSignals.activityByUser.get(toId(u._id))?.postsCount || 0));
+  const maxFollowers = Math.max(1, ...candidateUsers.map(u => u.followersCount || 0));
+  const maxPosts = Math.max(1, ...candidateUsers.map(u => u.postsCount || candidateSignals.activityByUser.get(toId(u._id))?.postsCount || 0));
 
   let ranked = candidateUsers.map(candidate => {
     const id = toId(candidate._id);
@@ -312,7 +312,7 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
     const recencyFactor = clamp(1 - (daysSince(activity?.latestPostAt) / 60));
     const activityScore = clamp((postDensity * 0.35) + (likeStrength * 0.3) + (scoreStrength * 0.2) + (recencyFactor * 0.15));
 
-    const socialScore = normalizeLog((candidate.followers || []).length, maxFollowers);
+    const socialScore = normalizeLog(candidate.followersCount || 0, maxFollowers);
     const freshnessScore = clamp(1 - (daysSince(candidate.created_at) / 180));
 
     const score = clamp(
@@ -331,8 +331,8 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
       _id: candidate._id,
       fullname: candidate.fullname,
       profile_picture: candidate.profile_picture,
-      followersCount: (candidate.followers || []).length,
-      followingCount: (candidate.following || []).length,
+      followersCount: candidate.followersCount || 0,
+      followingCount: candidate.followingCount || 0,
       score,
       mutualCount,
       mutualScore,

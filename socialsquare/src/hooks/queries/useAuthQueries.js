@@ -142,34 +142,40 @@ export function usePublicUserProfile(userId) {
     });
 }
 
-// ─── FETCH FOLLOWERS ───────────────────────────────────────────────────────────
-export function useFollowers(userId) {
-    const { data: followerIds } = useQuery({
-        queryKey: authKeys.followers(userId),
-        queryFn: async () => {
-            const res = await api.get(`/api/auth/followers/${userId}`);
+// ─── FETCH FOLLOWERS INFINITE ─────────────────────────────────────────────────
+export function useInfiniteFollowers(userId, limit = 10, options = {}) {
+    return useInfiniteQuery({
+        queryKey: [...authKeys.followers(userId), 'infinite', limit],
+        queryFn: async ({ pageParam = null }) => {
+            const res = await api.get(`/api/auth/followers/${userId}`, {
+                params: { limit, cursor: pageParam }
+            });
             return res.data;
         },
+        getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
+        initialPageParam: null,
         enabled: !!userId,
         staleTime: 1000 * 60 * 5,
+        ...options
     });
-
-    return useUserDetails(followerIds);
 }
 
-// ─── FETCH FOLLOWING ───────────────────────────────────────────────────────────
-export function useFollowing(userId) {
-    const { data: followingIds } = useQuery({
-        queryKey: authKeys.following(userId),
-        queryFn: async () => {
-            const res = await api.get(`/api/auth/following/${userId}`);
+// ─── FETCH FOLLOWING INFINITE ─────────────────────────────────────────────────
+export function useInfiniteFollowing(userId, limit = 10, options = {}) {
+    return useInfiniteQuery({
+        queryKey: [...authKeys.following(userId), 'infinite', limit],
+        queryFn: async ({ pageParam = null }) => {
+            const res = await api.get(`/api/auth/following/${userId}`, {
+                params: { limit, cursor: pageParam }
+            });
             return res.data;
         },
+        getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
+        initialPageParam: null,
         enabled: !!userId,
         staleTime: 1000 * 60 * 5,
+        ...options
     });
-
-    return useUserDetails(followingIds);
 }
 
 // ─── FOLLOW/UNFOLLOW MUTATIONS ────────────────────────────────────────────────
@@ -223,7 +229,7 @@ export function useAcceptFollowRequest() {
         onMutate: async ({ requesterId }) => {
             await qc.cancelQueries({ queryKey: ['notifications', user?._id] });
             const previousNotifications = qc.getQueryData(['notifications', user?._id]);
-            qc.setQueryData(['notifications', user?._id], (old) => 
+            qc.setQueryData(['notifications', user?._id], (old) =>
                 old ? old.filter(n => n.sender?.id !== requesterId) : []
             );
             return { previousNotifications };
@@ -247,7 +253,7 @@ export function useDeclineFollowRequest() {
         onMutate: async ({ requesterId }) => {
             await qc.cancelQueries({ queryKey: ['notifications', user?._id] });
             const previousNotifications = qc.getQueryData(['notifications', user?._id]);
-            qc.setQueryData(['notifications', user?._id], (old) => 
+            qc.setQueryData(['notifications', user?._id], (old) =>
                 old ? old.filter(n => n.sender?.id !== requesterId) : []
             );
             return { previousNotifications };
