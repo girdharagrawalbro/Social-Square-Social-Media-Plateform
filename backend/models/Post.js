@@ -73,6 +73,17 @@ const PostSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Global protection for anonymous posts (when not using .lean())
+PostSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    if (ret.isAnonymous) {
+      if (ret.user) ret.user._id = 'anonymous';
+      ret.collaborators = [];
+    }
+    return ret;
+  }
+});
+
 
 PostSchema.index({ createdAt: -1 });
 PostSchema.index({ score: -1, createdAt: -1 });

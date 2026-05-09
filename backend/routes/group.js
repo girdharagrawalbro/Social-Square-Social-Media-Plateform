@@ -8,7 +8,7 @@ router.get("/all", verifyToken, async (req, res) => {
     try {
         const groups = await Group.find().populate('members', 'fullname username profile_picture');
         res.status(200).json(groups);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── CREATE GROUP ────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ router.post("/create", verifyToken, async (req, res) => {
         });
         await newGroup.save();
         res.status(201).json(newGroup);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── JOIN GROUP ──────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ router.post("/join/:id", verifyToken, async (req, res) => {
         group.members.push(req.userId);
         await group.save();
         res.status(200).json(group);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── LEAVE GROUP ─────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ router.post("/leave/:id", verifyToken, async (req, res) => {
         
         await group.save();
         res.status(200).json({ message: "Left group" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── GET GROUP DETAILS ───────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ router.get("/:id", verifyToken, async (req, res) => {
             });
         if (!group) return res.status(404).json({ message: "Group not found" });
         res.status(200).json(group);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 module.exports = router;

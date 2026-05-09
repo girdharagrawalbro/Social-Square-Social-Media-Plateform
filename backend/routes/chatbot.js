@@ -136,9 +136,9 @@ router.post('/chat', async (req, res) => {
         console.error('[Chatbot]', err.message);
         // If headers not sent yet, send JSON error
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Chatbot error', details: err.message });
+            res.status(500).json({ error: 'Chatbot service temporarily unavailable' });
         } else {
-            res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+            res.write(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`);
             res.end();
         }
     }
@@ -171,7 +171,7 @@ router.post('/suggest-captions', async (req, res) => {
         res.json({ captions: fullReply });
 
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

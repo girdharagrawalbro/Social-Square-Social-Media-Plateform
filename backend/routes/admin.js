@@ -169,7 +169,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
 
         setCached('analytics', result);
         res.json(result);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── USER MANAGEMENT ──────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         ]);
 
         res.json({ users, total });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.post('/users/bulk-ban', requireAdmin, async (req, res) => {
@@ -241,7 +241,7 @@ router.post('/users/bulk-ban', requireAdmin, async (req, res) => {
 
         invalidateCache();
         res.json({ message: `Successfully banned ${finalIds.length} users` });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
@@ -278,7 +278,7 @@ router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
 
         invalidateCache();
         res.json({ message: `Successfully deleted ${finalIds.length} users` });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.patch('/users/:userId/ban', requireAdmin, async (req, res) => {
@@ -303,7 +303,7 @@ router.patch('/users/:userId/ban', requireAdmin, async (req, res) => {
 
         invalidateCache();
         res.json({ message: 'User banned', user });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.patch('/users/:userId/unban', requireAdmin, async (req, res) => {
@@ -321,7 +321,7 @@ router.patch('/users/:userId/unban', requireAdmin, async (req, res) => {
         }
         invalidateCache();
         res.json({ message: 'User unbanned' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.delete('/users/:userId', requireAdmin, async (req, res) => {
@@ -344,7 +344,7 @@ router.delete('/users/:userId', requireAdmin, async (req, res) => {
 
         invalidateCache();
         res.json({ message: 'User deleted' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.patch('/users/:userId/toggle-admin', requireAdmin, async (req, res) => {
@@ -355,7 +355,7 @@ router.patch('/users/:userId/toggle-admin', requireAdmin, async (req, res) => {
             req.params.userId, { isAdmin: !user.isAdmin }, { new: true, select: 'isAdmin fullname' }
         ).lean();
         res.json({ message: `Admin ${updated.isAdmin ? 'granted' : 'revoked'}`, isAdmin: updated.isAdmin });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.patch('/users/:userId/verify', requireAdmin, async (req, res) => {
@@ -373,7 +373,7 @@ router.patch('/users/:userId/verify', requireAdmin, async (req, res) => {
 
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json({ message: 'User verification updated', user });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── POST MANAGEMENT ──────────────────────────────────────────────────────────
@@ -442,7 +442,7 @@ router.get('/posts', requireAdmin, async (req, res) => {
         ]);
 
         res.json({ posts, total });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.delete('/posts/:postId', requireAdmin, async (req, res) => {
@@ -465,7 +465,7 @@ router.delete('/posts/:postId', requireAdmin, async (req, res) => {
         Report.deleteMany({ targetId: req.params.postId }).catch(console.error);
         invalidateCache();
         res.json({ message: 'Post deleted', postId: req.params.postId });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────────
@@ -531,7 +531,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
 
         const total = await Report.countDocuments(match);
         res.json({ reports, total });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.delete('/comments/:commentId', requireAdmin, async (req, res) => {
@@ -557,7 +557,7 @@ router.delete('/comments/:commentId', requireAdmin, async (req, res) => {
 
         invalidateCache();
         res.json({ message: 'Comment deleted' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.patch('/reports/:reportId/resolve', requireAdmin, async (req, res) => {
@@ -580,7 +580,7 @@ router.patch('/reports/:reportId/resolve', requireAdmin, async (req, res) => {
         }
         invalidateCache();
         res.json({ message: 'Report updated' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── SUBMIT REPORT (public, but requires login) ─────────────────────────────
@@ -597,7 +597,7 @@ router.post('/report', verifyToken, async (req, res) => {
 
         await Report.create({ reporter: reporterId, targetType, targetId, reason, description });
         res.status(201).json({ message: 'Report submitted' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── DEBUG / VERIFICATION ─────────────────────────────────────────────────────
@@ -611,7 +611,7 @@ router.post('/debug/digest', requireAdmin, async (req, res) => {
             repeatableJobs: repeatable,
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -628,7 +628,7 @@ router.post('/debug/admin-digest', requireAdmin, async (req, res) => {
             jobId: job.id
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -677,7 +677,7 @@ router.get('/audit-logs', requireAdmin, async (req, res) => {
     try {
         const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(100).lean();
         res.json(logs);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── CONTENT FILTER ──────────────────────────────────────────────────────────
@@ -685,7 +685,7 @@ router.get('/content-filter', requireAdmin, async (req, res) => {
     try {
         const words = await ContentFilter.find().lean();
         res.json(words);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.post('/content-filter', requireAdmin, async (req, res) => {
@@ -696,14 +696,14 @@ router.post('/content-filter', requireAdmin, async (req, res) => {
         if (existing) return res.status(400).json({ error: 'Word already exists' });
         const newWord = await ContentFilter.create({ word: word.toLowerCase(), action: action || 'flag' });
         res.status(201).json(newWord);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.delete('/content-filter/:id', requireAdmin, async (req, res) => {
     try {
         await ContentFilter.findByIdAndDelete(req.params.id);
         res.json({ message: 'Word removed' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── SYSTEM SETTINGS & FEATURE FLAGS ─────────────────────────────────────────

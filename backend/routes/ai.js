@@ -129,7 +129,7 @@ router.post('/generate-text', verifyToken, async (req, res) => {
         const textRemaining = getRemaining(DAILY_TEXT_LIMIT, textCount + 1);
         res.status(200).json({ text, remaining: textRemaining, textRemaining });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 
@@ -194,7 +194,7 @@ router.get('/limit', verifyToken, async (req, res) => {
             remaining: Math.min(textRemaining, imageRemaining),
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 

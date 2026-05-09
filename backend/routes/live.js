@@ -26,7 +26,7 @@ router.get('/active', verifyToken, async (req, res) => {
             .sort({ startTime: -1 });
         res.json(activeStreams);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -61,7 +61,7 @@ router.post('/start', verifyToken, async (req, res) => {
         const populated = await stream.populate('host', 'fullname profile_picture');
         res.status(201).json(populated);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -75,7 +75,7 @@ router.post('/end/:id', verifyToken, async (req, res) => {
         );
         res.json(stream);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -134,7 +134,7 @@ router.post('/:id/chat/message', verifyToken, async (req, res) => {
         chatEmitter.emit('message', message);
         res.status(200).json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 

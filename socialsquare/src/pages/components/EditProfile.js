@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { uploadToCloudinary, validateImageFile, validateImageType } from '../../utils/cloudinary';
+import { uploadToCloudinary } from '../../utils/cloudinary';
 import { Camera, CameraResultType } from '@capacitor/camera';
 
 import toast from 'react-hot-toast';
@@ -59,10 +59,6 @@ const EditProfile = ({ users, closeSidebar }) => {
             });
 
             if (image.webPath) {
-                // Fetch the image as a blob to pass it to the cropper/uploader
-                const response = await fetch(image.webPath);
-                const blob = await response.blob();
-                
                 // Show cropper
                 setImageToCrop(image.webPath);
                 setCropperVisible(true);

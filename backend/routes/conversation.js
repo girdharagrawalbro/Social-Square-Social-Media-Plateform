@@ -59,7 +59,7 @@ router.delete('/:conversationId/clear', verifyToken, async (req, res) => {
         res.json({ message: 'Chat cleared' });
     } catch (err) {
         console.error('[Conversation] Clear error:', err.message);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -89,7 +89,7 @@ router.delete('/:conversationId', verifyToken, async (req, res) => {
         res.json({ message: 'Chat deleted' });
     } catch (err) {
         console.error('[Conversation] Delete error:', err.message);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -130,7 +130,7 @@ router.post('/create', verifyToken, async (req, res) => {
 
         await delCache(`convs:${senderId}`, `convs:${recipientId}`);
         res.status(201).json(conversation);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── FETCH CONVERSATIONS (PROTECTED) ──────────────────────────────────────────
@@ -147,7 +147,7 @@ router.get('/', verifyToken, async (req, res) => {
 
         await setCache(cacheKey, conversations, 30);
         res.status(200).json(conversations);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── FETCH MESSAGES (PROTECTED) ───────────────────────────────────────────────
@@ -219,7 +219,7 @@ router.post('/messages', verifyToken, async (req, res) => {
         const result = { messages: sanitizedMessages, conversation, hasMore: messages.length === limit };
         await setCache(cacheKey, result, 15);
         res.status(200).json(result);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── SEARCH MESSAGES (PROTECTED) ──────────────────────────────────────────────
@@ -246,7 +246,7 @@ router.get('/messages/search', verifyToken, async (req, res) => {
         .lean();
 
         res.json(messages);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── SEND MESSAGE (PROTECTED) ─────────────────────────────────────────────────
@@ -348,7 +348,7 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
             _io.to(recipientId).emit('newNotification', notification);
         }
         res.status(201).json(message);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── EDIT MESSAGE (PROTECTED) ─────────────────────────────────────────────────
@@ -386,7 +386,7 @@ router.patch('/messages/:messageId', verifyToken, async (req, res) => {
             });
         }
         res.json(message);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── DELETE MESSAGE (PROTECTED) ────────────────────────────────────────────────
@@ -418,7 +418,7 @@ router.delete('/messages/:messageId', verifyToken, async (req, res) => {
             });
         }
         res.json({ message: 'Deleted' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── MARK MESSAGES READ (PROTECTED) ───────────────────────────────────────────
@@ -446,7 +446,7 @@ router.post('/messages/mark-read', verifyToken, async (req, res) => {
         res.json({ success: true });
     } catch (err) { 
         console.error('[Conversation] Mark read error:', err.message);
-        res.status(500).json({ error: err.message }); 
+        res.status(500).json({ error: "Internal Server Error" }); 
     }
 });
 
@@ -456,7 +456,7 @@ router.get('/notifications', verifyToken, async (req, res) => {
         const userId = req.userId;
         const notifications = await Notification.find({ recipient: userId }).sort({ createdAt: -1 }).limit(50).lean();
         res.json({ notifications, total: notifications.length });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.patch('/notifications/mark-read', verifyToken, async (req, res) => {
@@ -464,7 +464,7 @@ router.patch('/notifications/mark-read', verifyToken, async (req, res) => {
         const { Ids } = req.body;
         await Notification.updateMany({ _id: { $in: Ids }, recipient: req.userId }, { $set: { read: true } });
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── UNREAD TOTAL (PROTECTED) ────────────────────────────────────────────────
@@ -478,7 +478,7 @@ router.get('/unread-total', verifyToken, async (req, res) => {
             lastMessageBy: { $ne: userId }
         });
         res.json({ total });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // ─── BACKWARD-COMPAT: FETCH CONVERSATIONS BY USER ID (PROTECTED) ───────────
@@ -489,7 +489,7 @@ router.get('/:participantId', verifyToken, async (req, res) => {
 
         const conversations = await Conversation.find({ 'participants.userId': req.userId }).sort({ lastMessageAt: -1 }).lean();
         res.json(conversations);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 router.setIo = setIo;

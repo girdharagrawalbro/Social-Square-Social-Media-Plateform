@@ -79,6 +79,22 @@ const UserSchema = new mongoose.Schema({
 });
 
 
+UserSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    delete ret.password;
+    delete ret.twoFactorOtp;
+    delete ret.twoFactorOtpExpires;
+    delete ret.resetPasswordToken;
+    delete ret.resetPasswordExpires;
+    delete ret.emailVerificationToken;
+    delete ret.failedLoginAttempts;
+    delete ret.lockoutUntil;
+    delete ret.googleId;
+    delete ret.githubId;
+    return ret;
+  }
+});
+
 UserSchema.index({ fullname: 1 });
 UserSchema.index({ blockedUsers: 1 });
 UserSchema.index({ mutedUsers: 1 });
