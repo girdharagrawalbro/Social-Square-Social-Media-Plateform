@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from 'primereact/dialog';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { 
-    useInfiniteFollowers, 
-    useInfiniteFollowing, 
-    useFollowUser, 
-    useUnfollowUser, 
-    useRemoveFollower, 
+import {
+    useInfiniteFollowers,
+    useInfiniteFollowing,
+    useFollowUser,
+    useUnfollowUser,
+    useRemoveFollower,
     useCancelFollowRequest,
-    useUserDetails 
+    useUserDetails
 } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { useInView } from 'react-intersection-observer';
@@ -28,7 +28,7 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
 
     // Case 2: Following list
     const followingQuery = useInfiniteFollowing(userId, 10, { enabled: !!userId && isfollowing === true });
-    
+
     // Case 3: Followers list
     const followersQuery = useInfiniteFollowers(userId, 10, { enabled: !!userId && isfollowing === false });
 
@@ -144,7 +144,7 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
                         className="w-full pl-9 pr-4 py-2 bg-[var(--surface-2)] border-0 rounded-xl text-sm text-[var(--text-main)] focus:ring-2 focus:ring-[#808bf5]/30 outline-none transition-all placeholder:text-[var(--text-sub)]"
                     />
                     {searchQuery && (
-                        <button 
+                        <button
                             onClick={() => setSearchQuery('')}
                             className="absolute right-3 top-1/2 -translate-y-1/2 border-0 bg-transparent text-[var(--text-sub)] hover:text-[var(--text-main)] cursor-pointer p-0"
                         >

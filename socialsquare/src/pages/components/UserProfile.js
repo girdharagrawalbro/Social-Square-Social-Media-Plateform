@@ -388,38 +388,38 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                 </button>
                             )}
 
-                             <div className="flex gap-2">
-                                 <button
-                                     onClick={handleShareProfile}
-                                     className="flex-1 h-9 sm:h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-[var(--surface-1)] transition"
-                                 >
-                                     🔗 Share
-                                 </button>
-                                 {isMutedByMe ? (
-                                     <button
-                                         onClick={handleUnmute}
-                                         className="flex-1 h-9 sm:h-10 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-600 font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-yellow-500/20 transition"
-                                     >
-                                         🔊 Unmute
-                                     </button>
-                                 ) : (
-                                     <button
-                                         onClick={handleMute}
-                                         className="flex-1 h-9 sm:h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-[var(--surface-1)] transition"
-                                     >
-                                         🔇 Mute
-                                     </button>
-                                 )}
-                                 {!isBlockedByMe && (
-                                     <button
-                                         onClick={handleBlock}
-                                         className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 flex items-center justify-center cursor-pointer hover:bg-red-500/20 transition"
-                                         title="Block User"
-                                     >
-                                         <i className="pi pi-ban text-xs sm:text-sm"></i>
-                                     </button>
-                                 )}
-                             </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleShareProfile}
+                                    className="flex-1 h-9 sm:h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                >
+                                    🔗 Share
+                                </button>
+                                {isMutedByMe ? (
+                                    <button
+                                        onClick={handleUnmute}
+                                        className="flex-1 h-9 sm:h-10 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-600 font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-yellow-500/20 transition"
+                                    >
+                                        🔊 Unmute
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleMute}
+                                        className="flex-1 h-9 sm:h-10 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] font-bold text-[10px] sm:text-xs cursor-pointer hover:bg-[var(--surface-1)] transition"
+                                    >
+                                        🔇 Mute
+                                    </button>
+                                )}
+                                {!isBlockedByMe && (
+                                    <button
+                                        onClick={handleBlock}
+                                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 flex items-center justify-center cursor-pointer hover:bg-red-500/20 transition"
+                                        title="Block User"
+                                    >
+                                        <i className="pi pi-ban text-xs sm:text-sm"></i>
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 

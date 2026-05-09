@@ -12,7 +12,6 @@ import { ConfirmDialog } from 'primereact/confirmdialog';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
-// ✅ All imports from src/ root — no '../' needed
 import useAuthStore, { api } from './store/zustand/useAuthStore';
 import useConversationStore from './store/zustand/useConversationStore';
 import usePostStore from './store/zustand/usePostStore';
@@ -26,7 +25,6 @@ import useTabTitle from './hooks/useTabTitle';
 import useFeedSocket from './hooks/useFeedSocket';
 import useAuthCheck from './hooks/useAuthCheck';
 
-
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
 import Sidebar from './pages/components/Sidebar';
 import Explore from './pages/components/Explore';
@@ -34,7 +32,6 @@ import Communities from './pages/components/Communities';
 import BottomNav from './pages/components/BottomNav';
 import Navbar from './pages/components/Navbar';
 import { CreateStoryModal } from './pages/components/Stories';
-
 import Footer from './pages/components/Footer';
 import NotificationBell from './pages/components/ui/NotificationBell';
 import Chatbot from './pages/components/Chatbot';
@@ -82,7 +79,6 @@ function AppInit() {
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     useFeedSocket();
 
-
     useTokenRefresh(Boolean(user?._id));
 
     // ✅ On every page load/refresh — silently restore session from httpOnly cookie
@@ -97,66 +93,106 @@ function AppInit() {
         }
     }, [initAuth]);
 
-    // ✅ Initial Notifications & Messages Fetch
+    // ✅ Push Notifications + Initial State Fetch
     const { setNotifications } = useConversationStore();
 
     useEffect(() => {
         if (!user?._id) return;
 
+        // ─── PUSH NOTIFICATIONS ───────────────────────────────────────────────
         const setupPushNotifications = async () => {
             if (!Capacitor.isNativePlatform()) return;
 
-            let permStatus = await PushNotifications.checkPermissions();
+            try {
+                let permStatus = await PushNotifications.checkPermissions();
 
-            if (permStatus.receive === 'prompt') {
-                permStatus = await PushNotifications.requestPermissions();
+                if (permStatus.receive === 'prompt') {
+                    permStatus = await PushNotifications.requestPermissions();
+                }
+
+                if (permStatus.receive !== 'granted') {
+                    console.warn('User denied push notification permissions');
+                    return;
+                }
+
+                // ✅ STEP 1 — Attach ALL listeners BEFORE calling register()
+                PushNotifications.addListener('registration', async (token) => {
+                    console.log('✅ FCM Token:', token.value);
+                    try {
+                        // Save FCM token to your backend
+                        await api.post('/api/user/fcm-token', { token: token.value });
+                    } catch (err) {
+                        console.error('Failed to save FCM token to backend:', err);
+                    }
+                });
+
+                PushNotifications.addListener('registrationError', (err) => {
+                    console.error('❌ Push registration error:', err.error);
+                });
+
+                // Fired when app is OPEN and notification arrives
+                PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                    console.log('📩 Foreground notification received:', notification);
+                    toast(notification.title || 'New notification', {
+                        icon: '🔔',
+                        duration: 4000,
+                        position: 'top-center',
+                        style: {
+                            borderRadius: '16px',
+                            background: 'var(--surface-1)',
+                            color: 'var(--text-main)',
+                            border: '1px solid var(--border-color)',
+                        },
+                    });
+                });
+
+                // Fired when user TAPS a notification (app in background/killed)
+                PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+                    console.log('👆 Notification tapped:', action.notification);
+                    const data = action.notification.data;
+                    if (!data) return;
+
+                    if (data.type === 'message' && data.senderId) {
+                        navigate(`/conversation/${data.senderId}`);
+                    } else if (data.postId) {
+                        setPostDetailId(data.postId);
+                    } else if (data.storyUserId) {
+                        setStoryDetailUserId(data.storyUserId);
+                    }
+                });
+
+                // ✅ STEP 2 — Register AFTER all listeners are attached
+                await PushNotifications.register();
+
+            } catch (err) {
+                console.error('Push notification setup failed:', err);
             }
-
-            if (permStatus.receive !== 'granted') {
-                console.warn('User denied push notification permissions');
-                return;
-            }
-
-            await PushNotifications.register();
-
-            PushNotifications.addListener('registration', (token) => {
-                console.log('Push registration success, token: ' + token.value);
-            });
-
-            PushNotifications.addListener('registrationError', (err) => {
-                console.error('Push registration error: ', err.error);
-            });
-
-            PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                console.log('Push notification received: ', notification);
-            });
         };
 
-        setupPushNotifications();
-
+        // ─── INITIAL DATA FETCH ───────────────────────────────────────────────
         const fetchInitialState = async () => {
             try {
-                // Fetch notifications
                 const notifRes = await api.get('/api/conversation/notifications?limit=1');
                 if (notifRes.data.notifications) {
                     setNotifications(notifRes.data.notifications);
-                }
-
-                // Fetch total unread messages
-                const msgRes = await api.get('/api/conversation/unread-total');
-                if (msgRes.data.total !== undefined) {
-                    // We don't have a totalUnread setter, we have setUnreadCount per conversation.
-                    // But we can add a simple total sync if needed.
-                    // For now, most important is notifications.
                 }
             } catch (err) {
                 console.error('Failed to fetch initial notifications:', err);
             }
         };
 
+        setupPushNotifications();
         fetchInitialState();
-    }, [user?._id, setNotifications]);
 
+        // ✅ Cleanup push listeners when user logs out or changes
+        return () => {
+            if (Capacitor.isNativePlatform()) {
+                PushNotifications.removeAllListeners();
+            }
+        };
+    }, [user?._id, setNotifications, navigate, setPostDetailId, setStoryDetailUserId]);
+
+    // ─── SOCKET EVENTS ────────────────────────────────────────────────────────
     useEffect(() => {
         if (!user?._id) return;
         if (!socket.connected) socket.connect();
@@ -169,22 +205,16 @@ function AppInit() {
         const handleNewNotification = (notification) => {
             if (!notification) return;
 
-            // Skip if I am the sender
             const senderId = notification.sender?.id || notification.sender?._id;
             if (senderId === user?._id) return;
 
-            // Add to global state
             addNotification(notification);
 
-            // Show toast
             const { type, message, post, story } = notification;
             const sender = notification.sender;
 
-            // Prevent toast for chat message if we are already chatting with that user
             if (type === 'message' && senderId) {
-                if (window.location.pathname.includes(`/conversation/${senderId}`)) {
-                    return;
-                }
+                if (window.location.pathname.includes(`/conversation/${senderId}`)) return;
             }
 
             let icon = '🔔';
@@ -203,9 +233,7 @@ function AppInit() {
                     <div
                         style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: '100%', position: 'relative' }}
                         onClick={(e) => {
-                            // Only navigate if we didn't click the close button
                             if (e.target.closest('.close-toast')) return;
-
                             if (type === 'message' && senderId) {
                                 navigate(`/conversation/${senderId}`);
                             } else if ((type === 'like' && story) || type === 'new_story') {
@@ -217,7 +245,11 @@ function AppInit() {
                         }}
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid var(--primary)' }}>
-                            <img src={sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img
+                                src={sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
                         </div>
                         <div style={{ minWidth: 0, flex: 1, paddingRight: '20px' }}>
                             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -229,21 +261,25 @@ function AppInit() {
                         </div>
                         <button
                             className="close-toast"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toast.dismiss(t.id);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); toast.dismiss(t.id); }}
                             style={{
                                 position: 'absolute', right: '-4px', top: '50%', transform: 'translateY(-50%)',
                                 background: 'none', border: 'none', color: 'var(--text-sub)',
                                 fontSize: '18px', cursor: 'pointer', padding: '8px'
                             }}
-                        >
-                            ×
-                        </button>
+                        >×</button>
                     </div>
                 ),
-                { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' } }
+                {
+                    duration: 5000,
+                    position: 'top-center',
+                    style: {
+                        padding: '10px', borderRadius: '16px',
+                        background: 'var(--surface-1)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                    }
+                }
             );
         };
 
@@ -262,7 +298,11 @@ function AppInit() {
                         }}
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid #ff4b2b' }}>
-                            <img src={storyUser?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img
+                                src={storyUser?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
                         </div>
                         <div style={{ minWidth: 0, flex: 1, paddingRight: '20px' }}>
                             <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)' }}>
@@ -272,21 +312,20 @@ function AppInit() {
                         </div>
                         <button
                             className="close-toast"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toast.dismiss(t.id);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); toast.dismiss(t.id); }}
                             style={{
                                 position: 'absolute', right: '-4px', top: '50%', transform: 'translateY(-50%)',
                                 background: 'none', border: 'none', color: 'var(--text-sub)',
                                 fontSize: '18px', cursor: 'pointer', padding: '8px'
                             }}
-                        >
-                            ×
-                        </button>
+                        >×</button>
                     </div>
                 ),
-                { duration: 5000, position: 'top-center', style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)' } }
+                {
+                    duration: 5000,
+                    position: 'top-center',
+                    style: { padding: '10px', borderRadius: '16px', background: 'var(--surface-1)', border: '1px solid var(--border-color)' }
+                }
             );
         };
 
@@ -327,22 +366,17 @@ function SharedPostRedirect() {
 
     useEffect(() => {
         if (!postId) return;
-
         window.sessionStorage.setItem('pendingPostId', postId);
-
         if (!initialized || loading) return;
-
         if (user?.username) {
             navigate(`/${user.username}?post=${postId}`, { replace: true });
             return;
         }
-
         navigate(`/login?post=${postId}`, { replace: true });
     }, [postId, initialized, loading, user?.username, navigate]);
 
     return <PageLoader />;
 }
-
 
 function SharedStoryRedirect() {
     const { userId, storyId } = useParams();
@@ -353,33 +387,25 @@ function SharedStoryRedirect() {
 
     useEffect(() => {
         if (!userId) return;
-
         window.sessionStorage.setItem('pendingStoryUserId', userId);
-        if (storyId) {
-            window.sessionStorage.setItem('pendingStoryId', storyId);
-        }
-
+        if (storyId) window.sessionStorage.setItem('pendingStoryId', storyId);
         if (!initialized || loading) return;
-
         if (user?.username) {
             navigate(`/stories/${userId}${storyId ? `/${storyId}` : ''}`, { replace: true });
             return;
         }
-
         navigate(`/login?redirect=/stories/${userId}${storyId ? `/${storyId}` : ''}`, { replace: true });
     }, [userId, storyId, initialized, loading, user?.username, navigate]);
 
     return <PageLoader />;
 }
 
-// ─── MAIN LAYOUT WITH NAVBAR & SIDEBAR ────────────────────────────────────────
+// ─── LAYOUTS ──────────────────────────────────────────────────────────────────
 function PublicLayout({ children }) {
     return (
         <div className="flex flex-col min-h-[100dvh] w-full">
             <Navbar />
-            <main className="flex-1">
-                {children}
-            </main>
+            <main className="flex-1">{children}</main>
             <Footer />
         </div>
     );
@@ -395,7 +421,6 @@ function MainLayout({ children }) {
             <div className="lg:hidden">
                 <Navbar />
             </div>
-            {/* Desktop Notification Bell (Top Right) - Hide in Chat Panel */}
             {!isMessages && (
                 <div className="hidden lg:block fixed top-6 right-8 z-50">
                     <NotificationBell userId={user?._id} showLabel={false} />
@@ -412,6 +437,7 @@ function MainLayout({ children }) {
     );
 }
 
+// ─── APP ──────────────────────────────────────────────────────────────────────
 function App() {
     useTabTitle();
     const [isOffline, setIsOffline] = useState(false);
@@ -437,7 +463,7 @@ function App() {
         return () => {
             handler.then(h => h.remove());
         };
-    }, [setIsOffline]);
+    }, []);
 
     if (authState === 'loading') {
         return <PageLoader />;
@@ -452,19 +478,10 @@ function App() {
             />
             {isOffline && (
                 <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    zIndex: 9999,
-                    backgroundColor: '#f59e0b',
-                    color: 'white',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    padding: '8px',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase'
+                    position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+                    backgroundColor: '#f59e0b', color: 'white', fontSize: '11px',
+                    fontWeight: 'bold', textAlign: 'center', padding: '8px',
+                    letterSpacing: '1px', textTransform: 'uppercase'
                 }}>
                     📶 You are currently offline. Some features may be limited.
                 </div>
@@ -483,7 +500,6 @@ function App() {
                                             <Route path="/" element={<Navigate to={`/${user.username}`} replace />} />
                                             <Route path="/signup" element={<Navigate to={`/${user.username}`} replace />} />
                                             <Route path="/login" element={<Navigate to={`/${user.username}`} replace />} />
-                                            
                                             <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
                                             <Route path="/conversations" element={<MainLayout><Conversations /></MainLayout>} />
                                             <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
@@ -501,8 +517,6 @@ function App() {
                                             <Route path="/stories/:username" element={<StoriesPage />} />
                                             <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
                                             <Route path="/stories" element={<StoriesPage />} />
-                                            
-                                            {/* Catch-all for logged in users -> Feed */}
                                             <Route path="*" element={<Navigate to={`/${user.username}`} replace />} />
                                         </>
                                     ) : (
@@ -517,19 +531,13 @@ function App() {
                                             <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
                                             <Route path="/verify-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
                                             <Route path="/verify-email/:token" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
-
-                                            {/* Public access to posts/stories even when logged out (optional, but keep for SEO/sharing) */}
                                             <Route path="/post/:postId" element={<PublicLayout><SharedPostRedirect /></PublicLayout>} />
                                             <Route path="/story/:userId/:storyId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
                                             <Route path="/story/:userId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
-
-                                            {/* Catch-all for logged out users -> Landing */}
                                             <Route path="*" element={<Navigate to="/" replace />} />
                                         </>
                                     )}
                                 </Routes>
-
-                                {/* ─── GLOBAL OVERLAYS (Accessible from any page via Zustand) ─── */}
                                 <GlobalOverlays />
                             </Suspense>
                         </Router>
@@ -540,16 +548,15 @@ function App() {
     );
 }
 
+// ─── GLOBAL OVERLAYS ──────────────────────────────────────────────────────────
 function GlobalOverlays() {
     const { postDetailId, profileDetailId, setPostDetailId, setProfileDetailId, sharingPostToStory, clearSharingPostToStory } = usePostStore();
     const user = useAuthStore(s => s.user);
-    // const qc = useQueryClient();
     const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
     const location = useLocation();
 
     return (
         <>
-            {/* Hide chatbot icon when in chat panel */}
             {!location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && <Chatbot />}
 
             <Dialog
@@ -571,12 +578,7 @@ function GlobalOverlays() {
                     >
                         <i className="pi pi-times text-sm"></i>
                     </button>
-                    {postDetailId && (
-                        <PostDetail
-                            postId={postDetailId}
-                            onHide={() => setPostDetailId(null)}
-                        />
-                    )}
+                    {postDetailId && <PostDetail postId={postDetailId} onHide={() => setPostDetailId(null)} />}
                 </div>
             </Dialog>
 
@@ -584,18 +586,17 @@ function GlobalOverlays() {
                 header="Profile"
                 visible={!!profileDetailId}
                 style={{ width: '95vw', maxWidth: '500px' }}
-                position={window.innerWidth < 768 ? "bottom" : "center"}
+                position={window.innerWidth < 768 ? 'bottom' : 'center'}
                 onHide={() => setProfileDetailId(null)}
                 baseZIndex={isStoryViewerOpen ? 20000 : 1000}
                 appendTo={document.body}
                 blockScroll
                 draggable={false}
                 resizable={false}
-                className={window.innerWidth < 768 ? "profile-dialog-mobile" : ""}
+                className={window.innerWidth < 768 ? 'profile-dialog-mobile' : ''}
             >
                 {profileDetailId && <UserProfile id={profileDetailId} />}
             </Dialog>
-
 
             {sharingPostToStory && (
                 <CreateStoryModal
@@ -607,7 +608,6 @@ function GlobalOverlays() {
             )}
         </>
     );
-
 }
 
 export default App;

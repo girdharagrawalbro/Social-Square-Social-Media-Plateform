@@ -191,6 +191,12 @@ app.get('/health', (req, res) => {
     });
 });
 
+router.post('/api/user/fcm-token', authMiddleware, async (req, res) => {
+    const { token } = req.body;
+    await User.findByIdAndUpdate(req.user._id, { fcmToken: token });
+    res.json({ success: true });
+});
+
 // ✅ Routes
 app.use('/api/auth', (req, res, next) => require('./routes/auth.js')(req, res, next));
 app.use('/api/post', postRouter);

@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "438982943802-ufoe2lhh6hd51gt6stfl1mk94902in1b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.socialsquare.app",
+            "certificate_hash": "142e4cffc4107bfa49b1480230ed431565de2a0d"
+          }
+        },
+        {
           "client_id": "438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com",
           "client_type": 3
         }
