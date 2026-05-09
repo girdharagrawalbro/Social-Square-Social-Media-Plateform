@@ -17,9 +17,10 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const redis = require('./lib/redis');
-const User = require('./models/User'); // Update: Import User for presence
+const User = require('./models/User');
 require('./models/Recommendation');
 const verifyToken = require('./middleware/Verifytoken');
+
 
 // ✅ NO cluster in single-dyno/512MB deployments
 // Cluster multiplies RAM usage by CPU count — 4 cores = 4x RAM
@@ -193,7 +194,7 @@ app.get('/health', (req, res) => {
 
 app.post('/api/user/fcm-token', verifyToken, async (req, res) => {
     const { token } = req.body;
-    await User.findByIdAndUpdate(req.user._id, { fcmToken: token });
+    await User.findByIdAndUpdate(req.userId, { fcmToken: token });
     res.json({ success: true });
 });
 
