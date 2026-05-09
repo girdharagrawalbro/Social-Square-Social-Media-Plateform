@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { socket } from '../../socket';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { urlToFile } from "../../utils/nativeUtils";
 import { uploadToCloudinary, uploadVideoToCloudinary } from '../../utils/cloudinary';
 import { uploadToDrive, getFileIcon, formatFileSize } from '../../utils/drive';
 
@@ -1154,6 +1157,47 @@ const ChatPanel = ({
     const isTypingOther = conversationId && isTyping(conversationId);
     const typingName = conversationId ? getTypingName(conversationId) : null;
 
+    const handleNativeCapture = async (source) => {
+        try {
+            const image = await Camera.getPhoto({
+                quality: 90,
+                allowEditing: false,
+                resultType: CameraResultType.Uri,
+                source: source
+            });
+
+            if (image.webPath) {
+                const file = await urlToFile(image.webPath, `chat-media-${Date.now()}.jpg`, 'image/jpeg');
+                const id = Math.random().toString(36).substr(2, 9);
+                
+                setSelectedFiles(prev => [...prev, file]);
+                
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    setPreviews(prev => [...prev, { 
+                        id, 
+                        url: ev.target.result, 
+                        file, 
+                        uploading: true, 
+                        uploadedUrl: null, 
+                        error: null, 
+                        isFile: false 
+                    }]);
+                    
+                    uploadToCloudinary(file)
+                        .then(r => { 
+                            const url = typeof r === 'string' ? r : r?.url; 
+                            setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); 
+                        })
+                        .catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
+                };
+                reader.readAsDataURL(file);
+            }
+        } catch (error) {
+            console.log('Native chat capture cancelled or failed', error);
+        }
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
 
@@ -1298,6 +1342,17 @@ const ChatPanel = ({
                                     : <IconPaperclip />
                                 }
                             </button>
+                            {Capacitor.isNativePlatform() && (
+                                <button type="button" onClick={() => handleNativeCapture(CameraSource.Camera)} disabled={uploading}
+                                    style={{ background: 'none', border: 'none', cursor: uploading ? 'default' : 'pointer', color: uploading ? '#9ca3af' : 'var(--text-sub)', padding: '6px', display: 'flex', alignItems: 'center', flexShrink: 0, borderRadius: '50%', transition: 'color 0.15s' }}
+                                    onMouseEnter={e => { if (!uploading) e.currentTarget.style.color = '#808bf5'; }}
+                                    onMouseLeave={e => e.currentTarget.style.color = uploading ? '#9ca3af' : 'var(--text-sub)'}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                                    </svg>
+                                </button>
+                            )}
                             <input ref={fileInputRef} type="file" multiple accept="*/*" onChange={handleFileSelect} style={{ display: 'none' }} />
 
                             <input

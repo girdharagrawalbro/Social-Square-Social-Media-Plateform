@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { Preferences } from '@capacitor/preferences';
+import { Capacitor } from '@capacitor/core';
 
 // ✅ Global Rate Limit Handler (HTTP 429)
 const handleRateLimit = err => {
@@ -138,11 +140,26 @@ const useAuthStore = create(
                 set({ loading: true });
                 initAuthPromise = (async () => {
                     try {
-                        // refreshAccessToken already sets the token and user in the store
+                        // ✅ NATIVE SESSION RESTORE
+                        if (Capacitor.isNativePlatform()) {
+                            const { value } = await Preferences.get({ key: 'user_token' });
+                            if (value) {
+                                const parsed = JSON.parse(value);
+                                if (parsed.token && parsed.user && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
+                                    setToken(parsed.token);
+                                    set({ user: parsed.user, loading: false, initialized: true });
+                                    return;
+                                }
+                                // Token expired or invalid
+                                await Preferences.remove({ key: 'user_token' });
+                            }
+                        }
+
+                        // ── Fallback to cookie refresh (Web or Native with no/expired token) ──
                         await refreshAccessToken();
                         set({ loading: false, error: null, initialized: true });
                     } catch {
-                        // No valid refresh token — user needs to log in
+                        // No valid session found anywhere
                         clearToken();
                         set({ user: null, loading: false, initialized: true });
                     } finally {
@@ -169,7 +186,18 @@ const useAuthStore = create(
                     const { token, user } = res.data;
                     setToken(token);
                     set({ user, loading: false, initialized: true });
-                    return { success: true };
+
+                    if (Capacitor.isNativePlatform()) {
+                        await Preferences.set({
+                            key: 'user_token',
+                            value: JSON.stringify({
+                                token,
+                                user,
+                                expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
+                            })
+                        });
+                    }
+                    return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
                     set({ loading: false, error: msg });
@@ -188,6 +216,17 @@ const useAuthStore = create(
                     const { token, user } = res.data;
                     setToken(token);
                     set({ user, loading: false, initialized: true });
+
+                    if (Capacitor.isNativePlatform()) {
+                        await Preferences.set({
+                            key: 'user_token',
+                            value: JSON.stringify({
+                                token,
+                                user,
+                                expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
+                            })
+                        });
+                    }
                     return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.error || err.response?.data?.message || 'Google Login failed';
@@ -208,7 +247,18 @@ const useAuthStore = create(
                     const { token, user } = res.data;
                     setToken(token);
                     set({ user, loading: false, initialized: true });
-                    return { success: true };
+
+                    if (Capacitor.isNativePlatform()) {
+                        await Preferences.set({
+                            key: 'user_token',
+                            value: JSON.stringify({
+                                token,
+                                user,
+                                expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
+                            })
+                        });
+                    }
+                    return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.message || 'Signup failed';
                     set({ loading: false, error: msg });
@@ -223,6 +273,9 @@ const useAuthStore = create(
                 } catch { }
                 clearToken();
                 localStorage.removeItem('socketId');
+                if (Capacitor.isNativePlatform()) {
+                    await Preferences.remove({ key: 'user_token' });
+                }
                 set({ user: null, initialized: true });
                 window.location.href = '/'; // Update: Redirect to home on logout
             },

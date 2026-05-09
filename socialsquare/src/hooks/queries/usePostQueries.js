@@ -1,6 +1,8 @@
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
+import { Capacitor } from '@capacitor/core';
+import cacheService from '../../utils/CacheService';
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const postKeys = {
@@ -24,10 +26,22 @@ export function useFeed(userId) {
     return useInfiniteQuery({
         queryKey: postKeys.feed(userId),
         queryFn: async ({ pageParam = null }) => {
+            // ✅ NATIVE CACHE HYDRATION (First Page Only)
+            if (!pageParam && Capacitor.isNativePlatform()) {
+                const cached = await cacheService.get(`feed_${userId}`);
+                if (cached) return cached;
+            }
+
             const params = new URLSearchParams({ limit: '10' });
             if (pageParam) params.append('cursor', pageParam);
             if (userId) params.append('userId', userId);
             const res = await api.get(`/api/post/?${params}`);
+            
+            // ✅ UPDATE CACHE
+            if (!pageParam && Capacitor.isNativePlatform() && res.data) {
+                cacheService.set(`feed_${userId}`, res.data);
+            }
+
             return res.data; // { posts, nextCursor, hasMore }
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -41,9 +55,21 @@ export function useUserPosts(userId) {
     return useInfiniteQuery({
         queryKey: postKeys.userPosts(userId),
         queryFn: async ({ pageParam = null }) => {
+             // ✅ NATIVE CACHE HYDRATION
+             if (!pageParam && Capacitor.isNativePlatform()) {
+                const cached = await cacheService.get(`user_posts_${userId}`);
+                if (cached) return cached;
+            }
+
             const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
             const res = await api.get(`/api/post/user/${userId}?${params}`);
+
+            // ✅ UPDATE CACHE
+            if (!pageParam && Capacitor.isNativePlatform() && res.data) {
+                cacheService.set(`user_posts_${userId}`, res.data);
+            }
+
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,

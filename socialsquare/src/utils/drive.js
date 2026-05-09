@@ -122,7 +122,8 @@ export async function backupUrlToDrive(url, options = {}) {
         folder: options.folder || 'social-square-backups',
         name: options.name,
     });
-    return formatResult(json?.data);
+    // return formatResult(json?.data);
+    return { success: json.success };
 }
 
 /**

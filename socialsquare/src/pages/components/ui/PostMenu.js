@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 
-const PostMenu = ({ post, user, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory, onMute, onBlock, buttonClassName, iconClassName }) => {
+const PostMenu = ({ post, user, isOwner: passedIsOwner, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory, onMute, onBlock, buttonClassName, iconClassName }) => {
     const [visible, setVisible] = useState(false);
-    const isOwner = post.user._id === user?._id || post.user._id?.toString() === user?._id;
+    const isOwner = passedIsOwner !== undefined ? passedIsOwner : (post.user._id === user?._id || post.user._id?.toString() === user?._id);
 
     const actionItems = [
         ...(isOwner ? [

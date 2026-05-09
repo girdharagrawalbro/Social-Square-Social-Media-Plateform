@@ -309,7 +309,7 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
         const userId = req.userId;
         const post = await Post.findById(req.params.postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
-        if (post.user._id.toString() !== userId) return res.status(403).json({ message: "Unauthorized." });
+        if (post.user._id.toString() !== userId.toString()) return res.status(403).json({ message: "Unauthorized." });
         if (caption) post.caption = caption;
         if (category) post.category = category;
         await post.save();
@@ -329,7 +329,7 @@ router.delete("/delete/:postId", verifyToken, async (req, res) => {
         if (!post) return res.status(404).json({ message: "Post not found." });
 
         const user = await User.findById(userId).select('isAdmin').lean();
-        const isOwner = post.user._id.toString() === userId;
+        const isOwner = post.user._id.toString() === userId.toString();
         const isAdmin = user && user.isAdmin;
 
         if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
@@ -1030,7 +1030,7 @@ router.delete('/comments/:commentId', verifyToken, async (req, res) => {
 
         // FIX #5: Allow admins to delete any comment (consistent with post delete)
         const user = await User.findById(userId).select('isAdmin').lean();
-        const isOwner = comment.user._id.toString() === userId;
+        const isOwner = comment.user._id.toString() === userId.toString();
         const isAdmin = user && user.isAdmin;
 
         if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Unauthorized' });
@@ -1063,7 +1063,7 @@ router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
         const userId = req.userId;
         const comment = await Comment.findById(req.params.commentId);
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
-        const liked = (comment.likes || []).some(id => id.toString() === userId);
+        const liked = (comment.likes || []).some(id => id.toString() === userId.toString());
         if (liked) {
             await Comment.findByIdAndUpdate(req.params.commentId, { $pull: { likes: userId } });
         } else {

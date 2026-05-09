@@ -100,12 +100,14 @@ async function uploadImageUrlToCloudinary(url, folder = 'ai-generated') {
         );
         const secureUrl = cloudRes.data?.data?.secure_url;
         if (cloudRes.data?.success === false || !secureUrl) {
-            throw new Error(cloudRes.data?.message || 'Invalid Cloudinary URL upload response');
+            // throw new Error(cloudRes.data?.message || 'Invalid Cloudinary URL upload response');
+            throw new Error('Image backup failed');
         }
         return secureUrl;
     } catch (error) {
         const reason = error.response?.data?.message || error.response?.data?.error?.message || error.message;
-        throw new Error(`Cloudinary URL upload failed: ${reason}`);
+        // throw new Error(`Cloudinary URL upload failed: ${reason}`);
+        throw new Error('Service Temporarily Unavailable');
     }
 }
 

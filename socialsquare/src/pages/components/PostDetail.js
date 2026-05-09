@@ -481,7 +481,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     </div>
                                     <PostMenu
                                         post={post}
-                                        isOwner={loggeduser?._id === post?.user?._id}
+                                        user={loggeduser}
+                                        isOwner={loggeduser?._id?.toString() === post?.user?._id?.toString()}
                                         onEdit={() => { setEditingPost(post); setEditCaption(post.caption); }}
                                         onDelete={handleDelete}
                                         onReport={() => setReportVisible(true)}
