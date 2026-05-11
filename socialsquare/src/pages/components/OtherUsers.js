@@ -72,8 +72,8 @@ const OtherUsers = () => {
                 </div>
 
                 <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1 custom-scrollbar scroll-smooth">
-                    {users.filter(u => 
-                        u._id !== user?._id && 
+                    {users.filter(u =>
+                        u._id !== user?._id &&
                         !user?.following?.some(f => f?.toString() === u._id?.toString()) &&
                         !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString()) &&
                         !localDismissed.includes(u._id)
@@ -90,7 +90,7 @@ const OtherUsers = () => {
                                 onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}>
                                 <div className="relative flex-shrink-0">
                                     <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm ring-2 ring-white dark:ring-gray-800">
-                                        <img src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt={u.fullname} className="w-full h-full object-cover" />
+                                        <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt={u.fullname} className="w-full h-full object-cover" />
                                     </div>
                                     {userIsOnline && (
                                         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 shadow-sm" />
@@ -108,11 +108,11 @@ const OtherUsers = () => {
                                         title="Dismiss suggestion">
                                         <i className="pi pi-times" style={{ fontSize: '10px' }}></i>
                                     </button>
-                                        <button onClick={(e) => handleFollow(e, u._id, isRequested)}
-                                            disabled={isMutating}
-                                            className={`text-[10px] sm:text-xs px-4 py-1.5 rounded-full border-0 cursor-pointer font-bold transition min-w-[85px] ${isFollowing ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}>
-                                            {isMutating ? '...' : (isFollowing ? 'Unfollow' : isRequested ? 'Requested' : 'Follow')}
-                                        </button>
+                                    <button onClick={(e) => handleFollow(e, u._id, isRequested)}
+                                        disabled={isMutating}
+                                        className={`text-[10px] sm:text-xs px-4 py-1.5 rounded-full border-0 cursor-pointer font-bold transition min-w-[85px] ${isFollowing ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}>
+                                        {isMutating ? '...' : (isFollowing ? 'Unfollow' : isRequested ? 'Requested' : 'Follow')}
+                                    </button>
                                 </div>
                             </div>
                         );

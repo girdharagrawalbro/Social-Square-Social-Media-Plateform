@@ -189,10 +189,10 @@ const StoryViewer = ({
     const handleLike = (e) => {
         e.stopPropagation();
         if (!story?._id) return;
-        
+
         // Optimistic UI update
         setIsLiked(!isLiked);
-        
+
         debouncedLike(story._id);
     };
 
@@ -274,11 +274,11 @@ const StoryViewer = ({
             {/* Header */}
             <div style={{ position: 'absolute', top: 28, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div 
+                    <div
                         style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
                         onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}
                     >
-                        <img src={group.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}>
                         <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
@@ -355,7 +355,7 @@ const StoryViewer = ({
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
                             <img
-                                src={story.sharedPostId.user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                src={story.sharedPostId.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                 style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                                 alt=""
                             />
@@ -557,11 +557,11 @@ const StoryViewer = ({
                     </div>
                 </div>
             )}
-            
-            <Dialog 
-                header="Profile" 
-                visible={profileVisible} 
-                style={{ width: '95vw', maxWidth: '500px' }} 
+
+            <Dialog
+                header="Profile"
+                visible={profileVisible}
+                style={{ width: '95vw', maxWidth: '500px' }}
                 onHide={() => { setProfileVisible(false); setIsPaused(false); }}
                 breakpoints={{ '640px': '100vw' }}
                 baseZIndex={2000000}
@@ -678,7 +678,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                     ) : filteredUsers.map(u => (
                         <div key={u._id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition">
                             <div className="flex items-center gap-3">
-                                <img src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
+                                <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
                                 <div>
                                     <p className="m-0 text-sm font-semibold text-gray-800">{u.fullname}</p>
                                     <p className="m-0 text-[11px] text-gray-400">@{u.username}</p>
@@ -765,7 +765,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
 
             if (image.webPath) {
                 const file = await urlToFile(image.webPath, `story-${Date.now()}.jpg`, 'image/jpeg');
-                
+
                 const reader = new FileReader();
                 reader.onload = () => {
                     setCroppingState({
@@ -1152,7 +1152,7 @@ const Stories = () => {
                             >
                                 <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
                                     <img
-                                        src={loggeduser?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                        src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                         alt=""
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
@@ -1180,7 +1180,7 @@ const Stories = () => {
                                 >
                                     <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }} className={group.user.isOnline ? 'presence-glow' : ''}>
                                         <img
-                                            src={group.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                            src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                             alt=""
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />

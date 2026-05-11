@@ -1,9 +1,8 @@
 import React, { useState, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuthStore, { api } from '../../store/zustand/useAuthStore';
+import useAuthStore from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
-import { useQuery } from '@tanstack/react-query';
-import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser } from '../../hooks/queries/useAuthQueries';
+import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, useOwnProfile, useOtherUserProfile } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
@@ -84,19 +83,28 @@ const Profile = ({ userId }) => {
             if (observer) observer.disconnect();
         };
     }, [activeTab]);
-
-
     const loggeduser = useAuthStore(s => s.user);
     const initialized = useAuthStore(s => s.initialized);
-    const getUserIdFromToken = useAuthStore(s => s.getUserIdFromToken);
-    
-    const isLoggedOut = initialized && !loggeduser?._id;
 
-    // Determine whose profile to show
-    // Use token-based fallback to prevent race conditions during hydration
-    const currentUserId = loggeduser?._id || getUserIdFromToken();
-    const viewingOwnProfile = !userId || (currentUserId && currentUserId?.toString() === userId?.toString());
+    const getUserIdFromToken = useAuthStore(s => s.getUserIdFromToken);
+
+    // ─── RACE-CONDITION-FREE IDENTITY RESOLUTION ──────────────────────────────
+    // tokenUserId is decoded from the in-memory JWT synchronously — it is set
+    // before Zustand hydrates (see refreshAccessToken → updateAuthToken → setToken).
+    // This means we can safely compare it with the URL userId without any race.
+    const tokenUserId = getUserIdFromToken();
+    const currentUserId = loggeduser?._id || tokenUserId;
     const profileId = userId || currentUserId;
+
+    const isLoggedOut = initialized && !currentUserId;
+
+    // viewingOwnProfile: INITIAL IDENTITY GUESS (Race-condition-free signals)
+    //   1. No userId in URL → own profile route (/profile with no param)
+    //   2. userId === tokenUserId → sync token check (no Zustand lag)
+    //   3. userId === currentUserId → Zustand fallback
+    const viewingOwnProfile = !userId ||
+        (!!tokenUserId && userId === tokenUserId) ||
+        (!!currentUserId && userId === currentUserId);
 
     const { mutate: blockUserMut } = useBlockUser();
     const { mutate: unblockUserMut } = useUnblockUser();
@@ -104,8 +112,8 @@ const Profile = ({ userId }) => {
     const { mutate: unmuteUserMut } = useUnmuteUser();
 
     // Fetch own posts/saved (Logged In)
-    const { 
-        data: userPosts, 
+    const {
+        data: userPosts,
         isLoading: loadingUserPosts,
         fetchNextPage,
         hasNextPage,
@@ -114,48 +122,67 @@ const Profile = ({ userId }) => {
     const { data: savedPostsData = [] } = useSavedPosts((initialized && currentUserId && viewingOwnProfile) ? profileId : null);
 
     // Fetch public posts (Logged Out)
-    const { data: publicPostsData = [], isLoading: loadingPublicPosts } = usePublicUserPosts((initialized && !loggeduser?._id) ? profileId : null);
+    const { data: publicPostsData = [], isLoading: loadingPublicPosts } = usePublicUserPosts((initialized && !currentUserId) ? profileId : null);
 
     const userPostsList = isLoggedOut ? (publicPostsData?.posts || []) : (userPosts?.pages?.flatMap(p => p.posts) || []);
     const savedPosts = savedPostsData || [];
 
-    // Fetch other user's profile data if viewing someone else (Logged In)
-    const { data: otherUserProfile, isLoading: otherUserLoading } = useQuery({
-        queryKey: authKeys.userProfile(profileId),
-        queryFn: async () => {
-            const res = await api.get(`/api/auth/other-user/view/${profileId}`);
-            return res.data;
-        },
-        enabled: initialized && !!currentUserId && !viewingOwnProfile && !!profileId,
-        staleTime: 1000 * 60 * 2
-    });
+    // ─── SEPARATE INTENT-BASED PROFILE QUERIES ────────────────────────────────
+    // Own profile: calls /api/auth/me — resolved by JWT, never needs Zustand
+    const { data: ownProfileData, isLoading: ownProfileLoading } = useOwnProfile(
+        initialized && !!currentUserId && viewingOwnProfile
+    );
 
-    // Fetch public profile data (Logged Out)
-    const { data: publicUserProfile, isLoading: publicUserLoading } = usePublicUserProfile((initialized && !loggeduser?._id) ? profileId : null);
+    // Other profile: calls /api/auth/other-user/view/:id — only fires when userId is in URL
+    const { data: otherProfileData, isLoading: otherProfileLoading } = useOtherUserProfile(
+        (initialized && !!currentUserId && !viewingOwnProfile) ? userId : null
+    );
+
+    // Public profile: for logged-out visitors
+    const { data: publicUserProfile, isLoading: publicProfileLoading } = usePublicUserProfile(
+        (initialized && !currentUserId) ? profileId : null
+    );
+
+    const displayUser = isLoggedOut ? publicUserProfile
+        : viewingOwnProfile ? ownProfileData
+            : otherProfileData;
+
+    const profileLoading = isLoggedOut ? publicProfileLoading
+        : viewingOwnProfile ? ownProfileLoading
+            : otherProfileLoading;
+
+    // ─── THE CONCLUSIVE OWNERSHIP FLAG ────────────────────────────────────────
+    // Final safety net: if profile data arrives and matches currentUserId, it's definitely own profile
+    const isOwner = viewingOwnProfile || (!!displayUser?._id && displayUser._id?.toString() === currentUserId?.toString());
 
     // Follow/Unfollow mutations
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
     const cancelRequestMutation = useCancelFollowRequest();
 
-    const displayUser = isLoggedOut ? publicUserProfile : (viewingOwnProfile ? loggeduser : otherUserProfile);
-    
-    // Strict comparison and fallback for isFollowing
+    // isFollowing: owner always sees own content; others check API + local store
     const isFollowing = !isLoggedOut && (
-        loggeduser?.following?.some(f => f?.toString() === profileId?.toString()) || 
-        otherUserProfile?.isFollowing // fallback from API
+        isOwner ||
+        loggeduser?.following?.some(f => f?.toString() === profileId?.toString()) ||
+        otherProfileData?.isFollowing
     );
-    
+
     const isRequested = !isLoggedOut && (
-        otherUserProfile?.hasPendingRequest || 
-        otherUserProfile?.followRequests?.some(r => r?.toString() === currentUserId?.toString())
+        otherProfileData?.hasPendingRequest ||
+        otherProfileData?.followRequests?.some(r => r?.toString() === currentUserId?.toString())
     );
-    
+
     const isBlockedByMe = !isLoggedOut && loggeduser?.blockedUsers?.some(b => b?.toString() === profileId?.toString());
     const isMuted = !isLoggedOut && loggeduser?.mutedUsers?.some(m => m?.toString() === profileId?.toString());
-    
-    // The "Gate": Only show private screen if we are SURE it's not our own profile and not following
-    const isPrivateAndNotFollowing = initialized && displayUser?.isPrivate && !isFollowing && !viewingOwnProfile && !isBlockedByMe;
+
+    // Private gate: only applies to other users' private accounts
+    const isPrivateAndNotFollowing = initialized &&
+        !isOwner &&
+        !!displayUser && // ← don't fire until we know WHO we are viewing
+        displayUser?.isPrivate &&
+        !isFollowing &&
+        !isBlockedByMe &&
+        !profileLoading;
 
     const handleFollow = async () => {
         try {
@@ -243,9 +270,12 @@ const Profile = ({ userId }) => {
 
     const { data: collabInvites = [] } = useCollabInvites((initialized && currentUserId && viewingOwnProfile) ? profileId : null);
 
+    // Strict Loading Gate: Wait for both auth initialized AND the relevant profile data
     if (!initialized) return <SkeletonProfile />;
-    if (isLoggedOut && publicUserLoading) return <SkeletonProfile />;
-    if (currentUserId && !viewingOwnProfile && otherUserLoading) return <SkeletonProfile />;
+    if (isLoggedOut && (publicProfileLoading || !displayUser)) return <SkeletonProfile />;
+    if (!isLoggedOut && (profileLoading || !displayUser)) return <SkeletonProfile />;
+    if (!isLoggedOut && isOwner && (loadingUserPosts && !userPosts)) return <SkeletonProfile />;
+
     if (!displayUser) return <div className="text-center p-4">Profile not found</div>;
 
     const pendingCollabCount = collabInvites.length;
@@ -261,7 +291,7 @@ const Profile = ({ userId }) => {
     };
 
     // Tabs: own profile shows Posts/Saved/Collabs, other profiles show Posts only
-    const TABS = viewingOwnProfile
+    const TABS = isOwner
         ? [
             { key: 'posts', icon: 'pi pi-table', label: 'Posts' },
             { key: 'reels', icon: 'pi pi-video', label: 'Reels' },
@@ -302,7 +332,7 @@ const Profile = ({ userId }) => {
                                         <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-25"></div>
                                     </div>
                                 )}
-                                {viewingOwnProfile && (
+                                {isOwner && (
                                     <button
                                         className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-0 cursor-pointer bg-[#4f46e5] text-white flex items-center justify-center shadow-md z-10"
                                         onClick={() => setEditVisible(true)}
@@ -320,13 +350,13 @@ const Profile = ({ userId }) => {
                             {displayUser?.bio && (
                                 <p className="text-sm text-[var(--text-sub)] m-0 max-w-[260px] leading-6">{displayUser.bio}</p>
                             )}
-                            {!viewingOwnProfile && displayUser?.mutualCount > 0 && (
+                            {!isOwner && displayUser?.mutualCount > 0 && (
                                 <div className="flex items-center gap-2 mt-1">
                                     <div className="flex -space-x-2">
                                         {displayUser.mutualFollowers?.slice(0, 3).map((m, idx) => (
                                             <img
                                                 key={m._id}
-                                                src={m.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                                src={m.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                                 alt={m.fullname}
                                                 className="w-5 h-5 rounded-full border-2 border-[var(--surface-1)] object-cover"
                                                 style={{ zIndex: 3 - idx }}
@@ -363,12 +393,12 @@ const Profile = ({ userId }) => {
                         {!isBlockedByMe && (
                             <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4">
                                 <div
-                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
+                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${isOwner || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
                                         if (isLoggedOut) {
                                             toast.error('Log in to view followers', { icon: '🔒' });
                                             navigate('/login');
-                                        } else if (viewingOwnProfile || isFollowing) {
+                                        } else if (isOwner || isFollowing) {
                                             setShowFollowersList(true);
                                         } else {
                                             toast.error('Follow this user to see their followers', { icon: '🔒' });
@@ -379,12 +409,12 @@ const Profile = ({ userId }) => {
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                                 </div>
                                 <div
-                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${viewingOwnProfile || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
+                                    className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 ${isOwner || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
                                         if (isLoggedOut) {
                                             toast.error('Log in to view following', { icon: '🔒' });
                                             navigate('/login');
-                                        } else if (viewingOwnProfile || isFollowing) {
+                                        } else if (isOwner || isFollowing) {
                                             setShowFollowingList(true);
                                         } else {
                                             toast.error('Follow this user to see who they follow', { icon: '🔒' });
@@ -417,7 +447,7 @@ const Profile = ({ userId }) => {
                                         <span>Log In to Interact</span>
                                     </button>
                                 </div>
-                            ) : viewingOwnProfile ? (
+                            ) : isOwner ? (
                                 <></>
                             ) : !isBlockedByMe && (
                                 <div className="grid grid-cols-2 gap-3">
@@ -442,7 +472,7 @@ const Profile = ({ userId }) => {
                         </div>
 
                         {/* OTHER PROFILE - Mute/Block Options */}
-                        {!viewingOwnProfile && !isLoggedOut && (
+                        {!isOwner && !isLoggedOut && (
                             <div className="py-2 border-t border-b border-[var(--border-color)] flex divide-x divide-[var(--border-color)] my-2">
                                 <button
                                     onClick={handleMute}
@@ -565,7 +595,7 @@ const Profile = ({ userId }) => {
                                     displayPosts = savedPosts;
                                 }
 
-                                if (!isLoggedOut && !viewingOwnProfile && !isFollowing) {
+                                if (!isLoggedOut && !isOwner && !isFollowing) {
                                     displayPosts = displayPosts.slice(0, 3);
                                 }
 
@@ -579,7 +609,7 @@ const Profile = ({ userId }) => {
                                                 if (isLoggedOut) {
                                                     toast.error('Log in to view full post', { icon: '🔒' });
                                                     navigate('/login');
-                                                } else if (viewingOwnProfile || isFollowing) {
+                                                } else if (isOwner || isFollowing) {
                                                     setPostDetail(post);
                                                     setPostDetailVisible(true);
                                                 } else {
@@ -601,7 +631,7 @@ const Profile = ({ userId }) => {
                     )}
 
                     {/* Load More Button */}
-                    {activeTab === 'posts' && hasNextPage && (
+                    {activeTab === 'posts' && hasNextPage && !isPrivateAndNotFollowing && (
                         <div className="flex justify-center mt-6 mb-8">
                             <button
                                 onClick={() => fetchNextPage()}
@@ -646,7 +676,7 @@ const Profile = ({ userId }) => {
             </div>
 
             {/* Edit & Security Dialogs - Own Profile Only */}
-            {viewingOwnProfile && (
+            {isOwner && (
                 <>
                     <Dialog header="Edit Profile" visible={editVisible} position="center" style={{ width: '90vw', maxWidth: '500px', height: '80vh' }} onHide={() => setEditVisible(false)}>
                         <EditProfile users={loggeduser} closeSidebar={() => setEditVisible(false)} />

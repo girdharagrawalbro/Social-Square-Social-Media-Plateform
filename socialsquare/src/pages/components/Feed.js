@@ -229,7 +229,7 @@ const PostItem = React.memo(({
                     >
                         <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user?.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
                             <img
-                                src={post.user?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                 alt="Profile"
                                 loading="lazy"
                                 className="w-full h-full object-cover"
@@ -503,7 +503,7 @@ const Feed = ({ activeMood = null }) => {
 
         // 1. Separate socket posts from the rest to keep them at the top
         const socketNew = socketPosts.filter(sp => !all.some(p => p._id === sp._id));
-        
+
         // 2. Deduplicate the base posts
         const uniqueBaseEntries = Array.from(new Map(all.map(p => [p._id, p])).values());
 

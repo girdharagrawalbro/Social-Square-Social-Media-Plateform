@@ -17,7 +17,7 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
     const peerConnections = useRef({}); // userId -> RTCPeerConnection
     const localVideoRef = useRef(null);
     const [viewersCount] = useState(0);
-    
+
     // Chat state
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
@@ -210,9 +210,9 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                         <div className="flex flex-col gap-2 pointer-events-auto">
                             {messages.map((msg) => (
                                 <div key={msg.id} className="flex items-start gap-2 animate-in slide-in-from-left-4 duration-300">
-                                    <img 
-                                        src={msg.user.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} 
-                                        alt="" 
+                                    <img
+                                        src={msg.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                        alt=""
                                         className="w-6 h-6 rounded-full border border-white/20 shadow-sm"
                                     />
                                     <div className="bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-2xl rounded-tl-none border border-white/10 max-w-[80%]">
@@ -230,12 +230,12 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                 <div className="p-4 pt-0 bg-gradient-to-t from-black/80 to-transparent z-50">
                     <form onSubmit={handleSendMessage} className="flex items-center gap-3">
                         <div className="flex-1 h-12 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 flex items-center px-4 shadow-2xl focus-within:border-[#808bf5]/50 transition-colors">
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
-                                placeholder="Send a message..." 
-                                className="bg-transparent border-none outline-none text-white w-full text-sm placeholder:text-white/40" 
+                                placeholder="Send a message..."
+                                className="bg-transparent border-none outline-none text-white w-full text-sm placeholder:text-white/40"
                             />
                         </div>
                         <Button
@@ -247,7 +247,7 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
                     </form>
                 </div>
             </div>
-            
+
             <style jsx="true">{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 4px;

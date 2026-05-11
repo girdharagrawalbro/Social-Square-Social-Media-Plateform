@@ -8,14 +8,17 @@
   max-width: 400px;
   margin: 0 auto;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  position: relative; /* Added for controls positioning */
-  min-height: 200px; /* Ensure visibility even if squash happens */
+  position: relative;
+  /* Added for controls positioning */
+  min-height: 200px;
+  /* Ensure visibility even if squash happens */
 }
 
 .promo-device {
   width: 100%;
   aspect-ratio: 9/19.2;
-  min-height: 500px; /* Fallback for browsers without aspect-ratio or width issues */
+  min-height: 500px;
+  /* Fallback for browsers without aspect-ratio or width issues */
   background: linear-gradient(180deg, #1e1e28, #0d0d12);
   border-radius: 52px;
   padding: 11px;
@@ -175,8 +178,15 @@
     transform: translateY(110%) translateX(0);
     opacity: 0
   }
-  8% { opacity: 1 }
-  92% { opacity: 1 }
+
+  8% {
+    opacity: 1
+  }
+
+  92% {
+    opacity: 1
+  }
+
   to {
     transform: translateY(-10%) translateX(24px);
     opacity: 0
@@ -261,9 +271,21 @@
   white-space: nowrap;
 }
 
-.f1 { left: 18px; top: 23%; }
-.f2 { right: 18px; top: 49%; }
-.f3 { left: 50%; bottom: 18%; transform: translateX(-50%); }
+.f1 {
+  left: 18px;
+  top: 23%;
+}
+
+.f2 {
+  right: 18px;
+  top: 49%;
+}
+
+.f3 {
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+}
 
 /* Scene 4 */
 .scene-4 .zoom-wrap {
@@ -306,9 +328,20 @@
 }
 
 @keyframes pulseRing {
-  0% { transform: scale(.94); opacity: .95 }
-  70% { transform: scale(1.06); opacity: .25 }
-  100% { transform: scale(1.1); opacity: 0 }
+  0% {
+    transform: scale(.94);
+    opacity: .95
+  }
+
+  70% {
+    transform: scale(1.06);
+    opacity: .25
+  }
+
+  100% {
+    transform: scale(1.1);
+    opacity: 0
+  }
 }
 
 .vibe-text {
@@ -492,9 +525,17 @@
 }
 
 @keyframes gradientShift {
-  0% { background-position: 0% 50% }
-  50% { background-position: 100% 50% }
-  100% { background-position: 0% 50% }
+  0% {
+    background-position: 0% 50%
+  }
+
+  50% {
+    background-position: 100% 50%
+  }
+
+  100% {
+    background-position: 0% 50%
+  }
 }
 
 .animate .scene-1 {
@@ -591,140 +632,470 @@
 
 /* Keyframes timeline */
 @keyframes scene1 {
-  0%, 10% { opacity: 1; visibility: visible }
-  12%, 100% { opacity: 0; visibility: hidden }
+
+  0%,
+  10% {
+    opacity: 1;
+    visibility: visible
+  }
+
+  12%,
+  100% {
+    opacity: 0;
+    visibility: hidden
+  }
 }
 
 @keyframes s1title {
-  0% { opacity: 0; transform: translateY(24px) scale(.96); filter: blur(6px) }
-  2.5% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0) }
-  9% { opacity: 1 }
-  11.5% { opacity: 0; transform: translateY(-14px) scale(.98); filter: blur(4px) }
-  100% { opacity: 0 }
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(.96);
+    filter: blur(6px)
+  }
+
+  2.5% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0)
+  }
+
+  9% {
+    opacity: 1
+  }
+
+  11.5% {
+    opacity: 0;
+    transform: translateY(-14px) scale(.98);
+    filter: blur(4px)
+  }
+
+  100% {
+    opacity: 0
+  }
 }
 
 @keyframes scene2 {
-  0%, 11.8% { opacity: 0; transform: translateX(6%) scale(.98); visibility: hidden }
-  12.5%, 23% { opacity: 1; transform: translateX(0) scale(1); visibility: visible }
-  24.2%, 100% { opacity: 0; transform: translateX(-6%) scale(.98); visibility: hidden }
+
+  0%,
+  11.8% {
+    opacity: 0;
+    transform: translateX(6%) scale(.98);
+    visibility: hidden
+  }
+
+  12.5%,
+  23% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    visibility: visible
+  }
+
+  24.2%,
+  100% {
+    opacity: 0;
+    transform: translateX(-6%) scale(.98);
+    visibility: hidden
+  }
 }
 
 @keyframes s2zoom {
-  0%, 12% { transform: scale(1) }
-  24%, 100% { transform: scale(1.06) }
+
+  0%,
+  12% {
+    transform: scale(1)
+  }
+
+  24%,
+  100% {
+    transform: scale(1.06)
+  }
 }
 
 @keyframes s2badge {
-  0%, 12.5% { opacity: 0; transform: translateY(8px) }
-  14%, 22% { opacity: 1; transform: translateY(0) }
-  23.5%, 100% { opacity: 0 }
+
+  0%,
+  12.5% {
+    opacity: 0;
+    transform: translateY(8px)
+  }
+
+  14%,
+  22% {
+    opacity: 1;
+    transform: translateY(0)
+  }
+
+  23.5%,
+  100% {
+    opacity: 0
+  }
 }
 
 @keyframes s2h2 {
-  0%, 13% { opacity: 0; transform: translateY(10px) }
-  14.5%, 22% { opacity: 1; transform: translateY(0) }
-  23.5%, 100% { opacity: 0 }
+
+  0%,
+  13% {
+    opacity: 0;
+    transform: translateY(10px)
+  }
+
+  14.5%,
+  22% {
+    opacity: 1;
+    transform: translateY(0)
+  }
+
+  23.5%,
+  100% {
+    opacity: 0
+  }
 }
 
 @keyframes s2p {
-  0%, 14% { opacity: 0; transform: translateY(8px) }
-  15.5%, 22% { opacity: 1; transform: translateY(0) }
-  23.5%, 100% { opacity: 0 }
+
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateY(8px)
+  }
+
+  15.5%,
+  22% {
+    opacity: 1;
+    transform: translateY(0)
+  }
+
+  23.5%,
+  100% {
+    opacity: 0
+  }
 }
 
 @keyframes scene3 {
-  0%, 23.8% { opacity: 0; visibility: hidden }
-  24.5%, 47.5% { opacity: 1; visibility: visible }
-  48.5%, 100% { opacity: 0; visibility: hidden }
+
+  0%,
+  23.8% {
+    opacity: 0;
+    visibility: hidden
+  }
+
+  24.5%,
+  47.5% {
+    opacity: 1;
+    visibility: visible
+  }
+
+  48.5%,
+  100% {
+    opacity: 0;
+    visibility: hidden
+  }
 }
 
 @keyframes f1 {
-  0%, 25% { opacity: 0; transform: translateX(-18px) }
-  27%, 31% { opacity: 1; transform: translateX(0) }
-  32.5%, 100% { opacity: 0; transform: translateX(-10px) }
+
+  0%,
+  25% {
+    opacity: 0;
+    transform: translateX(-18px)
+  }
+
+  27%,
+  31% {
+    opacity: 1;
+    transform: translateX(0)
+  }
+
+  32.5%,
+  100% {
+    opacity: 0;
+    transform: translateX(-10px)
+  }
 }
 
 @keyframes f2 {
-  0%, 32.5% { opacity: 0; transform: translateX(18px) }
-  34.5%, 38.5% { opacity: 1; transform: translateX(0) }
-  40%, 100% { opacity: 0; transform: translateX(10px) }
+
+  0%,
+  32.5% {
+    opacity: 0;
+    transform: translateX(18px)
+  }
+
+  34.5%,
+  38.5% {
+    opacity: 1;
+    transform: translateX(0)
+  }
+
+  40%,
+  100% {
+    opacity: 0;
+    transform: translateX(10px)
+  }
 }
 
 @keyframes f3 {
-  0%, 40.5% { opacity: 0; transform: translate(-50%, 12px) }
-  42.5%, 46% { opacity: 1; transform: translate(-50%, 0) }
-  47.5%, 100% { opacity: 0; transform: translate(-50%, -8px) }
+
+  0%,
+  40.5% {
+    opacity: 0;
+    transform: translate(-50%, 12px)
+  }
+
+  42.5%,
+  46% {
+    opacity: 1;
+    transform: translate(-50%, 0)
+  }
+
+  47.5%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px)
+  }
 }
 
 @keyframes scene4 {
-  0%, 47.8% { opacity: 0; visibility: hidden }
-  48.5%, 63% { opacity: 1; visibility: visible }
-  64%, 100% { opacity: 0; visibility: hidden }
+
+  0%,
+  47.8% {
+    opacity: 0;
+    visibility: hidden
+  }
+
+  48.5%,
+  63% {
+    opacity: 1;
+    visibility: visible
+  }
+
+  64%,
+  100% {
+    opacity: 0;
+    visibility: hidden
+  }
 }
 
 @keyframes zoom4 {
-  0%, 48% { transform: scale(1) translateY(0) }
-  52%, 63%, 100% { transform: scale(2.15) translateY(-13.5%) }
+
+  0%,
+  48% {
+    transform: scale(1) translateY(0)
+  }
+
+  52%,
+  63%,
+  100% {
+    transform: scale(2.15) translateY(-13.5%)
+  }
 }
 
 @keyframes vibeText {
-  0%, 50% { opacity: 0; transform: translate(-50%, 8px) }
-  52%, 61% { opacity: 1; transform: translate(-50%, 0) }
-  63%, 100% { opacity: 0; transform: translate(-50%, -8px) }
+
+  0%,
+  50% {
+    opacity: 0;
+    transform: translate(-50%, 8px)
+  }
+
+  52%,
+  61% {
+    opacity: 1;
+    transform: translate(-50%, 0)
+  }
+
+  63%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px)
+  }
 }
 
 @keyframes scene5 {
-  0%, 63.5% { opacity: 0; visibility: hidden; transform: scale(1.04) }
-  64.5%, 79% { opacity: 1; visibility: visible; transform: scale(1) }
-  80%, 100% { opacity: 0; visibility: hidden; transform: scale(.98) }
+
+  0%,
+  63.5% {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(1.04)
+  }
+
+  64.5%,
+  79% {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1)
+  }
+
+  80%,
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(.98)
+  }
 }
 
 @keyframes heart {
-  0%, 67% { opacity: 0; transform: scale(0) rotate(-15deg) }
-  69% { opacity: 1; transform: scale(1.45) rotate(5deg) }
-  71% { transform: scale(1) rotate(0) }
-  76% { opacity: 1; transform: scale(1) }
-  78%, 100% { opacity: 0; transform: scale(0) }
+
+  0%,
+  67% {
+    opacity: 0;
+    transform: scale(0) rotate(-15deg)
+  }
+
+  69% {
+    opacity: 1;
+    transform: scale(1.45) rotate(5deg)
+  }
+
+  71% {
+    transform: scale(1) rotate(0)
+  }
+
+  76% {
+    opacity: 1;
+    transform: scale(1)
+  }
+
+  78%,
+  100% {
+    opacity: 0;
+    transform: scale(0)
+  }
 }
 
 @keyframes socialText {
-  0%, 66% { opacity: 0; transform: translate(-50%, 10px) }
-  68%, 77% { opacity: 1; transform: translate(-50%, 0) }
-  79%, 100% { opacity: 0; transform: translate(-50%, -6px) }
+
+  0%,
+  66% {
+    opacity: 0;
+    transform: translate(-50%, 10px)
+  }
+
+  68%,
+  77% {
+    opacity: 1;
+    transform: translate(-50%, 0)
+  }
+
+  79%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px)
+  }
 }
 
 @keyframes userFocus {
-  0%, 67.5% { opacity: 0; transform: translateY(6px) scale(.96) }
-  69%, 75.5% { opacity: 1; transform: translateY(0) scale(1) }
-  77%, 100% { opacity: 0; transform: translateY(-4px) scale(.96) }
+
+  0%,
+  67.5% {
+    opacity: 0;
+    transform: translateY(6px) scale(.96)
+  }
+
+  69%,
+  75.5% {
+    opacity: 1;
+    transform: translateY(0) scale(1)
+  }
+
+  77%,
+  100% {
+    opacity: 0;
+    transform: translateY(-4px) scale(.96)
+  }
 }
 
 @keyframes scene6 {
-  0%, 79.5% { opacity: 0; visibility: hidden; transform: translateX(4%) }
-  80.5%, 91% { opacity: 1; visibility: visible; transform: translateX(0) }
-  92%, 100% { opacity: 0; visibility: hidden; transform: translateX(-4%) }
+
+  0%,
+  79.5% {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(4%)
+  }
+
+  80.5%,
+  91% {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0)
+  }
+
+  92%,
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-4%)
+  }
 }
 
 @keyframes cta1 {
-  0%, 81% { opacity: 0; transform: translate(-50%, 10px) }
-  83%, 88% { opacity: 1; transform: translate(-50%, 0) }
-  89.5%, 100% { opacity: 0; transform: translate(-50%, -6px) }
+
+  0%,
+  81% {
+    opacity: 0;
+    transform: translate(-50%, 10px)
+  }
+
+  83%,
+  88% {
+    opacity: 1;
+    transform: translate(-50%, 0)
+  }
+
+  89.5%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px)
+  }
 }
 
 @keyframes cta2 {
-  0%, 87% { opacity: 0; transform: translate(-50%, 10px) }
-  89%, 90.5% { opacity: 1; transform: translate(-50%, 0) }
-  91.5%, 100% { opacity: 0 }
+
+  0%,
+  87% {
+    opacity: 0;
+    transform: translate(-50%, 10px)
+  }
+
+  89%,
+  90.5% {
+    opacity: 1;
+    transform: translate(-50%, 0)
+  }
+
+  91.5%,
+  100% {
+    opacity: 0
+  }
 }
 
 @keyframes endCard {
-  0%, 91.5% { opacity: 0; visibility: hidden; transform: translateY(12px) scale(.97) }
-  93%, 100% { opacity: 1; visibility: visible; transform: translateY(0) scale(1) }
+
+  0%,
+  91.5% {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px) scale(.97)
+  }
+
+  93%,
+  100% {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1)
+  }
 }
 
 @keyframes prog {
-  0% { width: 0% }
-  100% { width: 100% }
+  0% {
+    width: 0%
+  }
+
+  100% {
+    width: 100%
+  }
 }
 
 /* Pause */

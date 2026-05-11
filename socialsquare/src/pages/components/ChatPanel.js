@@ -485,7 +485,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                                         </div>
                                                         {message.storyReply.authorName && (
                                                             <div className="absolute top-3 left-3 flex items-center gap-2 z-10 px-2 py-1.5 bg-black/30 backdrop-blur-md rounded-full border border-white/10">
-                                                                <img src={message.storyReply.authorProfilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-5 h-5 rounded-full object-cover border border-white/20" alt="" />
+                                                                <img src={message.storyReply.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-5 h-5 rounded-full object-cover border border-white/20" alt="" />
                                                                 <span className="text-[10px] font-bold text-white truncate max-w-[80px]">{message.storyReply.authorUsername || message.storyReply.authorName}</span>
                                                             </div>
                                                         )}
@@ -529,7 +529,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                             {message.sharedPost ? (
                                                 <>
                                                     <div className="flex items-center gap-2 p-3 border-b border-white/5">
-                                                        <img src={message.sharedPost.authorProfilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-8 h-8 rounded-full object-cover border border-white/10" alt="" />
+                                                        <img src={message.sharedPost.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-8 h-8 rounded-full object-cover border border-white/10" alt="" />
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-1">
                                                                 <span className="text-[12px] font-bold truncate opacity-90">{message.sharedPost.authorName}</span>
@@ -1170,25 +1170,25 @@ const ChatPanel = ({
             if (image.webPath) {
                 const file = await urlToFile(image.webPath, `chat-media-${Date.now()}.jpg`, 'image/jpeg');
                 const id = Math.random().toString(36).substr(2, 9);
-                
+
                 setSelectedFiles(prev => [...prev, file]);
-                
+
                 const reader = new FileReader();
                 reader.onload = (ev) => {
-                    setPreviews(prev => [...prev, { 
-                        id, 
-                        url: ev.target.result, 
-                        file, 
-                        uploading: true, 
-                        uploadedUrl: null, 
-                        error: null, 
-                        isFile: false 
+                    setPreviews(prev => [...prev, {
+                        id,
+                        url: ev.target.result,
+                        file,
+                        uploading: true,
+                        uploadedUrl: null,
+                        error: null,
+                        isFile: false
                     }]);
-                    
+
                     uploadToCloudinary(file)
-                        .then(r => { 
-                            const url = typeof r === 'string' ? r : r?.url; 
-                            setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); 
+                        .then(r => {
+                            const url = typeof r === 'string' ? r : r?.url;
+                            setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p));
                         })
                         .catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
                 };
@@ -1352,7 +1352,7 @@ const ChatPanel = ({
                                     onMouseLeave={e => e.currentTarget.style.color = uploading ? '#9ca3af' : 'var(--text-sub)'}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
                                     </svg>
                                 </button>
                             )}

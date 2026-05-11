@@ -7,8 +7,8 @@ const PostSchema = new mongoose.Schema(
       fullname: { type: String, required: true },
       profile_picture: { type: String },
     },
-    // Hidden field to track the real author even for anonymous posts
-    authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, select: false },
+    // Hidden field to track the real author even for anonymous posts (optional for high-anonymity posts)
+    authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false, select: false },
     image_url: { type: String, default: null },
     image_urls: [{ type: String }],
     video: { type: String, default: null },
@@ -80,10 +80,10 @@ const PostSchema = new mongoose.Schema(
 );
 
 // Global protection for anonymous posts (when not using .lean())
-const { sanitizePost } = require('../utils/privacy');
+const { sanitizeAnonymousPost } = require('../utils/privacy');
 PostSchema.set('toJSON', {
   transform: (doc, ret) => {
-    return sanitizePost(ret);
+    return sanitizeAnonymousPost(ret);
   }
 });
 

@@ -211,10 +211,10 @@ const NotificationsPage = () => {
                                                     className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${!n.read ? 'bg-[#808bf5]/5' : 'hover:bg-[var(--surface-2)]'}`}
                                                 >
                                                     <img
-                                                        src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain')}
+                                                        src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
                                                         alt=""
                                                         className="w-11 h-11 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
-                                                        onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'; }}
+                                                        onError={(e) => { e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'; }}
                                                     />
 
                                                     <div className="flex-1 min-w-0 pr-2">
@@ -309,7 +309,7 @@ const NotificationsPage = () => {
                                         className="flex items-center gap-3 px-4 py-4 border-b border-[var(--border-color)] hover:bg-[var(--surface-2)] transition-colors"
                                     >
                                         <img
-                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain')}
+                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
                                             alt=""
                                             className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
                                             onClick={() => {

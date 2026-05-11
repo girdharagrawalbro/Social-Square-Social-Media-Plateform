@@ -91,7 +91,7 @@ const Notification = () => {
                                         <i className="pi pi-shield text-2xl text-orange-500"></i>
                                     ) : (
                                         <img
-                                            src={notification.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                            src={notification.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                             alt=""
                                             className="w-full h-full object-cover"
                                             onClick={() => {

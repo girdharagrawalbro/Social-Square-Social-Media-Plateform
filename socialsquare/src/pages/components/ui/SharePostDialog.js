@@ -28,7 +28,7 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     // 5. Combine and Sort: Frequent/Recent Chats first
     const sortedUsers = useMemo(() => {
         const baseList = isSearching ? searchResults : followingUsers;
-        
+
         // Map of userId -> lastMessageAt for sorting
         const convMap = new Map();
         conversations.forEach(c => {
@@ -150,7 +150,7 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
                             <div key={u._id} className="flex items-center justify-between p-2 rounded-2xl hover:bg-gray-50 transition">
                                 <div className="flex items-center gap-3">
                                     <img
-                                        src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                        src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                         className="w-10 h-10 rounded-full object-cover border border-gray-100"
                                         alt=""
                                     />

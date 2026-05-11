@@ -103,7 +103,12 @@ const EditProfile = ({ users, closeSidebar }) => {
         if (uploading) { toast.error('Please wait for image to finish uploading'); return; }
         const result = await updateProfile({ ...formData, userId: users?._id });
         if (result.success) {
-            toast.success('Profile updated successfully!');
+            if (result.privacyWarning) {
+                toast.success('Profile updated!', { duration: 6000 });
+                toast(result.privacyWarning, { icon: '🔒', duration: 8000 });
+            } else {
+                toast.success('Profile updated successfully!');
+            }
             closeSidebar();
         } else {
             toast.error(result.message || 'Failed to update profile');
@@ -117,7 +122,7 @@ const EditProfile = ({ users, closeSidebar }) => {
             <div className="mb-4 flex flex-col items-center gap-2">
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                     <img
-                        src={preview || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                        src={preview || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                         alt="Profile"
                         style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #e5e7eb' }}
                     />
