@@ -68,6 +68,8 @@ const reportLimiter = rateLimit({
     message: { error: 'Too many reports.' },
 });
 
+// ✅ Rate limiting for high-stakes post operations - MOVED to middleware/postWriteLimiter.js
+
 app.use('/api/auth', authWriteLimiter);
 app.use('/api/admin/report', reportLimiter);
 app.use('/api', apiLimiter);
