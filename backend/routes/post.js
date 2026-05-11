@@ -137,11 +137,11 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             video: videoURL || null,
             videoThumbnail: videoThumbnail || null,
             user: isAnonymous
-                ? { 
-                    _id: ANONYMOUS_USER_ID, 
-                    fullname: 'Anonymous', 
-                    profile_picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' 
-                  }
+                ? {
+                    _id: ANONYMOUS_USER_ID,
+                    fullname: 'Anonymous',
+                    profile_picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+                }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             location: location || {}, music: music || {},
             isAnonymous: !!isAnonymous,
@@ -321,21 +321,17 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
     try {
         const { caption, category } = req.body;
         const userId = req.userId;
-        
-        // Ensure we fetch with authorId and ownerToken for authorization, and check deletedAt
-        const post = await Post.findOne({ _id: req.params.postId, deletedAt: null }).select('+ownerToken +authorId');
-        if (!post) return res.status(404).json({ message: "Post not found or already deleted." });
+        const post = await Post.findById(req.params.postId).select('+ownerToken');
+        if (!post) return res.status(404).json({ message: "Post not found." });
 
         let isOwner = false;
         if (post.isAnonymous) {
             isOwner = post.ownerToken === getOwnerToken(userId);
         } else {
-            // Source of truth for non-anonymous ownership is authorId
-            isOwner = post.authorId && post.authorId.toString() === userId.toString();
+            isOwner = post.user._id.toString() === userId.toString();
         }
 
         if (!isOwner) return res.status(403).json({ message: "Unauthorized." });
-        
         if (caption) post.caption = caption;
         if (category) post.category = category;
         await post.save();
@@ -351,37 +347,24 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
 router.delete("/delete/:postId", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        
-        // Find the post first to check ownership, including soft-deleted state
         const post = await Post.findById(req.params.postId).select('+ownerToken +authorId');
-        if (!post || post.deletedAt) return res.status(404).json({ message: "Post not found or already deleted." });
+        if (!post) return res.status(404).json({ message: "Post not found." });
 
         const user = await User.findById(userId).select('isAdmin').lean();
-        const isAdmin = user && user.isAdmin;
-        
+
         let isOwner = false;
         if (post.isAnonymous) {
             isOwner = post.ownerToken === getOwnerToken(userId);
         } else {
-            isOwner = post.authorId && post.authorId.toString() === userId.toString();
+            isOwner = post.authorId.toString() === userId.toString();
         }
-        
+
+        const isAdmin = user && user.isAdmin;
+
         if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
+        await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
 
-        // Atomic update to ensure idempotency and prevent race conditions in postsCount decrement
-        // Only update if deletedAt is currently null
-        const result = await Post.findOneAndUpdate(
-            { _id: req.params.postId, deletedAt: null },
-            { $set: { deletedAt: new Date() } },
-            { new: true }
-        );
-
-        if (!result) {
-            // If result is null, it means someone else (or another request) already set deletedAt
-            return res.status(404).json({ message: "Post already deleted." });
-        }
-        
-        // Only decrement postsCount if this specific request was the one that performed the soft-delete
+        // Decrement real author's post count
         await User.findByIdAndUpdate(post.authorId, { $inc: { postsCount: -1 } });
 
         // ✅ Notify all users to remove post from feed
@@ -551,11 +534,11 @@ router.get("/user/:userId", softVerifyToken, async (req, res) => {
     try {
         const viewerId = req.userId; // Resolved by softVerifyToken middleware
         const ownerId = req.params.userId;
-        
+
         if (!mongoose.Types.ObjectId.isValid(ownerId)) {
             return res.status(400).json({ posts: [], nextCursor: null, hasMore: false });
         }
-        
+
         // Priority owner check - resolves identity before privacy check
         const isOwner = viewerId && viewerId.toString() === ownerId;
 
@@ -1134,7 +1117,7 @@ router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
 // ─── SINGLE POST DETAIL ───────────────────────────────────────────────────────
 router.get("/detail/:postId", softVerifyToken, checkPostPrivacy, async (req, res) => {
     try {
-        const post = req.post; 
+        const post = req.post;
         const viewerId = req.userId;
         // Wait, checkPostPrivacy currently relies on req.userId being set.
         // I need to ensure it handles optional auth.
