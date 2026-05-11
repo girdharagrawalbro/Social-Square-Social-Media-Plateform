@@ -1,0 +1,106 @@
+Core Capacitor Commands
+powershell# Sync web build to native (run after every code change)
+npx cap sync android
+
+# Copy only (no plugin updates)
+npx cap copy android
+
+# Update plugins only (no copy)
+npx cap update android
+
+# Open in Android Studio
+npx cap open android
+
+# Run directly on device/emulator
+npx cap run android
+
+# List connected devices
+npx cap run android --list
+
+Gradle / Build Commands
+powershell# Clean build cache (run when builds act weird)
+cd android
+.\gradlew clean
+
+# Back to project root
+cd ..
+
+# Full clean + sync + run (your go-to fix command)
+cd android && .\gradlew clean && cd .. && npx cap sync android && npx cap run android
+
+Build APK Commands
+powershellcd android
+
+# Debug APK (for testing, no signing needed)
+.\gradlew assembleDebug
+
+# Release APK (for distribution, needs signing)
+.\gradlew assembleRelease
+
+# Debug AAB (Google Play format - debug)
+.\gradlew bundleDebug
+
+# Release AAB (Google Play format - for Play Store upload)
+.\gradlew bundleRelease
+Output locations:
+Debug APK:    android/app/build/outputs/apk/debug/app-debug.apk
+Release APK:  android/app/build/outputs/apk/release/app-release.apk
+Debug AAB:    android/app/build/outputs/bundle/debug/app-debug.aab
+Release AAB:  android/app/build/outputs/bundle/release/app-release.aab
+
+Signing Release APK (required for Play Store)
+powershell# Step 1 — Generate keystore (do this once only, save the file safely)
+keytool -genkey -v -keystore socialsquare.jks -alias socialsquare -keyalg RSA -keysize 2048 -validity 10000
+
+# Step 2 — Add to android/app/build.gradle
+gradleandroid {
+    signingConfigs {
+        release {
+            storeFile file('socialsquare.jks')
+            storePassword 'your_store_password'
+            keyAlias 'socialsquare'
+            keyPassword 'your_key_password'
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+}
+powershell# Step 3 — Build signed release
+cd android
+.\gradlew assembleRelease
+
+ADB Commands (device debugging)
+powershell# Check connected devices
+adb devices
+
+# Install APK manually
+adb install android/app/build/outputs/apk/debug/app-debug.apk
+
+# View live logs (all)
+adb logcat
+
+# View logs filtered (your app only)
+adb logcat | Select-String -Pattern "com.socialsquare.app|FATAL|AndroidRuntime|Capacitor"
+
+# Clear app data on device
+adb shell pm clear com.socialsquare.app
+
+# Uninstall app from device
+adb uninstall com.socialsquare.app
+
+# Reboot device
+adb reboot
+
+React Build + Full Deploy Flow
+powershell# Full flow from code change to device (run this every time)
+npm run build && npx cap sync android && npx cap run android
+
+# Full clean deploy (when something is broken)
+npm run build && cd android && .\gradlew clean && cd .. && npx cap sync android && npx cap run android
+
+
+

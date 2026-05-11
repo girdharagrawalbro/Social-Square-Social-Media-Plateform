@@ -1,0 +1,207 @@
+import React, { useState, useRef, useLayoutEffect } from 'react';
+import { useConfessions } from '../../hooks/queries/useExploreQueries';
+import { Dialog } from 'primereact/dialog';
+import UserProfile from './UserProfile';
+import Groups from './Groups';
+import SkeletonCommunities from './ui/SkeletonCommunities';
+
+// ─── CONFESSIONS FEED ─────────────────────────────────────────────────────────
+const ConfessionsFeed = () => {
+    const [expanded, setExpanded] = useState(null);
+
+    // ✅ TanStack Query for confessions - infinite scroll
+    const confessionsQuery = useConfessions();
+    const posts = confessionsQuery.data?.pages?.flatMap(p => p.posts) || [];
+    const loading = confessionsQuery.isLoading;
+    const loadingMore = confessionsQuery.isFetchingNextPage;
+
+    if (loading) return <SkeletonCommunities />;
+
+    if (posts.length === 0) return (
+        <div style={{ textAlign: 'center', padding: '48px 16px' }}>
+            <p style={{ fontSize: '36px', margin: 0 }}>🎭</p>
+            <p style={{ fontWeight: 700, fontSize: '16px', margin: '12px 0 4px' }}>No confessions yet</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>Be the first to post anonymously!</p>
+        </div>
+    );
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+            {/* Info banner */}
+            <div style={{ background: 'linear-gradient(135deg, #ede9fe, #e0e7ff)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '22px' }}>🔒</span>
+                <div>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#6366f1' }}>Anonymous Confessions</p>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#818cf8' }}>All identities are hidden. Post freely.</p>
+                </div>
+            </div>
+
+            {posts.map((post, i) => {
+                const imgs = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
+                const isExpanded = expanded === post._id;
+
+                return (
+                    <div key={post._id || i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden' }}>
+                        {/* Header — always anonymous */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '16px', flexShrink: 0 }}>
+                                🎭
+                            </div>
+                            <div>
+                                <p style={{ margin: 0, fontWeight: 700, fontSize: '13px' }}>Anonymous</p>
+                                <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
+                                    {post.category && <span style={{ background: '#ede9fe', color: '#6366f1', borderRadius: '8px', padding: '1px 7px', fontSize: '10px', marginRight: '6px' }}>#{post.category}</span>}
+                                    {post.mood && <span style={{ fontSize: '12px' }}>
+                                        {({ happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' })[post.mood]}
+                                    </span>}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Image */}
+                        {imgs[0] && (
+                            <div style={{ borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
+                                <img src={imgs[0]} alt="" style={{ width: '100%', maxHeight: '340px', objectFit: 'cover', display: 'block' }} />
+                            </div>
+                        )}
+
+                        {/* Caption */}
+                        <div style={{ padding: '12px 14px' }}>
+                            <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6, color: 'var(--text-main)' }}>
+                                {isExpanded || post.caption?.length <= 140
+                                    ? post.caption
+                                    : <>{post.caption?.slice(0, 80)}... <button onClick={() => setExpanded(post._id)} style={{ background: 'none', border: 'none', color: '#808bf5', cursor: 'pointer', fontWeight: 600, fontSize: '13px', padding: 0 }}>more</button></>
+                                }
+                                {isExpanded && post.caption?.length > 140 && (
+                                    <button onClick={() => setExpanded(null)} style={{ background: 'none', border: 'none', color: '#808bf5', cursor: 'pointer', fontWeight: 600, fontSize: '13px', padding: '0 0 0 4px' }}>less</button>
+                                )}
+                            </p>
+
+                            {/* Voice note */}
+                            {post.voiceNote?.url && (
+                                <audio src={post.voiceNote.url} controls style={{ width: '100%', height: '36px', marginTop: '8px' }} />
+                            )}
+
+                            {/* Likes count (no like button — keeps anonymity vibe) */}
+                            <p style={{ margin: '8px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                                ❤️ {post.likes?.length || 0} · 💬 {post.comments?.length || 0}
+                            </p>
+                        </div>
+                    </div>
+                );
+            })}
+
+            {/* Load more */}
+            {confessionsQuery.hasNextPage && (
+                <button onClick={() => confessionsQuery.fetchNextPage()} disabled={loadingMore}
+                    style={{ padding: '12px', background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#808bf5' }}>
+                    {loadingMore ? 'Loading...' : 'Load more confessions'}
+                </button>
+            )}
+        </div>
+    );
+};
+
+// ─── MAIN EXPLORE ─────────────────────────────────────────────────────────────
+const Communities = () => {
+
+
+    const [selectedUserId] = useState(null);
+    const [userProfileVisible, setUserProfileVisible] = useState(false);
+
+    // ✅ Tab: 'discover' | 'confessions'
+    const [activeTab, setActiveTab] = useState('communities');
+
+    const tabContainerRef = useRef(null);
+    const tabItemRefs = useRef({});
+    const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
+    const [tabPillReady, setTabPillReady] = useState(false);
+
+    useLayoutEffect(() => {
+        let observer = null;
+
+        const updatePill = () => {
+            const activeEl = tabItemRefs.current[activeTab];
+            const container = tabContainerRef.current;
+            if (!activeEl || !container) {
+                setTabPill(s => ({ ...s, opacity: 0 }));
+                return;
+            }
+            const cRect = container.getBoundingClientRect();
+            const eRect = activeEl.getBoundingClientRect();
+            setTabPill({
+                left: eRect.left - cRect.left,
+                width: eRect.width,
+                opacity: 1
+            });
+            setTabPillReady(true);
+        };
+
+        updatePill();
+
+        const container = tabContainerRef.current;
+        if (container) {
+            observer = new ResizeObserver(updatePill);
+            observer.observe(container);
+        }
+
+        return () => {
+            if (observer) observer.disconnect();
+        };
+    }, [activeTab]);
+
+
+    return (
+        <div className='max-w-[680px] my-0 mx-auto py-3'>
+
+            {/* ── Tabs ── */}
+            <div ref={tabContainerRef} style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '20px', border: '1px solid var(--border-color)', position: 'relative' }}>
+                {/* Floating Pill */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '4px',
+                        bottom: '4px',
+                        left: tabPill.left,
+                        width: tabPill.width,
+                        borderRadius: '10px',
+                        background: '#808bf5',
+                        boxShadow: '0 4px 15px rgba(128,139,245,0.35)',
+                        opacity: tabPillReady ? tabPill.opacity : 0,
+                        transition: tabPillReady ? 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s ease, opacity 0.15s ease' : 'none',
+                        zIndex: 0,
+                        pointerEvents: 'none'
+                    }}
+                />
+                {[
+                    { key: 'communities', label: '👥 Communities' },
+                    { key: 'confessions', label: '🎭 Confessions' },
+                ].map(tab => (
+                    <button key={tab.key}
+                        ref={el => tabItemRefs.current[tab.key] = el}
+                        onClick={() => setActiveTab(tab.key)}
+                        style={{
+                            flex: 1, padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s', position: 'relative', zIndex: 1,
+                            background: 'transparent',
+                            color: activeTab === tab.key ? '#fff' : 'var(--text-sub)',
+                        }}>
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* ── CONFESSIONS TAB ── */}
+            {activeTab === 'confessions' && <ConfessionsFeed />}
+
+            {/* ── COMMUNITIES TAB ── */}
+            {activeTab === 'communities' && <Groups />}
+
+
+            <Dialog header="Profile" visible={userProfileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setUserProfileVisible(false)}>
+                <UserProfile id={selectedUserId} />
+            </Dialog>
+        </div>
+    );
+};
+
+export default Communities;

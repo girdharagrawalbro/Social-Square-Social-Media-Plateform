@@ -1,0 +1,464 @@
+@import url("https://fonts.googleapis.com/css2?family=Nosifer&family=Pacifico&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-bg: #f8fafc;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --surface-hover: #e2e8f0;
+  --surface-accent-soft: #ede9fe;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+}
+
+html.dark {
+  --app-bg: #0d0d0d;
+  --surface-1: #0d0d0d;
+  --surface-2: #121212;
+  --surface-3: #1a1a1a;
+  --surface-hover: #1f1f1f;
+  --surface-accent-soft: #1e1b4b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #1f1f1f;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html,
+body,
+#root {
+  background-color: var(--app-bg);
+  color: var(--text-main);
+}
+
+html.dark .bg-white {
+  background-color: var(--surface-1) !important;
+}
+
+html.dark .bg-gray-50 {
+  background-color: var(--surface-2) !important;
+}
+
+html.dark .bg-gray-100 {
+  background-color: var(--surface-3) !important;
+}
+
+html.dark .bg-gray-200 {
+  background-color: #475569 !important;
+}
+
+html.dark .text-black,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-dark {
+  color: var(--text-main) !important;
+}
+
+html.dark .text-gray-700,
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-gray-400,
+html.dark .text-gray-300 {
+  color: var(--text-muted) !important;
+}
+
+html.dark .border,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-gray-400 {
+  border-color: var(--border-color) !important;
+}
+
+html.dark .hover\:bg-gray-50:hover {
+  background-color: #374151 !important;
+}
+
+html.dark .focus\:bg-white:focus {
+  background-color: #374151 !important;
+}
+
+html.dark .focus\:ring-indigo-200:focus {
+  --tw-ring-color: rgba(129, 140, 248, 0.35) !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: var(--surface-1);
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--text-muted);
+}
+
+html.dark .p-dialog,
+html.dark .p-overlaypanel,
+html.dark .p-menu,
+html.dark .p-component,
+html.dark .p-dialog-header,
+html.dark .p-dialog-content,
+html.dark .p-dialog-footer,
+html.dark .p-confirm-dialog .p-dialog-content,
+html.dark .p-overlaypanel .p-overlaypanel-content {
+  background-color: var(--surface-1) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark .p-menu .p-menuitem-link .p-menuitem-text,
+html.dark .p-menu .p-menuitem-link .p-menuitem-icon {
+  color: var(--text-main);
+}
+
+html.dark .p-menu .p-menuitem-link:hover {
+  background-color: var(--surface-hover);
+}
+
+html.dark .p-inputtext,
+html.dark .p-inputtextarea {
+  background-color: var(--surface-2) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-color) !important;
+}
+
+html.dark .p-button.p-button-text,
+html.dark .p-button.p-button-link {
+  color: var(--text-main) !important;
+}
+
+html.dark .p-button.p-button-text:hover,
+html.dark .p-button.p-button-link:hover {
+  background-color: var(--surface-hover);
+}
+
+html.dark .p-dialog .p-dialog-header .p-dialog-header-icon {
+  color: var(--text-main);
+  background: transparent;
+}
+
+html.dark .p-dialog .p-dialog-header .p-dialog-header-icon:hover {
+  background: var(--surface-hover);
+}
+
+html.dark .p-toast .p-toast-message {
+  background-color: var(--surface-1);
+  color: var(--text-main);
+  border-color: var(--border-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .p-toast .p-toast-message .p-toast-message-content .p-toast-detail {
+  color: var(--text-muted);
+}
+
+/* Keep only small helpers and animations that are hard to express with utilities. */
+
+/* PrimeReact tweaks */
+.p-overlaypanel-content {
+  padding: 0 0 4px 4px;
+}
+
+.p-button {
+  padding: 5px 15px;
+}
+
+.p-dialog-header {
+  padding: 1rem;
+}
+
+.p-dialog-content {
+  padding: 0;
+}
+
+/* Generic resets */
+a,
+Link {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Small helpers used across components */
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.bordershadow {
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+}
+
+.interaction {
+  bottom: 0;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border-top-left-radius: 15px;
+  border-top-center-radius: 15px;
+}
+
+.profile-container {
+  position: sticky;
+  top: 80px;
+}
+
+/* Three-body loader */
+.three-body {
+  --uib-size: 35px;
+  --uib-speed: 0.8s;
+  --uib-color: #808bf5;
+  position: relative;
+  display: inline-block;
+  height: var(--uib-size);
+  width: var(--uib-size);
+  animation: spin78236 calc(var(--uib-speed) * 2.5) infinite linear;
+}
+
+.three-body__dot {
+  position: absolute;
+  height: 100%;
+  width: 30%;
+}
+
+.three-body__dot:after {
+  content: "";
+  position: absolute;
+  height: 0%;
+  width: 100%;
+  padding-bottom: 100%;
+  background-color: var(--uib-color);
+  border-radius: 50%;
+}
+
+.three-body__dot:nth-child(1) {
+  bottom: 5%;
+  left: 0;
+  transform: rotate(60deg);
+  transform-origin: 50% 85%;
+}
+
+.three-body__dot:nth-child(1)::after {
+  bottom: 0;
+  left: 0;
+  animation: wobble1 var(--uib-speed) infinite ease-in-out;
+  animation-delay: calc(var(--uib-speed) * -0.3);
+}
+
+.three-body__dot:nth-child(2) {
+  bottom: 5%;
+  right: 0;
+  transform: rotate(-60deg);
+  transform-origin: 50% 85%;
+}
+
+.three-body__dot:nth-child(2)::after {
+  bottom: 0;
+  left: 0;
+  animation: wobble1 var(--uib-speed) infinite calc(var(--uib-speed) * -0.15) ease-in-out;
+}
+
+.three-body__dot:nth-child(3) {
+  bottom: -5%;
+  left: 0;
+  transform: translateX(116.666%);
+}
+
+.three-body__dot:nth-child(3)::after {
+  top: 0;
+  left: 0;
+  animation: wobble2 var(--uib-speed) infinite ease-in-out;
+}
+
+@keyframes spin78236 {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wobble1 {
+
+  0%,
+  100% {
+    transform: translateY(0%) scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(-66%) scale(0.65);
+    opacity: 0.8;
+  }
+}
+
+@keyframes wobble2 {
+
+  0%,
+  100% {
+    transform: translateY(0%) scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(66%) scale(0.65);
+    opacity: 0.8;
+  }
+}
+
+/* Heart animation */
+.heart-container {
+  color: inherit;
+  position: relative;
+  width: 25px;
+  height: 25px;
+  transition: 0.1s;
+}
+
+.heart-container .checkbox {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  z-index: 20;
+  cursor: pointer;
+}
+
+.heart-container .svg-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.heart-container .svg-outline {
+  fill: white;
+}
+
+.heart-container .svg-filled {
+  fill: red;
+  position: absolute;
+  animation: keyframes-svg-filled 1s;
+  display: none;
+}
+
+.heart-container .svg-celebrate {
+  position: absolute;
+  animation: keyframes-svg-celebrate 0.5s;
+  animation-fill-mode: forwards;
+  display: none;
+  stroke: red;
+  fill: red;
+  stroke-width: 2px;
+  pointer-events: none;
+}
+
+.heart-container .checkbox:checked~.svg-container .svg-filled {
+  display: block;
+}
+
+.heart-container .checkbox:checked~.svg-container .svg-celebrate {
+  display: block;
+}
+
+@keyframes keyframes-svg-filled {
+  0% {
+    transform: scale(0);
+  }
+
+  25% {
+    transform: scale(1.2);
+  }
+
+  50% {
+    transform: scale(1);
+    filter: brightness(1.5);
+  }
+}
+
+@keyframes keyframes-svg-celebrate {
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    opacity: 1;
+    filter: brightness(1.5);
+  }
+
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+/* Progress helper */
+.progress {
+  height: 5px;
+  background-color: #e9ecef;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #007bff;
+  transition: width 0.3s;
+  color: white;
+  text-align: center;
+  line-height: 10px;
+}
+
+/* Friend image helper (used in multiple components) */
+.friend-img img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Accessibility: visible focus outlines for keyboard users */
+:focus-visible {
+  outline: 3px solid rgba(128, 139, 245, 0.6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid rgba(128, 139, 245, 0.6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.p-dialog .p-dialog-header {
+  /* font-family: 'Pacifico', cursive; */
+  font-size: 20px;
+  font-weight: 600;
+}
