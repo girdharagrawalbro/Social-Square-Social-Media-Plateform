@@ -71,7 +71,7 @@ function sanitizePost(post, viewerId = null) {
  * @returns {Boolean}
  */
 const canViewPost = async (post, requesterId) => {
-    if (!post) return false;
+    if (!post || post.deletedAt) return false;
 
     // 1. Requester is the owner?
     const mongoose = require('mongoose');
@@ -122,7 +122,7 @@ const checkPostPrivacy = async (req, res, next) => {
 
         // 1. Fetch post with ownerToken for ownership check
         const post = await Post.findById(req.params.postId).select('+ownerToken');
-        if (!post) return res.status(404).json({ message: "Post not found." });
+        if (!post || post.deletedAt) return res.status(404).json({ message: "Post not found." });
 
         // 2. Run privacy check (req.userId should be resolved by preceding middleware)
         const authorized = await canViewPost(post, req.userId);

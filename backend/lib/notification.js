@@ -24,6 +24,14 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
       return null;
     }
 
+    // 🛡️ Safety Guard: Don't notify deleted users
+    const User = require('../models/User');
+    const recipient = await User.findById(recipientId).select('deletedAt').lean();
+    if (!recipient || recipient.deletedAt) {
+      console.warn('[Notification] Skipped: Recipient is deleted or does not exist', { recipientId });
+      return null;
+    }
+
     // Don't notify yourself (unless it's a system notification like login alert)
     if (recipientId.toString() === sender.id.toString() && type !== 'system') {
       return null;

@@ -13,6 +13,8 @@ const verifyToken = require('../middleware/Verifytoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const { digestQueue } = require('../queues/digestQueue');
+const { propagateUserDeletion } = require('../utils/userPropagation');
+const { invalidateCache } = require('../lib/redis');
 
 
 // ─── SIMPLE IN-MEMORY CACHE FOR ANALYTICS ────────────────────────────────────
@@ -259,7 +261,11 @@ router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
         const finalIds = usersToDelete.map(u => u._id);
 
         if (finalIds.length > 0) {
-            await User.deleteMany({ _id: { $in: finalIds } });
+            // Soft-delete users
+            await User.updateMany(
+                { _id: { $in: finalIds } },
+                { $set: { deletedAt: new Date() } }
+            );
 
             for (const user of usersToDelete) {
                 await logAdminAction({
@@ -270,9 +276,17 @@ router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
                     snapshot: { name: user.fullname, email: user.email, picture: user.profile_picture },
                     meta: { note: 'Bulk deletion', ip: req.ip },
                 });
+
+                // Cleanup social graph and counts in background
+                propagateUserDeletion(user._id).catch(console.error);
             }
 
-            Post.deleteMany({ 'user._id': { $in: finalIds } }).catch(console.error);
+            // Soft-delete posts in background — don't block response
+            Post.updateMany(
+                { 'user._id': { $in: finalIds } },
+                { $set: { deletedAt: new Date() } }
+            ).catch(console.error);
+
             Report.deleteMany({ reporter: { $in: finalIds } }).catch(console.error);
         }
 
@@ -326,7 +340,12 @@ router.patch('/users/:userId/unban', requireAdmin, async (req, res) => {
 
 router.delete('/users/:userId', requireAdmin, async (req, res) => {
     try {
-        const user = await User.findOneAndDelete({ _id: req.params.userId, isAdmin: { $ne: true } }).lean();
+        const user = await User.findOneAndUpdate(
+            { _id: req.params.userId, isAdmin: { $ne: true } },
+            { $set: { deletedAt: new Date() } },
+            { new: true }
+        ).lean();
+
         if (!user) return res.status(404).json({ error: 'User not found or is an admin' });
 
         await logAdminAction({
@@ -338,8 +357,15 @@ router.delete('/users/:userId', requireAdmin, async (req, res) => {
             meta: { ip: req.ip },
         });
 
-        // Delete posts in background — don't block response
-        Post.deleteMany({ 'user._id': req.params.userId }).catch(console.error);
+        // Cleanup social graph and counts in background
+        propagateUserDeletion(user._id).catch(console.error);
+
+        // Soft-delete posts in background — don't block response
+        Post.updateMany(
+            { 'user._id': req.params.userId },
+            { $set: { deletedAt: new Date() } }
+        ).catch(console.error);
+
         Report.deleteMany({ reporter: req.params.userId }).catch(console.error);
 
         invalidateCache();
@@ -448,7 +474,15 @@ router.get('/posts', requireAdmin, async (req, res) => {
 router.delete('/posts/:postId', requireAdmin, async (req, res) => {
     try {
         const post = await Post.findById(req.params.postId).lean();
-        await Post.findByIdAndDelete(req.params.postId);
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
+
+        // Decrement user's post count
+        const ownerId = post.user?._id || post.owner;
+        if (ownerId) {
+            await User.findByIdAndUpdate(ownerId, { $inc: { postsCount: -1 } });
+        }
 
         if (post) {
             await logAdminAction({

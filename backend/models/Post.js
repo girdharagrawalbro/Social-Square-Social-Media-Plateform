@@ -26,6 +26,7 @@ const PostSchema = new mongoose.Schema(
 
     // Post Expiry — auto-deleted by MongoDB TTL index
     expiresAt: { type: Date, default: null },
+    deletedAt: { type: Date, default: null },
 
     // Anonymous Confessions — hides user identity
     isAnonymous: { type: Boolean, default: false },
