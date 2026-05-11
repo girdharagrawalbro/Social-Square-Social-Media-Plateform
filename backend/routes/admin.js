@@ -360,9 +360,9 @@ router.delete('/users/:userId', requireAdmin, async (req, res) => {
         // Cleanup social graph and counts in background
         propagateUserDeletion(user._id).catch(console.error);
 
-        // Soft-delete posts in background — don't block response
+        // Soft-delete posts in background — include anonymous posts via authorId
         Post.updateMany(
-            { 'user._id': req.params.userId },
+            { authorId: req.params.userId },
             { $set: { deletedAt: new Date() } }
         ).catch(console.error);
 
@@ -473,15 +473,14 @@ router.get('/posts', requireAdmin, async (req, res) => {
 
 router.delete('/posts/:postId', requireAdmin, async (req, res) => {
     try {
-        const post = await Post.findById(req.params.postId).lean();
+        const post = await Post.findById(req.params.postId).select('+authorId').lean();
         if (!post) return res.status(404).json({ error: 'Post not found' });
 
         await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
 
-        // Decrement user's post count
-        const ownerId = post.user?._id || post.owner;
-        if (ownerId) {
-            await User.findByIdAndUpdate(ownerId, { $inc: { postsCount: -1 } });
+        // Decrement real author's post count
+        if (post.authorId) {
+            await User.findByIdAndUpdate(post.authorId, { $inc: { postsCount: -1 } });
         }
 
         if (post) {

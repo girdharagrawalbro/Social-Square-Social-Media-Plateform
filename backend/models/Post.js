@@ -7,6 +7,8 @@ const PostSchema = new mongoose.Schema(
       fullname: { type: String, required: true },
       profile_picture: { type: String },
     },
+    // Hidden field to track the real author even for anonymous posts
+    authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, select: false },
     image_url: { type: String, default: null },
     image_urls: [{ type: String }],
     video: { type: String, default: null },
