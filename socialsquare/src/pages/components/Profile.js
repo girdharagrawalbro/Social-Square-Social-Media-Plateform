@@ -2,7 +2,7 @@ import React, { useState, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
-import { useFollowUser, useUnfollowUser, authKeys, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, useOwnProfile, useOtherUserProfile } from '../../hooks/queries/useAuthQueries';
+import { useFollowUser, useUnfollowUser, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, useOwnProfile, useOtherUserProfile } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
