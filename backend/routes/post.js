@@ -361,7 +361,7 @@ router.delete("/delete/:postId", verifyToken, async (req, res) => {
         const userId = req.userId;
         // Find the post first to check ownership, including soft-deleted state
         const post = await Post.findById(req.params.postId).select('+ownerToken +authorId');
-        if (!post || post.deletedAt) return res.status(404).json({ message: "Post not found or already deleted." });
+        if (!post) return res.status(404).json({ message: "Post not found." });
 
         const user = await User.findById(userId).select('isAdmin').lean();
         const isAdmin = user && user.isAdmin;
@@ -569,9 +569,11 @@ router.get("/user/:userId", softVerifyToken, async (req, res) => {
         const viewerId = req.userId; // Resolved by softVerifyToken middleware
         const ownerId = req.params.userId;
 
+
         if (!mongoose.Types.ObjectId.isValid(ownerId)) {
             return res.status(400).json({ posts: [], nextCursor: null, hasMore: false });
         }
+
 
         // Priority owner check - resolves identity before privacy check
         const isOwner = viewerId && viewerId.toString() === ownerId;
@@ -1151,6 +1153,7 @@ router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
 // ─── SINGLE POST DETAIL ───────────────────────────────────────────────────────
 router.get("/detail/:postId", softVerifyToken, checkPostPrivacy, async (req, res) => {
     try {
+        const post = req.post;
         const post = req.post;
         const viewerId = req.userId;
         // Wait, checkPostPrivacy currently relies on req.userId being set.
