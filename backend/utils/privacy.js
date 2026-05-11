@@ -1,8 +1,8 @@
 const crypto = require('crypto');
 
 const HMAC_SECRETS = {
-    1: process.env.PRIVACY_HMAC_SECRET || process.env.JWT_SECRET || 'fallback_secret',
-    // 2: process.env.PRIVACY_HMAC_SECRET_OLD // future rotations can be added here
+    1: { secret: process.env.PRIVACY_HMAC_SECRET || process.env.JWT_SECRET || 'fallback_secret' },
+    // 2: { secret: process.env.PRIVACY_HMAC_SECRET_OLD, retiredAt: new Date('2026-08-01') }
 };
 
 /**
@@ -11,20 +11,43 @@ const HMAC_SECRETS = {
  */
 function getOwnerToken(userId, version = 1) {
     if (!userId) return null;
-    const secret = HMAC_SECRETS[version];
-    if (!secret) return null;
-    return crypto.createHmac('sha256', secret)
+    const config = HMAC_SECRETS[version];
+    if (!config || !config.secret) return null;
+    return crypto.createHmac('sha256', config.secret)
         .update(userId.toString())
         .digest('hex');
 }
 
 /**
- * Verifies if a given user ID matches the stored ownerToken by testing against all known secret versions.
+ * Verifies if a given user ID matches the stored ownerToken by testing against all active secret versions.
+ * Uses crypto.timingSafeEqual to prevent timing attacks.
  */
 function verifyOwnerToken(userId, storedToken) {
     if (!userId || !storedToken) return false;
+
     for (const version of Object.keys(HMAC_SECRETS)) {
-        if (getOwnerToken(userId, version) === storedToken) return true;
+        const config = HMAC_SECRETS[version];
+
+        // Skip retired secrets to prevent forever-valid V2 hashes
+        if (config.retiredAt && Date.now() > config.retiredAt.getTime()) {
+            continue;
+        }
+
+        const generatedHash = getOwnerToken(userId, version);
+        if (!generatedHash) continue;
+
+        try {
+            const generatedBuffer = Buffer.from(generatedHash, 'hex');
+            const storedBuffer = Buffer.from(storedToken, 'hex');
+
+            if (generatedBuffer.length === storedBuffer.length &&
+                crypto.timingSafeEqual(generatedBuffer, storedBuffer)) {
+                return true;
+            }
+        } catch (e) {
+            // Buffer.from can throw if storedToken is malformed (not valid hex)
+            continue;
+        }
     }
     return false;
 }
@@ -182,7 +205,7 @@ const getRestrictedUserIds = async (userId) => {
             isPrivate: true,
             _id: { $nin: [...followingIds, userId] }
         }).select('_id').lean();
-        
+
         const restrictedIds = privateUsers.map(u => u._id.toString());
         // Cache with short TTL (1 minute) to balance freshness and performance
         await redis.set(cacheKey, JSON.stringify(restrictedIds), 'EX', 60);

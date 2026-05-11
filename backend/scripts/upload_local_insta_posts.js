@@ -9,10 +9,36 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const User = require('../models/User');
 const Post = require('../models/Post');
-const { detectMoodFromCaption } = require('../utils/gemini');
+const { updateGamification } = require('../lib/gamification');
 const { checkContent } = require('../middleware/contentFilter');
 
 const CLOUDINARY_URL = "http://localhost:5001/api/cloudinary/upload-base64";
+const OLLAMA_URL = "http://localhost:11434/api/generate";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3"; // Try llama3.1 as a common default
+
+async function detectMoodOllama(caption) {
+    if (!caption || !String(caption).trim()) return 'neutral';
+    try {
+        const prompt = `Analyze the mood of this social media post caption and return ONLY one word from this list: happy, sad, excited, angry, calm, romantic, funny, inspirational, nostalgic, neutral\n\nCaption: "${caption}"\n\nReturn only the single mood word, nothing else.`;
+
+        const response = await axios.post(OLLAMA_URL, {
+            model: OLLAMA_MODEL,
+            prompt: prompt,
+            stream: false
+        }, { timeout: 15000 });
+
+        const mood = response.data.response.trim().toLowerCase().replace(/[^\w]/g, '');
+        const validMoods = ['happy', 'sad', 'excited', 'angry', 'calm', 'romantic', 'funny', 'inspirational', 'nostalgic', 'neutral'];
+        return validMoods.includes(mood) ? mood : 'neutral';
+    } catch (err) {
+        if (err.response) {
+            console.warn(`[Ollama] Error ${err.response.status}: ${JSON.stringify(err.response.data)}`);
+        } else {
+            console.warn(`[Ollama] Failed: ${err.message}`);
+        }
+        return 'neutral';
+    }
+}
 
 async function uploadToCloudinary(base64Data, mimeType, shortcode) {
     try {
@@ -65,6 +91,20 @@ async function run() {
     try {
         await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/socialsquare');
         console.log("MongoDB Connected.");
+
+        // 🔍 Check Ollama Models
+        try {
+            const ollamaCheck = await axios.get("http://localhost:11434/api/tags", { timeout: 3000 });
+            if (ollamaCheck.data && ollamaCheck.data.models) {
+                const models = ollamaCheck.data.models.map(m => m.name);
+                console.log(`[Ollama] Available local models: ${models.join(', ')}`);
+                if (!models.includes(OLLAMA_MODEL) && !models.includes(`${OLLAMA_MODEL}:latest`)) {
+                    console.warn(`[Ollama] Warning: Model "${OLLAMA_MODEL}" not found in your local Ollama. Please run "ollama pull ${OLLAMA_MODEL}" or set OLLAMA_MODEL in .env`);
+                }
+            }
+        } catch (e) {
+            console.warn(`[Ollama] Could not connect to local Ollama server at http://localhost:11434. Mood detection will be disabled.`);
+        }
 
         const metaData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
         const username = metaData.target_username;
@@ -168,22 +208,22 @@ async function run() {
                 continue;
             }
 
-            // // ─── CONTENT FILTERING ───
-            // const violation = await checkContent(caption);
-            // if (violation && violation.action === 'block') {
-            //     console.warn(`Post ${shortcode} blocked due to violation: ${violation.word}. Skipping.`);
-            //     continue;
-            // }
+            // ─── CONTENT FILTERING ───
+            const violation = await checkContent(caption);
+            if (violation && violation.action === 'block') {
+                console.warn(`Post ${shortcode} blocked due to violation: ${violation.word}. Skipping.`);
+                continue;
+            }
 
-            // // ─── MOOD DETECTION ───
-            // const detectedMood = await detectMoodFromCaption(caption || 'Captivating moment');
-            // console.log(`Detected mood: ${detectedMood}`);
+            // ─── MOOD DETECTION (Ollama) ───
+            const detectedMood = await detectMoodOllama(caption || 'Captivating moment');
+            console.log(`Detected mood (Ollama): ${detectedMood}`);
 
             // Create Post in MongoDB
             const newPost = new Post({
                 caption: caption && caption.length > 500 ? caption.substring(0, 497) + '...' : caption,
                 category: 'Default',
-                // mood: detectedMood,
+                mood: detectedMood,
                 image_urls: image_urls,
                 video: isVideo ? secureUrl : null,
                 videoThumbnail: isVideo ? thumbnailUrl : null,
@@ -195,25 +235,25 @@ async function run() {
                 createdAt: postMeta.date_utc ? new Date(postMeta.date_utc) : new Date()
             });
 
-            // if (violation && violation.action === 'flag') {
-            //     newPost.isFlagged = true;
-            //     newPost.flagReason = `Automated filter: ${violation.word}`;
-            // }
+            if (violation && violation.action === 'flag') {
+                newPost.isFlagged = true;
+                newPost.flagReason = `Automated filter: ${violation.word}`;
+            }
 
             await newPost.save();
             console.log(`Post created successfully for ${shortcode} (ID: ${newPost._id})`);
 
-            // ─── POST-UPLOAD SYNC (Normal Upload Process) ───
+            // ─── POST-UPLOAD SYNC & GAMIFICATION ───
             try {
                 const { publish } = require('../lib/pubsub');
                 const { publishEvent } = require('../services/recommendationPublisher');
 
-                // 1. Pusher publish
+                // 1. NATS/Pusher publish
                 await publish('posts.created', {
                     id: newPost._id,
                     user: newPost.user,
                     category: newPost.category
-                }).catch(err => console.warn('[Pusher Sync]:', err.message));
+                }).catch(err => console.warn('[PubSub Sync]:', err.message));
 
                 // 2. Recommendation Event publish
                 await publishEvent("post.created", {
@@ -230,9 +270,14 @@ async function run() {
                     createdAtTs: Math.floor(new Date(newPost.createdAt).getTime() / 1000),
                 }).catch(err => console.warn('[NATS Sync]:', err.message));
 
-                // console.log(`Post ${shortcode} synced with Recommendation engine.`);
+                // 3. Update Gamification (Post Reward)
+                const rewards = await updateGamification(user._id, 'post');
+                if (rewards) {
+                    console.log(`Gamification updated. XP Gained: ${rewards.xpGain}, Total XP: ${rewards.totalXp}, Level: ${rewards.level}`);
+                }
+
             } catch (syncErr) {
-                console.warn(`Sync failed for ${shortcode}:`, syncErr.message);
+                console.warn(`Post-upload sync failed for ${shortcode}:`, syncErr.message);
             }
         }
 
