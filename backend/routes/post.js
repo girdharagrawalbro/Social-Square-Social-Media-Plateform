@@ -361,7 +361,7 @@ router.delete("/delete/:postId", verifyToken, async (req, res) => {
         const isAdmin = user && user.isAdmin;
 
         if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
-        await Post.findByIdAndDelete(req.params.postId);
+        await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
         await User.findByIdAndUpdate(post.user._id, { $inc: { postsCount: -1 } });
 
         // ✅ Notify all users to remove post from feed
@@ -411,6 +411,7 @@ router.get("/", async (req, res) => {
         // ALSO: Exclude blocked/muted users
         const query = {
             isAnonymous: { $ne: true },
+            deletedAt: null,
             'user._id': { $nin: excludedUserIds.filter(id => id && id.length === 24).map(id => new mongoose.Types.ObjectId(id)) },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
@@ -1143,6 +1144,7 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
         const cursor = req.query.cursor;
         const query = {
             isAnonymous: true,
+            deletedAt: null,
             $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
@@ -1215,7 +1217,8 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
         const query = {
             'user._id': { $nin: [...excludedUserIds, ...privateUserIdsExcluded].filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) },
             isAnonymous: { $ne: true },
-            video: { $ne: null }
+            video: { $ne: null },
+            deletedAt: null
         };
 
         if (cursor) {

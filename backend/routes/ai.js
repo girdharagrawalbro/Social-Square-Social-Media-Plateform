@@ -239,8 +239,11 @@ router.get('/mood-feed', verifyToken, async (req, res) => {
 
         const moodPosts = await Post.find({
             mood: { $in: relatedMoods },
-            $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
-            $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
+            deletedAt: null,
+            $and: [
+                { $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }] },
+                { $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] }
+            ]
         }).sort({ score: -1, createdAt: -1 }).limit(20);
 
         res.status(200).json({ posts: moodPosts, mood, relatedMoods });

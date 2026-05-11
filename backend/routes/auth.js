@@ -130,7 +130,11 @@ router.post('/login', authRateLimiter, [
         if (!fingerprint) return res.status(400).json({ error: 'Missing browser fingerprint' });
 
         const user = await User.findOne({ email: identifier.toLowerCase().trim() });
-        if (!user || !user.password) return res.status(401).json({ error: 'Invalid email or password' });
+        if (!user || user.deletedAt || !user.password) return res.status(401).json({ error: 'Invalid email or password' });
+        
+        if (user.isBanned) {
+            return res.status(403).json({ error: user.banReason || 'Your account has been banned for violating our community guidelines.' });
+        }
 
         // ── LOCKOUT CHECK ──
         if (user.lockoutUntil && user.lockoutUntil > Date.now()) {
@@ -459,6 +463,11 @@ router.post('/google', async (req, res) => {
         const { sub: googleId, email, name, picture } = ticket.getPayload();
 
         let user = await User.findOne({ $or: [{ googleId }, { email }] });
+        if (user) {
+            if (user.deletedAt) return res.status(403).json({ error: 'This account has been deactivated.' });
+            if (user.isBanned) return res.status(403).json({ error: user.banReason || 'This account has been banned.' });
+        }
+
         if (!user) {
             const username = await generateUniqueUsername(name);
             user = new User({ fullname: name, username, email, profile_picture: picture, googleId, authProvider: 'google' });
@@ -852,7 +861,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             following: canSeeDetails ? targetUser.following : [],
             followerCount: targetUser.followersCount || 0,
             followingCount: targetUser.followingCount || 0,
-            postCount,
+            postCount: canSeeDetails ? postCount : null,
             isFollowing,
             isBlockedByMe,
             isBlockingMe,
@@ -890,7 +899,14 @@ router.get('/public/profile/:identifier', softVerifyToken, async (req, res) => {
         // Set cache headers for aggressive CDN caching (5 minutes)
         res.setHeader('Cache-Control', 'public, max-age=300');
 
-        // Security: Strictly return ONLY counts and fix data. NO arrays.
+        // Privacy: if private, only allow visibility if owner or following
+        let canSeeCount = !user.isPrivate;
+        if (!canSeeCount && viewerId) {
+            const isFollowing = (user.followers || []).some(id => id.toString() === viewerId.toString());
+            const isOwner = viewerId.toString() === user._id.toString();
+            if (isFollowing || isOwner) canSeeCount = true;
+        }
+
         return res.status(200).json({
             _id: user._id,
             fullname: user.fullname,
@@ -900,7 +916,7 @@ router.get('/public/profile/:identifier', softVerifyToken, async (req, res) => {
             isPrivate: user.isPrivate,
             followerCount: user.followersCount || 0,
             followingCount: user.followingCount || 0,
-            postCount,
+            postCount: canSeeCount ? postCount : null,
             level: user.level || 1,
             streak: user.streak || { count: 0 },
             xp: user.xp || 0,
@@ -1586,6 +1602,34 @@ router.get('/analytics/:userId', verifyToken, async (req, res) => {
         });
     } catch (e) {
         res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
+// ─── REMOVE FOLLOWER (PROTECTED) ───────────────────────────────────────────────
+router.post('/remove-follower', verifyToken, async (req, res) => {
+    try {
+        const { followerId } = req.body;
+        const userId = req.userId;
+
+        if (!followerId) return res.status(400).json({ error: 'Follower ID required' });
+
+        // Remove follower from user's list
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { $pull: { followers: followerId }, $inc: { followersCount: -1 } },
+            { new: true }
+        );
+
+        // Remove user from follower's following list
+        await User.findByIdAndUpdate(
+            followerId,
+            { $pull: { following: userId }, $inc: { followingCount: -1 } }
+        );
+
+        res.status(200).json({ message: 'Follower removed', followersCount: user.followersCount });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

@@ -88,7 +88,8 @@ router.get("/posts", verifyToken, async (req, res) => {
         console.log(`${_tag} [4] Fetching candidate posts (limit=100)...`);
         const candidates = await Post.find({
             "user._id": { $ne: userId, $nin: privateUserIds },
-            isAnonymous: { $ne: true }
+            isAnonymous: { $ne: true },
+            deletedAt: null
         })
             .sort({ createdAt: -1 })
             .limit(100)
@@ -167,7 +168,7 @@ router.get("/posts", verifyToken, async (req, res) => {
         // ── Fallback 2: Simple DB query ────────────────────────────────────────
         console.log(`${_tag} 🔄 Attempting DB fallback (simple chronological query)...`);
         try {
-            const fallback = await Post.find({ isAnonymous: { $ne: true } })
+            const fallback = await Post.find({ isAnonymous: { $ne: true }, deletedAt: null })
                 .sort({ createdAt: -1 })
                 .limit(20)
                 .lean()
