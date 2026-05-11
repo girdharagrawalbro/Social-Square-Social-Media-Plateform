@@ -205,31 +205,48 @@ router.get("/users", verifyToken, async (req, res) => {
 router.get("/similar/:postId", verifyToken, async (req, res) => {
     try {
         const { postId } = req.params;
+        const userId = req.userId;
         const { PostVector } = require("../models/Recommendation");
 
+        // 1. Get viewer's following list for privacy checks
+        const loggedUser = await User.findById(userId).select('following').lean();
+        const followingIds = (loggedUser?.following || []).map(id => id.toString());
+
+        // 2. Identify private users that the viewer does NOT follow
+        const privateUsers = await User.find({ 
+            isPrivate: true, 
+            _id: { $nin: [...followingIds, userId] } 
+        }).select('_id').lean();
+        const restrictedUserIds = privateUsers.map(u => u._id.toString());
+
+        // 3. Define the base filter for both similarity paths
+        const privacyFilter = {
+            _id: { $ne: postId },
+            "user._id": { $nin: restrictedUserIds },
+            isAnonymous: { $ne: true }
+        };
+
         const targetPostVecDoc = await PostVector.findOne({ postId });
+        
+        // --- FALLBACK PATH (Category/Tag matching) ---
         if (!targetPostVecDoc || !targetPostVecDoc.vector || targetPostVecDoc.vector.length === 0) {
             const targetPost = await Post.findById(postId);
             if (!targetPost) return res.status(404).json({ message: "Post not found" });
 
             const fallbackPosts = await Post.find({
-                _id: { $ne: postId },
+                ...privacyFilter,
                 $or: targetPost.category
                     ? [{ category: targetPost.category }, { tags: { $in: targetPost.tags || [] } }]
                     : [{}]
             }).sort({ createdAt: -1 }).limit(15).lean();
+            
             return res.json({ items: fallbackPosts });
         }
 
+        // --- VECTOR PATH (AI-driven similarity) ---
         const targetVec = targetPostVecDoc.vector;
 
-        const privateUsers = await User.find({ isPrivate: true }).select('_id').lean();
-        const privateUserIds = privateUsers.map(u => u._id.toString());
-
-        const candidates = await Post.find({
-            _id: { $ne: postId },
-            'user._id': { $nin: privateUserIds }
-        })
+        const candidates = await Post.find(privacyFilter)
             .sort({ createdAt: -1 })
             .limit(200)
             .lean();

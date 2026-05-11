@@ -62,30 +62,48 @@ if (isDisabled) {
         hset: async (key, field, value) => {
             if (!inMemoryData[key]) inMemoryData[key] = {};
             inMemoryData[key][field] = value;
+            return 1;
         },
         hget: async (key, field) => {
             return inMemoryData[key]?.[field] || null;
         },
         hdel: async (key, field) => {
             if (inMemoryData[key]) delete inMemoryData[key][field];
+            return 1;
         },
         hgetall: async (key) => {
             return inMemoryData[key] || {};
         },
-        get: async (key) => inMemoryData[key] || null,
-        set: async (key, value) => { inMemoryData[key] = value; },
+        get: async (key) => {
+            const val = inMemoryData[key];
+            return val !== undefined ? val : null;
+        },
+        set: async (key, value, ...args) => {
+            // Support EX/NX arguments by ignoring them but returning 'OK' to satisfy callers
+            const isNX = args.includes('NX');
+            if (isNX && inMemoryData[key] !== undefined) return null;
+            
+            inMemoryData[key] = value;
+            return 'OK';
+        },
         del: async (...keys) => {
             const flatKeys = Array.isArray(keys[0]) ? keys[0] : keys;
+            let count = 0;
             flatKeys.forEach(k => {
                 if (k.endsWith('*')) {
                     const prefix = k.slice(0, -1);
                     Object.keys(inMemoryData).forEach(key => {
-                        if (key.startsWith(prefix)) delete inMemoryData[key];
+                        if (key.startsWith(prefix)) {
+                            delete inMemoryData[key];
+                            count++;
+                        }
                     });
-                } else {
+                } else if (inMemoryData[k] !== undefined) {
                     delete inMemoryData[k];
+                    count++;
                 }
             });
+            return count;
         },
         on: () => { },
         quit: async () => { },

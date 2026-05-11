@@ -69,18 +69,18 @@ const PostSchema = new mongoose.Schema(
 
     // Group / Community
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null },
+
+    // Security: One-way HMAC of owner ID (for anonymous posts)
+    ownerToken: { type: String, select: false },
   },
   { timestamps: true }
 );
 
 // Global protection for anonymous posts (when not using .lean())
+const { sanitizePost } = require('../utils/privacy');
 PostSchema.set('toJSON', {
   transform: (doc, ret) => {
-    if (ret.isAnonymous) {
-      if (ret.user) ret.user._id = 'anonymous';
-      ret.collaborators = [];
-    }
-    return ret;
+    return sanitizePost(ret);
   }
 });
 

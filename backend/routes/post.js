@@ -17,27 +17,10 @@ const jwt = require('jsonwebtoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
-
-/**
- * Sanitizes a post object to protect user privacy, especially for anonymous posts.
- */
-function sanitizePost(post, viewerId = null) {
-    if (!post) return post;
-    // Handle both Mongoose documents and plain objects
-    const userIdInPost = post.user?._id?.toString() || post.user?.toString();
-    const isOwner = viewerId && userIdInPost === viewerId.toString();
-
-    if (post.isAnonymous && !isOwner) {
-        if (post.user && typeof post.user === 'object') {
-            post.user._id = "anonymous_user";
-        }
-        post.collaborators = [];
-    }
-    return post;
-}
-
+const { getOwnerToken, sanitizePost } = require('../utils/privacy');
 
 const router = express.Router();
+const ANONYMOUS_USER_ID = "600000000000000000000000"; // Constant dummy ID for anonymous posts
 
 
 // io is injected from index.js
@@ -166,10 +149,15 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             video: videoURL || null,
             videoThumbnail: videoThumbnail || null,
             user: isAnonymous
-                ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain' }
+                ? { 
+                    _id: ANONYMOUS_USER_ID, 
+                    fullname: 'Anonymous', 
+                    profile_picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' 
+                  }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             location: location || {}, music: music || {},
             isAnonymous: !!isAnonymous,
+            ownerToken: isAnonymous ? getOwnerToken(loggedUserId) : null,
             expiresAt: expiresAt ? new Date(expiresAt) : null,
             unlocksAt: unlocksAt ? new Date(unlocksAt) : null,
             isCollaborative: !!isCollaborative,
@@ -212,8 +200,25 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
 
         // Logic for followers' feed and notifications moved to postSubscriber (via NATS posts.created event)
 
-        if (isAnonymous && _io) {
-            _io.emit('newConfessionPost', newPost);
+        if (isAnonymous) {
+            // Rate Limit Check: 5 confessions per hour
+            const rateLimitKey = `rl:confession:${loggedUserId}`;
+            const confessionCount = await redis.get(rateLimitKey);
+            if (confessionCount && parseInt(confessionCount) >= 5) {
+                return res.status(429).json({ message: "Confession limit reached (5 per hour). Please try again later." });
+            }
+
+            // Increment or set with 1 hour TTL
+            if (!confessionCount) {
+                await redis.set(rateLimitKey, '1', 'EX', 3600);
+            } else {
+                await redis.incr(rateLimitKey);
+            }
+
+            if (_io) {
+                // Room-based emit: only users viewing confessions tab receive this
+                _io.to('confessions').emit('newConfessionPost', newPost);
+            }
         }
 
         if (!isAnonymous) {
@@ -327,9 +332,17 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
     try {
         const { caption, category } = req.body;
         const userId = req.userId;
-        const post = await Post.findById(req.params.postId);
+        const post = await Post.findById(req.params.postId).select('+ownerToken');
         if (!post) return res.status(404).json({ message: "Post not found." });
-        if (post.user._id.toString() !== userId.toString()) return res.status(403).json({ message: "Unauthorized." });
+
+        let isOwner = false;
+        if (post.isAnonymous) {
+            isOwner = post.ownerToken === getOwnerToken(userId);
+        } else {
+            isOwner = post.user._id.toString() === userId.toString();
+        }
+
+        if (!isOwner) return res.status(403).json({ message: "Unauthorized." });
         if (caption) post.caption = caption;
         if (category) post.category = category;
         await post.save();
@@ -345,11 +358,18 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
 router.delete("/delete/:postId", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        const post = await Post.findById(req.params.postId);
+        const post = await Post.findById(req.params.postId).select('+ownerToken');
         if (!post) return res.status(404).json({ message: "Post not found." });
 
         const user = await User.findById(userId).select('isAdmin').lean();
-        const isOwner = post.user._id.toString() === userId.toString();
+        
+        let isOwner = false;
+        if (post.isAnonymous) {
+            isOwner = post.ownerToken === getOwnerToken(userId);
+        } else {
+            isOwner = post.user._id.toString() === userId.toString();
+        }
+        
         const isAdmin = user && user.isAdmin;
 
         if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
@@ -1146,7 +1166,7 @@ router.get("/detail/:postId", async (req, res) => {
 
         // ✅ Privacy Check
         const ownerId = post.user._id.toString();
-        const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
+        const postOwner = ownerId !== ANONYMOUS_USER_ID ? await User.findById(ownerId).select('isPrivate followers').lean() : null;
 
         if (postOwner && postOwner.isPrivate) {
             const isOwner = viewerId && viewerId.toString() === ownerId;
