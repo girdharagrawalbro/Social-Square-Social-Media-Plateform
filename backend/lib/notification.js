@@ -18,6 +18,12 @@ const setIo = (socketIoInstance) => {
  */
 const createNotification = async ({ recipientId, sender, type, postId, message, url }) => {
   try {
+    // 🛡️ Null Guard: Ensure required identity fields exist
+    if (!recipientId || !sender || !sender.id) {
+      console.warn('[Notification] Skipped: Missing identity data', { recipientId, senderId: sender?.id });
+      return null;
+    }
+
     // Don't notify yourself (unless it's a system notification like login alert)
     if (recipientId.toString() === sender.id.toString() && type !== 'system') {
       return null;
@@ -27,8 +33,8 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
       recipient: recipientId,
       sender: {
         id: sender.id,
-        fullname: sender.fullname,
-        profile_picture: sender.profile_picture,
+        fullname: sender.fullname || 'Unknown User',
+        profile_picture: sender.profile_picture || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
       },
       type,
       post: postId || null,
