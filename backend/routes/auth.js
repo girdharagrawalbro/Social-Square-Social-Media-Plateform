@@ -15,6 +15,8 @@ const { getSuggestedUsers } = require('../services/suggestionService');
 const { createNotification } = require('../lib/notification');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
+const softVerifyToken = require('../middleware/softVerifyToken');
+const AuditLog = require('../models/AuditLog');
 const authRateLimiter = require('../middleware/authRateLimiter');
 const { propagateUserProfileUpdate } = require('../utils/userPropagation');
 
@@ -838,7 +840,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
         }
 
         // Privacy: if private and not a follower, hide follower/following lists
-        const isOwner = targetId === loggedUserId.toString();
+        const isOwner = loggedUserId.equals(targetId);
         const canSeeDetails = isOwner || isFollowing || !targetUser.isPrivate;
 
         const isBlockedByMe = (loggedUser?.blockedUsers || []).some(id => id.toString() === targetId.toString());
@@ -865,8 +867,9 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
 });
 
 // ─── PUBLIC USER PROFILE VIEW (Logged-out) ────────────────────────────────────
-router.get('/public/profile/:identifier', async (req, res) => {
+router.get('/public/profile/:identifier', softVerifyToken, async (req, res) => {
     try {
+        const viewerId = req.userId;
         const identifier = req.params.identifier;
         let query = {};
 
@@ -939,7 +942,19 @@ router.put('/update-profile', verifyToken, async (req, res) => {
         }
 
         const updateData = { fullname, username, email, profile_picture, bio, preferredMood };
-        if (typeof isPrivate === 'boolean') updateData.isPrivate = isPrivate;
+        if (typeof isPrivate === 'boolean') {
+            const userBefore = await User.findById(userId).select('isPrivate').lean();
+            if (userBefore && userBefore.isPrivate !== isPrivate) {
+                updateData.isPrivate = isPrivate;
+                await AuditLog.create({
+                    userId,
+                    action: 'privacy_toggle',
+                    metadata: { oldValue: userBefore.isPrivate, newValue: isPrivate },
+                    ip: getIp(req),
+                    userAgent: req.headers['user-agent']
+                });
+            }
+        }
 
         const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select(OWN_USER_EXCLUSIONS);
         if (!updatedUser) return res.status(404).json({ message: 'User not found.' });
@@ -988,7 +1003,7 @@ router.post('/follow', verifyToken, async (req, res) => {
             });
 
             // Already requested?
-            if (targetUser.followRequests?.includes(userId)) return res.status(200).json({
+            if (targetUser.followRequests?.some(r => r.userId?.toString() === userId.toString())) return res.status(200).json({
                 _id: followUserId,
                 requested: true,
                 alreadyRequested: true,
@@ -997,7 +1012,7 @@ router.post('/follow', verifyToken, async (req, res) => {
 
             const updatedTarget = await User.findByIdAndUpdate(
                 followUserId,
-                { $addToSet: { followRequests: userId } },
+                { $addToSet: { followRequests: { userId, requestedAt: new Date() } } },
                 { new: true }
             ).select('followersCount followRequests');
 
@@ -1105,7 +1120,7 @@ router.post('/follow-request/accept', verifyToken, async (req, res) => {
 
         // Remove from requests, add to followers
         await User.findByIdAndUpdate(userId, {
-            $pull: { followRequests: requesterId },
+            $pull: { followRequests: { userId: requesterId } },
             $addToSet: { followers: requesterId },
             $inc: { followersCount: 1 }
         });
@@ -1161,23 +1176,44 @@ router.post('/follow-request/decline', verifyToken, async (req, res) => {
         if (String(userId) !== String(loggedUserId)) {
             return res.status(403).json({ message: 'Unauthorized.' });
         }
-        await User.findByIdAndUpdate(userId, { $pull: { followRequests: requesterId } });
+        await User.findByIdAndUpdate(userId, { $pull: { followRequests: { userId: requesterId } } });
         // Mark the follow request notification as declined
-        const me = await User.findById(userId).select('fullname profile_picture');
         await require('../lib/notification.js').updateNotifications({
             recipient: userId,
             'sender.id': requesterId,
             type: 'follow_request'
         }, { status: 'rejected', read: true });
 
-        // Notify the requester that their request was declined
-        await require('../lib/notification.js').createNotification({
-            recipientId: requesterId,
-            sender: { id: userId, fullname: me.fullname, profile_picture: me.profile_picture },
-            type: 'follow_decline',
-        });
+        // Decline is silent (no notification sent to requester)
         res.status(200).json({ message: 'Declined' });
     } catch { res.status(500).json({ message: 'Failed to decline request' }); }
+});
+
+// ─── REMOVE FOLLOWER (PROTECTED) ──────────────────────────────────────────────
+// Allows a user to remove someone from their followers list (silent)
+router.post('/remove-follower', verifyToken, async (req, res) => {
+    try {
+        const { followerId } = req.body;
+        const userId = req.userId; // ME
+
+        if (!followerId) return res.status(400).json({ message: 'Follower ID required' });
+
+        // 1. Remove follower from MY followers list
+        const me = await User.findByIdAndUpdate(userId, {
+            $pull: { followers: followerId },
+            $inc: { followersCount: -1 }
+        }, { new: true });
+
+        // 2. Remove ME from the other user's following list
+        await User.findByIdAndUpdate(followerId, {
+            $pull: { following: userId },
+            $inc: { followingCount: -1 }
+        });
+
+        res.status(200).json({ message: 'Follower removed', followerCount: me.followersCount });
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 router.get('/user/:id', verifyToken, async (req, res) => {
@@ -1193,7 +1229,7 @@ router.get('/user/:id', verifyToken, async (req, res) => {
 
         const isBlockedByMe = (loggedUser?.blockedUsers || []).some(id => id.toString() === targetId);
         const isBlockingMe = (targetUser.blockedUsers || []).some(id => id.toString() === loggedUserId.toString());
-        const hasPendingRequest = (targetUser.followRequests || []).some(id => id.toString() === loggedUserId.toString());
+        const hasPendingRequest = (targetUser.followRequests || []).some(r => r.userId?.toString() === loggedUserId.toString());
         const isFollowing = (loggedUser?.following || []).some(id => id.toString() === targetId);
 
         // 3. Privacy: Only show lists if followed or self
@@ -1201,7 +1237,7 @@ router.get('/user/:id', verifyToken, async (req, res) => {
 
         const responseUser = { ...targetUser };
         // Map denormalized counts for frontend
-        responseUser.postCount = targetUser.postsCount || 0;
+        responseUser.postCount = canSeeDetails ? (targetUser.postsCount || 0) : 0;
         responseUser.followerCount = targetUser.followersCount || 0;
         responseUser.followingCount = targetUser.followingCount || 0;
 

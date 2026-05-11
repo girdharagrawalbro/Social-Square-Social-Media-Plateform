@@ -10,8 +10,10 @@ const { publish } = require('../lib/pubsub');
 const redis = require('../lib/redis');
 const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
+const softVerifyToken = require('../middleware/softVerifyToken');
 const contentFilter = require('../middleware/contentFilter');
 const { publishEvent } = require("../services/recommendationPublisher");
+const { checkPostPrivacy } = require('../utils/privacy');
 const { updateGamification } = require('../lib/gamification');
 const jwt = require('jsonwebtoken');
 const { hashValue } = require('../utils/authSecurity');
@@ -28,7 +30,7 @@ let _io;
 function setIo(io) { _io = io; }
 
 // ─── VIEW (PUBLIC) ────────────────────────────────────────────────────────────
-router.post("/view/:postId", async (req, res) => {
+router.post("/view/:postId", softVerifyToken, async (req, res) => {
     try {
         const { postId } = req.params;
 
@@ -36,22 +38,8 @@ router.post("/view/:postId", async (req, res) => {
         // Key: view:{postId}:{userOrIp} with short TTL
         const TTL_SECONDS = Number(process.env.VIEW_IDEMPOTENCY_SECONDS || 60);
 
-        // Try to determine user identity from bearer token if present (optional)
-        let viewerId = null;
-        try {
-            const auth = req.headers.authorization || '';
-            if (auth.startsWith('Bearer ')) {
-                const token = auth.split(' ')[1];
-                const hashedToken = hashValue(token);
-                const session = await LoginSession.findOne({ accessToken: hashedToken });
-                if (session && !session.isRevoked && session.expiresAt > new Date()) {
-                    viewerId = session.userId;
-                }
-            }
-        } catch (e) {
-            // ignore token errors — fall back to IP
-            viewerId = null;
-        }
+        // viewerId resolved by softVerifyToken
+        const viewerId = req.userId;
 
         // FIX #7: Explicitly call toString() on viewerId (ObjectId) for safe string use
         const viewerIdStr = viewerId ? viewerId.toString() : null;
@@ -538,47 +526,25 @@ router.get("/", async (req, res) => {
 });
 
 // ─── USER POSTS ───────────────────────────────────────────────────────────────
-router.get("/user/:userId", async (req, res) => {
+router.get("/user/:userId", softVerifyToken, async (req, res) => {
     try {
-        // Enforce privacy: extract viewer ID from token if present
-        let viewerId = null;
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.split(' ')[1];
-            try {
-                const hashedToken = hashValue(token);
-                const session = await LoginSession.findOne({ accessToken: hashedToken });
-                if (session && !session.isRevoked && session.expiresAt > new Date()) {
-                    // Update sliding window TTL safely like in verifyToken
-                    await LoginSession.updateOne(
-                        { _id: session._id },
-                        {
-                            $set: {
-                                lastUsedAt: new Date(),
-                                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                            }
-                        }
-                    );
-                    viewerId = session.userId;
-                }
-            } catch (err) {
-                console.error('[Post Route] Soft token verification failed:', err);
-            }
-        }
-
+        const viewerId = req.userId; // Resolved by softVerifyToken middleware
         const ownerId = req.params.userId;
+        
         if (!mongoose.Types.ObjectId.isValid(ownerId)) {
             return res.status(400).json({ posts: [], nextCursor: null, hasMore: false });
         }
-        const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
-
+        
+        // Priority owner check - resolves identity before privacy check
         const isOwner = viewerId && viewerId.toString() === ownerId;
-        const isFollower = viewerId && postOwner?.followers?.some(f => f.toString() === viewerId.toString());
 
-        if (postOwner && postOwner.isPrivate) {
-            if (!isOwner && !isFollower) {
-                return res.status(200).json({ posts: [], nextCursor: null, hasMore: false, isPrivate: true });
-            }
+        const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
+        if (!postOwner) return res.status(404).json({ message: "User not found" });
+
+        const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
+
+        if (postOwner.isPrivate && !isOwner && !isFollower) {
+            return res.status(200).json({ posts: [], nextCursor: null, hasMore: false, isPrivate: true });
         }
 
         const limit = parseInt(req.query.limit) || 9;
@@ -1145,42 +1111,13 @@ router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
 });
 
 // ─── SINGLE POST DETAIL ───────────────────────────────────────────────────────
-router.get("/detail/:postId", async (req, res) => {
+router.get("/detail/:postId", softVerifyToken, checkPostPrivacy, async (req, res) => {
     try {
-        const post = await Post.findById(req.params.postId);
-        if (!post) return res.status(404).json({ message: "Post not found." });
+        const post = req.post; 
+        const viewerId = req.userId;
+        // Wait, checkPostPrivacy currently relies on req.userId being set.
+        // I need to ensure it handles optional auth.
 
-        // ✅ Extract userId from token if possible
-        let viewerId = null;
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.split(' ')[1];
-            try {
-                const hashedToken = hashValue(token);
-                const session = await LoginSession.findOne({ accessToken: hashedToken });
-                if (session && !session.isRevoked && session.expiresAt > new Date()) {
-                    viewerId = session.userId;
-                }
-            } catch (err) { /* ignore invalid token for detail view */ }
-        }
-
-        // ✅ Privacy Check
-        const ownerId = post.user._id.toString();
-        const postOwner = ownerId !== ANONYMOUS_USER_ID ? await User.findById(ownerId).select('isPrivate followers').lean() : null;
-
-        if (postOwner && postOwner.isPrivate) {
-            const isOwner = viewerId && viewerId.toString() === ownerId;
-            const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
-            const isCollaborator = viewerId && post.collaborators?.some(c => c.userId?.toString() === viewerId.toString() && c.status === 'accepted');
-
-            if (!isOwner && !isFollower && !isCollaborator) {
-                return res.status(403).json({
-                    message: "This account is private. Follow to see their posts.",
-                    isPrivate: true,
-                    owner: post.user
-                });
-            }
-        }
 
         // ✅ Publish recommendation event
         await publishEvent("user.activity.view", {
@@ -1199,8 +1136,9 @@ router.get("/detail/:postId", async (req, res) => {
 
 // ─── CONFESSIONS FEED ────────────────────────────────────────────────────────
 // Anonymous posts only — identity is never revealed, sorted by score
-router.get("/confessions", async (req, res) => {
+router.get("/confessions", softVerifyToken, async (req, res) => {
     try {
+        const viewerId = req.userId;
         const limit = parseInt(req.query.limit) || 9;
         const cursor = req.query.cursor;
         const query = {
@@ -1228,26 +1166,14 @@ router.get("/confessions", async (req, res) => {
 
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
-router.get("/explore-reels", async (req, res) => {
+// ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
+router.get("/explore-reels", softVerifyToken, async (req, res) => {
     const _tag = '[EXPLORE]';
     const limit = parseInt(req.query.limit) || 9;
     const cursor = req.query.cursor;
 
     try {
-
-        // 1. Identify Viewer
-        let viewerId = null;
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.split(' ')[1];
-            try {
-                const hashedToken = hashValue(token);
-                const session = await LoginSession.findOne({ accessToken: hashedToken });
-                if (session && !session.isRevoked && session.expiresAt > new Date()) {
-                    viewerId = session.userId;
-                }
-            } catch (err) { /* invalid token */ }
-        }
+        const viewerId = req.userId;
 
         const viewerIdStr = viewerId ? viewerId.toString() : null;
         let followingIds = [];

@@ -100,7 +100,7 @@ router.get("/posts", verifyToken, async (req, res) => {
 
         if (candidates.length > 0) {
             // Update fallback cache in background (fire and forget)
-            redis.set('cache:fallback_posts', JSON.stringify(candidates.slice(0, 20)), 'EX', 600).catch(() => {});
+            redis.set('cache:fallback_posts', JSON.stringify(candidates.slice(0, 20)), 'EX', 600).catch(() => { });
         }
 
         if (!interest || !interest.interestVector || !interest.interestVector.length) {
@@ -147,7 +147,7 @@ router.get("/posts", verifyToken, async (req, res) => {
     } catch (err) {
         const elapsed = Date.now() - _t0;
         console.error(`${_tag} ❌ MAIN HANDLER FAILED after ${elapsed}ms: ${err.message}`);
-        
+
         // ── Fallback 1: Try Redis Cache ───────────────────────────────────────
         try {
             const cachedFallback = await redis.get('cache:fallback_posts');
@@ -203,76 +203,193 @@ router.get("/users", verifyToken, async (req, res) => {
 
 // ─── SIMILAR POSTS ────────────────────────────────────────────────────────────
 router.get("/similar/:postId", verifyToken, async (req, res) => {
+    const _tag = '[REC /similar]';
+    const _t0 = Date.now();
+    const { postId } = req.params;
+    const userId = req.userId;
+
     try {
-        const { postId } = req.params;
-        const userId = req.userId;
         const { PostVector } = require("../models/Recommendation");
 
-        // 1. Get viewer's following list for privacy checks
+        // 1. Resolve Viewer Identity & Following List (Redis cached)
         const loggedUser = await User.findById(userId).select('following').lean();
+        if (!loggedUser) return res.status(404).json({ message: "User not found" });
         const followingIds = (loggedUser?.following || []).map(id => id.toString());
 
-        // 2. Identify private users that the viewer does NOT follow
-        const privateUsers = await User.find({ 
-            isPrivate: true, 
-            _id: { $nin: [...followingIds, userId] } 
-        }).select('_id').lean();
-        const restrictedUserIds = privateUsers.map(u => u._id.toString());
+        // 2. Resolve Restricted User List (Privacy Filter - Redis cached)
+        const exclCacheKey = `private_users:excl:${userId}`;
+        let restrictedUserIds = [];
+        try {
+            const cachedExcl = await redis.get(exclCacheKey);
+            if (cachedExcl) {
+                restrictedUserIds = JSON.parse(cachedExcl);
+            } else {
+                const privateUsers = await User.find({
+                    isPrivate: true,
+                    _id: { $nin: [...followingIds, userId] }
+                }).select('_id').lean();
+                restrictedUserIds = privateUsers.map(u => u._id.toString());
+                await redis.set(exclCacheKey, JSON.stringify(restrictedUserIds), 'EX', 60);
+            }
+        } catch (redisErr) {
+            console.warn(`${_tag} Redis unavailable for exclusion list:`, redisErr.message);
+            const privateUsers = await User.find({
+                isPrivate: true,
+                _id: { $nin: [...followingIds, userId] }
+            }).select('_id').lean();
+            restrictedUserIds = privateUsers.map(u => u._id.toString());
+        }
 
-        // 3. Define the base filter for both similarity paths
-        const privacyFilter = {
-            _id: { $ne: postId },
-            "user._id": { $nin: restrictedUserIds },
-            isAnonymous: { $ne: true }
-        };
-
-        const targetPostVecDoc = await PostVector.findOne({ postId });
+        // 3. Determine Privacy Bucket for Result Caching
+        // We also need the target post to check visibility and following status
+        const { canViewPost } = require("../utils/privacy");
+        const targetPost = await Post.findById(postId).populate('user._id', 'isPrivate followers').lean();
         
-        // --- FALLBACK PATH (Category/Tag matching) ---
-        if (!targetPostVecDoc || !targetPostVecDoc.vector || targetPostVecDoc.vector.length === 0) {
-            const targetPost = await Post.findById(postId);
-            if (!targetPost) return res.status(404).json({ message: "Post not found" });
+        if (!targetPost) {
+            return res.status(404).json({ message: "Post not found" });
+        }
 
-            const fallbackPosts = await Post.find({
-                ...privacyFilter,
+        // Security check: Can the requester even see this post?
+        // Note: canViewPost is async
+        const canSeeTarget = await canViewPost(targetPost, userId);
+        if (!canSeeTarget) {
+            return res.status(403).json({ message: "You do not have permission to view this post's recommendations" });
+        }
+
+        const targetAuthor = targetPost.user?._id;
+        const targetAuthorId = targetAuthor?._id?.toString() || targetAuthor?.toString();
+        const followsAuthor = followingIds.includes(targetAuthorId);
+        const privacyBucket = followsAuthor ? 'follows_author' : 'public';
+        const resultCacheKey = `sim_posts:res:${postId}:${privacyBucket}`;
+
+        // Check Result Cache
+        try {
+            const cachedResult = await redis.get(resultCacheKey);
+            if (cachedResult) {
+                console.log(`${_tag} ✅ Cache hit for bucket: ${privacyBucket}`);
+                const parsed = JSON.parse(cachedResult);
+                return res.json({ 
+                    items: parsed.items, 
+                    method: parsed.method, 
+                    count: parsed.items.length,
+                    isCached: true 
+                });
+            }
+        } catch (cacheErr) {
+            console.warn(`${_tag} Result cache unavailable:`, cacheErr.message);
+        }
+
+        // 4. Recommendation Logic
+        let similarPosts = [];
+        let method = 'vector';
+        const targetPostVecDoc = await PostVector.findOne({ postId }).lean();
+
+        if (targetPostVecDoc && targetPostVecDoc.vector && targetPostVecDoc.vector.length > 0) {
+            // --- VECTOR PATH (Atlas Vector Search / ANN) ---
+            console.log(`${_tag} 🧠 Using Atlas Vector Search (ANN)`);
+            try {
+                similarPosts = await PostVector.aggregate([
+                    {
+                        $vectorSearch: {
+                            index: "vector_index",
+                            path: "vector",
+                            queryVector: targetPostVecDoc.vector,
+                            numCandidates: 100,
+                            limit: 50
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: "posts",
+                            localField: "postId",
+                            foreignField: "_id",
+                            as: "post"
+                        }
+                    },
+                    { $unwind: "$post" },
+                    {
+                        $match: {
+                            "post._id": { $ne: new mongoose.Types.ObjectId(postId) },
+                            "post.user._id": { $nin: restrictedUserIds.map(id => new mongoose.Types.ObjectId(id)) },
+                            "post.isAnonymous": { $ne: true }
+                        }
+                    },
+                    { $limit: 15 },
+                    { $replaceRoot: { newRoot: "$post" } }
+                ]);
+            } catch (vectorErr) {
+                console.error(`${_tag} ❌ Atlas Vector Search failed:`, vectorErr.message);
+                // Fallback to manual ranking
+                method = 'vector_manual';
+                const candidates = await Post.find({
+                    _id: { $ne: postId },
+                    "user._id": { $nin: restrictedUserIds },
+                    isAnonymous: { $ne: true }
+                }).sort({ createdAt: -1 }).limit(100).lean();
+
+                const candidateVecs = await PostVector.find({ postId: { $in: candidates.map(c => c._id) } }).lean();
+                const vecMap = new Map(candidateVecs.map(v => [v.postId.toString(), v.vector]));
+                const targetVec = targetPostVecDoc.vector;
+                const targetMag = Math.sqrt(targetVec.reduce((sum, val) => sum + val * val, 0));
+
+                similarPosts = candidates.map(post => {
+                    const postVec = vecMap.get(post._id.toString());
+                    let similarity = 0;
+                    if (postVec && targetMag) {
+                        const dotProduct = targetVec.reduce((sum, val, i) => sum + val * (postVec[i] || 0), 0);
+                        const postMag = Math.sqrt(postVec.reduce((sum, val) => sum + val * val, 0));
+                        similarity = postMag ? dotProduct / (targetMag * postMag) : 0;
+                    }
+                    return { ...post, similarity };
+                }).sort((a, b) => b.similarity - a.similarity)
+                  .slice(0, 15);
+            }
+        } else {
+            // --- KEYWORD FALLBACK PATH ---
+            method = 'fallback';
+            console.log(`${_tag} ⌨️ Using Keyword Fallback (Category/Tags) for postId=${postId}`);
+            
+            // Emit metric/log event for monitoring
+            logger.info(`similarity_fallback_used`, { postId, category: targetPost.category });
+
+            similarPosts = await Post.find({
+                _id: { $ne: postId },
+                "user._id": { $nin: restrictedUserIds },
+                isAnonymous: { $ne: true },
                 $or: targetPost.category
                     ? [{ category: targetPost.category }, { tags: { $in: targetPost.tags || [] } }]
                     : [{}]
             }).sort({ createdAt: -1 }).limit(15).lean();
-            
-            return res.json({ items: fallbackPosts });
         }
 
-        // --- VECTOR PATH (AI-driven similarity) ---
-        const targetVec = targetPostVecDoc.vector;
+        // 5. Finalize, Threshold Check & Cache Result
+        const MIN_THRESHOLD = 3;
+        let finalItems = similarPosts;
+        let reason = null;
 
-        const candidates = await Post.find(privacyFilter)
-            .sort({ createdAt: -1 })
-            .limit(200)
-            .lean();
+        if (similarPosts.length < MIN_THRESHOLD) {
+            console.warn(`${_tag} ⚠️ Insufficient candidates (${similarPosts.length} < ${MIN_THRESHOLD})`);
+            finalItems = [];
+            reason = 'insufficient_candidates';
+        }
 
-        const candidateVecs = await PostVector.find({ postId: { $in: candidates.map(c => c._id) } }).lean();
-        const vecMap = new Map(candidateVecs.map(v => [v.postId.toString(), v.vector]));
+        const responsePayload = { 
+            items: finalItems, 
+            method, 
+            count: finalItems.length,
+            reason 
+        };
 
-        const targetMag = Math.sqrt(targetVec.reduce((sum, val) => sum + val * val, 0));
+        if (finalItems.length > 0) {
+            await redis.set(resultCacheKey, JSON.stringify(responsePayload), 'EX', 600);
+        }
 
-        const ranked = candidates.map(post => {
-            const postVec = vecMap.get(post._id.toString());
-            let similarity = 0;
+        const elapsed = Date.now() - _t0;
+        console.log(`${_tag} ✅ Success — returned ${finalItems.length} posts in ${elapsed}ms (method=${method})`);
+        res.json(responsePayload);
 
-            if (postVec && targetMag) {
-                const dotProduct = targetVec.reduce((sum, val, i) => sum + val * (postVec[i] || 0), 0);
-                const postMag = Math.sqrt(postVec.reduce((sum, val) => sum + val * val, 0));
-                similarity = postMag ? dotProduct / (targetMag * postMag) : 0;
-            }
-
-            return { post, similarity };
-        });
-
-        ranked.sort((a, b) => b.similarity - a.similarity);
-        res.json({ items: ranked.slice(0, 15).map(r => r.post) });
     } catch (err) {
-        console.error('[Recommendation /similar]', err);
+        console.error(`${_tag} ❌ Critical Failure:`, err);
         res.status(500).json({ message: "Failed to fetch similar posts" });
     }
 });

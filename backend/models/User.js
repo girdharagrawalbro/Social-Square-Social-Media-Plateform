@@ -44,7 +44,10 @@ const UserSchema = new mongoose.Schema({
     enum: ['happy', 'excited', 'funny', 'romantic', 'inspirational', 'calm', 'nostalgic', 'sad', null]
   },
   isPrivate: { type: Boolean, default: false },
-  followRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  followRequests: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    requestedAt: { type: Date, default: Date.now }
+  }],
   dismissedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   mutedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -78,6 +81,7 @@ const UserSchema = new mongoose.Schema({
   // Welcome State
   hasSeenWelcome: { type: Boolean, default: false },
 
+  deletedAt: { type: Date, default: null },
   created_at: { type: Date, default: Date.now },
 });
 

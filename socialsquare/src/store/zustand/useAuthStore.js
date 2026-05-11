@@ -72,7 +72,7 @@ export const refreshAccessToken = async () => {
         );
 
         const { token, user } = res.data;
-        setToken(token);
+        useAuthStore.getState().updateAuthToken(token);
         if (user) useAuthStore.getState().setUser(user);
 
         processQueue(null, token);
@@ -123,13 +123,29 @@ const useAuthStore = create(
     devtools(
         (set, get) => ({
             user: null,
+            token: null, // Track token in state for reactivity
             loading: true,
             initialized: false,
             error: null,
 
             setUser: (user) => set({ user }),
+            updateAuthToken: (token) => {
+                setToken(token); // Update internal in-memory variable
+                set({ token });
+            },
             setInitialized: (initialized) => set({ initialized }),
             clearError: () => set({ error: null }),
+            
+            getUserIdFromToken: () => {
+                const token = get().token;
+                if (!token) return null;
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    return payload.userId || payload.id || null;
+                } catch {
+                    return null;
+                }
+            },
 
             // ── Silent restore on page refresh ────────────────────────────────
             // Called once on app mount — uses httpOnly refresh token cookie
@@ -146,7 +162,7 @@ const useAuthStore = create(
                             if (value) {
                                 const parsed = JSON.parse(value);
                                 if (parsed.token && parsed.user && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
-                                    setToken(parsed.token);
+                                    get().updateAuthToken(parsed.token);
                                     set({ user: parsed.user, loading: false, initialized: true });
                                     return;
                                 }
@@ -184,7 +200,7 @@ const useAuthStore = create(
                         return { requiresOtp: true, userId: res.data.userId };
                     }
                     const { token, user } = res.data;
-                    setToken(token);
+                    get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
 
                     if (Capacitor.isNativePlatform()) {
@@ -214,7 +230,7 @@ const useAuthStore = create(
                         { withCredentials: true }
                     );
                     const { token, user } = res.data;
-                    setToken(token);
+                    get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
 
                     if (Capacitor.isNativePlatform()) {
@@ -245,7 +261,7 @@ const useAuthStore = create(
                         { withCredentials: true }
                     );
                     const { token, user } = res.data;
-                    setToken(token);
+                    get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
 
                     if (Capacitor.isNativePlatform()) {
