@@ -1,4 +1,4 @@
-# 🌐 Social Square — Production Documentation
+ # 🌐 Social Square — Production Documentation
 
 Social Square is an AI-integrated social ecosystem built with a "Privacy-First" and "Creator-Centric" philosophy. This document provides a deep-dive into every layer of the application.
 
