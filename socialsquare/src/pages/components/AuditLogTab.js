@@ -10,29 +10,29 @@ const useAdmin = () => {
 
 // ── Action metadata ───────────────────────────────────────────────────────────
 const ACTION_META = {
-    ban_user:       { label: 'Banned user',       color: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.2)',    icon: '🚫' },
-    unban_user:     { label: 'Unbanned user',      color: '#22c55e', bg: 'rgba(34,197,94,0.1)',    border: 'rgba(34,197,94,0.2)',    icon: '✅' },
-    delete_user:    { label: 'Deleted account',    color: '#dc2626', bg: 'rgba(220,38,38,0.1)',    border: 'rgba(220,38,38,0.2)',    icon: '🗑️' },
-    delete_post:    { label: 'Deleted post',       color: '#f97316', bg: 'rgba(249,115,22,0.1)',   border: 'rgba(249,115,22,0.2)',   icon: '📄' },
-    delete_comment: { label: 'Deleted comment',    color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.2)',   icon: '💬' },
-    resolve_report: { label: 'Resolved report',    color: '#808bf5', bg: 'rgba(128,139,245,0.1)',  border: 'rgba(128,139,245,0.2)', icon: '🛡️' },
-    dismiss_report: { label: 'Dismissed report',   color: '#6b7280', bg: 'rgba(107,114,128,0.1)',  border: 'rgba(107,114,128,0.2)', icon: '🙈' },
-    trigger_digest: { label: 'Triggered digest',   color: '#6366f1', bg: 'rgba(99,102,241,0.1)',   border: 'rgba(99,102,241,0.2)',  icon: '📡' },
-    warn_user:      { label: 'Warned user',        color: '#eab308', bg: 'rgba(234,179,8,0.1)',    border: 'rgba(234,179,8,0.2)',   icon: '⚠️' },
-    content_flagged: { label: 'Content flagged',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.2)',   icon: '⚠️' },
+    ban_user: { label: 'Banned user', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.2)', icon: '🚫' },
+    unban_user: { label: 'Unbanned user', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.2)', icon: '✅' },
+    delete_user: { label: 'Deleted account', color: '#dc2626', bg: 'rgba(220,38,38,0.1)', border: 'rgba(220,38,38,0.2)', icon: '🗑️' },
+    delete_post: { label: 'Deleted post', color: '#f97316', bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.2)', icon: '📄' },
+    delete_comment: { label: 'Deleted comment', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', icon: '💬' },
+    resolve_report: { label: 'Resolved report', color: '#808bf5', bg: 'rgba(128,139,245,0.1)', border: 'rgba(128,139,245,0.2)', icon: '🛡️' },
+    dismiss_report: { label: 'Dismissed report', color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)', icon: '🙈' },
+    trigger_digest: { label: 'Triggered digest', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.2)', icon: '📡' },
+    warn_user: { label: 'Warned user', color: '#eab308', bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.2)', icon: '⚠️' },
+    content_flagged: { label: 'Content flagged', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', icon: '⚠️' },
 };
 
 // ── Relative time helper ──────────────────────────────────────────────────────
 function relativeTime(dateStr) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const s = Math.floor(diff / 1000);
-    if (s < 60)   return `${s}s ago`;
+    if (s < 60) return `${s}s ago`;
     const m = Math.floor(s / 60);
-    if (m < 60)   return `${m}m ago`;
+    if (m < 60) return `${m}m ago`;
     const h = Math.floor(m / 60);
-    if (h < 24)   return `${h}h ago`;
+    if (h < 24) return `${h}h ago`;
     const d = Math.floor(h / 24);
-    if (d < 30)   return `${d}d ago`;
+    if (d < 30) return `${d}d ago`;
     return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -50,18 +50,18 @@ const SkeletonRow = () => (
 // ── Main component ────────────────────────────────────────────────────────────
 const AuditLogTab = () => {
     const { headers } = useAdmin();
-    const [logs, setLogs]           = useState([]);
-    const [total, setTotal]         = useState(0);
+    const [logs, setLogs] = useState([]);
+    const [total, setTotal] = useState(0);
     const [adminList, setAdminList] = useState([]);
-    const [page, setPage]           = useState(1);
-    const [loading, setLoading]     = useState(true);
-    const [expanded, setExpanded]   = useState(null); // row id for detail expand
-    const [filters, setFilters]     = useState({
-        action:     'all',
-        adminId:    'all',
+    const [page, setPage] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [expanded, setExpanded] = useState(null); // row id for detail expand
+    const [filters, setFilters] = useState({
+        action: 'all',
+        adminId: 'all',
         targetType: 'all',
-        from:       '',
-        to:         '',
+        from: '',
+        to: '',
     });
 
     const fetchLogs = useCallback(() => {
@@ -69,7 +69,7 @@ const AuditLogTab = () => {
         const params = { page, ...filters };
         // Remove empty date strings
         if (!params.from) delete params.from;
-        if (!params.to)   delete params.to;
+        if (!params.to) delete params.to;
 
         api.get('/api/admin/audit', { headers, params })
             .then(r => {
@@ -247,7 +247,7 @@ const AuditLogTab = () => {
                                             <td style={{ padding: '14px 20px' }}>
                                                 <div className="flex items-center gap-3">
                                                     <img
-                                                        src={log.admin?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                                        src={log.admin?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                                         alt=""
                                                         style={{ width: 32, height: 32, borderRadius: 10, objectFit: 'cover', border: '2px solid var(--border-color)', flexShrink: 0 }}
                                                     />

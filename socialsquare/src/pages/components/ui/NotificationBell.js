@@ -189,7 +189,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                 onMouseLeave={e => e.currentTarget.style.background = n.read ? 'var(--surface-1)' : 'var(--surface-2)'}>
 
                                                 <img
-                                                    src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain')}
+                                                    src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
                                                     alt=""
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -279,7 +279,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                 ) : (
                                     followRequests.map(n => (
                                         <div key={n._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onClick={() => { handleMarkRead(n._id); }}>
-                                            <img src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain')} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} />
+                                            <img src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
                                                     <strong onClick={(e) => { e.stopPropagation(); const id = n.sender?.id || n.sender?._id; if (id) navigate(`/profile/${id}`); }} className="hover:text-indigo-600 transition-colors" style={{ cursor: 'pointer' }}>{n.sender?.fullname}</strong> {getNotificationText(n)}

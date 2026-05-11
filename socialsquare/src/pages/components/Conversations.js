@@ -327,7 +327,7 @@ const Conversations = () => {
                                     className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 relative z-10 ${isActive ? 'ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
                                     onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
                                     <div className="relative flex-shrink-0">
-                                        <img src={other.profilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
+                                        <img src={other.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
                                         {isOnline(other._id) && (
                                             <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm" />
                                         )}
@@ -369,7 +369,7 @@ const Conversations = () => {
                                         <i className="pi pi-chevron-left text-lg"></i>
                                     </button>
                                     <div className="relative">
-                                        <img src={selectedParticipant.profilePicture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
+                                        <img src={selectedParticipant.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
                                         {isOnline(selectedParticipant.userId) && (
                                             <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-950" />
                                         )}
@@ -575,7 +575,7 @@ const Conversations = () => {
                                     setGlobalSearch('');
                                 }}
                             >
-                                <img src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'} className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                                <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform" alt="" />
                                 <div className="flex flex-col">
                                     <div className="font-bold text-sm text-[var(--text-main)]">{u.fullname}</div>
                                     <div className="text-xs text-gray-400">@{u.username}</div>

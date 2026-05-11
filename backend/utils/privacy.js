@@ -1,15 +1,32 @@
 const crypto = require('crypto');
 
+const HMAC_SECRETS = {
+    1: process.env.PRIVACY_HMAC_SECRET || process.env.JWT_SECRET || 'fallback_secret',
+    // 2: process.env.PRIVACY_HMAC_SECRET_OLD // future rotations can be added here
+};
+
 /**
  * Generates a one-way HMAC of a user ID to be used as an ownership token for anonymous posts.
- * This allows the user to claim ownership without storing their real ID in the post document.
+ * This always signs with the latest (version 1) secret.
  */
-function getOwnerToken(userId) {
+function getOwnerToken(userId, version = 1) {
     if (!userId) return null;
-    const secret = process.env.PRIVACY_HMAC_SECRET || process.env.JWT_SECRET || 'fallback_secret';
+    const secret = HMAC_SECRETS[version];
+    if (!secret) return null;
     return crypto.createHmac('sha256', secret)
         .update(userId.toString())
         .digest('hex');
+}
+
+/**
+ * Verifies if a given user ID matches the stored ownerToken by testing against all known secret versions.
+ */
+function verifyOwnerToken(userId, storedToken) {
+    if (!userId || !storedToken) return false;
+    for (const version of Object.keys(HMAC_SECRETS)) {
+        if (getOwnerToken(userId, version) === storedToken) return true;
+    }
+    return false;
 }
 
 /**
@@ -21,7 +38,7 @@ function getOwnerToken(userId) {
  * @param {string|ObjectId} viewerId - The ID of the user viewing the post.
  * @returns {Object} The sanitized post.
  */
-function sanitizePost(post, viewerId = null) {
+function sanitizeAnonymousPost(post, viewerId = null) {
     if (!post) return post;
 
     const viewerIdStr = viewerId ? viewerId.toString() : null;
@@ -33,7 +50,7 @@ function sanitizePost(post, viewerId = null) {
     if (viewerIdStr) {
         if (postUserIdStr === viewerIdStr) {
             isOwner = true;
-        } else if (post.ownerToken && post.ownerToken === getOwnerToken(viewerIdStr)) {
+        } else if (post.ownerToken && verifyOwnerToken(viewerIdStr, post.ownerToken)) {
             // Even if user._id is masked in DB, we can verify ownership via HMAC token
             isOwner = true;
         }
@@ -44,7 +61,7 @@ function sanitizePost(post, viewerId = null) {
         if (post.user && typeof post.user === 'object') {
             post.user._id = "anonymous";
             post.user.fullname = "Anonymous User";
-            post.user.profile_picture = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+            post.user.profile_picture = "https://res.cloudinary.com/dcmrsdydh/image/upload/v1778490037/logo_eyc3at.jpg";
         } else {
             post.user = "anonymous";
         }
@@ -82,7 +99,7 @@ const canViewPost = async (post, requesterId) => {
         const reqIdObj = new mongoose.Types.ObjectId(requesterId);
         if (postUserId && reqIdObj.equals(postUserId)) {
             isOwner = true;
-        } else if (post.isAnonymous && post.ownerToken === getOwnerToken(requesterId)) {
+        } else if (post.isAnonymous && verifyOwnerToken(requesterId, post.ownerToken)) {
             isOwner = true;
         }
     }
@@ -142,9 +159,45 @@ const checkPostPrivacy = async (req, res, next) => {
     }
 };
 
+/**
+ * Fetches the list of private user IDs that the current user is NOT following.
+ * These users' content should be excluded from all public/algorithmic feeds.
+ * Results are cached in Redis for 60 seconds (Risk 2).
+ */
+const getRestrictedUserIds = async (userId) => {
+    if (!userId) return [];
+    const redis = require('../lib/redis');
+    const User = require('../models/User');
+    const cacheKey = `private_users:excl:${userId}`;
+
+    try {
+        const cached = await redis.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const loggedUser = await User.findById(userId).select('following').lean();
+        const followingIds = (loggedUser?.following || []).map(id => id.toString());
+
+        // Find all private users excluding those the user follows (and themselves)
+        const privateUsers = await User.find({
+            isPrivate: true,
+            _id: { $nin: [...followingIds, userId] }
+        }).select('_id').lean();
+        
+        const restrictedIds = privateUsers.map(u => u._id.toString());
+        // Cache with short TTL (1 minute) to balance freshness and performance
+        await redis.set(cacheKey, JSON.stringify(restrictedIds), 'EX', 60);
+        return restrictedIds;
+    } catch (err) {
+        console.error('[getRestrictedUserIds] Error:', err.message);
+        return [];
+    }
+};
+
 module.exports = {
     getOwnerToken,
-    sanitizePost,
+    verifyOwnerToken,
+    sanitizeAnonymousPost,
+    getRestrictedUserIds,
     canViewPost,
     checkPostPrivacy
 };

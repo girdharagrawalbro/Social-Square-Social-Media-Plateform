@@ -144,7 +144,7 @@ const UsersPage = () => {
                                 <div className="flex flex-col items-center">
                                     <div className="relative w-24 h-24 mb-4">
                                         <img
-                                            src={u.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                            src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                             alt={u.fullname}
                                             className="w-full h-full rounded-full object-cover border-4 border-[#808bf5]/10 group-hover:border-[#808bf5]/30 transition-all"
                                         />

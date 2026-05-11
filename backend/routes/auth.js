@@ -131,7 +131,7 @@ router.post('/login', authRateLimiter, [
 
         const user = await User.findOne({ email: identifier.toLowerCase().trim() });
         if (!user || user.deletedAt || !user.password) return res.status(401).json({ error: 'Invalid email or password' });
-        
+
         if (user.isBanned) {
             return res.status(403).json({ error: user.banReason || 'Your account has been banned for violating our community guidelines.' });
         }
@@ -225,6 +225,7 @@ router.post('/login', authRateLimiter, [
             existingSession.userAgent = req.headers['user-agent'] || '';
             existingSession.device = device;
             existingSession.location = location;
+            existingSession.createdAt = new Date(); // Reset hard ceiling on fresh login
             existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
             await existingSession.save();
         } else {
@@ -514,6 +515,7 @@ router.post('/google', async (req, res) => {
             existingSession.userAgent = req.headers['user-agent'] || '';
             existingSession.device = device;
             existingSession.location = location;
+            existingSession.createdAt = new Date(); // Reset hard ceiling on fresh login
             existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
             await existingSession.save();
         } else {
@@ -572,11 +574,24 @@ router.post('/refresh', async (req, res) => {
         const newAccessToken = generateAccessToken(session.userId, session.tokenFamily);
         const newRefreshToken = generateRefreshToken(session.userId, session.tokenFamily);
 
+        // Enforce a hard absolute ceiling of 90 days for any session
+        const MAX_SESSION_LIFETIME = 90 * 24 * 60 * 60 * 1000; // 90 days
+        const hardExpiryTime = session.createdAt.getTime() + MAX_SESSION_LIFETIME;
+
+        if (Date.now() > hardExpiryTime) {
+            return res.status(403).json({ error: 'Session reached absolute maximum lifetime (90 days). Please log in again.' });
+        }
+
+        const newExpiresAt = new Date(Math.min(
+            Date.now() + 30 * 24 * 60 * 60 * 1000,
+            hardExpiryTime
+        ));
+
         await LoginSession.findByIdAndUpdate(session._id, {
             accessToken: hashValue(newAccessToken),
             refreshToken: hashValue(newRefreshToken),
             lastUsedAt: new Date(),
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            expiresAt: newExpiresAt,
         });
 
         setRefreshTokenCookie(res, newRefreshToken);
@@ -800,6 +815,28 @@ router.get('/get', verifyToken, async (req, res) => {
     }
 });
 
+// ─── OWN PROFILE (Token-resolved — Race-condition-free) ───────────────────────
+// No URL params needed. Identity is resolved entirely from the JWT via verifyToken.
+// This is the only endpoint the Profile component should call for the own-profile view.
+router.get('/me', verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const user = await User.findById(userId).select(OWN_USER_EXCLUSIONS).lean();
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        const postCount = await Post.countDocuments({ 'user._id': userId, deletedAt: null });
+
+        return res.status(200).json({
+            ...user,
+            postCount,
+            isOwner: true, // Explicit flag so frontend never needs to infer ownership
+        });
+    } catch (error) {
+        logger.error('[ME] Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 router.get("/other-users", verifyToken, async (req, res) => {
     try {
         const loggedUserId = req.userId;
@@ -864,7 +901,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             following: canSeeDetails ? targetUser.following : [],
             followerCount: targetUser.followersCount || 0,
             followingCount: targetUser.followingCount || 0,
-            postCount: canSeeDetails ? postCount : null,
+            postCount: canSeeDetails ? postCount : "Private",
             isFollowing,
             isBlockedByMe,
             isBlockingMe,
@@ -919,7 +956,7 @@ router.get('/public/profile/:identifier', softVerifyToken, async (req, res) => {
             isPrivate: user.isPrivate,
             followerCount: user.followersCount || 0,
             followingCount: user.followingCount || 0,
-            postCount: canSeeCount ? postCount : null,
+            postCount: canSeeCount ? postCount : "Private",
             level: user.level || 1,
             streak: user.streak || { count: 0 },
             xp: user.xp || 0,
@@ -949,7 +986,7 @@ router.post('/users/details', verifyToken, async (req, res) => {
 
 router.put('/update-profile', verifyToken, async (req, res) => {
     try {
-        const userId = req.userId; 
+        const userId = req.userId;
         const { fullname, username, email, profile_picture, bio, preferredMood, isPrivate } = req.body;
 
         if (username) {
@@ -972,8 +1009,17 @@ router.put('/update-profile', verifyToken, async (req, res) => {
             }
         }
 
+        let privacyWarning = null;
         const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select(OWN_USER_EXCLUSIONS);
         if (!updatedUser) return res.status(404).json({ message: 'User not found.' });
+
+        // If user just switched to private, provide a warning about existing followers (Risk 4)
+        if (updateData.isPrivate === true) {
+            const followerCount = updatedUser.followersCount || 0;
+            if (followerCount > 0) {
+                privacyWarning = `Your account is now private. Note that your ${followerCount} existing followers still have access to your content.`;
+            }
+        }
 
         // ✅ Propagate changes to denormalized collections (Posts, Comments, etc.)
         if (fullname || profile_picture || username) {
@@ -982,7 +1028,10 @@ router.put('/update-profile', verifyToken, async (req, res) => {
             });
         }
 
-        res.status(200).json(updatedUser);
+        res.status(200).json({
+            user: updatedUser,
+            privacyWarning
+        });
     } catch { res.status(500).json({ message: 'Failed to update profile.' }); }
 });
 
@@ -1039,6 +1088,7 @@ router.post('/follow', verifyToken, async (req, res) => {
             return res.status(200).json({
                 _id: followUserId,
                 requested: true,
+                hasPendingRequest: true,
                 isPrivate: true,
                 followerCount: updatedTarget.followersCount || 0,
             });
@@ -1059,6 +1109,8 @@ router.post('/follow', verifyToken, async (req, res) => {
         res.status(200).json({
             _id: followUserId,
             requested: false,
+            hasPendingRequest: false,
+            isFollowing: true,
             followerCount: user.followersCount || 0,
             followingCount: user.followingCount || 0
         });
@@ -1097,27 +1149,32 @@ router.post('/unfollow', verifyToken, async (req, res) => {
     }
 });
 
-// ─── REMOVE FOLLOWER ──────────────────────────────────────────────────────────
+// ─── REMOVE FOLLOWER (PROTECTED) ──────────────────────────────────────────────
+// Allows a user to remove someone from their followers list (silent)
 router.post('/remove-follower', verifyToken, async (req, res) => {
     try {
-        const { userId, followerId } = req.body;
-        const loggedUserId = req.userId;
+        const { followerId } = req.body;
+        const userId = req.userId; // ME
 
-        if (!userId || String(userId) !== String(loggedUserId)) {
-            return res.status(403).json({ message: 'Unauthorized.' });
+        if (!followerId) return res.status(400).json({ message: 'Follower ID required' });
+
+        // 1. Remove follower from MY followers list
+        const me = await User.findByIdAndUpdate(userId, {
+            $pull: { followers: followerId },
+            $inc: { followersCount: -1 }
+        }, { new: true });
+
+        // 2. Remove ME from the other user's following list
+        if (me) {
+            await User.findByIdAndUpdate(followerId, {
+                $pull: { following: userId },
+                $inc: { followingCount: -1 }
+            });
         }
 
-        if (!followerId) return res.status(400).json({ message: 'Follower ID required.' });
-
-        // Remove followerId from userId's followers
-        await User.findByIdAndUpdate(userId, { $pull: { followers: followerId }, $inc: { followersCount: -1 } });
-        // Remove userId from followerId's following
-        await User.findByIdAndUpdate(followerId, { $pull: { following: userId }, $inc: { followingCount: -1 } });
-
-        res.status(200).json({ message: 'Follower removed' });
+        res.status(200).json({ message: 'Follower removed', followerCount: me?.followersCount || 0 });
     } catch (error) {
-        console.error('[REMOVE-FOLLOWER]', error);
-        res.status(500).json({ message: 'Failed to remove follower.' });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -1176,7 +1233,11 @@ router.post('/follow-request/cancel', verifyToken, async (req, res) => {
             'sender.id': loggedUserId,
             type: 'follow_request'
         });
-        res.status(200).json({ message: 'Request cancelled' });
+        res.status(200).json({
+            message: 'Request cancelled',
+            hasPendingRequest: false,
+            requested: false
+        });
     } catch { res.status(500).json({ message: 'Failed to cancel request' }); }
 });
 
@@ -1201,32 +1262,7 @@ router.post('/follow-request/decline', verifyToken, async (req, res) => {
     } catch { res.status(500).json({ message: 'Failed to decline request' }); }
 });
 
-// ─── REMOVE FOLLOWER (PROTECTED) ──────────────────────────────────────────────
-// Allows a user to remove someone from their followers list (silent)
-router.post('/remove-follower', verifyToken, async (req, res) => {
-    try {
-        const { followerId } = req.body;
-        const userId = req.userId; // ME
 
-        if (!followerId) return res.status(400).json({ message: 'Follower ID required' });
-
-        // 1. Remove follower from MY followers list
-        const me = await User.findByIdAndUpdate(userId, {
-            $pull: { followers: followerId },
-            $inc: { followersCount: -1 }
-        }, { new: true });
-
-        // 2. Remove ME from the other user's following list
-        await User.findByIdAndUpdate(followerId, {
-            $pull: { following: userId },
-            $inc: { followingCount: -1 }
-        });
-
-        res.status(200).json({ message: 'Follower removed', followerCount: me.followersCount });
-    } catch (error) {
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
 
 router.get('/user/:id', verifyToken, async (req, res) => {
     try {
@@ -1309,7 +1345,7 @@ router.get('/followers/:userId', verifyToken, async (req, res) => {
         // but we can optimize by only selecting the slice in the query if we don't need the whole array for index lookup)
         // However, since we need to find the index of the cursor, we might still need the whole array unless we use a different cursor strategy.
         // For now, let's keep the slice logic but make it more explicit.
-        
+
         const paginatedIds = totalFollowers.slice(startIndex, startIndex + parsedLimit);
         const hasMore = startIndex + parsedLimit < totalFollowers.length;
         const nextCursor = hasMore ? paginatedIds[paginatedIds.length - 1] : null;
@@ -1419,18 +1455,25 @@ router.all("/search", async (req, res) => {
             return acc;
         }, {});
 
-        const usersWithCounts = userResults.map(u => ({
-            _id: u._id,
-            fullname: u.fullname,
-            username: u.username,
-            profile_picture: u.profile_picture,
-            isVerified: u.isVerified,
-            creatorTier: u.creatorTier,
-            followerCount: u.followersCount || 0,
-            followingCount: u.followingCount || 0,
-            postCount: u.postsCount || 0,
-            hasPendingRequest: (u.followRequests || []).some(id => id.toString() === requesterId?.toString())
-        }));
+        const usersWithCounts = userResults.map(u => {
+            const isOwner = requesterId && requesterId.toString() === u._id.toString();
+            const isFollower = requesterId && (u.followers || []).some(id => id.toString() === requesterId.toString());
+            const canSeeCount = !u.isPrivate || isOwner || isFollower;
+
+            return {
+                _id: u._id,
+                fullname: u.fullname,
+                username: u.username,
+                profile_picture: u.profile_picture,
+                isVerified: u.isVerified,
+                creatorTier: u.creatorTier,
+                followerCount: u.followersCount || 0,
+                followingCount: u.followingCount || 0,
+                postCount: canSeeCount ? (u.postsCount || 0) : "Private", // Fix Risk 1
+                isPrivate: u.isPrivate,
+                hasPendingRequest: (u.followRequests || []).some(id => id.toString() === requesterId?.toString())
+            };
+        });
 
         const postResults = await Post.find({ category: { $regex: escapedQuery, $options: "i" } }).limit(20).lean();
 
@@ -1607,30 +1650,28 @@ router.get('/analytics/:userId', verifyToken, async (req, res) => {
 });
 
 
-// ─── REMOVE FOLLOWER (PROTECTED) ───────────────────────────────────────────────
-router.post('/remove-follower', verifyToken, async (req, res) => {
+// ─── GET FOLLOW REQUESTS (PROTECTED) ─────────────────────────────────────────
+router.get('/follow-requests', verifyToken, async (req, res) => {
     try {
-        const { followerId } = req.body;
-        const userId = req.userId;
+        const user = await User.findById(req.userId).populate('followRequests.userId', 'fullname username profile_picture');
+        if (!user) return res.status(404).json({ message: 'User not found' });
 
-        if (!followerId) return res.status(400).json({ error: 'Follower ID required' });
+        // Filter out requests older than 30 days (Risk 3: Expiry)
+        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const validRequests = (user.followRequests || []).filter(req => {
+            return (now - new Date(req.requestedAt).getTime()) < THIRTY_DAYS;
+        });
 
-        // Remove follower from user's list
-        const user = await User.findByIdAndUpdate(
-            userId,
-            { $pull: { followers: followerId }, $inc: { followersCount: -1 } },
-            { new: true }
-        );
+        // Optionally update the DB to remove expired ones (lazy cleanup)
+        if (validRequests.length !== user.followRequests.length) {
+            user.followRequests = validRequests;
+            await user.save();
+        }
 
-        // Remove user from follower's following list
-        await User.findByIdAndUpdate(
-            followerId,
-            { $pull: { following: userId }, $inc: { followingCount: -1 } }
-        );
-
-        res.status(200).json({ message: 'Follower removed', followersCount: user.followersCount });
+        res.status(200).json(validRequests);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 

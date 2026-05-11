@@ -4,7 +4,8 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import queryClient from './queryClient';
 import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
@@ -64,12 +65,7 @@ const PageLoader = () => (
     </div>
 );
 
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: { staleTime: 1000 * 60 * 2, retry: 1, refetchOnWindowFocus: false },
-        mutations: { retry: 0 },
-    },
-});
+
 
 function AppInit() {
     const navigate = useNavigate();
@@ -246,7 +242,7 @@ function AppInit() {
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid var(--primary)' }}>
                             <img
-                                src={sender?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                src={sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                 alt=""
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
@@ -299,7 +295,7 @@ function AppInit() {
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid #ff4b2b' }}>
                             <img
-                                src={storyUser?.profile_picture || 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain'}
+                                src={storyUser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                 alt=""
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
@@ -505,6 +501,7 @@ function App() {
                                             <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
                                             <Route path="/sessions/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
                                             <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
+                                            <Route path="/me" element={<MainLayout><ProfilePage /></MainLayout>} />
                                             <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
                                             <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />
                                             <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />

@@ -19,7 +19,7 @@ const jwt = require('jsonwebtoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
-const { getOwnerToken, sanitizePost } = require('../utils/privacy');
+const { getOwnerToken, verifyOwnerToken, sanitizeAnonymousPost } = require('../utils/privacy');
 
 const router = express.Router();
 const ANONYMOUS_USER_ID = "600000000000000000000000"; // Constant dummy ID for anonymous posts
@@ -122,6 +122,22 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
 
         if (!loggedUserId || !category) return res.status(400).json({ message: "loggedUserId and category are required." });
 
+        // 🛡️ Risk 3: Rate Limit Check (Moved to top to prevent DB bloat)
+        if (isAnonymous) {
+            const rateLimitKey = `rl:confession:${loggedUserId}`;
+            const confessionCount = await redis.get(rateLimitKey);
+            if (confessionCount && parseInt(confessionCount) >= 5) {
+                return res.status(429).json({ message: "Confession limit reached (5 per hour). Please try again later." });
+            }
+
+            // Increment or set with 1 hour TTL
+            if (!confessionCount) {
+                await redis.set(rateLimitKey, '1', 'EX', 3600);
+            } else {
+                await redis.incr(rateLimitKey);
+            }
+        }
+
         const userDetails = await User.findById(loggedUserId).select('username fullname profile_picture followers');
         if (!userDetails) return res.status(404).json({ message: "User not found." });
 
@@ -140,7 +156,7 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
                 ? {
                     _id: ANONYMOUS_USER_ID,
                     fullname: 'Anonymous',
-                    profile_picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+                    profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778490037/logo_eyc3at.jpg'
                 }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             location: location || {}, music: music || {},
@@ -155,7 +171,8 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             isAiGenerated: !!isAiGenerated,
             groupId: groupId || null,
             poll: poll || null,
-            authorId: loggedUserId // Track real author
+            // 🛡️ Risk 1: Never store real authorId for anonymous posts to prevent deanonymization
+            authorId: isAnonymous ? null : loggedUserId
         });
         await newPost.save();
         await User.findByIdAndUpdate(loggedUserId, { $inc: { postsCount: 1 } });
@@ -190,20 +207,6 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
         // Logic for followers' feed and notifications moved to postSubscriber (via NATS posts.created event)
 
         if (isAnonymous) {
-            // Rate Limit Check: 5 confessions per hour
-            const rateLimitKey = `rl:confession:${loggedUserId}`;
-            const confessionCount = await redis.get(rateLimitKey);
-            if (confessionCount && parseInt(confessionCount) >= 5) {
-                return res.status(429).json({ message: "Confession limit reached (5 per hour). Please try again later." });
-            }
-
-            // Increment or set with 1 hour TTL
-            if (!confessionCount) {
-                await redis.set(rateLimitKey, '1', 'EX', 3600);
-            } else {
-                await redis.incr(rateLimitKey);
-            }
-
             if (_io) {
                 // Room-based emit: only users viewing confessions tab receive this
                 _io.to('confessions').emit('newConfessionPost', newPost);
@@ -321,17 +324,23 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
     try {
         const { caption, category } = req.body;
         const userId = req.userId;
-        const post = await Post.findById(req.params.postId).select('+ownerToken');
-        if (!post) return res.status(404).json({ message: "Post not found." });
+        // Ensure we fetch with authorId and ownerToken for authorization, and check deletedAt
+        const post = await Post.findOne({ _id: req.params.postId, deletedAt: null }).select('+ownerToken +authorId');
+        if (!post) return res.status(404).json({ message: "Post not found or already deleted." });
 
+        const postUserId = post.user?._id || post.user;
         let isOwner = false;
         if (post.isAnonymous) {
-            isOwner = post.ownerToken === getOwnerToken(userId);
+            isOwner = (post.ownerToken === getOwnerToken(userId)) ||
+                (post.authorId && post.authorId.toString() === userId.toString());
         } else {
-            isOwner = post.user._id.toString() === userId.toString();
+            // Robust check: matches authorId OR the user._id field
+            isOwner = (post.authorId && post.authorId.toString() === userId.toString()) ||
+                (postUserId && postUserId.toString() === userId.toString());
         }
 
         if (!isOwner) return res.status(403).json({ message: "Unauthorized." });
+
         if (caption) post.caption = caption;
         if (category) post.category = category;
         await post.save();
@@ -340,38 +349,63 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
         if (_io) _io.emit('postUpdated', { postId: post._id, caption: post.caption, category: post.category });
 
         res.status(200).json(post);
-    } catch (error) { res.status(500).json({ message: "Internal Server Error" }); }
+    } catch (error) {
+        console.error('Update post error:', error);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
 });
 
 // ─── DELETE (PROTECTED) ──────────────────────────────────────────────────────────
 router.delete("/delete/:postId", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
+        // Find the post first to check ownership, including soft-deleted state
         const post = await Post.findById(req.params.postId).select('+ownerToken +authorId');
-        if (!post) return res.status(404).json({ message: "Post not found." });
+        if (!post || post.deletedAt) return res.status(404).json({ message: "Post not found or already deleted." });
 
         const user = await User.findById(userId).select('isAdmin').lean();
-
-        let isOwner = false;
-        if (post.isAnonymous) {
-            isOwner = post.ownerToken === getOwnerToken(userId);
-        } else {
-            isOwner = post.authorId.toString() === userId.toString();
-        }
-
         const isAdmin = user && user.isAdmin;
 
-        if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
-        await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
+        const postUserId = post.user?._id || post.user;
+        let isOwner = false;
+        if (post.isAnonymous) {
+            isOwner = (post.ownerToken === getOwnerToken(userId)) ||
+                (post.authorId && post.authorId.toString() === userId.toString());
+        } else {
+            isOwner = (post.authorId && post.authorId.toString() === userId.toString()) ||
+                (postUserId && postUserId.toString() === userId.toString());
+        }
 
-        // Decrement real author's post count
-        await User.findByIdAndUpdate(post.authorId, { $inc: { postsCount: -1 } });
+        if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
+
+        // Atomic update to ensure idempotency and prevent race conditions in postsCount decrement
+        // Only update if deletedAt is currently null
+        const result = await Post.findOneAndUpdate(
+            { _id: req.params.postId, deletedAt: null },
+            { $set: { deletedAt: new Date() } },
+            { new: true }
+        );
+
+        if (!result) {
+            // If result is null, it means someone else (or another request) already set deletedAt
+            return res.status(404).json({ message: "Post already deleted." });
+        }
+
+        // Only decrement postsCount if this specific request was the one that performed the soft-delete
+        // For anonymous posts, we use userId since authorId is null (Risk 1)
+        const decrementUserId = (post.isAnonymous && isOwner) ? userId : post.authorId;
+        if (decrementUserId) {
+            await User.findByIdAndUpdate(decrementUserId, { $inc: { postsCount: -1 } });
+        }
 
         // ✅ Notify all users to remove post from feed
         if (_io) _io.emit('postDeleted', { postId: req.params.postId });
 
         res.status(200).json({ message: "Post deleted.", postId: req.params.postId });
-    } catch (error) { res.status(500).json({ message: "Internal Server Error" }); }
+    } catch (error) {
+        console.error('Delete post error:', error);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
 });
 
 // ─── FEED ─────────────────────────────────────────────────────────────────────
@@ -502,7 +536,7 @@ router.get("/", async (req, res) => {
         // NOTE: We no longer add feed posts to the Bloom Filter seen-set.
         // The Bloom Filter is reserved for the Explore/Recommendations engine.
 
-        const finalPosts = resultWithPresence.map(p => sanitizePost(p, userId));
+        const finalPosts = resultWithPresence.map(p => sanitizeAnonymousPost(p, userId));
         res.status(200).json({ posts: finalPosts, nextCursor, hasMore });
     } catch (error) {
         console.error('[Feed] CRITICAL Error:', error.message);
@@ -581,7 +615,7 @@ router.get("/user/:userId", softVerifyToken, async (req, res) => {
         const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
-        const sanitized = result.map(p => sanitizePost(p, viewerId));
+        const sanitized = result.map(p => sanitizeAnonymousPost(p, viewerId));
         res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
     } catch (error) {
         console.error('[Post Route] /user/:userId error:', error);
@@ -696,7 +730,7 @@ router.get("/saved/:userId", verifyToken, async (req, res) => {
         const user = await User.findById(userId).select('savedPosts');
         if (!user) return res.status(404).json({ message: 'User not found.' });
         const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).lean();
-        const sanitized = posts.map(p => sanitizePost(p, req.userId));
+        const sanitized = posts.map(p => sanitizeAnonymousPost(p, req.userId));
         res.status(200).json(sanitized);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
@@ -1133,7 +1167,7 @@ router.get("/detail/:postId", softVerifyToken, checkPostPrivacy, async (req, res
             timestamp: Date.now() / 1000,
         });
 
-        const sanitized = sanitizePost(post.toObject(), viewerId);
+        const sanitized = sanitizeAnonymousPost(post.toObject(), viewerId);
         res.status(200).json(sanitized);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
@@ -1161,7 +1195,7 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
             user: {
                 _id: null, // never reveal real _id
                 fullname: 'Anonymous',
-                profile_picture: 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain',
+                profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg',
             },
         }));
 
@@ -1320,7 +1354,7 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
             return p;
         });
 
-        const finalPosts = resultWithPresence.map(p => sanitizePost(p, viewerId));
+        const finalPosts = resultWithPresence.map(p => sanitizeAnonymousPost(p, viewerId));
         res.status(200).json({
             posts: finalPosts,
             nextCursor,

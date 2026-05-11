@@ -107,17 +107,19 @@ async function getPersonalizedTrending(userId) {
     }
 }
 
-async function getPersonalizedSearch(userId, q) {
+async function getPersonalizedSearch(userId, q, restrictedIds = []) {
     try {
         if (!q) return [];
-        // Basic keyword search
+        // Basic keyword search with privacy filter
         return await Post.find({
             $or: [
                 { caption: { $regex: q, $options: 'i' } },
                 { category: { $regex: q, $options: 'i' } },
                 { tags: { $in: [new RegExp(q, 'i')] } }
             ],
-            isAnonymous: { $ne: true }
+            "user._id": { $nin: restrictedIds },
+            isAnonymous: { $ne: true },
+            deletedAt: null
         }).sort({ createdAt: -1 }).limit(20).lean();
     } catch (err) {
         console.error("[RecommendationService] getPersonalizedSearch error:", err.message);

@@ -384,7 +384,7 @@ router.post('/generate-and-post', verifyToken, async (req, res) => {
             category: selectedCategory,
             image_urls: [imageUrl],
             user: makeAnonymous
-                ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&pid=ImgDetMain' }
+                ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg' }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             mood,
             isAnonymous: !!makeAnonymous,

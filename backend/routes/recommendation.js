@@ -37,32 +37,9 @@ router.get("/posts", verifyToken, async (req, res) => {
         console.log(`${_tag} [1] ✅ User found — following ${followingIds.length} people`);
 
         // ── Step 2: Private user exclusion list (Redis cached) ───────────────
-        console.log(`${_tag} [2] Loading private user exclusion list...`);
-        const cacheKey = `private_users:excl:${userId}`;
-        let privateUserIds = [];
-        try {
-            const cached = await redis.get(cacheKey);
-            if (cached) {
-                privateUserIds = JSON.parse(cached);
-                console.log(`${_tag} [2] ✅ Private users list from Redis cache — ${privateUserIds.length} excluded`);
-            } else {
-                const privateUsers = await User.find({
-                    isPrivate: true,
-                    _id: { $nin: [...followingIds, userId] }
-                }).select('_id').lean();
-                privateUserIds = privateUsers.map(u => u._id.toString());
-                await redis.set(cacheKey, JSON.stringify(privateUserIds), 'EX', 60);
-                console.log(`${_tag} [2] ✅ Private users fetched from DB — ${privateUserIds.length} excluded, cached for 60s`);
-            }
-        } catch (redisErr) {
-            console.warn(`${_tag} [2] ⚠️ Redis unavailable (${redisErr.message}), falling back to DB query`);
-            const privateUsers = await User.find({
-                isPrivate: true,
-                _id: { $nin: [...followingIds, userId] }
-            }).select('_id').lean();
-            privateUserIds = privateUsers.map(u => u._id.toString());
-            console.log(`${_tag} [2] ✅ Private users (DB fallback) — ${privateUserIds.length} excluded`);
-        }
+        const { getRestrictedUserIds } = require("../utils/privacy");
+        const privateUserIds = await getRestrictedUserIds(userId);
+        console.log(`${_tag} [2] ✅ Restricted users list resolved — ${privateUserIds.length} excluded`);
 
         // ── Step 3: Load user interest vector ────────────────────────────────
         console.log(`${_tag} [3] Loading UserInterest & PostVector models...`);
@@ -218,34 +195,12 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
         const followingIds = (loggedUser?.following || []).map(id => id.toString());
 
         // 2. Resolve Restricted User List (Privacy Filter - Redis cached)
-        const exclCacheKey = `private_users:excl:${userId}`;
-        let restrictedUserIds = [];
-        try {
-            const cachedExcl = await redis.get(exclCacheKey);
-            if (cachedExcl) {
-                restrictedUserIds = JSON.parse(cachedExcl);
-            } else {
-                const privateUsers = await User.find({
-                    isPrivate: true,
-                    _id: { $nin: [...followingIds, userId] }
-                }).select('_id').lean();
-                restrictedUserIds = privateUsers.map(u => u._id.toString());
-                await redis.set(exclCacheKey, JSON.stringify(restrictedUserIds), 'EX', 60);
-            }
-        } catch (redisErr) {
-            console.warn(`${_tag} Redis unavailable for exclusion list:`, redisErr.message);
-            const privateUsers = await User.find({
-                isPrivate: true,
-                _id: { $nin: [...followingIds, userId] }
-            }).select('_id').lean();
-            restrictedUserIds = privateUsers.map(u => u._id.toString());
-        }
+        const { getRestrictedUserIds, canViewPost } = require("../utils/privacy");
+        const restrictedUserIds = await getRestrictedUserIds(userId);
 
         // 3. Determine Privacy Bucket for Result Caching
-        // We also need the target post to check visibility and following status
-        const { canViewPost } = require("../utils/privacy");
         const targetPost = await Post.findById(postId).populate('user._id', 'isPrivate followers').lean();
-        
+
         if (!targetPost) {
             return res.status(404).json({ message: "Post not found" });
         }
@@ -269,11 +224,11 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
             if (cachedResult) {
                 console.log(`${_tag} ✅ Cache hit for bucket: ${privacyBucket}`);
                 const parsed = JSON.parse(cachedResult);
-                return res.json({ 
-                    items: parsed.items, 
-                    method: parsed.method, 
+                return res.json({
+                    items: parsed.items,
+                    method: parsed.method,
                     count: parsed.items.length,
-                    isCached: true 
+                    isCached: true
                 });
             }
         } catch (cacheErr) {
@@ -312,7 +267,8 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
                         $match: {
                             "post._id": { $ne: new mongoose.Types.ObjectId(postId) },
                             "post.user._id": { $nin: restrictedUserIds.map(id => new mongoose.Types.ObjectId(id)) },
-                            "post.isAnonymous": { $ne: true }
+                            "post.isAnonymous": { $ne: true },
+                            "post.deletedAt": null
                         }
                     },
                     { $limit: 15 },
@@ -325,7 +281,8 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
                 const candidates = await Post.find({
                     _id: { $ne: postId },
                     "user._id": { $nin: restrictedUserIds },
-                    isAnonymous: { $ne: true }
+                    isAnonymous: { $ne: true },
+                    deletedAt: null
                 }).sort({ createdAt: -1 }).limit(100).lean();
 
                 const candidateVecs = await PostVector.find({ postId: { $in: candidates.map(c => c._id) } }).lean();
@@ -343,13 +300,13 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
                     }
                     return { ...post, similarity };
                 }).sort((a, b) => b.similarity - a.similarity)
-                  .slice(0, 15);
+                    .slice(0, 15);
             }
         } else {
             // --- KEYWORD FALLBACK PATH ---
             method = 'fallback';
             console.log(`${_tag} ⌨️ Using Keyword Fallback (Category/Tags) for postId=${postId}`);
-            
+
             // Emit metric/log event for monitoring
             logger.info(`similarity_fallback_used`, { postId, category: targetPost.category });
 
@@ -357,6 +314,7 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
                 _id: { $ne: postId },
                 "user._id": { $nin: restrictedUserIds },
                 isAnonymous: { $ne: true },
+                deletedAt: null,
                 $or: targetPost.category
                     ? [{ category: targetPost.category }, { tags: { $in: targetPost.tags || [] } }]
                     : [{}]
@@ -374,11 +332,11 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
             reason = 'insufficient_candidates';
         }
 
-        const responsePayload = { 
-            items: finalItems, 
-            method, 
+        const responsePayload = {
+            items: finalItems,
+            method,
             count: finalItems.length,
-            reason 
+            reason
         };
 
         if (finalItems.length > 0) {
@@ -406,8 +364,13 @@ router.get("/trending", verifyToken, async (req, res) => {
         const loggedUser = await User.findById(userId).select('following').lean();
         const followingIds = (loggedUser?.following || []).map(id => id.toString());
 
+        const { getRestrictedUserIds } = require("../utils/privacy");
+        const restrictedIds = await getRestrictedUserIds(userId);
+
         const posts = await Post.find({
             isAnonymous: { $ne: true },
+            deletedAt: null,
+            "user._id": { $nin: restrictedIds },
             createdAt: { $gte: sevenDaysAgo }
         })
             .sort({ score: -1, createdAt: -1 })
@@ -433,7 +396,11 @@ router.get("/search", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const q = req.query.q || "";
-        const items = await getPersonalizedSearch(userId, q);
+        
+        const { getRestrictedUserIds } = require("../utils/privacy");
+        const restrictedIds = await getRestrictedUserIds(userId);
+        
+        const items = await getPersonalizedSearch(userId, q, restrictedIds);
         res.json({ items });
     } catch (err) {
         console.error('[Recommendation /search]', err);

@@ -5,6 +5,7 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 export const authKeys = {
     users: ['users'],
     userDetails: (ids) => ['users', 'details', ids?.sort().join(',')],
+    ownProfile: ['user', 'me'],                      // Token-resolved — never stale across nav
     userProfile: (userId) => ['user', 'profile', userId],
     followers: (userId) => ['users', 'followers', userId],
     following: (userId) => ['users', 'following', userId],
@@ -16,6 +17,34 @@ export const authKeys = {
     groupDetail: (groupId) => ['groups', groupId],
 };
 
+// ─── OWN PROFILE (/me — Race-condition-free) ──────────────────────────────────
+// Resolved entirely from the JWT. Should only be called when viewingOwnProfile.
+export function useOwnProfile(enabled = true) {
+    return useQuery({
+        queryKey: authKeys.ownProfile,
+        queryFn: async () => {
+            const res = await api.get('/api/auth/me');
+            return res.data;
+        },
+        enabled: !!enabled,
+        staleTime: 1000 * 60 * 2,
+    });
+}
+
+// ─── OTHER USER PROFILE (/other-user/view/:id) ────────────────────────────────
+// Resolved from explicit userId param. Should only be called when NOT viewingOwnProfile.
+export function useOtherUserProfile(userId) {
+    return useQuery({
+        queryKey: authKeys.userProfile(userId),
+        queryFn: async () => {
+            const res = await api.get(`/api/auth/other-user/view/${userId}`);
+            return res.data;
+        },
+        enabled: !!userId,
+        staleTime: 1000 * 60 * 2,
+    });
+}
+
 // ─── PREFETCH HELPERS ─────────────────────────────────────────────────────────
 export function usePrefetchUserProfile() {
     const qc = useQueryClient();
@@ -24,7 +53,7 @@ export function usePrefetchUserProfile() {
         qc.prefetchQuery({
             queryKey: authKeys.userProfile(userId),
             queryFn: async () => {
-                const res = await api.get(`/api/auth/user/${userId}`);
+                const res = await api.get(`/api/auth/other-user/view/${userId}`);
                 return res.data;
             },
             staleTime: 1000 * 60 * 5,
