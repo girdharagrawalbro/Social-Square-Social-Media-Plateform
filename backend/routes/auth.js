@@ -267,7 +267,7 @@ router.post('/login', authRateLimiter, [
 
 // ─── VERIFY OTP ───────────────────────────────────────────────────────────────
 
-router.post('/verify-otp', [
+router.post('/verify-otp', authRateLimiter, [
     body('userId').notEmpty(),
     body('otp').isLength({ min: 6, max: 6 }),
     body('fingerprint').notEmpty(),
@@ -593,15 +593,18 @@ router.post('/refresh', async (req, res) => {
 });
 
 // ─── LOGOUT ───────────────────────────────────────────────────────────────────
-
-router.post('/logout', async (req, res) => {
+router.post('/logout', verifyToken, async (req, res) => {
     try {
         const token = req.cookies?.refreshToken;
         if (token) {
             await LoginSession.findOneAndUpdate(
-                { refreshToken: hashValue(token) },
+                { refreshToken: hashValue(token), userId: req.userId },
                 { isRevoked: true, accessToken: null, refreshToken: null }
             );
+        }
+        // Also revoke current session
+        if (req.sessionId) {
+            await LoginSession.findByIdAndUpdate(req.sessionId, { isRevoked: true, accessToken: null, refreshToken: null });
         }
         clearRefreshTokenCookie(res);
         return res.status(200).json({ message: 'Logged out successfully' });
@@ -690,7 +693,7 @@ router.delete('/sessions/all/revoke', verifyToken, async (req, res) => {
 
 // ─── FORGOT / RESET PASSWORD ──────────────────────────────────────────────────
 
-router.post('/forgot-password', [body('email').isEmail()], async (req, res) => {
+router.post('/forgot-password', authRateLimiter, [body('email').isEmail()], async (req, res) => {
     try {
         const { email } = req.body;
         const user = await User.findOne({ email: email.toLowerCase().trim() });
@@ -707,7 +710,7 @@ router.post('/forgot-password', [body('email').isEmail()], async (req, res) => {
     }
 });
 
-router.post('/reset-password', [body('token').notEmpty(), body('email').isEmail(), body('password').isLength({ min: 6, max: 128 })], async (req, res) => {
+router.post('/reset-password', authRateLimiter, [body('token').notEmpty(), body('email').isEmail(), body('password').isLength({ min: 6, max: 128 })], async (req, res) => {
     try {
         const { token, email, password } = req.body;
         const user = await User.findOne({
@@ -935,6 +938,7 @@ router.post('/users/details', verifyToken, async (req, res) => {
         ids = ids.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
 
         if (!ids.length) return res.status(200).json({ users: [] });
+        if (ids.length > 50) return res.status(400).json({ error: 'Too many IDs. Max 50.' });
         const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture').lean();
         res.status(200).json({ users });
     } catch (e) {
@@ -945,12 +949,8 @@ router.post('/users/details', verifyToken, async (req, res) => {
 
 router.put('/update-profile', verifyToken, async (req, res) => {
     try {
-        const { userId, fullname, username, email, profile_picture, bio, preferredMood, isPrivate } = req.body;
-        const loggedUserId = req.userId;
-
-        if (!userId || String(userId) !== String(loggedUserId)) {
-            return res.status(403).json({ message: 'Unauthorized. You can only update your own profile.' });
-        }
+        const userId = req.userId; 
+        const { fullname, username, email, profile_picture, bio, preferredMood, isPrivate } = req.body;
 
         if (username) {
             const exists = await User.findOne({ username, _id: { $ne: userId } });
@@ -998,12 +998,8 @@ router.put('/mark-welcome-seen', verifyToken, async (req, res) => {
 
 router.post('/follow', verifyToken, async (req, res) => {
     try {
-        const { userId, followUserId } = req.body;
-        const loggedUserId = req.userId;
-
-        if (!userId || String(userId) !== String(loggedUserId)) {
-            return res.status(403).json({ message: 'Unauthorized.' });
-        }
+        const { followUserId } = req.body;
+        const userId = req.userId; // Use userId from token
 
         const targetUser = await User.findById(followUserId).select('isPrivate followers followRequests followersCount');
         if (!targetUser) return res.status(404).json({ message: 'Target user not found' });
@@ -1289,40 +1285,46 @@ router.get('/followers/:userId', verifyToken, async (req, res) => {
         const { limit = 10, cursor } = req.query;
         const parsedLimit = parseInt(limit);
 
-        const targetUser = await User.findById(req.params.userId).select('followers isPrivate');
-        if (!targetUser) return res.status(404).json({ message: 'User not found' });
+        // 1. Get the total count and isPrivate status first
+        const userMeta = await User.findById(req.params.userId).select('followersCount isPrivate followers').lean();
+        if (!userMeta) return res.status(404).json({ message: 'User not found' });
 
         // Privacy check
         const isOwner = req.params.userId.toString() === req.userId.toString();
-        const isFollower = targetUser.followers.some(id => id.toString() === req.userId.toString());
+        // Since we didn't fetch all followers, we need a separate check or use the meta we have
+        const isFollower = (userMeta.followers || []).some(id => id.toString() === req.userId.toString());
 
-        if (targetUser.isPrivate && !isOwner && !isFollower) {
+        if (userMeta.isPrivate && !isOwner && !isFollower) {
             return res.status(403).json({ message: 'This account is private' });
         }
 
-        const followers = targetUser.followers || [];
+        const totalFollowers = userMeta.followers || [];
         let startIndex = 0;
         if (cursor) {
-            const index = followers.findIndex(id => id.toString() === cursor);
+            const index = totalFollowers.findIndex(id => id.toString() === cursor);
             if (index !== -1) startIndex = index + 1;
         }
 
-        const paginatedIds = followers.slice(startIndex, startIndex + parsedLimit);
-        const hasMore = startIndex + parsedLimit < followers.length;
+        // 2. Fetch only the IDs we need using slice (already done via array slice above, 
+        // but we can optimize by only selecting the slice in the query if we don't need the whole array for index lookup)
+        // However, since we need to find the index of the cursor, we might still need the whole array unless we use a different cursor strategy.
+        // For now, let's keep the slice logic but make it more explicit.
+        
+        const paginatedIds = totalFollowers.slice(startIndex, startIndex + parsedLimit);
+        const hasMore = startIndex + parsedLimit < totalFollowers.length;
         const nextCursor = hasMore ? paginatedIds[paginatedIds.length - 1] : null;
 
         const users = await User.find({ _id: { $in: paginatedIds } })
             .select('fullname username profile_picture bio isPrivate followRequests')
             .lean();
 
-        // Maintain array order
         const orderedUsers = paginatedIds.map(id => users.find(u => u._id.toString() === id.toString())).filter(Boolean);
 
         res.status(200).json({
             users: orderedUsers,
             nextCursor,
             hasMore,
-            total: followers.length
+            total: userMeta.followersCount || totalFollowers.length
         });
     } catch (error) {
         res.status(500).json({ message: 'Internal server error' });
@@ -1334,12 +1336,12 @@ router.get('/following/:userId', verifyToken, async (req, res) => {
         const { limit = 10, cursor } = req.query;
         const parsedLimit = parseInt(limit);
 
-        const targetUser = await User.findById(req.params.userId).select('following followers isPrivate');
+        const targetUser = await User.findById(req.params.userId).select('following followers isPrivate').lean();
         if (!targetUser) return res.status(404).json({ message: 'User not found' });
 
         // Privacy check
         const isOwner = req.params.userId.toString() === req.userId.toString();
-        const isFollower = targetUser.followers.some(id => id.toString() === req.userId.toString());
+        const isFollower = (targetUser.followers || []).some(id => id.toString() === req.userId.toString());
 
         if (targetUser.isPrivate && !isOwner && !isFollower) {
             return res.status(403).json({ message: 'This account is private' });
@@ -1360,7 +1362,6 @@ router.get('/following/:userId', verifyToken, async (req, res) => {
             .select('fullname username profile_picture bio isPrivate followRequests')
             .lean();
 
-        // Maintain array order
         const orderedUsers = paginatedIds.map(id => users.find(u => u._id.toString() === id.toString())).filter(Boolean);
 
         res.status(200).json({

@@ -75,6 +75,15 @@ if (!isRedisDisabled) {
             }
             console.log(`[Cleanup] Capped excess read notifications for ${usersToCleanup.length} users. Total deleted: ${totalCapped}`);
 
+            // 3. Expire old follow requests (older than 30 days)
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const User = require('../models/User'); // Lazy load
+            const expiredRequests = await User.updateMany(
+                { 'followRequests.requestedAt': { $lt: thirtyDaysAgo } },
+                { $pull: { followRequests: { requestedAt: { $lt: thirtyDaysAgo } } } }
+            );
+            console.log(`[Cleanup] Expired follow requests in ${expiredRequests.modifiedCount} accounts.`);
+
         } catch (err) {
             console.error('[Cleanup] Error during notification cleanup:', err.message);
         }

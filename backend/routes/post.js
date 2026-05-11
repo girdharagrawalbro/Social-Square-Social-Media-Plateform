@@ -154,7 +154,8 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
             mood: mood || null,
             isAiGenerated: !!isAiGenerated,
             groupId: groupId || null,
-            poll: poll || null
+            poll: poll || null,
+            authorId: loggedUserId // Track real author
         });
         await newPost.save();
         await User.findByIdAndUpdate(loggedUserId, { $inc: { postsCount: 1 } });
@@ -346,7 +347,7 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
 router.delete("/delete/:postId", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        const post = await Post.findById(req.params.postId).select('+ownerToken');
+        const post = await Post.findById(req.params.postId).select('+ownerToken +authorId');
         if (!post) return res.status(404).json({ message: "Post not found." });
 
         const user = await User.findById(userId).select('isAdmin').lean();
@@ -355,14 +356,16 @@ router.delete("/delete/:postId", verifyToken, async (req, res) => {
         if (post.isAnonymous) {
             isOwner = post.ownerToken === getOwnerToken(userId);
         } else {
-            isOwner = post.user._id.toString() === userId.toString();
+            isOwner = post.authorId.toString() === userId.toString();
         }
         
         const isAdmin = user && user.isAdmin;
 
         if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
         await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
-        await User.findByIdAndUpdate(post.user._id, { $inc: { postsCount: -1 } });
+        
+        // Decrement real author's post count
+        await User.findByIdAndUpdate(post.authorId, { $inc: { postsCount: -1 } });
 
         // ✅ Notify all users to remove post from feed
         if (_io) _io.emit('postDeleted', { postId: req.params.postId });

@@ -180,7 +180,12 @@
           "name": "Logout",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/auth/logout",
               "host": [
@@ -419,7 +424,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullname\": \"John Updated\",\n  \"bio\": \"Updated bio here\",\n  \"isPrivate\": false\n}",
+              "raw": "{\n  \"fullname\": \"John Updated\",\n  \"bio\": \"Updated bio here\",\n  \"isPrivate\": false,\n  \"preferredMood\": \"happy\"\n}",
               "options": {
                 "json": {
                   "language": "json"
@@ -633,6 +638,7 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/follow",
+              "description": "Follows a user. If the target is private, creates a follow request.",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -688,7 +694,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"your_user_id\",\n  \"followerId\": \"target_follower_id\"\n}",
+              "raw": "{\n  \"followerId\": \"target_follower_id\"\n}",
               "options": {
                 "json": {
                   "language": "json"
@@ -697,6 +703,7 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/remove-follower",
+              "description": "Silently removes a user from your followers list.",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -720,7 +727,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"your_user_id\",\n  \"requesterId\": \"requester_user_id\"\n}",
+              "raw": "{\n  \"requesterId\": \"requester_user_id\"\n}",
               "options": {
                 "json": {
                   "language": "json"
@@ -753,7 +760,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"userId\": \"your_user_id\",\n  \"requesterId\": \"requester_user_id\"\n}",
+              "raw": "{\n  \"requesterId\": \"requester_user_id\"\n}",
               "options": {
                 "json": {
                   "language": "json"
@@ -818,7 +825,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/auth/followers/:userId",
+              "raw": "{{baseUrl}}/api/auth/followers/:userId?limit=10&cursor=last_id_here",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -827,6 +834,16 @@
                 "auth",
                 "followers",
                 ":userId"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "cursor",
+                  "value": "last_id_here"
+                }
               ],
               "variable": [
                 {
@@ -848,7 +865,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/auth/following/:userId",
+              "raw": "{{baseUrl}}/api/auth/following/:userId?limit=10&cursor=last_id_here",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -857,6 +874,16 @@
                 "auth",
                 "following",
                 ":userId"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "cursor",
+                  "value": "last_id_here"
+                }
               ],
               "variable": [
                 {
@@ -1195,6 +1222,101 @@
                 "api",
                 "post",
                 "create"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/delete/:postId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "delete",
+                ":postId"
+              ],
+              "variable": [
+                {
+                  "key": "postId",
+                  "value": "post_id_here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Panel",
+      "item": [
+        {
+          "name": "Admin: Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "target_user_id"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Delete Post",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/posts/:postId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "posts",
+                ":postId"
+              ],
+              "variable": [
+                {
+                  "key": "postId",
+                  "value": "target_post_id"
+                }
               ]
             }
           }
