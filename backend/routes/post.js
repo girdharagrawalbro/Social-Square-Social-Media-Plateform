@@ -20,6 +20,7 @@ const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
 const { getOwnerToken, verifyOwnerToken, sanitizeAnonymousPost } = require('../utils/privacy');
+const postWriteLimiter = require('../middleware/postWriteLimiter'); // Break circular dependency
 
 const router = express.Router();
 const ANONYMOUS_USER_ID = "600000000000000000000000"; // Constant dummy ID for anonymous posts
@@ -320,21 +321,28 @@ router.get("/collaborate/mine/:userId", verifyToken, async (req, res) => {
 });
 
 // ─── UPDATE (PROTECTED) ──────────────────────────────────────────────────────────
-router.put("/update/:postId", verifyToken, async (req, res) => {
+router.put("/update/:postId", verifyToken, postWriteLimiter, async (req, res) => {
     try {
         const { caption, category } = req.body;
         const userId = req.userId;
-        // Ensure we fetch with authorId and ownerToken for authorization, and check deletedAt
-        const post = await Post.findOne({ _id: req.params.postId, deletedAt: null }).select('+ownerToken +authorId');
-        if (!post) return res.status(404).json({ message: "Post not found or already deleted." });
+
+        // 1. Lightweight fetch to check anonymity state
+        const initialPost = await Post.findOne({ _id: req.params.postId, deletedAt: null }).select('isAnonymous');
+        if (!initialPost) return res.status(404).json({ message: "Post not found or already deleted." });
+
+        // 2. Optimized fetch: only pull ownerToken if actually anonymous
+        const selectFields = initialPost.isAnonymous ? '+ownerToken +authorId' : '+authorId';
+        const post = await Post.findById(req.params.postId).select(selectFields);
 
         const postUserId = post.user?._id || post.user;
         let isOwner = false;
+
         if (post.isAnonymous) {
-            isOwner = (post.ownerToken === getOwnerToken(userId)) ||
+            // ✅ Fix #1: Constant-time comparison (verifyOwnerToken uses timingSafeEqual)
+            isOwner = verifyOwnerToken(userId, post.ownerToken) ||
                 (post.authorId && post.authorId.toString() === userId.toString());
         } else {
-            // Robust check: matches authorId OR the user._id field
+            // ✅ Fix #3: Safe string comparison for ObjectId vs String mismatch
             isOwner = (post.authorId && post.authorId.toString() === userId.toString()) ||
                 (postUserId && postUserId.toString() === userId.toString());
         }
@@ -356,22 +364,30 @@ router.put("/update/:postId", verifyToken, async (req, res) => {
 });
 
 // ─── DELETE (PROTECTED) ──────────────────────────────────────────────────────────
-router.delete("/delete/:postId", verifyToken, async (req, res) => {
+router.delete("/delete/:postId", verifyToken, postWriteLimiter, async (req, res) => {
     try {
         const userId = req.userId;
-        // Find the post first to check ownership, including soft-deleted state
-        const post = await Post.findById(req.params.postId).select('+ownerToken +authorId');
-        if (!post) return res.status(404).json({ message: "Post not found." });
+
+        // 1. Lightweight fetch
+        const initialPost = await Post.findById(req.params.postId).select('isAnonymous');
+        if (!initialPost) return res.status(404).json({ message: "Post not found." });
+
+        // 2. Optimized fetch
+        const selectFields = initialPost.isAnonymous ? '+ownerToken +authorId' : '+authorId';
+        const post = await Post.findById(req.params.postId).select(selectFields);
 
         const user = await User.findById(userId).select('isAdmin').lean();
         const isAdmin = user && user.isAdmin;
 
         const postUserId = post.user?._id || post.user;
         let isOwner = false;
+
         if (post.isAnonymous) {
-            isOwner = (post.ownerToken === getOwnerToken(userId)) ||
+            // ✅ Fix #1: Constant-time comparison
+            isOwner = verifyOwnerToken(userId, post.ownerToken) ||
                 (post.authorId && post.authorId.toString() === userId.toString());
         } else {
+            // ✅ Fix #3: Type-safe check
             isOwner = (post.authorId && post.authorId.toString() === userId.toString()) ||
                 (postUserId && postUserId.toString() === userId.toString());
         }
@@ -1153,7 +1169,6 @@ router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
 // ─── SINGLE POST DETAIL ───────────────────────────────────────────────────────
 router.get("/detail/:postId", softVerifyToken, checkPostPrivacy, async (req, res) => {
     try {
-        const post = req.post;
         const post = req.post;
         const viewerId = req.userId;
         // Wait, checkPostPrivacy currently relies on req.userId being set.
