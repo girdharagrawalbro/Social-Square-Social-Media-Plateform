@@ -67,4 +67,53 @@ async function propagateUserProfileUpdate(userId, updateData) {
     }
 }
 
-module.exports = { propagateUserProfileUpdate };
+/**
+ * Handles cleanup when a user is deleted.
+ * Removes them from all social lists (followers/following) and updates counts.
+ * @param {string} userId - The ID of the deleted user.
+ */
+async function propagateUserDeletion(userId) {
+    try {
+        const User = require('../models/User'); // Lazy load to avoid circular dependency
+        
+        // 1. Find users who are following this deleted user
+        // We need to decrement their followingCount
+        await User.updateMany(
+            { following: userId },
+            { $pull: { following: userId }, $inc: { followingCount: -1 } }
+        );
+
+        // 2. Find users who are followed by this deleted user
+        // We need to decrement their followersCount
+        await User.updateMany(
+            { followers: userId },
+            { $pull: { followers: userId }, $inc: { followersCount: -1 } }
+        );
+
+        // 3. Remove from blockedUsers, mutedUsers, dismissedUsers
+        await User.updateMany(
+            { $or: [
+                { blockedUsers: userId },
+                { mutedUsers: userId },
+                { dismissedUsers: userId }
+            ]},
+            { $pull: { 
+                blockedUsers: userId,
+                mutedUsers: userId,
+                dismissedUsers: userId
+            }}
+        );
+
+        // 4. Remove from followRequests
+        await User.updateMany(
+            { 'followRequests.userId': userId },
+            { $pull: { followRequests: { userId: userId } } }
+        );
+
+        logger.info(`[Deletion] Cleanup propagation completed for user ${userId}`);
+    } catch (err) {
+        logger.error(`[Deletion] Propagation error for user ${userId}: ${err.message}`);
+    }
+}
+
+module.exports = { propagateUserProfileUpdate, propagateUserDeletion };

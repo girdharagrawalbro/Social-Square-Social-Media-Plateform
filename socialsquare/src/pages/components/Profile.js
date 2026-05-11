@@ -88,16 +88,20 @@ const Profile = ({ userId }) => {
 
     const loggeduser = useAuthStore(s => s.user);
     const initialized = useAuthStore(s => s.initialized);
+    const getUserIdFromToken = useAuthStore(s => s.getUserIdFromToken);
+    
     const isLoggedOut = initialized && !loggeduser?._id;
+
+    // Determine whose profile to show
+    // Use token-based fallback to prevent race conditions during hydration
+    const currentUserId = loggeduser?._id || getUserIdFromToken();
+    const viewingOwnProfile = !userId || (currentUserId && currentUserId?.toString() === userId?.toString());
+    const profileId = userId || currentUserId;
 
     const { mutate: blockUserMut } = useBlockUser();
     const { mutate: unblockUserMut } = useUnblockUser();
     const { mutate: muteUserMut } = useMuteUser();
     const { mutate: unmuteUserMut } = useUnmuteUser();
-
-    // Determine whose profile to show
-    const viewingOwnProfile = !userId || loggeduser?._id === userId;
-    const profileId = userId || loggeduser?._id;
 
     // Fetch own posts/saved (Logged In)
     const { 
@@ -106,8 +110,8 @@ const Profile = ({ userId }) => {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage
-    } = useUserPosts((initialized && loggeduser?._id) ? profileId : null);
-    const { data: savedPostsData = [] } = useSavedPosts((initialized && loggeduser?._id && viewingOwnProfile) ? profileId : null);
+    } = useUserPosts((initialized && currentUserId) ? profileId : null);
+    const { data: savedPostsData = [] } = useSavedPosts((initialized && currentUserId && viewingOwnProfile) ? profileId : null);
 
     // Fetch public posts (Logged Out)
     const { data: publicPostsData = [], isLoading: loadingPublicPosts } = usePublicUserPosts((initialized && !loggeduser?._id) ? profileId : null);
@@ -122,7 +126,7 @@ const Profile = ({ userId }) => {
             const res = await api.get(`/api/auth/other-user/view/${profileId}`);
             return res.data;
         },
-        enabled: initialized && !!loggeduser?._id && !viewingOwnProfile && !!profileId,
+        enabled: initialized && !!currentUserId && !viewingOwnProfile && !!profileId,
         staleTime: 1000 * 60 * 2
     });
 
@@ -135,11 +139,23 @@ const Profile = ({ userId }) => {
     const cancelRequestMutation = useCancelFollowRequest();
 
     const displayUser = isLoggedOut ? publicUserProfile : (viewingOwnProfile ? loggeduser : otherUserProfile);
-    const isFollowing = !isLoggedOut && loggeduser?.following?.some(f => f?.toString() === profileId?.toString());
-    const isRequested = !isLoggedOut && (otherUserProfile?.hasPendingRequest || (otherUserProfile?.followRequests?.some(r => r?.toString() === loggeduser?._id?.toString())));
+    
+    // Strict comparison and fallback for isFollowing
+    const isFollowing = !isLoggedOut && (
+        loggeduser?.following?.some(f => f?.toString() === profileId?.toString()) || 
+        otherUserProfile?.isFollowing // fallback from API
+    );
+    
+    const isRequested = !isLoggedOut && (
+        otherUserProfile?.hasPendingRequest || 
+        otherUserProfile?.followRequests?.some(r => r?.toString() === currentUserId?.toString())
+    );
+    
     const isBlockedByMe = !isLoggedOut && loggeduser?.blockedUsers?.some(b => b?.toString() === profileId?.toString());
     const isMuted = !isLoggedOut && loggeduser?.mutedUsers?.some(m => m?.toString() === profileId?.toString());
-    const isPrivateAndNotFollowing = displayUser?.isPrivate && !isFollowing && !viewingOwnProfile && !isBlockedByMe;
+    
+    // The "Gate": Only show private screen if we are SURE it's not our own profile and not following
+    const isPrivateAndNotFollowing = initialized && displayUser?.isPrivate && !isFollowing && !viewingOwnProfile && !isBlockedByMe;
 
     const handleFollow = async () => {
         try {
@@ -225,11 +241,11 @@ const Profile = ({ userId }) => {
         }
     };
 
-    const { data: collabInvites = [] } = useCollabInvites((initialized && loggeduser?._id && viewingOwnProfile) ? profileId : null);
+    const { data: collabInvites = [] } = useCollabInvites((initialized && currentUserId && viewingOwnProfile) ? profileId : null);
 
     if (!initialized) return <SkeletonProfile />;
     if (isLoggedOut && publicUserLoading) return <SkeletonProfile />;
-    if (!isLoggedOut && !viewingOwnProfile && otherUserLoading) return <SkeletonProfile />;
+    if (currentUserId && !viewingOwnProfile && otherUserLoading) return <SkeletonProfile />;
     if (!displayUser) return <div className="text-center p-4">Profile not found</div>;
 
     const pendingCollabCount = collabInvites.length;
