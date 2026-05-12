@@ -27,12 +27,30 @@ const LoginSessionSchema = new mongoose.Schema({
     alertSent: { type: Boolean, default: false },
 
     createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
     lastUsedAt: { type: Date, default: Date.now },
     expiresAt: { type: Date, required: true },
 });
 
-// Auto-delete expired sessions
+// ─── INDEXES ───────────────────────────────────────────────────────────────────
+// Critical: fast lookup on every login and refresh (compound on userId + fingerprint)
+LoginSessionSchema.index({ userId: 1, fingerprint: 1 });
+// Critical: fast revoke-all queries (scoped to a user's active sessions)
+LoginSessionSchema.index({ userId: 1, isRevoked: 1 });
+// Token lookups by the middleware on every authenticated request
 LoginSessionSchema.index({ accessToken: 1 });
+LoginSessionSchema.index({ refreshToken: 1 });
+// TTL index: MongoDB auto-deletes expired sessions at the document level
 LoginSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model('LoginSession', LoginSessionSchema);
+// Auto-set updatedAt on every save/update
+LoginSessionSchema.pre('save', function (next) {
+    this.updatedAt = new Date();
+    next();
+});
+LoginSessionSchema.pre(['updateOne', 'findOneAndUpdate', 'findByIdAndUpdate', 'updateMany'], function (next) {
+    this.set({ updatedAt: new Date() });
+    next();
+});
+
+module.exports = mongoose.model('LoginSession', LoginSessionSchema);

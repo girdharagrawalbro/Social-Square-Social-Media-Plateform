@@ -28,6 +28,63 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_SESSIONS = 10;
+
+// ─── LRU SESSION EVICTION ─────────────────────────────────────────────────────
+// When a user hits the session cap, silently evict their least-recently-used
+// session and notify them by email instead of blocking login.
+async function evictLRUSession(userId, userEmail, userName) {
+    const lru = await LoginSession.findOne({ userId, isRevoked: false })
+        .sort({ lastUsedAt: 1 })
+        .lean();
+    if (!lru) return;
+    await LoginSession.updateOne({ _id: lru._id }, { isRevoked: true });
+    try {
+        await sendEmail({
+            to: userEmail,
+            subject: 'Social Square – A device was signed out',
+            html: `<p>Hi ${userName},</p>
+                   <p>You've reached the maximum number of active sessions. Your oldest device (<strong>${lru.device || 'Unknown device'}</strong>, last used ${new Date(lru.lastUsedAt).toUTCString()}) has been signed out automatically.</p>
+                   <p>If you don't recognise this activity, please <a href="${process.env.CLIENT_URL}/settings/sessions">review your active sessions</a> immediately.</p>`,
+        });
+    } catch (e) {
+        console.warn('[evictLRUSession] Failed to send eviction email:', e.message);
+    }
+}
+
+// ─── PURGE STALE SESSIONS CRON (daily at 03:00) ───────────────────────────────
+// Deletes sessions that are revoked OR expired for more than 7 days.
+// This prevents DB bloat since isRevoked only flips a flag.
+function startSessionCleanupJob() {
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const msUntil3am = (() => {
+        const now = new Date();
+        const next3am = new Date(now);
+        next3am.setHours(3, 0, 0, 0);
+        if (next3am <= now) next3am.setDate(next3am.getDate() + 1);
+        return next3am - now;
+    })();
+
+    setTimeout(async function run() {
+        try {
+            const cutoff = new Date(Date.now() - SEVEN_DAYS);
+            const result = await LoginSession.deleteMany({
+                $or: [
+                    { isRevoked: true, updatedAt: { $lt: cutoff } },
+                    { expiresAt: { $lt: cutoff } },
+                ]
+            });
+            if (result.deletedCount > 0) {
+                console.log(`[SessionCleanup] Purged ${result.deletedCount} stale sessions.`);
+            }
+        } catch (err) {
+            console.error('[SessionCleanup] Error:', err.message);
+        }
+        setTimeout(run, 24 * 60 * 60 * 1000); // repeat every 24 hours
+    }, msUntil3am);
+}
+startSessionCleanupJob();
+
 
 // ✅ Privacy: Standard exclusions for user responses
 // For the logged-in user (OWN), we exclude security tokens but keep email/settings
@@ -189,8 +246,8 @@ router.post('/login', authRateLimiter, [
             expiresAt: { $gt: new Date() }
         });
 
-        if (isActivatingNewSession && activeSessionsCount >= 10) {
-            return res.status(403).json({ error: '10 login session exceeded logout first' });
+        if (isActivatingNewSession && activeSessionsCount >= MAX_SESSIONS) {
+            await evictLRUSession(user._id, user.email, user.fullname);
         }
 
         // ── 2FA CHECK ──
@@ -555,32 +612,32 @@ router.post('/refresh', async (req, res) => {
     try {
         const token = req.cookies?.refreshToken;
         const fingerprint = req.headers['x-fingerprint'];
-        if (!token) return res.status(401).json({ error: 'No refresh token' });
-        if (!fingerprint) return res.status(401).json({ error: 'Missing fingerprint' });
+        if (!token) return res.status(401).json({ error: 'No refresh token', code: 'NO_TOKEN' });
+        if (!fingerprint) return res.status(401).json({ error: 'Missing fingerprint', code: 'MISSING_FINGERPRINT' });
 
         const hashedToken = hashValue(token);
         const session = await LoginSession.findOne({ refreshToken: hashedToken });
-        if (!session) return res.status(403).json({ error: 'Session not found' });
+        if (!session) return res.status(401).json({ error: 'Session not found', code: 'SESSION_NOT_FOUND' });
 
-        if (session.isRevoked) return res.status(403).json({ error: 'Session revoked' });
-        if (session.expiresAt < new Date()) return res.status(403).json({ error: 'Session expired' });
+        if (session.isRevoked) return res.status(401).json({ error: 'Session revoked', code: 'SESSION_REVOKED' });
+        if (session.expiresAt < new Date()) return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });
 
         // Fingerprint check
         if (session.fingerprint !== hashValue(fingerprint)) {
             console.warn(`[SECURITY] Fingerprint mismatch for user ${session.userId}`);
-            return res.status(403).json({ error: 'Browser fingerprint mismatch' });
+            return res.status(401).json({ error: 'Browser fingerprint mismatch', code: 'FINGERPRINT_MISMATCH' });
         }
-
-        const newAccessToken = generateAccessToken(session.userId, session.tokenFamily);
-        const newRefreshToken = generateRefreshToken(session.userId, session.tokenFamily);
 
         // Enforce a hard absolute ceiling of 90 days for any session
         const MAX_SESSION_LIFETIME = 90 * 24 * 60 * 60 * 1000; // 90 days
         const hardExpiryTime = session.createdAt.getTime() + MAX_SESSION_LIFETIME;
 
         if (Date.now() > hardExpiryTime) {
-            return res.status(403).json({ error: 'Session reached absolute maximum lifetime (90 days). Please log in again.' });
+            return res.status(401).json({ error: 'Session reached absolute maximum lifetime (90 days). Please log in again.', code: 'HARD_CEILING' });
         }
+
+        const newAccessToken = generateAccessToken(session.userId, session.tokenFamily);
+        const newRefreshToken = generateRefreshToken(session.userId, session.tokenFamily);
 
         const newExpiresAt = new Date(Math.min(
             Date.now() + 30 * 24 * 60 * 60 * 1000,
