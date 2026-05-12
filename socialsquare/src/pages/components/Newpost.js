@@ -74,6 +74,7 @@ const NewPost = ({ visible, onHide }) => {
     const [aiPrompt, setAiPrompt] = useState("");
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
+    const [aiLimits, setAiLimits] = useState({ text: 2, image: 2 });
 
     // Polls
     const [pollOptions, setPollOptions] = useState(['', '']);
@@ -174,13 +175,32 @@ const NewPost = ({ visible, onHide }) => {
     };
 
 
+    const fetchAiLimits = async () => {
+        try {
+            const res = await api.get('/api/ai/limit');
+            setAiLimits({
+                text: res.data.text.remaining,
+                image: res.data.image.remaining
+            });
+        } catch (err) { console.error('Failed to fetch AI limits:', err); }
+    };
+
+    useEffect(() => {
+        if (openFeaturePanel === 'ai') {
+            fetchAiLimits();
+        }
+    }, [openFeaturePanel]);
+
     const generateAiText = async () => {
         if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
         setIsGeneratingAi(true);
         try {
-            const res = await api.post(`/api/ai/generate-text`, { prompt: aiPrompt });
+            const refinedPrompt = `You are a social media expert. Write a short, engaging, and highly creative caption for: "${aiPrompt}". 
+            IMPORTANT: Return ONLY the caption text. Do not ask questions. Do not use hashtags. Do not use markdown.`;
+            const res = await api.post(`/api/ai/generate-text`, { prompt: refinedPrompt });
             setFormData(p => ({ ...p, caption: res.data.text }));
             setUsedAiForThisPost(true);
+            setAiLimits(prev => ({ ...prev, text: res.data.remaining }));
             toast.success(`✨ Text generated`);
         } catch (err) { toast.error(err.response?.data?.error || 'Failed to generate text'); }
         finally { setIsGeneratingAi(false); }
@@ -191,10 +211,12 @@ const NewPost = ({ visible, onHide }) => {
         if (images.length >= 5) { toast.error('Max 5 images reached'); return; }
         setIsGeneratingAi(true);
         try {
-            const res = await api.post(`/api/ai/generate-image`, { prompt: aiPrompt });
+            const refinedPrompt = `A high-quality, cinematic, professional social media photography of: ${aiPrompt}. 8k resolution, highly detailed.`;
+            const res = await api.post(`/api/ai/generate-image`, { prompt: refinedPrompt });
             const newImg = { id: Math.random().toString(36).slice(2), preview: res.data.imageUrl, url: res.data.imageUrl, uploaded: true, progress: 100 };
             setImages(prev => [...prev, newImg]);
             setUsedAiForThisPost(true);
+            setAiLimits(prev => ({ ...prev, image: res.data.remaining }));
             toast.success(`✨ Image generated`);
             return newImg;
         } catch (err) {
@@ -206,13 +228,42 @@ const NewPost = ({ visible, onHide }) => {
 
     const handleAiMagicPost = async () => {
         if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
+        
+        // Reset for fresh generation
+        setFormData(p => ({ ...p, caption: "" }));
+        setImages([]);
         setIsGeneratingAi(true);
+
         try {
-            // Generate both text and image for the "Magic Post"
-            const [textRes, imgRes] = await Promise.all([
-                api.post(`/api/ai/generate-text`, { prompt: aiPrompt }),
-                api.post(`/api/ai/generate-image`, { prompt: aiPrompt })
-            ]);
+            const refinedTextPrompt = `You are a professional content creator. Generate a compelling social media caption for: "${aiPrompt}". 
+            Return ONLY the caption text. No hashtags. No conversational filler.`;
+            const refinedImgPrompt = `A professional, cinematic social media photograph: ${aiPrompt}. 8k, highly detailed, realistic composition.`;
+
+            // Start all tasks
+            const textPromise = api.post(`/api/ai/generate-text`, { prompt: refinedTextPrompt });
+            const imgPromise = api.post(`/api/ai/generate-image`, { prompt: refinedImgPrompt });
+            const metaPromise = api.post(`/api/ai/suggest-meta`, { prompt: aiPrompt });
+
+            // 1. Handle Text & Meta as soon as they arrive (usually faster)
+            const [textRes, metaRes] = await Promise.all([textPromise, metaPromise]);
+            
+            const suggestedCaption = textRes.data.text;
+            const hashtags = metaRes.data.hashtags || [];
+            const category = metaRes.data.category || 'Default';
+
+            setFormData(p => ({
+                ...p,
+                caption: hashtags.length > 0 ? `${suggestedCaption}\n\n${hashtags.join(' ')}` : suggestedCaption,
+                category
+            }));
+            
+            setAiLimits(prev => ({
+                ...prev,
+                text: textRes.data.textRemaining ?? prev.text
+            }));
+
+            // 2. Wait for image (takes longer)
+            const imgRes = await imgPromise;
 
             const newImg = {
                 id: Math.random().toString(36).slice(2),
@@ -223,10 +274,18 @@ const NewPost = ({ visible, onHide }) => {
             };
 
             setImages([newImg]);
-            setFormData(p => ({ ...p, caption: textRes.data.text }));
             setUsedAiForThisPost(true);
-            setStep(STEPS.FINALIZE);
-            toast.success(`✨ AI Magic Post ready!`);
+            setAiLimits(prev => ({
+                ...prev,
+                image: imgRes.data.imageRemaining ?? prev.image
+            }));
+
+            // Short delay so user can see the generated results before auto-switch
+            setTimeout(() => {
+                setStep(STEPS.FINALIZE);
+                toast.success(`✨ AI Magic Post ready!`);
+            }, 1500);
+
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to generate content');
         } finally {
@@ -340,7 +399,7 @@ const NewPost = ({ visible, onHide }) => {
 
             if (image.webPath) {
                 const file = await urlToFile(image.webPath, `captured-${Date.now()}.jpg`, 'image/jpeg');
-                
+
                 setImages([]);
                 setCroppingState({
                     active: true,
@@ -565,7 +624,7 @@ const NewPost = ({ visible, onHide }) => {
         const title = "Create new post";
 
         return (
-            <div className="flex items-center justify-between px-2 py-2 border-b border-[var(--border-color)]">
+            <div className="flex items-center justify-between px-2 py-2 border-b  border-[var(--border-color)]">
                 <div className="flex items-center gap-3">
                     {step !== STEPS.SELECT && (
                         <button onClick={() => setStep(STEPS.SELECT)} className="text-[var(--text-main)] text-xl p-1 hover:bg-[var(--surface-2)] rounded-full transition">
@@ -589,7 +648,7 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     const renderSelect = () => (
-        <div className="flex flex-col items-center justify-center p-8 sm:p-12 min-h-[400px] text-center gap-6">
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 min-h-[500px] text-center gap-6">
             <div className="text-6xl text-[var(--text-sub)] opacity-40">
                 <i className="pi pi-images"></i>
             </div>
@@ -598,112 +657,62 @@ const NewPost = ({ visible, onHide }) => {
                 <p className="text-xs text-[var(--text-sub)]">Share photos and videos with your friends</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-[400px]">
-                {Capacitor.isNativePlatform() ? (
-                    <>
+            <div className="flex flex-col gap-3 w-full max-w-[400px]">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    {Capacitor.isNativePlatform() ? (
+                        <>
+                            <button
+                                onClick={() => handleNativeCapture(CameraSource.Camera)}
+                                className="flex-1 bg-[#6366f1] text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                            >
+                                <i className="pi pi-camera text-sm"></i>
+                                Take Photo
+                            </button>
+                            <button
+                                onClick={() => handleNativeCapture(CameraSource.Photos)}
+                                className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
+                            >
+                                <i className="pi pi-images text-sm"></i>
+                                Gallery
+                            </button>
+                        </>
+                    ) : (
                         <button
-                            onClick={() => handleNativeCapture(CameraSource.Camera)}
-                            className="flex-1 bg-[#6366f1] text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
-                        >
-                            <i className="pi pi-camera text-sm"></i>
-                            Take Photo
-                        </button>
-                        <button
-                            onClick={() => handleNativeCapture(CameraSource.Photos)}
+                            onClick={() => fileInputRef.current?.click()}
                             className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
                         >
-                            <i className="pi pi-images text-sm"></i>
-                            Gallery
+                            <i className="pi pi-upload text-sm"></i>
+                            Upload Media
                         </button>
-                    </>
-                ) : (
+                    )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
                     <button
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => setStep(STEPS.FINALIZE)}
                         className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
                     >
-                        <i className="pi pi-upload text-sm"></i>
-                        Upload Media
+                        <i className="pi pi-pencil text-sm"></i>
+                        Text Post
                     </button>
-                )}
+                    <button
+                        onClick={() => setStep(STEPS.AI_PROMPT)}
+                        className="flex-1 bg-gradient-to-tr from-indigo-500 to-purple-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                    >
+                        <i className="pi pi-sparkles text-sm"></i>
+                        AI Magic Post
+                    </button>
+                </div>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
         </div>
     );
 
     const renderAiPrompt = () => (
-        <div className="flex flex-col items-center justify-center p-8 sm:p-12 min-h-[400px] text-center gap-8 animate-in fade-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-3xl shadow-xl shadow-indigo-500/20">
-                ✨
-            </div>
-            <div className="flex flex-col gap-2 max-w-[400px]">
-                <h3 className="text-2xl text-[var(--text-main)] font-bold m-0">What's on your mind?</h3>
-                <p className="text-sm text-[var(--text-sub)]">Describe the post you want to create, and our AI will generate both a stunning image and a perfect caption for you.</p>
-            </div>
-
-            <div className="w-full max-w-[500px] flex flex-col gap-4">
-                <textarea
-                    autoFocus
-                    placeholder="e.g. A futuristic city in the clouds with glowing neon lights, cinematic style..."
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl p-4 text-sm text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner resize-none min-h-[120px]"
-                />
-
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setStep(STEPS.SELECT)}
-                        disabled={isGeneratingAi}
-                        className="flex-1 py-3 px-4 rounded-xl font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition disabled:opacity-50"
-                    >
-                        Back
-                    </button>
-                    <button
-                        onClick={handleAiMagicPost}
-                        disabled={isGeneratingAi || !aiPrompt.trim()}
-                        className="flex-[2] bg-[#6366f1] text-white py-3 px-6 rounded-xl font-bold hover:bg-[#4f46e5] transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 disabled:opacity-50"
-                    >
-                        {isGeneratingAi ? (
-                            <>
-                                <i className="pi pi-spin pi-spinner text-sm"></i>
-                                Creating Magic...
-                            </>
-                        ) : (
-                            <>
-                                <i className="pi pi-sparkles text-sm"></i>
-                                Generate Magic Post
-                            </>
-                        )}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderFinalize = () => (
-        <div className="flex flex-col md:flex-row w-full h-[calc(100vh-120px)] md:h-[calc(90vh-45px)] md:max-h-[600px]">
-            {/* Left: Media Preview */}
-            <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative flex-shrink-0">
-                <div className="flex-1 flex h-[40vh] items-center justify-center w-full relative">
-                    {video ? (
-                        <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
-                    ) : (
-                        images.length > 0 && <img src={images[0]?.preview} key={images[0]?.preview} className="w-full h-full object-contain" alt="preview" />
-                    )}
-                </div>
-                {images.length > 1 && (
-                    <div className="w-full p-2 bg-black/40 backdrop-blur-md flex gap-2 overflow-x-auto custom-scrollbar no-scrollbar border-t border-white/10">
-                        {images.map((img, idx) => (
-                            <div key={img.id} className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${idx === 0 ? 'border-[#6366f1]' : 'border-transparent opacity-60'}`}>
-                                <img src={img.preview} className="w-full h-full object-cover" alt="" />
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Right: metadata & controls */}
-            <div className="w-full md:w-[40%] flex flex-col bg-[var(--surface-1)] border-l border-[var(--border-color)] overflow-y-auto custom-scrollbar flex-1">
+        <div className="flex flex-col items-center p-0 h-full bg-[var(--surface-1)] overflow-y-auto custom-scrollbar">
+            <div className="w-full flex flex-col bg-[var(--surface-1)] min-h-full">
                 <div className="p-4 flex flex-col gap-4">
+                    {/* User Header */}
                     <div className="flex items-center gap-3">
                         <img src={loggeduser?.profile_picture} className="w-9 h-9 rounded-full object-cover border border-[var(--border-color)]" alt="" />
                         <div className="flex flex-col">
@@ -712,23 +721,66 @@ const NewPost = ({ visible, onHide }) => {
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                        <textarea
-                            ref={captionRef}
-                            placeholder="Write a caption..."
-                            value={formData.caption}
-                            onChange={handleChange}
-                            name="caption"
-                            rows={3}
-                            className="w-full bg-transparent text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2"
-                        />
-                        <div className="flex justify-end px-2">
-                            <span className="text-[10px] text-[var(--text-sub)] font-medium">{formData.caption.length}/2,200</span>
+                    {/* AI Prompt Input Area */}
+                    <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-center px-1">
+                            <span className="text-[10px] font-bold text-[#6366f1] uppercase tracking-wider">AI Generation Prompt</span>
+                            <span className="text-[9px] font-bold text-[var(--text-sub)] bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
+                                Remaining: {aiLimits.text} Text / {aiLimits.image} Image
+                            </span>
                         </div>
-                        <EmojiSelector onSelect={handleEmojiSelect} />
+                        <textarea
+                            autoFocus
+                            placeholder="Describe your post idea... (e.g. A futuristic city in the clouds, cinematic style)"
+                            value={aiPrompt}
+                            onChange={(e) => setAiPrompt(e.target.value)}
+                            className="w-full bg-transparent text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2 min-h-[10px]"
+                        />
+
+                        {/* AI Image Preview Area */}
+                        {(isGeneratingAi || images.length > 0) && (
+                            <div className="mt-2 mb-3 relative rounded-xl overflow-hidden border border-indigo-500/20 aspect-video bg-indigo-500/5 group shadow-inner">
+                                {images.length > 0 ? (
+                                    <img 
+                                        src={images[0].preview} 
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                                        alt="AI Generated" 
+                                    />
+                                ) : (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                        <div className="w-8 h-8 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin"></div>
+                                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest animate-pulse">Painting your vision...</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* AI Generated Caption Area */}
+                        {isGeneratingAi && !formData.caption ? (
+                            <div className="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 animate-pulse mb-2">
+                                <div className="h-2 w-16 bg-indigo-500/20 rounded mb-2"></div>
+                                <div className="h-3 w-full bg-indigo-500/10 rounded mb-1.5"></div>
+                                <div className="h-3 w-4/5 bg-indigo-500/10 rounded"></div>
+                            </div>
+                        ) : formData.caption && (
+                            <div className=" p-3 rounded-xl border border-indigo-500/10 animate-in fade-in slide-in-from-top-2 duration-300 mb-2">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">AI Generated Caption</span>
+                                    <span className="text-[8px] text-[var(--text-sub)]">Editable</span>
+                                </div>
+                                <textarea
+                                    value={formData.caption}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, caption: e.target.value }))}
+                                    className="w-full bg-transparent text-[var(--text-main)] text-xs resize-none outline-none border-none leading-relaxed min-h-[60px]"
+                                    placeholder="Reviewing AI caption..."
+                                />
+                            </div>
+                        )}
+                        <EmojiSelector onSelect={(emoji) => setAiPrompt(prev => prev + emoji)} />
                     </div>
 
-                    <div className="flex flex-col gap-0 border-t border-[var(--border-color)] mt-2">
+                    {/* Post Settings */}
+                    <div className="flex flex-col gap-0 border-t border-[var(--border-color)]">
                         {/* Community Picker */}
                         <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
                             <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
@@ -747,15 +799,15 @@ const NewPost = ({ visible, onHide }) => {
                             </select>
                         </div>
 
-                        <button onClick={handleGetLocation} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
+                        <button onClick={handleGetLocation} className="flex items-center justify-between  py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
                             <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                {location.name ? <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i> : <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>}
+                                <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
                                 {location.name || "Add Location"}
                             </span>
                             <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
                         </button>
 
-                        <button onClick={() => togglePanel('collab')} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
+                        <button onClick={() => togglePanel('collab')} className="flex items-center justify-between  py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
                             <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
                                 <i className="pi pi-users text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
                                 {collaborators.length > 0 ? `${collaborators.length} Collaborators` : "Add Collaborators"}
@@ -773,34 +825,14 @@ const NewPost = ({ visible, onHide }) => {
                                         onChange={(e) => handleSearchUsers(e.target.value)}
                                         className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl py-2 pl-8 pr-3 text-[11px] text-[var(--text-main)] outline-none focus:border-[#6366f1]"
                                     />
-                                    {isSearching && <i className="pi pi-spin pi-spinner absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#6366f1]"></i>}
                                 </div>
-
-                                {searchResults.length > 0 && (
-                                    <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] shadow-xl p-1">
-                                        {searchResults.map(user => (
-                                            <div
-                                                key={user._id}
-                                                onClick={() => addCollaborator(user)}
-                                                className="flex items-center gap-2 p-2 hover:bg-[var(--surface-2)] rounded-lg cursor-pointer transition-colors"
-                                            >
-                                                <img src={user.profile_picture} className="w-6 h-6 rounded-full object-cover" alt="" />
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] font-bold text-[var(--text-main)]">{user.fullname}</span>
-                                                    <span className="text-[9px] text-[var(--text-sub)]">@{user.username}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
                                 {collaborators.length > 0 && (
                                     <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border-color)]/30">
                                         {collaborators.map(user => (
-                                            <div key={user._id} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[#6366f1]/30 pl-1 pr-2 py-1 rounded-full animate-in zoom-in-95">
+                                            <div key={user._id} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[#6366f1]/30 pl-1 pr-2 py-1 rounded-full">
                                                 <img src={user.profile_picture} className="w-5 h-5 rounded-full object-cover" alt="" />
                                                 <span className="text-[10px] font-medium text-[var(--text-main)]">{user.username}</span>
-                                                <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500 transition-colors">
+                                                <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500">
                                                     <i className="pi pi-times text-[8px]"></i>
                                                 </button>
                                             </div>
@@ -811,20 +843,20 @@ const NewPost = ({ visible, onHide }) => {
                         )}
 
                         <div className="border-b border-[var(--border-color)]/50">
-                            <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
+                            <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full  py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
                                 <span className="text-sm text-[var(--text-main)] font-medium">Advanced Settings</span>
                                 <i className={`pi pi-chevron-${openFeaturePanel === 'advanced' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
                             </button>
                             {openFeaturePanel === 'advanced' && (
-                                <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-4 animate-in slide-in-from-top-2">
+                                <div className="p-4 bg-[var(--surface-2)]/50 flex flex-col gap-4 animate-in slide-in-from-top-2">
                                     <label className="flex items-center justify-between cursor-pointer group">
                                         <div className="flex flex-col">
                                             <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
                                             <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
                                         </div>
-                                        <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
+                                        <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1]" />
                                     </label>
-                                    <div className="flex  pt-1 flex-col gap-2">
+                                    <div className="flex pt-1 flex-col gap-2">
                                         <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
                                         <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
                                             <option value="">Never</option>
@@ -835,34 +867,236 @@ const NewPost = ({ visible, onHide }) => {
                                 </div>
                             )}
                         </div>
+                    </div>
 
-                        <div>
-                            <button onClick={() => togglePanel('ai')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group text-[#6366f1]">
-                                <span className="text-sm font-bold flex items-center gap-2">
-                                    <span className="animate-pulse">✨</span> AI Magic Tools
-                                </span>
-                                <i className={`pi pi-chevron-${openFeaturePanel === 'ai' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
-                            </button>
-                            {openFeaturePanel === 'ai' && (
-                                <div className=" flex flex-col gap-3 m-1 animate-in zoom-in-95">
-                                    <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
-                                    <div className="flex gap-2">
-                                        <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
-                                            {isGeneratingAi ? <i className="pi pi-spin pi-spinner mr-1"></i> : null}
-                                            Generate Text
-                                        </button>
-                                        <button onClick={generateAiImage} disabled={isGeneratingAi} className="flex-1 py-2 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
-                                            Generate Image
-                                        </button>
-                                    </div>
-                                </div>
+
+
+                    {/* Actions */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setStep(STEPS.SELECT)}
+                            disabled={isGeneratingAi}
+                            className="flex-1 py-3 px-4 rounded-xl font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition disabled:opacity-50"
+                        >
+                            Back
+                        </button>
+                        <button
+                            onClick={handleAiMagicPost}
+                            disabled={isGeneratingAi || !aiPrompt.trim()}
+                            className="flex-[2] bg-gradient-to-tr from-indigo-600 to-purple-600 text-white py-2 px-6 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 disabled:opacity-50"
+                        >
+                            {isGeneratingAi ? (
+                                <>
+                                    <i className="pi pi-spin pi-spinner text-sm"></i>
+                                    Creating Magic...
+                                </>
+                            ) : (
+                                <>
+                                    <i className="pi pi-sparkles text-sm"></i>
+                                    Generate Magic Post
+                                </>
                             )}
-                        </div>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     );
+
+    const renderFinalize = () => {
+        const hasMedia = images.length > 0 || video;
+
+        return (
+            <div className={`flex flex-col md:flex-row w-full h-[calc(100vh-120px)] md:h-[calc(90vh-45px)] md:max-h-[600px] ${!hasMedia ? 'justify-center' : ''}`}>
+                {/* Left: Media Preview */}
+                {hasMedia && (
+                    <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative flex-shrink-0">
+                        <div className="flex-1 flex h-[40vh] items-center justify-center w-full relative">
+                            {video ? (
+                                <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
+                            ) : (
+                                images.length > 0 && <img src={images[0]?.preview} key={images[0]?.preview} className="w-full h-full object-contain" alt="preview" />
+                            )}
+                        </div>
+                        {images.length > 1 && (
+                            <div className="w-full p-2 bg-black/40 backdrop-blur-md flex gap-2 overflow-x-auto custom-scrollbar no-scrollbar border-t border-white/10">
+                                {images.map((img, idx) => (
+                                    <div key={img.id} className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${idx === 0 ? 'border-[#6366f1]' : 'border-transparent opacity-60'}`}>
+                                        <img src={img.preview} className="w-full h-full object-cover" alt="" />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Right: metadata & controls */}
+                <div className={`w-full ${hasMedia ? 'md:w-[40%] border-l' : 'md:w-[500px]'} flex flex-col bg-[var(--surface-1)] border-[var(--border-color)] overflow-y-auto custom-scrollbar flex-1`}>
+                    <div className="p-4 flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                            <img src={loggeduser?.profile_picture} className="w-9 h-9 rounded-full object-cover border border-[var(--border-color)]" alt="" />
+                            <div className="flex flex-col">
+                                <span className="text-sm font-bold text-[var(--text-main)]">{loggeduser?.fullname}</span>
+                                <span className="text-[10px] text-[var(--text-sub)]">@{loggeduser?.username}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <textarea
+                                ref={captionRef}
+                                placeholder="Write a caption..."
+                                value={formData.caption}
+                                onChange={handleChange}
+                                name="caption"
+                                rows={3}
+                                className="w-full bg-transparent text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2"
+                            />
+                            <div className="flex justify-end px-2">
+                                <span className="text-[10px] text-[var(--text-sub)] font-medium">{formData.caption.length}/2,200</span>
+                            </div>
+                            <EmojiSelector onSelect={handleEmojiSelect} />
+                        </div>
+
+                        <div className="flex flex-col gap-0 border-t border-[var(--border-color)] mt-2">
+                            {/* Community Picker */}
+                            <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
+                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                    <i className="pi pi-globe text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                    Share to Community
+                                </span>
+                                <select
+                                    value={selectedGroupId || ""}
+                                    onChange={(e) => setSelectedGroupId(e.target.value || null)}
+                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1] max-w-[180px] truncate"
+                                >
+                                    <option value="">🌍 General Feed</option>
+                                    {groups && groups.map(g => (
+                                        <option key={g._id} value={g._id}>👥 {g.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <button onClick={handleGetLocation} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
+                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                    <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                    {location.name || "Add Location"}
+                                </span>
+                                <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
+                            </button>
+
+                            <button onClick={() => togglePanel('collab')} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
+                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                    <i className="pi pi-users text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                    {collaborators.length > 0 ? `${collaborators.length} Collaborators` : "Add Collaborators"}
+                                </span>
+                                <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
+                            </button>
+                            {openFeaturePanel === 'collab' && (
+                                <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                                    <div className="relative">
+                                        <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
+                                        <input
+                                            type="text"
+                                            placeholder="Search users..."
+                                            value={searchTerm}
+                                            onChange={(e) => handleSearchUsers(e.target.value)}
+                                            className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl py-2 pl-8 pr-3 text-[11px] text-[var(--text-main)] outline-none focus:border-[#6366f1]"
+                                        />
+                                        {isSearching && <i className="pi pi-spin pi-spinner absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#6366f1]"></i>}
+                                    </div>
+
+                                    {searchResults.length > 0 && (
+                                        <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] shadow-xl p-1">
+                                            {searchResults.map(user => (
+                                                <div
+                                                    key={user._id}
+                                                    onClick={() => addCollaborator(user)}
+                                                    className="flex items-center gap-2 p-2 hover:bg-[var(--surface-2)] rounded-lg cursor-pointer transition-colors"
+                                                >
+                                                    <img src={user.profile_picture} className="w-6 h-6 rounded-full object-cover" alt="" />
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold text-[var(--text-main)]">{user.fullname}</span>
+                                                        <span className="text-[9px] text-[var(--text-sub)]">@{user.username}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {collaborators.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border-color)]/30">
+                                            {collaborators.map(user => (
+                                                <div key={user._id} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[#6366f1]/30 pl-1 pr-2 py-1 rounded-full animate-in zoom-in-95">
+                                                    <img src={user.profile_picture} className="w-5 h-5 rounded-full object-cover" alt="" />
+                                                    <span className="text-[10px] font-medium text-[var(--text-main)]">{user.username}</span>
+                                                    <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500 transition-colors">
+                                                        <i className="pi pi-times text-[8px]"></i>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="border-b border-[var(--border-color)]/50">
+                                <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
+                                    <span className="text-sm text-[var(--text-main)] font-medium">Advanced Settings</span>
+                                    <i className={`pi pi-chevron-${openFeaturePanel === 'advanced' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
+                                </button>
+                                {openFeaturePanel === 'advanced' && (
+                                    <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-4 animate-in slide-in-from-top-2">
+                                        <label className="flex items-center justify-between cursor-pointer group">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
+                                                <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
+                                            </div>
+                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
+                                        </label>
+                                        <div className="flex  pt-1 flex-col gap-2">
+                                            <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
+                                            <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
+                                                <option value="">Never</option>
+                                                <option value="24">24 Hours</option>
+                                                <option value="168">7 Days</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <button onClick={() => togglePanel('ai')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group text-[#6366f1]">
+                                    <span className="text-sm font-bold flex items-center gap-2">
+                                        <span className="animate-pulse">✨</span> AI Magic Tools
+                                    </span>
+                                    <i className={`pi pi-chevron-${openFeaturePanel === 'ai' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
+                                </button>
+                                {openFeaturePanel === 'ai' && (
+                                    <div className=" flex flex-col gap-3 m-1 animate-in zoom-in-95">
+                                        <div className="flex justify-between items-center px-1">
+                                            <span className="text-[9px] font-bold text-[var(--text-sub)] uppercase">Remaining: {aiLimits.text} Text / {aiLimits.image} Image</span>
+                                            {isGeneratingAi && <i className="pi pi-spin pi-spinner text-[10px] text-[#6366f1]"></i>}
+                                        </div>
+                                        <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
+                                        <div className="flex gap-2">
+                                            <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
+                                                {isGeneratingAi ? <i className="pi pi-spin pi-spinner mr-1"></i> : null}
+                                                Generate Text
+                                            </button>
+                                            <button onClick={generateAiImage} disabled={isGeneratingAi} className="flex-1 py-2 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
+                                                Generate Image
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <>
