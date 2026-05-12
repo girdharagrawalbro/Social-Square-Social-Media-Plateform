@@ -612,61 +612,25 @@ def download_file(s: Session, url: str, dest: str, retries: int = 3) -> bool:
 # ─────────────────────────────────────────────────────────
 
 
-def run(target: str, limit: int, output_dir: str, session_id: str):
-
+def run_single(s: Session, target: str, limit: int, output_dir: str, me: str):
     print("\n" + "---" * 18)
-    print("  STEP 1 - Authenticating")
-    print("---" * 18)
-
-    if not session_id:
-        print("""
-  Get your sessionid:
-  Chrome: F12 -> Application -> Cookies -> instagram.com -> sessionid
-  Firefox: F12 -> Storage -> Cookies -> sessionid
-""")
-        session_id = input("  Paste sessionid value: ").strip()
-    if not session_id:
-        print("[ERROR]  sessionid is required.")
-        sys.exit(1)
-
-    session_id = unquote(session_id.strip())
-
-    s = make_session(session_id)
-    me = verify_login(s)
-    if me:
-        print(f"  [OK]  Logged in as @{me}")
-    else:
-        print("  [WARN]  Login check inconclusive.")
-
-    SESSION_SAVE.parent.mkdir(exist_ok=True)
-    SESSION_SAVE.write_text(session_id)
-
-    print("\n" + "---" * 18)
-    print(f"  STEP 2 - Profile @{target}")
+    print(f"  PROCESSING PROFILE @{target}")
     print("---" * 18)
 
     try:
         profile = get_profile(s, target)
-    except ValueError as e:
+    except Exception as e:
         print(f"\n[ERROR]  {e}")
-        sys.exit(1)
-    except PermissionError as e:
-        print(f"\n[ERROR]  {e}")
-        sys.exit(1)
-    except ConnectionError as e:
-        print(f"\n[ERROR]  {e}")
-        sys.exit(1)
+        return
 
     if profile["username"].lower() != target.lower():
         print(
             f"\n[ERROR]  Profile mismatch: expected @{target}, got @{profile['username']}."
         )
-        sys.exit(1)
+        return
     if not profile["id"]:
-        print(
-            f"\n[ERROR]  Could not resolve user ID for @{target}. Try refreshing sessionid."
-        )
-        sys.exit(1)
+        print(f"\n[ERROR]  Could not resolve user ID for @{target}.")
+        return
 
     print(f"\n  [OK]  @{profile['username']}")
     safe_name = (profile["full_name"] or "").encode("ascii", "ignore").decode("ascii")
@@ -676,19 +640,17 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
     print(f"      Private   : {profile['is_private']}")
 
     if profile["is_private"]:
-        print(f"\n[ERROR]  Private account -- cannot download.")
-        sys.exit(1)
+        print(f"\n[SKIP]  Private account -- cannot download.")
+        return
 
     raw = []
     if limit > 0:
         print(f"\n  [INFO]  Fetching post metadata...")
         raw = fetch_posts(s, profile["id"], limit)
         if not raw:
-            print("  [ERROR]  No posts returned. Try refreshing your sessionid cookie.")
-            sys.exit(1)
+            print("  [ERROR]  No posts returned.")
+            return
         print(f"  [OK]  {len(raw)} post(s) ready.\n")
-    else:
-        print(f"\n  [INFO]  Limit is 0; skipping post metadata fetch.")
 
     os.makedirs(output_dir, exist_ok=True)
     print(f"  [PATH]  {os.path.abspath(output_dir)}\n")
@@ -696,10 +658,7 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
     if profile.get("profile_pic_url"):
         print(f"  [INFO]  Downloading profile picture...")
         dest = os.path.join(output_dir, "profile_pic.jpg")
-        if download_file(s, profile["profile_pic_url"], dest):
-            print(f"  [OK]  Profile picture saved.")
-        else:
-            print(f"  [WARN]  Failed to download profile picture.")
+        download_file(s, profile["profile_pic_url"], dest)
 
     metadata_list = []
     downloaded = skipped = 0
@@ -730,9 +689,9 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
             print(f"  [OK]  ({ok} file{'s' if ok != 1 else ''})")
         else:
             skipped += 1
-            print("  [SKIP]  skipped")
+            print("  [SKIP]")
 
-        time.sleep(1.5)
+        time.sleep(1.0)
 
     json_path = os.path.join(output_dir, "metadata.json")
     with open(json_path, "w", encoding="utf-8") as f:
@@ -743,15 +702,7 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
                 "target_username": target,
                 "full_name": profile["full_name"],
                 "biography": profile["biography"],
-                "external_url": profile["external_url"],
-                "is_verified": profile["is_verified"],
-                "profile_pic_url": profile.get("profile_pic_url", ""),
-                "followers": profile["followers"],
-                "following": profile["following"],
                 "total_posts": profile["total_posts"],
-                "requested": limit,
-                "downloaded": downloaded,
-                "skipped": skipped,
                 "posts": metadata_list,
             },
             f,
@@ -759,10 +710,9 @@ def run(target: str, limit: int, output_dir: str, session_id: str):
             indent=2,
         )
 
-    print(f"\n{'-' * 54}")
-    print(f"  [OK]  Downloaded : {downloaded}   Skipped : {skipped}")
-    print(f"  [META]  Metadata   : {os.path.abspath(json_path)}")
-    print(f"{'-' * 54}\n")
+    print(f"\n{'-' * 40}")
+    print(f"  [OK]  @{target} DONE")
+    print(f"{'-' * 40}")
 
 
 # ─────────────────────────────────────────────────────────
@@ -774,7 +724,9 @@ def main():
     p = argparse.ArgumentParser(
         description="Download posts from any public Instagram profile."
     )
-    p.add_argument("--target", "-t", default=None)
+    p.add_argument(
+        "--target", "-t", nargs="+", default=None, help="One or more usernames"
+    )
     p.add_argument("--limit", "-l", type=int, default=None)
     p.add_argument("--output", "-o", default=None)
     p.add_argument(
@@ -786,29 +738,51 @@ def main():
     print("    Instagram Post Downloader  (Cookie Edition)")
     print("=" * 54)
 
-    target = args.target
-    if not target:
-        target = input("\nDownload FROM which username: ").strip().lstrip("@")
-    if not target:
+    targets = args.target
+    if not targets:
+        raw = input("\nDownload FROM which username(s) (comma separated): ").strip()
+        targets = [
+            t.strip().lstrip("@") for t in raw.replace(",", " ").split() if t.strip()
+        ]
+    if not targets:
         print("[ERROR]  Username required.")
         sys.exit(1)
 
     limit = args.limit
     if limit is None:
-        raw = input("How many posts? (default 10): ").strip()
-        limit = int(raw) if raw.isdigit() and int(raw) > 0 else 10
+        raw_l = input("How many posts per user? (default 10): ").strip()
+        limit = int(raw_l) if raw_l.isdigit() and int(raw_l) > 0 else 10
 
     session_id = args.session_id
     if not session_id and SESSION_SAVE.exists():
-        session_id = unquote(SESSION_SAVE.read_text().strip())
-        print(f"\n  [OK]  Using saved sessionid  (delete {SESSION_SAVE} to reset)\n")
+        session_id = SESSION_SAVE.read_text().strip()
+        print(f"\n  [OK]  Using saved sessionid")
 
-    run(
-        target,
-        limit,
-        output_dir=args.output or f"./{sanitize(target)}_posts",
-        session_id=session_id,
-    )
+    if not session_id:
+        print("\n  [ERROR] sessionid required.")
+        session_id = input("  Paste sessionid: ").strip()
+
+    if not session_id:
+        sys.exit(1)
+
+    s = make_session(session_id)
+    me = verify_login(s)
+    if me:
+        print(f"  [OK]  Logged in as @{me}")
+        SESSION_SAVE.parent.mkdir(exist_ok=True)
+        SESSION_SAVE.write_text(session_id)
+
+    for target in targets:
+        out = args.output
+        if not out:
+            out = f"./{sanitize(target)}_posts"
+        elif len(targets) > 1:
+            out = os.path.join(args.output, f"{sanitize(target)}_posts")
+
+        try:
+            run_single(s, target, limit, out, me)
+        except Exception as e:
+            print(f"  [ERROR] Failed @{target}: {e}")
 
 
 if __name__ == "__main__":

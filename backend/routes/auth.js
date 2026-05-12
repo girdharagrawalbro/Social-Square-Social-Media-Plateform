@@ -874,7 +874,17 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             .lean();
 
         const isFollowing = (loggedUser?.following || []).some(id => id.toString() === targetId.toString());
-        const hasPendingRequest = (targetUser.followRequests || []).some(id => id.toString() === loggedUserId.toString());
+
+        // Filter out expired follow requests (e.g., 30 days)
+        const EXPIRY_DAYS = 30;
+        const now = new Date();
+        const validRequests = (targetUser.followRequests || []).filter(r => {
+            if (!r.requestedAt) return true;
+            const ageDays = (now - new Date(r.requestedAt)) / (1000 * 60 * 60 * 24);
+            return ageDays <= EXPIRY_DAYS;
+        });
+
+        const hasPendingRequest = validRequests.some(r => r.userId?.toString() === loggedUserId.toString());
 
         // Mutual followers: people in both logged user's followers AND target's followers
         const loggedFollowerIds = (loggedUser?.followers || []).map(id => id.toString());
@@ -906,6 +916,7 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
             isBlockedByMe,
             isBlockingMe,
             hasPendingRequest,
+            followRequests: isOwner ? validRequests : undefined, // Only owner sees valid requests
             mutualFollowers: mutualDetails,
             mutualCount: mutualIds.length,
         });
