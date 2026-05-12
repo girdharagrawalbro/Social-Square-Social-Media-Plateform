@@ -94,13 +94,13 @@ const AuditLogTab = () => {
         <div className="flex flex-col gap-6">
 
             {/* ── Header strip ──────────────────────────────────────────── */}
-            <div className="flex gap-3 flex-wrap items-center bg-[var(--surface-1)] p-4 rounded-[32px] border border-[var(--border-color)] shadow-sm">
+            <div className="flex gap-3 flex-wrap items-center bg-[var(--surface-1)] p-4 rounded border border-[var(--border-color)] shadow-sm">
 
                 {/* Action filter */}
                 <select
                     value={filters.action}
                     onChange={e => setFilter('action', e.target.value)}
-                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
+                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
                 >
                     <option value="all">All actions</option>
                     {Object.entries(ACTION_META).map(([k, v]) => (
@@ -112,7 +112,7 @@ const AuditLogTab = () => {
                 <select
                     value={filters.targetType}
                     onChange={e => setFilter('targetType', e.target.value)}
-                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
+                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
                 >
                     <option value="all">All targets</option>
                     <option value="user">Users</option>
@@ -127,7 +127,7 @@ const AuditLogTab = () => {
                     <select
                         value={filters.adminId}
                         onChange={e => setFilter('adminId', e.target.value)}
-                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
                     >
                         <option value="all">All admins</option>
                         {adminList.map(a => (
@@ -142,7 +142,7 @@ const AuditLogTab = () => {
                         type="date"
                         value={filters.from}
                         onChange={e => setFilter('from', e.target.value)}
-                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-3 py-3 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-3 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
                         title="From date"
                     />
                     <span className="text-[10px] font-black text-[var(--text-sub)] opacity-50">TO</span>
@@ -150,13 +150,13 @@ const AuditLogTab = () => {
                         type="date"
                         value={filters.to}
                         onChange={e => setFilter('to', e.target.value)}
-                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-3 py-3 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-3 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
                         title="To date"
                     />
                     {(filters.from || filters.to) && (
                         <button
                             onClick={() => { setFilter('from', ''); setFilter('to', ''); }}
-                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-3 py-3 text-[10px] font-black text-red-400 hover:bg-red-500/10 cursor-pointer transition-all"
+                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-3 text-[10px] font-black text-red-400 hover:bg-red-500/10 cursor-pointer transition-all"
                         >
                             Clear
                         </button>
@@ -164,14 +164,14 @@ const AuditLogTab = () => {
                 </div>
 
                 {/* Total badge */}
-                <div className="ml-auto px-5 py-3 bg-[#808bf5]/10 border border-indigo-500/20 rounded-2xl flex items-center gap-3 flex-shrink-0">
+                <div className="ml-auto px-5 py-3 bg-[#808bf5]/10 border border-indigo-500/20 rounded flex items-center gap-3 flex-shrink-0">
                     <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse shadow-[0_0_8px_rgba(128,139,245,0.5)]" />
                     <span className="text-[10px] font-black text-[#808bf5] uppercase tracking-widest">{total.toLocaleString()} Log Entries</span>
                 </div>
             </div>
 
             {/* ── Table ─────────────────────────────────────────────────── */}
-            <div className="bg-[var(--surface-1)] rounded-[32px] shadow-sm border border-[var(--border-color)] overflow-hidden">
+            <div className="bg-[var(--surface-1)] rounded shadow-sm border border-[var(--border-color)] overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -375,17 +375,17 @@ const AuditLogTab = () => {
                             <button
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
                                 disabled={page === 1}
-                                className="flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+                                className="flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
                             >
                                 <i className="pi pi-chevron-left text-[8px]" /> Previous
                             </button>
-                            <div className="flex items-center px-6 bg-[var(--surface-2)] rounded-2xl text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] uppercase tracking-widest">
+                            <div className="flex items-center px-6 bg-[var(--surface-2)] rounded text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] uppercase tracking-widest">
                                 {page} / {totalPages || 1}
                             </div>
                             <button
                                 onClick={() => setPage(p => p + 1)}
                                 disabled={page >= totalPages}
-                                className="flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+                                className="flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
                             >
                                 Next <i className="pi pi-chevron-right text-[8px]" />
                             </button>

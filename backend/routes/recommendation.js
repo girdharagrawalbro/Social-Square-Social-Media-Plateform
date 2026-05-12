@@ -63,8 +63,9 @@ router.get("/posts", verifyToken, async (req, res) => {
 
         // ── Step 4: Fetch candidate posts ─────────────────────────────────────
         console.log(`${_tag} [4] Fetching candidate posts (limit=100)...`);
+        const restrictedObjectIds = privateUserIds.map(id => new mongoose.Types.ObjectId(id));
         const candidates = await Post.find({
-            "user._id": { $ne: userId, $nin: privateUserIds },
+            "user._id": { $ne: userId, $nin: restrictedObjectIds },
             isAnonymous: { $ne: true },
             deletedAt: null
         })
@@ -251,7 +252,7 @@ router.get("/similar/:postId", verifyToken, async (req, res) => {
                             path: "vector",
                             queryVector: targetPostVecDoc.vector,
                             numCandidates: 100,
-                            limit: 50
+                            limit: 48
                         }
                     },
                     {
@@ -396,10 +397,10 @@ router.get("/search", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const q = req.query.q || "";
-        
+
         const { getRestrictedUserIds } = require("../utils/privacy");
         const restrictedIds = await getRestrictedUserIds(userId);
-        
+
         const items = await getPersonalizedSearch(userId, q, restrictedIds);
         res.json({ items });
     } catch (err) {
