@@ -826,7 +826,7 @@ router.get("/trending", async (req, res) => {
         // 1. Trending Categories
         const categories = await Post.aggregate([
             { $match: { createdAt: { $gte: sevenDaysAgo }, isAnonymous: { $ne: true } } },
-            { $group: { _id: '$category', postCount: { $sum: 1 }, totalLikes: { $sum: { $size: '$likes' } } } },
+            { $group: { _id: '$category', postCount: { $sum: 1 }, totalLikes: { $sum: { $size: { $ifNull: ['$likes', []] } } } } },
             { $sort: { totalLikes: -1, postCount: -1 } },
             { $limit: 8 }
         ]);
@@ -851,7 +851,7 @@ router.get("/trending", async (req, res) => {
         // 3. Top Users (Rising Stars)
         const topUsersAgg = await Post.aggregate([
             { $match: { createdAt: { $gte: sevenDaysAgo }, isAnonymous: { $ne: true } } },
-            { $group: { _id: '$user._id', totalLikes: { $sum: { $size: '$likes' } }, postCount: { $sum: 1 } } },
+            { $group: { _id: '$user._id', totalLikes: { $sum: { $size: { $ifNull: ['$likes', []] } } }, postCount: { $sum: 1 } } },
             { $sort: { totalLikes: -1 } },
             { $limit: 5 }
         ]);

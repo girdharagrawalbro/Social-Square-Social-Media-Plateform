@@ -33,10 +33,7 @@ function setCached(key, data) {
     if (process.env.DISABLE_REDIS === 'true') return; // Don't cache if disabled
     cache.set(key, { data, ts: Date.now() });
 }
-function invalidateCache() {
-    if (process.env.DISABLE_REDIS === 'true') return;
-    cache.clear();
-}
+
 
 // ─── ADMIN MIDDLEWARE ─────────────────────────────────────────────────────────
 const requireAdmin = async (req, res, next) => {
@@ -119,11 +116,11 @@ router.get('/analytics', requireAdmin, async (req, res) => {
         const [currentEng, prevEng] = await Promise.all([
             Post.aggregate([
                 { $match: { createdAt: { $gte: last7Days } } },
-                { $group: { _id: null, likes: { $sum: { $size: '$likes' } }, comments: { $sum: { $size: '$comments' } }, count: { $sum: 1 } } }
+                { $group: { _id: null, likes: { $sum: { $size: { $ifNull: ['$likes', []] } } }, comments: { $sum: { $size: { $ifNull: ['$comments', []] } } }, count: { $sum: 1 } } }
             ]),
             Post.aggregate([
                 { $match: { createdAt: { $gte: prev7Days, $lt: last7Days } } },
-                { $group: { _id: null, likes: { $sum: { $size: '$likes' } }, comments: { $sum: { $size: '$comments' } }, count: { $sum: 1 } } }
+                { $group: { _id: null, likes: { $sum: { $size: { $ifNull: ['$likes', []] } } }, comments: { $sum: { $size: { $ifNull: ['$comments', []] } } }, count: { $sum: 1 } } }
             ])
         ]);
 
@@ -171,7 +168,10 @@ router.get('/analytics', requireAdmin, async (req, res) => {
 
         setCached('analytics', result);
         res.json(result);
-    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (err) {
+        res.status(500).json({ error: "Internal Server Error" });
+        console.log(err)
+    }
 });
 
 // ─── USER MANAGEMENT ──────────────────────────────────────────────────────────
@@ -183,6 +183,8 @@ router.get('/users', requireAdmin, async (req, res) => {
         const skip = (page - 1) * limit;
         const search = req.query.search?.trim() || '';
         const filter = req.query.filter || 'all';
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
 
         const query = {};
         if (search) {
@@ -194,6 +196,14 @@ router.get('/users', requireAdmin, async (req, res) => {
 
         if (filter === 'banned') query.isBanned = true;
         if (filter === 'admin') query.isAdmin = true;
+        if (filter === 'deleted') query.deletedAt = { $ne: null };
+        if (filter === 'active') query.deletedAt = null;
+
+        if (startDate || endDate) {
+            query.created_at = {};
+            if (startDate) query.created_at.$gte = new Date(startDate);
+            if (endDate) query.created_at.$lte = new Date(endDate);
+        }
 
         const [users, total] = await Promise.all([
             User.find(query)

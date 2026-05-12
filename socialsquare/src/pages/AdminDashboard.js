@@ -7,7 +7,6 @@ import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
 import AuditLogTab from './components/AuditLogTab';
 
-
 const useAdmin = () => {
     const token = getToken();
     return useMemo(() => ({ headers: { Authorization: `Bearer ${token}` } }), [token]);
@@ -16,7 +15,7 @@ const useAdmin = () => {
 const Header = ({ user, onLock, onHome, onToggleSidebar }) => (
     <div className="sticky top-0 z-50 w-full backdrop-blur-xl bg-[var(--surface-1)] border-b border-[var(--border-color)] px-4 md:px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={onToggleSidebar} className="lg:hidden p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded-2xl transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm flex items-center justify-center">
+            <button onClick={onToggleSidebar} className="lg:hidden p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm flex items-center justify-center">
                 <i className="pi pi-bars text-sm font-bold"></i>
             </button>
             <div className="flex flex-col">
@@ -30,7 +29,7 @@ const Header = ({ user, onLock, onHome, onToggleSidebar }) => (
                 <img src={user?.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-[var(--surface-1)] shadow-sm" />
                 <span className="text-xs font-bold text-[var(--text-main)]">{user?.fullname}</span>
             </div>
-            <button onClick={onLock} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-2 rounded-2xl text-xs font-black transition-all border-0 cursor-pointer shadow-sm active:scale-95">
+            <button onClick={onLock} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-2 rounded text-xs font-black transition-all border-0 cursor-pointer shadow-sm active:scale-95">
                 <i className="pi pi-lock"></i> LOCK
             </button>
         </div>
@@ -289,7 +288,7 @@ const PasswordGate = ({ onSuccess }) => {
 
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, sub, color = '#6366f1', icon }) => (
-    <div className="group relative overflow-hidden bg-[var(--surface-1)] rounded-[12px] px-3 py-2 shadow-sm border border-[var(--border-color)] hover:shadow-2xl hover:-translate-y-1 transition-all duration-500">
+    <div className="group relative overflow-hidden bg-[var(--surface-1)] rounded px-3 py-2 shadow-sm border border-[var(--border-color)] hover:shadow-2xl hover:-translate-y-1 transition-all duration-500">
         <div
             className="absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-10 group-hover:scale-125 transition-transform duration-700"
             style={{ background: color }}
@@ -306,7 +305,7 @@ const StatCard = ({ label, value, sub, color = '#6366f1', icon }) => (
                 )}
             </div>
             <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner transition-all duration-500 group-hover:rotate-12 group-hover:scale-110"
+                className="w-14 h-14 rounded flex items-center justify-center text-2xl shadow-inner transition-all duration-500 group-hover:rotate-12 group-hover:scale-110"
                 style={{ background: `${color}15`, color: color, border: `1px solid ${color}20` }}
             >
                 {icon}
@@ -466,13 +465,13 @@ const AnalyticsTab = () => {
                 <StatCard icon={<FireIcon />} label="New Posts (30d)" value={overview.newPostsLast30} color="#ec4899" />
             </div>
             <div className="grid grid-cols-2 gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
-                <div className="bg-[var(--surface-1)] rounded-[12px] p-3  shadow-sm border border-[var(--border-color)]"><BarChart data={charts.postsPerDay} label="Posts per day (last 7 days)" /></div>
-                <div className="bg-[var(--surface-1)] rounded-[12px] p-3  shadow-sm border border-[var(--border-color)]"><BarChart data={charts.usersPerDay} label="New users per day (last 7 days)" /></div>
-                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]"><DonutChart data={charts.categoryBreakdown} /></div>
-                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]"><CohortChart data={charts.cohorts} /></div>
+                <div className="bg-[var(--surface-1)] rounded p-3  shadow-sm border border-[var(--border-color)]"><BarChart data={charts.postsPerDay} label="Posts per day (last 7 days)" /></div>
+                <div className="bg-[var(--surface-1)] rounded p-3  shadow-sm border border-[var(--border-color)]"><BarChart data={charts.usersPerDay} label="New users per day (last 7 days)" /></div>
+                <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]"><DonutChart data={charts.categoryBreakdown} /></div>
+                <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]"><CohortChart data={charts.cohorts} /></div>
             </div>
             <div className="grid grid-cols-2 gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]">
+                <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]">
                     <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 m-0 opacity-70">
                         Top Posts
                     </p>
@@ -488,14 +487,14 @@ const AnalyticsTab = () => {
                         ))}
                     </div>
                 </div>
-                <div className="bg-[var(--surface-1)] rounded-[12px] p-3 shadow-sm border border-[var(--border-color)]">
+                <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]">
                     <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 m-0 opacity-70">
                         Recent Users
                     </p>
                     <div className="flex flex-col gap-2">
                         {recentUsers.map(user => (
                             <div key={user._id} className="flex items-center gap-4 px-3 py-2 rounded bg-[var(--surface-2)] border border-transparent hover:border-[var(--border-color)] transition-all">
-                                <img src={user.profile_picture} alt="" className="w-10 h-10 rounded-2xl object-cover flex-shrink-0 border border-[var(--border-color)] shadow-sm" />
+                                <img src={user.profile_picture} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0 border border-[var(--border-color)] shadow-sm" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-xs font-black text-[var(--text-main)] m-0 truncate">{user.fullname}</p>
                                     <p className="text-[10px] font-bold text-[var(--text-sub)] m-0 truncate opacity-60 tracking-tight">{user.email}</p>
@@ -517,6 +516,8 @@ const UsersTab = () => {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [loading, setLoading] = useState(true);
     const [banData, setBanData] = useState({ visible: false, userId: null, reason: '' });
     const [strikes, setStrikes] = useState({});
@@ -529,10 +530,10 @@ const UsersTab = () => {
 
     const fetchUsers = useCallback(() => {
         setLoading(true);
-        api.get('/api/admin/users', { headers, params: { page, search, filter } })
+        api.get('/api/admin/users', { headers, params: { page, search, filter, startDate, endDate } })
             .then(r => { setUsers(r.data.users); setTotal(r.data.total); setLoading(false); })
             .catch(() => setLoading(false));
-    }, [page, search, filter, headers]);
+    }, [page, search, filter, headers, startDate, endDate]);
 
     useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -667,9 +668,23 @@ const UsersTab = () => {
                     <input type="text" placeholder="Search name or email..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
                         className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded py-2.5 pl-11 pr-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all" />
                 </div>
-                <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-point  er transition-all">
+
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] opacity-50">From:</span>
+                    <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1); }}
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] transition-all" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] opacity-50">To:</span>
+                    <input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1); }}
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] transition-all" />
+                </div>
+
+                <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all">
                     <option value="all">All members</option>
+                    <option value="active">Active</option>
                     <option value="banned">Banned</option>
+                    <option value="deleted">Deleted</option>
                     <option value="admin">Administrators</option>
                 </select>
                 <button onClick={exportUsersCSV} className="px-3 py-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded flex items-center gap-2 text-xs font-black text-[var(--text-main)] uppercase tracking-widest cursor-pointer transition-all shadow-sm">
@@ -682,16 +697,16 @@ const UsersTab = () => {
             </div>
 
             {selectedUsers.length > 0 && (
-                <div className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-3xl shadow-sm animate-pulse">
+                <div className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/20 p-4 rounded shadow-sm animate-pulse">
                     <p className="text-xs font-black text-[#808bf5] m-0 uppercase tracking-widest">{selectedUsers.length} users selected</p>
                     <div className="flex gap-2">
-                        <button onClick={handleBulkBan} className="bg-red-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border-0 cursor-pointer hover:bg-red-600 transition-all shadow-lg shadow-red-500/20">Bulk Ban</button>
-                        <button onClick={handleBulkDelete} className="bg-[var(--surface-3)] text-[var(--text-main)] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-400/20 border border-[var(--border-color)] transition-all">Bulk Delete</button>
+                        <button onClick={handleBulkBan} className="bg-red-500 text-white px-4 py-2 rounded text-[10px] font-black uppercase tracking-wider border-0 cursor-pointer hover:bg-red-600 transition-all shadow-lg shadow-red-500/20">Bulk Ban</button>
+                        <button onClick={handleBulkDelete} className="bg-[var(--surface-3)] text-[var(--text-main)] px-4 py-2 rounded text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-400/20 border border-[var(--border-color)] transition-all">Bulk Delete</button>
                     </div>
                 </div>
             )}
 
-            <div className="bg-[var(--surface-1)] rounded-[12px] shadow-sm border border-[var(--border-color)] overflow-hidden flex-1 min-h-0 flex flex-col">
+            <div className="bg-[var(--surface-1)] rounded shadow-sm border border-[var(--border-color)] overflow-hidden flex-1 min-h-0 flex flex-col">
                 <div className="overflow-x-auto flex-1 custom-scrollbar">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead className="sticky top-0 z-10">
@@ -712,6 +727,7 @@ const UsersTab = () => {
                                         <span className="text-xs font-black uppercase tracking-widest opacity-50">Syncing database...</span>
                                     </div>
                                 </td></tr>
+
                             ) : users.length === 0 ? (
                                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '64px', color: 'var(--text-sub)' }}>
                                     <div className="flex flex-col items-center gap-2 opacity-40">
@@ -724,12 +740,10 @@ const UsersTab = () => {
                                     <td style={{ padding: '14px 20px', width: '40px' }}>
                                         <input type="checkbox" checked={selectedUsers.includes(user._id)} onChange={() => handleSelectUser(user._id)} className="cursor-pointer w-4 h-4 rounded border-[var(--border-color)] bg-[var(--surface-2)] text-indigo-600 focus:ring-indigo-500" />
                                     </td>
-                                    <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px' }}>
-                                        <div className="flex items-center gap-4">
-                                            <div className="relative group/avatar">
-                                                <img src={user.profile_picture} alt="" className="w-11 h-11 rounded-2xl object-cover border border-[var(--border-color)] shadow-sm group-hover/avatar:scale-105 transition-transform" />
-                                                {user.isOnline && <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-[3px] border-[var(--surface-1)] rounded-full shadow-sm"></span>}
-                                            </div>
+                                    <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '20px' }}>
+                                        <div className="relative flex items-center gap-2">
+                                            <img src={user.profile_picture} alt="profile_pic" className="w-12 h-12 rounded-full object-cover border " />
+                                            {user.isOnline && <span className="absolute -bottom-1 left-9 w-3.5 h-3.5 bg-green-500 border-[3px] border-[var(--surface-1)] rounded-full shadow-sm"></span>}
                                             <div className="flex flex-col gap-0.5">
                                                 <p className="text-sm font-black text-[var(--text-main)] m-0">{user.fullname}</p>
                                                 {user.isAdmin && <span className="text-[8px] font-black uppercase tracking-wider text-[#808bf5] bg-indigo-500/10 px-2 py-0.5 rounded-md w-fit border border-indigo-500/20">System Admin</span>}
@@ -739,20 +753,20 @@ const UsersTab = () => {
                                     <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }}>{user.email}</td>
                                     <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px', fontSize: '12px', textAlign: 'center', fontWeight: 900, color: 'var(--text-main)' }}>{strikes[user._id] || 0} / 3</td>
                                     <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px' }}>
-                                        <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-widest ${user.isBanned ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
+                                        <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest ${user.isBanned ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
                                             <span className={`w-1.5 h-1.5 rounded-full ${user.isBanned ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></span>
                                             {user.isBanned ? 'Banned' : 'Active'}
                                         </span>
                                     </td>
                                     <td onClick={() => fetchDrawerDetails(user)} style={{ padding: '14px 20px', fontSize: '11px', color: 'var(--text-sub)', fontWeight: 700, opacity: 0.7 }}>{new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</td>
-                                    <td style={{ padding: '14px 20px' }}>
+                                    <td style={{ padding: '14px 20px' }} className='flex justify-center'>
                                         <div className="flex gap-2">
                                             {user.isBanned
-                                                ? <button onClick={() => unbanUser(user._id)} className="bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 shadow-lg shadow-green-500/20">Unban</button>
-                                                : <button onClick={() => setBanData({ visible: true, userId: user._id, reason: '' })} className="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 shadow-lg shadow-red-500/20">Ban</button>
+                                                ? <button onClick={() => unbanUser(user._id)} className="bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 shadow-lg shadow-green-500/20">Unban</button>
+                                                : <button onClick={() => setBanData({ visible: true, userId: user._id, reason: '' })} className="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 shadow-lg shadow-red-500/20">Ban</button>
                                             }
-                                            <button onClick={() => warnUser(user._id)} className="bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 border border-orange-500/20">Warn</button>
-                                            <button onClick={() => deleteUser(user._id)} className="bg-[var(--surface-3)] text-[var(--text-main)] hover:bg-gray-400/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 border border-[var(--border-color)]">Delete Account</button>
+                                            <button onClick={() => warnUser(user._id)} className="bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white px-4 py-2 rounded text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 border border-orange-500/20">Warn</button>
+                                            <button onClick={() => deleteUser(user._id)} className="bg-[var(--surface-3)] text-[var(--text-main)] hover:bg-gray-400/20 px-4 py-2 rounded text-[10px] font-black uppercase tracking-tighter border-0 cursor-pointer transition-all active:scale-95 border border-[var(--border-color)]">Delete Account</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -778,10 +792,10 @@ const UsersTab = () => {
 
             <Dialog header="Ban Reason" visible={banData.visible} style={{ width: '320px' }} onHide={() => setBanData({ ...banData, visible: false })}>
                 <div className="flex flex-col gap-3">
-                    <textarea value={banData.reason} onChange={e => setBanData({ ...banData, reason: e.target.value })} placeholder="Enter reason for banning..." rows={3} className="w-full border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-red-500" />
+                    <textarea value={banData.reason} onChange={e => setBanData({ ...banData, reason: e.target.value })} placeholder="Enter reason for banning..." rows={3} className="w-full border border-gray-200 rounded p-2 text-sm outline-none focus:border-red-500" />
                     <div className="flex justify-end gap-2">
-                        <button onClick={() => setBanData({ ...banData, visible: false })} className="px-3 py-1.5 border border-gray-200 rounded-lg bg-transparent text-gray-500 text-xs font-semibold cursor-pointer">Cancel</button>
-                        <button onClick={banUser} disabled={!banData.reason.trim()} className="px-3 py-1.5 bg-red-500 text-white border-0 rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50">Ban User</button>
+                        <button onClick={() => setBanData({ ...banData, visible: false })} className="px-3 py-1.5 border border-gray-200 rounded bg-transparent text-gray-500 text-xs font-semibold cursor-pointer">Cancel</button>
+                        <button onClick={banUser} disabled={!banData.reason.trim()} className="px-3 py-1.5 bg-red-500 text-white border-0 rounded text-xs font-semibold cursor-pointer disabled:opacity-50">Ban User</button>
                     </div>
                 </div>
             </Dialog>
@@ -790,13 +804,13 @@ const UsersTab = () => {
                 <div className="fixed inset-y-0 right-0 w-[420px] bg-[var(--surface-1)] border-l border-[var(--border-color)] shadow-2xl z-[1000] flex flex-col animate-in slide-in-from-right duration-300">
                     <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
                         <div className="flex items-center gap-3">
-                            <img src={drawerUser.profile_picture} alt="" className="w-12 h-12 rounded-2xl object-cover border border-[var(--border-color)]" />
+                            <img src={drawerUser.profile_picture} alt="" className="w-12 h-12 rounded object-cover border border-[var(--border-color)]" />
                             <div>
                                 <h3 className="m-0 text-base font-black text-[var(--text-main)]">{drawerUser.fullname}</h3>
                                 <p className="m-0 text-xs font-bold text-[var(--text-sub)] opacity-60">{drawerUser.email}</p>
                             </div>
                         </div>
-                        <button onClick={() => setDrawerUser(null)} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded-xl text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all">Close</button>
+                        <button onClick={() => setDrawerUser(null)} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all">Close</button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 custom-scrollbar">
@@ -810,11 +824,11 @@ const UsersTab = () => {
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-3 opacity-70">Analytics</p>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="px-4 py-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+                                        <div className="px-4 py-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)]">
                                             <p className="text-2xl font-black text-[var(--text-main)] m-0 tracking-tight">{drawerPosts.length}</p>
                                             <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-sub)] m-0 mt-1 opacity-60">Posts</p>
                                         </div>
-                                        <div className="px-4 py-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+                                        <div className="px-4 py-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)]">
                                             <p className="text-2xl font-black text-[var(--text-main)] m-0 tracking-tight">{drawerLogs.length}</p>
                                             <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-sub)] m-0 mt-1 opacity-60">Events</p>
                                         </div>
@@ -827,8 +841,8 @@ const UsersTab = () => {
                                         {drawerPosts.length === 0 ? (
                                             <p className="text-xs font-medium text-[var(--text-sub)] opacity-50 italic">No posts published</p>
                                         ) : drawerPosts.slice(0, 5).map(post => (
-                                            <div key={post._id} className="flex items-center gap-3 p-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
-                                                {post.image_urls?.[0] && <img src={post.image_urls[0]} alt="" className="w-10 h-10 rounded-xl object-cover" />}
+                                            <div key={post._id} className="flex items-center gap-3 p-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)]">
+                                                {post.image_urls?.[0] && <img src={post.image_urls[0]} alt="" className="w-10 h-10 rounded object-cover" />}
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-xs font-bold text-[var(--text-main)] m-0 truncate">{post.caption || 'Shared moment'}</p>
                                                     <p className="text-[9px] font-medium text-[var(--text-sub)] m-0 mt-0.5">{new Date(post.createdAt).toLocaleDateString()}</p>
@@ -844,7 +858,7 @@ const UsersTab = () => {
                                         {drawerLogs.length === 0 ? (
                                             <p className="text-xs font-medium text-[var(--text-sub)] opacity-50 italic">No timeline events</p>
                                         ) : drawerLogs.slice(0, 10).map(log => (
-                                            <div key={log._id} className="p-3 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)] text-[11px]">
+                                            <div key={log._id} className="p-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)] text-[11px]">
                                                 <div className="flex justify-between items-start gap-2">
                                                     <span className="font-black text-[var(--text-main)] uppercase tracking-tight">{log.action?.replace('_', ' ')}</span>
                                                     <span className="text-[8px] font-bold text-[var(--text-sub)] opacity-60">{new Date(log.createdAt).toLocaleDateString()}</span>
@@ -922,31 +936,32 @@ const PostsTab = () => {
 
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm ">
+
+            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
                 <div className="relative flex-1 min-w-[240px]">
                     <i className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-sub)] opacity-50"></i>
                     <input type="text" placeholder="Search captions..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-                        className="bg-[var(--surface-2)] px-6 py-3 border border-transparent hover:border-[var(--border-color)] rounded-[20px] text-sm text-[var(--text-main)] outline-none cursor-pointer hover:bg-[var(--surface-3)] transition-all font-bold" />
+                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded py-2.5 pl-11 pr-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all" />
                 </div>
-                <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] px-6 py-3 border border-transparent hover:border-[var(--border-color)] rounded-[20px] text-sm text-[var(--text-main)] outline-none bg-[var(--surface-2)] cursor-pointer hover:bg-[var(--surface-3)] transition-all font-bold">
+                <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-point  er transition-all">
                     <option value="all">Everywhere</option>
                     <option value="reported">Highly Reported</option>
                     <option value="anonymous">Anonymous Feed</option>
                     <option value="timelocked">Time-restricted</option>
                 </select>
-                <button onClick={exportPostsCSV} className="px-6 py-3 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded-[20px] text-xs font-black text-[var(--text-main)] uppercase tracking-widest cursor-pointer transition-all shadow-sm">
+                <button onClick={exportPostsCSV} className="px-3 py-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded flex items-center gap-2 text-xs font-black text-[var(--text-main)] uppercase tracking-widest cursor-pointer transition-all shadow-sm">
                     📥 CSV
                 </button>
-                <div className="px-6 py-3 bg-[#808bf5]/10 border border-indigo-500/20 rounded-[20px] flex items-center gap-3">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#808bf5] shadow-[0_0_10px_rgba(128,139,245,0.4)]"></span>
-                    <span className="text-xs font-black text-[#808bf5] uppercase tracking-widest">{total} Global Posts</span>
+                <div className="px-3 py-2.5 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse"></span>
+                    <span className="text-xs font-black text-[var(--text-main)] uppercase tracking-tight">{total} Posts</span>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                 {loading ? [1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="bg-[var(--surface-1)] rounded-[12px] p-4 border border-[var(--border-color)] shadow-sm animate-pulse">
-                        <div className="aspect-[4/3] bg-[var(--surface-2)] rounded-[24px] flex items-center justify-center">
+                    <div key={i} className="bg-[var(--surface-1)] rounded p-4 border border-[var(--border-color)] shadow-sm animate-pulse">
+                        <div className="aspect-[4/3] bg-[var(--surface-2)] rounded flex items-center justify-center">
                             <i className="pi pi-image text-[var(--surface-3)] text-3xl"></i>
                         </div>
                         <div className="mt-4 flex flex-col gap-3">
@@ -955,9 +970,9 @@ const PostsTab = () => {
                         </div>
                     </div>
                 )) : posts.map(post => {
-                    const postImg = post.image_urls?.[0] || post.image_url;
+                    const postImg = post.image_urls?.[0] || post.image_url || post.videoThumbnail;
                     return (
-                        <div key={post._id} className="group bg-[var(--surface-1)] rounded-[12px] border border-[var(--border-color)] shadow-sm overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+                        <div key={post._id} className="group bg-[var(--surface-1)] rounded border border-[var(--border-color)] shadow-sm overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
                             <div className="relative aspect-[4/3] overflow-hidden bg-[var(--surface-2)]">
                                 {postImg ? (
                                     <img src={postImg} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -967,13 +982,13 @@ const PostsTab = () => {
                                     </div>
                                 )}
                                 <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-                                    {post.isAnonymous && <span className="bg-[var(--surface-1)]/80 backdrop-blur-md text-[#808bf5] text-[9px] font-black uppercase tracking-[0.1em] px-3 py-1.5 rounded-xl border border-[var(--border-color)] shadow-xl">Private Alias</span>}
-                                    {post.unlocksAt && new Date(post.unlocksAt) > Date.now() && <span className="bg-red-500 text-white text-[9px] font-black uppercase tracking-[0.1em] px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5"><i className="pi pi-lock text-[8px]"></i> Locked</span>}
+                                    {post.isAnonymous && <span className="bg-[var(--surface-1)]/80 backdrop-blur-md text-[#808bf5] text-[9px] font-black uppercase tracking-[0.1em] px-3 py-1.5 rounded border border-[var(--border-color)] shadow-xl">Private Alias</span>}
+                                    {post.unlocksAt && new Date(post.unlocksAt) > Date.now() && <span className="bg-red-500 text-white text-[9px] font-black uppercase tracking-[0.1em] px-3 py-1.5 rounded shadow-xl flex items-center gap-1.5"><i className="pi pi-lock text-[8px]"></i> Locked</span>}
                                 </div>
                             </div>
                             <div className="p-6">
                                 <div className="flex items-center gap-3 mb-4">
-                                    <img src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="" className="w-7 h-7 rounded-lg object-cover border border-[var(--border-color)] shadow-sm" />
+                                    <img src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="" className="w-7 h-7 rounded object-cover border border-[var(--border-color)] shadow-sm" />
                                     <span className="text-[10px] font-black text-[var(--text-sub)] uppercase tracking-widest opacity-70 truncate">{post.user?.fullname || 'System Entity'}</span>
                                 </div>
                                 <p className="text-xs text-[var(--text-main)] font-semibold line-clamp-2 min-h-[36px] leading-relaxed mb-6 opacity-90">{post.caption || '(Meta description only)'}</p>
@@ -982,7 +997,7 @@ const PostsTab = () => {
                                         <span className="flex items-center gap-1.5"><i className="pi pi-heart-fill text-red-500"></i> {post.likes?.length || 0}</span>
                                         <span className="flex items-center gap-1.5"><i className="pi pi-comment text-[#808bf5]"></i> {post.comments?.length || 0}</span>
                                     </div>
-                                    <button onClick={() => deletePost(post._id)} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-90 shadow-sm">Delete</button>
+                                    <button onClick={() => deletePost(post._id)} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-5 py-2 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-90 shadow-sm">Delete</button>
                                 </div>
                             </div>
                         </div>
@@ -991,13 +1006,13 @@ const PostsTab = () => {
             </div>
 
             <div className="flex justify-center gap-2 mt-4 pb-8">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-gray-600 border border-gray-100 rounded-2xl bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-gray-600 border border-gray-100 rounded bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40 transition-all active:scale-95 shadow-sm">
                     <i className="pi pi-chevron-left"></i> Previous
                 </button>
-                <div className="flex items-center px-6 bg-white rounded-2xl text-xs font-black text-indigo-600 border border-indigo-100 shadow-sm">
+                <div className="flex items-center px-6 bg-white rounded text-xs font-black text-indigo-600 border border-indigo-100 shadow-sm">
                     Page {page}
                 </div>
-                <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-gray-600 border border-gray-100 rounded-2xl bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-gray-600 border border-gray-100 rounded bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40 transition-all active:scale-95 shadow-sm">
                     Next <i className="pi pi-chevron-right"></i>
                 </button>
             </div>
@@ -1074,13 +1089,13 @@ const ReportsTab = () => {
     return (
         <div className="flex flex-col gap-3">
             <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
-                <select value={status} onChange={e => setStatus(e.target.value)} className="bg-[var(--surface-2)] px-6 py-3 border border-transparent hover:border-[var(--border-color)] rounded-[20px] text-sm text-[var(--text-main)] outline-none cursor-pointer hover:bg-[var(--surface-3)] transition-all font-bold">
+                <select value={status} onChange={e => setStatus(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-point  er transition-all">
                     <option value="pending">Awaiting Review</option>
                     <option value="resolved">Resolved Cases</option>
                     <option value="dismissed">Dismissed Reports</option>
                     <option value="all">Complete Archive</option>
                 </select>
-                <div className="px-6 py-3 bg-red-500/10 border border-red-500/20 rounded-[20px] flex items-center gap-3">
+                <div className="px-3 py-2.5 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.4)]"></span>
                     <span className="text-xs font-black text-red-500 uppercase tracking-widest">{total} Critical Alerts</span>
                 </div>
@@ -1095,18 +1110,18 @@ const ReportsTab = () => {
                         </div>
                     </div>
                 ) : reports.length === 0 ? (
-                    <div className="bg-[var(--surface-1)] rounded-[40px] p-20 border border-[var(--border-color)] shadow-sm text-center">
+                    <div className="bg-[var(--surface-1)] rounded p-20 border border-[var(--border-color)] shadow-sm text-center">
                         <span className="text-6xl mb-6 block">🛡️</span>
                         <h3 className="text-xl font-black text-[var(--text-main)] m-0 uppercase tracking-tight">System Integrity Intact</h3>
                         <p className="text-xs text-[var(--text-sub)] mt-3 opacity-60 font-bold tracking-wide">No pending reports found. All community guidelines are being followed.</p>
                     </div>
                 ) : reports.map(report => (
-                    <div key={report._id} className="bg-[var(--surface-1)] rounded-[12px] border border-[var(--border-color)] shadow-sm p-8 hover:shadow-2xl transition-all duration-300">
+                    <div key={report._id} className="bg-[var(--surface-1)] rounded border border-[var(--border-color)] shadow-sm p-8 hover:shadow-2xl transition-all duration-300">
                         <div className="flex items-start justify-between gap-6">
                             <div className="flex items-center gap-5">
                                 <div className="relative group/reporter">
-                                    <img src={report.reporter?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="" className="w-14 h-14 rounded-[20px] object-cover ring-4 ring-[var(--surface-2)] shadow-xl group-hover/reporter:scale-105 transition-transform" />
-                                    <span className="absolute -bottom-2 -right-2 bg-[var(--surface-1)] p-1.5 rounded-xl shadow-lg text-xs border border-[var(--border-color)]">🚩</span>
+                                    <img src={report.reporter?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="" className="w-14 h-14 rounded object-cover ring-4 ring-[var(--surface-2)] shadow-xl group-hover/reporter:scale-105 transition-transform" />
+                                    <span className="absolute -bottom-2 -right-2 bg-[var(--surface-1)] p-1.5 rounded shadow-lg text-xs border border-[var(--border-color)]">🚩</span>
                                 </div>
                                 <div>
                                     <p className="text-base font-black text-[var(--text-main)] m-0 tracking-tight">{report.reporter?.fullname || 'Anonymous Auditor'}</p>
@@ -1124,14 +1139,14 @@ const ReportsTab = () => {
                         </div>
 
                         {report.description && (
-                            <div className="mt-6 p-5 bg-[var(--surface-2)] rounded-[24px] border border-[var(--border-color)] italic relative overflow-hidden">
+                            <div className="mt-6 p-5 bg-[var(--surface-2)] rounded border border-[var(--border-color)] italic relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-[#808bf5]/30"></div>
                                 <p className="text-xs text-[var(--text-main)] m-0 relative z-10 leading-relaxed pr-6 font-medium opacity-90">{report.description}</p>
                             </div>
                         )}
 
                         {/* Target Context */}
-                        <div className="mt-6 p-6 bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-1)] rounded-[24px] border border-[var(--border-color)] shadow-inner">
+                        <div className="mt-6 p-6 bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-1)] rounded border border-[var(--border-color)] shadow-inner">
                             {report.targetType === 'post' && report.targetPost && (
                                 <div className="flex items-center justify-between gap-6">
                                     <div className="flex items-center gap-4 overflow-hidden flex-1">
@@ -1140,9 +1155,9 @@ const ReportsTab = () => {
                                             <p className="text-[9px] font-black text-[var(--text-sub)] uppercase mb-1 tracking-widest opacity-50">Post Context</p>
                                             <p className="text-xs text-[var(--text-main)] m-0 truncate italic font-bold leading-relaxed">"{report.targetPost.caption || 'No verbal description'}"</p>
                                         </div>
-                                        <button onClick={() => setPostPreview({ visible: true, postId: report.targetId })} className="bg-[#808bf5] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-500/20 shrink-0">Investigate</button>
+                                        <button onClick={() => setPostPreview({ visible: true, postId: report.targetId })} className="bg-[#808bf5] text-white px-5 py-2.5 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-500/20 shrink-0">Investigate</button>
                                     </div>
-                                    <button onClick={() => deletePost(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all shrink-0">Delete Post</button>
+                                    <button onClick={() => deletePost(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all shrink-0">Delete Post</button>
                                 </div>
                             )}
 
@@ -1155,7 +1170,7 @@ const ReportsTab = () => {
                                             <span className="text-[11px] font-mono text-[var(--text-main)] font-bold">{report.targetId}</span>
                                         </div>
                                     </div>
-                                    <button onClick={() => deleteComment(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all">Delete Comment</button>
+                                    <button onClick={() => deleteComment(report.targetId, report._id)} className="bg-red-500/10 text-red-500 px-5 py-2.5 rounded text-[10px] font-black uppercase tracking-widest border border-red-500/20 cursor-pointer hover:bg-red-500 hover:text-white transition-all">Delete Comment</button>
                                 </div>
                             )}
 
@@ -1169,14 +1184,14 @@ const ReportsTab = () => {
                                 <button onClick={() => {
                                     const targetUid = report.targetUser?._id || report.targetPost?.user?._id;
                                     if (targetUid) banUser(targetUid, `Violation: ${report.reason}`, report._id);
-                                }} className="bg-orange-500/10 text-orange-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-orange-500/20 cursor-pointer hover:bg-orange-500 hover:text-white transition-all">Revoke Access</button>
+                                }} className="bg-orange-500/10 text-orange-500 px-5 py-2 rounded text-[10px] font-black uppercase tracking-widest border border-orange-500/20 cursor-pointer hover:bg-orange-500 hover:text-white transition-all">Revoke Access</button>
                             </div>
                         </div>
 
                         {report.status === 'pending' && (
                             <div className="flex gap-4 mt-8 justify-end">
-                                <button onClick={() => resolve(report._id, 'dismissed')} className="px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition-all border border-[var(--border-color)] cursor-pointer">Dismiss</button>
-                                <button onClick={() => resolve(report._id, 'resolved')} className="px-10 py-3 bg-[#808bf5] text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-2xl shadow-indigo-500/30">Resolve Case</button>
+                                <button onClick={() => resolve(report._id, 'dismissed')} className="px-8 py-3 rounded text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition-all border border-[var(--border-color)] cursor-pointer">Dismiss</button>
+                                <button onClick={() => resolve(report._id, 'resolved')} className="px-10 py-3 bg-[#808bf5] text-white rounded text-[10px] font-black uppercase tracking-[0.2em] border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-2xl shadow-indigo-500/30">Resolve Case</button>
                             </div>
                         )}
                     </div>
@@ -1185,9 +1200,9 @@ const ReportsTab = () => {
 
             {/* Pagination */}
             <div className="flex justify-center gap-4 mt-8 pb-16">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl bg-[var(--surface-1)] hover:bg-[var(--surface-2)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl">← Previous</button>
-                <div className="flex items-center px-8 bg-[var(--surface-1)] rounded-2xl text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] shadow-inner uppercase tracking-[0.2em]">Page {page}</div>
-                <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl bg-[var(--surface-1)] hover:bg-[var(--surface-2)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl">Next →</button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-1)] hover:bg-[var(--surface-2)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl">← Previous</button>
+                <div className="flex items-center px-8 bg-[var(--surface-1)] rounded text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] shadow-inner uppercase tracking-[0.2em]">Page {page}</div>
+                <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-1)] hover:bg-[var(--surface-2)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl">Next →</button>
             </div>
 
             <Dialog
@@ -1289,9 +1304,9 @@ const SystemTab = () => {
     return (
         <div className="flex flex-col gap-8 max-w-3xl">
             {/* Feature Flags Panel */}
-            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
+            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
                 <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-[#808bf5]/10 flex items-center justify-center text-4xl border border-indigo-500/20">⚙️</div>
+                    <div className="w-16 h-16 rounded bg-[#808bf5]/10 flex items-center justify-center text-4xl border border-indigo-500/20">⚙️</div>
                     <div>
                         <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Feature Flags</h3>
                         <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Enable or Disable System Modules</p>
@@ -1300,7 +1315,7 @@ const SystemTab = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(flags).map(([key, val]) => (
-                        <div key={key} className="p-6 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-[12px] flex items-center justify-between shadow-inner">
+                        <div key={key} className="p-6 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center justify-between shadow-inner">
                             <div>
                                 <p className="text-xs font-black text-[var(--text-main)] m-0 capitalize tracking-wider">{key.replace(/_/g, ' ')}</p>
                                 <p className="text-[9px] font-bold text-[var(--text-sub)] opacity-60 m-0 mt-1 uppercase tracking-widest">Live State Toggle</p>
@@ -1315,9 +1330,9 @@ const SystemTab = () => {
             </div>
 
             {/* Global Broadcast */}
-            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
+            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
                 <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-indigo-500/10 flex items-center justify-center text-4xl border border-indigo-500/20">📣</div>
+                    <div className="w-16 h-16 rounded bg-indigo-500/10 flex items-center justify-center text-4xl border border-indigo-500/20">📣</div>
                     <div>
                         <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Broadcast Alerts</h3>
                         <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Push System Notifications globally</p>
@@ -1330,14 +1345,14 @@ const SystemTab = () => {
                         onChange={e => setBroadcastContent(e.target.value)}
                         placeholder="Type a message to dispatch to your user segment..."
                         rows={4}
-                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-3xl p-5 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none"
+                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-5 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none"
                     />
 
                     <div className="flex items-center justify-between flex-wrap gap-4">
                         <select
                             value={broadcastSegment}
                             onChange={e => setBroadcastSegment(e.target.value)}
-                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer"
+                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer"
                         >
                             <option value="all">All Members</option>
                             <option value="active">Recently Active</option>
@@ -1347,7 +1362,7 @@ const SystemTab = () => {
                         <button
                             type="submit"
                             disabled={broadcastLoading || !broadcastContent.trim()}
-                            className="px-8 py-3 bg-[#808bf5] text-white rounded-2xl text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-8 py-3 bg-[#808bf5] text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {broadcastLoading ? 'Dispatching...' : 'Send Broadcast'}
                         </button>
@@ -1356,9 +1371,9 @@ const SystemTab = () => {
             </div>
 
             {/* Original Cluster Digest Module */}
-            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
+            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
                 <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-[#808bf5]/10 flex items-center justify-center text-4xl shadow-inner border border-indigo-500/20">📡</div>
+                    <div className="w-16 h-16 rounded bg-[#808bf5]/10 flex items-center justify-center text-4xl shadow-inner border border-indigo-500/20">📡</div>
                     <div>
                         <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Control Cluster</h3>
                         <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Global Activity & Service Engine</p>
@@ -1366,7 +1381,7 @@ const SystemTab = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="p-8 bg-[var(--surface-2)] rounded-[12px] border border-[var(--border-color)] shadow-inner">
+                    <div className="p-8 bg-[var(--surface-2)] rounded border border-[var(--border-color)] shadow-inner">
                         <p className="text-xs font-black text-[var(--text-main)] mb-3 m-0 uppercase tracking-[0.2em] opacity-80">Manual Data Sync</p>
                         <p className="text-xs text-[var(--text-sub)] mb-8 m-0 leading-relaxed font-medium opacity-60">
                             Force an immediate broadcast of the daily activity digest. This will bypass the system cron and deliver
@@ -1375,7 +1390,7 @@ const SystemTab = () => {
                         <button
                             onClick={triggerDigest}
                             disabled={loading}
-                            className={`flex items-center gap-3 px-8 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-[0.2em] transition-all border-0 cursor-pointer shadow-2xl active:scale-95 ${loading ? 'bg-[var(--surface-3)] text-[var(--text-sub)]' : 'bg-[#808bf5] text-white hover:bg-indigo-600 hover:shadow-indigo-500/30'
+                            className={`flex items-center gap-3 px-8 py-4 rounded text-[11px] font-black uppercase tracking-[0.2em] transition-all border-0 cursor-pointer shadow-2xl active:scale-95 ${loading ? 'bg-[var(--surface-3)] text-[var(--text-sub)]' : 'bg-[#808bf5] text-white hover:bg-indigo-600 hover:shadow-indigo-500/30'
                                 }`}
                         >
                             {loading ? <i className="pi pi-spin pi-spinner"></i> : <i className="pi pi-bolt"></i>}
@@ -1383,7 +1398,7 @@ const SystemTab = () => {
                         </button>
                     </div>
 
-                    <div className="p-6 border border-indigo-500/20 bg-indigo-500/5 rounded-[12px]">
+                    <div className="p-6 border border-indigo-500/20 bg-indigo-500/5 rounded">
                         <div className="flex gap-4">
                             <i className="pi pi-info-circle text-[#808bf5] mt-1 text-lg"></i>
                             <div className="text-[11px] text-[#808bf5] space-y-3 font-bold uppercase tracking-wider">
@@ -1439,9 +1454,9 @@ const ContentFilterTab = () => {
 
     return (
         <div className="flex flex-col gap-8 max-w-3xl">
-            <div className="bg-[var(--surface-1)] rounded-[40px] p-10 shadow-sm border border-[var(--border-color)]">
+            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
                 <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-orange-500/10 flex items-center justify-center text-4xl border border-orange-500/20">🛡️</div>
+                    <div className="w-16 h-16 rounded bg-orange-500/10 flex items-center justify-center text-4xl border border-orange-500/20">🛡️</div>
                     <div>
                         <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Content Moderation Filter</h3>
                         <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Manage Banned Words & Policies</p>
@@ -1454,16 +1469,16 @@ const ContentFilterTab = () => {
                         placeholder="Add new banned word/phrase..."
                         value={newWord}
                         onChange={e => setNewWord(e.target.value)}
-                        className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all"
+                        className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all"
                     />
-                    <button type="submit" className="px-8 py-3 bg-[#808bf5] text-white rounded-2xl text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg">Add</button>
+                    <button type="submit" className="px-8 py-3 bg-[#808bf5] text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg">Add</button>
                 </form>
 
-                <div className="p-6 bg-[var(--surface-2)] rounded-[12px] border border-[var(--border-color)] mb-8">
+                <div className="p-6 bg-[var(--surface-2)] rounded border border-[var(--border-color)] mb-8">
                     <p className="text-xs font-black text-[var(--text-main)] mb-4 m-0 uppercase tracking-[0.2em] opacity-80">Currently Banned Words</p>
                     <div className="flex gap-2 flex-wrap">
                         {bannedWords.map(item => (
-                            <span key={item._id} className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--surface-1)] border border-[var(--border-color)] rounded-2xl text-xs font-bold text-[var(--text-main)] shadow-sm">
+                            <span key={item._id} className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--surface-1)] border border-[var(--border-color)] rounded text-xs font-bold text-[var(--text-main)] shadow-sm">
                                 {item.word}
                                 <button type="button" onClick={() => removeWord(item._id)} className="border-0 bg-transparent text-red-500 cursor-pointer font-bold hover:scale-110 transition-transform">×</button>
                             </span>
@@ -1471,12 +1486,12 @@ const ContentFilterTab = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between p-6 border border-[var(--border-color)] rounded-[12px]">
+                <div className="flex items-center justify-between p-6 border border-[var(--border-color)] rounded">
                     <div>
                         <p className="text-xs font-black text-[var(--text-main)] m-0 uppercase tracking-wider">Enforcement Policy</p>
                         <p className="text-[10px] text-[var(--text-sub)] m-0 mt-1 font-bold opacity-60">Choose what happens when a match is found.</p>
                     </div>
-                    <select value={action} onChange={e => setAction(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer">
+                    <select value={action} onChange={e => setAction(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer">
                         <option value="flag">Auto-Flag for Review</option>
                         <option value="block">Block Publication</option>
                     </select>
@@ -1586,7 +1601,7 @@ const AdminDashboard = () => {
                                 height: sliderStyle.height,
                                 transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)'
                             }}
-                            className="bg-[#808bf5] rounded-2xl shadow-xl shadow-indigo-500/20 pointer-events-none"
+                            className="bg-[#808bf5] rounded shadow-xl shadow-indigo-500/20 pointer-events-none"
                         />
 
                         {tabs.map(tab => (
@@ -1594,7 +1609,7 @@ const AdminDashboard = () => {
                                 ref={el => navRefs.current[tab.key] = el}
                                 key={tab.key}
                                 onClick={() => { setActiveTab(tab.key); setSidebarOpen(false); }}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[11px] font-black border-0 cursor-pointer text-left w-full transition-all duration-300 relative z-10 ${activeTab === tab.key
+                                className={`flex items-center gap-2 px-4 py-2 rounded text-[11px] font-black border-0 cursor-pointer text-left w-full transition-all duration-300 relative z-10 ${activeTab === tab.key
                                     ? 'text-white lg:translate-x-2'
                                     : 'bg-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)] translate-x-0'
                                     }`}

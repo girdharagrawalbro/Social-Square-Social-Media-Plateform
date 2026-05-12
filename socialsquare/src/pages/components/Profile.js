@@ -164,25 +164,19 @@ const Profile = ({ userId }) => {
     const isFollowing = !isLoggedOut && (
         isOwner ||
         loggeduser?.following?.some(f => f?.toString() === profileId?.toString()) ||
-        otherProfileData?.isFollowing
+        otherProfileData?.isFollowing === true
     );
 
     const isRequested = !isLoggedOut && (
         otherProfileData?.hasPendingRequest ||
-        otherProfileData?.followRequests?.some(r => r?.toString() === currentUserId?.toString())
+        otherProfileData?.followRequests?.some(r => (r?.userId || r)?.toString() === currentUserId?.toString())
     );
 
     const isBlockedByMe = !isLoggedOut && loggeduser?.blockedUsers?.some(b => b?.toString() === profileId?.toString());
     const isMuted = !isLoggedOut && loggeduser?.mutedUsers?.some(m => m?.toString() === profileId?.toString());
 
     // Private gate: only applies to other users' private accounts
-    const isPrivateAndNotFollowing = initialized &&
-        !isOwner &&
-        !!displayUser && // ← don't fire until we know WHO we are viewing
-        displayUser?.isPrivate &&
-        !isFollowing &&
-        !isBlockedByMe &&
-        !profileLoading;
+    const isPrivateAndNotFollowing = initialized && !profileLoading && !isOwner && displayUser?.isPrivate && !isFollowing;
 
     const handleFollow = async () => {
         try {
@@ -580,7 +574,7 @@ const Profile = ({ userId }) => {
                         </div>
                     ) : (
                         // Posts / Saved — 3-col grid   
-                        <div className="grid grid-cols-3 gap-[2px] sm:gap-1">
+                        <div className="grid grid-cols-3 gap-[1px] sm:gap-[1px]">
                             {isLoadingTab ? (
                                 [1, 2, 3, 4, 5, 6].map(i => (
                                     <div key={i} className="bg-[var(--surface-2)] animate-pulse" style={{ aspectRatio: '1' }} />
