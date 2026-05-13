@@ -19,6 +19,15 @@ const softVerifyToken = require('../middleware/softVerifyToken');
 const AuditLog = require('../models/AuditLog');
 const authRateLimiter = require('../middleware/authRateLimiter');
 const { propagateUserProfileUpdate } = require('../utils/userPropagation');
+const admin = require('firebase-admin');
+
+// ─── FIREBASE ADMIN INITIALIZATION ───────────────────────────────────────────
+if (!admin.apps.length) {
+    admin.initializeApp({
+        projectId: 'social-square-official'
+    });
+}
+
 
 const router = express.Router();
 
@@ -517,8 +526,30 @@ router.post('/google', async (req, res) => {
         const { credential, fingerprint } = req.body;
         if (!credential || !fingerprint) return res.status(400).json({ error: 'Missing credential or fingerprint' });
 
-        const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
-        const { sub: googleId, email, name, picture } = ticket.getPayload();
+        let googleId, email, name, picture;
+
+        try {
+            // 1. Try standard Google ID Token verification
+            const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+            const payload = ticket.getPayload();
+            googleId = payload.sub;
+            email = payload.email;
+            name = payload.name;
+            picture = payload.picture;
+        } catch (err) {
+            try {
+                // 2. Try Firebase ID Token verification
+                const decodedToken = await admin.auth().verifyIdToken(credential);
+                googleId = decodedToken.uid;
+                email = decodedToken.email;
+                name = decodedToken.name;
+                picture = decodedToken.picture;
+            } catch (firebaseErr) {
+                console.error('Google/Firebase verification failed:', err.message, firebaseErr.message);
+                return res.status(401).json({ error: 'Google authentication failed' });
+            }
+        }
+
 
         let user = await User.findOne({ $or: [{ googleId }, { email }] });
         if (user) {

@@ -27,6 +27,7 @@
     "canvas-confetti": "^1.9.4",
     "cra-template": "1.2.0",
     "dayjs": "^1.11.20",
+    "firebase": "^12.13.0",
     "lodash": "^4.17.23",
     "primeicons": "^7.0.0",
     "primereact": "^10.8.5",

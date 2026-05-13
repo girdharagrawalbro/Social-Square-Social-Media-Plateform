@@ -36,7 +36,10 @@ const port = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 
 // ─── SECURITY + COMPRESSION ───────────────────────────────────────────────────
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false, crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginEmbedderPolicy: false,
+}));
 app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cookieParser());
 
