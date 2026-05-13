@@ -3,7 +3,8 @@ import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import useWindowWidth from '../../hooks/useWindowWidth';
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
+// const BASE = process.env.REACT_APP_BACKEND_URL;
+const BASE = "";
 
 // ─── QUICK ACTION BUTTONS ─────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
@@ -99,9 +100,9 @@ const Chatbot = () => {
             fetch(`${BASE}/api/recommendation/memory`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
-            .then(res => res.json())
-            .then(data => setUserMemory(data))
-            .catch(() => {});
+                .then(res => res.json())
+                .then(data => setUserMemory(data))
+                .catch(() => { });
         }
     }, [user?._id]);
 
@@ -122,14 +123,14 @@ const Chatbot = () => {
             const history = [...messages, userMsg].filter(m => !m.loading);
             const response = await fetch(`${BASE}/api/chatbot/chat`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': token ? `Bearer ${token}` : ''
                 },
-                body: JSON.stringify({ 
-                    messages: history, 
+                body: JSON.stringify({
+                    messages: history,
                     userId: user?._id,
-                    user_memory: userMemory 
+                    user_memory: userMemory
                 }),
             });
 
@@ -227,8 +228,8 @@ const Chatbot = () => {
                             <div style={{ flex: 1 }}>
                                 <p style={{ margin: 0, fontWeight: 700, color: '#fff', fontSize: '14px' }}>SocialBot</p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />
-                                            <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '11px' }}>Online · Powered by Mistral AI</p>
+                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />
+                                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '11px' }}>Online · Powered by Mistral AI</p>
                                 </div>
                             </div>
                             <button type="button" onClick={clearChat} aria-label="Clear chat" title="Clear chat"
