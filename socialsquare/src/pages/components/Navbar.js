@@ -94,6 +94,16 @@ const Navbar = () => {
             <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Login</Link>
           )
         )}
+        <Link to="/help" className={`hidden md:flex no-underline items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-[#808bf5]'}`} title="Help Center">
+          <i className="pi pi-question-circle"></i>
+          <span className="text-sm font-medium">Help</span>
+        </Link>
+
+        <Link to="/contact" className={`hidden md:flex no-underline items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-[#808bf5]'}`} title="Contact Us">
+          <i className="pi pi-envelope"></i>
+          <span className="text-sm font-medium">Contact</span>
+        </Link>
+
         {/* Dark mode toggle */}
         <button
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -207,6 +217,20 @@ const Navbar = () => {
               className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
             >
               <i className="pi pi-sparkles text-lg text-blue-400"></i> AI SocialBot
+            </button>
+
+            <button
+              onClick={() => { navigate('/help'); setMobileMenuOpen(false); }}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="pi pi-question-circle text-lg text-blue-400"></i> Help Center
+            </button>
+
+            <button
+              onClick={() => { navigate('/contact'); setMobileMenuOpen(false); }}
+              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <i className="pi pi-envelope text-lg text-blue-400"></i> Contact Us
             </button>
 
             <button
