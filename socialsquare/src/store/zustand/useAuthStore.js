@@ -13,7 +13,8 @@ const handleRateLimit = err => {
     return Promise.reject(err);
 };
 
-const BASE = (process.env.REACT_APP_BACKEND_URL || '').trim();
+// const BASE = (process.env.REACT_APP_BACKEND_URL || '').trim();
+const BASE = ""
 
 // ─── AUTH STORE DEFINITION (First to avoid TDZ) ───────────────────────────────
 let inMemoryToken = null;

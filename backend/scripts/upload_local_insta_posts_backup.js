@@ -107,8 +107,8 @@ async function run() {
         }
 
         const metaData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-        const username = metaData.target_username;
-        const fullname = metaData.full_name || username;
+        const username = metaData.profile.username;
+        const fullname = metaData.profile.fullName || username;
 
         // Check/Create user
         let user = await User.findOne({ username });
@@ -121,7 +121,8 @@ async function run() {
                 password: "InstaUserPassword123!", // Placeholder
                 authProvider: 'local',
                 isEmailVerified: true,
-                profile_picture: 'https://img.icons8.com/fluency/96/instagram-new.png'
+                profile_picture: 'https://img.icons8.com/fluency/96/instagram-new.png',
+                bio: metaData.profile.biography || ""
             });
             await user.save();
             console.log(`User created with ID: ${user._id}`);
@@ -150,10 +151,10 @@ async function run() {
         }
 
         // Iterate posts
-        for (const postMeta of metaData.posts) {
+        for (const postMeta of metaData.items || []) {
             const shortcode = postMeta.shortcode;
             const caption = postMeta.caption;
-            const isVideo = postMeta.is_video;
+            const isVideo = postMeta.type === 'Video';
 
             console.log(`Processing post ${shortcode}...`);
 
