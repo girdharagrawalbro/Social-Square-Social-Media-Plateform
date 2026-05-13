@@ -172,7 +172,7 @@ router.post('/generate-image', verifyToken, async (req, res) => {
         });
     } catch (error) {
         console.error('[AI Image Route Error]:', error.response?.data || error.message);
-        res.status(500).json({ error: 'Failed to generate or upload image' });
+        res.status(500).json({ error: 'Failed to generate image' });
 
     }
 });
