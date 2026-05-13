@@ -235,7 +235,7 @@ const PostItem = React.memo(({
                                 className="w-full h-full object-cover"
                             />
                         </div>
-                        {post.user?.isOnline && <div className="presence-dot" />}
+                     
                     </div>
                     <div className="flex flex-col justify-center min-w-0">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
