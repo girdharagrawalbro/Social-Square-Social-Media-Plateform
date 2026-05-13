@@ -105,6 +105,44 @@ const useAuthStore = create(
                 }
             },
 
+            googleLogin: async ({ credential, fingerprint }) => {
+                set({ loading: true, error: null });
+                try {
+                    const res = await axios.post(`${BASE}/api/auth/google`, { credential, fingerprint }, { withCredentials: true });
+                    const { token, user } = res.data;
+                    get().updateAuthToken(token);
+                    set({ user, loading: false, initialized: true });
+                    if (Capacitor.isNativePlatform()) {
+                        await Preferences.set({ key: 'user_token', value: JSON.stringify({ token, user, expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) }) });
+                    }
+                    return { success: true, user };
+                } catch (err) {
+                    const msg = err.response?.data?.error || 'Google login failed';
+                    set({ loading: false, error: msg });
+                    return { error: msg };
+                }
+            },
+
+            signup: async ({ fullname, email, password, fingerprint }) => {
+                set({ loading: true, error: null });
+                try {
+                    const res = await axios.post(`${BASE}/api/auth/add`, { fullname, email, password, fingerprint }, { withCredentials: true });
+                    const { token, user } = res.data;
+                    get().updateAuthToken(token);
+                    set({ user, loading: false, initialized: true });
+                    if (Capacitor.isNativePlatform()) {
+                        await Preferences.set({ key: 'user_token', value: JSON.stringify({ token, user, expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) }) });
+                    }
+                    return { success: true, user };
+                } catch (err) {
+                    const msg = err.response?.data?.message || 'Signup failed';
+                    set({ loading: false, error: msg });
+                    return { error: msg };
+                }
+            },
+
+
+
             logout: async () => {
                 try { await api.post('/api/auth/logout'); } catch { }
                 clearToken();
@@ -118,7 +156,7 @@ const useAuthStore = create(
             unfollowUser: (id) => set(s => ({ user: { ...s.user, following: (s.user?.following || []).filter(fid => fid?.toString() !== id?.toString()) } })),
             addBlockedUser: (id) => set(s => ({ user: { ...s.user, blockedUsers: [...(s.user?.blockedUsers || []), id] } })),
             removeBlockedUser: (id) => set(s => ({ user: { ...s.user, blockedUsers: (s.user?.blockedUsers || []).filter(bid => bid?.toString() !== id?.toString()) } })),
-            
+
             updateProfile: async (data) => {
                 set({ loading: true });
                 try {

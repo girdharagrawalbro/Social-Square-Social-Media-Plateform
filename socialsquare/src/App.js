@@ -10,8 +10,8 @@ import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import { ConfirmDialog } from 'primereact/confirmdialog';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+
 
 import useAuthStore, { api } from './store/zustand/useAuthStore';
 import useConversationStore from './store/zustand/useConversationStore';
@@ -483,66 +483,65 @@ function App() {
                 </div>
             )}
             <QueryClientProvider client={queryClient}>
-                <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
-                    <DarkModeProvider>
-                        <ConfirmDialog baseZIndex={1000000} />
-                        <Router>
-                            <AppInit />
-                            <Suspense fallback={<PageLoader />}>
-                                <Routes>
-                                    {user ? (
-                                        // ✅ AUTHENTICATED ROUTES
-                                        <>
-                                            <Route path="/" element={<Navigate to={`/${user.username}`} replace />} />
-                                            <Route path="/signup" element={<Navigate to={`/${user.username}`} replace />} />
-                                            <Route path="/login" element={<Navigate to={`/${user.username}`} replace />} />
-                                            <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
-                                            <Route path="/conversations" element={<MainLayout><Conversations /></MainLayout>} />
-                                            <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
-                                            <Route path="/sessions/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
-                                            <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
-                                            <Route path="/me" element={<MainLayout><ProfilePage /></MainLayout>} />
-                                            <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
-                                            <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />
-                                            <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
-                                            <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
-                                            <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
-                                            <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
-                                            <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
-                                            <Route path="/discover" element={<MainLayout><UsersPage /></MainLayout>} />
-                                            <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
-                                            <Route path="/stories/:username" element={<StoriesPage />} />
-                                            <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
-                                            <Route path="/stories" element={<StoriesPage />} />
-                                            <Route path="*" element={<Navigate to={`/${user.username}`} replace />} />
-                                        </>
-                                    ) : (
-                                        // ❌ UNAUTHENTICATED ROUTES
-                                        <>
-                                            <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
-                                            <Route path="/signup" element={<PublicLayout><Signup /></PublicLayout>} />
-                                            <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
-                                            <Route path="/forgot" element={<PublicLayout><Forgot /></PublicLayout>} />
-                                            <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
-                                            <Route path="/help" element={<PublicLayout><Help /></PublicLayout>} />
-                                            <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
-                                            <Route path="/verify-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
-                                            <Route path="/verify-email/:token" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
-                                            <Route path="/post/:postId" element={<PublicLayout><SharedPostRedirect /></PublicLayout>} />
-                                            <Route path="/story/:userId/:storyId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
-                                            <Route path="/story/:userId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
-                                            <Route path="*" element={<Navigate to="/" replace />} />
-                                        </>
-                                    )}
-                                </Routes>
-                                <GlobalOverlays />
-                            </Suspense>
-                        </Router>
-                    </DarkModeProvider>
-                </GoogleOAuthProvider>
+                <DarkModeProvider>
+                    <ConfirmDialog baseZIndex={1000000} />
+                    <Router>
+                        <AppInit />
+                        <Suspense fallback={<PageLoader />}>
+                            <Routes>
+                                {user ? (
+                                    // ✅ AUTHENTICATED ROUTES
+                                    <>
+                                        <Route path="/" element={<Navigate to={`/${user.username}`} replace />} />
+                                        <Route path="/signup" element={<Navigate to={`/${user.username}`} replace />} />
+                                        <Route path="/login" element={<Navigate to={`/${user.username}`} replace />} />
+                                        <Route path="/:username" element={<MainLayout><Home /></MainLayout>} />
+                                        <Route path="/conversations" element={<MainLayout><Conversations /></MainLayout>} />
+                                        <Route path="/conversation/:userId" element={<MainLayout><Conversations /></MainLayout>} />
+                                        <Route path="/sessions/*" element={<MainLayout><SettingsLayout /></MainLayout>} />
+                                        <Route path="/notifications" element={<MainLayout><NotificationsPage /></MainLayout>} />
+                                        <Route path="/me" element={<MainLayout><ProfilePage /></MainLayout>} />
+                                        <Route path="/profile/:userId" element={<MainLayout><ProfilePage /></MainLayout>} />
+                                        <Route path="/post/:postId" element={<MainLayout><SharedPostRedirect /></MainLayout>} />
+                                        <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
+                                        <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
+                                        <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
+                                        <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
+                                        <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
+                                        <Route path="/discover" element={<MainLayout><UsersPage /></MainLayout>} />
+                                        <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
+                                        <Route path="/stories/:username" element={<StoriesPage />} />
+                                        <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
+                                        <Route path="/stories" element={<StoriesPage />} />
+                                        <Route path="*" element={<Navigate to={`/${user.username}`} replace />} />
+                                    </>
+                                ) : (
+                                    // ❌ UNAUTHENTICATED ROUTES
+                                    <>
+                                        <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
+                                        <Route path="/signup" element={<PublicLayout><Signup /></PublicLayout>} />
+                                        <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
+                                        <Route path="/forgot" element={<PublicLayout><Forgot /></PublicLayout>} />
+                                        <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+                                        <Route path="/help" element={<PublicLayout><Help /></PublicLayout>} />
+                                        <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
+                                        <Route path="/verify-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
+                                        <Route path="/verify-email/:token" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
+                                        <Route path="/post/:postId" element={<PublicLayout><SharedPostRedirect /></PublicLayout>} />
+                                        <Route path="/story/:userId/:storyId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
+                                        <Route path="/story/:userId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
+                                        <Route path="*" element={<Navigate to="/" replace />} />
+                                    </>
+                                )}
+                            </Routes>
+                            <GlobalOverlays />
+                        </Suspense>
+                    </Router>
+                </DarkModeProvider>
             </QueryClientProvider>
         </HelmetProvider>
     );
+
 }
 
 // ─── GLOBAL OVERLAYS ──────────────────────────────────────────────────────────

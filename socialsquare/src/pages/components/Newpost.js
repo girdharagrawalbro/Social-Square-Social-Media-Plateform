@@ -228,7 +228,7 @@ const NewPost = ({ visible, onHide }) => {
 
     const handleAiMagicPost = async () => {
         if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
-        
+
         // Reset for fresh generation
         setFormData(p => ({ ...p, caption: "" }));
         setImages([]);
@@ -246,7 +246,7 @@ const NewPost = ({ visible, onHide }) => {
 
             // 1. Handle Text & Meta as soon as they arrive (usually faster)
             const [textRes, metaRes] = await Promise.all([textPromise, metaPromise]);
-            
+
             const suggestedCaption = textRes.data.text;
             const hashtags = metaRes.data.hashtags || [];
             const category = metaRes.data.category || 'Default';
@@ -256,7 +256,7 @@ const NewPost = ({ visible, onHide }) => {
                 caption: hashtags.length > 0 ? `${suggestedCaption}\n\n${hashtags.join(' ')}` : suggestedCaption,
                 category
             }));
-            
+
             setAiLimits(prev => ({
                 ...prev,
                 text: textRes.data.textRemaining ?? prev.text
@@ -734,20 +734,20 @@ const NewPost = ({ visible, onHide }) => {
                             placeholder="Describe your post idea... (e.g. A futuristic city in the clouds, cinematic style)"
                             value={aiPrompt}
                             onChange={(e) => setAiPrompt(e.target.value)}
-                            className="w-full bg-transparent text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2 min-h-[10px]"
+                            className="w-full bg-transparent border rounded text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2 min-h-[10px]"
                         />
 
                         {/* AI Image Preview Area */}
                         {(isGeneratingAi || images.length > 0) && (
-                            <div className="mt-2 mb-3 relative rounded-xl overflow-hidden border border-indigo-500/20 aspect-video bg-indigo-500/5 group shadow-inner">
+                            <div className="relative rounded-xl overflow-hidden border border-indigo-500/20 aspect-video h-24 group shadow-inner">
                                 {images.length > 0 ? (
-                                    <img 
-                                        src={images[0].preview} 
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                                        alt="AI Generated" 
+                                    <img
+                                        src={images[0].preview}
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                        alt="AI Generated"
                                     />
                                 ) : (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 ">
                                         <div className="w-8 h-8 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin"></div>
                                         <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest animate-pulse">Painting your vision...</span>
                                     </div>
