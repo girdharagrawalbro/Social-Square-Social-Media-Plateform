@@ -22,6 +22,9 @@ import PostMenu from './ui/PostMenu';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useWindowWidth from '../../hooks/useWindowWidth';
+import PostDetailSkeleton from './ui/PostDetailSkeleton';
+import SimilarPostsSkeleton from './ui/SimilarPostsSkeleton';
+
 
 
 const UserProfile = lazy(() => import('./UserProfile'));
@@ -99,12 +102,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const images = post?.image_urls?.length > 0 ? post.image_urls : post?.image_url ? [post.image_url] : [];
     const isLiked = postLikes?.some(id => id?.toString() === loggeduser?._id?.toString());
 
-    if (isPostLoading && !post) return (
-        <div className="max-w-2xl mx-auto p-20 mt-6 text-center bg-[var(--surface-1)]">
-            <div className="inline-block w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-[var(--text-sub)] font-medium">Loading post details...</p>
-        </div>
-    );
+    if (isPostLoading && !post) return <PostDetailSkeleton />;
+
 
     // Check for Privacy Error (403 from backend)
     if (postError?.response?.status === 403) {
@@ -717,7 +716,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 const SimilarPosts = ({ postId, onPostClick }) => {
     const { data: items = [], isLoading } = useSimilarPosts(postId);
 
-    if (isLoading) return <div className="p-4 text-center text-xs text-[var(--text-sub)]">Loading similar posts...</div>;
+    if (isLoading) return <SimilarPostsSkeleton />;
+
     if (items.length === 0) return null;
 
     return (
