@@ -3,8 +3,7 @@ import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import useWindowWidth from '../../hooks/useWindowWidth';
 
-// const BASE = process.env.REACT_APP_BACKEND_URL;
-const BASE = "";
+const BASE = process.env.NGINIX ? "" : process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 // ─── QUICK ACTION BUTTONS ─────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
