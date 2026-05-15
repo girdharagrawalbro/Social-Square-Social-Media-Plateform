@@ -88,7 +88,7 @@ const StoryViewer = ({
     useEffect(() => {
         const handleStoryUpdate = ({ storyId, likes }) => {
             if (story?._id === storyId) {
-                setIsLiked(likes.some(id => id.toString() === loggeduser?._id?.toString()));
+                setIsLiked(likes?.some(id => id.toString() === loggeduser?._id?.toString()));
             }
         };
         socket.on('storyUpdate', handleStoryUpdate);
@@ -179,7 +179,7 @@ const StoryViewer = ({
             try {
                 const { api } = await import('../../store/zustand/useAuthStore');
                 const res = await api.post(`/api/story/like/${storyId}`);
-                setIsLiked(res.data.likes.some(id => id.toString() === loggeduser?._id?.toString()));
+                setIsLiked(res.data.likes?.some(id => id.toString() === loggeduser?._id?.toString()));
                 onStoryLiked(storyId, res.data.likes);
             } catch { toast.error('Failed to like story'); }
         }, 400),
@@ -251,8 +251,15 @@ const StoryViewer = ({
             toast.success('Story deleted');
             onStoryDeleted(group.user._id.toString(), story._id);
             if (group.stories.length <= 1) {
-                if (groupIndex < groups.length - 1) { setGroupIndex(g => g + 1); setStoryIndex(0); }
-                else onClose();
+                if (groupIndex < groups.length - 1) {
+                    setGroupIndex(g => g + 1);
+                    setStoryIndex(0);
+                }
+                else {
+                    setTimeout(() => {
+                        onClose();
+                    }, 1000);
+                }
             } else { goNext(); }
         } catch {
             toast.error('Failed to delete');
@@ -822,7 +829,9 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
         const textColorToUpload = textColor;
         const textPositionToUpload = textPosition;
 
-        onClose();
+        setTimeout(() => {
+            onClose();
+        }, 1000);
 
         const uploadToast = toast.loading("Uploading story...", {
             position: 'bottom-right'
@@ -881,7 +890,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
             baseZIndex={10000}
             draggable={false}
             resizable={false}
-            contentStyle={{ padding: '20px', background: 'var(--surface-1)', borderRadius: '16px' }}
+            contentStyle={{ padding: '20px', background: 'var(--surface-1)', borderRadius: '10px', borderTopRightRadius: '0px', borderTopLeftRadius: '0px' }}
         >
             <div className="flex flex-col">
                 <div style={{ position: 'relative', marginBottom: '16px' }}>

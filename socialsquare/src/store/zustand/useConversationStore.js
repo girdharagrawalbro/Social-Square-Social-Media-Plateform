@@ -187,7 +187,7 @@ const useConversationStore = create(
                 };
             }),
             updateNotification: (id, updates) => set(state => {
-                const nextNotifications = state.notifications.map(n => 
+                const nextNotifications = state.notifications.map(n =>
                     n._id === id ? { ...n, ...updates } : n
                 );
                 return {

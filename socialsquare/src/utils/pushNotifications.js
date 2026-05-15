@@ -1,31 +1,58 @@
-// Request permission and show push notifications
+export const requestNotificationPermission = async () => {
 
-export async function requestNotificationPermission() {
-    if (!('Notification' in window)) return false;
-    if (Notification.permission === 'granted') return true;
-    if (Notification.permission === 'denied') return false;
+    if (typeof window === "undefined") return false;
+
+    if (!("Notification" in window)) {
+        console.log("Browser does not support notifications");
+        return false;
+    }
+
+    if (Notification.permission === "granted") {
+        return true;
+    }
+
+    if (Notification.permission === "denied") {
+        return false;
+    }
+
     const permission = await Notification.requestPermission();
-    return permission === 'granted';
-}
 
-export function showPushNotification({ title, body, icon, onClick }) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    return permission === "granted";
+};
+
+
+export const showNotification = ({
+    title,
+    body,
+    icon = "/logo.jpg",
+    onClick
+}) => {
+
+    console.log("here", Notification.permission);
+    if (typeof window === "undefined") return;
+
+    if (!("Notification" in window)) return;
+
+    if (Notification.permission !== "granted") return;
 
     const notification = new Notification(title, {
         body,
-        icon: icon || '/logo192.png',
-        badge: '/logo192.png',
-        silent: false,
+        icon,
+        badge: icon,
     });
 
-    if (onClick) notification.onclick = onClick;
+    notification.onclick = (event) => {
 
-    // Auto close after 5 seconds
-    setTimeout(() => notification.close(), 5000);
-}
+        window.focus();
 
-export function usePushNotifications() {
-    const request = requestNotificationPermission;
-    const show = showPushNotification;
-    return { request, show, isSupported: 'Notification' in window, permission: Notification.permission };
-}
+        if (onClick) {
+            onClick(event);
+        }
+
+        notification.close();
+    };
+
+    setTimeout(() => {
+        notification.close();
+    }, 5000);
+};
