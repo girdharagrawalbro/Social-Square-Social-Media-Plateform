@@ -71,7 +71,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [likesIds, setLikesIds] = useState([]);
     const reactMutation = useReactPost();
     const [pickerVisible, setPickerVisible] = useState(false);
-    const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
+    const { setSharingPostToStory, isMuted, setIsMuted } = usePostStore();
     const lastTap = useRef({});
     const viewedPostIdRef = useRef(null);
     const incrementViewMutation = useIncrementView();
@@ -211,7 +211,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             accept: () => deleteMutation.mutate({ postId: post._id, folder: post.user.username }, {
                 onSuccess: () => {
                     toast.success('Post deleted successfully');
-                    if (onHide) onHide();
+                    setTimeout(() => {
+                        if (onHide) onHide();
+                    }, 1000);
                 }
             }),
         });
@@ -229,7 +231,14 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 acceptLabel: 'Mute',
                 acceptClassName: 'p-button-warning border-0 rounded-xl',
                 rejectClassName: 'p-button-text p-button-secondary rounded-xl',
-                accept: () => muteMutation.mutate({ targetUserId: post.user._id }),
+                accept: () => muteMutation.mutate({ targetUserId: post.user._id }, {
+                    onSuccess: () => {
+                        toast.success(`Muted ${post.user.fullname}`);
+                        setTimeout(() => {
+                            if (onHide) onHide();
+                        }, 1000);
+                    }
+                }),
             });
         }
     };
@@ -248,7 +257,10 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 rejectClassName: 'p-button-text p-button-secondary rounded-xl',
                 accept: () => blockMutation.mutate({ targetUserId: post.user._id }, {
                     onSuccess: () => {
-                        if (onHide) onHide();
+                        toast.success(`Blocked ${post.user.fullname}`);
+                        setTimeout(() => {
+                            if (onHide) onHide();
+                        }, 1000);
                     }
                 }),
             });
@@ -267,6 +279,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             onSuccess: () => {
                 toast.success('Report submitted');
                 setReportVisible(false);
+                setTimeout(() => {
+                    if (onHide) onHide();
+                }, 1000);
             },
             onError: () => toast.error('Failed to report')
         });
@@ -315,11 +330,19 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
                                         autoPlay
                                         loop
+                                        muted={isMuted}
                                         onDoubleClick={handleImageDoubleClick}
                                         onTouchEnd={handleImageTap}
                                         className="max-w-full max-h-full object-contain"
                                         style={{ display: 'block' }}
                                     />
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                                        className="absolute bottom-4 right-4 z-10 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
+                                        title={isMuted ? "Unmute" : "Mute"}
+                                    >
+                                        <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '18px' }}></i>
+                                    </button>
                                 </div>
                             ) : images.length > 0 ? (
                                 <>
@@ -378,16 +401,26 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                             <div className="md:hidden flex-shrink-0 border-b border-[var(--border-color)] bg-[var(--surface-1)]">
                                 <div className="relative w-full h-[34vh] max-h-[360px] flex items-center justify-center overflow-hidden">
                                     {post?.video ? (
-                                        <video
-                                            src={post.video}
-                                            poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
-                                            autoPlay
-                                            loop
-                                            onDoubleClick={handleImageDoubleClick}
-                                            onTouchEnd={handleImageTap}
-                                            className="w-full h-full object-contain"
-                                            style={{ display: 'block', background: 'black' }}
-                                        />
+                                        <>
+                                            <video
+                                                src={post.video}
+                                                poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
+                                                autoPlay
+                                                loop
+                                                muted={isMuted}
+                                                onDoubleClick={handleImageDoubleClick}
+                                                onTouchEnd={handleImageTap}
+                                                className="w-full h-full object-contain"
+                                                style={{ display: 'block', background: 'black' }}
+                                            />
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                                                className="absolute bottom-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
+                                                title={isMuted ? "Unmute" : "Mute"}
+                                            >
+                                                <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '14px' }}></i>
+                                            </button>
+                                        </>
                                     ) : images[currentImage] ? (
                                         <>
                                             <ProgressiveImage

@@ -40,6 +40,7 @@ import PostDetail from './pages/components/PostDetail';
 import UserProfile from './pages/components/UserProfile';
 import { Dialog } from 'primereact/dialog';
 import SplashScreen from './pages/components/ui/SplashScreen';
+import { showNotification } from './utils/pushNotifications';
 
 
 // ─── LAZY PAGES ───────────────────────────────────────────────────────────────
@@ -139,7 +140,11 @@ function AppInit() {
 
                 // Fired when app is OPEN and notification arrives
                 PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                    console.log('📩 Foreground notification received:', notification);
+
+                    showNotification({
+                        title: notification.title || 'New notification',
+                        body: notification.body || 'You have a new notification',
+                    });
                     toast(notification.title || 'New notification', {
                         icon: '🔔',
                         duration: 4000,
@@ -155,7 +160,6 @@ function AppInit() {
 
                 // Fired when user TAPS a notification (app in background/killed)
                 PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-                    console.log('👆 Notification tapped:', action.notification);
                     const data = action.notification.data;
                     if (!data) return;
 
@@ -210,78 +214,290 @@ function AppInit() {
         socket.on('userOffline', removeOnlineUser);
 
         const handleNewNotification = (notification) => {
+
             if (!notification) return;
 
-            const senderId = notification.sender?.id || notification.sender?._id;
+            const senderId =
+                notification.sender?.id ||
+                notification.sender?._id;
+
+            // Don't notify for own actions
             if (senderId === user?._id) return;
 
             addNotification(notification);
 
-            const { type, message, post, story } = notification;
+            const {
+                type,
+                message,
+                post,
+                story
+            } = notification;
+
             const sender = notification.sender;
 
-            if (type === 'message' && senderId) {
-                if (window.location.pathname.includes(`/conversation/${senderId}`)) return;
+            // Skip notification if already inside same chat
+            if (
+                type === 'message' &&
+                senderId &&
+                window.location.pathname.includes(`/conversation/${senderId}`)
+            ) {
+                return;
             }
 
             let icon = '🔔';
+
+            let iconClass = 'pi pi-bell';
+            let iconColor = '#808bf5';
             let actionText = 'sent a notification';
-            if (type === 'like') { icon = '❤️'; actionText = story ? 'liked your story' : 'liked your post'; }
-            if (type === 'comment') { icon = '💬'; actionText = 'commented on your post'; }
-            if (type === 'follow') { icon = '👤'; actionText = 'started following you'; }
-            if (type === 'follow_request') { icon = '👤'; actionText = 'sent you a follow request'; }
-            if (type === 'message') { icon = '📩'; actionText = message?.content || 'sent you a message'; }
-            if (type === 'system') { icon = '⚠️'; actionText = message?.content || 'Security Alert'; }
-            if (type === 'new_post') { icon = '🖼️'; actionText = 'posted something new'; }
-            if (type === 'new_story') { icon = '📸'; actionText = 'added a new story'; }
+
+            if (type === 'like') {
+
+                iconClass = 'pi pi-heart-fill';
+                iconColor = '#ff3040';
+
+                actionText = story
+                    ? 'liked your story'
+                    : 'liked your post';
+            }
+
+            if (type === 'comment') {
+
+                iconClass = 'pi pi-comments';
+                iconColor = '#3b82f6';
+
+                actionText = 'commented on your post';
+            }
+
+            if (type === 'follow') {
+
+                iconClass = 'pi pi-user-plus';
+                iconColor = '#10b981';
+
+                actionText = 'started following you';
+            }
+
+            if (type === 'follow_request') {
+
+                iconClass = 'pi pi-user-plus';
+                iconColor = '#f59e0b';
+
+                actionText = 'sent you a follow request';
+            }
+
+            if (type === 'message') {
+
+                iconClass = 'pi pi-send';
+                iconColor = '#6366f1';
+
+                actionText =
+                    message?.content ||
+                    'sent you a message';
+            }
+
+            if (type === 'system') {
+
+                iconClass = 'pi pi-exclamation-triangle';
+                iconColor = '#ef4444';
+
+                actionText =
+                    message?.content ||
+                    'Security Alert';
+            }
+
+            if (type === 'new_post') {
+
+                iconClass = 'pi pi-image';
+                iconColor = '#ec4899';
+
+                actionText = 'posted something new';
+            }
+
+            if (type === 'new_story') {
+
+                iconClass = 'pi pi-camera';
+                iconColor = '#8b5cf6';
+
+                actionText = 'added a new story';
+            }
+            // =========================
+            // BROWSER NOTIFICATION
+            // =========================
+
+            showNotification({
+                title: `${icon} ${sender?.fullname || 'Social Square'}`,
+                body: actionText,
+                icon:
+                    sender?.profile_picture ||
+                    '/logo.jpg',
+
+                onClick: () => {
+
+                    window.focus();
+
+                    if (type === 'message' && senderId) {
+
+                        navigate(`/conversation/${senderId}`);
+
+                    }
+                    else if (
+                        (type === 'like' && story) ||
+                        type === 'new_story'
+                    ) {
+
+                        setStoryDetailUserId(senderId);
+
+                    }
+                    else if (post) {
+
+                        setPostDetailId(post);
+
+                    }
+
+                }
+            });
+
+            // =========================
+            // TOAST NOTIFICATION
+            // =========================
 
             toast(
                 (t) => (
                     <div
-                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: '100%', position: 'relative' }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            cursor: 'pointer',
+                            width: '100%',
+                            position: 'relative'
+                        }}
+
                         onClick={(e) => {
-                            if (e.target.closest('.close-toast')) return;
+
+                            if (e.target.closest('.close-toast'))
+                                return;
+
                             if (type === 'message' && senderId) {
+
                                 navigate(`/conversation/${senderId}`);
-                            } else if ((type === 'like' && story) || type === 'new_story') {
-                                setStoryDetailUserId(senderId);
-                            } else if (post) {
-                                setPostDetailId(post);
+
                             }
+                            else if (
+                                (type === 'like' && story) ||
+                                type === 'new_story'
+                            ) {
+
+                                setStoryDetailUserId(senderId);
+
+                            }
+                            else if (post) {
+
+                                setPostDetailId(post);
+
+                            }
+
                             toast.dismiss(t.id);
+
                         }}
                     >
-                        <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid var(--primary)' }}>
+
+                        <div
+                            style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '50%',
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                border: '2px solid var(--primary)'
+                            }}
+                        >
                             <img
-                                src={sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                src={
+                                    sender?.profile_picture ||
+                                    'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'
+                                }
                                 alt=""
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                }}
                             />
                         </div>
-                        <div style={{ minWidth: 0, flex: 1, paddingRight: '20px' }}>
-                            <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span>{icon}</span> {sender?.fullname || 'System'}
+
+                        <div
+                            style={{
+                                minWidth: 0,
+                                flex: 1,
+                                paddingRight: '20px'
+                            }}
+                        >
+
+                            <p
+                                style={{
+                                    margin: 0,
+                                    fontWeight: 'bold',
+                                    fontSize: '13px',
+                                    color: 'var(--text-main)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}
+                            >
+                                <span>{icon}</span>
+                                {sender?.fullname || 'System'}
                             </p>
-                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-sub)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+
+                            <p
+                                style={{
+                                    margin: 0,
+                                    fontSize: '12px',
+                                    color: 'var(--text-sub)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                }}
+                            >
                                 {actionText}
                             </p>
+
                         </div>
+
                         <button
                             className="close-toast"
-                            onClick={(e) => { e.stopPropagation(); toast.dismiss(t.id); }}
-                            style={{
-                                position: 'absolute', right: '-4px', top: '50%', transform: 'translateY(-50%)',
-                                background: 'none', border: 'none', color: 'var(--text-sub)',
-                                fontSize: '18px', cursor: 'pointer', padding: '8px'
+
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toast.dismiss(t.id);
                             }}
-                        >×</button>
+
+                            style={{
+                                position: 'absolute',
+                                right: '-4px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-sub)',
+                                fontSize: '18px',
+                                cursor: 'pointer',
+                                padding: '8px'
+                            }}
+                        >
+                            ×
+                        </button>
+
                     </div>
                 ),
+
                 {
                     duration: 5000,
+
                     position: 'top-center',
+
                     style: {
-                        padding: '10px', borderRadius: '16px',
+                        padding: '10px',
+                        borderRadius: '16px',
                         background: 'var(--surface-1)',
                         border: '1px solid var(--border-color)',
                         boxShadow: '0 10px 30px rgba(0,0,0,0.1)'

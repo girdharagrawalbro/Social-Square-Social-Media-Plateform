@@ -1074,7 +1074,7 @@ router.post('/users/details', verifyToken, async (req, res) => {
         ids = ids.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
 
         if (!ids.length) return res.status(200).json({ users: [] });
-        if (ids.length > 50) return res.status(400).json({ error: 'Too many IDs. Max 50.' });
+        if (ids.length > 100) return res.status(400).json({ error: 'Too many IDs. Max 100.' });
         const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture').lean();
         res.status(200).json({ users });
     } catch (e) {

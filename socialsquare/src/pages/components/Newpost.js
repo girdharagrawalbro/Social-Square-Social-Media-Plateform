@@ -529,10 +529,13 @@ const NewPost = ({ visible, onHide }) => {
         const grp = selectedGroupId;
         const isCollab = isCollaborative;
 
-        // 2. Close popup instantly
-        setIsPosting(false);
-        onHide();
-        resetState();
+        // 2. Close popup with 1s delay for better UX
+        setIsPosting(true);
+        setTimeout(() => {
+            setIsPosting(false);
+            onHide();
+            resetState();
+        }, 1000);
 
         // 3. Start background upload toast
         const uploadToast = toast.loading("Posting...", {
