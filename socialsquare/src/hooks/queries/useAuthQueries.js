@@ -80,8 +80,21 @@ export function useUserDetails(ids = []) {
         queryKey: authKeys.userDetails(ids),
         queryFn: async () => {
             if (!ids?.length) return [];
-            const res = await api.post(`/api/auth/users/details`, { ids });
-            return res.data?.users || [];
+            
+            // Batch requests if more than 100 IDs
+            const chunks = [];
+            for (let i = 0; i < ids.length; i += 100) {
+                chunks.push(ids.slice(i, i + 100));
+            }
+            
+            const results = await Promise.all(
+                chunks.map(async (chunk) => {
+                    const res = await api.post(`/api/auth/users/details`, { ids: chunk });
+                    return res.data?.users || [];
+                })
+            );
+            
+            return results.flat();
         },
         enabled: !!ids?.length,
         staleTime: 1000 * 60 * 5,

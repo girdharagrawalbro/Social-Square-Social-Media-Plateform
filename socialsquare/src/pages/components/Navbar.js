@@ -6,7 +6,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 import Authnav from "./Authnav";
 import NotificationBell from "./ui/NotificationBell";
 import { useDarkMode } from '../../context/DarkModeContext';
-import { requestNotificationPermission } from '../../utils/pushNotifications';
+import { requestNotificationPermission, showNotification } from '../../utils/pushNotifications';
 import NewPost from "./Newpost";
 
 
@@ -25,11 +25,14 @@ const Navbar = () => {
   const mobileMenuRef = useRef(null);
 
 
-  // Request push notification permission on first login
   useEffect(() => {
+
     if (isAuthenticated && loggeduser) {
-      requestNotificationPermission();
-    }
+      const setupNotifications = async () => {
+        await requestNotificationPermission();
+      }
+      setupNotifications();
+    };
   }, [isAuthenticated, loggeduser]);
 
   useEffect(() => {

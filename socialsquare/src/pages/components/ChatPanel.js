@@ -874,11 +874,59 @@ const ChatPanel = ({
             setConversationId(fetchedConversationId);
             setHasMore(fetchedHasMore);
             conversationIdRef.current = fetchedConversationId;
-            const unreadIncomingIds = fetchedMessages.filter(m => (m.sender?.toString?.() || m.senderId) !== user?._id && !m.isRead).map(m => m._id);
-            if (fetchedConversationId && unreadIncomingIds.length) {
-                markRead({ unreadMessageIds: unreadIncomingIds, lastMessage: unreadIncomingIds[unreadIncomingIds.length - 1], conversationId: fetchedConversationId });
-                setMessages(prev => prev.map(m => unreadIncomingIds.includes(m._id) ? { ...m, isRead: true } : m));
+            const unreadMessages = fetchedMessages.filter(
+                m =>
+                    (
+                        m.sender?._id ||
+                        m.senderId ||
+                        m.sender
+                    ) !== user?._id &&
+                    !m.isRead
+            );
+            const unreadIncomingIds =
+                unreadMessages.map(m => m._id);
+
+            if (
+                fetchedConversationId &&
+                unreadIncomingIds.length
+            ) {
+
+                // Mark messages read in DB
+                markRead({
+                    unreadMessageIds: unreadIncomingIds,
+                    lastMessage:
+                        unreadIncomingIds[
+                        unreadIncomingIds.length - 1
+                        ],
+                    conversationId: fetchedConversationId
+                });
+
+                // Update local UI
+                setMessages(prev =>
+                    prev.map(m =>
+                        unreadIncomingIds.includes(m._id)
+                            ? { ...m, isRead: true }
+                            : m
+                    )
+                );
+
+                // Emit socket event back to sender
+                unreadMessages.forEach((msg) => {
+
+                    socket.emit('readMessage', {
+
+                        messageId: msg._id,
+
+                        recipientId:
+                            msg.sender?._id ||
+                            msg.senderId ||
+                            msg.sender
+
+                    });
+
+                });
             }
+
         } catch (err) {
             console.error('Failed to fetch messages', err);
             if (err.response?.status === 403) setPrivacyError(err.response.data.error || 'This account is private');
