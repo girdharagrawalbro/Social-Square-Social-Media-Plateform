@@ -6,9 +6,18 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const Category = require('../models/Category');
 const AiUsage = require('../models/AiUsage');
-const axios = require('axios');
+const axios = require('../utils/http');
 const FormData = require('form-data');
 const verifyToken = require('../middleware/Verifytoken');
+const { body, query, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 
 const DAILY_TEXT_LIMIT = 2;
@@ -112,7 +121,10 @@ async function uploadImageUrlToCloudinary(url, folder = 'ai-generated') {
 }
 
 // ─── GENERATE TEXT (PROTECTED) ────────────────────────────────────────────────
-router.post('/generate-text', verifyToken, async (req, res) => {
+router.post('/generate-text', verifyToken, [
+    body('prompt').notEmpty().trim().escape().isLength({ max: 1000 }),
+    validate
+], async (req, res) => {
     try {
         const { prompt } = req.body;
         const userId = req.userId;
@@ -134,7 +146,10 @@ router.post('/generate-text', verifyToken, async (req, res) => {
 });
 
 // ─── GENERATE IMAGE (PROTECTED) ───────────────────────────────────────────────
-router.post('/generate-image', verifyToken, async (req, res) => {
+router.post('/generate-image', verifyToken, [
+    body('prompt').notEmpty().trim().escape().isLength({ max: 1000 }),
+    validate
+], async (req, res) => {
     try {
         const { prompt } = req.body;
         const userId = req.userId;
@@ -200,7 +215,10 @@ router.get('/limit', verifyToken, async (req, res) => {
 });
 
 // ─── GENERATE CAPTION FROM IMAGE (PROTECTED) ─────────────────────────────────────
-router.post('/caption', verifyToken, async (req, res) => {
+router.post('/caption', verifyToken, [
+    body('imageUrl').isURL().withMessage('Invalid image URL'),
+    validate
+], async (req, res) => {
     try {
         const { imageUrl } = req.body;
         if (!imageUrl) return res.status(400).json({ error: 'imageUrl is required' });
@@ -216,7 +234,10 @@ router.post('/caption', verifyToken, async (req, res) => {
 });
 
 // ─── MOOD-BASED FEED (PROTECTED) ──────────────────────────────────────────────────
-router.get('/mood-feed', verifyToken, async (req, res) => {
+router.get('/mood-feed', verifyToken, [
+    query('mood').notEmpty().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const { mood } = req.query;
@@ -255,7 +276,10 @@ router.get('/mood-feed', verifyToken, async (req, res) => {
 });
 
 // ─── DETECT MOOD FROM CAPTION (PROTECTED) ─────────────────────────────────────────
-router.post('/detect-mood', verifyToken, async (req, res) => {
+router.post('/detect-mood', verifyToken, [
+    body('caption').optional().trim().escape().isLength({ max: 5000 }),
+    validate
+], async (req, res) => {
     try {
         const { caption } = req.body;
         // If no caption, default to neutral instead of 400
@@ -267,7 +291,11 @@ router.post('/detect-mood', verifyToken, async (req, res) => {
 });
 
 // ─── SUGGEST HASHTAGS + CATEGORY + MOOD (PROTECTED) ─────────────────────────
-router.post('/suggest-meta', verifyToken, async (req, res) => {
+router.post('/suggest-meta', verifyToken, [
+    body('caption').optional().trim().escape().isLength({ max: 5000 }),
+    body('prompt').optional().trim().escape().isLength({ max: 1000 }),
+    validate
+], async (req, res) => {
     try {
         const { caption = '', prompt = '' } = req.body;
         const sourceText = String(caption || prompt || '').trim();
@@ -314,7 +342,12 @@ router.post('/suggest-meta', verifyToken, async (req, res) => {
 });
 
 // ─── GENERATE AI TEXT + IMAGE + DIRECTLY CREATE POST (PROTECTED) ────────────
-router.post('/generate-and-post', verifyToken, async (req, res) => {
+router.post('/generate-and-post', verifyToken, [
+    body('prompt').notEmpty().trim().escape().isLength({ max: 1000 }),
+    body('category').optional().trim().escape(),
+    body('makeAnonymous').optional().isBoolean(),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const { prompt, category: inputCategory = null, makeAnonymous = false } = req.body;

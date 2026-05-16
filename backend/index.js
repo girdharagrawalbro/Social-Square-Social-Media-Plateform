@@ -33,7 +33,10 @@ const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 5000;
 
+const { correlationMiddleware } = require('./middleware/correlation');
+
 app.set('trust proxy', 1);
+app.use(correlationMiddleware);
 
 // ─── SECURITY + COMPRESSION ───────────────────────────────────────────────────
 app.use(helmet({
@@ -83,7 +86,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
     : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
 app.use(cors({
-    origin: allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    origin: allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-fingerprint']
 }));
 
@@ -94,7 +97,7 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 // In production, skip successful health checks entirely
 if (process.env.NODE_ENV !== 'production') {
     const morgan = require('morgan');
-    app.use(morgan('tiny'));
+    app.use(morgan('dev'));
 }
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
@@ -211,6 +214,7 @@ app.use('/api/story', storyRouter);
 app.use('/api/group', require('./routes/group'));
 app.use('/api/live', require('./routes/live'));
 app.use('/api/ai', (req, res, next) => require('./routes/ai.js')(req, res, next));
+app.use('/api/media', require('./routes/media'));
 app.use('/api/admin', (req, res, next) => require('./routes/admin.js')(req, res, next));
 app.use('/api/chatbot', (req, res, next) => require('./routes/chatbot.js')(req, res, next));
 app.use("/api/recommendation", require("./routes/recommendation"));
@@ -224,11 +228,42 @@ app.use((err, req, res, next) => {
 });
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
-// ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
-// ✅ Redis-backed online status for distributed stability
-// replaced Map with direct redis calls in socket handlers
+// ─── SOCKET.IO RATE LIMITING ──────────────────────────────────────────────────
+const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible');
+
+// Global event limiter (10 events/sec)
+const socketGlobalLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
+    ? new RateLimiterMemory({ points: 10, duration: 1 })
+    : new RateLimiterRedis({ storeClient: redis, points: 10, duration: 1, keyPrefix: 'socket_global' });
+
+// Stricter limiter for high-frequency events like typing (2 events/sec)
+const socketStrictLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
+    ? new RateLimiterMemory({ points: 2, duration: 1 })
+    : new RateLimiterRedis({ storeClient: redis, points: 2, duration: 1, keyPrefix: 'socket_strict' });
 
 io.on('connection', (socket) => {
+    // Middleware to rate limit every incoming event
+    socket.use(async ([event, ...args], next) => {
+        // Whitelist critical/internal events
+        if (['registerUser', 'join-live'].includes(event)) return next();
+
+        const limiter = ['typing', 'messageReaction', 'stopTyping'].includes(event) 
+            ? socketStrictLimiter 
+            : socketGlobalLimiter;
+
+        const key = socket.userId || socket.handshake.address;
+
+        try {
+            await limiter.consume(key);
+            next();
+        } catch (err) {
+            console.warn(`[Socket Rate Limit] Blocked ${event} from ${key}`);
+            socket.emit('error', { message: 'Rate limit exceeded. Please slow down.' });
+            // By not calling next(), the event is dropped.
+        }
+    });
+
+
     socket.on('registerUser', async (userId) => {
         socket.userId = userId;
         socket.join(userId);
@@ -236,8 +271,9 @@ io.on('connection', (socket) => {
         try {
             if (!redis) return;
 
-
             await redis.hset('online_users', userId, socket.id);
+            // ✅ Track active timestamp for TTL cleanup
+            await redis.zadd('presence_heartbeats', Date.now(), userId);
 
             // 1. Send list of online users
             const onlineMap = await redis.hgetall('online_users');
@@ -254,11 +290,20 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('heartbeat', async (userId) => {
+        if (!redis || !userId) return;
+        try {
+            await redis.zadd('presence_heartbeats', Date.now(), userId);
+        } catch (err) {
+            console.error('[Socket] Heartbeat error:', err.message);
+        }
+    });
+
     socket.on('logoutUser', async (userId) => {
         try {
             if (redis) {
-
                 await redis.hdel('online_users', userId);
+                await redis.zrem('presence_heartbeats', userId);
                 io.emit('userOffline', userId);
                 await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
             }
@@ -266,8 +311,6 @@ io.on('connection', (socket) => {
             console.error('[Socket] Redis error (logoutUser):', err.message);
         }
     });
-
-    // sendMessage handler removed: covered by REST API route in conversation.js
 
     socket.on('typing', async ({ recipientId, senderName }) => {
         try {
@@ -312,10 +355,10 @@ io.on('connection', (socket) => {
         if (userId) {
             try {
                 if (redis) {
-
                     const currentSid = await redis.hget('online_users', userId);
                     if (currentSid === socket.id) {
                         await redis.hdel('online_users', userId);
+                        await redis.zrem('presence_heartbeats', userId);
                         io.emit('userOffline', userId);
                         await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
                     }
@@ -343,6 +386,30 @@ io.on('connection', (socket) => {
         socket.to(to).emit('ice-candidate', { from: socket.userId, candidate });
     });
 });
+
+// ✅ ─── PRESENCE HOUSEKEEPING (TTL Cleanup) ──────────────────────────────────
+// Runs every 30s to evict users who haven't sent a heartbeat in > 60s
+setInterval(async () => {
+    if (!redis) return;
+    try {
+        const now = Date.now();
+        const threshold = now - 60000; // 60s inactivity
+        const staleIds = await redis.zrangebyscore('presence_heartbeats', '-inf', threshold);
+
+        if (staleIds.length > 0) {
+            console.log(`[Presence] Evicting ${staleIds.length} stale users`);
+            for (const uId of staleIds) {
+                await redis.hdel('online_users', uId);
+                await redis.zrem('presence_heartbeats', uId);
+                io.emit('userOffline', uId);
+                // Update DB to reflect offline status
+                await User.findByIdAndUpdate(uId, { isOnline: false, lastSeen: new Date() });
+            }
+        }
+    } catch (err) {
+        console.error('[Presence Cleanup] Error:', err.message);
+    }
+}, 30000);
 
 // ─── PERIODIC GC HINT ─────────────────────────────────────────────────────────
 // Ask V8 to run GC every 5 minutes if --expose-gc flag is set

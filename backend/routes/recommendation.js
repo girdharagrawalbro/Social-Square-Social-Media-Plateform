@@ -4,6 +4,15 @@ const mongoose = require("mongoose");
 const logger = require("../utils/logger");
 const router = express.Router();
 const verifyToken = require("../middleware/Verifytoken");
+const { body, param, query, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 const redis = require("../lib/redis");
 
 const {
@@ -181,7 +190,10 @@ router.get("/users", verifyToken, async (req, res) => {
 });
 
 // ─── SIMILAR POSTS ────────────────────────────────────────────────────────────
-router.get("/similar/:postId", verifyToken, async (req, res) => {
+router.get("/similar/:postId", verifyToken, [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
     const _tag = '[REC /similar]';
     const _t0 = Date.now();
     const { postId } = req.params;
@@ -393,7 +405,10 @@ router.get("/trending", verifyToken, async (req, res) => {
 });
 
 // ─── PERSONALIZED SEARCH ──────────────────────────────────────────────────────
-router.get("/search", verifyToken, async (req, res) => {
+router.get("/search", verifyToken, [
+    query('q').optional().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const q = req.query.q || "";
@@ -410,7 +425,12 @@ router.get("/search", verifyToken, async (req, res) => {
 });
 
 // ─── LOG ACTIVITY ─────────────────────────────────────────────────────────────
-router.post("/activity", verifyToken, async (req, res) => {
+router.post("/activity", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    body('action').notEmpty().trim().escape(),
+    body('duration').optional().isNumeric(),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const { postId, action, duration } = req.body;
@@ -437,7 +457,13 @@ router.post("/activity", verifyToken, async (req, res) => {
 });
 
 // ─── BATCH ACTIVITY ───────────────────────────────────────────────────────────
-router.post("/batch-activity", verifyToken, async (req, res) => {
+router.post("/batch-activity", verifyToken, [
+    body('activities').isArray().withMessage('activities must be an array'),
+    body('activities.*.postId').isMongoId().withMessage('Invalid post ID in array'),
+    body('activities.*.action').notEmpty().trim().escape(),
+    body('activities.*.duration').optional().isNumeric(),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const { activities } = req.body;

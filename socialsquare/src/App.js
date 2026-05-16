@@ -208,7 +208,19 @@ function AppInit() {
         if (!user?._id) return;
         if (!socket.connected) socket.connect();
         socket.emit('registerUser', user._id);
-        socket.on('connect', () => localStorage.setItem('socketId', socket.id));
+
+        // ✅ Heartbeat mechanism: confirm presence every 30s
+        const heartbeatInterval = setInterval(() => {
+            if (socket.connected) {
+                socket.emit('heartbeat', user._id);
+            }
+        }, 30000);
+
+        socket.on('connect', () => {
+            localStorage.setItem('socketId', socket.id);
+            socket.emit('registerUser', user._id); // Re-register on reconnect
+        });
+
         socket.on('updateUserList', setOnlineUsers);
         socket.on('userOnline', addOnlineUser);
         socket.on('userOffline', removeOnlineUser);
@@ -557,6 +569,7 @@ function AppInit() {
         socket.on('collaborationInvite', handleCollabInvite);
 
         return () => {
+            clearInterval(heartbeatInterval);
             socket.off('connect');
             socket.off('updateUserList');
             socket.off('userOnline');

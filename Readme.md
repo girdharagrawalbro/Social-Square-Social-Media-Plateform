@@ -66,7 +66,29 @@ All API responses follow the format: `{ "success": true, "data": { ... } }` or `
   }
   ```
 
-### 📝 Post Management (`/api/post`)
+#### **Fetch User Details (Batch)**
+- **Endpoint:** `POST /api/auth/users/details`
+- **Payload:** 
+- ```json
+- {
+-   "ids": ["64a1b2...", "64a1b3..."],
+-   "page": 1, 
+-   "limit": 20
+- }
+- ```
+- - **Constraints:** Max 500 IDs per payload. Page size max 50.
+- - **Response:**
+- ```json
+- {
+-   "users": [...],
+-   "total": 2,
+-   "page": 1,
+-   "limit": 20,
+-   "hasMore": false
+- }
+- ```
+-
+-### 📝 Post Management (`/api/post`)
 
 #### **Create Post**
 - **Endpoint:** `POST /api/post/create`
@@ -178,6 +200,8 @@ TanStack Query handles the **server source of truth**, providing automatic cachi
 - **Workers**: **BullMQ** handles background jobs like daily digests and media cleanup.
 
 ### Security Implementation
+- **Input Validation & Sanitization**: Robust server-side validation using `express-validator` on all POST/PUT/PATCH/DELETE routes. This includes strict schema checks, type enforcement (e.g., MongoDB ObjectIDs), and automatic HTML-escaping/trimming to prevent XSS and injection attacks.
+- **Silent Session Refresh**: Access Tokens (JWT) are stored **in-memory only** for maximum security. Persistence across page reloads and tab closures is handled via a **refresh token stored in an `httpOnly`, `secure` cookie**.
 - **Fingerprinting**: Every login binds the session to a browser fingerprint hash.
 - **Rate Limiting**: `express-rate-limit` enforced on all `/api/auth` write operations.
 - **Session Revocation**: Remote "Logout from all devices" implemented via session hash invalidation in Redis.

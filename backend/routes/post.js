@@ -21,6 +21,15 @@ const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
 const { getOwnerToken, verifyOwnerToken, sanitizeAnonymousPost } = require('../utils/privacy');
 const postWriteLimiter = require('../middleware/postWriteLimiter'); // Break circular dependency
+const { body, param, query, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 const router = express.Router();
 const ANONYMOUS_USER_ID = "600000000000000000000000"; // Constant dummy ID for anonymous posts
@@ -30,8 +39,30 @@ const ANONYMOUS_USER_ID = "600000000000000000000000"; // Constant dummy ID for a
 let _io;
 function setIo(io) { _io = io; }
 
+// ─── CURSOR HELPERS ──────────────────────────────────────────────────────────
+const encodeCursor = (date, id) => {
+    if (!date || !id) return null;
+    const timestamp = new Date(date).getTime();
+    return Buffer.from(`${timestamp}_${id}`).toString('base64');
+};
+
+const decodeCursor = (cursorStr) => {
+    try {
+        if (!cursorStr) return null;
+        const decoded = Buffer.from(cursorStr, 'base64').toString('ascii');
+        const [timestamp, id] = decoded.split('_');
+        if (!timestamp || !id) return null;
+        return { date: new Date(parseInt(timestamp)), id };
+    } catch (e) {
+        return null;
+    }
+};
+
 // ─── VIEW (PUBLIC) ────────────────────────────────────────────────────────────
-router.post("/view/:postId", softVerifyToken, async (req, res) => {
+router.post("/view/:postId", [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], softVerifyToken, async (req, res) => {
     try {
         const { postId } = req.params;
 
@@ -71,7 +102,11 @@ router.post("/view/:postId", softVerifyToken, async (req, res) => {
 });
 
 // ─── VOTE (PROTECTED) ────────────────────────────────────────────────────────
-router.post("/vote", verifyToken, async (req, res) => {
+router.post("/vote", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    body('optionIndex').isInt({ min: 0 }).withMessage('Invalid option index'),
+    validate
+], async (req, res) => {
     try {
         const { postId, optionIndex } = req.body;
         const userId = req.userId;
@@ -106,7 +141,19 @@ function computeScore(post, followingIds = []) {
 }
 
 // ─── CREATE (PROTECTED + FILTERED) ───────────────────────────────────────────
-router.post("/create", verifyToken, contentFilter, async (req, res) => {
+router.post("/create", verifyToken, [
+    body('category').notEmpty().trim().escape().withMessage('Category is required'),
+    body('caption').optional().trim().escape().isLength({ max: 5000 }),
+    body('imageURLs').optional().isArray().withMessage('imageURLs must be an array'),
+    body('imageURLs.*').optional().isURL().withMessage('Invalid image URL'),
+    body('videoURL').optional().isURL().withMessage('Invalid video URL'),
+    body('collaboratorIds').optional().isArray(),
+    body('collaboratorIds.*').optional().isMongoId(),
+    body('groupId').optional().isMongoId(),
+    body('isAnonymous').optional().isBoolean(),
+    body('isCollaborative').optional().isBoolean(),
+    validate
+], contentFilter, async (req, res) => {
     try {
         const {
             caption, category, imageURLs, videoURL, location, music,
@@ -249,7 +296,11 @@ router.post("/create", verifyToken, contentFilter, async (req, res) => {
 });
 
 // ─── ACCEPT COLLABORATION (PROTECTED) ──────────────────────────────────────────
-router.post("/collaborate/accept", verifyToken, async (req, res) => {
+router.post("/collaborate/accept", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    body('contribution').optional().trim().escape().isLength({ max: 1000 }),
+    validate
+], async (req, res) => {
     try {
         const { postId, contribution } = req.body;
         const userId = req.userId;
@@ -266,7 +317,10 @@ router.post("/collaborate/accept", verifyToken, async (req, res) => {
 });
 
 // ─── DECLINE COLLABORATION (PROTECTED) ───────────────────────────────────────────
-router.post("/collaborate/decline", verifyToken, async (req, res) => {
+router.post("/collaborate/decline", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
     try {
         const { postId } = req.body;
         const userId = req.userId;
@@ -321,7 +375,12 @@ router.get("/collaborate/mine/:userId", verifyToken, async (req, res) => {
 });
 
 // ─── UPDATE (PROTECTED) ──────────────────────────────────────────────────────────
-router.put("/update/:postId", verifyToken, postWriteLimiter, async (req, res) => {
+router.put("/update/:postId", verifyToken, [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    body('caption').optional().trim().escape().isLength({ max: 5000 }),
+    body('category').optional().trim().escape(),
+    validate
+], postWriteLimiter, async (req, res) => {
     try {
         const { caption, category } = req.body;
         const userId = req.userId;
@@ -364,7 +423,10 @@ router.put("/update/:postId", verifyToken, postWriteLimiter, async (req, res) =>
 });
 
 // ─── DELETE (PROTECTED) ──────────────────────────────────────────────────────────
-router.delete("/delete/:postId", verifyToken, postWriteLimiter, async (req, res) => {
+router.delete("/delete/:postId", verifyToken, [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], postWriteLimiter, async (req, res) => {
     try {
         const userId = req.userId;
 
@@ -467,10 +529,20 @@ router.get("/", async (req, res) => {
             deletedAt: null,
             'user._id': { $nin: excludedUserIds.filter(id => id && id.length === 24).map(id => new mongoose.Types.ObjectId(id)) },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
-            ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
+
+        if (cursor) {
+            const decoded = decodeCursor(cursor);
+            if (decoded) {
+                query.$or = [
+                    { createdAt: { $lt: decoded.date } },
+                    { createdAt: decoded.date, _id: { $lt: decoded.id } }
+                ];
+            }
+        }
+        
         // Fetch a larger batch since we might filter some out below
-        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit * 4).lean().maxTimeMS(5000);
+        const posts = await Post.find(query).sort({ createdAt: -1, _id: -1 }).limit(limit * 4).lean().maxTimeMS(5000);
 
         // 🔒 Privacy Guard: Find any private users among the fetched posts that we don't follow
         const fetchedUserIds = [...new Set(posts.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(Boolean))];
@@ -532,7 +604,7 @@ router.get("/", async (req, res) => {
         // FIX #1: hasMore should reflect whether filteredPosts had more than `limit` items
         // (i.e. there are more pages to fetch), not compare against the raw DB batch size
         const hasMore = filteredPosts.length > limit;
-        const nextCursor = result.length > 0 ? result[result.length - 1]._id : null;
+        const nextCursor = result.length > 0 ? encodeCursor(result[result.length - 1].createdAt, result[result.length - 1]._id) : null;
 
         // Fetch fresh presence for all users in the feed
         const uniqueUserIds = [...new Set(result.map(p => p.user._id.toString()))];
@@ -580,7 +652,10 @@ router.get("/", async (req, res) => {
 });
 
 // ─── USER POSTS ───────────────────────────────────────────────────────────────
-router.get("/user/:userId", softVerifyToken, async (req, res) => {
+router.get("/user/:userId", [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], softVerifyToken, async (req, res) => {
     try {
         const viewerId = req.userId; // Resolved by softVerifyToken middleware
         const ownerId = req.params.userId;
@@ -627,14 +702,28 @@ router.get("/user/:userId", softVerifyToken, async (req, res) => {
                     }
                 }
             ],
-            ...(cursor ? { _id: { $lt: cursor } } : {}),
             ...(!isOwner ? { isAnonymous: { $ne: true } } : {})
         };
-        const posts = await Post.find(query).sort({ _id: -1 }).limit(limit + 1).lean();
+
+        if (cursor) {
+            const decoded = decodeCursor(cursor);
+            if (decoded) {
+                query.$or = [
+                    { createdAt: { $lt: decoded.date } },
+                    { createdAt: decoded.date, _id: { $lt: decoded.id } }
+                ];
+            }
+        }
+
+        const posts = await Post.find(query).sort({ createdAt: -1, _id: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         const sanitized = result.map(p => sanitizeAnonymousPost(p, viewerId));
-        res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
+        res.status(200).json({ 
+            posts: sanitized, 
+            nextCursor: hasMore ? encodeCursor(result[result.length - 1].createdAt, result[result.length - 1]._id) : null, 
+            hasMore 
+        });
     } catch (error) {
         console.error('[Post Route] /user/:userId error:', error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -642,7 +731,10 @@ router.get("/user/:userId", softVerifyToken, async (req, res) => {
 });
 
 // ─── PUBLIC USER POSTS (Logged-out) ───────────────────────────────────────────
-router.get("/public/user/:userId", async (req, res) => {
+router.get("/public/user/:userId", [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const ownerId = req.params.userId;
         const postOwner = await User.findById(ownerId).select('isPrivate').lean();
@@ -709,7 +801,10 @@ router.get("/public/user/:userId", async (req, res) => {
 });
 
 // ─── SAVE / UNSAVE (PROTECTED) ───────────────────────────────────────────────────
-router.post("/save", verifyToken, async (req, res) => {
+router.post("/save", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
     try {
         const { postId } = req.body;
         const userId = req.userId;
@@ -740,7 +835,10 @@ router.post("/save", verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.get("/saved/:userId", verifyToken, async (req, res) => {
+router.get("/saved/:userId", verifyToken, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const { userId } = req.params;
         if (String(userId) !== String(req.userId)) return res.status(403).json({ error: 'Unauthorized' });
@@ -754,7 +852,11 @@ router.get("/saved/:userId", verifyToken, async (req, res) => {
 });
 
 // ─── REACT (PROTECTED) ────────────────────────────────────────────────────────
-router.post("/react", verifyToken, async (req, res) => {
+router.post("/react", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    body('emoji').notEmpty().trim().escape().withMessage('Emoji is required'),
+    validate
+], async (req, res) => {
     try {
         const { postId, emoji } = req.body;
         const userId = req.userId;
@@ -872,7 +974,10 @@ router.get("/trending", async (req, res) => {
 });
 
 // ─── LIKE (PROTECTED) ─────────────────────────────────────────────────────────
-router.post("/like", verifyToken, async (req, res) => {
+router.post("/like", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
     try {
         const { postId } = req.body;
         const userId = req.userId;
@@ -932,7 +1037,10 @@ router.post("/like", verifyToken, async (req, res) => {
 });
 
 // ─── UNLIKE (PROTECTED) ───────────────────────────────────────────────────────
-router.post("/unlike", verifyToken, async (req, res) => {
+router.post("/unlike", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
     try {
         const { postId } = req.body;
         const userId = req.userId;
@@ -980,7 +1088,10 @@ router.get("/categories", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.get('/comments', async (req, res) => {
+router.get('/comments', [
+    query('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
     try {
         const { postId } = req.query;
         if (!postId || typeof postId !== 'string') return res.status(400).json({ error: 'postId required as query param' });
@@ -1043,7 +1154,12 @@ router.get('/comments', async (req, res) => {
 });
 
 // ─── ADD COMMENT (PROTECTED + FILTERED) ───────────────────────────────────────
-router.post('/comments/add', verifyToken, contentFilter, async (req, res) => {
+router.post('/comments/add', verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    body('content').notEmpty().trim().escape().isLength({ max: 2000 }),
+    body('parentId').optional().isMongoId(),
+    validate
+], contentFilter, async (req, res) => {
     try {
         const { content, postId, user, parentId } = req.body;
         if (!content || !postId || !user) return res.status(400).json({ error: 'Invalid data' });
@@ -1104,7 +1220,10 @@ router.post('/comments/add', verifyToken, contentFilter, async (req, res) => {
 });
 
 // ─── DELETE COMMENT (PROTECTED) ───────────────────────────────────────────────
-router.delete('/comments/:commentId', verifyToken, async (req, res) => {
+router.delete('/comments/:commentId', verifyToken, [
+    param('commentId').isMongoId().withMessage('Invalid comment ID'),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const comment = await Comment.findById(req.params.commentId);
@@ -1140,7 +1259,10 @@ router.delete('/comments/:commentId', verifyToken, async (req, res) => {
 });
 
 // ─── LIKE COMMENT (PROTECTED) ─────────────────────────────────────────────────
-router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
+router.post('/comments/:commentId/like', verifyToken, [
+    param('commentId').isMongoId().withMessage('Invalid comment ID'),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const comment = await Comment.findById(req.params.commentId);
@@ -1167,7 +1289,10 @@ router.post('/comments/:commentId/like', verifyToken, async (req, res) => {
 });
 
 // ─── SINGLE POST DETAIL ───────────────────────────────────────────────────────
-router.get("/detail/:postId", softVerifyToken, checkPostPrivacy, async (req, res) => {
+router.get("/detail/:postId", [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], softVerifyToken, checkPostPrivacy, async (req, res) => {
     try {
         const post = req.post;
         const viewerId = req.userId;

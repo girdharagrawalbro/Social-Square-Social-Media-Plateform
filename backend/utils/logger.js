@@ -1,8 +1,11 @@
 const winston = require('winston');
 const path = require('path');
 
-const logFormat = winston.format.printf(({ level, message, timestamp, stack }) => {
-    return `${timestamp} ${level.toUpperCase()}: ${stack || message}`;
+const { getRequestId } = require('../middleware/correlation');
+
+const logFormat = winston.format.printf(({ level, message, timestamp, stack, requestId }) => {
+    const idStr = requestId ? ` [${requestId}]` : '';
+    return `${timestamp}${idStr} ${level.toUpperCase()}: ${stack || message}`;
 });
 
 const logger = winston.createLogger({
@@ -10,6 +13,13 @@ const logger = winston.createLogger({
     format: winston.format.combine(
         winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.errors({ stack: true }),
+        winston.format((info) => {
+            const requestId = getRequestId();
+            if (requestId) {
+                info.requestId = requestId;
+            }
+            return info;
+        })(),
         winston.format.splat(),
         winston.format.json()
     ),

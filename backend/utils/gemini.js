@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('./http');
 
 // ─── NVIDIA MULTIMODAL CLIENT ────────────────────────────────────────────────
 // Using Llama 3.2 Vision for high-quality image analysis and text generation.

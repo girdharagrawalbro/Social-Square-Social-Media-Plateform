@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('./http');
 
 const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
 const MAIL_SERVICE_TIMEOUT_MS = Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 30000);

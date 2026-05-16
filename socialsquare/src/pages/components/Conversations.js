@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react
 import { socket } from '../../socket';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
-import { useConversations, useClearChat, useDeleteChat, convoKeys } from '../../hooks/queries/useConversationQueries';
+import { useConversations, useSearchConversations, useClearChat, useDeleteChat, convoKeys } from '../../hooks/queries/useConversationQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import { useUserProfile } from '../../hooks/queries/useAuthQueries';
@@ -22,7 +22,24 @@ const Conversations = () => {
     const incrementUnread = useConversationStore(s => s.incrementUnread);
     const clearUnread = useConversationStore(s => s.clearUnread);
     const unreadCounts = useConversationStore(s => s.unreadCounts);
-    const { data: conversations = [], refetch } = useConversations(user?._id);
+
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Infinite Query for conversation list
+    const {
+        data: infiniteData,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        refetch
+    } = useConversations(user?._id);
+
+    // Deep search query for conversations not in current pages
+    const { data: deepSearchResults = [] } = useSearchConversations(user?._id, searchQuery);
+
+    const conversations = useMemo(() => {
+        return infiniteData?.pages.flatMap(page => page.conversations) || [];
+    }, [infiniteData]);
 
     const navigate = useNavigate();
     const { userId: routeUserId } = useParams();
@@ -158,18 +175,24 @@ const Conversations = () => {
 
             // Optimistically update query cache for instant feedback
             queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
-                if (!Array.isArray(old)) return old;
-                return old.map(c => toId(c._id) === toId(conversationId) ? {
-                    ...c,
-                    lastMessage: {
-                        id: message._id,
-                        message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'),
-                        isRead: false,
-                        isReply: !!message.replyTo
-                    },
-                    lastMessageAt: message.createdAt || new Date().toISOString(),
-                    lastMessageBy: message.senderId || message.sender
-                } : c);
+                if (!old || !old.pages) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        conversations: page.conversations.map(c => toId(c._id) === toId(conversationId) ? {
+                            ...c,
+                            lastMessage: {
+                                id: message._id,
+                                message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'),
+                                isRead: false,
+                                isReply: !!message.replyTo
+                            },
+                            lastMessageAt: message.createdAt || new Date().toISOString(),
+                            lastMessageBy: message.senderId || message.sender
+                        } : c)
+                    }))
+                };
             });
 
             // If it's an incoming message, increment unread
@@ -182,34 +205,56 @@ const Conversations = () => {
 
         const handleMessageEdited = ({ messageId, content, conversationId }) => {
             queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
-                if (!Array.isArray(old)) return old;
-                return old.map(c => (toId(c._id) === toId(conversationId) && (toId(c.lastMessage?.id) === toId(messageId) || toId(c.lastMessage?._id) === toId(messageId))) ? {
-                    ...c,
-                    lastMessage: { ...c.lastMessage, message: content || '📎 Media' }
-                } : c);
+                if (!old || !old.pages) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        conversations: page.conversations.map(c => (toId(c._id) === toId(conversationId) && (toId(c.lastMessage?.id) === toId(messageId) || toId(c.lastMessage?._id) === toId(messageId))) ? {
+                            ...c,
+                            lastMessage: { ...c.lastMessage, message: content || '📎 Media' }
+                        } : c)
+                    }))
+                };
             });
             handleRefetch();
         };
 
         const handleMessageDeleted = ({ messageId, conversationId }) => {
             queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
-                if (!Array.isArray(old)) return old;
-                return old.map(c => (toId(c._id) === toId(conversationId) && (toId(c.lastMessage?.id) === toId(messageId) || toId(c.lastMessage?._id) === toId(messageId))) ? {
-                    ...c,
-                    lastMessage: { ...c.lastMessage, message: '🚫 Message deleted' }
-                } : c);
+                if (!old || !old.pages) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        conversations: page.conversations.map(c => (toId(c._id) === toId(conversationId) && (toId(c.lastMessage?.id) === toId(messageId) || toId(c.lastMessage?._id) === toId(messageId))) ? {
+                            ...c,
+                            lastMessage: { ...c.lastMessage, message: '🚫 Message deleted' }
+                        } : c)
+                    }))
+                };
             });
             handleRefetch();
         };
 
         const handleConversationUpdated = (updatedConv) => {
             queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
-                if (!Array.isArray(old)) return [updatedConv];
-                const exists = old.find(c => toId(c._id) === toId(updatedConv._id));
-                if (exists) {
-                    return old.map(c => toId(c._id) === toId(updatedConv._id) ? updatedConv : c);
+                if (!old || !old.pages) return { pages: [{ conversations: [updatedConv] }], pageParams: [null] };
+
+                let found = false;
+                const newPages = old.pages.map(page => {
+                    const exists = page.conversations.find(c => toId(c._id) === toId(updatedConv._id));
+                    if (exists) {
+                        found = true;
+                        return { ...page, conversations: page.conversations.map(c => toId(c._id) === toId(updatedConv._id) ? updatedConv : c) };
+                    }
+                    return page;
+                });
+
+                if (!found) {
+                    newPages[0].conversations = [updatedConv, ...newPages[0].conversations];
                 }
-                return [updatedConv, ...old];
+                return { ...old, pages: newPages };
             });
         };
 
@@ -247,18 +292,38 @@ const Conversations = () => {
         return new Date(dateString).toLocaleDateString();
     };
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const filteredConversations = conversations.filter(conv => {
-        const myId = toId(user?._id);
-        const other = conv.participants?.find(p => toId(p.userId) !== myId);
-        return other?.fullname?.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    // Combine local results and deep search results
+    const allConversations = useMemo(() => {
+        if (!searchQuery) return conversations;
 
-    const sortedConversations = [...filteredConversations].sort((a, b) => {
-        const dateA = new Date(a.lastMessageAt || 0);
-        const dateB = new Date(b.lastMessageAt || 0);
-        return dateB - dateA;
-    });
+        // Filter loaded conversations
+        const filtered = conversations.filter(conv => {
+            const myId = toId(user?._id);
+            const other = conv.participants?.find(p => toId(p.userId) !== myId);
+            return other?.fullname?.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+
+        // Merge with deep search results, avoiding duplicates
+        const existingIds = new Set(filtered.map(c => toId(c._id)));
+        const uniqueDeep = deepSearchResults.filter(c => !existingIds.has(toId(c._id)));
+
+        return [...filtered, ...uniqueDeep];
+    }, [conversations, deepSearchResults, searchQuery, user?._id]);
+
+    const sortedConversations = useMemo(() => {
+        return [...allConversations].sort((a, b) => {
+            const dateA = new Date(a.lastMessageAt || 0);
+            const dateB = new Date(b.lastMessageAt || 0);
+            return dateB - dateA;
+        });
+    }, [allConversations]);
+
+    const handleScroll = (e) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 50 && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    };
 
     return (
         <div className="flex flex-col flex-1 min-h-0 glass-card overflow-hidden transition-all duration-300" style={{ height: '100%' }}>
@@ -287,7 +352,7 @@ const Conversations = () => {
                             />
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar relative" ref={convListRef}>
+                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar relative" ref={convListRef} onScroll={handleScroll}>
                         {/* Floating pill background */}
                         <div
                             style={{
@@ -313,46 +378,56 @@ const Conversations = () => {
                                     {searchQuery ? 'No results found' : 'No conversations yet'}
                                 </p>
                             </div>
-                        ) : sortedConversations.map((conv) => {
-                            const myId = toId(user?._id);
-                            const other = conv.participants?.find(p => toId(p.userId) !== myId);
-                            if (!other) return null;
-                            const convUnread = unreadCounts[conv._id] || 0;
-                            const isUnread = toId(conv.lastMessageBy) !== myId && !conv.lastMessage?.isRead;
+                        ) : (
+                            <>
+                                {sortedConversations.map((conv) => {
+                                    const myId = toId(user?._id);
+                                    const other = conv.participants?.find(p => toId(p.userId) !== myId);
+                                    if (!other) return null;
+                                    const convUnread = unreadCounts[conv._id] || 0;
+                                    const isUnread = toId(conv.lastMessageBy) !== myId && !conv.lastMessage?.isRead;
 
-                            const isActive = routeUserId === toId(other.userId);
-                            return (
-                                <div key={conv._id}
-                                    ref={el => convItemRefs.current[toId(other.userId)] = el}
-                                    className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 relative z-10 ${isActive ? 'ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
-                                    onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
-                                    <div className="relative flex-shrink-0">
-                                        <img src={other.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
-                                        {isOnline(other._id) && (
-                                            <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm" />
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col justify-center flex-1 min-w-0">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <h6 className={`p-0 m-0 text-[15px] truncate ${isUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'}`}>{other.fullname}</h6>
-                                            <p className="text-gray-400 dark:text-gray-500 p-0 m-0 text-[11px] font-medium flex-shrink-0 ml-2">{formatDateTime(conv.lastMessageAt)}</p>
+                                    const isActive = routeUserId === toId(other.userId);
+                                    return (
+                                        <div key={conv._id}
+                                            ref={el => convItemRefs.current[toId(other.userId)] = el}
+                                            className={`flex items-center gap-4 p-3.5 rounded-2xl cursor-pointer transition-all duration-200 relative z-10 ${isActive ? 'ring-1 ring-[#808bf5]/20' : isUnread ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-neutral-900/40'}`}
+                                            onClick={() => openChat({ ...other, userId: toId(other.userId), conversationId: conv._id }, conv.lastMessage?.id)}>
+                                            <div className="relative flex-shrink-0">
+                                                <img src={other.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt={other.fullname} className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-transparent group-hover:border-[#808bf5]/30 transition-all" />
+                                                {isOnline(other._id) && (
+                                                    <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm" />
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col justify-center flex-1 min-w-0">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <h6 className={`p-0 m-0 text-[15px] truncate ${isUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-semibold text-gray-800 dark:text-gray-200'}`}>{other.fullname}</h6>
+                                                    <p className="text-gray-400 dark:text-gray-500 p-0 m-0 text-[11px] font-medium flex-shrink-0 ml-2">{formatDateTime(conv.lastMessageAt)}</p>
+                                                </div>
+                                                <div className="flex justify-between items-center gap-2">
+                                                    <p className={`p-0 m-0 text-sm truncate flex-1 leading-tight ${isUnread ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 font-normal'}`}>
+                                                        {toId(conv.lastMessageBy) === myId ? <span className="text-[#808bf5] font-bold mr-1">You:</span> : ''}
+                                                        {conv.lastMessage?.isReply && <i className="pi pi-reply mr-1 text-[10px] opacity-70"></i>}
+                                                        {conv.lastMessage?.message || ''}
+                                                    </p>
+                                                    {convUnread > 0 && (
+                                                        <span className="bg-[#808bf5] text-white rounded-full min-w-[20px] h-[20px] px-1.5 text-[11px] flex items-center justify-center font-bold shadow-lg shadow-indigo-500/20">
+                                                            {convUnread}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-between items-center gap-2">
-                                            <p className={`p-0 m-0 text-sm truncate flex-1 leading-tight ${isUnread ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 font-normal'}`}>
-                                                {toId(conv.lastMessageBy) === myId ? <span className="text-[#808bf5] font-bold mr-1">You:</span> : ''}
-                                                {conv.lastMessage?.isReply && <i className="pi pi-reply mr-1 text-[10px] opacity-70"></i>}
-                                                {conv.lastMessage?.message || ''}
-                                            </p>
-                                            {convUnread > 0 && (
-                                                <span className="bg-[#808bf5] text-white rounded-full min-w-[20px] h-[20px] px-1.5 text-[11px] flex items-center justify-center font-bold shadow-lg shadow-indigo-500/20">
-                                                    {convUnread}
-                                                </span>
-                                            )}
-                                        </div>
+                                    );
+                                })}
+
+                                {isFetchingNextPage && (
+                                    <div className="flex justify-center p-4">
+                                        <i className="pi pi-spin pi-spinner text-indigo-500"></i>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 
