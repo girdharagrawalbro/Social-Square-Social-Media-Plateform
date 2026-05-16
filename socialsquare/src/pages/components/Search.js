@@ -180,7 +180,6 @@ const Search = ({ onClose }) => {
         setIsFocused(true);
     };
 
-    const isTyping = searchTerm !== debouncedTerm;
     // Blend local matches with remote ones for "People"
     const blendedUsers = useMemo(() => {
         const remoteUsers = searchResults.users || [];

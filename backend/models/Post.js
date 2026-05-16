@@ -75,6 +75,12 @@ const PostSchema = new mongoose.Schema(
 
     // Security: One-way HMAC of owner ID (for anonymous posts)
     ownerToken: { type: String, select: false },
+
+    // ─── MODERATION FIELDS ────────────────────────────────────────────────────
+    isVisible: { type: Boolean, default: true, index: true },
+    isFlagged: { type: Boolean, default: false, index: true },
+    moderationScore: { type: Number, default: 0 },
+    moderationReason: { type: String, default: null },
   },
   { timestamps: true }
 );
