@@ -9,6 +9,7 @@
 //   console.log(result.name);        // stored filename
 //   console.log(result.mimeType);    // detected MIME type
 // ──────────────────────────────────────────────────────────────────────────────
+import { api } from '../store/zustand/useAuthStore';
 
 const DRIVE_API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/media/drive`;
 

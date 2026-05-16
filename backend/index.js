@@ -442,6 +442,14 @@ async function bootstrap() {
     await initCleanupJobs();
     const { scheduleDailyDigest } = require('./queues/digestQueue');
     await scheduleDailyDigest();
+
+    // ─── MODERATION ───────────────────────────────────────────────────────────────
+    try {
+        require('./queues/moderationQueue');
+        console.log('[Moderation] Worker/Queue initialized');
+    } catch (err) {
+        console.warn('[Moderation] Failed to initialize:', err.message);
+    }
     server.listen(port, () => {
         console.log(`[Server] Running on port ${port} (PID: ${process.pid})`);
 

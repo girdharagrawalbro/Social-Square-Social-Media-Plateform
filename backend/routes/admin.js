@@ -550,6 +550,38 @@ router.delete('/posts/:postId', requireAdmin, [
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+router.post('/content/restore/:id', requireAdmin, [
+    param('id').isMongoId().withMessage('Invalid ID'),
+    body('type').isIn(['post', 'comment']).withMessage('Type must be post or comment'),
+    validate
+], async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { type } = req.body;
+        const Model = type === 'post' ? Post : Comment;
+
+        const content = await Model.findByIdAndUpdate(id, {
+            isVisible: true,
+            isFlagged: false,
+            moderationReason: 'Restored by admin'
+        }, { new: true });
+
+        if (!content) return res.status(404).json({ error: 'Content not found' });
+
+        await logAdminAction({
+            adminId: req.adminId,
+            action: 'restore_content',
+            targetType: type,
+            targetId: id,
+            meta: { ip: req.ip },
+        });
+
+        res.json({ message: 'Content restored successfully', content });
+    } catch (err) {
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 // ─── REPORTS ──────────────────────────────────────────────────────────────────
 router.get('/reports', requireAdmin, async (req, res) => {
     try {

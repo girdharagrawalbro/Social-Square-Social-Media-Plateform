@@ -12,6 +12,12 @@ const commentSchema = new mongoose.Schema(
         likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
         parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
         replies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
+
+        // ─── MODERATION FIELDS ────────────────────────────────────────────────────
+        isVisible: { type: Boolean, default: true, index: true },
+        isFlagged: { type: Boolean, default: false, index: true },
+        moderationScore: { type: Number, default: 0 },
+        moderationReason: { type: String, default: null },
     },
     { timestamps: true }
 );
