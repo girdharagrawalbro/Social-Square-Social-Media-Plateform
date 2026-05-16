@@ -15,6 +15,15 @@ const LoginSession = require('../models/LoginSession');
 const { digestQueue } = require('../queues/digestQueue');
 const { propagateUserDeletion } = require('../utils/userPropagation');
 const { invalidateCache } = require('../lib/redis');
+const { body, param, query, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 
 // ─── SIMPLE IN-MEMORY CACHE FOR ANALYTICS ────────────────────────────────────
@@ -219,7 +228,12 @@ router.get('/users', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.post('/users/bulk-ban', requireAdmin, async (req, res) => {
+router.post('/users/bulk-ban', requireAdmin, [
+    body('userIds').isArray().withMessage('userIds must be an array'),
+    body('userIds.*').isMongoId().withMessage('Invalid user ID in array'),
+    body('reason').optional().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { userIds, reason } = req.body;
         if (!Array.isArray(userIds) || !userIds.length) {
@@ -256,7 +270,11 @@ router.post('/users/bulk-ban', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
+router.post('/users/bulk-delete', requireAdmin, [
+    body('userIds').isArray().withMessage('userIds must be an array'),
+    body('userIds.*').isMongoId().withMessage('Invalid user ID in array'),
+    validate
+], async (req, res) => {
     try {
         const { userIds } = req.body;
         if (!Array.isArray(userIds) || !userIds.length) {
@@ -305,7 +323,11 @@ router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.patch('/users/:userId/ban', requireAdmin, async (req, res) => {
+router.patch('/users/:userId/ban', requireAdmin, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    body('reason').optional().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { reason } = req.body;
         // findOneAndUpdate — single atomic operation, no fetch+save round trip
@@ -330,7 +352,10 @@ router.patch('/users/:userId/ban', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.patch('/users/:userId/unban', requireAdmin, async (req, res) => {
+router.patch('/users/:userId/unban', requireAdmin, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const user = await User.findByIdAndUpdate(req.params.userId, { $unset: { banReason: '', bannedAt: '' }, isBanned: false }, { new: true, select: 'fullname email profile_picture' }).lean();
         if (user) {
@@ -348,7 +373,10 @@ router.patch('/users/:userId/unban', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.delete('/users/:userId', requireAdmin, async (req, res) => {
+router.delete('/users/:userId', requireAdmin, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const user = await User.findOneAndUpdate(
             { _id: req.params.userId, isAdmin: { $ne: true } },
@@ -383,7 +411,10 @@ router.delete('/users/:userId', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.patch('/users/:userId/toggle-admin', requireAdmin, async (req, res) => {
+router.patch('/users/:userId/toggle-admin', requireAdmin, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const user = await User.findById(req.params.userId).select('isAdmin fullname').lean();
         if (!user) return res.status(404).json({ error: 'User not found' });
@@ -394,7 +425,12 @@ router.patch('/users/:userId/toggle-admin', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.patch('/users/:userId/verify', requireAdmin, async (req, res) => {
+router.patch('/users/:userId/verify', requireAdmin, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    body('isVerified').optional().isBoolean(),
+    body('creatorTier').optional().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { isVerified, creatorTier } = req.body;
         const update = {};
@@ -481,7 +517,10 @@ router.get('/posts', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.delete('/posts/:postId', requireAdmin, async (req, res) => {
+router.delete('/posts/:postId', requireAdmin, [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
     try {
         const post = await Post.findById(req.params.postId).select('+authorId').lean();
         if (!post) return res.status(404).json({ error: 'Post not found' });
@@ -577,7 +616,10 @@ router.get('/reports', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.delete('/comments/:commentId', requireAdmin, async (req, res) => {
+router.delete('/comments/:commentId', requireAdmin, [
+    param('commentId').isMongoId().withMessage('Invalid comment ID'),
+    validate
+], async (req, res) => {
     try {
         const post = await Post.findOne({ 'comments._id': req.params.commentId }).lean();
         const comment = post?.comments?.find(c => c._id.toString() === req.params.commentId);
@@ -603,7 +645,11 @@ router.delete('/comments/:commentId', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.patch('/reports/:reportId/resolve', requireAdmin, async (req, res) => {
+router.patch('/reports/:reportId/resolve', requireAdmin, [
+    param('reportId').isMongoId().withMessage('Invalid report ID'),
+    body('action').optional().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { action } = req.body;
         const report = await Report.findByIdAndUpdate(req.params.reportId, {
@@ -627,7 +673,13 @@ router.patch('/reports/:reportId/resolve', requireAdmin, async (req, res) => {
 });
 
 // ─── SUBMIT REPORT (public, but requires login) ─────────────────────────────
-router.post('/report', verifyToken, async (req, res) => {
+router.post('/report', verifyToken, [
+    body('targetType').isIn(['post', 'user', 'comment']).withMessage('Invalid target type'),
+    body('targetId').isMongoId().withMessage('Invalid target ID'),
+    body('reason').notEmpty().trim().escape(),
+    body('description').optional().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { targetType, targetId, reason, description } = req.body;
         const reporterId = req.userId;
@@ -731,7 +783,11 @@ router.get('/content-filter', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.post('/content-filter', requireAdmin, async (req, res) => {
+router.post('/content-filter', requireAdmin, [
+    body('word').notEmpty().trim().escape(),
+    body('action').optional().isIn(['flag', 'block', 'shadow_ban']),
+    validate
+], async (req, res) => {
     try {
         const { word, action } = req.body;
         if (!word) return res.status(400).json({ error: 'Word required' });
@@ -742,7 +798,10 @@ router.post('/content-filter', requireAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.delete('/content-filter/:id', requireAdmin, async (req, res) => {
+router.delete('/content-filter/:id', requireAdmin, [
+    param('id').isMongoId().withMessage('Invalid ID'),
+    validate
+], async (req, res) => {
     try {
         await ContentFilter.findByIdAndDelete(req.params.id);
         res.json({ message: 'Word removed' });

@@ -30,6 +30,15 @@ if (!admin.apps.length) {
 
 
 const router = express.Router();
+const { body, param, query, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -126,9 +135,9 @@ function getRefreshCookieOptions(isForClear = false) {
     const domain = process.env.COOKIE_DOMAIN?.trim();
 
     const options = {
-        httpOnly: true,
-        secure,
-        sameSite,
+        httpOnly: true, 
+        secure,         
+        sameSite,       
         path: '/',
         ...(domain ? { domain } : {}),
     };
@@ -940,7 +949,10 @@ router.get("/other-users", verifyToken, async (req, res) => {
 });
 
 // ─── OTHER USER PROFILE VIEW ──────────────────────────────────────────────────
-router.get('/other-user/view/:id', verifyToken, async (req, res) => {
+router.get('/other-user/view/:id', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const targetId = req.params.id;
         const loggedUserId = req.userId;
@@ -1015,7 +1027,10 @@ router.get('/other-user/view/:id', verifyToken, async (req, res) => {
 });
 
 // ─── PUBLIC USER PROFILE VIEW (Logged-out) ────────────────────────────────────
-router.get('/public/profile/:identifier', softVerifyToken, async (req, res) => {
+router.get('/public/profile/:identifier', softVerifyToken, [
+    param('identifier').notEmpty().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const viewerId = req.userId;
         const identifier = req.params.identifier;
@@ -1067,23 +1082,58 @@ router.get('/public/profile/:identifier', softVerifyToken, async (req, res) => {
     }
 });
 
-router.post('/users/details', verifyToken, async (req, res) => {
+router.post('/users/details', verifyToken, [
+    body('ids').isArray().withMessage('ids must be an array'),
+    body('ids.*').isMongoId().withMessage('Invalid ID in array'),
+    body('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    body('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
+    validate
+], async (req, res) => {
     try {
+        const { page = 1, limit = 20 } = req.body;
         let ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+        
         // Sanitize: filter out any non-string or invalid ObjectIds
         ids = ids.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
 
-        if (!ids.length) return res.status(200).json({ users: [] });
-        if (ids.length > 100) return res.status(400).json({ error: 'Too many IDs. Max 100.' });
-        const users = await User.find({ _id: { $in: ids } }).select('fullname username profile_picture').lean();
-        res.status(200).json({ users });
+        if (!ids.length) return res.status(200).json({ users: [], total: 0 });
+
+        // 🛡️ Resource Guard: Cap total input IDs to prevent payload-bloat attacks
+        if (ids.length > 500) {
+            return res.status(400).json({ error: 'Too many IDs in payload. Max 500 IDs supported per request with pagination.' });
+        }
+
+        // 🌀 Internal Pagination: Slice the input array to protect the database
+        const startIndex = (page - 1) * limit;
+        const slicedIds = ids.slice(startIndex, startIndex + limit);
+
+        const users = await User.find({ _id: { $in: slicedIds } })
+            .select('fullname username profile_picture')
+            .lean();
+
+        res.status(200).json({ 
+            users,
+            total: ids.length,
+            page,
+            limit,
+            hasMore: startIndex + limit < ids.length
+        });
     } catch (e) {
         logger.error('[USERS_DETAILS] Error:', e.message);
         res.status(500).json({ error: 'Failed to fetch user details' });
     }
 });
 
-router.put('/update-profile', verifyToken, async (req, res) => {
+router.put('/update-profile', verifyToken, [
+    body('fullname').optional().trim().escape().isLength({ min: 2, max: 50 }),
+    body('username').optional().trim().escape().isLength({ min: 3, max: 30 }),
+    body('email').optional().isEmail().normalizeEmail(),
+    body('profile_picture').optional().isURL(),
+    body('bio').optional().trim().escape().isLength({ max: 200 }),
+    body('preferredMood').optional().trim().escape(),
+    body('isPrivate').optional().isBoolean(),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const { fullname, username, email, profile_picture, bio, preferredMood, isPrivate } = req.body;
@@ -1144,7 +1194,10 @@ router.put('/mark-welcome-seen', verifyToken, async (req, res) => {
     }
 });
 
-router.post('/follow', verifyToken, async (req, res) => {
+router.post('/follow', verifyToken, [
+    body('followUserId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const { followUserId } = req.body;
         const userId = req.userId; // Use userId from token
@@ -1220,7 +1273,11 @@ router.post('/follow', verifyToken, async (req, res) => {
 });
 
 // ─── UNFOLLOW ─────────────────────────────────────────────────────────────────
-router.post('/unfollow', verifyToken, async (req, res) => {
+router.post('/unfollow', verifyToken, [
+    body('unfollowUserId').optional().isMongoId(),
+    body('userId').optional().isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { userId, unfollowUserId } = req.body;
         const loggedUserId = req.userId;
@@ -1250,7 +1307,10 @@ router.post('/unfollow', verifyToken, async (req, res) => {
 
 // ─── REMOVE FOLLOWER (PROTECTED) ──────────────────────────────────────────────
 // Allows a user to remove someone from their followers list (silent)
-router.post('/remove-follower', verifyToken, async (req, res) => {
+router.post('/remove-follower', verifyToken, [
+    body('followerId').isMongoId().withMessage('Invalid follower ID'),
+    validate
+], async (req, res) => {
     try {
         const { followerId } = req.body;
         const userId = req.userId; // ME
@@ -1277,7 +1337,11 @@ router.post('/remove-follower', verifyToken, async (req, res) => {
     }
 });
 
-router.post('/follow-request/accept', verifyToken, async (req, res) => {
+router.post('/follow-request/accept', verifyToken, [
+    body('userId').isMongoId(),
+    body('requesterId').isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { userId, requesterId } = req.body; // userId is ME (the one accepting)
         const loggedUserId = req.userId;
@@ -1317,7 +1381,10 @@ router.post('/follow-request/accept', verifyToken, async (req, res) => {
     } catch { res.status(500).json({ message: 'Failed to accept request' }); }
 });
 
-router.post('/follow-request/cancel', verifyToken, async (req, res) => {
+router.post('/follow-request/cancel', verifyToken, [
+    body('targetUserId').isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { targetUserId } = req.body;
         const loggedUserId = req.userId;
@@ -1340,7 +1407,11 @@ router.post('/follow-request/cancel', verifyToken, async (req, res) => {
     } catch { res.status(500).json({ message: 'Failed to cancel request' }); }
 });
 
-router.post('/follow-request/decline', verifyToken, async (req, res) => {
+router.post('/follow-request/decline', verifyToken, [
+    body('userId').isMongoId(),
+    body('requesterId').isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { userId, requesterId } = req.body; // userId is ME
         const loggedUserId = req.userId;
@@ -1363,7 +1434,10 @@ router.post('/follow-request/decline', verifyToken, async (req, res) => {
 
 
 
-router.get('/user/:id', verifyToken, async (req, res) => {
+router.get('/user/:id', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const targetId = req.params.id;
         const loggedUserId = req.userId;
@@ -1415,7 +1489,12 @@ router.get('/user/:id', verifyToken, async (req, res) => {
     }
 });
 
-router.get('/followers/:userId', verifyToken, async (req, res) => {
+router.get('/followers/:userId', verifyToken, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('cursor').optional().isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { limit = 10, cursor } = req.query;
         const parsedLimit = parseInt(limit);
@@ -1466,7 +1545,12 @@ router.get('/followers/:userId', verifyToken, async (req, res) => {
     }
 });
 
-router.get('/following/:userId', verifyToken, async (req, res) => {
+router.get('/following/:userId', verifyToken, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('cursor').optional().isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { limit = 10, cursor } = req.query;
         const parsedLimit = parseInt(limit);
@@ -1510,7 +1594,11 @@ router.get('/following/:userId', verifyToken, async (req, res) => {
     }
 });
 
-router.all("/search", async (req, res) => {
+router.all("/search", [
+    query('query').optional().trim().escape(),
+    body('query').optional().trim().escape(),
+    validate
+], async (req, res) => {
     const query = req.method === 'GET' ? req.query.query : req.body.query;
     if (!query) return res.status(400).json({ message: "Search query is required." });
 
@@ -1604,7 +1692,10 @@ router.patch('/notification-settings', verifyToken, async (req, res) => {
 const adminAlertCooldowns = new Map();
 
 // ─── VERIFY PASSWORD (for admin re-auth gate) ────────────────────────────────
-router.post('/verify-password', verifyToken, async (req, res) => {
+router.post('/verify-password', verifyToken, [
+    body('password').notEmpty().withMessage('Password required'),
+    validate
+], async (req, res) => {
     try {
         const user = await User.findById(req.userId).select('+password');
         if (!user) return res.status(404).json({ message: 'User not found' });
@@ -1656,7 +1747,10 @@ router.post('/verify-password', verifyToken, async (req, res) => {
 });
 
 // ─── BLOCK / MUTE USER ────────────────────────────────────────────────────────
-router.post('/block', verifyToken, async (req, res) => {
+router.post('/block', verifyToken, [
+    body('targetUserId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const { targetUserId } = req.body;
         if (!targetUserId) return res.status(400).json({ error: 'Target user ID required' });
@@ -1673,7 +1767,10 @@ router.post('/block', verifyToken, async (req, res) => {
     }
 });
 
-router.post('/unblock', verifyToken, async (req, res) => {
+router.post('/unblock', verifyToken, [
+    body('targetUserId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const { targetUserId } = req.body;
         await User.findByIdAndUpdate(req.userId, { $pull: { blockedUsers: targetUserId } });
@@ -1683,7 +1780,10 @@ router.post('/unblock', verifyToken, async (req, res) => {
     }
 });
 
-router.post('/mute', verifyToken, async (req, res) => {
+router.post('/mute', verifyToken, [
+    body('targetUserId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const { targetUserId } = req.body;
         await User.findByIdAndUpdate(req.userId, { $addToSet: { mutedUsers: targetUserId } });
@@ -1693,7 +1793,10 @@ router.post('/mute', verifyToken, async (req, res) => {
     }
 });
 
-router.post('/unmute', verifyToken, async (req, res) => {
+router.post('/unmute', verifyToken, [
+    body('targetUserId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const { targetUserId } = req.body;
         await User.findByIdAndUpdate(req.userId, { $pull: { mutedUsers: targetUserId } });
@@ -1704,7 +1807,10 @@ router.post('/unmute', verifyToken, async (req, res) => {
 });
 
 // ─── CREATOR ANALYTICS (PROTECTED) ──────────────────────────────────────────
-router.get('/analytics/:userId', verifyToken, async (req, res) => {
+router.get('/analytics/:userId', verifyToken, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
     try {
         const { userId } = req.params;
         const loggedUserId = req.userId;

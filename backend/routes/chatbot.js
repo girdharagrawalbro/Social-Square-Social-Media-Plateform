@@ -4,6 +4,16 @@ const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
 const { getUserAIProfile } = require('../services/recommendationService');
+const verifyToken = require('../middleware/Verifytoken');
+const { body, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 const client = new OpenAI({
     baseURL: 'https://integrate.api.nvidia.com/v1',
@@ -50,9 +60,15 @@ const getRelevantContext = (query) => {
 };
 
 // ─── CHAT — streams tokens back to frontend ───────────────────────────────────
-router.post('/chat', async (req, res) => {
+router.post('/chat', verifyToken, [
+    body('messages').isArray().withMessage('messages array required'),
+    body('messages.*.role').isIn(['user', 'assistant', 'system']).withMessage('Invalid message role'),
+    body('messages.*.content').notEmpty().trim().escape(),
+    validate
+], async (req, res) => {
     try {
-        const { messages, userId } = req.body;
+        const { messages } = req.body;
+        const userId = req.userId;
 
         if (!messages || !Array.isArray(messages)) {
             return res.status(400).json({ error: 'messages array required' });
@@ -145,7 +161,12 @@ router.post('/chat', async (req, res) => {
 });
 
 // ─── CAPTION SUGGESTIONS ──────────────────────────────────────────────────────
-router.post('/suggest-captions', async (req, res) => {
+router.post('/suggest-captions', verifyToken, [
+    body('topic').optional().trim().escape().isLength({ max: 200 }),
+    body('mood').optional().trim().escape().isLength({ max: 50 }),
+    body('imageDescription').optional().trim().escape().isLength({ max: 500 }),
+    validate
+], async (req, res) => {
     try {
         const { topic, mood, imageDescription } = req.body;
 

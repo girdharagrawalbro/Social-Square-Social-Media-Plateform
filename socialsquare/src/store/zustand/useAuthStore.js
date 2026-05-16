@@ -74,6 +74,8 @@ const useAuthStore = create(
                                 await Preferences.remove({ key: 'user_token' });
                             }
                         }
+                        // 1. Silent Refresh: Check for existing session via httpOnly cookie
+                        // This allows sessions to persist across tab closes/reloads
                         await refreshAccessToken();
                         set({ loading: false, error: null, initialized: true });
                     } catch (err) {
@@ -206,6 +208,8 @@ export const refreshAccessToken = () => {
 export const api = axios.create({ baseURL: BASE, withCredentials: true });
 api.interceptors.request.use(config => {
     if (inMemoryToken) config.headers.Authorization = `Bearer ${inMemoryToken}`;
+    // Generate a simple unique ID for this request to enable client->server tracing
+    config.headers['x-request-id'] = `req-${Math.random().toString(36).substr(2, 9)}-${Date.now().toString(36)}`;
     return config;
 });
 api.interceptors.response.use(res => res, handleRateLimit);

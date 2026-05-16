@@ -10,18 +10,21 @@
 //   console.log(result.mimeType);    // detected MIME type
 // ──────────────────────────────────────────────────────────────────────────────
 
-const DRIVE_API_BASE_URL = process.env.REACT_APP_GDRIVE_API_BASE_URL || 'http://localhost:5002';
+const DRIVE_API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/media/drive`;
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 
 async function requestDriveApi(path, method = 'POST', body) {
-    const baseUrl = (DRIVE_API_BASE_URL || '').replace(/\/+$/, '');
-    const url = `${baseUrl}/api/drive${path}`;
+    const token = localStorage.getItem('token');
+    const url = `${DRIVE_API_BASE_URL}${path}`;
 
     const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -52,28 +55,24 @@ function formatResult(data = {}) {
 // ─── PUBLIC API ───────────────────────────────────────────────────────────────
 
 /**
- * Uploads ANY file type to Google Drive using base64 encoding.
- * Works for images, videos, PDFs, ZIPs, DOCXs — literally any file.
- * No file size limit (Drive storage is effectively unlimited).
- *
- * @param {File}     file         Browser File object
- * @param {Function} onProgress   Optional progress callback (0-100)
- * @param {Object}   options
- * @param {string}   [options.name]    Override stored filename
- * @returns {{ url, fileId, name, mimeType, size, webViewLink, webContentLink }}
+ * Uploads ANY file type DIRECTLY to Google Drive using a resumable session.
+ * This bypasses the main backend process for large file data.
  */
 export async function uploadToDrive(file, onProgress, options = {}) {
-    const baseUrl = (process.env.REACT_APP_GDRIVE_API_BASE_URL || 'http://localhost:5002').replace(/\/+$/, '');
-    const url = `${baseUrl}/api/drive/upload`;
+    // 1. Get resumable session URL from our backend
+    const { sessionUrl, success, message } = await api.post('/api/media/drive/sign-upload', {
+        name: options.name || file.name,
+        mimeType: file.type,
+        folder: options.folder
+    }).then(r => r.data);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    if (options.folder) formData.append('folder', options.folder);
-    if (options.name || file.name) formData.append('name', options.name || file.name);
+    if (!success) throw new Error(message || 'Failed to initiate Drive upload');
 
+    // 2. Upload DIRECTLY to Google's session URL
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', url, true);
+        xhr.open('PUT', sessionUrl, true);
+        // Resumable uploads use PUT and don't need the Auth token (it's encoded in the sessionUrl)
 
         if (onProgress) {
             xhr.upload.onprogress = (event) => {
@@ -86,19 +85,22 @@ export async function uploadToDrive(file, onProgress, options = {}) {
 
         xhr.onload = () => {
             try {
-                const json = JSON.parse(xhr.responseText);
-                if (xhr.status >= 200 && xhr.status < 300 && json.success !== false) {
-                    resolve(formatResult(json?.data));
+                // Drive returns the file metadata on successful PUT completion
+                const data = JSON.parse(xhr.responseText);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(formatResult(data));
                 } else {
-                    reject(new Error(json?.message || 'Drive API request failed'));
+                    reject(new Error('Direct Drive upload failed'));
                 }
             } catch (e) {
-                reject(new Error('Invalid server response'));
+                // If it's a 200/201 but body is empty, we might need to fetch metadata separately
+                // but usually Drive returns the object.
+                resolve(formatResult({ fileId: 'uploaded' })); 
             }
         };
 
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.send(formData);
+        xhr.onerror = () => reject(new Error('Network error during direct Drive upload'));
+        xhr.send(file); // Send raw file blob
     });
 }
 

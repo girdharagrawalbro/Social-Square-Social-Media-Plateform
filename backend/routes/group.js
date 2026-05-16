@@ -2,6 +2,15 @@ const express = require("express");
 const router = express.Router();
 const Group = require("../models/Group");
 const verifyToken = require("../middleware/Verifytoken");
+const { body, param, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 // ─── LIST ALL GROUPS ─────────────────────────────────────────────────────────
 router.get("/all", verifyToken, async (req, res) => {
@@ -12,7 +21,13 @@ router.get("/all", verifyToken, async (req, res) => {
 });
 
 // ─── CREATE GROUP ────────────────────────────────────────────────────────────
-router.post("/create", verifyToken, async (req, res) => {
+router.post("/create", verifyToken, [
+    body('name').notEmpty().trim().escape().isLength({ min: 3, max: 50 }),
+    body('description').optional().trim().escape().isLength({ max: 500 }),
+    body('isPrivate').optional().isBoolean(),
+    body('cover_picture').optional().isURL(),
+    validate
+], async (req, res) => {
     try {
         const { name, description, isPrivate, cover_picture } = req.body;
         const newGroup = new Group({
@@ -30,7 +45,10 @@ router.post("/create", verifyToken, async (req, res) => {
 });
 
 // ─── JOIN GROUP ──────────────────────────────────────────────────────────────
-router.post("/join/:id", verifyToken, async (req, res) => {
+router.post("/join/:id", verifyToken, [
+    param('id').isMongoId().withMessage('Invalid group ID'),
+    validate
+], async (req, res) => {
     try {
         const group = await Group.findById(req.params.id);
         if (!group) return res.status(404).json({ message: "Group not found" });
@@ -43,7 +61,10 @@ router.post("/join/:id", verifyToken, async (req, res) => {
 });
 
 // ─── LEAVE GROUP ─────────────────────────────────────────────────────────────
-router.post("/leave/:id", verifyToken, async (req, res) => {
+router.post("/leave/:id", verifyToken, [
+    param('id').isMongoId().withMessage('Invalid group ID'),
+    validate
+], async (req, res) => {
     try {
         const group = await Group.findById(req.params.id);
         if (!group) return res.status(404).json({ message: "Group not found" });
@@ -57,7 +78,10 @@ router.post("/leave/:id", verifyToken, async (req, res) => {
 });
 
 // ─── GET GROUP DETAILS ───────────────────────────────────────────────────────
-router.get("/:id", verifyToken, async (req, res) => {
+router.get("/:id", verifyToken, [
+    param('id').isMongoId().withMessage('Invalid group ID'),
+    validate
+], async (req, res) => {
     try {
         const group = await Group.findById(req.params.id)
             .populate('members', 'fullname username profile_picture')

@@ -4,6 +4,15 @@ const LiveStream = require('../models/LiveStream');
 const User = require('../models/User');
 const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
+const { body, param, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 const EventEmitter = require('events');
 
 // In-memory event emitter for live chat
@@ -31,7 +40,10 @@ router.get('/active', verifyToken, async (req, res) => {
 });
 
 // Start a live stream
-router.post('/start', verifyToken, async (req, res) => {
+router.post('/start', verifyToken, [
+    body('title').optional().trim().escape().isLength({ max: 100 }),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const user = await User.findById(userId);
@@ -66,7 +78,10 @@ router.post('/start', verifyToken, async (req, res) => {
 });
 
 // End a live stream
-router.post('/end/:id', verifyToken, async (req, res) => {
+router.post('/end/:id', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid stream ID'),
+    validate
+], async (req, res) => {
     try {
         const stream = await LiveStream.findOneAndUpdate(
             { _id: req.params.id, host: req.userId },
@@ -111,7 +126,11 @@ router.get('/:id/chat/stream', (req, res) => {
 });
 
 // POST endpoint to send a chat message
-router.post('/:id/chat/message', verifyToken, async (req, res) => {
+router.post('/:id/chat/message', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid stream ID'),
+    body('text').notEmpty().trim().escape().isLength({ max: 500 }),
+    validate
+], async (req, res) => {
     try {
         const streamId = req.params.id;
         const { text } = req.body;
