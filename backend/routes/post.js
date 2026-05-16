@@ -21,6 +21,7 @@ const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
 const { getOwnerToken, verifyOwnerToken, sanitizeAnonymousPost } = require('../utils/privacy');
 const postWriteLimiter = require('../middleware/postWriteLimiter'); // Break circular dependency
+const { moderationQueue } = require('../queues/moderationQueue');
 const { body, param, query, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
@@ -264,6 +265,15 @@ router.post("/create", verifyToken, [
         if (!isAnonymous) {
             publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category })
                 .catch(err => console.warn('[NATS]:', err.message));
+        }
+
+        // ✅ Add to Moderation Queue (Asynchronous)
+        if (moderationQueue) {
+            moderationQueue.add('moderate', { 
+                contentId: newPost._id, 
+                contentType: 'post', 
+                text: caption || '' 
+            }).catch(err => console.error('[ModerationQueue] Add error:', err.message));
         }
 
         // ✅ Publish recommendation event
@@ -527,6 +537,7 @@ router.get("/", async (req, res) => {
         const query = {
             isAnonymous: { $ne: true },
             deletedAt: null,
+            isVisible: { $ne: false },
             'user._id': { $nin: excludedUserIds.filter(id => id && id.length === 24).map(id => new mongoose.Types.ObjectId(id)) },
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
         };
@@ -631,7 +642,7 @@ router.get("/", async (req, res) => {
 
         // 🛡️ Fail-Safe Fallback: Try a super-minimal query if the complex feed logic crashes/times out
         try {
-            const simplePosts = await Post.find({ isAnonymous: { $ne: true } })
+            const simplePosts = await Post.find({ isAnonymous: { $ne: true }, isVisible: { $ne: false } })
                 .sort({ _id: -1 })
                 .limit(10)
                 .lean()
@@ -702,6 +713,7 @@ router.get("/user/:userId", [
                     }
                 }
             ],
+            isVisible: { $ne: false },
             ...(!isOwner ? { isAnonymous: { $ne: true } } : {})
         };
 
@@ -762,6 +774,7 @@ router.get("/public/user/:userId", [
                     }
                 }
             ],
+            isVisible: { $ne: false },
             isAnonymous: { $ne: true } // Exclude anonymous posts
         };
 
@@ -1126,12 +1139,12 @@ router.get('/comments', [
         }
 
         // 2. Fetch all parent comments
-        const comments = await Comment.find({ postId, parentId: null }).sort({ createdAt: 1 }).lean();
+        const comments = await Comment.find({ postId, parentId: null, isVisible: { $ne: false } }).sort({ createdAt: 1 }).lean();
         if (!comments.length) return res.status(200).json([]);
 
         // 2. Fetch all replies for these parents in one single query (Optimized)
         const parentIds = comments.map(c => c._id);
-        const allReplies = await Comment.find({ parentId: { $in: parentIds } }).sort({ createdAt: 1 }).lean();
+        const allReplies = await Comment.find({ parentId: { $in: parentIds }, isVisible: { $ne: false } }).sort({ createdAt: 1 }).lean();
 
         // 3. Map replies to their parents
         const replyMap = {};
@@ -1174,6 +1187,15 @@ router.post('/comments/add', verifyToken, [
             post.comments.push(newComment._id);
             post.score = computeScore(post);
             await post.save();
+        }
+
+        // ✅ Add to Moderation Queue (Asynchronous)
+        if (moderationQueue) {
+            moderationQueue.add('moderate', { 
+                contentId: newComment._id, 
+                contentType: 'comment', 
+                text: content || '' 
+            }).catch(err => console.error('[ModerationQueue] Add error:', err.message));
         }
 
         // FIX #4: Combine into one query instead of two separate Post.findById calls

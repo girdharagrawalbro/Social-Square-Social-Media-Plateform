@@ -13,19 +13,6 @@ import { api } from '../store/zustand/useAuthStore';
 export const IMAGE_CLOUDINARY_MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 export const VIDEO_CLOUDINARY_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 
-function fileToDataUrl(file, onProgress) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.onprogress = (event) => {
-            if (event.lengthComputable && onProgress) {
-                onProgress(Math.round((event.loaded / event.total) * 100));
-            }
-        };
-        reader.readAsDataURL(file);
-    });
-}
 
 /**
  * Uploads media DIRECTLY to Cloudinary using a signature from our backend.
@@ -83,25 +70,6 @@ async function uploadDirectToCloudinary(file, onProgress, options = {}) {
         xhr.onerror = () => reject(new Error('Network error during direct upload'));
         xhr.send(formData);
     });
-}
-
-async function requestCloudinaryApi(path, method, body) {
-    const CLOUDINARY_API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/media`;
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${CLOUDINARY_API_BASE_URL}${path}`, {
-        method,
-        headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: body ? JSON.stringify(body) : undefined,
-    });
-
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok || json?.success === false) {
-        throw new Error(json?.message || 'Cloudinary API request failed');
-    }
-    return json;
 }
 
 /**
