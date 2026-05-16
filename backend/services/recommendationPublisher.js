@@ -14,11 +14,15 @@ async function initNatsPublisher() {
     return nc;
 }
 
+const { getRequestId } = require('../middleware/correlation');
+
 async function publishEvent(subject, payload) {
     try {
         const conn = await initNatsPublisher();
-        conn.publish(subject, sc.encode(JSON.stringify(payload)));
-        // console.log(`📤 Published to ${subject}`, payload);
+        const requestId = getRequestId();
+        const fullPayload = requestId ? { ...payload, requestId } : payload;
+        conn.publish(subject, sc.encode(JSON.stringify(fullPayload)));
+        // console.log(`📤 Published to ${subject}`, fullPayload);
     } catch (err) {
         console.error("❌ NATS publish error:", err.message);
     }

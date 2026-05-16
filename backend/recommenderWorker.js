@@ -134,10 +134,18 @@ async function initWorker() {
         try {
           const subject = m.subject;
           const data = JSON.parse(sc.decode(m.data));
+          const rid = data.requestId ? ` [${data.requestId}]` : '';
+
+          if (rid) {
+            // If we had a logger, we would use AsyncLocalStorage here. 
+            // For console.log, we just prefix.
+          }
 
           if (subject === "post.created") {
+            console.log(`📝${rid} Processing post.created for ${data.postId}`);
             await handlePostCreated(data);
           } else if (subject.startsWith("user.activity.")) {
+            console.log(`👤${rid} Processing user.activity for ${data.userId}`);
             await handleUserActivity(data);
           }
         } catch (err) {

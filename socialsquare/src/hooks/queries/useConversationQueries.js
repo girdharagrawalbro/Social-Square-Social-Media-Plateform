@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { api } from '../../store/zustand/useAuthStore';
@@ -10,40 +10,49 @@ const BASE = (process.env.REACT_APP_BACKEND_URL || '').trim();
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const convoKeys = {
     list: (userId) => ['conversations', userId],
+    searchConvos: (userId, q) => ['conversations', 'search', userId, q],
     messages: (convId) => ['messages', convId],
     search: (convId, q) => ['messages', 'search', convId, q],
 };
 
-// ─── CONVERSATIONS LIST ───────────────────────────────────────────────────────
+// ─── CONVERSATIONS LIST (Infinite Scroll) ─────────────────────────────────────
 export function useConversations(userId) {
     const setUnreadCount = useConversationStore(s => s.setUnreadCount);
-    return useQuery({
+    return useInfiniteQuery({
         queryKey: convoKeys.list(userId),
-        queryFn: async () => {
-            // ✅ NATIVE CACHE HYDRATION
-            if (Capacitor.isNativePlatform()) {
-                const cached = await cacheService.get(`conversations_${userId}`);
-                if (cached) return cached;
-            }
-
-            const res = await api.get(`${BASE}/api/conversation`);
+        queryFn: async ({ pageParam = null }) => {
+            const res = await api.get(`${BASE}/api/conversation`, {
+                params: { cursor: pageParam, limit: 20 }
+            });
+            const data = res.data.conversations || [];
+            
             // Sync unread counts into Zustand
-            res.data.forEach(conv => {
+            data.forEach(conv => {
                 if (!conv.lastMessage?.isRead && conv.lastMessageBy !== userId) {
                     setUnreadCount(conv._id, 1);
                 }
             });
 
-            // ✅ UPDATE CACHE
-            if (Capacitor.isNativePlatform() && res.data) {
-                cacheService.set(`conversations_${userId}`, res.data);
-            }
-
             return res.data;
         },
+        getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
         enabled: !!userId,
-        staleTime: 1000 * 30,
-        refetchInterval: 1000 * 60, // background refresh every minute
+        staleTime: 1000 * 60 * 5, // 5 minutes (Socket.io handles real-time sync)
+    });
+}
+
+// ─── CONVERSATION SEARCH ──────────────────────────────────────────────────────
+export function useSearchConversations(userId, query) {
+    return useQuery({
+        queryKey: convoKeys.searchConvos(userId, query),
+        queryFn: async () => {
+            const res = await api.get(`${BASE}/api/conversation/search`, {
+                params: { q: query }
+            });
+            return res.data || [];
+        },
+        enabled: !!userId && query.length > 1,
+        staleTime: 1000 * 60,
     });
 }
 
@@ -72,7 +81,7 @@ export function useMessages(participantIds) {
             return res.data; // { messages, conversation }
         },
         enabled: !!participantIds && participantIds.length === 2,
-        staleTime: 1000 * 30,
+        staleTime: 1000 * 60 * 5, // 5 minutes (Socket.io handles real-time sync)
     });
 }
 

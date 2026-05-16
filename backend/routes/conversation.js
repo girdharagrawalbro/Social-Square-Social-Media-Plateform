@@ -13,6 +13,15 @@ const User = require('../models/User');
 const verifyToken = require('../middleware/Verifytoken');
 const redis = require('../lib/redis');
 const mongoose = require('mongoose');
+const { body, param, query, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 const CACHE_TTL = 60; // 60 seconds
 
@@ -33,7 +42,10 @@ let _io;
 function setIo(io) { _io = io; }
 
 // ─── CLEAR CHAT (PROTECTED) ──────────────────────────────────────────────────
-router.delete('/:conversationId/clear', verifyToken, async (req, res) => {
+router.delete('/:conversationId/clear', verifyToken, [
+    param('conversationId').isMongoId().withMessage('Invalid conversation ID'),
+    validate
+], async (req, res) => {
     try {
         const { conversationId } = req.params;
         const userId = req.userId;
@@ -64,7 +76,10 @@ router.delete('/:conversationId/clear', verifyToken, async (req, res) => {
 });
 
 // ─── DELETE CHAT (PROTECTED) ─────────────────────────────────────────────────
-router.delete('/:conversationId', verifyToken, async (req, res) => {
+router.delete('/:conversationId', verifyToken, [
+    param('conversationId').isMongoId().withMessage('Invalid conversation ID'),
+    validate
+], async (req, res) => {
     try {
         const { conversationId } = req.params;
         const userId = req.userId;
@@ -94,7 +109,10 @@ router.delete('/:conversationId', verifyToken, async (req, res) => {
 });
 
 // ─── CREATE CONVERSATION (PROTECTED) ──────────────────────────────────────────
-router.post('/create', verifyToken, async (req, res) => {
+router.post('/create', verifyToken, [
+    body('recipientId').isMongoId().withMessage('Invalid recipient ID'),
+    validate
+], async (req, res) => {
     try {
         const { recipientId } = req.body;
         const senderId = req.userId;
@@ -137,21 +155,70 @@ router.post('/create', verifyToken, async (req, res) => {
 router.get('/', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        const cacheKey = `convs:${userId}`;
-        const cached = await getCache(cacheKey);
-        if (cached) return res.json(cached);
+        const { cursor, limit = 20 } = req.query;
 
-        const conversations = await Conversation.find({ 'participants.userId': userId })
+        const query = { 'participants.userId': userId };
+        if (cursor) {
+            query.lastMessageAt = { $lt: new Date(cursor) };
+        }
+
+        const conversations = await Conversation.find(query)
             .sort({ lastMessageAt: -1 })
+            .limit(parseInt(limit))
             .lean();
 
-        await setCache(cacheKey, conversations, 30);
-        res.status(200).json(conversations);
-    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+        const nextCursor = conversations.length === parseInt(limit) 
+            ? conversations[conversations.length - 1].lastMessageAt 
+            : null;
+
+        res.status(200).json({
+            conversations,
+            nextCursor
+        });
+    } catch (err) { 
+        console.error('[Conversation] Fetch error:', err);
+        res.status(500).json({ error: "Internal Server Error" }); 
+    }
+});
+
+// ─── SEARCH CONVERSATIONS (PROTECTED) ──────────────────────────────────────────
+router.get('/search', verifyToken, [
+    query('q').notEmpty().trim().escape().withMessage('Search query required'),
+    validate
+], async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { q } = req.query;
+        if (!q) return res.status(400).json({ error: 'Query required' });
+
+        // Search for conversations where at least one participant (other than the user) matches the query
+        const conversations = await Conversation.find({
+            'participants.userId': userId,
+            'participants': {
+                $elemMatch: {
+                    userId: { $ne: userId },
+                    fullname: { $regex: q, $options: 'i' }
+                }
+            }
+        })
+        .sort({ lastMessageAt: -1 })
+        .limit(20)
+        .lean();
+
+        res.json(conversations);
+    } catch (err) { 
+        console.error('[Conversation] Search error:', err);
+        res.status(500).json({ error: "Internal Server Error" }); 
+    }
 });
 
 // ─── FETCH MESSAGES (PROTECTED) ───────────────────────────────────────────────
-router.post('/messages', verifyToken, async (req, res) => {
+router.post('/messages', verifyToken, [
+    body('recipientId').isMongoId().withMessage('Invalid recipient ID'),
+    body('before').optional().isISO8601(),
+    body('limit').optional().isInt({ min: 1, max: 100 }),
+    validate
+], async (req, res) => {
     try {
         const { recipientId, before, limit = 20, targetDate } = req.body;
         const senderId = req.userId;
@@ -223,7 +290,11 @@ router.post('/messages', verifyToken, async (req, res) => {
 });
 
 // ─── SEARCH MESSAGES (PROTECTED) ──────────────────────────────────────────────
-router.get('/messages/search', verifyToken, async (req, res) => {
+router.get('/messages/search', verifyToken, [
+    query('conversationId').isMongoId().withMessage('Invalid conversation ID'),
+    query('q').notEmpty().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { conversationId, q } = req.query;
         const userId = req.userId;
@@ -250,7 +321,13 @@ router.get('/messages/search', verifyToken, async (req, res) => {
 });
 
 // ─── SEND MESSAGE (PROTECTED) ─────────────────────────────────────────────────
-router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
+router.post(['/messages/create', '/send'], verifyToken, [
+    body('conversationId').optional().isMongoId(),
+    body('recipientId').optional().isMongoId(),
+    body('content').optional().trim().escape(),
+    body('mediaUrl').optional().isURL(),
+    validate
+], async (req, res) => {
     try {
         const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost, replyTo } = req.body;
         const sender = req.userId;
@@ -352,7 +429,11 @@ router.post(['/messages/create', '/send'], verifyToken, async (req, res) => {
 });
 
 // ─── EDIT MESSAGE (PROTECTED) ─────────────────────────────────────────────────
-router.patch('/messages/:messageId', verifyToken, async (req, res) => {
+router.patch('/messages/:messageId', verifyToken, [
+    param('messageId').isMongoId().withMessage('Invalid message ID'),
+    body('content').notEmpty().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { content } = req.body;
         const userId = req.userId;
@@ -390,7 +471,10 @@ router.patch('/messages/:messageId', verifyToken, async (req, res) => {
 });
 
 // ─── DELETE MESSAGE (PROTECTED) ────────────────────────────────────────────────
-router.delete('/messages/:messageId', verifyToken, async (req, res) => {
+router.delete('/messages/:messageId', verifyToken, [
+    param('messageId').isMongoId().withMessage('Invalid message ID'),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const message = await Message.findOne({ _id: req.params.messageId, sender: userId });
@@ -422,7 +506,11 @@ router.delete('/messages/:messageId', verifyToken, async (req, res) => {
 });
 
 // ─── MARK MESSAGES READ (PROTECTED) ───────────────────────────────────────────
-router.post('/messages/mark-read', verifyToken, async (req, res) => {
+router.post('/messages/mark-read', verifyToken, [
+    body('unreadMessageIds').optional().isArray(),
+    body('lastMessage').optional().isMongoId(),
+    validate
+], async (req, res) => {
     try {
         let { unreadMessageIds, lastMessage } = req.body;
         const userId = req.userId;
@@ -459,7 +547,11 @@ router.get('/notifications', verifyToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.patch('/notifications/mark-read', verifyToken, async (req, res) => {
+router.patch('/notifications/mark-read', verifyToken, [
+    body('Ids').isArray().withMessage('Ids must be an array'),
+    body('Ids.*').isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { Ids } = req.body;
         await Notification.updateMany({ _id: { $in: Ids }, recipient: req.userId }, { $set: { read: true } });

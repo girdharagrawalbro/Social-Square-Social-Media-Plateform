@@ -6,35 +6,94 @@
 // automatically, and the same { url } shape is returned.
 // ──────────────────────────────────────────────────────────────────────────────
 import { backupUrlToDrive, uploadToDrive } from './drive';
+import { api } from '../store/zustand/useAuthStore';
 
 // The hard limit enforced by the Cloudinary service (set in clodinary/index.js).
 // Files LARGER than this are transparently uploaded to Google Drive instead.
 export const IMAGE_CLOUDINARY_MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 export const VIDEO_CLOUDINARY_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 
-const CLOUDINARY_API_BASE_URL = process.env.REACT_APP_CLOUDINARY_API_BASE_URL;
-
 function fileToDataUrl(file, onProgress) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
         reader.onprogress = (event) => {
             if (event.lengthComputable && onProgress) {
-                onProgress(Math.min(90, Math.round((event.loaded / event.total) * 90)));
+                onProgress(Math.round((event.loaded / event.total) * 100));
             }
         };
-
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Failed to read file before upload'));
-
         reader.readAsDataURL(file);
     });
 }
 
+/**
+ * Uploads media DIRECTLY to Cloudinary using a signature from our backend.
+ * This bypasses the main backend process for large file data.
+ */
+async function uploadDirectToCloudinary(file, onProgress, options = {}) {
+    // 1. Get signature from our backend
+    const { signature, timestamp, cloudName, apiKey, folder, success, message } = 
+        await api.post('/api/media/sign-upload', { folder: options.folder }).then(r => r.data);
+
+    if (!success) throw new Error(message || 'Failed to get upload signature');
+
+    // 2. Build FormData for direct Cloudinary upload
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('signature', signature);
+    formData.append('timestamp', timestamp);
+    formData.append('api_key', apiKey);
+    formData.append('folder', folder);
+    
+    if (options.resourceType) formData.append('resource_type', options.resourceType);
+
+    // 3. Upload directly to Cloudinary
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, true);
+
+        if (onProgress) {
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    onProgress(percent);
+                }
+            };
+        }
+
+        xhr.onload = () => {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve({
+                        url: data.secure_url,
+                        publicId: data.public_id,
+                        resourceType: data.resource_type,
+                        duration: data.duration,
+                        width: data.width,
+                        height: data.height,
+                    });
+                } else {
+                    reject(new Error(data.error?.message || 'Direct upload failed'));
+                }
+            } catch (e) { reject(new Error('Invalid response from Cloudinary')); }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error during direct upload'));
+        xhr.send(formData);
+    });
+}
+
 async function requestCloudinaryApi(path, method, body) {
+    const CLOUDINARY_API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/media`;
+    const token = localStorage.getItem('token');
     const response = await fetch(`${CLOUDINARY_API_BASE_URL}${path}`, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -109,28 +168,16 @@ export async function uploadToCloudinary(file, onProgress, options = {}) {
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    const fileBase64 = await fileToDataUrl(file, onProgress);
-    const payload = {
-        file: fileBase64,
-        folder: options.folder,
-        resourceType: options.resourceType,
-        start_offset: options.start_offset,
-        end_offset: options.end_offset,
-    };
-
-    const json = await requestCloudinaryApi('/upload-base64', 'POST', payload);
-    const result = json?.data;
-    const secureUrl = result?.secure_url;
+    // Use direct upload to bypass backend process
+    const result = await uploadDirectToCloudinary(file, onProgress, options);
+    const secureUrl = result?.url;
 
     if (!secureUrl) {
-        throw new Error('Cloudinary upload succeeded but secure_url is missing');
+        throw new Error('Cloudinary direct upload succeeded but url is missing');
     }
-
-    if (onProgress) onProgress(100);
 
     // ── Silent Drive backup (fire-and-forget) ──────────────────────────────────
     // Backs up the original to Google Drive asynchronously.
-    // Never blocks or fails the main upload flow.
     backupUrlToDrive(secureUrl, {
         folder: options.folder ? `backups/${options.folder}` : 'backups/uploads',
         name: file.name,
@@ -139,7 +186,7 @@ export async function uploadToCloudinary(file, onProgress, options = {}) {
 
     return {
         url: secureUrl,
-        publicId: result?.public_id
+        publicId: result?.publicId
     };
 }
 

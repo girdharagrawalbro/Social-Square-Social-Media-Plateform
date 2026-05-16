@@ -6,12 +6,26 @@ const Message = require('../models/Message');
 const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
 const router = express.Router();
+const { body, param, validationResult } = require('express-validator');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
 
 let _io;
 function setIo(io) { _io = io; }
 
 // ─── CREATE STORY (PROTECTED) ─────────────────────────────────────────────────
-router.post('/create', verifyToken, async (req, res) => {
+router.post('/create', verifyToken, [
+    body('mediaUrl').isURL().withMessage('Invalid media URL'),
+    body('mediaType').isIn(['image', 'video']).withMessage('Invalid media type'),
+    body('sharedPostId').optional().isMongoId(),
+    validate
+], async (req, res) => {
     try {
         const { mediaUrl, mediaType, text, sharedPostId, thumbnailUrl } = req.body;
         const userId = req.userId;
@@ -119,7 +133,10 @@ router.get('/feed', verifyToken, async (req, res) => {
 });
 
 // ─── MARK AS VIEWED (PROTECTED) ───────────────────────────────────────────────
-router.post('/view/:storyId', verifyToken, async (req, res) => {
+router.post('/view/:storyId', verifyToken, [
+    param('storyId').isMongoId().withMessage('Invalid story ID'),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const story = await Story.findById(req.params.storyId);
@@ -139,7 +156,10 @@ router.post('/view/:storyId', verifyToken, async (req, res) => {
 });
 
 // ─── GET VIEWERS (PROTECTED - OWNER ONLY) ─────────────────────────────────────
-router.get('/viewers/:storyId', verifyToken, async (req, res) => {
+router.get('/viewers/:storyId', verifyToken, [
+    param('storyId').isMongoId().withMessage('Invalid story ID'),
+    validate
+], async (req, res) => {
     try {
         const story = await Story.findById(req.params.storyId)
             .populate('viewers', 'fullname profile_picture username');
@@ -158,7 +178,10 @@ router.get('/viewers/:storyId', verifyToken, async (req, res) => {
 });
 
 // ─── LIKE/UNLIKE STORY (PROTECTED) ───────────────────────────────────────────
-router.post('/like/:storyId', verifyToken, async (req, res) => {
+router.post('/like/:storyId', verifyToken, [
+    param('storyId').isMongoId().withMessage('Invalid story ID'),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const story = await Story.findById(req.params.storyId);
@@ -228,7 +251,10 @@ router.post('/like/:storyId', verifyToken, async (req, res) => {
 });
 
 // ─── DELETE STORY (PROTECTED) ─────────────────────────────────────────────────
-router.delete('/:storyId', verifyToken, async (req, res) => {
+router.delete('/:storyId', verifyToken, [
+    param('storyId').isMongoId().withMessage('Invalid story ID'),
+    validate
+], async (req, res) => {
     try {
         const userId = req.userId;
         const story = await Story.findById(req.params.storyId);
@@ -242,7 +268,12 @@ router.delete('/:storyId', verifyToken, async (req, res) => {
 });
 
 // ─── REPLY TO STORY (PROTECTED) ───────────────────────────────────────────────
-router.post('/reply/:storyId', verifyToken, async (req, res) => {
+router.post('/reply/:storyId', verifyToken, [
+    param('storyId').isMongoId().withMessage('Invalid story ID'),
+    body('text').optional().trim().escape(),
+    body('content').optional().trim().escape(),
+    validate
+], async (req, res) => {
     try {
         const { storyId } = req.params;
         const userId = req.userId;
