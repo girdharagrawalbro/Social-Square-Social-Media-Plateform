@@ -50,9 +50,43 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
       url: url || null,
     });
 
-    // Emit real-time notification via Socket.io
+    // 1. Emit real-time notification via Socket.io (Foreground)
     if (io) {
       io.to(recipientId.toString()).emit('newNotification', notification);
+    }
+
+    // 2. Send Push Notification via Firebase (Background/Foreground)
+    try {
+        const { sendPushNotification } = require('../utils/firebase');
+        // Fetch recipient's FCM token
+        const recipientWithToken = await User.findById(recipientId).select('fcmToken').lean();
+        
+        if (recipientWithToken?.fcmToken) {
+            let title = 'Social Square';
+            let body = '';
+
+            switch (type) {
+                case 'like': body = `${sender.fullname} liked your post`; break;
+                case 'comment': body = `${sender.fullname} commented: "${message?.content?.substring(0, 30) || '...'}"`; break;
+                case 'follow': body = `${sender.fullname} started following you`; break;
+                case 'message': body = `New message from ${sender.fullname}`; title = 'Social Square Chat'; break;
+                case 'new_post': body = `${sender.fullname} shared a new post`; break;
+                case 'system': body = message?.content || 'New system update'; break;
+                default: body = `${sender.fullname} sent you a notification`;
+            }
+
+            await sendPushNotification(recipientWithToken.fcmToken, {
+                title,
+                body,
+                data: {
+                    type,
+                    postId: postId ? postId.toString() : '',
+                    notificationId: notification._id.toString()
+                }
+            });
+        }
+    } catch (pushErr) {
+        console.error('[Notification Push Error]', pushErr.message);
     }
 
     return notification;
