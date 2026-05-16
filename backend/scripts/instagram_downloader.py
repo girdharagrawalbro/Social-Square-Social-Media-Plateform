@@ -19,7 +19,7 @@ HOW TO GET YOUR SESSION ID:
 
 Usage:
     python instagram_downloader.py
-    python instagram_downloader.py --target username --limit 10
+        
     python instagram_downloader.py --target username --limit 20 --session-id YOUR_VALUE
 """
 

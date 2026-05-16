@@ -246,14 +246,11 @@ function AppInit() {
 
             let icon = '🔔';
 
-            let iconClass = 'pi pi-bell';
-            let iconColor = '#808bf5';
             let actionText = 'sent a notification';
 
             if (type === 'like') {
 
-                iconClass = 'pi pi-heart-fill';
-                iconColor = '#ff3040';
+
 
                 actionText = story
                     ? 'liked your story'
@@ -262,32 +259,28 @@ function AppInit() {
 
             if (type === 'comment') {
 
-                iconClass = 'pi pi-comments';
-                iconColor = '#3b82f6';
+
 
                 actionText = 'commented on your post';
             }
 
             if (type === 'follow') {
 
-                iconClass = 'pi pi-user-plus';
-                iconColor = '#10b981';
+
 
                 actionText = 'started following you';
             }
 
             if (type === 'follow_request') {
 
-                iconClass = 'pi pi-user-plus';
-                iconColor = '#f59e0b';
+
 
                 actionText = 'sent you a follow request';
             }
 
             if (type === 'message') {
 
-                iconClass = 'pi pi-send';
-                iconColor = '#6366f1';
+
 
                 actionText =
                     message?.content ||
@@ -296,8 +289,7 @@ function AppInit() {
 
             if (type === 'system') {
 
-                iconClass = 'pi pi-exclamation-triangle';
-                iconColor = '#ef4444';
+
 
                 actionText =
                     message?.content ||
@@ -306,16 +298,14 @@ function AppInit() {
 
             if (type === 'new_post') {
 
-                iconClass = 'pi pi-image';
-                iconColor = '#ec4899';
+
 
                 actionText = 'posted something new';
             }
 
             if (type === 'new_story') {
 
-                iconClass = 'pi pi-camera';
-                iconColor = '#8b5cf6';
+
 
                 actionText = 'added a new story';
             }

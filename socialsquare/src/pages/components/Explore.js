@@ -515,13 +515,13 @@ const Explore = () => {
             {/* Navigation Buttons for PC */}
             <button
               onClick={() => setActiveIndex(prev => (prev > 0 ? prev - 1 : videos.length - 1))}
-              className="hidden md:flex absolute top-1/2 left-10 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
+              className="hidden md:flex absolute top-45 left-10 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
             >
               <i className="pi pi-chevron-left"></i>
             </button>
             <button
               onClick={() => setActiveIndex(prev => (prev < videos.length - 1 ? prev + 1 : 0))}
-              className="hidden md:flex absolute top-1/2 right-40 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
+              className="hidden md:flex absolute top-45 right-10 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
             >
               <i className="pi pi-chevron-right"></i>
             </button>
