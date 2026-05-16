@@ -87,7 +87,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
     origin: allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-fingerprint']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-fingerprint', 'x-request-id']
 }));
 
 app.use(express.json({ limit: '100mb' }));

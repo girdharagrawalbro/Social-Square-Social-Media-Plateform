@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
-const { body, validationResult } = require('express-validator');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const Post = require('../models/Post');
@@ -128,9 +127,9 @@ function getRefreshCookieOptions(isForClear = false) {
     const domain = process.env.COOKIE_DOMAIN?.trim();
 
     const options = {
-        httpOnly: true, 
-        secure,         
-        sameSite,       
+        httpOnly: true,
+        secure,
+        sameSite,
         path: '/',
         ...(domain ? { domain } : {}),
     };
@@ -1085,7 +1084,7 @@ router.post('/users/details', verifyToken, [
     try {
         const { page = 1, limit = 20 } = req.body;
         let ids = Array.isArray(req.body.ids) ? req.body.ids : [];
-        
+
         // Sanitize: filter out any non-string or invalid ObjectIds
         ids = ids.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
 
@@ -1104,7 +1103,7 @@ router.post('/users/details', verifyToken, [
             .select('fullname username profile_picture')
             .lean();
 
-        res.status(200).json({ 
+        res.status(200).json({
             users,
             total: ids.length,
             page,
