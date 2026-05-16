@@ -20,7 +20,7 @@ const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 router.post('/sign-upload', verifyToken, (req, res) => {
     try {
         const timestamp = Math.round(Date.now() / 1000);
-        const folder = req.body.folder || `users/${req.user.id || 'anonymous'}`;
+        const folder = req.body.folder || `users/${req.userId || 'anonymous'}`;
 
         // Use provided secret or fallback to signing via microservice if keys aren't local
         if (CLOUDINARY_API_SECRET) {

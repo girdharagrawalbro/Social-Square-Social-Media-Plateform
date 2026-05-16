@@ -19,14 +19,7 @@ const softVerifyToken = require('../middleware/softVerifyToken');
 const AuditLog = require('../models/AuditLog');
 const authRateLimiter = require('../middleware/authRateLimiter');
 const { propagateUserProfileUpdate } = require('../utils/userPropagation');
-const admin = require('firebase-admin');
-
-// ─── FIREBASE ADMIN INITIALIZATION ───────────────────────────────────────────
-if (!admin.apps.length) {
-    admin.initializeApp({
-        projectId: 'social-square-official'
-    });
-}
+const { admin } = require('../utils/firebase');
 
 
 const router = express.Router();
