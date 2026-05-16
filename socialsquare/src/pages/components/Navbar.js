@@ -6,7 +6,7 @@ import usePostStore from '../../store/zustand/usePostStore';
 import Authnav from "./Authnav";
 import NotificationBell from "./ui/NotificationBell";
 import { useDarkMode } from '../../context/DarkModeContext';
-import { requestNotificationPermission, showNotification } from '../../utils/pushNotifications';
+import { requestNotificationPermission } from '../../utils/pushNotifications';
 import NewPost from "./Newpost";
 
 
