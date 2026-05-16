@@ -243,6 +243,9 @@ async function run() {
             await newPost.save();
             console.log(`Post created successfully for ${shortcode} (ID: ${newPost._id})`);
 
+            // Increment user's post count
+            await User.findByIdAndUpdate(user._id, { $inc: { postsCount: 1 } });
+
             // ─── POST-UPLOAD SYNC & GAMIFICATION ───
             try {
                 const { publish } = require('../lib/pubsub');
