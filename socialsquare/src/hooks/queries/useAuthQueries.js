@@ -20,13 +20,15 @@ export const authKeys = {
 // ─── OWN PROFILE (/me — Race-condition-free) ──────────────────────────────────
 // Resolved entirely from the JWT. Should only be called when viewingOwnProfile.
 export function useOwnProfile(enabled = true) {
+    const initialized = useAuthStore(s => s.initialized);
+    const user = useAuthStore(s => s.user);
     return useQuery({
         queryKey: authKeys.ownProfile,
         queryFn: async () => {
             const res = await api.get('/api/auth/me');
             return res.data;
         },
-        enabled: !!enabled,
+        enabled: initialized && !!user && !!enabled,
         staleTime: 1000 * 60 * 2,
     });
 }
@@ -34,13 +36,14 @@ export function useOwnProfile(enabled = true) {
 // ─── OTHER USER PROFILE (/other-user/view/:id) ────────────────────────────────
 // Resolved from explicit userId param. Should only be called when NOT viewingOwnProfile.
 export function useOtherUserProfile(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: authKeys.userProfile(userId),
         queryFn: async () => {
             const res = await api.get(`/api/auth/other-user/view/${userId}`);
             return res.data;
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 2,
     });
 }
@@ -63,19 +66,21 @@ export function usePrefetchUserProfile() {
 
 // ─── FETCH CREATOR ANALYTICS (PROTECTED) ──────────────────────────────────────
 export function useCreatorAnalytics(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: authKeys.analytics(userId),
         queryFn: async () => {
             const res = await api.get(`/api/auth/analytics/${userId}`);
             return res.data;
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5, // 5 minutes
     });
 }
 
 // ─── FETCH USER DETAILS BY IDS ─────────────────────────────────────────────────
 export function useUserDetails(ids = []) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: authKeys.userDetails(ids),
         queryFn: async () => {
@@ -96,7 +101,7 @@ export function useUserDetails(ids = []) {
             
             return results.flat();
         },
-        enabled: !!ids?.length,
+        enabled: initialized && !!ids?.length,
         staleTime: 1000 * 60 * 5,
         gcTime: 1000 * 60 * 10,
     });
@@ -104,6 +109,8 @@ export function useUserDetails(ids = []) {
 
 // ─── FETCH OTHER USERS (Suggested Users Sidebar) ────────────────────────────────
 export function useOtherUsers(limit = 8) {
+    const initialized = useAuthStore(s => s.initialized);
+    const user = useAuthStore(s => s.user);
     return useQuery({
         queryKey: [...authKeys.otherUsers, limit],
         queryFn: async () => {
@@ -112,11 +119,14 @@ export function useOtherUsers(limit = 8) {
         },
         staleTime: 1000 * 60 * 10,
         gcTime: 1000 * 60 * 30,
+        enabled: initialized && !!user,
     });
 }
 
 // ─── FETCH OTHER USERS INFINITE (Discover Page) ───────────────────────────────
 export function useInfiniteOtherUsers(limit = 10) {
+    const initialized = useAuthStore(s => s.initialized);
+    const user = useAuthStore(s => s.user);
     return useInfiniteQuery({
         queryKey: [...authKeys.otherUsers, 'infinite', limit],
         queryFn: async ({ pageParam = 1 }) => {
@@ -129,63 +139,69 @@ export function useInfiniteOtherUsers(limit = 10) {
         },
         initialPageParam: 1,
         staleTime: 1000 * 60 * 5,
+        enabled: initialized && !!user,
     });
 }
 
 // ─── FETCH STORY FEED (PROTECTED) ─────────────────────────────────────────────
 export function useStoryFeed(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: authKeys.storyFeed(userId),
         queryFn: async () => {
             const res = await api.get(`/api/story/feed`);
             return Array.isArray(res.data) ? res.data : [];
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 2,
     });
 }
 
 // ─── FETCH COLLAB INVITES (PROTECTED) ─────────────────────────────────────────
 export function useCollabInvites(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: authKeys.collabInvites(userId),
         queryFn: async () => {
             const res = await api.get(`/api/post/collaborate/invites/${userId}`);
             return Array.isArray(res.data) ? res.data : [];
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60,
     });
 }
 
 // ─── FETCH USER PROFILE ────────────────────────────────────────────────────────
 export function useUserProfile(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: authKeys.userProfile(userId),
         queryFn: async () => {
             const res = await api.get(`/api/auth/user/${userId}`);
             return res.data;
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5,
         gcTime: 1000 * 60 * 10,
     });
 }
 
 export function usePublicUserProfile(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: ['user', 'public-profile', userId],
         queryFn: async () => {
             const res = await api.get(`/api/auth/public/profile/${userId}`);
             return res.data;
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5,
     });
 }
 
 // ─── FETCH FOLLOWERS INFINITE ─────────────────────────────────────────────────
 export function useInfiniteFollowers(userId, limit = 10, options = {}) {
+    const initialized = useAuthStore(s => s.initialized);
     return useInfiniteQuery({
         queryKey: [...authKeys.followers(userId), 'infinite', limit],
         queryFn: async ({ pageParam = null }) => {
@@ -196,7 +212,7 @@ export function useInfiniteFollowers(userId, limit = 10, options = {}) {
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         initialPageParam: null,
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5,
         ...options
     });
@@ -204,6 +220,7 @@ export function useInfiniteFollowers(userId, limit = 10, options = {}) {
 
 // ─── FETCH FOLLOWING INFINITE ─────────────────────────────────────────────────
 export function useInfiniteFollowing(userId, limit = 10, options = {}) {
+    const initialized = useAuthStore(s => s.initialized);
     return useInfiniteQuery({
         queryKey: [...authKeys.following(userId), 'infinite', limit],
         queryFn: async ({ pageParam = null }) => {
@@ -214,7 +231,7 @@ export function useInfiniteFollowing(userId, limit = 10, options = {}) {
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         initialPageParam: null,
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5,
         ...options
     });
@@ -347,6 +364,8 @@ export function useRemoveFollower() {
 
 // ─── GROUPS & COMMUNITIES ───────────────────────────────────────────────────
 export function useGroups() {
+    const initialized = useAuthStore(s => s.initialized);
+    const user = useAuthStore(s => s.user);
     return useQuery({
         queryKey: authKeys.groups,
         queryFn: async () => {
@@ -354,17 +373,19 @@ export function useGroups() {
             return res.data;
         },
         staleTime: 1000 * 60 * 5,
+        enabled: initialized && !!user,
     });
 }
 
 export function useGroupDetail(groupId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: authKeys.groupDetail(groupId),
         queryFn: async () => {
             const res = await api.get(`/api/group/${groupId}`);
             return res.data;
         },
-        enabled: !!groupId,
+        enabled: initialized && !!groupId,
         staleTime: 1000 * 60 * 2,
     });
 }

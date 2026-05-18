@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
-import { useComments, useCreateComment, useLikeComment } from '../../../hooks/queries/usePostQueries';
+import { useComments, useCreateComment, useLikeComment, useDeleteComment } from '../../../hooks/queries/usePostQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
@@ -173,6 +173,7 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
 
     const { data: fetchedComments, isLoading: commentsLoading } = useComments(postId);
     const createCommentMutation = useCreateComment();
+    const deleteCommentMutation = useDeleteComment();
 
     const comments = fetchedComments || [];
     const displayComments = localComments ?? comments;
@@ -204,17 +205,18 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
             header: 'Delete Confirmation',
             icon: 'pi pi-exclamation-triangle',
             acceptClassName: 'p-button-danger',
-            accept: async () => {
-                try {
-                    await api.delete(`${BASE}/api/post/comments/${commentId}`, { data: { userId: loggeduser._id } });
-                    if (parentId) {
-                        setLocalComments(prev => (prev ?? comments).map(c =>
-                            c._id === parentId ? { ...c, repliesList: c.repliesList.filter(r => r._id !== commentId) } : c
-                        ));
-                    } else {
-                        setLocalComments(prev => (prev ?? comments).filter(c => c._id !== commentId));
+            accept: () => {
+                deleteCommentMutation.mutate({ commentId, postId }, {
+                    onSuccess: () => {
+                        if (parentId) {
+                            setLocalComments(prev => (prev ?? comments).map(c =>
+                                c._id === parentId ? { ...c, repliesList: c.repliesList.filter(r => r._id !== commentId) } : c
+                            ));
+                        } else {
+                            setLocalComments(prev => (prev ?? comments).filter(c => c._id !== commentId));
+                        }
                     }
-                } catch { }
+                });
             }
         });
     };

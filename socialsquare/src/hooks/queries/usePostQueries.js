@@ -23,6 +23,7 @@ export const postKeys = {
 
 // ─── FEED (infinite scroll) ───────────────────────────────────────────────────
 export function useFeed(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useInfiniteQuery({
         queryKey: postKeys.feed(userId),
         queryFn: async ({ pageParam = null }) => {
@@ -46,7 +47,7 @@ export function useFeed(userId) {
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         staleTime: 1000 * 60 * 2, // 2 minutes
-        enabled: !!userId,
+        enabled: initialized && !!userId,
     });
 }
 
@@ -93,6 +94,7 @@ export function usePublicUserPosts(userId) {
 
 // ─── SAVED POSTS ──────────────────────────────────────────────────────────────
 export function useSavedPosts(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     const initSavedIds = usePostStore(s => s.initSavedIds);
     return useQuery({
         queryKey: postKeys.saved(userId),
@@ -101,26 +103,28 @@ export function useSavedPosts(userId) {
             initSavedIds(res.data.map(p => p._id));
             return res.data;
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5,
     });
 }
 
 // ─── POST DETAIL ──────────────────────────────────────────────────────────────
 export function usePostDetail(postId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: postKeys.detail(postId),
         queryFn: async () => {
             const res = await api.get(`/api/post/detail/${postId}`);
             return res.data;
         },
-        enabled: !!postId,
+        enabled: initialized && !!postId,
         staleTime: 1000 * 60 * 5,
     });
 }
 
 // ─── COMMENTS ─────────────────────────────────────────────────────────────────
 export function useComments(postId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: postKeys.comments(postId),
         queryFn: async () => {
@@ -129,13 +133,14 @@ export function useComments(postId) {
             });
             return res.data;
         },
-        enabled: !!postId,
+        enabled: initialized && !!postId,
         staleTime: 1000 * 30,
     });
 }
 
 // ─── MOOD FEED ────────────────────────────────────────────────────────────────
 export function useMoodFeed(mood, userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: postKeys.mood(mood, userId),
         queryFn: async () => {
@@ -144,13 +149,15 @@ export function useMoodFeed(mood, userId) {
             });
             return res.data.posts;
         },
-        enabled: !!mood && !!userId,
+        enabled: initialized && !!mood && !!userId,
         staleTime: 1000 * 60 * 5,
     });
 }
 
 // ─── CONFESSIONS ─────────────────────────────────────────────────────────────
 export function useConfessions() {
+    const initialized = useAuthStore(s => s.initialized);
+    const user = useAuthStore(s => s.user);
     return useInfiniteQuery({
         queryKey: postKeys.confessions,
         queryFn: async ({ pageParam = null }) => {
@@ -161,53 +168,63 @@ export function useConfessions() {
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         staleTime: 1000 * 60 * 2,
+        enabled: initialized && !!user,
     });
 }
 
 // ─── TRENDING ─────────────────────────────────────────────────────────────────
 export function useTrending() {
+    const initialized = useAuthStore(s => s.initialized);
+    const user = useAuthStore(s => s.user);
     return useQuery({
         queryKey: postKeys.trending,
         queryFn: async () => { const res = await api.get(`/api/post/trending`); return res.data; },
         staleTime: 1000 * 60 * 10, // trending changes slowly
+        enabled: initialized && !!user,
     });
 }
 
 // ─── CATEGORIES ───────────────────────────────────────────────────────────────
 export function useCategories() {
+    const initialized = useAuthStore(s => s.initialized);
+    const user = useAuthStore(s => s.user);
     return useQuery({
         queryKey: postKeys.categories,
         queryFn: async () => { const res = await api.get(`/api/post/categories`); return res.data; },
         staleTime: Infinity, // categories never change
+        enabled: initialized && !!user,
     });
 }
 
 // ─── RECOMMENDATIONS ──────────────────────────────────────────────────────────
 export function useRecommendedPosts(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: postKeys.recommended(userId),
         queryFn: async () => {
             const res = await api.get(`/api/recommendation/posts`);
             return res.data.items;
         },
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5,
     });
 }
 
 export function useSimilarPosts(postId) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: postKeys.similar(postId),
         queryFn: async () => {
             const res = await api.get(`/api/recommendation/similar/${postId}`);
             return res.data.items;
         },
-        enabled: !!postId,
+        enabled: initialized && !!postId,
         staleTime: 1000 * 60 * 10,
     });
 }
 
 export function usePersonalizedSearch(userId, q) {
+    const initialized = useAuthStore(s => s.initialized);
     return useQuery({
         queryKey: postKeys.personalizedSearch(userId, q),
         queryFn: async () => {
@@ -216,7 +233,7 @@ export function usePersonalizedSearch(userId, q) {
             });
             return res.data.items;
         },
-        enabled: !!userId && !!q,
+        enabled: initialized && !!userId && !!q,
         staleTime: 1000 * 60 * 2,
     });
 }
@@ -410,18 +427,38 @@ export function useCreateComment() {
         },
         onSettled: (data, error, variables) => {
             qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+            qc.invalidateQueries({ queryKey: postKeys.detail(variables.postId) });
+            if (user?._id) {
+                qc.invalidateQueries({ queryKey: postKeys.feed(user._id) });
+                qc.invalidateQueries({ queryKey: postKeys.userPosts(user._id) });
+                qc.invalidateQueries({ queryKey: postKeys.saved(user._id) });
+            }
+            qc.invalidateQueries({ queryKey: postKeys.confessions });
+            qc.invalidateQueries({ queryKey: postKeys.trending });
+            qc.invalidateQueries({ queryKey: postKeys.recommended(user?._id) });
         },
     });
 }
 
 export function useDeleteComment() {
     const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ commentId, postId }) =>
             api.delete(`/api/post/comments/${commentId}`),
         onSuccess: (_, variables) => {
             if (variables?.postId) {
-                qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+                const { postId } = variables;
+                qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
+                qc.invalidateQueries({ queryKey: postKeys.detail(postId) });
+                if (user?._id) {
+                    qc.invalidateQueries({ queryKey: postKeys.feed(user._id) });
+                    qc.invalidateQueries({ queryKey: postKeys.userPosts(user._id) });
+                    qc.invalidateQueries({ queryKey: postKeys.saved(user._id) });
+                }
+                qc.invalidateQueries({ queryKey: postKeys.confessions });
+                qc.invalidateQueries({ queryKey: postKeys.trending });
+                qc.invalidateQueries({ queryKey: postKeys.recommended(user?._id) });
             }
         },
     });

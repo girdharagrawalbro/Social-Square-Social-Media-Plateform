@@ -52,6 +52,7 @@ const useAuthStore = create(
             },
 
             initAuth: async () => {
+                if (get().initialized) return;
                 if (initAuthPromise) return initAuthPromise;
                 set({ loading: true });
                 initAuthPromise = (async () => {
@@ -205,6 +206,20 @@ export const refreshAccessToken = () => {
 };
 
 // ─── AXIOS INSTANCE ───────────────────────────────────────────────────────────
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
 export const api = axios.create({ baseURL: BASE, withCredentials: true });
 api.interceptors.request.use(config => {
     if (inMemoryToken) config.headers.Authorization = `Bearer ${inMemoryToken}`;
@@ -216,14 +231,42 @@ api.interceptors.response.use(res => res, handleRateLimit);
 api.interceptors.response.use(
     res => res,
     async err => {
-        const original = err.config;
-        if (err.response?.status !== 401 || original._retry || original.url?.includes('/auth/refresh')) return Promise.reject(err);
-        original._retry = true;
-        try {
-            const newToken = await refreshAccessToken();
-            original.headers.Authorization = `Bearer ${newToken}`;
-            return api(original);
-        } catch (refreshErr) { return Promise.reject(refreshErr); }
+        const originalRequest = err.config;
+        if (err.response?.status !== 401 || originalRequest._retry || originalRequest.url?.includes('/auth/refresh')) {
+            return Promise.reject(err);
+        }
+
+        if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+                failedQueue.push({ resolve, reject });
+            })
+                .then(token => {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    return api(originalRequest);
+                })
+                .catch(err => {
+                    return Promise.reject(err);
+                });
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        return new Promise((resolve, reject) => {
+            refreshAccessToken()
+                .then(token => {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    processQueue(null, token);
+                    resolve(api(originalRequest));
+                })
+                .catch(refreshErr => {
+                    processQueue(refreshErr, null);
+                    reject(refreshErr);
+                })
+                .finally(() => {
+                    isRefreshing = false;
+                });
+        });
     }
 );
 

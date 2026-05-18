@@ -49,8 +49,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
     const { data: fetchedPost, isLoading: isPostLoading, error: postError } = usePostDetail(activePostId);
 
-    // Use initialPost only if it matches our active ID, otherwise use fetchedPost
-    const post = (initialPost && initialPost._id === activePostId) ? initialPost : fetchedPost;
+    // Use fetchedPost only if available, otherwise fall back to initialPost as a placeholder
+    const post = fetchedPost || (initialPost && initialPost._id === activePostId ? initialPost : null);
 
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
@@ -630,7 +630,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     }}
                                 >
                                     <i className="pi pi-comment text-xl text-[var(--text-main)] group-hover:scale-110 transition-transform"></i>
-                                    <span className="text-[10px] font-bold text-[var(--text-sub)]">{post.comments?.length || 0}</span>
+                                    <span className="text-[10px] font-bold text-[var(--text-sub)]">{post.commentsCount !== undefined ? post.commentsCount : (post.comments?.length || 0)}</span>
                                 </div>
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
