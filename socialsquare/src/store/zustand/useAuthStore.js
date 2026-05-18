@@ -92,7 +92,7 @@ const useAuthStore = create(
             login: async ({ email, password, fingerprint }) => {
                 set({ loading: true, error: null });
                 try {
-                    const res = await axios.post(`${BASE}/api/auth/login`, { identifier: email, password, fingerprint }, { withCredentials: true });
+                    const res = await api.post(`/api/auth/login`, { identifier: email, password, fingerprint });
                     if (res.data.requiresOtp) { set({ loading: false }); return { requiresOtp: true, userId: res.data.userId }; }
                     const { token, user } = res.data;
                     get().updateAuthToken(token);
@@ -111,7 +111,7 @@ const useAuthStore = create(
             googleLogin: async ({ credential, fingerprint }) => {
                 set({ loading: true, error: null });
                 try {
-                    const res = await axios.post(`${BASE}/api/auth/google`, { credential, fingerprint }, { withCredentials: true });
+                    const res = await api.post(`/api/auth/google`, { credential, fingerprint });
                     const { token, user } = res.data;
                     get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
@@ -129,7 +129,7 @@ const useAuthStore = create(
             signup: async ({ fullname, email, password, fingerprint }) => {
                 set({ loading: true, error: null });
                 try {
-                    const res = await axios.post(`${BASE}/api/auth/add`, { fullname, email, password, fingerprint }, { withCredentials: true });
+                    const res = await api.post(`/api/auth/add`, { fullname, email, password, fingerprint });
                     const { token, user } = res.data;
                     get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
@@ -187,7 +187,7 @@ export const refreshAccessToken = () => {
         try {
             const { getFingerprint } = await import('../../utils/fingerprint');
             const fingerprint = await getFingerprint();
-            const res = await axios.post(`${BASE}/api/auth/refresh`, {}, { withCredentials: true, headers: { 'x-fingerprint': fingerprint } });
+            const res = await api.post(`/api/auth/refresh`, {}, { withCredentials: true, headers: { 'x-fingerprint': fingerprint } });
             const { token, user } = res.data;
             useAuthStore.getState().updateAuthToken(token);
             if (user) useAuthStore.getState().setUser(user);
