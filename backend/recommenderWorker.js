@@ -80,7 +80,23 @@ async function handleUserActivity(data) {
   console.log(`👤 Updating interest profile for user ${userId} (${action})...`);
   let interest = await UserInterest.findOne({ userId });
 
+  let currentAlpha = ALPHA; // default 0.2
+  let shouldUpdateTags = true;
+
+  if (action === 'not_interested') {
+    currentAlpha = -0.15; // Push away
+    shouldUpdateTags = false;
+  } else if (action === 'interested') {
+    currentAlpha = 0.3; // Strong pull
+  } else if (action === 'like' || action === 'save' || action === 'share') {
+    currentAlpha = 0.2; // Normal pull
+  } else if (action === 'view') {
+    currentAlpha = 0.05; // Weak pull
+  }
+
   if (!interest) {
+    if (action === 'not_interested') return; // Do not create a new profile just to push away
+
     interest = new UserInterest({
       userId,
       interestVector: postVecDoc.vector,
@@ -88,22 +104,30 @@ async function handleUserActivity(data) {
       topCategories: category ? [category] : []
     });
   } else {
+    // Math.abs ensures we scale the existing vector properly while currentAlpha determines the pull/push direction
     const newVector = interest.interestVector.map((val, i) =>
-      (1 - ALPHA) * val + ALPHA * postVecDoc.vector[i]
+      (1 - Math.abs(currentAlpha)) * val + currentAlpha * postVecDoc.vector[i]
     );
     interest.interestVector = newVector;
 
-    if (tags.length > 0) {
-      interest.likedTags = [...new Set([...interest.likedTags, ...tags])].slice(-20);
-    }
-    if (category && !interest.topCategories.includes(category)) {
-      interest.topCategories = [category, ...interest.topCategories.filter(c => c !== category)].slice(0, 5);
+    if (shouldUpdateTags) {
+      if (tags.length > 0) {
+        interest.likedTags = [...new Set([...interest.likedTags, ...tags])].slice(-20);
+      }
+      if (category && !interest.topCategories.includes(category)) {
+        interest.topCategories = [category, ...interest.topCategories.filter(c => c !== category)].slice(0, 5);
+      }
+    } else if (action === 'not_interested') {
+      // If they are not interested, we can optionally remove these tags from their liked tags
+      if (tags.length > 0) {
+        interest.likedTags = interest.likedTags.filter(t => !tags.includes(t));
+      }
     }
   }
 
   interest.lastUpdated = new Date();
   await interest.save();
-  console.log(`✅ User ${userId} profile updated`);
+  console.log(`✅ User ${userId} profile updated (${action})`);
 }
 
 // 5. MAIN WORKER INIT

@@ -117,7 +117,7 @@ const UsersPage = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                     {filteredUsers.map((u) => {
                         const userIsOnline = isOnline(u._id);
                         const following = isFollowing(u._id);
@@ -129,49 +129,64 @@ const UsersPage = () => {
                         return (
                             <div
                                 key={u._id}
-                                className={`group relative p-6 rounded-3xl border transition-all hover:scale-[1.02] cursor-pointer ${isDark ? 'bg-[#1a1a1a] border-[#2a2a2a] hover:bg-[#222]' : 'bg-white border-gray-100 hover:shadow-2xl'
+                                className={`group relative p-4 sm:p-6 rounded-2xl sm:rounded-3xl border transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${isDark ? 'bg-[#1a1a1a] border-[#2a2a2a] hover:bg-[#222]' : 'bg-white border-gray-100 hover:shadow-2xl'
                                     }`}
                                 onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}
                             >
                                 {/* Dismiss button */}
                                 <button
                                     onClick={(e) => handleDismiss(e, u._id)}
-                                    className="absolute top-4 right-4 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500 text-gray-400 border-0 bg-transparent flex items-center justify-center cursor-pointer"
+                                    className="absolute top-2 right-2 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500 text-gray-400 border-0 bg-transparent flex items-center justify-center cursor-pointer"
                                 >
-                                    <i className="pi pi-times text-xs"></i>
+                                    <i className="pi pi-times text-[10px] sm:text-xs"></i>
                                 </button>
 
-                                <div className="flex flex-col items-center">
-                                    <div className="relative w-24 h-24 mb-4">
+                                <div className="flex flex-col items-center w-full">
+                                    <div className="relative w-16 h-16 sm:w-24 sm:h-24 mb-3 sm:mb-4">
                                         <img
                                             src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                             alt={u.fullname}
                                             className="w-full h-full rounded-full object-cover border-4 border-[#808bf5]/10 group-hover:border-[#808bf5]/30 transition-all"
                                         />
                                         {userIsOnline && (
-                                            <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 border-4 border-white dark:border-[#1a1a1a] rounded-full shadow-lg"></div>
+                                            <div className="absolute bottom-0 right-0 w-4 h-4 sm:w-5 sm:h-5 bg-green-500 border-2 sm:border-4 border-white dark:border-[#1a1a1a] rounded-full shadow-lg"></div>
                                         )}
                                     </div>
 
-                                    <div className="text-center w-full mb-4">
-                                        <h3 className="font-bold text-lg m-0 truncate px-2">{u.fullname}</h3>
-                                        <p className={`text-xs mt-1 font-medium ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    <div className="text-center w-full mb-2">
+                                        <h3 className="font-bold text-sm sm:text-lg m-0 truncate px-1 sm:px-2">{u.fullname}</h3>
+                                        <p className={`text-[10px] sm:text-xs mt-1 font-medium ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                             {u.reason || 'Recommended'}
                                         </p>
                                     </div>
 
-                                    <div className="flex gap-4 mb-6">
+                                    {/* 📝 BIO BOX: Clamped exactly to 2 lines to maintain same card heights */}
+                                    <div 
+                                        className={`w-full px-1 sm:px-2 mb-3 text-[11px] sm:text-sm text-center leading-normal sm:leading-relaxed overflow-hidden text-ellipsis ${
+                                            isDark ? 'text-gray-400' : 'text-gray-500'
+                                        }`} 
+                                        style={{
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            height: '34px', // Fixed height prevents uneven box heights
+                                        }}
+                                    >
+                                        {u.bio || "No bio added yet."}
+                                    </div>
+
+                                    <div className="flex gap-4 mb-4">
                                         <div className="text-center">
-                                            <p className="font-bold text-sm m-0">{u.followersCount || 0}</p>
-                                            <p className="text-[10px] uppercase tracking-wider opacity-50 font-bold m-0">Followers</p>
+                                            <p className="font-bold text-xs sm:text-sm m-0">{u.followersCount || 0}</p>
+                                            <p className="text-[8px] sm:text-[10px] uppercase tracking-wider opacity-50 font-bold m-0">Followers</p>
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-2 w-full mt-auto">
+                                    <div className="flex gap-1.5 sm:gap-2 w-full mt-auto">
                                         <button
                                             disabled={isMutating}
                                             onClick={(e) => handleFollow(e, u._id, isRequested)}
-                                            className={`flex-1 py-2.5 rounded-2xl text-xs font-bold transition-all border-0 cursor-pointer ${following
+                                            className={`flex-1 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold transition-all border-0 cursor-pointer ${following
                                                 ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
                                                 : isRequested
                                                     ? 'bg-gray-200 text-gray-500 cursor-default'
@@ -185,9 +200,9 @@ const UsersPage = () => {
                                                 e.stopPropagation();
                                                 navigate(`/profile/${u._id}`);
                                             }}
-                                            className="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-500 flex items-center justify-center border-0 cursor-pointer hover:bg-gray-100 transition-colors"
+                                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-500 flex items-center justify-center border-0 cursor-pointer hover:bg-gray-100 transition-colors"
                                         >
-                                            <i className="pi pi-user"></i>
+                                            <i className="pi pi-user text-xs sm:text-sm"></i>
                                         </button>
                                     </div>
                                 </div>

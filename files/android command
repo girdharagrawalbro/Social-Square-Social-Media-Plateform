@@ -23,7 +23,6 @@ cd android
 .\gradlew clean
 
 # Back to project root
-cd ..
 
 # Full clean + sync + run (your go-to fix command)
 cd android && .\gradlew clean && cd .. && npx cap sync android && npx cap run android
