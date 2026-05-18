@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const Post = require('../models/Post');
+const { PostVector } = require('../models/Recommendation');
 const User = require('../models/User');
 const Comment = require('../models/Comment');
 const Category = require("../models/Category");
@@ -478,6 +479,11 @@ router.delete("/delete/:postId", verifyToken, [
             // If result is null, it means someone else (or another request) already set deletedAt
             return res.status(404).json({ message: "Post already deleted." });
         }
+
+        // ✅ Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
+        await PostVector.deleteOne({ postId: req.params.postId }).catch(err => {
+            console.error('[Post Delete] Failed to delete PostVector:', err.message);
+        });
 
         // Only decrement postsCount if this specific request was the one that performed the soft-delete
         // For anonymous posts, we use userId since authorId is null (Risk 1)

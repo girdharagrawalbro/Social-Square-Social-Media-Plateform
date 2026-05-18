@@ -29,13 +29,23 @@ http.createServer((req, res) => {
   console.log(`🚀 Health-check server listening on port ${dummyPort}`);
 });
 
-// 2. EMBEDDING HELPER
-async function getEmbedding(text) {
-  const result = await model.embedContent({
-    content: { parts: [{ text }] },
-    outputDimensionality: 384
-  });
-  return result.embedding.values;
+// 2. EMBEDDING HELPER WITH EXPONENTIAL BACKOFF RETRY
+async function getEmbedding(text, retries = 5, initialDelay = 1500) {
+  let delay = initialDelay;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const result = await model.embedContent({
+        content: { parts: [{ text }] },
+        outputDimensionality: 384
+      });
+      return result.embedding.values;
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      console.warn(`⚠️ [Gemini API] Embedding failed (attempt ${i + 1}/${retries}): ${err.message}. Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
+    }
+  }
 }
 
 // 3. POST CREATED HANDLER
