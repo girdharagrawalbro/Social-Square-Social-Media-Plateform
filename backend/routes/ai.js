@@ -10,6 +10,8 @@ const axios = require('../utils/http');
 const FormData = require('form-data');
 const verifyToken = require('../middleware/Verifytoken');
 const { body, query, validationResult } = require('express-validator');
+const { getOwnerToken } = require('../utils/privacy');
+const ANONYMOUS_USER_ID = "600000000000000000000000";
 
 const validate = (req, res, next) => {
     const errors = validationResult(req);
@@ -418,11 +420,17 @@ router.post('/generate-and-post', verifyToken, [
             category: selectedCategory,
             image_urls: [imageUrl],
             user: makeAnonymous
-                ? { _id: userDetails._id, fullname: 'Anonymous', profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg' }
+                ? {
+                    _id: ANONYMOUS_USER_ID,
+                    fullname: 'Anonymous',
+                    profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778490037/logo_eyc3at.jpg'
+                }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             mood,
             isAnonymous: !!makeAnonymous,
             isAiGenerated: true,
+            authorId: userId,
+            ownerToken: makeAnonymous ? getOwnerToken(userId) : null,
         });
 
         await Promise.all([

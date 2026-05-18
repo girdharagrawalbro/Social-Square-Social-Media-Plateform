@@ -18,20 +18,23 @@ When a user decides to post anonymously:
     *   A specific Socket.io event `newConfessionPost` is emitted to all connected clients, allowing the Confessions feed to update in real-time without revealing the author.
 
 ## 2. Feed Visibility
-Anonymous posts are strictly partitioned from normal social content:
+Anonymous posts are strictly partitioned and governed by custom privacy rules:
 
-*   **Main Feed**: Excluded. The query for the main feed explicitly filters out posts where `isAnonymous: true`.
-*   **Explore/Reels**: Excluded. Recommendation engines and the Explore feed filter out anonymous content to maintain a high-quality, person-centric discovery experience.
-*   **Confessions Feed**: Included. This is the **only** public place where these posts appear. It is accessible via `GET /api/posts/confessions`.
+*   **Main Feed**: Blended (10%). Exactly **1 of every 10 posts (10%)** in the homepage feed can be a public anonymous confession post, provided it matches the viewer's category interests. If interest candidates are scarce, it gracefully falls back to general public anonymous posts or fills the slot with normal posts.
+*   **Explore/Reels**: Excluded. Recommendation engines and the Explore feed filter out anonymous content to maintain a person-centric discovery experience.
+*   **Confessions Feed**: Included. This is the primary aggregator for all anonymous posts, accessible via `GET /api/posts/confessions`.
 
-## 3. Privacy Protection (Sanitization)
-To prevent accidental identity leaks through API responses, the `sanitizePost` utility and Mongoose `toJSON` transforms are used:
+## 3. Privacy Protection & Follower Filtering (Privacy Guard)
+To prevent identity leaks and honor user-level security profiles, the system implements the following rigorous boundaries:
 
-*   **For the Author**: When you view your own anonymous post, you still see your real `user._id` (masked as "Owner" in some logic) so the app knows you have permission to edit/delete it.
-*   **For Other Users**:
-    *   `user._id` is hard-coded to `"anonymous_user"` or `null` in the API response.
-    *   `collaborators` list is cleared (since anonymity and collaboration are mutually exclusive).
-    *   Display name and picture remain "Anonymous".
+1.  **Storage Isolation**:
+    *   `user._id` inside the post is stored as a global static dummy `ANONYMOUS_USER_ID` (`"600000000000000000000000"`).
+    *   The real author's ID is stored in the hidden field `authorId` which has `{ select: false }` set in Mongoose. It is completely inaccessible to API queries unless explicitly loaded for server-side calculations.
+2.  **Follower Enforcement for Private Accounts**:
+    *   If a **private user** creates an anonymous confession (either manually or via the AI post generator), it is strictly hidden from non-followers or guests in **both** the Confessions Feed and the Main Feed.
+    *   Only their confirmed followers are allowed to see it. The system queries follower states efficiently in Redis using `getRestrictedUserIds`.
+3.  **Sanitization layer**:
+    *   `sanitizeAnonymousPost` strips all identifying parameters (such as `authorId` or local ownership parameters) before serving responses to the browser.
 
 ## 4. User Profile Integration
 How anonymous posts appear on profiles:
@@ -57,14 +60,14 @@ How anonymous posts appear on profiles:
 
 ## 6. Summary Table
 
-| Context | Visible? | Author Identity |
-| :--- | :--- | :--- |
-| **Main Feed** | No | N/A |
-| **Confessions Feed** | Yes | Hidden ("Anonymous") |
-| **Your Own Profile** | Yes | Shown to you only |
-| **Other's Profile** | No | N/A |
-| **Search Results** | No | N/A |
-| **Direct Post Link** | Yes | Hidden ("Anonymous") |
+| Context | Visible? | Author Identity | Privacy/Follower Check |
+| :--- | :--- | :--- | :--- |
+| **Main Feed** | Blended (10%) | Hidden ("Anonymous") | Excludes private accounts not followed by viewer |
+| **Confessions Feed** | Yes | Hidden ("Anonymous") | Excludes private accounts not followed by viewer |
+| **Your Own Profile** | Yes | Shown to you only | None (self) |
+| **Other's Profile** | No | N/A | N/A |
+| **Search Results** | No | N/A | N/A |
+| **Direct Post Link** | Yes | Hidden ("Anonymous") | Excludes private accounts not followed by viewer |
 
 ---
 *Note: This flow ensures that while the system knows who you are (for moderation and ownership), the community only ever sees "Anonymous".*

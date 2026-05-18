@@ -10,7 +10,8 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     const [sendingUsers, setSendingUsers] = useState([]);
 
     // 1. Fetch recent conversations to prioritize frequent contacts
-    const { data: conversations = [], isLoading: convLoading } = useConversations(visible ? user?._id : null);
+    const { data: convData, isLoading: convLoading } = useConversations(visible ? user?._id : null);
+    const conversations = useMemo(() => convData?.pages?.flatMap(p => p.conversations || []) || [], [convData]);
 
     // 2. Only show following users by default
     const followingIds = useMemo(() => (user?.following || []).map(f => (f?._id || f)?.toString()), [user?.following]);
