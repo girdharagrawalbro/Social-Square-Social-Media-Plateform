@@ -83,6 +83,7 @@ function AppInit() {
     const navigate = useNavigate();
     const initAuth = useAuthStore(s => s.initAuth);
     const user = useAuthStore(s => s.user);
+    const initialized = useAuthStore(s => s.initialized);
     const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification } = useConversationStore();
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     useFeedSocket();
@@ -105,7 +106,7 @@ function AppInit() {
     const { setNotifications } = useConversationStore();
 
     useEffect(() => {
-        if (!user?._id) return;
+        if (!initialized || !user?._id) return;
 
         // ─── PUSH NOTIFICATIONS ───────────────────────────────────────────────
         const setupPushNotifications = async () => {
@@ -201,7 +202,7 @@ function AppInit() {
                 PushNotifications.removeAllListeners();
             }
         };
-    }, [user?._id, setNotifications, navigate, setPostDetailId, setStoryDetailUserId]);
+    }, [initialized, user?._id, setNotifications, navigate, setPostDetailId, setStoryDetailUserId]);
 
     // ─── SOCKET EVENTS ────────────────────────────────────────────────────────
     useEffect(() => {

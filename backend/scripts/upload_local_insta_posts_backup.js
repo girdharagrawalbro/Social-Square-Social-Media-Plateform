@@ -14,7 +14,7 @@ const { checkContent } = require('../middleware/contentFilter');
 
 const CLOUDINARY_URL = "http://localhost:5001/api/cloudinary/upload-base64";
 const OLLAMA_URL = "http://localhost:11434/api/generate";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3"; // Try llama3.1 as a common default
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:3b"; // Try qwen2.5:3b.1 as a common default
 
 async function detectMoodOllama(caption) {
     if (!caption || !String(caption).trim()) return 'neutral';

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Post = require('../models/Post');
+const { PostVector } = require('../models/Recommendation');
 const Report = require('../models/Report');
 const jwt = require('jsonwebtoken');
 const AuditLog = require('../models/AuditLog');
@@ -315,6 +316,16 @@ router.post('/users/bulk-delete', requireAdmin, [
                 { $set: { deletedAt: new Date() } }
             ).catch(console.error);
 
+            // Clean up corresponding post vectors from recommendation collection
+            Post.find({ 'user._id': { $in: finalIds } }).select('_id').lean().then(posts => {
+                const postIds = posts.map(p => p._id);
+                if (postIds.length > 0) {
+                    PostVector.deleteMany({ postId: { $in: postIds } }).catch(err => {
+                        console.error('[Admin Bulk User Delete] Failed to delete PostVectors:', err.message);
+                    });
+                }
+            }).catch(console.error);
+
             Report.deleteMany({ reporter: { $in: finalIds } }).catch(console.error);
         }
 
@@ -403,6 +414,16 @@ router.delete('/users/:userId', requireAdmin, [
             { authorId: req.params.userId },
             { $set: { deletedAt: new Date() } }
         ).catch(console.error);
+
+        // Clean up corresponding post vectors from recommendation collection
+        Post.find({ authorId: req.params.userId }).select('_id').lean().then(posts => {
+            const postIds = posts.map(p => p._id);
+            if (postIds.length > 0) {
+                PostVector.deleteMany({ postId: { $in: postIds } }).catch(err => {
+                    console.error('[Admin User Delete] Failed to delete PostVectors:', err.message);
+                });
+            }
+        }).catch(console.error);
 
         Report.deleteMany({ reporter: req.params.userId }).catch(console.error);
 
@@ -526,6 +547,11 @@ router.delete('/posts/:postId', requireAdmin, [
         if (!post) return res.status(404).json({ error: 'Post not found' });
 
         await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
+
+        // ✅ Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
+        await PostVector.deleteOne({ postId: req.params.postId }).catch(err => {
+            console.error('[Admin Post Delete] Failed to delete PostVector:', err.message);
+        });
 
         // Decrement real author's post count
         if (post.authorId) {

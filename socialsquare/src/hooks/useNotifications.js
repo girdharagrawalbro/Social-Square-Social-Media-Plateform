@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { api } from '../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../store/zustand/useAuthStore';
 import useConversationStore from '../store/zustand/useConversationStore';
 
 // Fetch notifications
@@ -16,6 +16,7 @@ const markAsReadBackend = async (Ids) => {
 };
 
 export function useNotifications(userId) {
+    const initialized = useAuthStore(s => s.initialized);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
 
@@ -31,7 +32,7 @@ export function useNotifications(userId) {
     const query = useQuery({
         queryKey: ['notifications', userId, page],
         queryFn: () => fetchNotifications(userId, page),
-        enabled: !!userId,
+        enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5, // 5 minutes stale time as we have socket
     });
 

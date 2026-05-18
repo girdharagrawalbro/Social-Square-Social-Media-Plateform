@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import useAuthStore, { getToken } from '../../store/zustand/useAuthStore';
+import useAuthStore, { getToken, api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import useWindowWidth from '../../hooks/useWindowWidth';
 
@@ -60,6 +60,7 @@ const MessageBubble = ({ msg }) => {
 // ─── MAIN CHATBOT ─────────────────────────────────────────────────────────────
 const Chatbot = () => {
     const user = useAuthStore(s => s.user);
+    const initialized = useAuthStore(s => s.initialized);
     const { chatbotOpen: open, setChatbotOpen: setOpen } = usePostStore();
     const windowWidth = useWindowWidth();
     const isMobile = windowWidth < 768;
@@ -92,18 +93,12 @@ const Chatbot = () => {
     }, [open]);
 
     useEffect(() => {
-        if (user?._id) {
-            const token = getToken();
-            if (!token) return;
-
-            fetch(`${BASE}/api/recommendation/memory`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-                .then(res => res.json())
-                .then(data => setUserMemory(data))
+        if (initialized && user?._id) {
+            api.get('/api/recommendation/memory')
+                .then(res => setUserMemory(res.data))
                 .catch(() => { });
         }
-    }, [user?._id]);
+    }, [initialized, user?._id]);
 
     const sendMessage = useCallback(async (text) => {
         const content = (text || input).trim();
