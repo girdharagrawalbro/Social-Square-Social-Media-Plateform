@@ -19,7 +19,7 @@ const jwt = require('jsonwebtoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
-const { getOwnerToken, verifyOwnerToken, sanitizeAnonymousPost } = require('../utils/privacy');
+const { getOwnerToken, verifyOwnerToken, sanitizeAnonymousPost, getRestrictedUserIds } = require('../utils/privacy');
 const postWriteLimiter = require('../middleware/postWriteLimiter'); // Break circular dependency
 const { moderationQueue } = require('../queues/moderationQueue');
 const { body, param, query, validationResult } = require('express-validator');
@@ -220,8 +220,8 @@ router.post("/create", verifyToken, [
             isAiGenerated: !!isAiGenerated,
             groupId: groupId || null,
             poll: poll || null,
-            // 🛡️ Risk 1: Never store real authorId for anonymous posts to prevent deanonymization
-            authorId: isAnonymous ? null : loggedUserId
+            // 🛡️ Store real authorId (select: false) to enforce private user follower checks
+            authorId: loggedUserId
         });
         await newPost.save();
         await User.findByIdAndUpdate(loggedUserId, { $inc: { postsCount: 1 } });
@@ -269,10 +269,10 @@ router.post("/create", verifyToken, [
 
         // ✅ Add to Moderation Queue (Asynchronous)
         if (moderationQueue) {
-            moderationQueue.add('moderate', { 
-                contentId: newPost._id, 
-                contentType: 'post', 
-                text: caption || '' 
+            moderationQueue.add('moderate', {
+                contentId: newPost._id,
+                contentType: 'post',
+                text: caption || ''
             }).catch(err => console.error('[ModerationQueue] Add error:', err.message));
         }
 
@@ -551,12 +551,125 @@ router.get("/", async (req, res) => {
                 ];
             }
         }
-        
-        // Fetch a larger batch since we might filter some out below
-        const posts = await Post.find(query).sort({ createdAt: -1, _id: -1 }).limit(limit * 4).lean().maxTimeMS(5000);
+
+        // Fetch partition counts
+        const anonymousTargetCount = Math.max(1, Math.floor(limit * 0.1)); // 10% of feed (e.g. 1 post for limit=10)
+        const oldTargetCount = Math.max(1, Math.floor(limit * 0.2)); // 20% of feed (e.g. 2 posts for limit=10)
+        const recentLimit = limit - oldTargetCount - anonymousTargetCount;
+        const fetchLimit = recentLimit + 1;
+
+        const recentPosts = await Post.find(query).sort({ createdAt: -1, _id: -1 }).limit(fetchLimit).lean().maxTimeMS(5000);
+        const hasMore = recentPosts.length > recentLimit;
+
+        // Fetch old unseen pics (20% of feed)
+        let oldUnseenSelection = [];
+        if (userId) {
+            try {
+                const oneDayAgo = new Date();
+                oneDayAgo.setDate(oneDayAgo.getDate() - 2); // Older than 2 days
+
+                const oldPicsQuery = {
+                    isAnonymous: { $ne: true },
+                    deletedAt: null,
+                    isVisible: { $ne: false },
+                    'user._id': { $nin: excludedUserIds.filter(id => id && id.length === 24).map(id => new mongoose.Types.ObjectId(id)) },
+                    $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
+                    createdAt: { $lt: oneDayAgo },
+                    $or: [
+                        { image_url: { $ne: null, $ne: "" } },
+                        { image_urls: { $exists: true, $ne: [] } }
+                    ]
+                };
+
+                const oldPicsCandidates = await Post.find(oldPicsQuery)
+                    .sort({ createdAt: -1 }) // Newer-old posts first
+                    .limit(50)
+                    .lean();
+
+                if (oldPicsCandidates.length > 0) {
+                    let unseenCandidates = oldPicsCandidates;
+                    if (redis.status !== 'disabled') {
+                        const seenFilter = new RedisBloomFilter(`bf:seen:${userId}`);
+                        const seenChecks = await seenFilter.mightContainMultiple(oldPicsCandidates.map(p => p._id.toString()));
+                        unseenCandidates = oldPicsCandidates.filter((_, i) => !seenChecks[i]);
+                    }
+                    oldUnseenSelection = unseenCandidates.slice(0, oldTargetCount);
+                }
+            } catch (err) {
+                console.error("[Feed] Failed to load old unseen pics:", err.message);
+            }
+        }
+
+        // Fetch anonymous public interest posts (10% of feed)
+        let anonymousSelection = [];
+        if (userId) {
+            try {
+                // Fetch restricted user IDs (private accounts that this user does not follow)
+                const restrictedIds = await getRestrictedUserIds(userId);
+
+                const anonymousQuery = {
+                    isAnonymous: true,
+                    deletedAt: null,
+                    isVisible: { $ne: false },
+                    $and: [
+                        { $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] }
+                    ]
+                };
+
+                if (restrictedIds.length > 0) {
+                    anonymousQuery.$and.push({
+                        $or: [
+                            { authorId: { $exists: false } },
+                            { authorId: null },
+                            { authorId: { $nin: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) } }
+                        ]
+                    });
+                }
+
+                // Try to filter by matching user interest categories
+                if (userCategories.length > 0) {
+                    anonymousQuery.category = { $in: userCategories };
+                }
+
+                let anonCandidates = await Post.find(anonymousQuery)
+                    .sort({ score: -1, createdAt: -1 })
+                    .limit(50)
+                    .lean();
+
+                // Fallback: If no posts matching categories, fetch general confessions
+                if (anonCandidates.length === 0 && userCategories.length > 0) {
+                    const fallbackQuery = { ...anonymousQuery };
+                    delete fallbackQuery.category;
+                    anonCandidates = await Post.find(fallbackQuery)
+                        .sort({ score: -1, createdAt: -1 })
+                        .limit(50)
+                        .lean();
+                }
+
+                if (anonCandidates.length > 0) {
+                    let unseenAnon = anonCandidates;
+                    if (redis.status !== 'disabled') {
+                        const seenFilter = new RedisBloomFilter(`bf:seen:${userId}`);
+                        const seenChecks = await seenFilter.mightContainMultiple(anonCandidates.map(p => p._id.toString()));
+                        unseenAnon = anonCandidates.filter((_, i) => !seenChecks[i]);
+                    }
+                    anonymousSelection = unseenAnon.slice(0, anonymousTargetCount);
+                }
+            } catch (err) {
+                console.error("[Feed] Failed to load anonymous interest posts:", err.message);
+            }
+        }
+
+        // Combine recent, old unseen, and anonymous posts with dynamic fallback
+        const neededRecent = limit - oldUnseenSelection.length - anonymousSelection.length;
+        const postsToProcess = [
+            ...recentPosts.slice(0, neededRecent),
+            ...oldUnseenSelection,
+            ...anonymousSelection
+        ];
 
         // 🔒 Privacy Guard: Find any private users among the fetched posts that we don't follow
-        const fetchedUserIds = [...new Set(posts.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(Boolean))];
+        const fetchedUserIds = [...new Set(postsToProcess.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(Boolean))];
         const usersToCheck = fetchedUserIds.filter(id => id !== userId && !followingIds.includes(id));
 
         let privateUserIdsExcluded = [];
@@ -568,19 +681,16 @@ router.get("/", async (req, res) => {
             privateUserIdsExcluded = privateUsers.map(u => u._id.toString());
         }
 
-        // Filter out posts from those private users
-        let filteredPosts = posts.filter(p => !privateUserIdsExcluded.includes(p.user._id.toString()));
-
-        // NOTE: Bloom Filter (seen-post deduplication) is intentionally NOT applied to the main feed.
-        // The main feed should always show posts from followed users, even if seen before.
-        // Bloom Filter deduplication is appropriate for Explore/Recommendations only.
+        // Filter out posts from those private users (with safe check)
+        let filteredPosts = postsToProcess.filter(p => p.user && p.user._id && !privateUserIdsExcluded.includes(p.user._id.toString()));
 
         // Split into posts from followed users and others (suggestions)
         const followingPosts = [];
         const suggestionPosts = [];
 
         for (const post of filteredPosts) {
-            if (followingIds.includes(post.user._id.toString())) followingPosts.push(post);
+            const authorIdStr = (post.user && post.user._id) ? post.user._id.toString() : "";
+            if (followingIds.includes(authorIdStr)) followingPosts.push(post);
             else suggestionPosts.push(post);
         }
 
@@ -594,31 +704,43 @@ router.get("/", async (req, res) => {
         followingPosts.sort((a, b) => scoreAndBoost(b) - scoreAndBoost(a));
         suggestionPosts.sort((a, b) => scoreAndBoost(b) - scoreAndBoost(a));
 
-        // Compose final feed by interleaving following and suggestions.
-        // Pattern: 2 following posts, then 1 suggestion (approx 70% following).
-        const final = [];
-        let iF = 0, iS = 0;
-        while (final.length < limit && (iF < followingPosts.length || iS < suggestionPosts.length)) {
-            const pos = final.length % 3;
-            if (pos !== 2) {
-                // prefer following
-                if (iF < followingPosts.length) { final.push(followingPosts[iF++]); continue; }
-                if (iS < suggestionPosts.length) { final.push(suggestionPosts[iS++]); continue; }
+        // Compose final feed by interleaving following and suggestions, avoiding consecutive same-user posts.
+        const result = [];
+        let lastUserId = null;
+
+        while (followingPosts.length > 0 || suggestionPosts.length > 0) {
+            const preferFollowing = (result.length % 3) !== 2; // 2 following, 1 suggestion
+            const findIdx = (arr, avoidId) => arr.findIndex(p => p.user && p.user._id && p.user._id.toString() !== avoidId);
+
+            let prefArr = preferFollowing ? followingPosts : suggestionPosts;
+            let altArr = preferFollowing ? suggestionPosts : followingPosts;
+
+            let idx = findIdx(prefArr, lastUserId);
+            if (idx !== -1) {
+                result.push(prefArr.splice(idx, 1)[0]);
             } else {
-                // prefer suggestion at every 3rd slot
-                if (iS < suggestionPosts.length) { final.push(suggestionPosts[iS++]); continue; }
-                if (iF < followingPosts.length) { final.push(followingPosts[iF++]); continue; }
+                idx = findIdx(altArr, lastUserId);
+                if (idx !== -1) {
+                    result.push(altArr.splice(idx, 1)[0]);
+                } else {
+                    // No choice but to show the same user
+                    if (prefArr.length > 0) result.push(prefArr.splice(0, 1)[0]);
+                    else if (altArr.length > 0) result.push(altArr.splice(0, 1)[0]);
+                }
+            }
+            if (result.length > 0) {
+                const lastPost = result[result.length - 1];
+                lastUserId = (lastPost.user && lastPost.user._id) ? lastPost.user._id.toString() : null;
             }
         }
-        const result = final.slice(0, limit);
 
-        // FIX #1: hasMore should reflect whether filteredPosts had more than `limit` items
-        // (i.e. there are more pages to fetch), not compare against the raw DB batch size
-        const hasMore = filteredPosts.length > limit;
-        const nextCursor = result.length > 0 ? encodeCursor(result[result.length - 1].createdAt, result[result.length - 1]._id) : null;
+        // The cursor should be based on the oldest post FETCHED in this batch from the recent pool, before scoring/sorting.
+        // This ensures the next query picks up exactly where the DB query left off.
+        const lastFetchedPost = recentPosts[neededRecent - 1] || recentPosts[recentPosts.length - 1];
+        const nextCursor = (hasMore && lastFetchedPost) ? encodeCursor(lastFetchedPost.createdAt, lastFetchedPost._id) : null;
 
-        // Fetch fresh presence for all users in the feed
-        const uniqueUserIds = [...new Set(result.map(p => p.user._id.toString()))];
+        // Fetch fresh presence for all users in the feed (excluding anonymous dummy)
+        const uniqueUserIds = [...new Set(result.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(id => id && id !== "600000000000000000000000"))];
         const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
         const presenceMap = {};
         usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
@@ -626,8 +748,9 @@ router.get("/", async (req, res) => {
         // Attach presence to results
         const resultWithPresence = result.map(p => {
             const po = p.toObject ? p.toObject() : p;
-            if (po.user) {
-                po.user.isOnline = presenceMap[po.user._id.toString()] || false;
+            if (po.user && po.user._id) {
+                const uid = po.user._id.toString();
+                po.user.isOnline = presenceMap[uid] || false;
             }
             return po;
         });
@@ -731,10 +854,10 @@ router.get("/user/:userId", [
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         const sanitized = result.map(p => sanitizeAnonymousPost(p, viewerId));
-        res.status(200).json({ 
-            posts: sanitized, 
-            nextCursor: hasMore ? encodeCursor(result[result.length - 1].createdAt, result[result.length - 1]._id) : null, 
-            hasMore 
+        res.status(200).json({
+            posts: sanitized,
+            nextCursor: hasMore ? encodeCursor(result[result.length - 1].createdAt, result[result.length - 1]._id) : null,
+            hasMore
         });
     } catch (error) {
         console.error('[Post Route] /user/:userId error:', error);
@@ -1191,10 +1314,10 @@ router.post('/comments/add', verifyToken, [
 
         // ✅ Add to Moderation Queue (Asynchronous)
         if (moderationQueue) {
-            moderationQueue.add('moderate', { 
-                contentId: newComment._id, 
-                contentType: 'comment', 
-                text: content || '' 
+            moderationQueue.add('moderate', {
+                contentId: newComment._id,
+                contentType: 'comment',
+                text: content || ''
             }).catch(err => console.error('[ModerationQueue] Add error:', err.message));
         }
 
@@ -1344,12 +1467,36 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
         const viewerId = req.userId;
         const limit = parseInt(req.query.limit) || 9;
         const cursor = req.query.cursor;
+
+        // Fetch restricted users (private accounts that the viewer is not following)
+        let excludedUserIds = [];
+        if (viewerId) {
+            excludedUserIds = await getRestrictedUserIds(viewerId);
+        } else {
+            // Guests cannot see anonymous posts from private users at all
+            const privateUsers = await User.find({ isPrivate: true }).select('_id').lean();
+            excludedUserIds = privateUsers.map(u => u._id.toString());
+        }
+
         const query = {
             isAnonymous: true,
             deletedAt: null,
-            $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
+            $and: [
+                { $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] }
+            ],
             ...(cursor ? { _id: { $lt: cursor } } : {}),
         };
+
+        if (excludedUserIds.length > 0) {
+            query.$and.push({
+                $or: [
+                    { authorId: { $exists: false } },
+                    { authorId: null },
+                    { authorId: { $nin: excludedUserIds.map(id => new mongoose.Types.ObjectId(id)) } }
+                ]
+            });
+        }
+
         const posts = await Post.find(query).sort({ score: -1, _id: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
@@ -1365,7 +1512,10 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
         }));
 
         res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
-    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (error) { 
+        console.error('[Confessions Feed Error]', error);
+        res.status(500).json({ error: "Internal Server Error" }); 
+    }
 });
 
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────

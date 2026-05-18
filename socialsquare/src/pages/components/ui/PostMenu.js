@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
+import toast from 'react-hot-toast';
+import { api } from '../../../store/zustand/useAuthStore';
 
 const PostMenu = ({ post, user, isOwner: passedIsOwner, onEdit, onDelete, onSave, isSaved, onReport, isSaving, onShareToStory, onMute, onBlock, buttonClassName, iconClassName }) => {
     const [visible, setVisible] = useState(false);
@@ -35,6 +37,34 @@ const PostMenu = ({ post, user, isOwner: passedIsOwner, onEdit, onDelete, onSave
                 }
             }
         ] : [
+            {
+                label: 'Interested',
+                icon: 'pi pi-thumbs-up',
+                color: 'text-green-500',
+                onClick: async () => {
+                    try {
+                        await api.post('/api/recommendation/activity', { postId: post._id, action: 'interested' });
+                        toast.success('We will show you more posts like this');
+                    } catch (e) {
+                        toast.error('Failed to update preference');
+                    }
+                    setVisible(false);
+                }
+            },
+            {
+                label: 'Not interested',
+                icon: 'pi pi-thumbs-down',
+                color: 'text-orange-500',
+                onClick: async () => {
+                    try {
+                        await api.post('/api/recommendation/activity', { postId: post._id, action: 'not_interested' });
+                        toast.success('We will show you fewer posts like this');
+                    } catch (e) {
+                        toast.error('Failed to update preference');
+                    }
+                    setVisible(false);
+                }
+            },
             {
                 label: user?.mutedUsers?.some(m => m?.toString() === post.user?._id?.toString()) ? 'Unmute user' : 'Mute user',
                 icon: user?.mutedUsers?.some(m => m?.toString() === post.user?._id?.toString()) ? 'pi pi-volume-up' : 'pi pi-volume-off',

@@ -29,9 +29,35 @@ export default function useFeedSocket() {
             if (userId !== user._id) syncLike(postId, userId, false);
         };
 
-        // ✅ Comment added → invalidate comments query for that post
-        const onNewComment = ({ postId }) => {
+        // ✅ Comment added → invalidate comments query for that post AND update feed count
+        const onNewComment = ({ postId, comment }) => {
             qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
+            
+            // Also update the feed caches so the comment count increments immediately
+            qc.setQueriesData({ queryKey: postKeys.feed(user._id) }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        posts: page.posts.map(p =>
+                            p._id === postId ? { ...p, comments: [...(p.comments || []), comment._id || 'temp'] } : p
+                        ),
+                    })),
+                };
+            });
+            qc.setQueriesData({ queryKey: postKeys.userPosts(user._id) }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        posts: page.posts.map(p =>
+                            p._id === postId ? { ...p, comments: [...(p.comments || []), comment._id || 'temp'] } : p
+                        ),
+                    })),
+                };
+            });
         };
 
         // ✅ Comment deleted → invalidate
