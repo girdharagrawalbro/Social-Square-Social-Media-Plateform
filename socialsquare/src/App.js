@@ -739,7 +739,7 @@ function App() {
                                         <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
                                         <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
                                         <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
-                                        <Route path="/communities" element={<MainLayout><Communities /></MainLayout>} />
+                                        <Route path="/confessions" element={<MainLayout><Communities /></MainLayout>} />
                                         <Route path="/discover" element={<MainLayout><UsersPage /></MainLayout>} />
                                         <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
                                         <Route path="/stories/:username" element={<StoriesPage />} />

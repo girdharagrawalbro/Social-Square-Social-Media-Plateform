@@ -1,21 +1,218 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useConfessions } from '../../hooks/queries/useExploreQueries';
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import Groups from './Groups';
 import SkeletonCommunities from './ui/SkeletonCommunities';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
+import ReportDialog from './ui/ReportDialog';
+import { confirmDialog } from 'primereact/confirmdialog';
+import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { usePrefetchPost, useLikePost, useSavePost, useDeletePost, useReactPost } from '../../hooks/queries/usePostQueries';
+import { useFollowUser } from '../../hooks/queries/useAuthQueries';
+import SkeletonPost from './ui/SkeletonPost';
+import { PostItem } from './ui/PostItem';
+import usePostStore from '../../store/zustand/usePostStore';
+import SharePostDialog from './ui/SharePostDialog';
+import FollowFollowingList from './FollowFollowingList';
 
 // ─── CONFESSIONS FEED ─────────────────────────────────────────────────────────
-const ConfessionsFeed = () => {
-    const [expanded, setExpanded] = useState(null);
+const ConfessionsFeed = ({ onProfileClick }) => {
+    const [reportPost, setReportPost] = useState(null);
 
+    const user = useAuthStore(s => s.user);
+    const queryClient = useQueryClient();
     // ✅ TanStack Query for confessions - infinite scroll
     const confessionsQuery = useConfessions();
     const posts = confessionsQuery.data?.pages?.flatMap(p => p.posts) || [];
-    const loading = confessionsQuery.isLoading;
+    const isLoading = confessionsQuery.isLoading;
     const loadingMore = confessionsQuery.isFetchingNextPage;
 
-    if (loading) return <SkeletonCommunities />;
+    // Optimistic/Interactive states for PostItem integration
+    const [pickerPostId, setPickerPostId] = useState(null);
+    const [visiblePostId, setVisiblePostId] = useState(null);
+    const [heartVisible, setHeartVisible] = useState({});
+    const [savingPostIds, setSavingPostIds] = useState(new Set());
+    const [sharePost, setSharePost] = useState(null);
+    const [likesVisible, setLikesVisible] = useState(false);
+    const [likesIds, setLikesIds] = useState([]);
+    const lastTap = useRef({});
+
+    // Mutations
+    const likeMutation = useLikePost();
+    const saveMutation = useSavePost();
+    const reactMutation = useReactPost();
+    const followMutation = useFollowUser();
+
+    // Zustand store helpers
+    const isSaved = usePostStore(s => s.isSaved);
+    const toggleSaved = usePostStore(s => s.toggleSaved);
+    const optimisticLikes = usePostStore(s => s.optimisticLikes);
+    const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
+
+    const handleMute = async (post) => {
+        confirmDialog({
+            message: `Are you sure you want to mute the author of this anonymous post? Their posts will be hidden from your feed.`,
+            header: 'Mute User',
+            icon: 'pi pi-volume-off',
+            acceptLabel: 'Mute',
+            acceptClassName: 'p-button-warning border-0 rounded-xl',
+            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+            accept: async () => {
+                try {
+                    await api.post(`/api/post/${post._id}/mute-author`);
+                    toast.success('User muted');
+                    queryClient.invalidateQueries({ queryKey: ['confessions'] });
+                } catch (e) {
+                    toast.error('Failed to mute user');
+                }
+            },
+        });
+    };
+
+    const handleBlock = async (post) => {
+        confirmDialog({
+            message: `Are you sure you want to block the author of this anonymous post? They won't be able to see your profile or posts, and you won't see theirs.`,
+            header: 'Block Confirmation',
+            icon: 'pi pi-ban',
+            acceptLabel: 'Block',
+            acceptClassName: 'p-button-danger border-0 rounded-xl',
+            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+            accept: async () => {
+                try {
+                    await api.post(`/api/post/${post._id}/block-author`);
+                    toast.success('User blocked');
+                    queryClient.invalidateQueries({ queryKey: ['confessions'] });
+                } catch (e) {
+                    toast.error('Failed to block user');
+                }
+            },
+        });
+    };
+
+    const submitReport = async (reason, customDetails) => {
+        try {
+            await api.post(`/api/moderation/report`, { postId: reportPost._id, reason, details: customDetails });
+            toast.success('Report submitted. Thank you!');
+            setReportPost(null);
+        } catch (e) {
+            toast.error(e.response?.data?.error || 'Failed to submit report');
+        }
+    };
+
+    const handleLikeToggle = async (post) => {
+        if (likeMutation.isPending) return;
+        if (navigator.vibrate) navigator.vibrate(10);
+        const loggedUserId = user?._id?.toString();
+        const optimisticSet = optimisticLikes[post._id];
+        const liked = optimisticSet
+            ? Array.from(optimisticSet).some(id => id?.toString() === loggedUserId)
+            : (post.likes || []).some(id => id?.toString() === loggedUserId);
+
+        likeMutation.mutate({
+            postId: post._id,
+            isLiked: liked,
+            likes: post.likes || []
+        });
+    };
+
+    const handleImageDoubleClick = async post => {
+        const optimisticSet = optimisticLikes[post._id];
+        const liked = optimisticSet
+            ? optimisticSet.has(user?._id)
+            : post.likes?.includes(user?._id);
+
+        if (!liked) {
+            if (navigator.vibrate) navigator.vibrate([10, 30]);
+            likeMutation.mutate({
+                postId: post._id,
+                isLiked: false,
+                likes: post.likes || []
+            });
+        }
+        setHeartVisible(p => ({ ...p, [post._id]: true }));
+        setTimeout(() => setHeartVisible(p => ({ ...p, [post._id]: false })), 800);
+    };
+
+    const handleImageTap = post => {
+        const now = Date.now();
+        if (now - (lastTap.current[post._id] || 0) < 300) handleImageDoubleClick(post);
+        lastTap.current[post._id] = now;
+    };
+
+    const handleSave = post => {
+        setSavingPostIds(prev => new Set([...prev, post._id]));
+        const wasSaved = isSaved(post._id);
+        toggleSaved(post._id, !wasSaved);
+        saveMutation.mutate({ postId: post._id }, {
+            onError: () => {
+                toggleSaved(post._id, wasSaved);
+                toast.error('Failed to save');
+            },
+            onSettled: () => {
+                setSavingPostIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(post._id);
+                    return next;
+                });
+            },
+        });
+    };
+
+    const handleReact = (post, emoji) => {
+        if (navigator.vibrate) navigator.vibrate(15);
+        reactMutation.mutate({ postId: post._id, emoji });
+        setPickerPostId(null);
+    };
+
+    const handleFollow = (targetUserId) => {
+        if (!targetUserId) return;
+        followMutation.mutate({ targetUserId });
+    };
+
+    const [expandedCaptions, setExpandedCaptions] = useState(new Set());
+
+    const toggleCaption = (postId) => {
+        setExpandedCaptions(prev => {
+            const next = new Set(prev);
+            if (next.has(postId)) next.delete(postId);
+            else next.add(postId);
+            return next;
+        });
+    };
+
+    const renderCaption = (caption = '', postId) => {
+        const threshold = 80;
+        const safeCaption = caption || '';
+
+        if (safeCaption.length <= threshold) {
+            return <span className="text-sm">{safeCaption}</span>;
+        }
+
+        const isExpanded = expandedCaptions.has(postId);
+        const displayCaption = isExpanded ? safeCaption : safeCaption.substring(0, threshold) + '...';
+
+        const parts = displayCaption.split(/(\s+)/).map((token, i) => {
+            if (/^#[\w]+$/.test(token) || /^@[\w.]+$/.test(token))
+                return <span key={i} className="text-indigo-500 font-medium">{token}</span>;
+            return <span key={i}>{token}</span>;
+        });
+
+        return (
+            <span className="text-sm">
+                {parts}
+                <button
+                    onClick={(e) => { e.stopPropagation(); toggleCaption(postId); }}
+                    className="ml-1 border-0 bg-transparent p-0 text-[var(--text-sub)] font-bold text-xs cursor-pointer hover:text-[#808bf5] transition-colors"
+                >
+                    {isExpanded ? ' show less' : ' more'}
+                </button>
+            </span>
+        );
+    };
+
+    if (isLoading) return <SkeletonCommunities />;
 
     if (posts.length === 0) return (
         <div style={{ textAlign: 'center', padding: '48px 16px' }}>
@@ -26,7 +223,7 @@ const ConfessionsFeed = () => {
     );
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+        <div className='flex flex-col p-2 mt-1 gap-2'>
             {/* Info banner */}
             <div style={{ background: 'linear-gradient(135deg, #ede9fe, #e0e7ff)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '22px' }}>🔒</span>
@@ -36,60 +233,53 @@ const ConfessionsFeed = () => {
                 </div>
             </div>
 
-            {posts.map((post, i) => {
-                const imgs = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
-                const isExpanded = expanded === post._id;
+            {isLoading ? (
+                <div className="mt-1 flex flex-col">{[1, 2, 3].map(i => <SkeletonPost key={i} />)}</div>
+            ) : ""}
 
-                return (
-                    <div key={post._id || i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden' }}>
-                        {/* Header — always anonymous */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px' }}>
-                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '16px', flexShrink: 0 }}>
-                                🎭
-                            </div>
-                            <div>
-                                <p style={{ margin: 0, fontWeight: 700, fontSize: '13px' }}>Anonymous</p>
-                                <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
-                                    {post.category && <span style={{ background: '#ede9fe', color: '#6366f1', borderRadius: '8px', padding: '1px 7px', fontSize: '10px', marginRight: '6px' }}>#{post.category}</span>}
-                                    {post.mood && <span style={{ fontSize: '12px' }}>
-                                        {({ happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' })[post.mood]}
-                                    </span>}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Image */}
-                        {imgs[0] && (
-                            <div style={{ borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
-                                <img src={imgs[0]} alt="" style={{ width: '100%', maxHeight: '340px', objectFit: 'cover', display: 'block' }} />
-                            </div>
-                        )}
-
-                        {/* Caption */}
-                        <div style={{ padding: '12px 14px' }}>
-                            <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6, color: 'var(--text-main)' }}>
-                                {isExpanded || post.caption?.length <= 140
-                                    ? post.caption
-                                    : <>{post.caption?.slice(0, 80)}... <button onClick={() => setExpanded(post._id)} style={{ background: 'none', border: 'none', color: '#808bf5', cursor: 'pointer', fontWeight: 600, fontSize: '13px', padding: 0 }}>more</button></>
-                                }
-                                {isExpanded && post.caption?.length > 140 && (
-                                    <button onClick={() => setExpanded(null)} style={{ background: 'none', border: 'none', color: '#808bf5', cursor: 'pointer', fontWeight: 600, fontSize: '13px', padding: '0 0 0 4px' }}>less</button>
-                                )}
-                            </p>
-
-                            {/* Voice note */}
-                            {post.voiceNote?.url && (
-                                <audio src={post.voiceNote.url} controls style={{ width: '100%', height: '36px', marginTop: '8px' }} />
-                            )}
-
-                            {/* Likes count (no like button — keeps anonymity vibe) */}
-                            <p style={{ margin: '8px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                                ❤️ {post.likes?.length || 0} · 💬 {post.comments?.length || 0}
-                            </p>
-                        </div>
-                    </div>
-                );
-            })}
+            <div className="mt-1 flex flex-col">
+                {posts.map((post, i) => {
+                    // Force isAnonymous to be true to fully safeguard anonymity under any circumstances
+                    const safeAnonymousPost = { ...post, isAnonymous: true };
+                    return (
+                        <PostItem
+                            key={post._id || i}
+                            post={safeAnonymousPost}
+                            user={user}
+                            isLikedByMe={optimisticLikes[post._id]
+                                ? Array.from(optimisticLikes[post._id]).some(id => id?.toString() === user?._id?.toString())
+                                : (post.likes || []).some(id => id?.toString() === user?._id?.toString())
+                            }
+                            likesCount={optimisticLikes[post._id] ? optimisticLikes[post._id].size : (post.likes?.length || 0)}
+                            isSavedByMe={isSaved(post._id)}
+                            isFollowing={false} // Anonymous posts cannot be followed directly
+                            heartVisible={!!heartVisible[post._id]}
+                            visiblePostId={visiblePostId}
+                            pickerPostId={pickerPostId}
+                            savingPostIds={savingPostIds}
+                            onLikeToggle={handleLikeToggle}
+                            onImageDoubleClick={handleImageDoubleClick}
+                            onImageTap={handleImageTap}
+                            onSave={handleSave}
+                            onDelete={() => {}} // Confessions cannot be deleted by users from discover tab
+                            onReport={setReportPost}
+                            onShareToStory={setSharingPostToStory}
+                            onProfileClick={onProfileClick} // Allows clicks on non-anonymous comments
+                            onSharePost={setSharePost}
+                            onEdit={() => {}} // Confessions cannot be edited by users from discover tab
+                            setVisibleCommentId={setVisiblePostId}
+                            setPickerPostId={setPickerPostId}
+                            handleDwell={() => {}} // Confessions dwell time tracking is optional/none
+                            handleReact={handleReact}
+                            renderCaption={renderCaption}
+                            onFollow={handleFollow}
+                            onLikesClick={(ids) => { setLikesIds(ids); setLikesVisible(true); }}
+                            onMute={handleMute}
+                            onBlock={handleBlock}
+                        />
+                    );
+                })}
+            </div>
 
             {/* Load more */}
             {confessionsQuery.hasNextPage && (
@@ -98,24 +288,53 @@ const ConfessionsFeed = () => {
                     {loadingMore ? 'Loading...' : 'Load more confessions'}
                 </button>
             )}
+
+            {sharePost && <SharePostDialog
+                visible={!!sharePost}
+                onHide={() => setSharePost(null)}
+                post={sharePost}
+                user={user}
+                onShareToStory={() => setSharingPostToStory(sharePost)}
+            />}
+
+            {reportPost && (
+                <ReportDialog
+                    visible={!!reportPost}
+                    onHide={() => setReportPost(null)}
+                    onSubmit={submitReport}
+                />
+            )}
+
+            <Dialog
+                header="Liked By"
+                visible={likesVisible}
+                style={{ width: '95vw', maxWidth: '450px' }}
+                onHide={() => setLikesVisible(false)}
+                contentClassName="custom-scrollbar"
+            >
+                <FollowFollowingList ids={likesIds} />
+            </Dialog>
         </div>
     );
 };
 
 // ─── MAIN EXPLORE ─────────────────────────────────────────────────────────────
 const Communities = () => {
-
-
-    const [selectedUserId] = useState(null);
+    const [selectedUserId, setSelectedUserId] = useState(null);
     const [userProfileVisible, setUserProfileVisible] = useState(false);
 
     // ✅ Tab: 'discover' | 'confessions'
-    const [activeTab, setActiveTab] = useState('communities');
+    const [activeTab, setActiveTab] = useState('confessions');
 
     const tabContainerRef = useRef(null);
     const tabItemRefs = useRef({});
     const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
     const [tabPillReady, setTabPillReady] = useState(false);
+
+    const handleProfileClick = (userId) => {
+        setSelectedUserId(userId);
+        setUserProfileVisible(true);
+    };
 
     useLayoutEffect(() => {
         let observer = null;
@@ -152,10 +371,10 @@ const Communities = () => {
 
 
     return (
-        <div className='max-w-[680px] my-0 mx-auto py-3'>
+        <div className='max-w-[680px] my-0 mx-auto p-2'>
 
             {/* ── Tabs ── */}
-            <div ref={tabContainerRef} style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '20px', border: '1px solid var(--border-color)', position: 'relative' }}>
+            <div ref={tabContainerRef} style={{ display: 'flex', gap: '4px', background: 'var(--surface-2)', borderRadius: '14px', padding: '4px', marginBottom: '8px', border: '1px solid var(--border-color)', position: 'relative' }}>
                 {/* Floating Pill */}
                 <div
                     style={{
@@ -174,8 +393,8 @@ const Communities = () => {
                     }}
                 />
                 {[
-                    { key: 'communities', label: '👥 Communities' },
                     { key: 'confessions', label: '🎭 Confessions' },
+                    { key: 'communities', label: '👥 Communities' },
                 ].map(tab => (
                     <button key={tab.key}
                         ref={el => tabItemRefs.current[tab.key] = el}
@@ -191,7 +410,7 @@ const Communities = () => {
             </div>
 
             {/* ── CONFESSIONS TAB ── */}
-            {activeTab === 'confessions' && <ConfessionsFeed />}
+            {activeTab === 'confessions' && <ConfessionsFeed onProfileClick={handleProfileClick} />}
 
             {/* ── COMMUNITIES TAB ── */}
             {activeTab === 'communities' && <Groups />}

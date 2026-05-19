@@ -36,7 +36,7 @@ export default function Sidebar() {
             { key: 'discover', label: 'Discover', icon: 'pi pi-users', to: '/discover' },
             { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse' },
             { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
-            { key: 'communities', label: 'Communities', icon: 'pi pi-map', to: '/communities' },
+            { key: 'confessions', label: 'Confessions', icon: 'pi pi-map', to: '/confessions' },
             { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
             { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
             { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
