@@ -606,6 +606,70 @@ async function run() {
         }
 
         /**
+ * PROFILE PICTURE UPLOAD + SYNC
+ */
+        const profilePicPath = path.join(
+            postsDir,
+            'profile_pic.jpg'
+        );
+
+        try {
+            await fs.access(profilePicPath);
+
+            console.log(
+                `📸 Uploading profile picture for ${user.username}`
+            );
+
+            const profileBuffer =
+                await fs.readFile(profilePicPath);
+
+            const profileBase64 =
+                profileBuffer.toString('base64');
+
+            const profileUrl =
+                await uploadToCloudinary(
+                    profileBase64,
+                    'image/jpeg'
+                );
+
+            if (profileUrl) {
+                /**
+                 * Update user profile picture
+                 */
+                user.profile_picture = profileUrl;
+
+                await user.save();
+
+                console.log(
+                    `✅ Profile picture updated`
+                );
+
+                /**
+                 * Sync old posts profile picture
+                 */
+                const syncResult =
+                    await Post.updateMany(
+                        {
+                            'user._id': user._id
+                        },
+                        {
+                            $set: {
+                                'user.profile_picture':
+                                    profileUrl
+                            }
+                        }
+                    );
+
+                console.log(
+                    `🔄 Synced ${syncResult.modifiedCount} old posts`
+                );
+            }
+        } catch {
+            console.log(
+                'ℹ️ No profile_pic.jpg found'
+            );
+        }
+        /**
          * Concurrency controls
          */
         const limit =

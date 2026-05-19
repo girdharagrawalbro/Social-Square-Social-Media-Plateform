@@ -20,7 +20,7 @@ export const VIDEO_CLOUDINARY_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
  */
 async function uploadDirectToCloudinary(file, onProgress, options = {}) {
     // 1. Get signature from our backend
-    const { signature, timestamp, cloudName, apiKey, folder, success, message } = 
+    const { signature, timestamp, cloudName, apiKey, folder, success, message } =
         await api.post('/api/media/sign-upload', { folder: options.folder }).then(r => r.data);
 
     if (!success) throw new Error(message || 'Failed to get upload signature');
@@ -32,7 +32,7 @@ async function uploadDirectToCloudinary(file, onProgress, options = {}) {
     formData.append('timestamp', timestamp);
     formData.append('api_key', apiKey);
     formData.append('folder', folder);
-    
+
     if (options.resourceType) formData.append('resource_type', options.resourceType);
 
     // 3. Upload directly to Cloudinary
@@ -123,70 +123,117 @@ export function generateVideoThumbnail(videoFile, seekTime = 1) {
 }
 
 export async function uploadToCloudinary(file, onProgress, options = {}) {
-    // ── Drive fallback for oversized files ───────────────────────────────────
-    // If the file exceeds the Cloudinary limit, upload directly to Drive.
+    // ── 1. Size-based pre-check: route oversized files directly to Drive ─────
     const limit = options.resourceType === 'video' ? VIDEO_CLOUDINARY_MAX_SIZE : IMAGE_CLOUDINARY_MAX_SIZE;
     if (file.size > limit) {
-        console.info('[Cloudinary] File exceeds limit, falling back to Drive:', file.name);
+        console.info('[Cloudinary] File exceeds size limit → routing to Drive:', file.name);
+        return _uploadToDriveWithFallback(file, onProgress, options, 'size-limit');
+    }
+
+    // ── 2. Attempt Cloudinary upload ─────────────────────────────────────────
+    let cloudinaryError = null;
+    try {
+        const result = await uploadDirectToCloudinary(file, onProgress, options);
+        const secureUrl = result?.url;
+
+        if (!secureUrl) {
+            // Upload call returned 2xx but no URL — treat as failure
+            throw new Error('Cloudinary returned no URL despite a successful response');
+        }
+
+        // ── 3. Silent Drive backup (fire-and-forget for disaster recovery) ───
+        backupUrlToDrive(secureUrl, {
+            folder: options.folder ? `backups/${options.folder}` : 'backups/uploads',
+            name: file.name,
+        }).catch(err => console.warn('[DriveBackup] Backup failed (non-critical):', err.message));
+        // ─────────────────────────────────────────────────────────────────────
+
+        return {
+            url: secureUrl,
+            publicId: result?.publicId,
+            source: 'cloudinary',
+        };
+    } catch (err) {
+        cloudinaryError = err;
+        // Any failure (network error, downtime, bad credentials, no URL, etc.)
+        // falls through to the Drive fallback below.
+        console.warn(
+            `[Cloudinary] Upload failed (${err.message}). Falling back to Google Drive for: ${file.name}`
+        );
+    }
+
+    // ── 4. Drive fallback ────────────────────────────────────────────────────
+    return _uploadToDriveWithFallback(file, onProgress, options, 'cloudinary-failure', cloudinaryError);
+}
+
+/**
+ * Internal helper — uploads to Drive and returns the normalised result shape.
+ * Silently falls back to Drive; the user is never told which provider is being used.
+ * If Drive also fails, a generic user-facing error is thrown while the full
+ * diagnostic details are written to the console only.
+ *
+ * @param {string} reason        - Short label for console logs (e.g. 'size-limit')
+ * @param {Error}  originalError - The upstream Cloudinary error, if any
+ */
+async function _uploadToDriveWithFallback(file, onProgress, options, reason, originalError = null) {
+    try {
         const driveResult = await uploadToDrive(file, onProgress, {
-            folder: options.folder || 'cloudinary-oversize',
+            folder: options.folder || `drive-fallback/${reason}`,
             name: file.name,
         });
+
+        if (!driveResult?.url) {
+            throw new Error('Google Drive returned no URL');
+        }
+
+        // Silent success — no user-facing notification
         return { url: driveResult.url, publicId: null, source: 'drive' };
+    } catch (driveErr) {
+        // Log full diagnostics to the console only (never shown to the user)
+        const cloudinaryMsg = originalError
+            ? `Cloudinary: ${originalError.message}`
+            : 'Cloudinary: size limit exceeded';
+        console.error(
+            `[Upload] All providers failed for "${file.name}". ${cloudinaryMsg} | Drive: ${driveErr.message}`
+        );
+
+        // Generic user-facing error — no implementation details leaked
+        throw new Error('Something went wrong. Please try again.');
     }
-    // ─────────────────────────────────────────────────────────────────────────
-
-    // Use direct upload to bypass backend process
-    const result = await uploadDirectToCloudinary(file, onProgress, options);
-    const secureUrl = result?.url;
-
-    if (!secureUrl) {
-        throw new Error('Cloudinary direct upload succeeded but url is missing');
-    }
-
-    // ── Silent Drive backup (fire-and-forget) ──────────────────────────────────
-    // Backs up the original to Google Drive asynchronously.
-    backupUrlToDrive(secureUrl, {
-        folder: options.folder ? `backups/${options.folder}` : 'backups/uploads',
-        name: file.name,
-    }).catch(err => console.warn('[DriveBackup] Backup failed (non-critical):', err.message));
-    // ──────────────────────────────────────────────────────────────────────────
-
-    return {
-        url: secureUrl,
-        publicId: result?.publicId
-    };
 }
 
 export async function uploadVideoToCloudinary(file, onProgress, options = {}) {
-    // 1. Generate thumbnail first
+    // 1. Generate thumbnail first (best-effort — does not block video upload)
     let thumbnailFile = null;
     try {
         thumbnailFile = await generateVideoThumbnail(file);
     } catch (err) {
-        console.warn('Thumbnail generation failed, continuing with video only', err);
+        console.warn('[Video] Thumbnail generation failed, continuing without it:', err.message);
     }
 
-    // 2. Upload video
+    // 2. Upload video — Cloudinary with Drive fallback (handled inside uploadToCloudinary)
     const videoResult = await uploadToCloudinary(file, onProgress, {
         ...options,
         resourceType: 'video',
     });
 
-    // 3. Upload thumbnail as an image if generated
+    // 3. Upload thumbnail — also uses the same Cloudinary→Drive resilience path
     let thumbnailUrl = null;
     if (thumbnailFile) {
         try {
-            const thumbResult = await uploadToCloudinary(thumbnailFile);
+            const thumbResult = await uploadToCloudinary(thumbnailFile, null, {
+                folder: options.folder || 'thumbnails',
+            });
             thumbnailUrl = thumbResult.url;
         } catch (err) {
-            console.error('Failed to upload thumbnail', err);
+            // Thumbnail is best-effort; a missing thumbnail must never block a video post.
+            console.warn('[Video] Thumbnail upload failed (non-critical):', err.message);
         }
     }
 
     return {
         ...videoResult,
-        thumbnailUrl
+        thumbnailUrl,
     };
 }
 
