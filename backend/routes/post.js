@@ -225,7 +225,9 @@ router.post("/create", verifyToken, [
             authorId: loggedUserId
         });
         await newPost.save();
-        await User.findByIdAndUpdate(loggedUserId, { $inc: { postsCount: 1 } });
+        if (!isAnonymous) {
+            await User.findByIdAndUpdate(loggedUserId, { $inc: { postsCount: 1 } });
+        }
 
         // DEBUG: Log saved post video field
         console.log('✅ Post saved with video field:', newPost.video ? 'YES' : 'NO (null or undefined)');
@@ -488,7 +490,7 @@ router.delete("/delete/:postId", verifyToken, [
         // Only decrement postsCount if this specific request was the one that performed the soft-delete
         // For anonymous posts, we use userId since authorId is null (Risk 1)
         const decrementUserId = (post.isAnonymous && isOwner) ? userId : post.authorId;
-        if (decrementUserId) {
+        if (decrementUserId && !post.isAnonymous) {
             await User.findByIdAndUpdate(decrementUserId, { $inc: { postsCount: -1 } });
         }
 
@@ -1466,6 +1468,57 @@ router.get("/detail/:postId", [
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// ─── MUTE/BLOCK AUTHOR BY POST ID (PROTECTED) ──────────────────────────────────
+router.post("/:postId/mute-author", verifyToken, [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const post = await Post.findById(postId).select('+authorId user');
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        const targetUserId = post.isAnonymous ? post.authorId : post.user?._id;
+        if (!targetUserId) return res.status(400).json({ error: 'Author not found' });
+        if (targetUserId.toString() === req.userId.toString()) {
+            return res.status(400).json({ error: 'Cannot mute yourself' });
+        }
+
+        await User.findByIdAndUpdate(req.userId, { $addToSet: { mutedUsers: targetUserId } });
+        res.status(200).json({ message: 'User muted' });
+    } catch (e) {
+        console.error('[Mute Author Error]', e);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+router.post("/:postId/block-author", verifyToken, [
+    param('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const post = await Post.findById(postId).select('+authorId user');
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        const targetUserId = post.isAnonymous ? post.authorId : post.user?._id;
+        if (!targetUserId) return res.status(400).json({ error: 'Author not found' });
+        if (targetUserId.toString() === req.userId.toString()) {
+            return res.status(400).json({ error: 'Cannot block yourself' });
+        }
+
+        await User.findByIdAndUpdate(req.userId, { $addToSet: { blockedUsers: targetUserId } });
+        // Also unfollow automatically when blocking
+        await User.findByIdAndUpdate(req.userId, { $pull: { following: targetUserId } });
+        await User.findByIdAndUpdate(targetUserId, { $pull: { followers: req.userId } });
+
+        res.status(200).json({ message: 'User blocked' });
+    } catch (e) {
+        console.error('[Block Author Error]', e);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 // ─── CONFESSIONS FEED ────────────────────────────────────────────────────────
 // Anonymous posts only — identity is never revealed, sorted by score
 router.get("/confessions", softVerifyToken, async (req, res) => {
@@ -1476,8 +1529,16 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
 
         // Fetch restricted users (private accounts that the viewer is not following)
         let excludedUserIds = [];
+        let blockedOrMutedIds = [];
         if (viewerId) {
             excludedUserIds = await getRestrictedUserIds(viewerId);
+            const viewer = await User.findById(viewerId).select('blockedUsers mutedUsers').lean();
+            if (viewer) {
+                blockedOrMutedIds = [
+                    ...(viewer.blockedUsers || []),
+                    ...(viewer.mutedUsers || [])
+                ].map(id => id.toString());
+            }
         } else {
             // Guests cannot see anonymous posts from private users at all
             const privateUsers = await User.find({ isPrivate: true }).select('_id').lean();
@@ -1503,6 +1564,16 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
             });
         }
 
+        if (blockedOrMutedIds.length > 0) {
+            query.$and.push({
+                $or: [
+                    { authorId: { $exists: false } },
+                    { authorId: null },
+                    { authorId: { $nin: blockedOrMutedIds.map(id => new mongoose.Types.ObjectId(id)) } }
+                ]
+            });
+        }
+
         const posts = await Post.find(query).sort({ score: -1, _id: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
@@ -1518,9 +1589,9 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
         }));
 
         res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
-    } catch (error) { 
+    } catch (error) {
         console.error('[Confessions Feed Error]', error);
-        res.status(500).json({ error: "Internal Server Error" }); 
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 

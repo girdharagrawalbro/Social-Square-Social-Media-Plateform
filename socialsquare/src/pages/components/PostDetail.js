@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useLikePost, useSavePost, useDeletePost, useUpdatePost, usePostDetail, useSimilarPosts, useReactPost, useIncrementView } from '../../hooks/queries/usePostQueries';
-import { useReportPost } from '../../hooks/queries/usePostOperationsQueries';
-import { useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser } from '../../hooks/queries/useAuthQueries';
+import { useLikePost, useSavePost, usePostDetail, useSimilarPosts, useReactPost, useIncrementView } from '../../hooks/queries/usePostQueries';
 import ReactionPicker from './ReactionPicker';
 import PollCard from './PollCard';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -14,10 +12,8 @@ import Comment from './ui/Comment';
 import SharePostDialog from './ui/SharePostDialog';
 import Like from './ui/Like';
 import formatDate from '../../utils/formatDate';
-import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import FollowFollowingList from './FollowFollowingList';
-import ReportDialog from './ui/ReportDialog';
 import PostMenu from './ui/PostMenu';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
@@ -54,19 +50,14 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
-    const deleteMutation = useDeletePost();
-    const updateMutation = useUpdatePost();
     const [currentImage, setCurrentImage] = useState(0);
     const [heartVisible, setHeartVisible] = useState(false);
     const [shareVisible, setShareVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [postLikes, setPostLikes] = useState(post?.likes || []);
-    const [reportVisible, setReportVisible] = useState(false);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
-    const [editingPost, setEditingPost] = useState(null);
-    const [editCaption, setEditCaption] = useState('');
     const [likesVisible, setLikesVisible] = useState(false);
     const [likesIds, setLikesIds] = useState([]);
     const reactMutation = useReactPost();
@@ -77,14 +68,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const incrementViewMutation = useIncrementView();
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
-    const reportMutation = useReportPost();
     const [expandedCaption, setExpandedCaption] = useState(false);
-
-    // Mute/Block mutations
-    const muteMutation = useMuteUser();
-    const unmuteMutation = useUnmuteUser();
-    const blockMutation = useBlockUser();
-    const unblockMutation = useUnblockUser();
 
 
     useEffect(() => {
@@ -200,94 +184,10 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
         });
     };
 
-    const handleDelete = () => {
-        confirmDialog({
-            message: 'Are you sure you want to delete this post?',
-            header: 'Delete Confirmation',
-            icon: 'pi pi-info-circle',
-            acceptLabel: 'Delete',
-            acceptClassName: 'p-button-danger border-0 rounded-xl',
-            rejectClassName: 'p-button-text p-button-secondary rounded-xl',
-            accept: () => deleteMutation.mutate({ postId: post._id, folder: post.user.username }, {
-                onSuccess: () => {
-                    toast.success('Post deleted successfully');
-                    setTimeout(() => {
-                        if (onHide) onHide();
-                    }, 1000);
-                }
-            }),
-        });
-    };
 
-    const handleMute = () => {
-        const isMuted = loggeduser?.mutedUsers?.some(id => id?.toString() === post?.user?._id?.toString());
-        if (isMuted) {
-            unmuteMutation.mutate({ targetUserId: post.user._id });
-        } else {
-            confirmDialog({
-                message: `Are you sure you want to mute ${post.user.fullname}? Their posts will be hidden from your feed.`,
-                header: 'Mute User',
-                icon: 'pi pi-volume-off',
-                acceptLabel: 'Mute',
-                acceptClassName: 'p-button-warning border-0 rounded-xl',
-                rejectClassName: 'p-button-text p-button-secondary rounded-xl',
-                accept: () => muteMutation.mutate({ targetUserId: post.user._id }, {
-                    onSuccess: () => {
-                        toast.success(`Muted ${post.user.fullname}`);
-                        setTimeout(() => {
-                            if (onHide) onHide();
-                        }, 1000);
-                    }
-                }),
-            });
-        }
-    };
 
-    const handleBlock = () => {
-        const isBlocked = loggeduser?.blockedUsers?.some(id => id?.toString() === post?.user?._id?.toString());
-        if (isBlocked) {
-            unblockMutation.mutate({ targetUserId: post.user._id });
-        } else {
-            confirmDialog({
-                message: `Are you sure you want to block ${post.user.fullname}? They won't be able to see your profile or posts, and you won't see theirs.`,
-                header: 'Block Confirmation',
-                icon: 'pi pi-ban',
-                acceptLabel: 'Block',
-                acceptClassName: 'p-button-danger border-0 rounded-xl',
-                rejectClassName: 'p-button-text p-button-secondary rounded-xl',
-                accept: () => blockMutation.mutate({ targetUserId: post.user._id }, {
-                    onSuccess: () => {
-                        toast.success(`Blocked ${post.user.fullname}`);
-                        setTimeout(() => {
-                            if (onHide) onHide();
-                        }, 1000);
-                    }
-                }),
-            });
-        }
-    };
-
-    const handleEditSubmit = () => {
-        if (!editCaption.trim()) return;
-        updateMutation.mutate({ postId: post._id, caption: editCaption }, {
-            onSuccess: () => { toast.success('Updated'); setEditingPost(null); }
-        });
-    };
-
-    const handleReport = (reason) => {
-        reportMutation.mutate({ postId: post._id, reason }, {
-            onSuccess: () => {
-                toast.success('Report submitted');
-                setReportVisible(false);
-                setTimeout(() => {
-                    if (onHide) onHide();
-                }, 1000);
-            },
-            onError: () => toast.error('Failed to report')
-        });
-    };
-
-    const handleProfileClick = (userId) => {
+    const handleProfileClick = (userId, isAnonymous) => {
+        if (isAnonymous) return;
         setSelectedProfileId(userId);
         setProfileVisible(true);
     };
@@ -312,184 +212,196 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 user={loggeduser}
                 onShareToStory={() => setSharingPostToStory(post)}
             />
-            <ReportDialog visible={reportVisible} onHide={() => setReportVisible(false)} onSubmit={handleReport} />
 
-            <div className="flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative" style={{ borderRadius: isDesktop ? '12px' : '0' }}>
+
+            <div className={`flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative ${(!post?.video && images.length === 0) ? 'post-detail-text-only' : ''}`} style={{ borderRadius: isDesktop ? '12px' : '0' }}>
+                {(!post?.video && images.length === 0) && (
+                    <style>{`
+                        @media (min-width: 1024px) {
+                            .p-dialog:has(.post-detail-text-only) {
+                                max-width: 500px !important;
+                            }
+                        }
+                    `}</style>
+                )}
                 {/* Removed redundant mobile close button as it is now handled by the Dialog wrapper */}
 
                 <div className="flex flex-1 overflow-hidden">
                     {/* LEFT COLUMN - IMAGE */}
-
-                    <div className="hidden md:flex flex-1 bg-[var(--surface-1)] items-center justify-center p-0 relative overflow-hidden">
-                        <div className="relative w-full h-full flex items-center justify-center">
-                            {/* VIDEO RENDERER */}
-                            {post?.video ? (
-                                <div className="relative w-full h-full flex items-center justify-center bg-black">
-                                    <video
-                                        src={post.video}
-                                        poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
-                                        autoPlay
-                                        loop
-                                        muted={isMuted}
-                                        onDoubleClick={handleImageDoubleClick}
-                                        onTouchEnd={handleImageTap}
-                                        className="max-w-full max-h-full object-contain"
-                                        style={{ display: 'block' }}
-                                    />
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                                        className="absolute bottom-4 right-4 z-10 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
-                                        title={isMuted ? "Unmute" : "Mute"}
-                                    >
-                                        <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '18px' }}></i>
-                                    </button>
-                                </div>
-                            ) : images.length > 0 ? (
-                                <>
-                                    <ProgressiveImage
-                                        src={images[currentImage]}
-                                        alt="Post"
-                                        onDoubleClick={handleImageDoubleClick}
-                                        onTouchEnd={handleImageTap}
-                                        objectFit="contain"
-                                        className="cursor-pointer"
-                                    />
-                                    {images.length > 1 && (
-                                        <>
-                                            {currentImage > 0 && (
-                                                <button aria-label="Previous image" onClick={() => setCurrentImage(c => c - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
-                                                    <i className="pi pi-chevron-left"></i>
-                                                </button>
-                                            )}
-                                            {currentImage < images.length - 1 && (
-                                                <button aria-label="Next image" onClick={() => setCurrentImage(c => c + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
-                                                    <i className="pi pi-chevron-right"></i>
-                                                </button>
-                                            )}
-                                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
-                                                {images.map((_, i) => (
-                                                    <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                </>
-                            ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-sub)] bg-[var(--surface-2)]">
-                                    <div className="w-24 h-24 rounded-full bg-[var(--surface-1)] flex items-center justify-center mb-6 shadow-sm border border-[var(--border-color)]">
-                                        <i className="pi pi-align-left text-3xl opacity-60"></i>
+                    {(post?.video || images.length > 0) && (
+                        <div className="hidden md:flex flex-1 bg-[var(--surface-1)] items-center justify-center p-0 relative overflow-hidden">
+                            <div className="relative w-full h-full flex items-center justify-center">
+                                {/* VIDEO RENDERER */}
+                                {post?.video ? (
+                                    <div className="relative w-full h-full flex items-center justify-center bg-black">
+                                        <video
+                                            src={post.video}
+                                            poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
+                                            autoPlay
+                                            loop
+                                            muted={isMuted}
+                                            onDoubleClick={handleImageDoubleClick}
+                                            onTouchEnd={handleImageTap}
+                                            className="max-w-full max-h-full object-contain"
+                                            style={{ display: 'block' }}
+                                        />
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                                            className="absolute bottom-4 right-4 z-10 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
+                                            title={isMuted ? "Unmute" : "Mute"}
+                                        >
+                                            <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '18px' }}></i>
+                                        </button>
                                     </div>
-                                    <span className="font-bold text-lg mb-2 text-[var(--text-main)]">Text Post</span>
-                                    <span className="text-sm">There are no media attachments.</span>
-                                </div>
-                            )}
+                                ) : (
+                                    <>
+                                        <ProgressiveImage
+                                            src={images[currentImage]}
+                                            alt="Post"
+                                            onDoubleClick={handleImageDoubleClick}
+                                            onTouchEnd={handleImageTap}
+                                            objectFit="contain"
+                                            className="cursor-pointer"
+                                        />
+                                        {images.length > 1 && (
+                                            <>
+                                                {currentImage > 0 && (
+                                                    <button aria-label="Previous image" onClick={() => setCurrentImage(c => c - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
+                                                        <i className="pi pi-chevron-left"></i>
+                                                    </button>
+                                                )}
+                                                {currentImage < images.length - 1 && (
+                                                    <button aria-label="Next image" onClick={() => setCurrentImage(c => c + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
+                                                        <i className="pi pi-chevron-right"></i>
+                                                    </button>
+                                                )}
+                                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
+                                                    {images.map((_, i) => (
+                                                        <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
+                                    </>
+                                )}
 
-                            {/* SHARED HEART ANIMATION */}
-                            {heartVisible && (
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
-                                    <span className="text-8xl">❤️</span>
-                                </div>
-                            )}
+                                {/* SHARED HEART ANIMATION */}
+                                {heartVisible && (
+                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
+                                        <span className="text-8xl">❤️</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* RIGHT COLUMN - ACTIONS & COMMENTS */}
-                    <div className={`w-full md:w-[450px] flex flex-col h-full ${isDesktop ? 'border-l border-[var(--border-color)]' : ''} bg-[var(--surface-1)]`}>
+                    <div className={`${(post?.video || images.length > 0) ? 'w-full md:w-[450px]' : 'w-full'} flex flex-col h-full ${(post?.video || images.length > 0) && isDesktop ? 'border-l border-[var(--border-color)]' : ''} bg-[var(--surface-1)]`}>
                         {/* Scrollable Content */}
                         <div className="flex-1 flex flex-col min-h-0">
                             {/* MOBILE ONLY - MEDIA (image/video). Desktop uses the left column. */}
-                            <div className="md:hidden flex-shrink-0 border-b border-[var(--border-color)] bg-[var(--surface-1)]">
-                                <div className="relative w-full h-[34vh] max-h-[360px] flex items-center justify-center overflow-hidden">
-                                    {post?.video ? (
-                                        <>
-                                            <video
-                                                src={post.video}
-                                                poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
-                                                autoPlay
-                                                loop
-                                                muted={isMuted}
-                                                onDoubleClick={handleImageDoubleClick}
-                                                onTouchEnd={handleImageTap}
-                                                className="w-full h-full object-contain"
-                                                style={{ display: 'block', background: 'black' }}
-                                            />
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                                                className="absolute bottom-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
-                                                title={isMuted ? "Unmute" : "Mute"}
-                                            >
-                                                <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '14px' }}></i>
-                                            </button>
-                                        </>
-                                    ) : images[currentImage] ? (
-                                        <>
-                                            <ProgressiveImage
-                                                src={images[currentImage]}
-                                                alt="Post"
-                                                onDoubleClick={handleImageDoubleClick}
-                                                onTouchEnd={handleImageTap}
-                                                objectFit="contain"
-                                                style={{ background: 'black' }}
-                                                className="cursor-pointer"
-                                            />
-                                            {images.length > 1 && (
-                                                <>
-                                                    {currentImage > 0 && (
-                                                        <button
-                                                            aria-label="Previous image"
-                                                            onClick={() => setCurrentImage(c => c - 1)}
-                                                            className="absolute left-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer"
-                                                        >
-                                                            <i className="pi pi-chevron-left"></i>
-                                                        </button>
-                                                    )}
-                                                    {currentImage < images.length - 1 && (
-                                                        <button
-                                                            aria-label="Next image"
-                                                            onClick={() => setCurrentImage(c => c + 1)}
-                                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer"
-                                                        >
-                                                            <i className="pi pi-chevron-right"></i>
-                                                        </button>
-                                                    )}
-                                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
-                                                        {images.map((_, i) => (
-                                                            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
-                                                        ))}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-sub)] bg-[var(--surface-2)] py-8">
-                                            <div className="w-12 h-12 rounded-full bg-[var(--surface-1)] flex items-center justify-center mb-3 shadow-sm border border-[var(--border-color)]">
-                                                <i className="pi pi-align-left text-xl opacity-60"></i>
-                                            </div>
-                                            <span className="font-bold text-sm mb-1 text-[var(--text-main)]">Text Post</span>
-                                        </div>
-                                    )}
+                            {(post?.video || images.length > 0) && (
+                                <div className="md:hidden flex-shrink-0 border-b border-[var(--border-color)] bg-[var(--surface-1)]">
+                                    <div className="relative w-full h-[34vh] max-h-[360px] flex items-center justify-center overflow-hidden">
+                                        {post?.video ? (
+                                            <>
+                                                <video
+                                                    src={post.video}
+                                                    poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
+                                                    autoPlay
+                                                    loop
+                                                    muted={isMuted}
+                                                    onDoubleClick={handleImageDoubleClick}
+                                                    onTouchEnd={handleImageTap}
+                                                    className="w-full h-full object-contain"
+                                                    style={{ display: 'block', background: 'black' }}
+                                                />
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                                                    className="absolute bottom-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
+                                                    title={isMuted ? "Unmute" : "Mute"}
+                                                >
+                                                    <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '14px' }}></i>
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ProgressiveImage
+                                                    src={images[currentImage]}
+                                                    alt="Post"
+                                                    onDoubleClick={handleImageDoubleClick}
+                                                    onTouchEnd={handleImageTap}
+                                                    objectFit="contain"
+                                                    style={{ background: 'black' }}
+                                                    className="cursor-pointer"
+                                                />
+                                                {images.length > 1 && (
+                                                    <>
+                                                        {currentImage > 0 && (
+                                                            <button
+                                                                aria-label="Previous image"
+                                                                onClick={() => setCurrentImage(c => c - 1)}
+                                                                className="absolute left-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer"
+                                                            >
+                                                                <i className="pi pi-chevron-left"></i>
+                                                            </button>
+                                                        )}
+                                                        {currentImage < images.length - 1 && (
+                                                            <button
+                                                                aria-label="Next image"
+                                                                onClick={() => setCurrentImage(c => c + 1)}
+                                                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer"
+                                                            >
+                                                                <i className="pi pi-chevron-right"></i>
+                                                            </button>
+                                                        )}
+                                                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
+                                                            {images.map((_, i) => (
+                                                                <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
 
-                                    {heartVisible && (
-                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
-                                            <span className="text-7xl">❤️</span>
-                                        </div>
-                                    )}
+                                        {heartVisible && (
+                                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
+                                                <span className="text-7xl">❤️</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Author & Caption */}
                             <div className="px-4 py-3 border-b border-[var(--border-color)] shrink md:shrink-0 max-h-[26vh] overflow-y-auto md:max-h-none md:overflow-visible">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <img
-                                            src={post.user?.profile_picture}
-                                            alt=""
-                                            className="w-8 h-8 rounded-full object-cover border border-[var(--border-color)]"
-                                            onClick={() => handleProfileClick(post.user._id)}
-                                        />
+                                        {post.isAnonymous ? (
+                                            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-white border border-gray-100 bg-gradient-to-br from-[#808bf5] to-[#ec4899] select-none" style={{ fontSize: '14px' }}>
+                                                🎭
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={post.user?.profile_picture}
+                                                alt="Profile"
+                                                className="w-8 h-8 rounded-full object-cover border border-[var(--border-color)] cursor-pointer hover:opacity-80 transition"
+                                                onClick={() => handleProfileClick(post.user?._id)}
+                                            />
+                                        )}
                                         <div className="flex flex-col">
                                             <div className="flex items-center gap-1 min-w-0">
-                                                <span className="font-bold text-sm text-[var(--text-main)] truncate cursor-pointer hover:text-[#808bf5] transition" onClick={() => handleProfileClick(post.user?._id)}>{post.user?.fullname}</span>
+                                                {post.isAnonymous ? (
+                                                    <span className="font-bold text-sm text-[var(--text-main)]">Anonymous</span>
+                                                ) : (
+                                                    <span
+                                                        className="font-bold text-sm text-[var(--text-main)] truncate cursor-pointer hover:text-[#808bf5] transition"
+                                                        onClick={() => handleProfileClick(post.user?._id)}
+                                                    >
+                                                        {post.user?.fullname}
+                                                    </span>
+                                                )}
                                                 {post.collaborators?.filter(c => c.status === 'accepted').length > 0 && (() => {
                                                     const collab = post.collaborators.find(c => c.status === 'accepted');
                                                     return (
@@ -514,16 +426,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     <PostMenu
                                         post={post}
                                         user={loggeduser}
-                                        isOwner={loggeduser?._id?.toString() === post?.user?._id?.toString()}
-                                        onEdit={() => { setEditingPost(post); setEditCaption(post.caption); }}
-                                        onDelete={handleDelete}
-                                        onReport={() => setReportVisible(true)}
-                                        onMute={handleMute}
-                                        onBlock={handleBlock}
-                                        onShareToStory={() => setSharingPostToStory(post)}
-                                        isSaving={isSaving}
-                                        onSave={handleSave}
-                                        isSaved={isSaved}
+                                        onSuccess={onHide}
                                     />
                                 </div>
                                 <div className="text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap font-medium">
@@ -661,7 +564,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                             <div className="px-4 py-2">
                                 <p className="m-0 text-[10px] text-[var(--text-sub)] uppercase tracking-wide">{formatDate(post.createdAt || post.updatedAt)}</p>
                             </div>
-                            {/* Similar Posts */}
                             <div className="hidden md:block">
                                 <SimilarPosts postId={post._id} onPostClick={(id) => setActivePostId(id)} />
                             </div>
@@ -686,35 +588,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 <FollowFollowingList ids={likesIds} />
             </Dialog>
 
-            <Dialog header={false} visible={!!editingPost} style={{ width: '95vw', maxWidth: '420px', borderRadius: '24px' }} onHide={() => setEditingPost(null)} closable={false} className="dark:bg-[var(--surface-1)]">
-                {editingPost && (
-                    <div className="p-6 flex flex-col gap-5 bg-[var(--surface-1)] rounded-3xl">
-                        <div className="flex justify-between items-center">
-                            <h3 className="m-0 text-xl font-bold text-[var(--text-main)] font-outfit">Edit Post</h3>
-                            <button onClick={() => setEditingPost(null)} className="bg-[var(--surface-2)] border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:opacity-80 transition text-[var(--text-main)]">✕</button>
-                        </div>
-                        <div className="flex items-center gap-3 bg-[var(--surface-2)] p-3 rounded-2xl border border-[var(--border-color)]">
-                            <img src={editingPost.user.profile_picture} alt="" className="w-10 h-10 rounded-full object-cover border border-[var(--border-color)]" />
-                            <span className="font-bold text-sm text-[var(--text-main)]">{editingPost.user.fullname}</span>
-                        </div>
-                        <div className="relative">
-                            <textarea
-                                value={editCaption}
-                                onChange={e => setEditCaption(e.target.value)}
-                                rows={6}
-                                placeholder="Add a new caption..."
-                                className="w-full bg-[var(--surface-2)] border-2 border-[var(--border-color)] rounded-2xl p-4 text-sm text-[var(--text-main)] resize-none focus:border-[#808bf5] outline-none transition font-medium"
-                            />
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => setEditingPost(null)} className="flex-1 py-3.5 border-2 border-[var(--border-color)] rounded-2xl bg-transparent cursor-pointer text-sm font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition">Cancel</button>
-                            <button onClick={handleEditSubmit} disabled={updateMutation.isPending} className="flex-1 py-3.5 bg-[#808bf5] text-white border-0 rounded-2xl cursor-pointer text-sm font-bold shadow-lg shadow-indigo-200/20 hover:opacity-90 transition disabled:opacity-50">
-                                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </Dialog>
+
 
 
 

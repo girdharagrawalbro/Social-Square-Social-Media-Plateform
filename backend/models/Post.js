@@ -92,6 +92,11 @@ PostSchema.set('toJSON', {
     return sanitizeAnonymousPost(ret);
   }
 });
+PostSchema.set('toObject', {
+  transform: (doc, ret) => {
+    return sanitizeAnonymousPost(ret);
+  }
+});
 
 
 PostSchema.index({ createdAt: -1 });
