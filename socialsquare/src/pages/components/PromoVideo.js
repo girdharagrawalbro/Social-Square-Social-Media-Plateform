@@ -7,14 +7,11 @@ import scene2Img from '../../assets/promo/scene_2.png';    // Home feed / vibe c
 import scene3Img from '../../assets/promo/scene_3.png';    // Stories row
 import scene4Img from '../../assets/promo/scene_4.png';    // Chat / DM
 import scene5Img from '../../assets/promo/scene_5.png';    // Post create – AI tools
-import scene6Img from '../../assets/promo/scene_6.png';    // Login
 import scene7Img from '../../assets/promo/scene_7.png'; // Confessions tab  ← NEW
 import scene8Img from '../../assets/promo/scene_8.png'; // Explore grid     ← NEW
 import scene9Img from '../../assets/promo/scene_9.png';
 
 const PromoVideo = () => {
-  const [isPaused, setIsPaused] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(true);
   const [particles, setParticles] = useState([]);
   const screenRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -33,19 +30,6 @@ const PromoVideo = () => {
     }
     setParticles(pts);
   }, []);
-
-  const togglePlayPause = () => {
-    setIsPaused(prev => {
-      const next = !prev;
-      if (audioCtxRef.current) next ? audioCtxRef.current.suspend() : audioCtxRef.current.resume();
-      return next;
-    });
-  };
-
-  const handleReplay = () => {
-    setIsAnimating(false);
-    setTimeout(() => { setIsAnimating(true); setIsPaused(false); }, 30);
-  };
 
   const startAudio = () => {
     if (audioCtxRef.current) return;
@@ -73,7 +57,7 @@ const PromoVideo = () => {
         <div className="pv-notch" />
 
         <div
-          className={`pv-screen ${isPaused ? 'paused' : ''} ${isAnimating ? 'animate' : ''}`}
+          className={`pv-screen animate`}
           ref={screenRef}
         >
 
