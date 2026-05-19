@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import { useConfessions } from '../../hooks/queries/useExploreQueries';
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
@@ -9,7 +9,7 @@ import ReportDialog from './ui/ReportDialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { usePrefetchPost, useLikePost, useSavePost, useDeletePost, useReactPost } from '../../hooks/queries/usePostQueries';
+import { useLikePost, useSavePost, useReactPost } from '../../hooks/queries/usePostQueries';
 import { useFollowUser } from '../../hooks/queries/useAuthQueries';
 import SkeletonPost from './ui/SkeletonPost';
 import { PostItem } from './ui/PostItem';
@@ -261,15 +261,15 @@ const ConfessionsFeed = ({ onProfileClick }) => {
                             onImageDoubleClick={handleImageDoubleClick}
                             onImageTap={handleImageTap}
                             onSave={handleSave}
-                            onDelete={() => {}} // Confessions cannot be deleted by users from discover tab
+                            onDelete={() => { }} // Confessions cannot be deleted by users from discover tab
                             onReport={setReportPost}
                             onShareToStory={setSharingPostToStory}
                             onProfileClick={onProfileClick} // Allows clicks on non-anonymous comments
                             onSharePost={setSharePost}
-                            onEdit={() => {}} // Confessions cannot be edited by users from discover tab
+                            onEdit={() => { }} // Confessions cannot be edited by users from discover tab
                             setVisibleCommentId={setVisiblePostId}
                             setPickerPostId={setPickerPostId}
-                            handleDwell={() => {}} // Confessions dwell time tracking is optional/none
+                            handleDwell={() => { }} // Confessions dwell time tracking is optional/none
                             handleReact={handleReact}
                             renderCaption={renderCaption}
                             onFollow={handleFollow}
