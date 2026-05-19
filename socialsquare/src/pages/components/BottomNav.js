@@ -19,7 +19,7 @@ const BottomNav = () => {
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
         { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse' },
-        { key: 'communities', icon: 'pi-map', to: () => '/communities' },
+        { key: 'confessions', icon: 'pi-map', to: () => '/confessions' },
         { key: 'messages', icon: 'pi-envelope', to: () => '/conversations', badge: msgCount },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
     ];

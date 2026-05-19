@@ -80,15 +80,18 @@ function sanitizeAnonymousPost(post, viewerId = null) {
     }
 
     // Apply anonymity rules
-    if (post.isAnonymous && !isOwner) {
-        if (post.user && typeof post.user === 'object') {
-            post.user._id = "anonymous";
-            post.user.fullname = "Anonymous User";
-            post.user.profile_picture = "https://res.cloudinary.com/dcmrsdydh/image/upload/v1778490037/logo_eyc3at.jpg";
-        } else {
-            post.user = "anonymous";
+    if (post.isAnonymous) {
+        delete post.location;
+        if (!isOwner) {
+            if (post.user && typeof post.user === 'object') {
+                post.user._id = "anonymous";
+                post.user.fullname = "Anonymous User";
+                post.user.profile_picture = "https://res.cloudinary.com/dcmrsdydh/image/upload/v1778490037/logo_eyc3at.jpg";
+            } else {
+                post.user = "anonymous";
+            }
+            post.collaborators = [];
         }
-        post.collaborators = [];
     }
 
     // Always hide ownerToken from response for security

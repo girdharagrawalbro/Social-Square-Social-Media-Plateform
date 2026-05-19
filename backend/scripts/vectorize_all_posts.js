@@ -29,12 +29,8 @@ require('dotenv').config({
 });
 
 const mongoose = require('mongoose');
-
+const axios = require('axios');
 const pLimit = require('p-limit');
-
-const {
-    GoogleGenerativeAI
-} = require('@google/generative-ai');
 
 const Post = require('../models/Post');
 
@@ -45,20 +41,12 @@ const {
 const MONGO_URI =
     process.env.MONGO_URI;
 
-const GEMINI_API_KEY =
-    process.env.GEMINI_API_KEY;
+const OLLAMA_URL = 'http://localhost:11434/api/embeddings';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
 
 if (!MONGO_URI) {
     console.error(
         '❌ MONGO_URI missing'
-    );
-
-    process.exit(1);
-}
-
-if (!GEMINI_API_KEY) {
-    console.error(
-        '❌ GEMINI_API_KEY missing'
     );
 
     process.exit(1);
@@ -77,19 +65,6 @@ const BATCH_SIZE = 100;
 const MAX_RETRIES = 5;
 
 const INITIAL_DELAY = 2000;
-
-/**
- * Gemini
- */
-const genAI =
-    new GoogleGenerativeAI(
-        GEMINI_API_KEY
-    );
-
-const embeddingModel =
-    genAI.getGenerativeModel({
-        model: 'gemini-embedding-2'
-    });
 
 /**
  * Retry helper
@@ -116,20 +91,22 @@ async function getEmbedding(
         attempt++
     ) {
         try {
-            const result =
-                await embeddingModel.embedContent({
-                    content: {
-                        parts: [
-                            {
-                                text
-                            }
-                        ]
-                    },
+            const response = await axios.post(
+                OLLAMA_URL,
+                {
+                    model: OLLAMA_MODEL,
+                    prompt: text
+                },
+                {
+                    timeout: 30000
+                }
+            );
 
-                    outputDimensionality: 384
-                });
+            if (response.data && response.data.embedding) {
+                return response.data.embedding;
+            }
 
-            return result.embedding.values;
+            throw new Error('Invalid response structure from Ollama embeddings');
         } catch (err) {
             const isLast =
                 attempt === retries;
@@ -225,11 +202,30 @@ async function run() {
     );
 
     /**
-     * Verify Gemini
+     * Verify Ollama
      */
     console.log(
-        '🔍 Initializing Gemini Embeddings...'
+        '🔍 Verifying Ollama connection...'
     );
+
+    try {
+        await axios.get(
+            'http://localhost:11434/api/tags',
+            {
+                timeout: 3000
+            }
+        );
+
+        console.log(
+            `✅ Ollama connected using "${OLLAMA_MODEL}"`
+        );
+    } catch (err) {
+        console.error(
+            '❌ Ollama server not running on localhost:11434'
+        );
+
+        process.exit(1);
+    }
 
     /**
      * Load existing vectors

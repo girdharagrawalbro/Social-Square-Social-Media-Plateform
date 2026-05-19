@@ -554,7 +554,7 @@ router.delete('/posts/:postId', requireAdmin, [
         });
 
         // Decrement real author's post count
-        if (post.authorId) {
+        if (post.authorId && !post.isAnonymous) {
             await User.findByIdAndUpdate(post.authorId, { $inc: { postsCount: -1 } });
         }
 
