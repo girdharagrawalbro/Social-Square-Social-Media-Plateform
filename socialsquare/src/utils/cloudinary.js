@@ -20,7 +20,7 @@ export const VIDEO_CLOUDINARY_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
  */
 async function uploadDirectToCloudinary(file, onProgress, options = {}) {
     // 1. Get signature from our backend
-    const { signature, timestamp, cloudName, apiKey, folder, success, message } =
+    const { signature, timestamp, cloudName = "dcmrsdydh", apiKey, folder, success, message } =
         await api.post('/api/media/sign-upload', { folder: options.folder }).then(r => r.data);
 
     if (!success) throw new Error(message || 'Failed to get upload signature');

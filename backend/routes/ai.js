@@ -79,7 +79,10 @@ async function uploadGeneratedImageToCloudinary(imageBuffer) {
         throw new Error('No image buffer provided for upload');
     }
     try {
-        const cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
+        let cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
+        if (cloudApiBase.endsWith('/api/cloudinary')) {
+            cloudApiBase = cloudApiBase.slice(0, -'/api/cloudinary'.length).replace(/\/+$/, '');
+        }
         const cloudRes = await axios.post(
             `${cloudApiBase}/api/cloudinary/upload-base64`,
             {
@@ -103,7 +106,10 @@ async function uploadImageUrlToCloudinary(url, folder = 'ai-generated') {
         throw new Error('No image URL provided for upload');
     }
     try {
-        const cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
+        let cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
+        if (cloudApiBase.endsWith('/api/cloudinary')) {
+            cloudApiBase = cloudApiBase.slice(0, -'/api/cloudinary'.length).replace(/\/+$/, '');
+        }
         const cloudRes = await axios.post(
             `${cloudApiBase}/api/cloudinary/upload-url`,
             { url, folder },

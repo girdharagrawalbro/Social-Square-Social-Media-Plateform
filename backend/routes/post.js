@@ -148,10 +148,10 @@ router.post("/create", verifyToken, [
     body('caption').optional().trim().escape().isLength({ max: 5000 }),
     body('imageURLs').optional().isArray().withMessage('imageURLs must be an array'),
     body('imageURLs.*').optional().isURL().withMessage('Invalid image URL'),
-    body('videoURL').optional().isURL().withMessage('Invalid video URL'),
+    body('videoURL').optional({ checkFalsy: true }).isURL().withMessage('Invalid video URL'),
     body('collaboratorIds').optional().isArray(),
     body('collaboratorIds.*').optional().isMongoId(),
-    body('groupId').optional().isMongoId(),
+    body('groupId').optional({ checkFalsy: true }).isMongoId(),
     body('isAnonymous').optional().isBoolean(),
     body('isCollaborative').optional().isBoolean(),
     validate
@@ -504,6 +504,50 @@ router.delete("/delete/:postId", verifyToken, [
     }
 });
 
+// Helper to limit consecutive posts from the same user (maxConsecutive defaults to 2)
+function limitConsecutiveUserPosts(posts, maxConsecutive = 2) {
+    const result = [];
+    const remaining = [...posts];
+    let lastUserId = null;
+    let consecutiveCount = 0;
+
+    const getPostUserId = (post) => {
+        if (post.isAnonymous) {
+            return `anon_${post._id ? post._id.toString() : Math.random()}`;
+        }
+        const uid = post.user?._id || post.user;
+        return uid ? uid.toString() : '';
+    };
+
+    while (remaining.length > 0) {
+        let foundIdx = -1;
+        for (let i = 0; i < remaining.length; i++) {
+            const p = remaining[i];
+            const uid = getPostUserId(p);
+            if (uid !== lastUserId || consecutiveCount < maxConsecutive) {
+                foundIdx = i;
+                break;
+            }
+        }
+
+        if (foundIdx !== -1) {
+            const post = remaining.splice(foundIdx, 1)[0];
+            const uid = getPostUserId(post);
+            if (uid === lastUserId) {
+                consecutiveCount++;
+            } else {
+                lastUserId = uid;
+                consecutiveCount = 1;
+            }
+            result.push(post);
+        } else {
+            // Exclude the rest if they would exceed consecutive limit and can't be interleaved
+            break;
+        }
+    }
+    return result;
+}
+
 // ─── FEED ─────────────────────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
     try {
@@ -564,10 +608,11 @@ router.get("/", async (req, res) => {
         const anonymousTargetCount = Math.max(1, Math.floor(limit * 0.1)); // 10% of feed (e.g. 1 post for limit=10)
         const oldTargetCount = Math.max(1, Math.floor(limit * 0.2)); // 20% of feed (e.g. 2 posts for limit=10)
         const recentLimit = limit - oldTargetCount - anonymousTargetCount;
-        const fetchLimit = recentLimit + 1;
+        const candidateMultiplier = 4; // Fetch 4x more candidates to allow robust diversification
+        const fetchLimit = (recentLimit * candidateMultiplier) + 1;
 
-        const recentPosts = await Post.find(query).sort({ createdAt: -1, _id: -1 }).limit(fetchLimit).lean().maxTimeMS(5000);
-        const hasMore = recentPosts.length > recentLimit;
+        const recentPosts = await Post.find(query).sort({ createdAt: -1 }).limit(fetchLimit).lean().maxTimeMS(5000);
+        const hasMore = recentPosts.length > (recentLimit * candidateMultiplier);
 
         // Fetch old unseen pics (20% of feed)
         let oldUnseenSelection = [];
@@ -668,10 +713,10 @@ router.get("/", async (req, res) => {
             }
         }
 
-        // Combine recent, old unseen, and anonymous posts with dynamic fallback
+        // Combine all fetched recent candidates, old unseen, and anonymous posts
         const neededRecent = limit - oldUnseenSelection.length - anonymousSelection.length;
         const postsToProcess = [
-            ...recentPosts.slice(0, neededRecent),
+            ...recentPosts,
             ...oldUnseenSelection,
             ...anonymousSelection
         ];
@@ -742,19 +787,23 @@ router.get("/", async (req, res) => {
             }
         }
 
+        // Apply consecutive user limit (max 2 consecutive posts from the same user)
+        const limitedResult = limitConsecutiveUserPosts(result, 2);
+        const slicedResult = limitedResult.slice(0, limit);
+
         // The cursor should be based on the oldest post FETCHED in this batch from the recent pool, before scoring/sorting.
         // This ensures the next query picks up exactly where the DB query left off.
-        const lastFetchedPost = recentPosts[neededRecent - 1] || recentPosts[recentPosts.length - 1];
+        const lastFetchedPost = recentPosts[recentPosts.length - 1];
         const nextCursor = (hasMore && lastFetchedPost) ? encodeCursor(lastFetchedPost.createdAt, lastFetchedPost._id) : null;
 
         // Fetch fresh presence for all users in the feed (excluding anonymous dummy)
-        const uniqueUserIds = [...new Set(result.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(id => id && id !== "600000000000000000000000"))];
+        const uniqueUserIds = [...new Set(slicedResult.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(id => id && id !== "600000000000000000000000"))];
         const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
         const presenceMap = {};
         usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
 
         // Attach presence to results
-        const resultWithPresence = result.map(p => {
+        const resultWithPresence = slicedResult.map(p => {
             const po = p.toObject ? p.toObject() : p;
             if (po.user && po.user._id) {
                 const uid = po.user._id.toString();
@@ -858,7 +907,7 @@ router.get("/user/:userId", [
             }
         }
 
-        const posts = await Post.find(query).sort({ createdAt: -1, _id: -1 }).limit(limit + 1).lean();
+        const posts = await Post.find(query).sort({ createdAt: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         const sanitized = result.map(p => sanitizeAnonymousPost(p, viewerId));
@@ -1574,7 +1623,7 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
             });
         }
 
-        const posts = await Post.find(query).sort({ score: -1, _id: -1 }).limit(limit + 1).lean();
+        const posts = await Post.find(query).sort({ score: -1, createdAt: -1 }).limit(limit + 1).lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
 
