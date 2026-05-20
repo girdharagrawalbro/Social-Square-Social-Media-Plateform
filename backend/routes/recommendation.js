@@ -22,6 +22,50 @@ const {
 const Post = require("../models/Post");
 const User = require("../models/User");
 
+// Helper to limit consecutive posts from the same user (maxConsecutive defaults to 2)
+function limitConsecutiveUserPosts(posts, maxConsecutive = 2) {
+    const result = [];
+    const remaining = [...posts];
+    let lastUserId = null;
+    let consecutiveCount = 0;
+
+    const getPostUserId = (post) => {
+        if (post.isAnonymous) {
+            return `anon_${post._id ? post._id.toString() : Math.random()}`;
+        }
+        const uid = post.user?._id || post.user;
+        return uid ? uid.toString() : '';
+    };
+
+    while (remaining.length > 0) {
+        let foundIdx = -1;
+        for (let i = 0; i < remaining.length; i++) {
+            const p = remaining[i];
+            const uid = getPostUserId(p);
+            if (uid !== lastUserId || consecutiveCount < maxConsecutive) {
+                foundIdx = i;
+                break;
+            }
+        }
+
+        if (foundIdx !== -1) {
+            const post = remaining.splice(foundIdx, 1)[0];
+            const uid = getPostUserId(post);
+            if (uid === lastUserId) {
+                consecutiveCount++;
+            } else {
+                lastUserId = uid;
+                consecutiveCount = 1;
+            }
+            result.push(post);
+        } else {
+            // Exclude the rest if they would exceed consecutive limit and can't be interleaved
+            break;
+        }
+    }
+    return result;
+}
+
 // ─── RECOMMENDED POSTS ────────────────────────────────────────────────────────
 router.get("/posts", verifyToken, async (req, res) => {
     const _tag = '[REC /posts]';
@@ -127,7 +171,7 @@ router.get("/posts", verifyToken, async (req, res) => {
         ranked.sort((a, b) => b.score - a.score);
         console.log(`${_tag} [6] ✅ Ranked ${ranked.length} posts`);
 
-        const result = ranked.slice(0, 30);
+        const result = limitConsecutiveUserPosts(ranked.slice(0, 30), 2);
         const elapsed = Date.now() - _t0;
         console.log(`${_tag} ✅ SUCCESS — returning ${result.length} posts in ${elapsed}ms`);
         res.json({ items: result });
@@ -142,7 +186,7 @@ router.get("/posts", verifyToken, async (req, res) => {
             if (cachedFallback) {
                 console.log(`${_tag} 🔄 Serving from Redis fallback cache`);
                 return res.json({
-                    items: JSON.parse(cachedFallback),
+                    items: limitConsecutiveUserPosts(JSON.parse(cachedFallback), 2),
                     isFallback: true,
                     isCached: true,
                     message: "Showing cached posts (Database is slow)"
@@ -163,7 +207,7 @@ router.get("/posts", verifyToken, async (req, res) => {
 
             console.log(`${_tag} ✅ DB Fallback succeeded`);
             return res.json({
-                items: fallback,
+                items: limitConsecutiveUserPosts(fallback, 2),
                 isFallback: true,
                 message: "Showing latest posts (AI engine temporarily slow)"
             });
@@ -397,7 +441,8 @@ router.get("/trending", verifyToken, async (req, res) => {
         }));
         boosted.sort((a, b) => b._boost - a._boost || b.score - a.score);
 
-        res.json({ items: boosted.slice(0, 20) });
+        const trendingItems = limitConsecutiveUserPosts(boosted, 2).slice(0, 20);
+        res.json({ items: trendingItems });
     } catch (err) {
         console.error('[Recommendation /trending]', err);
         res.status(500).json({ message: "Failed to fetch trending" });

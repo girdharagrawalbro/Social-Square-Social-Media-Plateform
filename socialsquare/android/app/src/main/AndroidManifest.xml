@@ -27,9 +27,14 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- ✅ MOVED INSIDE <application> -->
+        <receiver
+            android:name="de.appplant.cordova.plugin.localnotification.RestoreReceiver"
+            android:directBootAware="true" />
+
     </application>
 
-    <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

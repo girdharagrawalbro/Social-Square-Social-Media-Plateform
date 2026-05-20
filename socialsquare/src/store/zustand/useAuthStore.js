@@ -13,7 +13,7 @@ const handleRateLimit = err => {
     return Promise.reject(err);
 };
 
-const BASE = process.env.NGINIX ? "" : process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+const BASE = process.env.NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
 
 // ─── AUTH STORE DEFINITION (First to avoid TDZ) ───────────────────────────────
 let inMemoryToken = null;

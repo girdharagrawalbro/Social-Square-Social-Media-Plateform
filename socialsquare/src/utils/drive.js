@@ -17,23 +17,16 @@ const DRIVE_API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/media/drive
 
 
 async function requestDriveApi(path, method = 'POST', body) {
-    const token = localStorage.getItem('token');
-    const url = `${DRIVE_API_BASE_URL}${path}`;
-
-    const response = await fetch(url, {
+    const response = await api({
         method,
-        headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: body ? JSON.stringify(body) : undefined,
-    });
+        url: `/api/media/drive${path}`,
+        data: body,
+    }).then(r => r.data);
 
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok || json?.success === false) {
-        throw new Error(json?.message || 'Drive API request failed');
+    if (response?.success === false) {
+        throw new Error(response?.message || 'Drive API request failed');
     }
-    return json;
+    return response;
 }
 
 // ─── FORMAT RESPONSE (normalised shape) ──────────────────────────────────────

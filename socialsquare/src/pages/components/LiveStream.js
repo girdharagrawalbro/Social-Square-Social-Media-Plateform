@@ -53,7 +53,7 @@ const LiveStream = ({ streamId, isHost, onClose }) => {
 
     // SSE Chat setup
     useEffect(() => {
-        const baseUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+        const baseUrl = process.env.REACT_APP_BACKEND_URL;
         const eventSource = new EventSource(`${baseUrl}/api/live/${streamId}/chat/stream`);
 
         eventSource.onmessage = (event) => {
