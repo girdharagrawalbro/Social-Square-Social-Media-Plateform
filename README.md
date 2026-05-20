@@ -13,7 +13,7 @@ Social Square is an AI-integrated social ecosystem built with a "Privacy-First" 
 
 ---
 
-## 1. Standardized API Reference 
+## 1. Standardized API Reference  
 
 All API responses follow the format: `{ "success": true, "data": { ... } }` or `{ "success": false, "message": "..." }`.
 
