@@ -95,39 +95,25 @@ const Feed = ({ activeMood = null }) => {
     const recommendedPosts = useMemo(() => (recommendedQuery.data || []).map(p => ({ ...p, isRecommended: true })), [recommendedQuery.data]);
     const moodPosts = useMemo(() => (moodQuery.data || []).map(p => ({ ...p, isMoodMatch: true })), [moodQuery.data]);
 
-    const randomWeights = useRef({});
-
     const displayPosts = useMemo(() => {
-        let all = [];
+        let basePosts = [];
 
         if (activeMood) {
-            all = [...moodPosts];
+            basePosts = [...moodPosts];
         } else {
-            all = [...serverPosts, ...recommendedPosts, ...moodPosts];
+            basePosts = [...serverPosts];
         }
 
         // 1. Separate socket posts from the rest to keep them at the top
-        const socketNew = socketPosts.filter(sp => !all.some(p => p._id === sp._id));
+        const socketNew = socketPosts.filter(sp => !basePosts.some(p => p._id === sp._id));
 
         // 2. Deduplicate the base posts
-        const uniqueBaseEntries = Array.from(new Map(all.map(p => [p._id, p])).values());
+        const uniqueBaseEntries = Array.from(new Map(basePosts.map(p => [p._id, p])).values());
 
-        // 3. Assign stable random weights for shuffling base posts
-        uniqueBaseEntries.forEach(p => {
-            if (randomWeights.current[p._id] === undefined) {
-                randomWeights.current[p._id] = Math.random();
-            }
-        });
+        // 3. Prepend new socket posts (Instantly appear at top)
+        let finalArray = [...socketNew, ...uniqueBaseEntries];
 
-        // 4. Shuffle only the base posts (Following + Discovery)
-        let shuffledBase = uniqueBaseEntries.sort((a, b) =>
-            randomWeights.current[a._id] - randomWeights.current[b._id]
-        );
-
-        // 5. Prepend new socket posts (Instantly appear at top)
-        let finalArray = [...socketNew, ...shuffledBase];
-
-        // 6. Inject live recommendations
+        // 4. Inject live recommendations
         let withInjections = [];
         let seen = new Set();
         finalArray.forEach(p => {
@@ -145,8 +131,51 @@ const Feed = ({ activeMood = null }) => {
             }
         });
 
-        return withInjections;
-    }, [serverPosts, recommendedPosts, moodPosts, socketPosts, liveInjectedPosts, activeMood]);
+        // 5. Apply client-side boundary-healing consecutive user limiting
+        const maxConsecutive = 2;
+        const result = [];
+        const remaining = [...withInjections];
+        let lastUserId = null;
+        let consecutiveCount = 0;
+
+        const getPostUserId = (post) => {
+            if (post.isAnonymous) {
+                return `anon_${post._id ? post._id.toString() : Math.random()}`;
+            }
+            const uid = post.user?._id || post.user;
+            return uid ? uid.toString() : '';
+        };
+
+        while (remaining.length > 0) {
+            let foundIdx = -1;
+            for (let i = 0; i < remaining.length; i++) {
+                const p = remaining[i];
+                const uid = getPostUserId(p);
+                if (uid !== lastUserId || consecutiveCount < maxConsecutive) {
+                    foundIdx = i;
+                    break;
+                }
+            }
+
+            if (foundIdx !== -1) {
+                const post = remaining.splice(foundIdx, 1)[0];
+                const uid = getPostUserId(post);
+                if (uid === lastUserId) {
+                    consecutiveCount++;
+                } else {
+                    lastUserId = uid;
+                    consecutiveCount = 1;
+                }
+                result.push(post);
+            } else {
+                // If it's impossible to interleave any further, append the rest to avoid dropping content
+                result.push(...remaining);
+                break;
+            }
+        }
+
+        return result;
+    }, [serverPosts, moodPosts, socketPosts, liveInjectedPosts, activeMood]);
 
 
 
