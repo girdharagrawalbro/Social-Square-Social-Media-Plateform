@@ -1,0 +1,183 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import Bg from './components/Bg';
+import toast, { Toaster } from 'react-hot-toast';
+import { encryptPassword } from '../utils/crypto';
+import { getFingerprint } from '../utils/fingerprint';
+import PasswordStrengthMeter from './components/PasswordStrengthMeter';
+import useAuthStore from '../store/zustand/useAuthStore';
+import { useDarkMode } from '../context/DarkModeContext';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { Capacitor } from '@capacitor/core';
+
+const Signup = () => {
+
+  const { isDark } = useDarkMode();
+  const [formData, setFormData] = useState({ email: '', fullname: '', password: '' });
+  const navigate = useNavigate();
+  const signup = useAuthStore(s => s.signup);
+  const googleLogin = useAuthStore(s => s.googleLogin);
+  const user = useAuthStore(s => s.user);
+  const loading = useAuthStore(s => s.loading);
+  const initialized = useAuthStore(s => s.initialized);
+  const hasShownToast = useRef(false);
+
+  useEffect(() => {
+    if (!initialized || loading) return;
+    if (user && !hasShownToast.current) {
+      hasShownToast.current = true;
+      toast.success("You’re logged in.");
+      navigate(`/${user.username}`);
+    }
+  }, [user, navigate, initialized, loading]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) { toast.error('Please enter a valid email address'); return; }
+    if (formData.fullname.trim().length < 2) { toast.error('Full name must be at least 2 characters'); return; }
+    if (formData.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
+
+    try {
+      const encryptedPassword = encryptPassword(formData.password);
+      const fingerprint = await getFingerprint();
+
+      const result = await signup({
+        fullname: formData.fullname,
+        email: formData.email,
+        password: encryptedPassword,
+        fingerprint,
+      });
+
+      if (result?.success) {
+        toast.success("Signup successful! Redirecting...");
+        navigate(`/${result.user.username}`);
+      } else { toast.error(result.message || result.error || "Something went wrong!"); }
+    } catch { toast.error("Network error! Please try again."); }
+  };
+
+  const handleNativeGoogleLogin = async () => {
+    try {
+      const googleUser = await GoogleAuth.signIn();
+      const fingerprint = await getFingerprint();
+      const result = await googleLogin({
+        credential: googleUser.authentication.idToken,
+        fingerprint
+      });
+
+      if (result?.success) {
+        toast.success('Google login successful!');
+        navigate(`/${result.user.username}`);
+      } else {
+        toast.error(result?.error || 'Google login failed');
+      }
+    } catch (err) {
+      console.error('Native Google login error:', err);
+      if (err.message !== 'user cancelled login') {
+        toast.error('An error occurred during Google login');
+      }
+    }
+  };
+
+
+  return (
+    <>
+      <Bg>
+        <div className="w-full flex items-center justify-center gap-6 flex-col md:flex-row">
+          <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col text-left">
+            <div className="mb-6 text-center">
+              <h3 className="font-pacifico text-3xl sm:text-4xl text-[#808bf5] mb-2">Social Square</h3>
+              <p className="text-gray-500 font-medium whitespace-nowrap">Join your community today</p>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
+              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="text" name="fullname" placeholder="Full Name" value={formData.fullname} onChange={handleChange} required />
+              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+              <PasswordStrengthMeter password={formData.password} />
+              <button className="py-2 mt-2 bg-themeAccent text-white w-full rounded" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign up'}</button>
+            </form>
+
+            <div className="flex items-center my-6">
+              <div className={`flex-1 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}></div>
+              <span className={`px-4 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>OR</span>
+              <div className={`flex-1 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}></div>
+            </div>
+
+            <div className="flex justify-center w-full">
+              {Capacitor.isNativePlatform() ? (
+                <button
+                  onClick={handleNativeGoogleLogin}
+                  className="flex items-center justify-center gap-3 px-6 py-2.5 w-full bg-white border border-gray-300 rounded-full text-gray-700 font-semibold transition-all hover:bg-gray-50 active:scale-[0.98] shadow-sm"
+                  style={{ maxWidth: '350px' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 18 18">
+                    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
+                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
+                    <path d="M3.964 10.712c-.18-.54-.282-1.117-.282-1.712s.102-1.172.282-1.712V4.956H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.044l3.007-2.332z" fill="#FBBC05" />
+                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.582C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.956L3.964 7.29c.708-2.127 2.692-3.71 5.036-3.71z" fill="#EA4335" />
+                  </svg>
+                  Continue with Google
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      const { auth, googleProvider } = await import('../lib/firebase');
+                      const { signInWithPopup } = await import('firebase/auth');
+                      const result = await signInWithPopup(auth, googleProvider);
+                      const idToken = await result.user.getIdToken();
+                      const fingerprint = await getFingerprint();
+                      const loginResult = await googleLogin({
+                        credential: idToken,
+                        fingerprint
+                      });
+
+                      if (loginResult?.success) {
+                        toast.success('Google login successful!');
+                        navigate(`/${loginResult.user.username}`);
+                      } else {
+                        toast.error(loginResult?.error || 'Google login failed');
+                      }
+                    } catch (err) {
+                      console.error('Google login error:', err);
+                      if (err.code !== 'auth/popup-closed-by-user') {
+                        toast.error('An error occurred during Google login');
+                      }
+                    }
+                  }}
+                  className="flex items-center justify-center gap-3 px-6 py-2.5 w-full bg-white border border-gray-300 rounded-full text-gray-700 font-semibold transition-all hover:bg-gray-50 active:scale-[0.98] shadow-sm"
+                  style={{ maxWidth: '350px' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 18 18">
+                    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
+                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
+                    <path d="M3.964 10.712c-.18-.54-.282-1.117-.282-1.712s.102-1.172.282-1.712V4.956H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.044l3.007-2.332z" fill="#FBBC05" />
+                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.582C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.956L3.964 7.29c.708-2.127 2.692-3.71 5.036-3.71z" fill="#EA4335" />
+                  </svg>
+                  Continue with Google
+                </button>
+              )}
+            </div>
+
+
+            <div className="mt-4 text-center">
+              <p>Have an account? <Link to="/login" className="text-themeStart font-semibold">Log in</Link></p>
+            </div>
+          </div>
+          <div className="hidden md:block md:max-w-sm lg:max-w-md">
+            <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" className="w-full h-auto" />
+          </div>
+        </div>
+      </Bg>
+      <Toaster />
+    </>
+  );
+};
+
+export default Signup;
