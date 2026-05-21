@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SocialSquare</string>
+    <string name="title_activity_main">SocialSquare</string>
+    <string name="package_name">com.socialsquare.app</string>
+    <string name="custom_url_scheme">com.socialsquare.app</string>
+    <string name="google_client_id">438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com</string>
+    <string name="google_client_id_web">438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com</string>
+    <string name="server_client_id">438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com</string>
+</resources>
