@@ -23,16 +23,9 @@ router.post('/sign-upload', verifyToken, (req, res) => {
         const timestamp = Math.round(Date.now() / 1000);
         const folder = req.body.folder || `users/${req.userId || 'anonymous'}`;
 
-        // Use provided secret or fallback to signing via microservice if keys aren't local
-        if (CLOUDINARY_API_SECRET) {
-            const params = {
-                timestamp,
-                folder,
-                // Add any other params you want to lock down
-            };
+        if (CLOUDINARY_API_SECRET && CLOUDINARY_API_KEY && CLOUDINARY_CLOUD_NAME) {
+            const params = { timestamp, folder };
 
-            // Manual signature generation to avoid adding 'cloudinary' package dependency for now
-            // Format: k1=v1&k2=v2...secret
             const sortedParams = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join('&');
             const signature = crypto
                 .createHash('sha1')
@@ -40,13 +33,18 @@ router.post('/sign-upload', verifyToken, (req, res) => {
                 .digest('hex');
 
             return res.json({
-                success: true,            
+                success: true,
+                signature,
+                timestamp,
+                apiKey: CLOUDINARY_API_KEY,
+                cloudName: CLOUDINARY_CLOUD_NAME,
+                folder,
             });
         } else {
             // Fallback: Ask microservice to generate the signature
             // This assumes the microservice has the keys
             return axios.post(`${CLOUDINARY_API_BASE_URL}/sign`, { timestamp, folder })
-                .then(response => res.json({ success: true }))
+                .then(response => res.json({ success: true, ...response.data }))
                 .catch(err => {
                     console.error('[Cloudinary Sign Error]:', err.response?.data || err.message);
                     return res.status(500).json({
