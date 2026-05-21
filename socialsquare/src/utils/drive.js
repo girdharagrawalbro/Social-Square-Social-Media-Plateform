@@ -19,7 +19,7 @@ const DRIVE_API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/media/drive
 async function requestDriveApi(path, method = 'POST', body) {
     const response = await api({
         method,
-        url: `/api/media/drive${path}`,
+        url: `${DRIVE_API_BASE_URL}${path}`,
         data: body,
     }).then(r => r.data);
 

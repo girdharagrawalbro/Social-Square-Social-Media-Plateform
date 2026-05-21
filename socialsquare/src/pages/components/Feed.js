@@ -14,7 +14,7 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import {
     useFeed, useMoodFeed,
     useLikePost, useSavePost, useDeletePost, useUpdatePost,
-    useRecommendedPosts, useReactPost
+    useReactPost
 } from '../../hooks/queries/usePostQueries';
 import { useReportPost } from '../../hooks/queries/usePostOperationsQueries';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -39,7 +39,6 @@ const Feed = ({ activeMood = null }) => {
 
     // ✅ TanStack Query
     const feedQuery = useFeed(user?._id);
-    const recommendedQuery = useRecommendedPosts(user?._id);
     const moodQuery = useMoodFeed(activeMood || user?.preferredMood || '', user?._id);
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
@@ -92,7 +91,6 @@ const Feed = ({ activeMood = null }) => {
 
     // Merge pages + socket posts
     const serverPosts = useMemo(() => feedQuery.data?.pages?.flatMap(p => p.posts) || [], [feedQuery.data?.pages]);
-    const recommendedPosts = useMemo(() => (recommendedQuery.data || []).map(p => ({ ...p, isRecommended: true })), [recommendedQuery.data]);
     const moodPosts = useMemo(() => (moodQuery.data || []).map(p => ({ ...p, isMoodMatch: true })), [moodQuery.data]);
 
     const displayPosts = useMemo(() => {

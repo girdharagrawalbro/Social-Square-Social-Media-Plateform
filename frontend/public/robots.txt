@@ -1,6 +1,0 @@
-# Social Square Robots Configuration
-User-agent: *
-Allow: /
-
-# Sitemap Location
-Sitemap: https://socialsquare.vercel.app/sitemap.xml
