@@ -182,11 +182,19 @@ async function _uploadToDriveWithFallback(file, onProgress, options, reason, ori
             name: file.name,
         });
 
+        console.log('[Drive Fallback] Upload result:', { 
+            url: driveResult?.url ? 'present' : 'MISSING', 
+            fileId: driveResult?.fileId, 
+            source: 'drive' 
+        });
+
         if (!driveResult?.url) {
-            throw new Error('Google Drive returned no URL');
+            console.warn('[Drive Fallback] No URL in response:', driveResult);
+            throw new Error(`Google Drive upload returned no URL (fileId: ${driveResult?.fileId || 'unknown'})`);
         }
 
         // Silent success — no user-facing notification
+        console.info('[Drive Fallback] Upload successful:', driveResult.url.substring(0, 60) + '...');
         return { url: driveResult.url, publicId: null, source: 'drive' };
     } catch (driveErr) {
         // Log full diagnostics to the console only (never shown to the user)
