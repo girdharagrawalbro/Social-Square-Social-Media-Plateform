@@ -32,9 +32,17 @@ async function requestDriveApi(path, method = 'POST', body) {
 // ─── FORMAT RESPONSE (normalised shape) ──────────────────────────────────────
 
 function formatResult(data = {}) {
+    // Ensure we always have a usable URL
+    let url = data.webContentLink || data.webViewLink || null;
+    
+    // If we have a fileId but no URL, construct a Drive URL
+    if (!url && data.fileId && data.fileId !== 'uploaded') {
+        url = `https://drive.google.com/file/d/${data.fileId}/view`;
+    }
+    
     return {
         // Primary CDN-style URL — use this like Cloudinary's secure_url
-        url: data.webContentLink || data.webViewLink || null,
+        url,
         // Extra Drive-specific fields
         fileId: data.fileId || null,
         name: data.name || null,
@@ -79,17 +87,48 @@ export async function uploadToDrive(file, onProgress, options = {}) {
 
         xhr.onload = () => {
             try {
-                // Drive returns the file metadata on successful PUT completion
-                const data = JSON.parse(xhr.responseText);
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(formatResult(data));
+                    // Drive returns file metadata on successful PUT completion
+                    let data = {};
+                    console.log('[Drive] Upload response status:', xhr.status, 'Content-Type:', xhr.getResponseHeader('Content-Type'));
+                    
+                    try {
+                        const responseText = xhr.responseText;
+                        console.log('[Drive] Response body length:', responseText?.length, 'First 100 chars:', responseText?.substring(0, 100));
+                        if (responseText && responseText.trim()) {
+                            data = JSON.parse(responseText);
+                            console.log('[Drive] Parsed metadata:', { id: data.id, name: data.name, hasWebContentLink: !!data.webContentLink });
+                        }
+                    } catch (e) {
+                        console.warn('[Drive] Response parsing failed:', e.message);
+                        // If response body is empty, try to get Location header or other metadata
+                        const locationHeader = xhr.getResponseHeader('Location');
+                        if (locationHeader) {
+                            console.log('[Drive] Using Location header:', locationHeader);
+                            data = { webContentLink: locationHeader };
+                        }
+                    }
+                    
+                    // If we still have no metadata, we have a problem
+                    if (!data.webContentLink && !data.webViewLink && !data.id) {
+                        console.error('[Drive] No file metadata found in response. Data:', data);
+                        reject(new Error('Upload succeeded but no file metadata was returned'));
+                    } else {
+                        console.log('[Drive] Successfully formatted result for URL:', data.webContentLink || data.webViewLink || 'Drive ID: ' + data.id);
+                        resolve(formatResult(data));
+                    }
                 } else {
-                    reject(new Error('Direct Drive upload failed'));
+                    let errorDetail = 'Unknown error';
+                    try {
+                        const errorRes = JSON.parse(xhr.responseText);
+                        errorDetail = errorRes.error?.message || errorRes.message || xhr.responseText;
+                    } catch (e) {
+                        errorDetail = xhr.responseText || xhr.statusText;
+                    }
+                    reject(new Error(`Drive upload failed with status ${xhr.status}: ${errorDetail}`));
                 }
             } catch (e) {
-                // If it's a 200/201 but body is empty, we might need to fetch metadata separately
-                // but usually Drive returns the object.
-                resolve(formatResult({ fileId: 'uploaded' })); 
+                reject(new Error('Error processing Drive upload response: ' + e.message));
             }
         };
 
