@@ -137,7 +137,9 @@ router.post("/vote", verifyToken, [
 
 function computeScore(post, followingIds = []) {
     const ageHours = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60);
-    return (post.likes?.length || 0) * 2 + (post.comments?.length || 0) * 3
+    return (post.views || 0) 
+        + (post.likes?.length || 0) * 2 
+        + (post.comments?.length || 0) * 4
         + (followingIds.includes(post.user._id.toString()) ? 20 : 0)
         + Math.max(0, 50 - ageHours * 0.5);
 }
