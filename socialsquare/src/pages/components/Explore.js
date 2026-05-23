@@ -343,7 +343,7 @@ const Explore = () => {
       <Dialog
         visible={visible}
         onHide={() => setVisible(false)}
-        style={{ width: '30opx', height: '100vh', maxWidth: '100vw', margin: 0, padding: 0 }}
+        style={{ width: '100vw', maxWidth: '500px', height: '100vh', margin: 0, padding: 0 }}
         modal
         showHeader={false}
         className="explore-reels-dialog"
