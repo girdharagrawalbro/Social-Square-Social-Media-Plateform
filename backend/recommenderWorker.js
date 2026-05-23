@@ -12,9 +12,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
 
 // Configuration
-const NATS_URL = process.env.NATS_URL || "wss://://onrender.com";
+const NATS_URL = process.env.NATS_URL || "nats://localhost:4222";
 const MONGO_URI = process.env.MONGO_URI;
-const NATS_TOKEN = "7905038";
+const NATS_TOKEN = process.env.NATS_TOKEN || "";
 const ALPHA = 0.2; // EMA factor for user interest
 
 let extractor = null;
@@ -114,11 +114,19 @@ async function handleUserActivity(data) {
       topCategories: category ? [category] : []
     });
   } else {
-    // Math.abs ensures we scale the existing vector properly while currentAlpha determines the pull/push direction
-    const newVector = interest.interestVector.map((val, i) =>
-      (1 - Math.abs(currentAlpha)) * val + currentAlpha * postVecDoc.vector[i]
-    );
-    interest.interestVector = newVector;
+    // FIX: If dimensions differ (e.g. embedding model changed), reset vector instead of corrupting with NaN
+    if (interest.interestVector.length !== postVecDoc.vector.length) {
+      console.warn(`⚠️ Vector dimension mismatch for user ${userId}: stored=${interest.interestVector.length}, new=${postVecDoc.vector.length}. Resetting interest vector.`);
+      interest.interestVector = postVecDoc.vector;
+    } else {
+      // Math.abs ensures we scale the existing vector properly while currentAlpha determines the pull/push direction
+      const newVector = interest.interestVector.map((val, i) => {
+        const updated = (1 - Math.abs(currentAlpha)) * val + currentAlpha * (postVecDoc.vector[i] ?? 0);
+        // FIX: Guard against NaN propagation (can happen with corrupt stored values)
+        return Number.isFinite(updated) ? updated : val;
+      });
+      interest.interestVector = newVector;
+    }
 
     if (shouldUpdateTags) {
       if (tags.length > 0) {

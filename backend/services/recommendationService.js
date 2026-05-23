@@ -13,9 +13,14 @@ async function getRecommendedPosts(userId) {
         // This is primarily handled in routes/recommendation.js now, 
         // but providing a service implementation for consistency.
         const interest = await UserInterest.findOne({ userId }).lean();
+        // FIX: userId is a string — cast to ObjectId for proper $ne comparison
+        let selfObjectId;
+        try { selfObjectId = new mongoose.Types.ObjectId(userId); } catch { selfObjectId = null; }
         const candidates = await Post.find({
-            "user._id": { $ne: userId },
-            isAnonymous: { $ne: true }
+            ...(selfObjectId ? { "user._id": { $ne: selfObjectId } } : {}),
+            isAnonymous: { $ne: true },
+            isVisible: { $ne: false },
+            deletedAt: null
         }).sort({ createdAt: -1 }).limit(50).lean();
 
         if (!interest || !interest.interestVector || interest.interestVector.length === 0) {
@@ -46,10 +51,18 @@ async function getRecommendedPosts(userId) {
 
 async function getRecommendedUsers(userId) {
     try {
+        // FIX: Cast userId string to ObjectId for proper $ne comparison
+        let selfObjectId;
+        try { selfObjectId = new mongoose.Types.ObjectId(userId); } catch { selfObjectId = null; }
+
         const interest = await UserInterest.findOne({ userId }).lean();
         if (!interest || !interest.topCategories.length) {
             // Fallback: Suggest active users
-            return await User.find({ _id: { $ne: userId }, isBanned: false })
+            return await User.find({
+                ...(selfObjectId ? { _id: { $ne: selfObjectId } } : {}),
+                isBanned: false,
+                deletedAt: null
+            })
                 .sort({ lastSeen: -1 })
                 .limit(5)
                 .select('fullname username profile_picture isOnline')
@@ -58,8 +71,9 @@ async function getRecommendedUsers(userId) {
 
         // Find users with overlapping top categories
         const suggested = await User.find({
-            _id: { $ne: userId },
-            isBanned: false
+            ...(selfObjectId ? { _id: { $ne: selfObjectId } } : {}),
+            isBanned: false,
+            deletedAt: null
         })
             .limit(20)
             .select('fullname username profile_picture isOnline')
@@ -80,7 +94,9 @@ async function getSimilarPosts(postId) {
         const similar = await Post.find({
             _id: { $ne: postId },
             category: targetPost.category,
-            isAnonymous: { $ne: true }
+            isAnonymous: { $ne: true },
+            isVisible: { $ne: false },
+            deletedAt: null
         }).sort({ createdAt: -1 }).limit(10)
             .select('_id caption image_urls video videoThumbnail category user createdAt')
             .lean();
@@ -97,6 +113,8 @@ async function getPersonalizedTrending(userId) {
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         return await Post.find({
             isAnonymous: { $ne: true },
+            isVisible: { $ne: false },
+            deletedAt: null,
             createdAt: { $gte: sevenDaysAgo }
         }).sort({ score: -1, views: -1 }).limit(10)
             .select('_id caption image_urls video videoThumbnail category user createdAt score views')
@@ -110,6 +128,10 @@ async function getPersonalizedTrending(userId) {
 async function getPersonalizedSearch(userId, q, restrictedIds = []) {
     try {
         if (!q) return [];
+        // FIX: restrictedIds are strings — cast to ObjectIds for proper $nin matching against user._id (ObjectId)
+        const restrictedObjectIds = restrictedIds
+            .map(id => { try { return new mongoose.Types.ObjectId(id); } catch { return null; } })
+            .filter(Boolean);
         // Basic keyword search with privacy filter
         return await Post.find({
             $or: [
@@ -117,8 +139,9 @@ async function getPersonalizedSearch(userId, q, restrictedIds = []) {
                 { category: { $regex: q, $options: 'i' } },
                 { tags: { $in: [new RegExp(q, 'i')] } }
             ],
-            "user._id": { $nin: restrictedIds },
+            "user._id": { $nin: restrictedObjectIds },
             isAnonymous: { $ne: true },
+            isVisible: { $ne: false },
             deletedAt: null
         }).sort({ createdAt: -1 }).limit(20).lean();
     } catch (err) {
