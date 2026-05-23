@@ -623,16 +623,17 @@ router.get("/", async (req, res) => {
                 const oneDayAgo = new Date();
                 oneDayAgo.setDate(oneDayAgo.getDate() - 2); // Older than 2 days
 
+                // FIX: Two $or keys in the same JS object silently overwrite each other.
+                // Both conditions are combined using $and to ensure both constraints apply.
                 const oldPicsQuery = {
                     isAnonymous: { $ne: true },
                     deletedAt: null,
                     isVisible: { $ne: false },
                     'user._id': { $nin: excludedUserIds.filter(id => id && id.length === 24).map(id => new mongoose.Types.ObjectId(id)) },
-                    $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
                     createdAt: { $lt: oneDayAgo },
-                    $or: [
-                        { image_url: { $ne: null, $ne: "" } },
-                        { image_urls: { $exists: true, $ne: [] } }
+                    $and: [
+                        { $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }] },
+                        { $or: [{ image_url: { $ne: null } }, { image_urls: { $exists: true, $ne: [] } }] }
                     ]
                 };
 
@@ -800,9 +801,25 @@ router.get("/", async (req, res) => {
 
         // Fetch fresh presence for all users in the feed (excluding anonymous dummy)
         const uniqueUserIds = [...new Set(slicedResult.map(p => p.user && p.user._id ? p.user._id.toString() : null).filter(id => id && id !== "600000000000000000000000"))];
-        const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
         const presenceMap = {};
-        usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
+        if (redis.status !== 'disabled' && uniqueUserIds.length > 0) {
+            try {
+                const presenceValues = await redis.hmget('online_users', uniqueUserIds);
+                uniqueUserIds.forEach((uid, index) => {
+                    presenceMap[uid] = !!presenceValues[index];
+                });
+            } catch (err) {
+                console.error('[Presence Redis Error]', err);
+            }
+        }
+        if (Object.keys(presenceMap).length === 0 && uniqueUserIds.length > 0) {
+            try {
+                const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
+                usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
+            } catch (err) {
+                console.error('[Presence DB Fallback Error]', err);
+            }
+        }
 
         // Attach presence to results
         const resultWithPresence = slicedResult.map(p => {
@@ -873,23 +890,15 @@ router.get("/user/:userId", [
 
         const limit = parseInt(req.query.limit) || 9;
         const cursor = req.query.cursor;
+        const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
         // Show all posts where user is owner OR an accepted collaborator
         const query = {
             $or: [
-                { 'user._id': ownerId },
-                { 'user._id': new mongoose.Types.ObjectId(ownerId) },
+                { 'user._id': ownerObjectId },
                 {
                     collaborators: {
                         $elemMatch: {
-                            userId: ownerId,
-                            status: 'accepted'
-                        }
-                    }
-                },
-                {
-                    collaborators: {
-                        $elemMatch: {
-                            userId: new mongoose.Types.ObjectId(ownerId),
+                            userId: ownerObjectId,
                             status: 'accepted'
                         }
                     }
@@ -902,9 +911,13 @@ router.get("/user/:userId", [
         if (cursor) {
             const decoded = decodeCursor(cursor);
             if (decoded) {
-                query.$or = [
-                    { createdAt: { $lt: decoded.date } },
-                    { createdAt: decoded.date, _id: { $lt: decoded.id } }
+                query.$and = [
+                    {
+                        $or: [
+                            { createdAt: { $lt: decoded.date } },
+                            { createdAt: decoded.date, _id: { $lt: decoded.id } }
+                        ]
+                    }
                 ];
             }
         }
@@ -944,13 +957,14 @@ router.get("/public/user/:userId", [
 
         // Strict limit of 9 posts for logged-out users, no pagination
         const limit = 9;
+        const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
         const query = {
             $or: [
-                { 'user._id': ownerId },
+                { 'user._id': ownerObjectId },
                 {
                     collaborators: {
                         $elemMatch: {
-                            userId: ownerId,
+                            userId: ownerObjectId,
                             status: 'accepted'
                         }
                     }
@@ -1003,17 +1017,23 @@ router.post("/save", verifyToken, [
     try {
         const { postId } = req.body;
         const userId = req.userId;
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found.' });
-        const alreadySaved = (user.savedPosts || []).some(id => id.toString() === postId);
-        if (alreadySaved) {
-            await User.findByIdAndUpdate(userId, { $pull: { savedPosts: postId } });
+        
+        // Use atomic findOneAndUpdate to pull the post from savedPosts
+        const updatedUser = await User.findOneAndUpdate(
+            { _id: userId, savedPosts: postId },
+            { $pull: { savedPosts: postId } },
+            { new: true, select: '_id' }
+        );
+
+        if (updatedUser) {
             return res.status(200).json({ saved: false });
         } else {
-            await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
+            // Not saved yet, add it
+            const userExists = await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
+            if (!userExists) return res.status(404).json({ message: 'User not found.' });
 
             // ✅ Publish recommendation event
-            const post = await Post.findById(postId).select('category tags');
+            const post = await Post.findById(postId).select('category tags').lean();
             if (post) {
                 await publishEvent("user.activity.save", {
                     userId,
@@ -1118,6 +1138,16 @@ router.post("/react", verifyToken, [
 // ─── PULSE / TRENDING ────────────────────────────────────────────────────────
 router.get("/trending", async (req, res) => {
     try {
+        const cacheKey = 'cache:trending';
+        if (redis.status !== 'disabled') {
+            try {
+                const cached = await redis.get(cacheKey);
+                if (cached) return res.status(200).json(JSON.parse(cached));
+            } catch (err) {
+                console.error('[Trending Cache Error]', err);
+            }
+        }
+
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
         // 1. Trending Categories
@@ -1128,12 +1158,12 @@ router.get("/trending", async (req, res) => {
             { $limit: 8 }
         ]);
 
-        // 2. Trending Hashtags (Manual extraction from captions)
+        // 2. Trending Hashtags (Manual extraction from captions) - Limit 500 & Lean
         const postsWithHashtags = await Post.find({
             createdAt: { $gte: sevenDaysAgo },
             isAnonymous: { $ne: true },
             caption: { $regex: /#/ }
-        }).select('caption');
+        }).select('caption').limit(500).lean();
 
         const hashtagMap = {};
         postsWithHashtags.forEach(p => {
@@ -1154,7 +1184,7 @@ router.get("/trending", async (req, res) => {
         ]);
 
         const topUserIds = topUsersAgg.map(u => u._id);
-        const topUsersInfo = await User.find({ _id: { $in: topUserIds } }).select('fullname username profile_picture followers isOnline');
+        const topUsersInfo = await User.find({ _id: { $in: topUserIds } }).select('fullname username profile_picture followers isOnline').lean();
 
         const topUsers = topUsersAgg.map(u => {
             const info = topUsersInfo.find(ui => ui._id.toString() === u._id.toString());
@@ -1164,7 +1194,17 @@ router.get("/trending", async (req, res) => {
             };
         });
 
-        res.status(200).json({ categories, hashtags, topUsers });
+        const result = { categories, hashtags, topUsers };
+
+        if (redis.status !== 'disabled') {
+            try {
+                await redis.set(cacheKey, JSON.stringify(result), 'EX', 600); // 10 minutes cache
+            } catch (err) {
+                console.error('[Trending Cache Set Error]', err);
+            }
+        }
+
+        res.status(200).json(result);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -1177,28 +1217,27 @@ router.post("/like", verifyToken, [
         const { postId } = req.body;
         const userId = req.userId;
         if (!postId) return res.status(400).json({ message: 'PostId required.' });
-        const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ message: 'Post not found.' });
 
-        const alreadyLiked = (post.likes || []).some(id => id.toString() === userId.toString());
-        if (!alreadyLiked) {
-            // Use atomic findOneAndUpdate to prevent race conditions and duplicate likes
-            // Also ensure reactions are unique by userId
-            const updatedPost = await Post.findOneAndUpdate(
-                { _id: postId, likes: { $ne: userId } },
-                {
-                    $addToSet: { likes: userId },
-                    $push: { reactions: { userId, emoji: '❤️' } }
-                },
-                { new: true }
-            );
+        // Atomic update first
+        const updatedPost = await Post.findOneAndUpdate(
+            { _id: postId, likes: { $ne: userId } },
+            {
+                $addToSet: { likes: userId },
+                $push: { reactions: { userId, emoji: '❤️' } }
+            },
+            { new: true }
+        );
 
-            if (!updatedPost) {
-                return res.status(400).json({ message: "Already liked." });
-            }
+        if (!updatedPost) {
+            // Check if post exists or if it's already liked
+            const postExists = await Post.exists({ _id: postId });
+            if (!postExists) return res.status(404).json({ message: 'Post not found.' });
+            return res.status(400).json({ message: 'Already liked.' });
+        }
 
-            updatedPost.score = computeScore(updatedPost);
-            await updatedPost.save();
+        const newScore = computeScore(updatedPost);
+        await Post.updateOne({ _id: postId }, { $set: { score: newScore } });
+        updatedPost.score = newScore;
 
             // ✅ Broadcast like update to all connected users
             if (_io) _io.emit('postLiked', { postId, userId, likesCount: updatedPost.likes.length });
@@ -1227,7 +1266,6 @@ router.post("/like", verifyToken, [
             });
 
             res.status(200).json({ success: true, post: updatedPost });
-        } else { res.status(400).json({ message: "Already liked." }); }
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -1240,35 +1278,32 @@ router.post("/unlike", verifyToken, [
         const { postId } = req.body;
         const userId = req.userId;
         if (!postId) return res.status(400).json({ message: 'PostId required.' });
-        const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ message: 'Post not found.' });
 
-        const alreadyLiked = (post.likes || []).some(id => id.toString() === userId.toString());
-        if (alreadyLiked) {
-            // Use atomic findOneAndUpdate to prevent race conditions and ensure clean removal
-            const updatedPost = await Post.findOneAndUpdate(
-                { _id: postId },
-                {
-                    $pull: {
-                        likes: userId,
-                        reactions: { userId: userId }
-                    }
-                },
-                { new: true }
-            );
+        // Atomic update first
+        const updatedPost = await Post.findOneAndUpdate(
+            { _id: postId, likes: userId },
+            {
+                $pull: {
+                    likes: userId,
+                    reactions: { userId: userId }
+                }
+            },
+            { new: true }
+        );
 
-            if (updatedPost) {
-                updatedPost.score = computeScore(updatedPost);
-                await updatedPost.save();
+        if (updatedPost) {
+            const newScore = computeScore(updatedPost);
+            await Post.updateOne({ _id: postId }, { $set: { score: newScore } });
+            updatedPost.score = newScore;
 
-                // ✅ Broadcast unlike update to all connected users
-                if (_io) _io.emit('postUnliked', { postId, userId, likesCount: updatedPost.likes.length });
+            // ✅ Broadcast unlike update to all connected users
+            if (_io) _io.emit('postUnliked', { postId, userId, likesCount: updatedPost.likes.length });
 
-                res.status(200).json({ success: true, post: updatedPost });
-            } else {
-                res.status(404).json({ message: "Post not found during update." });
-            }
+            res.status(200).json({ success: true, post: updatedPost });
         } else {
+            // Check if post exists or if it was already unliked
+            const post = await Post.findById(postId);
+            if (!post) return res.status(404).json({ message: 'Post not found.' });
             // Return success even if not liked — for optimistic UI robustness
             res.status(200).json({ success: true, message: "Already unliked.", post });
         }
@@ -1283,7 +1318,7 @@ router.get("/categories", async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-router.get('/comments', [
+router.get('/comments', softVerifyToken, [
     query('postId').isMongoId().withMessage('Invalid post ID'),
     validate
 ], async (req, res) => {
@@ -1296,18 +1331,7 @@ router.get('/comments', [
         if (!post) return res.status(404).json({ error: 'Post not found' });
 
         // Extract viewerId
-        let viewerId = null;
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.split(' ')[1];
-            try {
-                const hashedToken = hashValue(token);
-                const session = await LoginSession.findOne({ accessToken: hashedToken });
-                if (session && !session.isRevoked && session.expiresAt > new Date()) {
-                    viewerId = session.userId;
-                }
-            } catch (err) { /* ignore */ }
-        }
+        const viewerId = req.userId;
 
         const ownerId = post.user._id.toString();
         const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
@@ -1558,10 +1582,13 @@ router.post("/:postId/block-author", verifyToken, [
             return res.status(400).json({ error: 'Cannot block yourself' });
         }
 
-        await User.findByIdAndUpdate(req.userId, { $addToSet: { blockedUsers: targetUserId } });
-        // Also unfollow automatically when blocking
-        await User.findByIdAndUpdate(req.userId, { $pull: { following: targetUserId } });
-        await User.findByIdAndUpdate(targetUserId, { $pull: { followers: req.userId } });
+        await Promise.all([
+            User.findByIdAndUpdate(req.userId, {
+                $addToSet: { blockedUsers: targetUserId },
+                $pull: { following: targetUserId }
+            }),
+            User.findByIdAndUpdate(targetUserId, { $pull: { followers: req.userId } })
+        ]);
 
         res.status(200).json({ message: 'User blocked' });
     } catch (e) {

@@ -116,10 +116,19 @@ router.get("/posts", verifyToken, async (req, res) => {
 
         // ── Step 4: Fetch candidate posts ─────────────────────────────────────
         console.log(`${_tag} [4] Fetching candidate posts (limit=100)...`);
-        const restrictedObjectIds = privateUserIds.map(id => new mongoose.Types.ObjectId(id));
+        // FIX: MongoDB ignores $ne when $nin is present on the same field path.
+        // Merge userId (as ObjectId) into the $nin array to correctly exclude self + restricted users.
+        let selfObjectId;
+        try { selfObjectId = new mongoose.Types.ObjectId(userId); } catch { selfObjectId = null; }
+        const restrictedObjectIds = privateUserIds
+            .map(id => { try { return new mongoose.Types.ObjectId(id); } catch { return null; } })
+            .filter(Boolean);
+        if (selfObjectId) restrictedObjectIds.push(selfObjectId);
+
         const candidates = await Post.find({
-            "user._id": { $ne: userId, $nin: restrictedObjectIds },
+            "user._id": { $nin: restrictedObjectIds },
             isAnonymous: { $ne: true },
+            isVisible: { $ne: false },
             deletedAt: null
         })
             .sort({ createdAt: -1 })
@@ -151,6 +160,7 @@ router.get("/posts", verifyToken, async (req, res) => {
 
         // ── Step 6: Rank by cosine similarity + recency + popularity ──────────
         console.log(`${_tag} [6] Ranking candidates...`);
+        const rankStart = Date.now();
         const userVec = interest.interestVector;
         const userMag = Math.sqrt(userVec.reduce((sum, val) => sum + val * val, 0));
 
@@ -169,7 +179,7 @@ router.get("/posts", verifyToken, async (req, res) => {
             return { ...post, score }; // Embed score directly
         });
         ranked.sort((a, b) => b.score - a.score);
-        console.log(`${_tag} [6] ✅ Ranked ${ranked.length} posts`);
+        console.log(`${_tag} [6] ✅ Ranked ${ranked.length} posts in ${Date.now() - rankStart}ms`);
 
         const result = limitConsecutiveUserPosts(ranked.slice(0, 30), 2);
         const elapsed = Date.now() - _t0;
@@ -322,10 +332,13 @@ router.get("/similar/:postId", verifyToken, [
                     { $unwind: "$post" },
                     {
                         $match: {
-                            "post._id": { $ne: new mongoose.Types.ObjectId(postId) },
-                            "post.user._id": { $nin: restrictedUserIds.map(id => new mongoose.Types.ObjectId(id)) },
+                            // FIX: use $nin to exclude both self + restricted. $ne + $nin on same key silently drops $ne.
+                            "post._id": { $nin: [new mongoose.Types.ObjectId(postId)] },
+                            "post.user._id": { $nin: restrictedUserIds.map(id => { try { return new mongoose.Types.ObjectId(id); } catch { return null; } }).filter(Boolean) },
                             "post.isAnonymous": { $ne: true },
-                            "post.deletedAt": null
+                            "post.isVisible": { $ne: false },
+                            // FIX: In aggregation $match, use $in: [null] to match null or missing deletedAt
+                            "post.deletedAt": { $in: [null] }
                         }
                     },
                     { $limit: 15 },
@@ -424,10 +437,20 @@ router.get("/trending", verifyToken, async (req, res) => {
         const { getRestrictedUserIds } = require("../utils/privacy");
         const restrictedIds = await getRestrictedUserIds(userId);
 
+        // FIX: cast restrictedIds strings to ObjectIds for proper $nin matching
+        const restrictedObjIds = restrictedIds
+            .map(id => { try { return new mongoose.Types.ObjectId(id); } catch { return null; } })
+            .filter(Boolean);
+        // Also exclude logged-in user's own posts from trending
+        let selfObjId;
+        try { selfObjId = new mongoose.Types.ObjectId(userId); } catch { selfObjId = null; }
+        if (selfObjId) restrictedObjIds.push(selfObjId);
+
         const posts = await Post.find({
             isAnonymous: { $ne: true },
+            isVisible: { $ne: false },
             deletedAt: null,
-            "user._id": { $nin: restrictedIds },
+            "user._id": { $nin: restrictedObjIds },
             createdAt: { $gte: sevenDaysAgo }
         })
             .sort({ score: -1, createdAt: -1 })

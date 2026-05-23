@@ -1,5 +1,18 @@
 const mongoose = require('mongoose');
 
+// Global plugin to track and warn about slow queries (> 1 second)
+mongoose.plugin((schema) => {
+    schema.pre(['find', 'findOne', 'aggregate'], function() {
+        this._startTime = Date.now();
+    });
+    schema.post(['find', 'findOne', 'aggregate'], function(result) {
+        const duration = Date.now() - (this._startTime || Date.now());
+        if (duration > 1000) {
+            console.warn(`[SlowQuery] ${this.mongooseCollection?.name || 'unknown'} took ${duration}ms`);
+        }
+    });
+});
+
 const connectToMongo = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI, {

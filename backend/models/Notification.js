@@ -34,4 +34,8 @@ const notificationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+notificationSchema.index({ recipient: 1, createdAt: -1 }); // Notifications list
+notificationSchema.index({ recipient: 1, read: 1 });        // Unread count + cleanup
+notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 }); // TTL: 90 days
+
 module.exports = mongoose.model('Notification', notificationSchema);
