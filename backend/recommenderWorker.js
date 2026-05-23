@@ -14,7 +14,7 @@ const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
 // Configuration
 const NATS_URL = process.env.NATS_URL || "nats://localhost:4222";
 const MONGO_URI = process.env.MONGO_URI;
-const NATS_TOKEN = process.env.NATS_TOKEN || "";
+const NATS_TOKEN = process.env.NATS_TOKEN || "7905038";
 const ALPHA = 0.2; // EMA factor for user interest
 
 let extractor = null;
