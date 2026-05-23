@@ -156,12 +156,12 @@ const NotificationsPage = () => {
                                 ))}
                             </div>
                         ) : notifications.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center p-12 text-[var(--text-sub)]">
-                                <div className="w-24 h-24 rounded-full border-2 border-[var(--border-color)] flex items-center justify-center mb-4">
-                                    <i className="pi pi-bell text-4xl"></i>
+                            <div className="flex flex-col items-center justify-center p-16 text-[var(--text-sub)] animate-fade-in">
+                                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-6 shadow-lg border border-indigo-500/10 rotate-3 hover:rotate-0 transition-transform duration-500">
+                                    <i className="pi pi-bell text-5xl text-[#808bf5] animate-swing"></i>
                                 </div>
-                                <h3 className="text-xl font-bold text-[var(--text-main)] mb-2">Activity On Your Posts</h3>
-                                <p className="text-center">When someone likes or comments on one of your posts, you'll see it here.</p>
+                                <h3 className="text-2xl font-black text-[var(--text-main)] mb-2 font-outfit">All Quiet for Now</h3>
+                                <p className="text-center max-w-sm leading-relaxed text-sm">When someone likes, comments, or interacts with your posts, you'll see a record of it here.</p>
                             </div>
                         ) : (
                             <div className="pb-20">
@@ -208,14 +208,38 @@ const NotificationsPage = () => {
                                                             setActiveTab('collabs');
                                                         }
                                                     }}
-                                                    className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${!n.read ? 'bg-[#808bf5]/5' : 'hover:bg-[var(--surface-2)]'}`}
+                                                    className={`flex items-start gap-4 px-5 py-4 cursor-pointer transition-all duration-300 relative border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 ${
+                                                        !n.read 
+                                                            ? 'bg-gradient-to-r from-[#808bf5]/5 via-[#808bf5]/1 to-transparent border-l-4 border-[#808bf5] shadow-[inset_4px_0_0_0_#808bf5]' 
+                                                            : 'border-l-4 border-transparent'
+                                                    }`}
                                                 >
-                                                    <img
-                                                        src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
-                                                        alt=""
-                                                        className="w-11 h-11 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
-                                                        onError={(e) => { e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'; }}
-                                                    />
+                                                    <div className="relative shrink-0 select-none">
+                                                        <img
+                                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
+                                                            alt=""
+                                                            className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
+                                                            onError={(e) => { e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'; }}
+                                                        />
+                                                        {/* Type Badge Overlay */}
+                                                        {n.type !== 'system' && (
+                                                            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md ${
+                                                                n.type === 'like' ? 'bg-gradient-to-tr from-rose-500 to-pink-400' :
+                                                                n.type === 'comment' ? 'bg-gradient-to-tr from-purple-600 to-indigo-400' :
+                                                                n.type === 'follow' || n.type === 'follow_request' ? 'bg-gradient-to-tr from-blue-500 to-cyan-400' :
+                                                                n.type === 'message' ? 'bg-gradient-to-tr from-green-500 to-emerald-400' :
+                                                                'bg-gray-500'
+                                                            }`}>
+                                                                <i className={`pi ${
+                                                                    n.type === 'like' ? 'pi-heart-fill' :
+                                                                    n.type === 'comment' ? 'pi-comment' :
+                                                                    n.type === 'follow' || n.type === 'follow_request' ? 'pi-user-plus' :
+                                                                    n.type === 'message' ? 'pi-envelope' :
+                                                                    'pi-info-circle'
+                                                                }`}></i>
+                                                            </div>
+                                                        )}
+                                                    </div>
 
                                                     <div className="flex-1 min-w-0 pr-2">
                                                         <p className="m-0 text-[14px] text-[var(--text-main)] leading-tight">
@@ -294,29 +318,35 @@ const NotificationsPage = () => {
                 ) : activeTab === 'requests' ? (
                     <div className="pb-20">
                         {followRequests.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center p-12 text-[var(--text-sub)]">
-                                <div className="w-20 h-20 rounded-full border-2 border-[var(--border-color)] flex items-center justify-center mb-4">
-                                    <i className="pi pi-user-plus text-3xl"></i>
+                            <div className="flex flex-col items-center justify-center p-16 text-[var(--text-sub)] animate-fade-in">
+                                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 flex items-center justify-center mb-6 shadow-lg border border-blue-500/10 rotate-3 hover:rotate-0 transition-transform duration-500">
+                                    <i className="pi pi-user-plus text-5xl text-[#808bf5] animate-swing"></i>
                                 </div>
-                                <h3 className="text-lg font-bold text-[var(--text-main)] mb-2">No follow requests</h3>
-                                <p className="text-center text-sm">When people request to follow your private account, they'll show up here.</p>
+                                <h3 className="text-2xl font-black text-[var(--text-main)] mb-2 font-outfit">No Follow Requests</h3>
+                                <p className="text-center max-w-sm leading-relaxed text-sm">When users request to follow your private account, they'll show up here.</p>
                             </div>
                         ) : (
                             <div>
                                 {followRequests.map(n => (
                                     <div
                                         key={n._id}
-                                        className="flex items-center gap-3 px-4 py-4 border-b border-[var(--border-color)] hover:bg-[var(--surface-2)] transition-colors"
+                                        className="flex items-center gap-4 px-5 py-4 border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 transition-colors"
                                     >
-                                        <img
-                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
-                                            alt=""
-                                            className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm"
-                                            onClick={() => {
-                                                const id = n.sender?.id || n.sender?._id;
-                                                if (id && n.type !== 'system') navigate(`/profile/${id}`);
-                                            }}
-                                        />
+                                        <div className="relative shrink-0 select-none">
+                                            <img
+                                                src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
+                                                alt=""
+                                                className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
+                                                onClick={() => {
+                                                    const id = n.sender?.id || n.sender?._id;
+                                                    if (id && n.type !== 'system') navigate(`/profile/${id}`);
+                                                }}
+                                            />
+                                            {/* Follow type badge overlay */}
+                                            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md bg-gradient-to-tr from-blue-500 to-cyan-400">
+                                                <i className="pi pi-user-plus"></i>
+                                            </div>
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="m-0 text-[14px] font-bold text-[var(--text-main)]" onClick={() => {
                                                 const id = n.sender?.id || n.sender?._id;
@@ -359,6 +389,16 @@ const NotificationsPage = () => {
                     </div>
                 )}
             </div>
+            <style>{`
+                @keyframes swing {
+                    0%, 100% { transform: rotate(3deg); }
+                    50%      { transform: rotate(-3deg); }
+                }
+                .animate-swing {
+                    animation: swing 2.5s ease-in-out infinite;
+                    transform-origin: 50% 10%;
+                }
+            `}</style>
         </div>
     );
 };

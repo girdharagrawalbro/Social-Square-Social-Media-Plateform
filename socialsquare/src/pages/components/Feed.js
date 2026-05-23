@@ -2,6 +2,7 @@ import React, {
     useEffect, useRef, useState, useMemo, useCallback
 } from "react";
 import { useInView } from 'react-intersection-observer';
+import { useNavigate } from 'react-router-dom';
 import SkeletonPost from './ui/SkeletonPost';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
@@ -244,6 +245,7 @@ const useActivityTracker = () => {
 // ─── FEED ─────────────────────────────────────────────────────────────────────
 
 const Feed = ({ activeMood = null }) => {
+    const navigate = useNavigate();
     const user = useAuthStore(s => s.user);
     const { isDark } = useDarkMode();
 
@@ -551,7 +553,7 @@ const feedQuery = useFeed(user?._id);
                                 />
                             ))
                         ) : (
-                            <EmptyFeed activeMood={activeMood} isDark={isDark} />
+                            <EmptyFeed activeMood={activeMood} isDark={isDark} onExplore={() => navigate('/explore')} />
                         )}
 
                         {/* Infinite scroll sentinel */}
@@ -659,7 +661,7 @@ const feedQuery = useFeed(user?._id);
 
 // ─── EMPTY STATE ──────────────────────────────────────────────────────────────
 
-const EmptyFeed = React.memo(({ activeMood, isDark }) => (
+const EmptyFeed = React.memo(({ activeMood, isDark, onExplore }) => (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
         <div className={`relative w-24 h-24 mb-6 flex items-center justify-center rounded-3xl rotate-12 transition-transform hover:rotate-0 duration-500 ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-gray-50 border-gray-100'} border-2 shadow-xl`}>
             <span className="text-5xl animate-bounce">📬</span>
@@ -675,7 +677,7 @@ const EmptyFeed = React.memo(({ activeMood, isDark }) => (
             }
         </p>
         <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            onClick={onExplore}
             className="px-6 py-2.5 rounded-2xl bg-[#808bf5] text-white font-bold text-sm shadow-lg shadow-indigo-200 hover:scale-105 transition-all cursor-pointer border-0"
         >
             Explore Trends
