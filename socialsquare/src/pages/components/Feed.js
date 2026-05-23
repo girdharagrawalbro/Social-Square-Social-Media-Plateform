@@ -25,8 +25,6 @@ import {
     useBlockUser, useUnblockUser
 } from '../../hooks/queries/useAuthQueries';
 import { PostItem } from "./ui/PostItem";
-import { useInfiniteQuery } from "@tanstack/react-query";
-
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -80,10 +78,15 @@ const limitConsecutive = (posts, maxConsecutive = 2) => {
     let streak = 0;
 
     while (remaining.length > 0) {
-        let idx = remaining.findIndex((p) => {
+        let idx = -1;
+        for (let i = 0; i < remaining.length; i++) {
+            const p = remaining[i];
             const uid = getUid(p);
-            return uid !== lastUid || streak < maxConsecutive;
-        });
+            if (uid !== lastUid || streak < maxConsecutive) {
+                idx = i;
+                break;
+            }
+        }
 
         if (idx === -1) {
             // Can't interleave further — append rest to avoid dropping content
@@ -257,7 +260,8 @@ const Feed = ({ activeMood = null }) => {
     const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
 
     // ── Queries ──────────────────────────────────────────────────────────────
-const feedQuery = useFeed(user?._id);
+    const feedQuery = useFeed(user?._id);
+    const { hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = feedQuery;
     const recommendedQuery = useRecommendedPosts(user?._id);
     const moodQuery = useMoodFeed(activeMood || user?.preferredMood || '', user?._id);
 
@@ -316,22 +320,26 @@ const feedQuery = useFeed(user?._id);
     const { ref: loaderRef, inView } = useInView({ threshold: 0.1 });
 
     useEffect(() => {
-        if (inView && !activeMood && feedQuery.hasNextPage && !feedQuery.isFetchingNextPage) {
-            feedQuery.fetchNextPage();
+        if (inView && !activeMood && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
         }
-    }, [inView, activeMood, feedQuery.hasNextPage, feedQuery.isFetchingNextPage, feedQuery.fetchNextPage]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [inView, activeMood, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     // Refetch on tab focus / visibility
     useEffect(() => {
         if (activeMood) return;
-        const refetch = () => feedQuery.refetch();
-        document.addEventListener('visibilitychange', refetch);
-        window.addEventListener('focus', refetch);
-        return () => {
-            document.removeEventListener('visibilitychange', refetch);
-            window.removeEventListener('focus', refetch);
+        const handleRefetch = () => {
+            refetch();
         };
-    }, [activeMood, feedQuery.refetch]);
+        document.addEventListener('visibilitychange', handleRefetch);
+        window.addEventListener('focus', handleRefetch);
+        return () => {
+            document.removeEventListener('visibilitychange', handleRefetch);
+            window.removeEventListener('focus', handleRefetch);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeMood, refetch]);
 
     // ── Activity tracking ────────────────────────────────────────────────────
     const track = useActivityTracker();
