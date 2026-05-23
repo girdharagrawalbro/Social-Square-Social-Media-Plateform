@@ -89,6 +89,28 @@ const Feed = ({ activeMood = null }) => {
         }
     }, [inView, activeMood, feedQuery]);
 
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && !activeMood) {
+                feedQuery.refetch();
+            }
+        };
+
+        const handleFocus = () => {
+            if (!activeMood) {
+                feedQuery.refetch();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [feedQuery, activeMood]);
+
     // Merge pages + socket posts
     const serverPosts = useMemo(() => feedQuery.data?.pages?.flatMap(p => p.posts) || [], [feedQuery.data?.pages]);
     const moodPosts = useMemo(() => (moodQuery.data || []).map(p => ({ ...p, isMoodMatch: true })), [moodQuery.data]);

@@ -33,21 +33,38 @@ export function useFeed(userId) {
                 if (cached) return cached;
             }
 
-            const params = new URLSearchParams({ limit: '10' });
-            if (pageParam) params.append('cursor', pageParam);
-            if (userId) params.append('userId', userId);
-            const res = await api.get(`/api/post/?${params}`);
+            try {
+                const res = await api.get(`/api/recommendation/posts`);
+                
+                // Transform recommendation response to match feed format
+                const transformedData = {
+                    posts: res.data.items || res.data.posts || [],
+                    nextCursor: null,
+                    hasMore: false,
+                    isColdStart: res.data.isColdStart || false,
+                    isFallback: res.data.isFallback || false
+                };
 
-            // ✅ UPDATE CACHE
-            if (!pageParam && Capacitor.isNativePlatform() && res.data) {
-                cacheService.set(`feed_${userId}`, res.data);
+                if (!pageParam && Capacitor.isNativePlatform()) {
+                    cacheService.set(`feed_${userId}`, transformedData);
+                }
+
+                return transformedData;
+            } catch (err) {
+                // Fallback to basic feed if recommendation service fails
+                console.warn('Recommendation feed failed, falling back to basic feed:', err.message);
+                const params = new URLSearchParams({ limit: '10' });
+                if (userId) params.append('userId', userId);
+                const res = await api.get(`/api/post/?${params}`);
+                return res.data;
             }
-
-            return res.data; // { posts, nextCursor, hasMore }
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
-        staleTime: 1000 * 60 * 2, // 2 minutes
+        staleTime: 1000 * 30, 
+        gcTime: 1000 * 60 * 5, 
         enabled: initialized && !!userId,
+        refetchOnWindowFocus: true,
+        refetchOnMount: 'stale', 
     });
 }
 
