@@ -1,5 +1,6 @@
 const { Queue, Worker } = require('bullmq');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const redis = require('../lib/redis');
 
 const isRedisDisabled = process.env.DISABLE_REDIS === 'true';
@@ -56,6 +57,7 @@ if (!isRedisDisabled) {
             ]);
 
             let totalCapped = 0;
+            const bulkOps = [];
             for (const user of usersToCleanup) {
                 const thresholdDoc = await Notification.find({ recipient: user._id, read: true })
                     .sort({ createdAt: -1 })
@@ -65,19 +67,25 @@ if (!isRedisDisabled) {
                     .lean();
 
                 if (thresholdDoc.length > 0) {
-                    const result = await Notification.deleteMany({
-                        recipient: user._id,
-                        read: true,
-                        createdAt: { $lte: thresholdDoc[0].createdAt }
+                    bulkOps.push({
+                        deleteMany: {
+                            filter: {
+                                recipient: user._id,
+                                read: true,
+                                createdAt: { $lte: thresholdDoc[0].createdAt }
+                            }
+                        }
                     });
-                    totalCapped += result.deletedCount;
                 }
+            }
+            if (bulkOps.length > 0) {
+                const bulkResult = await Notification.bulkWrite(bulkOps);
+                totalCapped = bulkResult.deletedCount || 0;
             }
             console.log(`[Cleanup] Capped excess read notifications for ${usersToCleanup.length} users. Total deleted: ${totalCapped}`);
 
             // 3. Expire old follow requests (older than 30 days)
             const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-            const User = require('../models/User'); // Lazy load
             const expiredRequests = await User.updateMany(
                 { 'followRequests.requestedAt': { $lt: thirtyDaysAgo } },
                 { $pull: { followRequests: { requestedAt: { $lt: thirtyDaysAgo } } } }

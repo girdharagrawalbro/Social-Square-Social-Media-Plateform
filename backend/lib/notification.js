@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 let io;
 
@@ -25,8 +26,7 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
     }
 
     // 🛡️ Safety Guard: Don't notify deleted users
-    const User = require('../models/User');
-    const recipient = await User.findById(recipientId).select('deletedAt').lean();
+    const recipient = await User.findById(recipientId).select('deletedAt fcmToken').lean();
     if (!recipient || recipient.deletedAt) {
       console.warn('[Notification] Skipped: Recipient is deleted or does not exist', { recipientId });
       return null;
@@ -58,10 +58,8 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
     // 2. Send Push Notification via Firebase (Background/Foreground)
     try {
         const { sendPushNotification } = require('../utils/firebase');
-        // Fetch recipient's FCM token
-        const recipientWithToken = await User.findById(recipientId).select('fcmToken').lean();
         
-        if (recipientWithToken?.fcmToken) {
+        if (recipient?.fcmToken) {
             let title = 'Social Square';
             let body = '';
 

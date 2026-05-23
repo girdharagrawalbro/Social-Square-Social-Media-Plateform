@@ -7,7 +7,7 @@ const User = require('../models/User');
  */
 const updateGamification = async (userId, action) => {
     try {
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).select('xp level streak');
         if (!user) return null;
 
         let xpGain = 0;

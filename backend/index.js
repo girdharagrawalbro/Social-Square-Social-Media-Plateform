@@ -90,15 +90,12 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'x-fingerprint', 'x-request-id']
 }));
 
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ Use 'tiny' morgan format — logs 60% less data than 'combined'
-// In production, skip successful health checks entirely
-if (process.env.NODE_ENV !== 'production') {
-    const morgan = require('morgan');
-    app.use(morgan('dev'));
-}
+// Always log requests, using lightweight 'tiny' format in production with timing
+const morgan = require('morgan');
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'tiny' : 'dev'));
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const io = socketIo(server, {
@@ -242,6 +239,7 @@ const socketStrictLimiter = (process.env.DISABLE_REDIS === 'true' || !process.en
     : new RateLimiterRedis({ storeClient: redis, points: 2, duration: 1, keyPrefix: 'socket_strict' });
 
 io.on('connection', (socket) => {
+    console.log(`[Socket] Connected: ${socket.id} from ${socket.handshake.address}`);
     // Middleware to rate limit every incoming event
     socket.use(async ([event, ...args], next) => {
         // Whitelist critical/internal events
@@ -350,7 +348,8 @@ io.on('connection', (socket) => {
         if (recipientId) io.to(recipientId).emit('messageReaction', { messageId, conversationId, reactions });
     });
 
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', async (reason) => {
+        console.log(`[Socket] Disconnected: ${socket.id} (${socket.userId || 'unregistered'}) — reason: ${reason}`);
         const userId = socket.userId;
         if (userId) {
             try {
@@ -398,13 +397,25 @@ setInterval(async () => {
 
         if (staleIds.length > 0) {
             console.log(`[Presence] Evicting ${staleIds.length} stale users`);
-            for (const uId of staleIds) {
-                await redis.hdel('online_users', uId);
-                await redis.zrem('presence_heartbeats', uId);
+            
+            // 1. Batch Redis cleanup in a pipeline
+            const pipeline = redis.pipeline();
+            staleIds.forEach(uId => {
+                pipeline.hdel('online_users', uId);
+                pipeline.zrem('presence_heartbeats', uId);
+            });
+            await pipeline.exec();
+
+            // 2. Broadcast offline state
+            staleIds.forEach(uId => {
                 io.emit('userOffline', uId);
-                // Update DB to reflect offline status
-                await User.findByIdAndUpdate(uId, { isOnline: false, lastSeen: new Date() });
-            }
+            });
+
+            // 3. Batch update MongoDB to offline status
+            await User.updateMany(
+                { _id: { $in: staleIds } },
+                { isOnline: false, lastSeen: new Date() }
+            );
         }
     } catch (err) {
         console.error('[Presence Cleanup] Error:', err.message);

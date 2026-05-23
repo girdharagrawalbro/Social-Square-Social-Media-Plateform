@@ -214,13 +214,23 @@ export function useCategories() {
 }
 
 // ─── RECOMMENDATIONS ──────────────────────────────────────────────────────────
+// FIX: useRecommendedPosts previously made a duplicate call to /api/recommendation/posts
+// (the same endpoint as useFeed). We now derive data from the feed query cache to
+// avoid a redundant network request and prevent duplicate posts in the feed assembler.
 export function useRecommendedPosts(userId) {
     const initialized = useAuthStore(s => s.initialized);
+    const qc = useQueryClient();
     return useQuery({
         queryKey: postKeys.recommended(userId),
         queryFn: async () => {
+            // Try to pull from feed cache first (avoids duplicate network request)
+            const feedData = qc.getQueryData(postKeys.feed(userId));
+            if (feedData?.pages?.length) {
+                return feedData.pages.flatMap(p => p.posts) ?? [];
+            }
+            // Fallback: fetch from recommendation endpoint only if feed cache is empty
             const res = await api.get(`/api/recommendation/posts`);
-            return res.data.items;
+            return res.data.items ?? [];
         },
         enabled: initialized && !!userId,
         staleTime: 1000 * 60 * 5,

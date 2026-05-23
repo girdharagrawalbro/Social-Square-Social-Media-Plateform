@@ -23,8 +23,8 @@ async function verifyToken(req, res, next) {
             return res.status(401).json({ message: 'Unauthorized. Session expired.' });
         }
 
-        // Update sliding window TTL safely
-        await LoginSession.updateOne(
+        // Update sliding window TTL safely (non-blocking)
+        LoginSession.updateOne(
             { _id: session._id },
             { 
                 $set: { 
@@ -32,7 +32,7 @@ async function verifyToken(req, res, next) {
                     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
                 } 
             }
-        );
+        ).catch(() => {});
 
         req.userId = session.userId;
         req.family = session.tokenFamily;

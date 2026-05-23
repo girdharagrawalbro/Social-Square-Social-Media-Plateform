@@ -210,8 +210,8 @@ const getRestrictedUserIds = async (userId) => {
         }).select('_id').lean();
 
         const restrictedIds = privateUsers.map(u => u._id.toString());
-        // Cache with short TTL (1 minute) to balance freshness and performance
-        await redis.set(cacheKey, JSON.stringify(restrictedIds), 'EX', 60);
+        // Cache with TTL (5 minutes) to balance freshness and performance
+        await redis.set(cacheKey, JSON.stringify(restrictedIds), 'EX', 300);
         return restrictedIds;
     } catch (err) {
         console.error('[getRestrictedUserIds] Error:', err.message);
