@@ -2,16 +2,10 @@ const express = require('express');
 const router = express.Router();
 const axios = require('../utils/http');
 const verifyToken = require('../middleware/Verifytoken');
-const crypto = require('crypto');
 
 let CLOUDINARY_API_BASE_URL = process.env.CLOUDINARY_API_BASE_URL;
 
 const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL;
-
-// Note: Cloudinary credentials should be in .env for direct signing
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
 /**
  * @route POST /api/media/sign-upload
@@ -23,37 +17,30 @@ router.post('/sign-upload', verifyToken, (req, res) => {
         const timestamp = Math.round(Date.now() / 1000);
         const folder = req.body.folder || `users/${req.userId || 'anonymous'}`;
 
-        if (CLOUDINARY_API_SECRET && CLOUDINARY_API_KEY && CLOUDINARY_CLOUD_NAME) {
-            const params = { timestamp, folder };
-
-            const sortedParams = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join('&');
-            const signature = crypto
-                .createHash('sha1')
-                .update(sortedParams + CLOUDINARY_API_SECRET)
-                .digest('hex');
-
-            return res.json({
-                success: true,
-                signature,
-                timestamp,
-                apiKey: CLOUDINARY_API_KEY,
-                cloudName: CLOUDINARY_CLOUD_NAME,
-                folder,
-            });
-        } else {
-            // Fallback: Ask microservice to generate the signature
-            // This assumes the microservice has the keys
-            return axios.post(`${CLOUDINARY_API_BASE_URL}/sign`, { timestamp, folder })
-                .then(response => res.json({ success: true, ...response.data }))
-                .catch(err => {
-                    console.error('[Cloudinary Sign Error]:', err.response?.data || err.message);
-                    return res.status(500).json({
-                        success: false,
-                        message: 'Signature generation failed',
-                        error: err.response?.data?.message || err.message
-                    });
+        // Ask microservice to generate the signature
+        return axios.post(`${CLOUDINARY_API_BASE_URL}/sign`, { timestamp, folder })
+            .then(response => {
+                const data = response.data || {};
+                // Only forward safe fields from the signing microservice to clients.
+                const safe = {
+                    success: data.success === false ? false : true,
+                    signature: data.signature,
+                    timestamp: data.timestamp,
+                    cloudName: data.cloudName,
+                    apiKey: data.apiKey,
+                    folder: data.folder || folder,
+                    message: data.message
+                };
+                return res.json(safe);
+            })
+            .catch(err => {
+                console.error('[Cloudinary Sign Error]:', err.response?.data || err.message);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Signature generation failed',
+                    error: err.response?.data?.message || err.message
                 });
-        }
+            });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

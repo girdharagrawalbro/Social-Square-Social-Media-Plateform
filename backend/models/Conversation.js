@@ -18,6 +18,28 @@ const conversationSchema = new mongoose.Schema(
       },
     },],
 
+    isGroup: {
+      type: Boolean,
+      default: false,
+    },
+    groupName: {
+      type: String,
+      default: '',
+    },
+    groupAvatar: {
+      type: String,
+      default: '',
+    },
+    groupCreator: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    groupAdmins: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
+
     lastMessage: {
       id: {
         type: mongoose.Schema.Types.ObjectId,
