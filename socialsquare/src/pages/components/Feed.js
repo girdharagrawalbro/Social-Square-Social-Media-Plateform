@@ -261,7 +261,7 @@ const Feed = ({ activeMood = null }) => {
 
     // ── Queries ──────────────────────────────────────────────────────────────
     const feedQuery = useFeed(user?._id);
-    const { hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = feedQuery;
+    const { hasNextPage, isFetchingNextPage, fetchNextPage } = feedQuery;
     const recommendedQuery = useRecommendedPosts(user?._id);
     const moodQuery = useMoodFeed(activeMood || user?.preferredMood || '', user?._id);
 
@@ -326,20 +326,7 @@ const Feed = ({ activeMood = null }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [inView, activeMood, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    // Refetch on tab focus / visibility
-    useEffect(() => {
-        if (activeMood) return;
-        const handleRefetch = () => {
-            refetch();
-        };
-        document.addEventListener('visibilitychange', handleRefetch);
-        window.addEventListener('focus', handleRefetch);
-        return () => {
-            document.removeEventListener('visibilitychange', handleRefetch);
-            window.removeEventListener('focus', handleRefetch);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeMood, refetch]);
+    // Leave refetch behavior to react-query (disabled on-window-focus to avoid frequent calls)
 
     // ── Activity tracking ────────────────────────────────────────────────────
     const track = useActivityTracker();
