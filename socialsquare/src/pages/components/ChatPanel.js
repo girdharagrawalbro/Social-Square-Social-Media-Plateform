@@ -14,6 +14,7 @@ import PostDetail from './PostDetail';
 // import UserProfile from './UserProfile';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
+import { Image } from 'primereact/image';
 import ProgressiveImage from './ui/ProgressiveImage';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -599,7 +600,17 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                                     {/* Media */}
                                     {message.media?.url && (
                                         <div style={{ marginBottom: message.content ? '8px' : 0, position: 'relative' }}>
-                                            {message.media.type === 'image' && <img src={message.media.url} alt="" loading="lazy" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', display: 'block', opacity: message.isOptimistic ? 0.6 : 1 }} />}
+                                            {message.media.type === 'image' && (
+                                                <Image
+                                                    src={message.media.url}
+                                                    zoomSrc={message.media.url}
+                                                    alt=""
+                                                    preview
+                                                    loading="lazy"
+                                                    style={{ display: 'block', maxWidth: '100%' }}
+                                                    imageStyle={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', display: 'block', opacity: message.isOptimistic ? 0.6 : 1 }}
+                                                />
+                                            )}
                                             {message.media.type === 'audio' && <VoiceNotePlayer url={message.media.url} duration={message.media.size} />}
                                             {message.media.type === 'video' && <video src={message.media.url} controls style={{ maxWidth: '200px', borderRadius: '12px', opacity: message.isOptimistic ? 0.6 : 1 }} />}
                                             {message.media.type === 'file' && (
