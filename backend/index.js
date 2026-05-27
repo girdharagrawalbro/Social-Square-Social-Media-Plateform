@@ -18,6 +18,7 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const redis = require('./lib/redis');
 const User = require('./models/User');
+const Conversation = require('./models/Conversation');
 require('./models/Recommendation');
 const verifyToken = require('./middleware/Verifytoken');
 
@@ -310,19 +311,43 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('typing', async ({ recipientId, senderName }) => {
+    socket.on('typing', async ({ recipientId, conversationId, senderName }) => {
         try {
-            const sid = redis ? await redis.hget('online_users', recipientId) : null;
-            if (sid) io.to(sid).emit('userTyping', { senderName });
+            if (conversationId) {
+                const conv = await Conversation.findById(conversationId).select('participants').lean();
+                if (conv) {
+                    conv.participants.forEach(async (p) => {
+                        if (p.userId.toString() !== socket.userId) {
+                            const sid = redis ? await redis.hget('online_users', p.userId.toString()) : null;
+                            if (sid) io.to(sid).emit('userTyping', { senderName, conversationId });
+                        }
+                    });
+                }
+            } else if (recipientId) {
+                const sid = redis ? await redis.hget('online_users', recipientId) : null;
+                if (sid) io.to(sid).emit('userTyping', { senderName });
+            }
         } catch (err) {
             console.error('[Socket] Redis error (typing):', err.message);
         }
     });
-
-    socket.on('stopTyping', async ({ recipientId }) => {
+ 
+    socket.on('stopTyping', async ({ recipientId, conversationId }) => {
         try {
-            const sid = redis ? await redis.hget('online_users', recipientId) : null;
-            if (sid) io.to(sid).emit('userStoppedTyping');
+            if (conversationId) {
+                const conv = await Conversation.findById(conversationId).select('participants').lean();
+                if (conv) {
+                    conv.participants.forEach(async (p) => {
+                        if (p.userId.toString() !== socket.userId) {
+                            const sid = redis ? await redis.hget('online_users', p.userId.toString()) : null;
+                            if (sid) io.to(sid).emit('userStoppedTyping', { conversationId });
+                        }
+                    });
+                }
+            } else if (recipientId) {
+                const sid = redis ? await redis.hget('online_users', recipientId) : null;
+                if (sid) io.to(sid).emit('userStoppedTyping');
+            }
         } catch (err) {
             console.error('[Socket] Redis error (stopTyping):', err.message);
         }
@@ -371,18 +396,26 @@ io.on('connection', (socket) => {
     // ─── WebRTC Signaling for Live Stream ────────────────────────────────────
     socket.on('join-live', (streamId) => {
         socket.join(`live:${streamId}`);
+        // Notify host that a new viewer joined (to update viewer count)
+        socket.to(`live:${streamId}`).emit('viewer-joined', { viewerCount: io.sockets.adapter.rooms.get(`live:${streamId}`)?.size || 0 });
     });
 
     socket.on('live-offer', ({ to, offer }) => {
-        socket.to(to).emit('live-offer', { from: socket.userId, offer });
+        // Route to the target user's personal room (they join via registerUser)
+        io.to(to).emit('live-offer', { from: socket.userId, offer });
     });
 
     socket.on('live-answer', ({ to, answer }) => {
-        socket.to(to).emit('live-answer', { from: socket.userId, answer });
+        io.to(to).emit('live-answer', { from: socket.userId, answer });
     });
 
     socket.on('ice-candidate', ({ to, candidate }) => {
-        socket.to(to).emit('ice-candidate', { from: socket.userId, candidate });
+        io.to(to).emit('ice-candidate', { from: socket.userId, candidate });
+    });
+
+    socket.on('live-ended', (streamId) => {
+        // Broadcast to all viewers watching this stream that it has ended
+        socket.to(`live:${streamId}`).emit('live-ended', streamId);
     });
 });
 
