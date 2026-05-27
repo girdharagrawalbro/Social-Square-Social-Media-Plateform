@@ -1004,7 +1004,8 @@ const Stories = () => {
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const [postVisible, setPostVisible] = useState(false);
     const [selectedPostId] = useState(null);
-    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, clearLiveStream, setIsStoryViewerOpen } = usePostStore();
+    const { markGroupAsViewed, sharingPostToStory, clearSharingPostToStory, viewedStoryGroups, storyDetailUserId, storyDetailStoryId, setStoryDetailDeepLink, liveStreamId, isLiveHost, clearLiveStream, setIsStoryViewerOpen, setLiveStream } = usePostStore();
+    const [activeStreams, setActiveStreams] = useState([]);
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
     const isMobile = windowWidth < 640;
@@ -1015,6 +1016,21 @@ const Stories = () => {
             setGroups(storyFeed);
         }
     }, [storyFeed]);
+
+    useEffect(() => {
+        if (!loggeduser?._id) return;
+        const fetchActiveStreams = async () => {
+            try {
+                const res = await api.get('/api/live/active');
+                setActiveStreams(res.data || []);
+            } catch (err) {
+                console.error('Failed to fetch active streams:', err);
+            }
+        };
+        fetchActiveStreams();
+        const interval = setInterval(fetchActiveStreams, 30000);
+        return () => clearInterval(interval);
+    }, [loggeduser?._id]);
 
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {
@@ -1141,6 +1157,18 @@ const Stories = () => {
         });
     };
 
+    const handleGoLive = async () => {
+        try {
+            const res = await api.post('/api/live/start', { title: `${loggeduser?.fullname}'s Live Stream` });
+            const stream = res.data;
+            setLiveStream(stream._id, true);
+            toast.success('Live stream started successfully!');
+        } catch (err) {
+            console.error('Failed to start stream:', err);
+            toast.error(err.response?.data?.error || 'Could not start live stream');
+        }
+    };
+
     return (
         <>
             <div className="relative group story-list-container">
@@ -1178,6 +1206,64 @@ const Stories = () => {
                             {ownGroup ? 'Your story' : 'Add story'}
                         </span>
                     </div>
+
+                    {/* Go Live Button */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
+                        <div style={{ position: 'relative', width: storySize, height: storySize }}>
+                            <div
+                                style={{
+                                    width: storySize, height: storySize, borderRadius: '50%', padding: '2px',
+                                    background: 'linear-gradient(135deg, #ef4444, #f43f5e)',
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: '0 4px 10px rgba(239, 68, 68, 0.25)'
+                                }}
+                            >
+                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.1)' }}>
+                                    <i className="pi pi-video text-red-500 font-bold" style={{ fontSize: isMobile ? '20px' : '26px' }}></i>
+                                </div>
+                            </div>
+                        </div>
+                        <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 600, textAlign: 'center', maxWidth: storySize, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            Go Live
+                        </span>
+                    </div>
+
+                    {/* Active Followings Live Streams */}
+                    {activeStreams.map(stream => {
+                        const host = stream.host;
+                        if (!host) return null;
+                        return (
+                            <div key={stream._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(stream._id, false)}>
+                                <div style={{ position: 'relative', width: storySize, height: storySize }}>
+                                    <div
+                                        style={{
+                                            width: storySize, height: storySize, borderRadius: '50%', padding: '2px',
+                                            background: 'linear-gradient(135deg, #ef4444, #f43f5e)',
+                                            transition: 'all 0.3s ease',
+                                            boxShadow: '0 0 12px rgba(239, 68, 68, 0.8)',
+                                            animation: 'pulse-ring 2s infinite'
+                                        }}
+                                    >
+                                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
+                                            <img
+                                                src={host.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                                alt=""
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div
+                                        style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', background: '#ef4444', color: '#fff', fontSize: '8px', fontWeight: 800, padding: '1.5px 6px', borderRadius: '4px', border: '1.5px solid var(--surface-1)', letterSpacing: '0.5px', textTransform: 'uppercase', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}
+                                    >
+                                        LIVE
+                                    </div>
+                                </div>
+                                <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 700, textAlign: 'center', maxWidth: storySize, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {host.fullname.split(' ')[0]}
+                                </span>
+                            </div>
+                        );
+                    })}
                     {otherGroups.map(group => {
                         const realIndex = groups.findIndex(g => g.user._id.toString() === group.user._id.toString());
                         const allViewed = !group.hasUnviewed || viewedStoryGroups.has(group.user._id.toString());
@@ -1227,6 +1313,11 @@ const Stories = () => {
                 <style>{`
                     .no-scrollbar::-webkit-scrollbar { display: none; }
                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                    @keyframes pulse-ring {
+                        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+                        70% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+                        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                    }
                 `}</style>
             </div>
             {createOpen && <CreateStoryModal onClose={() => setCreateOpen(false)} onCreated={handleStoryCreated} loggeduser={loggeduser} />}

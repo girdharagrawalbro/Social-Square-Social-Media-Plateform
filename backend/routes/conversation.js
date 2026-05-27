@@ -151,6 +151,284 @@ router.post('/create', verifyToken, [
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// ─── CREATE GROUP CONVERSATION (PROTECTED) ───────────────────────────────────
+router.post('/group/create', verifyToken, [
+    body('name').notEmpty().trim().escape().withMessage('Group name is required'),
+    body('participantIds').isArray({ min: 1 }).withMessage('At least one other participant is required'),
+    body('groupAvatar').optional().isURL().withMessage('Invalid avatar URL'),
+    validate
+], async (req, res) => {
+    try {
+        const { name, participantIds, groupAvatar } = req.body;
+        const senderId = req.userId;
+
+        // Fetch users details for all participants (including sender)
+        const uniqueIds = Array.from(new Set([senderId, ...participantIds]));
+        const users = await User.find({ _id: { $in: uniqueIds } }).select('fullname profile_picture').lean();
+
+        if (users.length !== uniqueIds.length) {
+            return res.status(404).json({ error: 'One or more users not found' });
+        }
+
+        const participants = users.map(u => ({
+            userId: u._id,
+            fullname: u.fullname,
+            profilePicture: u.profile_picture || ''
+        }));
+
+        const conversation = await Conversation.create({
+            isGroup: true,
+            groupName: name,
+            groupAvatar: groupAvatar || '',
+            groupCreator: senderId,
+            groupAdmins: [senderId],
+            participants,
+            lastMessageAt: new Date(),
+            lastMessage: {
+                message: 'Group created',
+                isRead: false
+            }
+        });
+
+        // Clear cached conversation lists for all participants
+        await delCache(...uniqueIds.map(id => `convs:${id}`));
+
+        if (_io) {
+            uniqueIds.forEach(id => {
+                _io.to(id.toString()).emit('conversationUpdated', conversation.toObject());
+            });
+        }
+
+        res.status(201).json(conversation);
+    } catch (err) {
+        console.error('[Conversation] Create group error:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ─── ADD MEMBERS TO GROUP (PROTECTED) ────────────────────────────────────────
+router.post('/group/:id/add-members', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    body('memberIds').isArray({ min: 1 }).withMessage('At least one member ID is required'),
+    validate
+], async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { memberIds } = req.body;
+        const senderId = req.userId;
+
+        const conv = await Conversation.findById(id);
+        if (!conv || !conv.isGroup) {
+            return res.status(404).json({ error: 'Group conversation not found' });
+        }
+
+        // Check if sender is an admin
+        const isAdmin = conv.groupAdmins.some(a => a.toString() === senderId.toString());
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Only admins can add members' });
+        }
+
+        // Fetch users details
+        const users = await User.find({ _id: { $in: memberIds } }).select('fullname profile_picture').lean();
+        const existingMemberIds = conv.participants.map(p => p.userId.toString());
+
+        const newParticipants = users
+            .filter(u => !existingMemberIds.includes(u._id.toString()))
+            .map(u => ({
+                userId: u._id,
+                fullname: u.fullname,
+                profilePicture: u.profile_picture || ''
+            }));
+
+        if (newParticipants.length === 0) {
+            return res.status(400).json({ error: 'All specified users are already members' });
+        }
+
+        conv.participants.push(...newParticipants);
+        conv.lastMessageAt = new Date();
+        conv.lastMessage = {
+            message: `${newParticipants.map(p => p.fullname).join(', ')} added to the group`,
+            isRead: false
+        };
+        await conv.save();
+
+        const allMemberIds = conv.participants.map(p => p.userId.toString());
+        await delCache(...allMemberIds.map(id => `convs:${id}`));
+
+        if (_io) {
+            allMemberIds.forEach(id => {
+                _io.to(id).emit('conversationUpdated', conv.toObject());
+            });
+        }
+
+        res.json(conv);
+    } catch (err) {
+        console.error('[Conversation] Add members error:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ─── REMOVE MEMBERS FROM GROUP (PROTECTED) ───────────────────────────────────
+router.post('/group/:id/remove-members', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    body('memberIds').isArray({ min: 1 }).withMessage('At least one member ID is required'),
+    validate
+], async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { memberIds } = req.body;
+        const senderId = req.userId;
+
+        const conv = await Conversation.findById(id);
+        if (!conv || !conv.isGroup) {
+            return res.status(404).json({ error: 'Group conversation not found' });
+        }
+
+        // Check if sender is an admin
+        const isAdmin = conv.groupAdmins.some(a => a.toString() === senderId.toString());
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Only admins can remove members' });
+        }
+
+        // Prevent removing the creator
+        if (conv.groupCreator && memberIds.includes(conv.groupCreator.toString())) {
+            return res.status(400).json({ error: 'Cannot remove the group creator' });
+        }
+
+        const removedUsers = conv.participants.filter(p => memberIds.includes(p.userId.toString()));
+        conv.participants = conv.participants.filter(p => !memberIds.includes(p.userId.toString()));
+
+        // Also clean up admin list if they were an admin
+        conv.groupAdmins = conv.groupAdmins.filter(a => !memberIds.includes(a.toString()));
+
+        conv.lastMessageAt = new Date();
+        conv.lastMessage = {
+            message: `${removedUsers.map(p => p.fullname).join(', ')} removed from the group`,
+            isRead: false
+        };
+        await conv.save();
+
+        const allUserIds = [...conv.participants.map(p => p.userId.toString()), ...memberIds];
+        await delCache(...allUserIds.map(id => `convs:${id}`));
+
+        if (_io) {
+            allUserIds.forEach(id => {
+                _io.to(id).emit('conversationUpdated', conv.toObject());
+            });
+        }
+
+        res.json(conv);
+    } catch (err) {
+        console.error('[Conversation] Remove members error:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ─── LEAVE GROUP (PROTECTED) ─────────────────────────────────────────────────
+router.post('/group/:id/leave', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    validate
+], async (req, res) => {
+    try {
+        const { id } = req.params;
+        const senderId = req.userId;
+
+        const conv = await Conversation.findById(id);
+        if (!conv || !conv.isGroup) {
+            return res.status(404).json({ error: 'Group conversation not found' });
+        }
+
+        const isMember = conv.participants.some(p => p.userId.toString() === senderId.toString());
+        if (!isMember) {
+            return res.status(400).json({ error: 'You are not a member of this group' });
+        }
+
+        const leaver = conv.participants.find(p => p.userId.toString() === senderId.toString());
+        conv.participants = conv.participants.filter(p => p.userId.toString() !== senderId.toString());
+        conv.groupAdmins = conv.groupAdmins.filter(a => a.toString() !== senderId.toString());
+
+        // Assign a new admin if the leaver was the only admin and there are members left
+        if (conv.groupAdmins.length === 0 && conv.participants.length > 0) {
+            conv.groupAdmins.push(conv.participants[0].userId);
+        }
+
+        conv.lastMessageAt = new Date();
+        conv.lastMessage = {
+            message: `${leaver.fullname} left the group`,
+            isRead: false
+        };
+        await conv.save();
+
+        const notifyIds = [...conv.participants.map(p => p.userId.toString()), senderId];
+        await delCache(...notifyIds.map(id => `convs:${id}`));
+
+        if (_io) {
+            notifyIds.forEach(id => {
+                _io.to(id).emit('conversationUpdated', conv.toObject());
+            });
+        }
+
+        res.json({ message: 'Successfully left the group' });
+    } catch (err) {
+        console.error('[Conversation] Leave group error:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ─── UPDATE GROUP DETAILS (PROTECTED) ────────────────────────────────────────
+router.patch('/group/:id/update', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    body('name').optional().notEmpty().trim().escape().withMessage('Group name cannot be empty'),
+    body('groupAvatar').optional().isURL().withMessage('Invalid avatar URL'),
+    validate
+], async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, groupAvatar } = req.body;
+        const senderId = req.userId;
+
+        const conv = await Conversation.findById(id);
+        if (!conv || !conv.isGroup) {
+            return res.status(404).json({ error: 'Group conversation not found' });
+        }
+
+        // Check if sender is an admin
+        const isAdmin = conv.groupAdmins.some(a => a.toString() === senderId.toString());
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Only admins can update group details' });
+        }
+
+        if (name) {
+            conv.groupName = name;
+        }
+        if (groupAvatar !== undefined) {
+            conv.groupAvatar = groupAvatar;
+        }
+
+        conv.lastMessageAt = new Date();
+        conv.lastMessage = {
+            message: `Group details updated`,
+            isRead: false
+        };
+        await conv.save();
+
+        const allMemberIds = conv.participants.map(p => p.userId.toString());
+        await delCache(...allMemberIds.map(id => `convs:${id}`));
+
+        if (_io) {
+            allMemberIds.forEach(id => {
+                _io.to(id).emit('conversationUpdated', conv.toObject());
+            });
+        }
+
+        res.json(conv);
+    } catch (err) {
+        console.error('[Conversation] Update group details error:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
 // ─── FETCH CONVERSATIONS (PROTECTED) ──────────────────────────────────────────
 router.get('/', verifyToken, async (req, res) => {
     try {
@@ -214,29 +492,41 @@ router.get('/search', verifyToken, [
 
 // ─── FETCH MESSAGES (PROTECTED) ───────────────────────────────────────────────
 router.post('/messages', verifyToken, [
-    body('recipientId').isMongoId().withMessage('Invalid recipient ID'),
+    body('recipientId').optional().isMongoId().withMessage('Invalid recipient ID'),
+    body('conversationId').optional().isMongoId().withMessage('Invalid conversation ID'),
     body('before').optional().isISO8601(),
     body('limit').optional().isInt({ min: 1, max: 100 }),
     validate
 ], async (req, res) => {
     try {
-        const { recipientId, before, limit = 20, targetDate } = req.body;
+        const { recipientId, conversationId, before, limit = 20, targetDate } = req.body;
         const senderId = req.userId;
-        if (recipientId === senderId) return res.status(400).json({ error: 'Cannot message yourself' });
 
-        const recipient = await User.findById(recipientId).select('fullname username profile_picture isPrivate followers').lean();
-        if (!recipient) return res.status(404).json({ error: 'Recipient not found' });
-
-        // 🔒 Privacy Guard: If recipient is private, sender must be a follower
-        if (recipient.isPrivate) {
-            const isFollower = (recipient.followers || []).some(id => id.toString() === senderId.toString());
-            if (!isFollower) {
-                return res.status(403).json({ error: 'This account is private. Follow to message.' });
-            }
+        if (!recipientId && !conversationId) {
+            return res.status(400).json({ error: 'recipientId or conversationId is required' });
         }
 
-        // Check if exists
-        let conversation = await Conversation.findOne({ 'participants.userId': { $all: [senderId, recipientId] } }).lean();
+        let conversation;
+        if (conversationId) {
+            conversation = await Conversation.findOne({ _id: conversationId, 'participants.userId': senderId }).lean();
+        } else if (recipientId) {
+            if (recipientId === senderId) return res.status(400).json({ error: 'Cannot message yourself' });
+
+            const recipient = await User.findById(recipientId).select('fullname username profile_picture isPrivate followers').lean();
+            if (!recipient) return res.status(404).json({ error: 'Recipient not found' });
+
+            // 🔒 Privacy Guard: If recipient is private, sender must be a follower
+            if (recipient.isPrivate) {
+                const isFollower = (recipient.followers || []).some(id => id.toString() === senderId.toString());
+                if (!isFollower) {
+                    return res.status(403).json({ error: 'This account is private. Follow to message.' });
+                }
+            }
+
+            // Check if exists
+            conversation = await Conversation.findOne({ isGroup: false, 'participants.userId': { $all: [senderId, recipientId] } }).lean();
+        }
+
         if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
 
         const cacheKey = `msgs:${conversation._id}:${before || 'latest'}:${limit}:${targetDate || 'none'}`;
@@ -259,6 +549,7 @@ router.post('/messages', verifyToken, [
         const messages = await Message.find(query)
             .sort({ createdAt: -1 })
             .limit(customLimit)
+            .populate('sender', 'fullname profile_picture')
             .populate({
                 path: 'replyTo',
                 select: 'content media sender',
@@ -338,7 +629,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
         } else if (recipientId) {
             // Find or create conversation by recipientId
             const participantIds = [sender, recipientId];
-            conv = await Conversation.findOne({ 'participants.userId': { $all: participantIds } });
+            conv = await Conversation.findOne({ 'participants.userId': { $all: participantIds }, isGroup: false });
             
             if (!conv) {
                 const [senderUser, recipientUser] = await Promise.all([
@@ -366,14 +657,16 @@ router.post(['/messages/create', '/send'], verifyToken, [
 
         if (!conv) return res.status(403).json({ error: 'Unauthorized or missing conversation/recipient' });
 
-        // Double check privacy even if conv exists (in case they unfollowed)
-        const otherParticipant = conv.participants.find(p => p.userId.toString() !== sender.toString());
-        if (otherParticipant) {
-            const recipientUser = await User.findById(otherParticipant.userId).select('isPrivate followers').lean();
-            if (recipientUser && recipientUser.isPrivate) {
-                const isFollower = (recipientUser.followers || []).some(id => id.toString() === sender.toString());
-                if (!isFollower) {
-                    return res.status(403).json({ error: 'This account is private. Follow to message.' });
+        // Double check privacy even if conv exists (in case they unfollowed) - ONLY for direct conversations
+        if (!conv.isGroup) {
+            const otherParticipant = conv.participants.find(p => p.userId.toString() !== sender.toString());
+            if (otherParticipant) {
+                const recipientUser = await User.findById(otherParticipant.userId).select('isPrivate followers').lean();
+                if (recipientUser && recipientUser.isPrivate) {
+                    const isFollower = (recipientUser.followers || []).some(id => id.toString() === sender.toString());
+                    if (!isFollower) {
+                        return res.status(403).json({ error: 'This account is private. Follow to message.' });
+                    }
                 }
             }
         }
@@ -408,24 +701,42 @@ router.post(['/messages/create', '/send'], verifyToken, [
         }, { new: true }).lean();
 
         const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
-        const notification = await Notification.create({
-            recipient: recipientId,
-            sender: { id: sender, fullname: senderName || senderUser?.fullname || 'Someone', profile_picture: senderUser?.profile_picture || '' },
-            message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
-        });
+        const otherParticipants = conv.participants.filter(p => p.userId.toString() !== sender.toString());
+        
+        // Create notifications for all other members
+        if (otherParticipants.length > 0) {
+            await Promise.all(otherParticipants.map(p => {
+                return Notification.create({
+                    recipient: p.userId,
+                    sender: { id: sender, fullname: senderName || senderUser?.fullname || 'Someone', profile_picture: senderUser?.profile_picture || '' },
+                    message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
+                });
+            }));
+        }
 
-        // Robust cache clearing
+        // Robust cache clearing for all participants
         const participants = updatedConv.participants.map(p => p.userId.toString());
-        await delCache(...participants.map(p => `convs:${p}`), `msgs:${conversationId}*`);
+        await delCache(...participants.map(p => `convs:${p}`), `msgs:${conv._id}*`);
 
         if (_io) {
             const msgObj = { ...message.toObject(), senderId: sender, senderName: senderName || senderUser?.fullname };
-            _io.to(recipientId).to(sender).emit('receiveMessage', msgObj);
-            _io.to(recipientId).to(sender).emit('conversationUpdated', updatedConv);
-            _io.to(recipientId).emit('newNotification', notification);
+            participants.forEach(p => {
+                _io.to(p).emit('receiveMessage', msgObj);
+                _io.to(p).emit('conversationUpdated', updatedConv);
+            });
+            otherParticipants.forEach(p => {
+                _io.to(p.userId.toString()).emit('newNotification', {
+                    recipient: p.userId,
+                    sender: { id: sender, fullname: senderName || senderUser?.fullname || 'Someone', profile_picture: senderUser?.profile_picture || '' },
+                    message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
+                });
+            });
         }
         res.status(201).json(message);
-    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (err) { 
+        console.error('[Send Message Error]:', err);
+        res.status(500).json({ error: "Internal Server Error" }); 
+    }
 });
 
 // ─── EDIT MESSAGE (PROTECTED) ─────────────────────────────────────────────────
@@ -520,7 +831,29 @@ router.post('/messages/mark-read', verifyToken, [
         const validMessageIds = unreadMessageIds.filter(id => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id));
 
         if (validMessageIds.length > 0) {
-            await Message.updateMany({ _id: { $in: validMessageIds } }, { $set: { isRead: true } });
+            await Message.updateMany(
+                { _id: { $in: validMessageIds } },
+                { $set: { isRead: true }, $addToSet: { readBy: userId } }
+            );
+
+            // Real-time synchronization: Notify all participants of the conversation
+            try {
+                const firstMsg = await Message.findById(validMessageIds[0]).select('conversationId').lean();
+                if (firstMsg && _io) {
+                    const conv = await Conversation.findById(firstMsg.conversationId).select('participants').lean();
+                    if (conv) {
+                        conv.participants.forEach(p => {
+                            _io.to(p.userId.toString()).emit('messagesReadSync', {
+                                conversationId: conv._id,
+                                messageIds: validMessageIds,
+                                userId
+                            });
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('[Conversation] Error sending messagesReadSync socket:', err.message);
+            }
         }
 
         if (lastMessage && mongoose.Types.ObjectId.isValid(lastMessage)) {
@@ -571,6 +904,75 @@ router.get('/unread-total', verifyToken, async (req, res) => {
         });
         res.json({ total });
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// ─── REACT TO MESSAGE (PROTECTED) ─────────────────────────────────────────────
+router.post('/messages/:messageId/react', verifyToken, [
+    param('messageId').isMongoId().withMessage('Invalid message ID'),
+    body('emoji').notEmpty().trim().escape().withMessage('Emoji is required'),
+    validate
+], async (req, res) => {
+    try {
+        const { emoji } = req.body;
+        const userId = req.userId;
+        const message = await Message.findById(req.params.messageId);
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+
+        if (!message.reactions) {
+            message.reactions = new Map();
+        }
+
+        if (message.reactions.get(userId) === emoji) {
+            message.reactions.delete(userId);
+        } else {
+            message.reactions.set(userId, emoji);
+        }
+
+        await message.save();
+
+        const conv = await Conversation.findById(message.conversationId);
+        const participants = conv.participants.map(p => p.userId.toString());
+        await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
+
+        const reactionsObj = Object.fromEntries(message.reactions);
+
+        if (_io) {
+            participants.forEach(p => {
+                _io.to(p).emit('messageReaction', { messageId: message._id, conversationId: message.conversationId, reactions: reactionsObj });
+            });
+        }
+
+        res.json({ messageId: message._id, reactions: reactionsObj });
+    } catch (err) {
+        console.error('[React Message Error]:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ─── GET MESSAGE INFO / SEEN DETAILS (PROTECTED) ──────────────────────────────
+router.get('/messages/:messageId/info', verifyToken, [
+    param('messageId').isMongoId().withMessage('Invalid message ID'),
+    validate
+], async (req, res) => {
+    try {
+        const message = await Message.findById(req.params.messageId)
+            .populate('readBy', 'fullname profile_picture username')
+            .populate('sender', 'fullname profile_picture')
+            .lean();
+
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+
+        const conv = await Conversation.findById(message.conversationId).lean();
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+        res.json({
+            message,
+            conversation: conv
+        });
+    } catch (err) {
+        console.error('[Get Message Info Error]:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 // ─── BACKWARD-COMPAT: FETCH CONVERSATIONS BY USER ID (PROTECTED) ───────────

@@ -27,6 +27,7 @@ const MessageSchema = new mongoose.Schema({
     deletedAt: { type: Date, default: null }, // soft delete
 
     isRead: { type: Boolean, default: false },
+    readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     storyReply: {
         storyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story' },
         mediaUrl: String,

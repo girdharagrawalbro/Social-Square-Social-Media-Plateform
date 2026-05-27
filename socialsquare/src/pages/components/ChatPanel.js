@@ -50,6 +50,11 @@ const IconTrash = () => (
         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
 );
+const IconInfo = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+);
 const IconSend = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -65,16 +70,32 @@ const IconX = ({ size = 12 }) => (
         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
 );
-const IconDoubleCheck = ({ read }) => read ? (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#808bf5" strokeWidth="2">
-        <path d="M3 13s1.5.7 3.5 4c0 0 .28-.48.82-1.25M17 6c-2.29 1.15-4.69 3.56-6.61 5.82" />
-        <path d="M8 13s1.5.7 3.5 4c0 0 5.5-8.5 10.5-11" />
-    </svg>
-) : (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
-        <path d="M5 14.5s1.5 0 3.5 3.5c0 0 5.5-9.5 10.5-11" />
-    </svg>
-);
+const IconDoubleCheck = ({ status }) => {
+    if (status === 'read') {
+        // Double blue checkmark
+        return (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3897f0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 6L8.5 15L5 11.5" />
+                <path d="M22 6L13.5 15L11.5 13" />
+            </svg>
+        );
+    } else if (status === 'delivered') {
+        // Double gray checkmark
+        return (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 6L8.5 15L5 11.5" />
+                <path d="M22 6L13.5 15L11.5 13" />
+            </svg>
+        );
+    } else {
+        // Single gray checkmark
+        return (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+        );
+    }
+};
 
 // ─── WAVEFORM PLAYER ──────────────────────────────────────────────────────────
 const VoiceNotePlayer = ({ url, duration }) => {
@@ -193,7 +214,30 @@ const ToolbarBtn = ({ onClick, title, danger = false, children }) => {
 };
 
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
-const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, onEdit, onDelete, searchQ, isSelected, onSelect, onReply }) => {
+const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply }) => {
+    const activeParticipant = useConversationStore(s => s.activeParticipant);
+    
+    let checkmarkStatus = 'sent';
+    if (isOwn) {
+        if (isGroup) {
+            const otherParticipants = activeParticipant?.participants?.filter(p => String(p.userId) !== String(loggeduser?._id)) || [];
+            const otherReaders = (message.readBy || []).filter(r => {
+                const rId = r._id || r;
+                return String(rId) !== String(loggeduser?._id);
+            });
+            
+            if (otherReaders.length === 0) {
+                checkmarkStatus = 'sent';
+            } else if (otherReaders.length < otherParticipants.length) {
+                checkmarkStatus = 'delivered';
+            } else {
+                checkmarkStatus = 'read';
+            }
+        } else {
+            checkmarkStatus = message.isRead ? 'read' : 'sent';
+        }
+    }
+
     const [showReactions, setShowReactions] = useState(false);
     const [editing, setEditing] = useState(false);
     const [editText, setEditText] = useState(message.content);
@@ -309,9 +353,27 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
         }
     };
 
+    const senderObj = message.sender && typeof message.sender === 'object' ? message.sender : null;
+    const senderNameStr = message.senderName || senderObj?.fullname || 'Someone';
+    const senderAvatarStr = senderObj?.profile_picture || senderObj?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg';
+
     return (
-        <div id={`msg-${message._id}`} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '4px', position: 'relative' }}>
+        <div id={`msg-${message._id}`} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '6px', position: 'relative', gap: '8px' }}>
+            {!isOwn && isGroup && (
+                <div style={{ alignSelf: 'flex-end', marginBottom: '14px', flexShrink: 0 }}>
+                    <img 
+                        src={senderAvatarStr} 
+                        alt="" 
+                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} 
+                    />
+                </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOwn ? 'flex-end' : 'flex-start', flex: 1, minWidth: 0 }}>
+                {!isOwn && isGroup && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 600, marginBottom: '2px', marginLeft: '4px' }}>
+                        {senderNameStr}
+                    </span>
+                )}
 
                 {/* ── Thread indicator line above bubble ── */}
                 {message.replyTo && !isDeleted && (
@@ -649,7 +711,7 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                             ) : message.uploadFailed ? (
                                 <i className="pi pi-exclamation-circle" style={{ fontSize: '10px', color: '#ef4444' }}></i>
                             ) : (
-                                <IconDoubleCheck read={message.isRead} />
+                                <IconDoubleCheck status={checkmarkStatus} />
                             )
                         )}
                     </div>
@@ -719,6 +781,9 @@ const MessageBubble = ({ message, isOwn, conversationId, loggeduser, onReact, on
                             {isOwn && (
                                 <>
                                     <div style={{ width: '0.5px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }} />
+                                    <ToolbarBtn title="Info" onClick={(e) => { e.stopPropagation(); onShowInfo && onShowInfo(message._id); onSelect(null); }}>
+                                        <IconInfo />
+                                    </ToolbarBtn>
                                     <ToolbarBtn title="Edit" onClick={(e) => { e.stopPropagation(); setEditing(true); onSelect(null); }}>
                                         <IconEdit />
                                     </ToolbarBtn>
@@ -805,6 +870,19 @@ const ChatPanel = ({
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previews, setPreviews] = useState([]);
 
+    const [infoMessage, setInfoMessage] = useState(null);
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
+
+    const handleShowMessageInfo = async (messageId) => {
+        try {
+            const res = await api.get(`/api/conversation/messages/${messageId}/info`);
+            setInfoMessage(res.data);
+            setIsInfoOpen(true);
+        } catch {
+            toast.error("Failed to load message info");
+        }
+    };
+
     useEffect(() => {
         if (conversationId && onConversationIdFetched) onConversationIdFetched(conversationId);
     }, [conversationId, onConversationIdFetched]);
@@ -874,10 +952,13 @@ const ChatPanel = ({
     const { mutate: markRead } = useMarkMessagesRead();
 
     const fetchMessages = useCallback(async () => {
-        if (!user?._id || !participantId) return;
+        if (!user?._id || (!participantId && !activeParticipant?.isGroup)) return;
         setLoading(true);
         try {
-            const res = await api.post(`/api/conversation/messages`, { recipientId: participantId, limit: 30 });
+            const reqPayload = activeParticipant?.isGroup
+                ? { conversationId: activeParticipant.conversationId, limit: 30 }
+                : { recipientId: participantId, limit: 30 };
+            const res = await api.post(`/api/conversation/messages`, reqPayload);
             const fetchedMessages = res.data.messages || [];
             const fetchedConversationId = res.data.conversation?._id || null;
             const fetchedHasMore = res.data.hasMore || false;
@@ -921,21 +1002,18 @@ const ChatPanel = ({
                     )
                 );
 
-                // Emit socket event back to sender
-                unreadMessages.forEach((msg) => {
-
-                    socket.emit('readMessage', {
-
-                        messageId: msg._id,
-
-                        recipientId:
-                            msg.sender?._id ||
-                            msg.senderId ||
-                            msg.sender
-
+                // Emit socket event back to sender (only for direct messages)
+                if (!activeParticipant?.isGroup) {
+                    unreadMessages.forEach((msg) => {
+                        socket.emit('readMessage', {
+                            messageId: msg._id,
+                            recipientId:
+                                msg.sender?._id ||
+                                msg.senderId ||
+                                msg.sender
+                        });
                     });
-
-                });
+                }
             }
 
         } catch (err) {
@@ -943,15 +1021,18 @@ const ChatPanel = ({
             if (err.response?.status === 403) setPrivacyError(err.response.data.error || 'This account is private');
         }
         setLoading(false);
-    }, [user?._id, participantId, markRead]);
+    }, [user?._id, participantId, activeParticipant, markRead]);
 
     const fetchMoreMessages = useCallback(async () => {
-        if (loadingMore || !hasMore || !messages.length || !participantId) return;
+        if (loadingMore || !hasMore || !messages.length || (!participantId && !activeParticipant?.isGroup)) return;
         setLoadingMore(true);
         const before = messages[0].createdAt;
         const oldScrollHeight = chatRef.current?.scrollHeight;
         try {
-            const res = await api.post(`/api/conversation/messages`, { recipientId: participantId, before, limit: 30 });
+            const reqPayload = activeParticipant?.isGroup
+                ? { conversationId: activeParticipant.conversationId, before, limit: 30 }
+                : { recipientId: participantId, before, limit: 30 };
+            const res = await api.post(`/api/conversation/messages`, reqPayload);
             const olderMessages = res.data.messages || [];
             if (olderMessages.length > 0) {
                 setMessages(prev => [...olderMessages, ...prev]);
@@ -960,7 +1041,7 @@ const ChatPanel = ({
             } else { setHasMore(false); }
         } catch (err) { console.error('Failed to fetch more messages', err); }
         finally { setLoadingMore(false); }
-    }, [loadingMore, hasMore, messages, participantId]);
+    }, [loadingMore, hasMore, messages, participantId, activeParticipant]);
 
     const handleScroll = (e) => {
         const { scrollTop, scrollHeight, clientHeight } = e.target;
@@ -990,22 +1071,61 @@ const ChatPanel = ({
 
     useEffect(() => {
         const handleReceive = (message) => {
-            if (String(message.senderId) !== String(participantId) && String(message.sender) !== String(participantId)) return;
+            if (activeParticipant?.isGroup) {
+                if (String(message.conversationId) !== String(conversationIdRef.current)) return;
+            } else {
+                if (String(message.senderId) !== String(participantId) && String(message.sender) !== String(participantId)) return;
+            }
             setMessages(prev => { if (prev.some(m => String(m._id) === String(message._id))) return prev; return [...prev, message]; });
             if (conversationIdRef.current) {
                 markRead({ unreadMessageIds: [message._id], lastMessage: message._id, conversationId: conversationIdRef.current });
-                socket.emit('readMessage', { messageId: message._id, recipientId: message.senderId || message.sender });
+                if (!activeParticipant?.isGroup) {
+                    socket.emit('readMessage', { messageId: message._id, recipientId: message.senderId || message.sender });
+                }
             }
         };
         const handleSeen = ({ messageId }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, isRead: true } : m));
+        const handleMessagesReadSync = ({ conversationId: cid, messageIds, userId }) => {
+            if (String(cid) !== String(conversationIdRef.current)) return;
+            setMessages(prev => prev.map(m => {
+                if (messageIds.includes(String(m._id))) {
+                    const currentReadBy = m.readBy || [];
+                    const alreadyRead = currentReadBy.some(id => String(id._id || id) === String(userId));
+                    const updatedReadBy = alreadyRead ? currentReadBy : [...currentReadBy, userId];
+                    return {
+                        ...m,
+                        isRead: true,
+                        readBy: updatedReadBy
+                    };
+                }
+                return m;
+            }));
+        };
         const handleEdited = ({ messageId, content }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content, edited: true } : m));
         const handleDeleted = ({ messageId }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
         const handleReaction = ({ messageId, reactions }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, reactions } : m));
-        const handleTyping = ({ senderName }) => { if (conversationIdRef.current) setTyping(conversationIdRef.current, senderName); };
-        const handleStopTyping = () => { if (conversationIdRef.current) clearTyping(conversationIdRef.current); };
+        const handleTyping = ({ senderName, conversationId }) => {
+            if (activeParticipant?.isGroup) {
+                if (conversationId && String(conversationId) === String(conversationIdRef.current)) {
+                    setTyping(conversationId, senderName);
+                }
+            } else {
+                if (conversationIdRef.current) setTyping(conversationIdRef.current, senderName);
+            }
+        };
+        const handleStopTyping = ({ conversationId }) => {
+            if (activeParticipant?.isGroup) {
+                if (conversationId && String(conversationId) === String(conversationIdRef.current)) {
+                    clearTyping(conversationId);
+                }
+            } else {
+                if (conversationIdRef.current) clearTyping(conversationIdRef.current);
+            }
+        };
 
         socket.on('receiveMessage', handleReceive);
         socket.on('seenMessage', handleSeen);
+        socket.on('messagesReadSync', handleMessagesReadSync);
         socket.on('messageEdited', handleEdited);
         socket.on('messageDeleted', handleDeleted);
         socket.on('messageReaction', handleReaction);
@@ -1014,13 +1134,14 @@ const ChatPanel = ({
         return () => {
             socket.off('receiveMessage', handleReceive);
             socket.off('seenMessage', handleSeen);
+            socket.off('messagesReadSync', handleMessagesReadSync);
             socket.off('messageEdited', handleEdited);
             socket.off('messageDeleted', handleDeleted);
             socket.off('messageReaction', handleReaction);
             socket.off('userTyping', handleTyping);
             socket.off('userStoppedTyping', handleStopTyping);
         };
-    }, [participantId, markRead, setTyping, clearTyping]);
+    }, [participantId, markRead, setTyping, clearTyping, activeParticipant]);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -1032,13 +1153,21 @@ const ChatPanel = ({
         const currentPreviews = [...previews];
         const currentReplyTo = replyTo;
         setText(''); setSelectedFiles([]); setPreviews([]); setReplyTo(null);
-        socket.emit('stopTyping', { recipientId: participantId });
+        if (activeParticipant?.isGroup) {
+            socket.emit('stopTyping', { conversationId: conversationIdRef.current || conversationId });
+        } else {
+            socket.emit('stopTyping', { recipientId: participantId });
+        }
         try {
             if (currentFiles.length === 0) {
-                const res = await sendMessageMut.mutateAsync({ conversationId, content: currentText, recipientId: participantId, replyTo: currentReplyTo?._id || null });
+                const res = await sendMessageMut.mutateAsync({ conversationId, content: currentText, recipientId: activeParticipant?.isGroup ? undefined : participantId, replyTo: currentReplyTo?._id || null });
                 const newMsg = res.data;
                 setMessages(prev => [...prev, newMsg]);
-                socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                if (activeParticipant?.isGroup) {
+                    socket.emit('sendMessage', { ...newMsg, conversationId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                } else {
+                    socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                }
                 if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
                 setUploading(false);
                 return;
@@ -1110,7 +1239,7 @@ const ChatPanel = ({
                         const res = await sendMessageMut.mutateAsync({
                             conversationId: conversationIdRef.current || conversationId,
                             content: i === 0 ? currentText : '',
-                            recipientId: participantId,
+                            recipientId: activeParticipant?.isGroup ? undefined : participantId,
                             mediaUrl,
                             mediaType,
                             mediaName: file.name,
@@ -1120,7 +1249,11 @@ const ChatPanel = ({
 
                         const newMsg = res.data;
                         setMessages(prev => prev.map(m => m._id === tempId ? newMsg : m));
-                        socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                        if (activeParticipant?.isGroup) {
+                            socket.emit('sendMessage', { ...newMsg, conversationId: conversationIdRef.current || conversationId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                        } else {
+                            socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                        }
                         if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
                     } catch (err) {
                         console.error('Upload failed for file', file.name, err);
@@ -1137,9 +1270,19 @@ const ChatPanel = ({
 
     const handleInputChange = (e) => {
         setText(e.target.value);
-        socket.emit('typing', { recipientId: participantId, senderName: user.fullname });
+        if (activeParticipant?.isGroup) {
+            socket.emit('typing', { conversationId: conversationIdRef.current || conversationId, senderName: user.fullname });
+        } else {
+            socket.emit('typing', { recipientId: participantId, senderName: user.fullname });
+        }
         clearTimeout(typingTimer.current);
-        typingTimer.current = setTimeout(() => socket.emit('stopTyping', { recipientId: participantId }), 1500);
+        typingTimer.current = setTimeout(() => {
+            if (activeParticipant?.isGroup) {
+                socket.emit('stopTyping', { conversationId: conversationIdRef.current || conversationId });
+            } else {
+                socket.emit('stopTyping', { recipientId: participantId });
+            }
+        }, 1500);
     };
 
     const handleReact = async (messageId, emoji) => {
@@ -1282,9 +1425,11 @@ const ChatPanel = ({
                         {messages.map(message => (
                             <MessageBubble
                                 key={message._id} message={message}
-                                isOwn={message.sender?.toString() === user?._id?.toString() || message.senderId === user?._id}
+                                isOwn={message.sender?._id?.toString() === user?._id?.toString() || message.sender?.toString() === user?._id?.toString() || message.senderId === user?._id}
+                                isGroup={activeParticipant?.isGroup}
                                 conversationId={conversationId} loggeduser={user}
                                 onReact={handleReact} onEdit={handleEdit} onDelete={handleDelete}
+                                onShowInfo={handleShowMessageInfo}
                                 searchQ={searchQ}
                                 isSelected={selectedMessageId === message._id}
                                 onSelect={(msgId = message._id) => setSelectedMessageId(msgId)}
@@ -1462,6 +1607,78 @@ const ChatPanel = ({
                     </div>
                 )}
             </div>
+
+            {/* Seen Info Dialog */}
+            <Dialog
+                header={"Message Info"}
+                visible={isInfoOpen}
+                onHide={() => { setIsInfoOpen(false); setInfoMessage(null); }}
+                style={{ width: '95vw', maxWidth: '420px', borderRadius: '24px' }}
+                className="dark:bg-[var(--surface-1)] seen-info-dialog"
+                closable={true}
+            >
+                {infoMessage ? (
+                    <div className="py-2 flex flex-col gap-4">
+                        {/* Message Preview */}
+                        <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100/50 dark:border-gray-800/10">
+                            <span className="text-[10px] uppercase tracking-wider text-gray-400 font-black block mb-1">Message</span>
+                            <p className="m-0 text-sm font-medium text-[var(--text-main)] break-all">{infoMessage.message?.content || (infoMessage.message?.media?.type ? `📎 ${infoMessage.message.media.type}` : 'Media')}</p>
+                            <span className="text-[10px] text-gray-400 block mt-2">Sent at {new Date(infoMessage.message?.createdAt).toLocaleString()}</span>
+                        </div>
+
+                        {/* Seen List */}
+                        <div className="flex flex-col gap-2">
+                            <span className="text-xs font-black uppercase tracking-wider text-gray-400">Read By ({infoMessage.message?.readBy?.length || 0})</span>
+                            <div className="max-h-48 overflow-y-auto flex flex-col gap-2 p-1 custom-scrollbar">
+                                {infoMessage.message?.readBy?.length > 0 ? (
+                                    infoMessage.message.readBy.map(u => (
+                                        <div key={u._id} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/20 dark:bg-gray-900/10 border border-gray-100/50 dark:border-gray-800/10">
+                                            <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="font-bold text-xs truncate text-[var(--text-main)]">{u.fullname}</span>
+                                                <span className="text-[10px] text-gray-400">@{u.username}</span>
+                                            </div>
+                                            <span className="ml-auto inline-flex items-center text-indigo-500 font-bold text-xs gap-0.5">
+                                                <i className="pi pi-check-circle" /> Read
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-4 text-gray-400 text-xs italic">No one has read this message yet.</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Group Info Delivered To List (only for groups) */}
+                        {infoMessage.conversation?.isGroup && (
+                            <div className="flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800 pt-3">
+                                <span className="text-xs font-black uppercase tracking-wider text-gray-400">Delivered To</span>
+                                <div className="max-h-48 overflow-y-auto flex flex-col gap-2 p-1 custom-scrollbar">
+                                    {infoMessage.conversation.participants
+                                        ?.filter(p => p.userId !== infoMessage.message.sender && !infoMessage.message.readBy?.some(u => u._id === p.userId))
+                                        .map(p => (
+                                            <div key={p.userId} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/20 dark:bg-gray-900/10 border border-gray-100/50 dark:border-gray-800/10">
+                                                <img src={p.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="font-bold text-xs truncate text-[var(--text-main)]">{p.fullname}</span>
+                                                </div>
+                                                <span className="ml-auto inline-flex items-center text-gray-400 font-medium text-[11px] gap-0.5">
+                                                    <i className="pi pi-check" /> Delivered
+                                                </span>
+                                            </div>
+                                        ))
+                                    }
+                                    {infoMessage.conversation.participants?.filter(p => p.userId !== infoMessage.message.sender && !infoMessage.message.readBy?.some(u => u._id === p.userId)).length === 0 && (
+                                        <div className="text-center py-4 text-green-500 text-xs font-bold">✓ Read by all participants!</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-center py-8"><i className="pi pi-spin pi-spinner text-lg text-indigo-500" /></div>
+                )}
+            </Dialog>
 
             <style>{`
                 @keyframes typingDot { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-4px);opacity:1} }

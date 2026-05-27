@@ -157,4 +157,18 @@ router.post('/:id/chat/message', verifyToken, [
     }
 });
 
+// GET stream details (for viewers to get host ID)
+router.get('/stream/:id', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid stream ID'),
+    validate
+], async (req, res) => {
+    try {
+        const stream = await LiveStream.findById(req.params.id).populate('host', 'fullname profile_picture');
+        if (!stream) return res.status(404).json({ error: 'Stream not found' });
+        res.json(stream);
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 module.exports = router;
