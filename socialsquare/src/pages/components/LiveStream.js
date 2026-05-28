@@ -4,8 +4,12 @@ import { api } from '../../store/zustand/useAuthStore';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import toast from 'react-hot-toast';
 import { LiveKitRoom, RoomAudioRenderer, useTracks, useLocalParticipant, useRemoteParticipants } from '@livekit/components-react';
-import { Track } from 'livekit-client';
+import { Track, setLogLevel } from 'livekit-client';
 import '@livekit/components-styles';
+
+// Silence LiveKit SDK's internal logger (signal connecting, publishing track, etc.)
+// These are SDK-internal logs that clutter the browser console in production.
+setLogLevel('silent');
 
 // ── Per-user colour ────────────────────────────────────────────────────────────
 const PALETTE = ['#808bf5', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4'];
