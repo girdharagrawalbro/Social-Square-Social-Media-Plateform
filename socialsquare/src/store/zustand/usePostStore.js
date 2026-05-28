@@ -17,8 +17,8 @@ const usePostStore = create(
             profileDetailId: null,
             storyDetailUserId: null,
             storyDetailStoryId: null,
-            liveStreamId: null,
-            isLiveHost: false,
+            liveStreamId: typeof window !== 'undefined' ? sessionStorage.getItem('liveStreamId') : null,
+            isLiveHost: typeof window !== 'undefined' ? sessionStorage.getItem('isLiveHost') === 'true' : false,
             isStoryViewerOpen: false,
             chatbotOpen: false,
             isMuted: true,
@@ -34,8 +34,20 @@ const usePostStore = create(
             setProfileDetailId: (id) => set({ profileDetailId: id }),
             setStoryDetailUserId: (userId) => set({ storyDetailUserId: userId }),
             setStoryDetailDeepLink: (userId, storyId = null) => set({ storyDetailUserId: userId, storyDetailStoryId: storyId }),
-            setLiveStream: (id, isHost) => set({ liveStreamId: id, isLiveHost: isHost }),
-            clearLiveStream: () => set({ liveStreamId: null, isLiveHost: false }),
+            setLiveStream: (id, isHost) => {
+                if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('liveStreamId', id);
+                    sessionStorage.setItem('isLiveHost', String(isHost));
+                }
+                set({ liveStreamId: id, isLiveHost: isHost });
+            },
+            clearLiveStream: () => {
+                if (typeof window !== 'undefined') {
+                    sessionStorage.removeItem('liveStreamId');
+                    sessionStorage.removeItem('isLiveHost');
+                }
+                set({ liveStreamId: null, isLiveHost: false });
+            },
             clearMood: () => set({ activeMood: null }),
             setOpenComment: (postId) => set({ openCommentPostId: postId }),
             closeComment: () => set({ openCommentPostId: null }),
