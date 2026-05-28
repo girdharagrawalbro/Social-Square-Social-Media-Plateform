@@ -173,6 +173,7 @@ async function initCleanupJobs() {
 const postRouter = require('./routes/post.js');
 const storyRouter = require('./routes/story.js');
 const conversationRouter = require('./routes/conversation.js');
+const liveRouter = require('./routes/live.js');
 
 const notificationUtils = require('./lib/notification.js');
 notificationUtils.setIo(io);
@@ -180,6 +181,7 @@ notificationUtils.setIo(io);
 postRouter.setIo(io);
 storyRouter.setIo(io);
 conversationRouter.setIo(io);
+liveRouter.setIo(io);
 
 app.get('/ping', (req, res) => res.status(200).json({ status: 'ok', message: 'pong' }));
 
@@ -210,7 +212,7 @@ app.use('/api/post', postRouter);
 app.use('/api/conversation', conversationRouter);
 app.use('/api/story', storyRouter);
 app.use('/api/group', require('./routes/group'));
-app.use('/api/live', require('./routes/live'));
+app.use('/api/live', liveRouter);
 app.use('/api/ai', (req, res, next) => require('./routes/ai.js')(req, res, next));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/admin', (req, res, next) => require('./routes/admin.js')(req, res, next));
@@ -391,13 +393,112 @@ io.on('connection', (socket) => {
                 console.error('[Socket] Redis error (disconnect):', err.message);
             }
         }
+
+        // If host disconnected unexpectedly (internet drop, browser crash, tab close)
+        if (socket.isLiveHostOf) {
+            const streamId = socket.isLiveHostOf;
+            if (!global.liveEndTimers) global.liveEndTimers = {};
+
+            console.log(`[Live Stream] Host ${socket.userId} disconnected from stream ${streamId}. Starting 30s auto-end countdown...`);
+            
+            // Notify viewers host is trying to reconnect
+            io.to(`live:${streamId}`).emit('live-paused', streamId);
+
+            global.liveEndTimers[streamId] = setTimeout(async () => {
+                try {
+                    const LiveStream = require('./models/LiveStream');
+                    await LiveStream.findByIdAndUpdate(streamId, { status: 'ended', endTime: Date.now() });
+                    io.to(`live:${streamId}`).emit('live-ended', streamId);
+                    console.log(`[Live Stream] Stream ${streamId} automatically ended: Host did not reconnect within 30s.`);
+                } catch (err) {
+                    console.error('[Live Stream] Auto-end failed:', err.message);
+                } finally {
+                    delete global.liveEndTimers[streamId];
+                }
+            }, 30000); // 30 seconds buffer
+        }
+
+        // Update viewer count for any live rooms this socket was in
+        socket.rooms.forEach(async (room) => {
+            if (room.startsWith('live:')) {
+                const streamId = room.replace('live:', '');
+                const totalInRoom = io.sockets.adapter.rooms.get(room)?.size || 0;
+                const viewerCount = Math.max(0, totalInRoom - 2);
+                io.to(room).emit('viewer-joined', { viewerCount });
+
+                // Instagram-style leave notification
+                try {
+                    const user = await User.findById(socket.userId).select('fullname profile_picture');
+                    if (user) {
+                        io.to(room).emit('viewer-left-chat', {
+                            userId: socket.userId,
+                            fullname: user.fullname,
+                            profile_picture: user.profile_picture
+                        });
+                    }
+                } catch (e) {}
+            }
+        });
     });
 
     // ─── WebRTC Signaling for Live Stream ────────────────────────────────────
-    socket.on('join-live', (streamId) => {
+    socket.on('join-live', async (streamId) => {
         socket.join(`live:${streamId}`);
-        // Notify host that a new viewer joined (to update viewer count)
-        socket.to(`live:${streamId}`).emit('viewer-joined', { viewerCount: io.sockets.adapter.rooms.get(`live:${streamId}`)?.size || 0 });
+
+        // Track stream state on socket to detect host crash/disconnect
+        const LiveStream = require('./models/LiveStream');
+        try {
+            const stream = await LiveStream.findById(streamId);
+            if (stream && stream.host.toString() === socket.userId) {
+                // This socket belongs to the host
+                socket.isLiveHostOf = streamId;
+                
+                // If there was an existing auto-end countdown running for this stream, cancel it (host reconnected)
+                if (global.liveEndTimers && global.liveEndTimers[streamId]) {
+                    clearTimeout(global.liveEndTimers[streamId]);
+                    delete global.liveEndTimers[streamId];
+                    console.log(`[Live Stream] Host reconnected to stream ${streamId}. Auto-end timer cancelled.`);
+                    // Notify viewers the host is back online and recovered, so they must recreate peer connections
+                    io.to(`live:${streamId}`).emit('live-host-recovered', streamId);
+                    io.to(`live:${streamId}`).emit('live-resumed', streamId);
+                }
+            }
+        } catch (err) {}
+
+        const totalInRoom = io.sockets.adapter.rooms.get(`live:${streamId}`)?.size || 0;
+        const viewerCount = Math.max(0, totalInRoom - 1); // exclude the host
+        io.to(`live:${streamId}`).emit('viewer-joined', { viewerCount });
+
+        // Instagram-style join notification
+        try {
+            const user = await User.findById(socket.userId).select('fullname profile_picture');
+            if (user) {
+                io.to(`live:${streamId}`).emit('viewer-joined-chat', {
+                    userId: socket.userId,
+                    fullname: user.fullname,
+                    profile_picture: user.profile_picture
+                });
+            }
+        } catch (e) {}
+    });
+
+    socket.on('leave-live', async (streamId) => {
+        socket.leave(`live:${streamId}`);
+        const totalInRoom = io.sockets.adapter.rooms.get(`live:${streamId}`)?.size || 0;
+        const viewerCount = Math.max(0, totalInRoom - 1); // exclude the host
+        io.to(`live:${streamId}`).emit('viewer-joined', { viewerCount });
+
+        // Instagram-style leave notification
+        try {
+            const user = await User.findById(socket.userId).select('fullname profile_picture');
+            if (user) {
+                io.to(`live:${streamId}`).emit('viewer-left-chat', {
+                    userId: socket.userId,
+                    fullname: user.fullname,
+                    profile_picture: user.profile_picture
+                });
+            }
+        } catch (e) {}
     });
 
     socket.on('live-offer', ({ to, offer }) => {
@@ -414,8 +515,22 @@ io.on('connection', (socket) => {
     });
 
     socket.on('live-ended', (streamId) => {
-        // Broadcast to all viewers watching this stream that it has ended
         socket.to(`live:${streamId}`).emit('live-ended', streamId);
+    });
+
+    socket.on('live-paused', (streamId) => {
+        // Relay pause state to all viewers in the room
+        socket.to(`live:${streamId}`).emit('live-paused', streamId);
+    });
+
+    socket.on('live-resumed', (streamId) => {
+        // Relay resume state to all viewers in the room
+        socket.to(`live:${streamId}`).emit('live-resumed', streamId);
+    });
+
+    socket.on('send-live-message', ({ streamId, message }) => {
+        // Broadcast the real-time chat message to all clients in this stream's room (including the sender!)
+        io.to(`live:${streamId}`).emit('live-message', message);
     });
 });
 

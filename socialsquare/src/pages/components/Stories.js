@@ -978,6 +978,37 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                 <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost)} style={{ width: '100%', padding: '10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost) ? 0.6 : 1 }}>
                     {uploading ? 'Uploading...' : sharedPost ? 'Share Post to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
                 </button>
+
+                {/* Ephemeral Stream action (Go Live) inside Story popup */}
+                {!sharedPost && previews.length === 0 && (
+                    <div className='mt-2'>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const { api } = await import('../../store/zustand/useAuthStore');
+                                    const res = await api.post('/api/live/start', { title: `${loggeduser?.fullname}'s Live Stream` });
+                                    const stream = res.data;
+                                    const { setLiveStream } = require('../../store/zustand/usePostStore').default.getState();
+                                    setLiveStream(stream._id, true);
+                                    toast.success('Live stream started successfully!');
+                                    onClose();
+                                } catch (err) {
+                                    console.error('Failed to start stream:', err);
+                                    toast.error(err.response?.data?.error || 'Could not start live stream');
+                                }
+                            }}
+                            className="bg-gradient-to-tr from-rose-500 to-red-600 text-white font-bold cursor-pointer"
+                            style={{
+                                width: '100%', padding: '10px', border: 'none', borderRadius: '10px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                boxShadow: '0 4px 14px rgba(244,63,94,0.3)', fontSize: '14px'
+                            }}
+                        >
+                            <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
+                            Go Live
+                        </button>
+                    </div>
+                )}
             </div>
             {croppingState.visible && (
                 <ImageCropper
@@ -995,7 +1026,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
 const Stories = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const loggeduser = useAuthStore(s => s.user);
+    const { user: loggeduser, initialized } = useAuthStore();
     const { data: storyFeed } = useStoryFeed(loggeduser?._id);
     const [groups, setGroups] = useState([]);
     const viewedRef = useRef(new Set());
@@ -1018,7 +1049,7 @@ const Stories = () => {
     }, [storyFeed]);
 
     useEffect(() => {
-        if (!loggeduser?._id) return;
+        if (!initialized || !loggeduser?._id) return;
         const fetchActiveStreams = async () => {
             try {
                 const res = await api.get('/api/live/active');
@@ -1030,7 +1061,7 @@ const Stories = () => {
         fetchActiveStreams();
         const interval = setInterval(fetchActiveStreams, 30000);
         return () => clearInterval(interval);
-    }, [loggeduser?._id]);
+    }, [initialized, loggeduser?._id]);
 
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {
@@ -1157,18 +1188,6 @@ const Stories = () => {
         });
     };
 
-    const handleGoLive = async () => {
-        try {
-            const res = await api.post('/api/live/start', { title: `${loggeduser?.fullname}'s Live Stream` });
-            const stream = res.data;
-            setLiveStream(stream._id, true);
-            toast.success('Live stream started successfully!');
-        } catch (err) {
-            console.error('Failed to start stream:', err);
-            toast.error(err.response?.data?.error || 'Could not start live stream');
-        }
-    };
-
     return (
         <>
             <div className="relative group story-list-container">
@@ -1204,27 +1223,6 @@ const Stories = () => {
                         </div>
                         <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 500, textAlign: 'center', maxWidth: storySize, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {ownGroup ? 'Your story' : 'Add story'}
-                        </span>
-                    </div>
-
-                    {/* Go Live Button */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={handleGoLive}>
-                        <div style={{ position: 'relative', width: storySize, height: storySize }}>
-                            <div
-                                style={{
-                                    width: storySize, height: storySize, borderRadius: '50%', padding: '2px',
-                                    background: 'linear-gradient(135deg, #ef4444, #f43f5e)',
-                                    transition: 'all 0.3s ease',
-                                    boxShadow: '0 4px 10px rgba(239, 68, 68, 0.25)'
-                                }}
-                            >
-                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.1)' }}>
-                                    <i className="pi pi-video text-red-500 font-bold" style={{ fontSize: isMobile ? '20px' : '26px' }}></i>
-                                </div>
-                            </div>
-                        </div>
-                        <span style={{ fontSize: '11px', color: 'var(--text-sub)', fontWeight: 600, textAlign: 'center', maxWidth: storySize, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            Go Live
                         </span>
                     </div>
 

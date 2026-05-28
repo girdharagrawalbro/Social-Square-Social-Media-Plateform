@@ -497,7 +497,7 @@ const Feed = ({ activeMood = null }) => {
                 }
             `}</style>
 
-            <div className={`feed-container max-w-2xl mx-auto ${isDark ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'} min-h-screen pb-20`}>
+            <div className={`feed-container max-w-md mx-auto ${isDark ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'} min-h-screen pb-20`}>
                 {isLoading ? (
                     <div className="mt-1 flex flex-col">
                         {[1, 2, 3].map(i => <SkeletonPost key={i} />)}
