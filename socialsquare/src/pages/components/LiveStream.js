@@ -233,18 +233,6 @@ const LiveStreamInner = ({ streamId, isHost, onClose }) => {
         { onlySubscribed: true }
     );
 
-    // Debug: log all tracks visible in the room on every render
-    // const allTracks = useTracks(
-    //     [{ source: Track.Source.Camera, withPlaceholder: false }]
-    // );
-    // console.log('[LiveKit tracks in room]', allTracks.map(t => ({
-    //     isLocal: t.participant?.isLocal,
-    //     identity: t.participant?.identity,
-    //     sid: t.publication?.trackSid,              // ← correct: publication.trackSid
-    //     hasTrack: !!t.publication?.track,           // ← true once track is ready to attach
-    //     muted: t.publication?.isMuted,
-    // })));
-
     // Pick the correct track based on role:
     //   HOST   → find the local participant's camera publication, read .track from it
     //   VIEWER → find the first remote participant's camera publication, read .track from it
@@ -254,7 +242,7 @@ const LiveStreamInner = ({ streamId, isHost, onClose }) => {
     const activeTrackRef = isHost
         ? localTracks.find(t => t.participant?.isLocal)
         : remoteTracks.find(t => !t.participant?.isLocal);
-    const activeTrack = activeTrackRef?.publication?.track ?? null; // ← was .track (wrong)
+    const activeTrack = activeTrackRef?.publication?.track ?? null;
 
     // Attach track to the <video> element whenever it changes
     useEffect(() => {
