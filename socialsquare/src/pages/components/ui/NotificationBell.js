@@ -89,6 +89,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
         if (n.type === 'follow_request') return 'sent you a follow request';
         if (n.type === 'follow_accept') return 'accepted your follow request';
         if (n.type === 'follow_decline') return 'declined your follow request';
+        if (n.type === 'livestream') return n.message?.content || 'is currently live';
         if (n.type === 'system') return n.message?.content || 'Security alert';
         return 'sent a notification';
     };
@@ -189,17 +190,17 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                 onMouseLeave={e => e.currentTarget.style.background = n.read ? 'var(--surface-1)' : 'var(--surface-2)'}>
 
                                                 <img
-                                                    src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
-                                                    alt=""
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const id = n.sender?.id || n.sender?._id;
-                                                        if (id && n.type !== 'system') navigate(`/profile/${id}`);
-                                                        if (!id || n.type !== 'system') setOpen(false);
-                                                    }}
-                                                    style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)', cursor: 'pointer' }}
-                                                    onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokH'; }}
-                                                />
+                                    src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'livestream' ? 'https://img.icons8.com/fluency/96/camera.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
+                                    alt=""
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const id = n.sender?.id || n.sender?._id;
+                                        if (id && n.type !== 'system' && n.type !== 'livestream') navigate(`/profile/${id}`);
+                                        if (!id || n.type !== 'system' && n.type !== 'livestream') setOpen(false);
+                                    }}
+                                    style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)', cursor: 'pointer' }}
+                                    onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokH'; }}
+                                />
 
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
@@ -207,13 +208,13 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 const id = n.sender?.id || n.sender?._id;
-                                                                if (id) navigate(`/profile/${id}`);
-                                                                setOpen(false);
+                                                                if (id && n.type !== 'system' && n.type !== 'livestream') navigate(`/profile/${id}`);
+                                                                if (!id || n.type !== 'system' && n.type !== 'livestream') setOpen(false);
                                                             }}
                                                             style={{ cursor: 'pointer' }}
                                                             className="hover:text-indigo-600 transition-colors"
                                                         >
-                                                            {n.type === 'system' ? 'Security Alert' : n.sender?.fullname}
+                                                            {n.type === 'system' ? 'Security Alert' : n.type === 'livestream' ? 'Live Stream' : n.sender?.fullname}
                                                         </strong> {getNotificationText(n)}
                                                     </p>
                                                     <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-sub)' }}>{formatTime(n.createdAt)}</p>
