@@ -21,12 +21,6 @@
         }
       ]
     }
-  ],
-  "redirects": [
-    {
-      "source": "/(.*)",
-      "destination": "https://www.social-square.me/$1",
-      "permanent": true
-    }
   ]
+
 }
