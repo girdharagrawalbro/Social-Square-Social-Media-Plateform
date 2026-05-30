@@ -3,10 +3,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Install dependencies needed for compiling C++ native modules (like sharp/node-gyp)
+RUN apk add --no-cache python3 make g++ gcc
+
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including optional ones for sharp, ffmpeg, etc.)
+# Install dependencies (ignoring optional sharp platform prebuild lookup timeouts if any, or letting node-gyp build it)
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
 RUN npm ci --omit=dev
 
 # Final stage
