@@ -3,10 +3,10 @@
     {
       "source": "/(.*)",
       "headers": [
-      {
-  "key": "Content-Security-Policy",
-  "value": "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://accounts.google.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: blob: https: https://*.googleusercontent.com; media-src 'self' blob: https: https://*.cloudinary.com https://*.googleusercontent.com; connect-src 'self' https://*.onrender.com wss://*.onrender.com https://accounts.google.com https://oauth2.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://cdn.jsdelivr.net https://*.livekit.cloud wss://*.livekit.cloud https://social-square-wstenfwc.livekit.cloud wss://social-square-wstenfwc.livekit.cloud; frame-src 'self' https://accounts.google.com https://content.googleapis.com https://*.firebaseapp.com; worker-src 'self' blob:; frame-ancestors 'self' https://accounts.google.com;"
-},
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://accounts.google.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: blob: https: https://*.googleusercontent.com; media-src 'self' blob: https: https://*.cloudinary.com https://*.googleusercontent.com; connect-src 'self' https://*.onrender.com wss://*.onrender.com https://accounts.google.com https://oauth2.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://cdn.jsdelivr.net https://*.livekit.cloud wss://*.livekit.cloud https://social-square-wstenfwc.livekit.cloud wss://social-square-wstenfwc.livekit.cloud; frame-src 'self' https://accounts.google.com https://content.googleapis.com https://*.firebaseapp.com; worker-src 'self' blob:; frame-ancestors 'self' https://accounts.google.com;"
+        },
         {
           "key": "Cross-Origin-Opener-Policy",
           "value": "same-origin-allow-popups"
@@ -20,6 +20,13 @@
           "value": "cross-origin"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://www.social-square.me/$1",
+      "permanent": true
     }
   ]
 }
