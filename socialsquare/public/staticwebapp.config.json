@@ -1,13 +1,23 @@
-
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/images/*", "/css/*", "/js/*"]
+    "exclude": [
+      "/static/*",
+      "/assets/*",
+      "/images/*",
+      "/css/*",
+      "/js/*",
+      "/*.js",
+      "/*.css",
+      "/*.png",
+      "/*.jpg",
+      "/*.svg"
+    ]
   },
   "routes": [
     {
       "route": "/api/*",
-      "rewrite": "https://social-square-social-media-plateform-l1ar.onrender.com/api/:splat"
+      "rewrite": "https://social-square-social-media-plateform-l1ar.onrender.com/:splat"
     }
   ]
 }
