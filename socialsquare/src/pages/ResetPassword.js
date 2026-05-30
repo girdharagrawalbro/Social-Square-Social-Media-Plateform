@@ -9,7 +9,7 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
   const token = searchParams.get('token');
   const email = searchParams.get('email');
 
@@ -27,7 +27,7 @@ const ResetPassword = () => {
     setLoading(true);
     try {
       const encryptedPassword = encryptPassword(password);
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/reset-password`, {
+      const response = await fetch(`${BASE}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, email, password: encryptedPassword }),

@@ -25,7 +25,7 @@ import SimilarPostsSkeleton from './ui/SimilarPostsSkeleton';
 
 const UserProfile = lazy(() => import('./UserProfile'));
 
-// const BASE = process.env.REACT_APP_BACKEND_URL;
+// const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
 
 
 

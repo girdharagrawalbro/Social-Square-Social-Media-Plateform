@@ -5,7 +5,7 @@ import { api } from '../../store/zustand/useAuthStore';
 import { Capacitor } from '@capacitor/core';
 import cacheService from '../../utils/CacheService';
 
-const BASE = (process.env.REACT_APP_BACKEND_URL || '').trim();
+const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const convoKeys = {
