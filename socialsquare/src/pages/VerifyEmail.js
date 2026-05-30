@@ -15,7 +15,7 @@ const VerifyEmail = () => {
         const verify = async () => {
             try {
                 // Determine API URL based on environment
-                const API_BASE_URL = process.env.REACT_APP_API_URL;
+                const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
                 const response = await axios.get(`${API_BASE_URL}/auth/verify-email/${token}`);
 
                 setStatus('success');
