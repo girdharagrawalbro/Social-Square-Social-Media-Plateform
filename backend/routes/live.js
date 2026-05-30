@@ -64,7 +64,7 @@ router.post('/start', verifyToken, [
             notificationUtils.createNotification({
                 recipientId: followerId,
                 sender: { id: userId, fullname: user.fullname, profile_picture: user.profile_picture },
-                type: 'system',
+                type: 'livestream',
                 message: { content: `${user.fullname} is currently live!` },
                 url: `/stories?user=${userId}`
             }).catch(err => console.error('Live notification failed:', err.message));
