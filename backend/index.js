@@ -248,8 +248,8 @@ io.on('connection', (socket) => {
         // Whitelist critical/internal events
         if (['registerUser', 'join-live'].includes(event)) return next();
 
-        const limiter = ['typing', 'messageReaction', 'stopTyping'].includes(event) 
-            ? socketStrictLimiter 
+        const limiter = ['typing', 'messageReaction', 'stopTyping'].includes(event)
+            ? socketStrictLimiter
             : socketGlobalLimiter;
 
         const key = socket.userId || socket.handshake.address;
@@ -333,7 +333,7 @@ io.on('connection', (socket) => {
             console.error('[Socket] Redis error (typing):', err.message);
         }
     });
- 
+
     socket.on('stopTyping', async ({ recipientId, conversationId }) => {
         try {
             if (conversationId) {
@@ -400,7 +400,7 @@ io.on('connection', (socket) => {
             if (!global.liveEndTimers) global.liveEndTimers = {};
 
             console.log(`[Live Stream] Host ${socket.userId} disconnected from stream ${streamId}. Starting 30s auto-end countdown...`);
-            
+
             // Notify viewers host is trying to reconnect
             io.to(`live:${streamId}`).emit('live-paused', streamId);
 
@@ -436,7 +436,7 @@ io.on('connection', (socket) => {
                             profile_picture: user.profile_picture
                         });
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
         });
     });
@@ -452,7 +452,7 @@ io.on('connection', (socket) => {
             if (stream && stream.host.toString() === socket.userId) {
                 // This socket belongs to the host
                 socket.isLiveHostOf = streamId;
-                
+
                 // If there was an existing auto-end countdown running for this stream, cancel it (host reconnected)
                 if (global.liveEndTimers && global.liveEndTimers[streamId]) {
                     clearTimeout(global.liveEndTimers[streamId]);
@@ -463,7 +463,7 @@ io.on('connection', (socket) => {
                     io.to(`live:${streamId}`).emit('live-resumed', streamId);
                 }
             }
-        } catch (err) {}
+        } catch (err) { }
 
         const totalInRoom = io.sockets.adapter.rooms.get(`live:${streamId}`)?.size || 0;
         const viewerCount = Math.max(0, totalInRoom - 1); // exclude the host
@@ -479,7 +479,7 @@ io.on('connection', (socket) => {
                     profile_picture: user.profile_picture
                 });
             }
-        } catch (e) {}
+        } catch (e) { }
     });
 
     socket.on('leave-live', async (streamId) => {
@@ -498,7 +498,7 @@ io.on('connection', (socket) => {
                     profile_picture: user.profile_picture
                 });
             }
-        } catch (e) {}
+        } catch (e) { }
     });
 
     socket.on('live-offer', ({ to, offer }) => {
@@ -537,7 +537,7 @@ io.on('connection', (socket) => {
 // ✅ ─── PRESENCE HOUSEKEEPING (TTL Cleanup) ──────────────────────────────────
 // Runs every 30s to evict users who haven't sent a heartbeat in > 60s
 setInterval(async () => {
-    if (!redis) return;
+    if (!redis || process.env.DISABLE_REDIS === 'true') return;
     try {
         const now = Date.now();
         const threshold = now - 60000; // 60s inactivity
@@ -545,7 +545,7 @@ setInterval(async () => {
 
         if (staleIds.length > 0) {
             console.log(`[Presence] Evicting ${staleIds.length} stale users`);
-            
+
             // 1. Batch Redis cleanup in a pipeline
             const pipeline = redis.pipeline();
             staleIds.forEach(uId => {
@@ -613,17 +613,17 @@ async function bootstrap() {
         console.log(`[Server] Running on port ${port} (PID: ${process.pid})`);
 
         // Self-ping mechanism to keep Render free tier alive
-        const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
-        setInterval(async () => {
-            try {
-                const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
-                const axios = require('axios');
-                await axios.get(`${url}/ping`);
-                console.log(`[Self-Ping] Keep-alive ping sent to ${url}/ping successfully`);
-            } catch (error) {
-                console.error(`[Self-Ping] Error: ${error.message}`);
-            }
-        }, PING_INTERVAL);
+        // const PING_INTERVAL = 5 * 1000; // 5 seconds
+        // setInterval(async () => {
+        //     try {
+        //         const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
+        //         const axios = require('axios');
+        //         await axios.get(`${url}/ping`);
+        //         console.log(`[Self-Ping] Keep-alive ping sent to ${url}/ping successfully`);
+        //     } catch (error) {
+        //         console.error(`[Self-Ping] Error: ${error.message}`);
+        //     }
+        // }, PING_INTERVAL);
     });
 }
 
