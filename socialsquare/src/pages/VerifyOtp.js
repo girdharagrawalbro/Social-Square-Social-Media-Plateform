@@ -15,7 +15,7 @@ const VerifyOtp = () => {
   const userId = location.state?.userId;
   const setUser = useAuthStore(s => s.setUser);
   const setInitialized = useAuthStore(s => s.setInitialized);
-const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
+  const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
   useEffect(() => {
     if (!userId) navigate('/login');
   }, [userId, navigate]);
