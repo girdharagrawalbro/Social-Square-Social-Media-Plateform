@@ -16,7 +16,16 @@ root.render(
     </React.StrictMode >
 );
 
-serviceWorkerRegistration.register();
+serviceWorkerRegistration.unregister();
+
+// Clear existing caches to fix the 404 errors on old JS bundles
+if ('caches' in window) {
+    caches.keys().then((names) => {
+        for (let name of names) {
+            caches.delete(name);
+        }
+    });
+}
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))
