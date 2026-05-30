@@ -15,7 +15,7 @@ const VerifyOtp = () => {
   const userId = location.state?.userId;
   const setUser = useAuthStore(s => s.setUser);
   const setInitialized = useAuthStore(s => s.setInitialized);
-
+const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
   useEffect(() => {
     if (!userId) navigate('/login');
   }, [userId, navigate]);
@@ -49,7 +49,7 @@ const VerifyOtp = () => {
     setLoading(true);
     try {
       const fingerprint = await getFingerprint();
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/verify-otp`, {
+      const response = await fetch(`${BASE}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

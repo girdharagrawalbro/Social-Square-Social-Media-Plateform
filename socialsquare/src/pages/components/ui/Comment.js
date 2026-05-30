@@ -3,7 +3,7 @@ import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
 import { useComments, useCreateComment, useLikeComment, useDeleteComment } from '../../../hooks/queries/usePostQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
+const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
 
 const formatDateTime = (dateString) => {
     const diff = Date.now() - new Date(dateString);

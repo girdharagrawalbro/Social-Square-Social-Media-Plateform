@@ -104,7 +104,7 @@ const PasswordGate = ({ onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPw, setShowPw] = useState(false);
-
+    const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!password.trim()) { setError('Enter your password'); return; }
@@ -113,7 +113,7 @@ const PasswordGate = ({ onSuccess }) => {
         try {
             const token = getToken();
             // Re-verify password via auth endpoint
-            await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/auth/verify-password`, { password }, {
+            await api.post(`${BASE}/api/auth/verify-password`, { password }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             onSuccess();
