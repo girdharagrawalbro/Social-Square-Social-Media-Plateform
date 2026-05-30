@@ -5,7 +5,7 @@ import { api } from '../../store/zustand/useAuthStore';
 import { Capacitor } from '@capacitor/core';
 import cacheService from '../../utils/CacheService';
 
-const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
+const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const convoKeys = {
@@ -25,7 +25,7 @@ export function useConversations(userId) {
                 params: { cursor: pageParam, limit: 20 }
             });
             const data = res.data.conversations || [];
-            
+
             // Sync unread counts into Zustand
             data.forEach(conv => {
                 if (!conv.lastMessage?.isRead && conv.lastMessageBy !== userId) {
@@ -64,7 +64,7 @@ export function useMessages(participantIds) {
         queryKey: convoKeys.messages(participantIds?.sort().join('-')),
         queryFn: async () => {
             const cacheKey = `messages_${participantIds?.sort().join('-')}`;
-            
+
             // ✅ NATIVE CACHE HYDRATION
             if (Capacitor.isNativePlatform()) {
                 const cached = await cacheService.get(cacheKey);
@@ -72,7 +72,7 @@ export function useMessages(participantIds) {
             }
 
             const res = await api.post(`${BASE}/api/conversation/messages`, { recipientId });
-            
+
             // ✅ UPDATE CACHE
             if (Capacitor.isNativePlatform() && res.data) {
                 cacheService.set(cacheKey, res.data);

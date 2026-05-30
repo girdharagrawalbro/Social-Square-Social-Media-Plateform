@@ -104,7 +104,7 @@ const PasswordGate = ({ onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPw, setShowPw] = useState(false);
-    const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
+    const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!password.trim()) { setError('Enter your password'); return; }

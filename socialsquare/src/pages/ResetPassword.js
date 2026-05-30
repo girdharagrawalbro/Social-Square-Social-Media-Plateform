@@ -9,7 +9,7 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
-  const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
+  const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
   const token = searchParams.get('token');
   const email = searchParams.get('email');
 
@@ -58,8 +58,8 @@ const ResetPassword = () => {
     <>
       <div className="max-w-md mx-auto bg-white border border-gray-100 p-6 sm:p-8 rounded-xl shadow-sm text-center mt-20">
         <div className="mb-6">
-            <h3 className="font-pacifico text-3xl sm:text-4xl text-[#808bf5] mb-2">Social Square</h3>
-            <p className="text-gray-500 font-medium">Reset Password</p>
+          <h3 className="font-pacifico text-3xl sm:text-4xl text-[#808bf5] mb-2">Social Square</h3>
+          <p className="text-gray-500 font-medium">Reset Password</p>
         </div>
         <form onSubmit={handleSubmit}>
           <input

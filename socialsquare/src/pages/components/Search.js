@@ -6,7 +6,7 @@ import { debounce } from 'lodash';
 import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
 import useAuthStore from "../../store/zustand/useAuthStore";
 import SkeletonSearch from './ui/SkeletonSearch';
-const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
+const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
 const RECENT_KEY = 'recentSearches';
 const MAX_RECENT = 8; // Increased slightly for better UX
@@ -60,9 +60,9 @@ const Search = ({ onClose }) => {
             });
             const data = await res.json();
             const results = { users: data.users || [], posts: data.posts || [] };
-            
+
             setSearchResults(results);
-            
+
             // 2. Update Cache
             setSearchCache(prev => ({
                 ...prev,
@@ -100,8 +100,8 @@ const Search = ({ onClose }) => {
         const term = searchTerm.toLowerCase();
         return recentSearches.filter(item => {
             if (typeof item === 'object') {
-                return (item.fullname?.toLowerCase().includes(term)) || 
-                       (item.username?.toLowerCase().includes(term));
+                return (item.fullname?.toLowerCase().includes(term)) ||
+                    (item.username?.toLowerCase().includes(term));
             }
             return (typeof item === 'string') && item.toLowerCase().includes(term);
         });
@@ -120,15 +120,15 @@ const Search = ({ onClose }) => {
 
     const saveRecentSearch = (item) => {
         if (!item) return;
-        
+
         // Identifiers for deduplication
         const itemId = typeof item === 'object' ? (item._id || item.id) : item;
-        
+
         const updated = [item, ...recentSearches.filter(r => {
             const rId = typeof r === 'object' ? (r._id || r.id) : r;
             return rId !== itemId;
         })].slice(0, MAX_RECENT);
-        
+
         setRecentSearches(updated);
         localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
     };
@@ -183,17 +183,17 @@ const Search = ({ onClose }) => {
     const blendedUsers = useMemo(() => {
         const remoteUsers = searchResults.users || [];
         const localUserMatches = localMatches.filter(m => typeof m === 'object');
-        
+
         // Combine and deduplicate by ID
         const combined = [...localUserMatches];
         const seenIds = new Set(combined.map(u => u._id));
-        
+
         remoteUsers.forEach(u => {
             if (!seenIds.has(u._id)) {
                 combined.push(u);
             }
         });
-        
+
         return combined;
     }, [searchResults.users, localMatches]);
 
