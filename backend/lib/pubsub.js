@@ -1,7 +1,11 @@
 const Pusher = require('pusher');
-const PusherClient = require('pusher-js').Pusher;
+const EventEmitter = require('events');
 
-// Pusher Server (for publishing)
+// Internal event bus for server-side pub/sub (replaces pusher-js browser client)
+const internalBus = new EventEmitter();
+internalBus.setMaxListeners(50);
+
+// Pusher Server (for pushing real-time events to frontend clients)
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID,
   key: process.env.PUSHER_KEY,
@@ -10,22 +14,17 @@ const pusher = new Pusher({
   useTLS: true
 });
 
-// Pusher Client (for subscribing inside Node.js)
-let pusherClient;
-
 async function initPubSub() {
-    if (!pusherClient) {
-        pusherClient = new PusherClient(process.env.PUSHER_KEY, {
-            cluster: process.env.PUSHER_CLUSTER,
-        });
-        console.log('[Pusher] Client initialized for subscriptions');
-    }
+    console.log('[PubSub] Internal EventEmitter bus ready');
     return pusher;
 }
 
 async function publish(channel, data) {
     try {
-        // Trigger event 'internal-event' on the channel
+        // Notify internal server-side subscribers immediately
+        internalBus.emit(channel, data);
+
+        // Also push to frontend via Pusher
         await pusher.trigger(channel, 'internal-event', data);
         // console.log(`[Pusher] Published to ${channel}`);
     } catch (err) {
@@ -35,18 +34,16 @@ async function publish(channel, data) {
 
 async function subscribe(channel, handler) {
     try {
-        await initPubSub();
-        const chan = pusherClient.subscribe(channel);
-        chan.bind('internal-event', (data) => {
+        internalBus.on(channel, async (data) => {
             try {
-                handler(data);
+                await handler(data);
             } catch (err) {
-                console.error(`[Pusher] Handling error on ${channel}:`, err.message);
+                console.error(`[PubSub] Handling error on ${channel}:`, err.message);
             }
         });
-        console.log(`[Pusher] Subscribed to channel: ${channel}`);
+        console.log(`[PubSub] Subscribed to channel: ${channel}`);
     } catch (err) {
-        console.error(`[Pusher] Subscribe error on ${channel}:`, err.message);
+        console.error(`[PubSub] Subscribe error on ${channel}:`, err.message);
     }
 }
 
