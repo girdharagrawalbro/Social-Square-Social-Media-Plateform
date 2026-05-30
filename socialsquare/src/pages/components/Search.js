@@ -6,8 +6,7 @@ import { debounce } from 'lodash';
 import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
 import useAuthStore from "../../store/zustand/useAuthStore";
 import SkeletonSearch from './ui/SkeletonSearch';
-
-const BASE = process.env.REACT_APP_BACKEND_URL;
+const BASE = process.env.REACT_APP_NGINIX ? "" : process.env.REACT_APP_BACKEND_URL;
 
 const RECENT_KEY = 'recentSearches';
 const MAX_RECENT = 8; // Increased slightly for better UX
