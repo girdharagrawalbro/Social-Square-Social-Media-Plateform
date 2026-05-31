@@ -21,6 +21,12 @@
         }
       ]
     }
+  ],
+   "rewrites": [
+    {
+      "source": "/:path*",
+      "destination": "https://social-square-social-media-plateform.onrender.com/:path*"
+    }
   ]
 
 }
