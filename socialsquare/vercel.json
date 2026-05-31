@@ -24,7 +24,7 @@
   ],
    "rewrites": [
     {
-      "source": "/:path*",
+      "source": "/api/:path*",
       "destination": "https://social-square-social-media-plateform.onrender.com/:path*"
     }
   ]
