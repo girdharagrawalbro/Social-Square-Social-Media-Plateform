@@ -1,0 +1,14 @@
+{
+    "globalHeaders": {
+        "content-security-policy": "default-src 'self'; connect-src 'self' https://socialsquare.ambitioushill-a50180b1.koreacentral.azurecontainerapps.io; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
+    },
+    "navigationFallback": {
+        "rewrite": "/index.html",
+        "exclude": [
+            "/static/*",
+            "/assets/*",
+            "/*.js",
+            "/*.css"
+        ]
+    }
+}
