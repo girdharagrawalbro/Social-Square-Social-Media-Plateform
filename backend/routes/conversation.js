@@ -35,7 +35,25 @@ async function setCache(key, data, ttl = CACHE_TTL) {
 }
 async function delCache(...keys) {
     if (redis.status === 'disabled') return;
-    try { if (keys.length) await redis.del(keys); } catch { }
+    try {
+        const flatKeys = Array.isArray(keys[0]) ? keys[0] : keys;
+        const keysToDelete = [];
+        for (const k of flatKeys) {
+            if (k.endsWith('*')) {
+                const found = await redis.keys(k);
+                if (found && found.length) {
+                    keysToDelete.push(...found);
+                }
+            } else {
+                keysToDelete.push(k);
+            }
+        }
+        if (keysToDelete.length) {
+            await redis.del(keysToDelete);
+        }
+    } catch (e) {
+        console.error('[Redis Cache Delete Error]:', e);
+    }
 }
 
 let _io;
@@ -118,8 +136,14 @@ router.post('/create', verifyToken, [
         const senderId = req.userId;
         if (!recipientId) return res.status(400).json({ error: 'Recipient ID required' });
 
-        const participantIds = [senderId, recipientId];
-        const existing = await Conversation.findOne({ 'participants.userId': { $all: participantIds } }).lean();
+        const existing = await Conversation.findOne({
+            'participants.userId': {
+                $all: [
+                    new mongoose.Types.ObjectId(senderId),
+                    new mongoose.Types.ObjectId(recipientId)
+                ]
+            }
+        }).lean();
         if (existing) return res.status(200).json(existing);
 
         const [senderUser, recipientUser] = await Promise.all([
@@ -445,17 +469,17 @@ router.get('/', verifyToken, async (req, res) => {
             .limit(parseInt(limit))
             .lean();
 
-        const nextCursor = conversations.length === parseInt(limit) 
-            ? conversations[conversations.length - 1].lastMessageAt 
+        const nextCursor = conversations.length === parseInt(limit)
+            ? conversations[conversations.length - 1].lastMessageAt
             : null;
 
         res.status(200).json({
             conversations,
             nextCursor
         });
-    } catch (err) { 
+    } catch (err) {
         console.error('[Conversation] Fetch error:', err);
-        res.status(500).json({ error: "Internal Server Error" }); 
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -479,14 +503,14 @@ router.get('/search', verifyToken, [
                 }
             }
         })
-        .sort({ lastMessageAt: -1 })
-        .limit(20)
-        .lean();
+            .sort({ lastMessageAt: -1 })
+            .limit(20)
+            .lean();
 
         res.json(conversations);
-    } catch (err) { 
+    } catch (err) {
         console.error('[Conversation] Search error:', err);
-        res.status(500).json({ error: "Internal Server Error" }); 
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -507,10 +531,12 @@ router.post('/messages', verifyToken, [
         }
 
         let conversation;
+        const senderObjId = new mongoose.Types.ObjectId(senderId);
         if (conversationId) {
-            conversation = await Conversation.findOne({ _id: conversationId, 'participants.userId': senderId }).lean();
+            conversation = await Conversation.findOne({ _id: conversationId, 'participants.userId': senderObjId }).lean();
         } else if (recipientId) {
             if (recipientId === senderId) return res.status(400).json({ error: 'Cannot message yourself' });
+            const recipientObjId = new mongoose.Types.ObjectId(recipientId);
 
             const recipient = await User.findById(recipientId).select('fullname username profile_picture isPrivate followers').lean();
             if (!recipient) return res.status(404).json({ error: 'Recipient not found' });
@@ -524,10 +550,29 @@ router.post('/messages', verifyToken, [
             }
 
             // Check if exists
-            conversation = await Conversation.findOne({ isGroup: false, 'participants.userId': { $all: [senderId, recipientId] } }).lean();
+            conversation = await Conversation.findOne({ isGroup: false, 'participants.userId': { $all: [senderObjId, recipientObjId] } }).lean();
         }
 
-        if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
+        if (!conversation) {
+            if (recipientId) {
+                const recipient = await User.findById(recipientId).select('fullname username profile_picture').lean();
+                if (recipient) {
+                    const senderUser = await User.findById(senderId).select('fullname profile_picture').lean();
+                    return res.status(200).json({
+                        messages: [],
+                        conversation: {
+                            isGroup: false,
+                            participants: [
+                                { userId: senderId, fullname: senderUser?.fullname || '', profilePicture: senderUser?.profile_picture || '' },
+                                { userId: recipientId, fullname: recipient.fullname, profilePicture: recipient.profile_picture || '' }
+                            ]
+                        },
+                        hasMore: false
+                    });
+                }
+            }
+            return res.status(200).json({ messages: [], conversation: null, hasMore: false });
+        }
 
         const cacheKey = `msgs:${conversation._id}:${before || 'latest'}:${limit}:${targetDate || 'none'}`;
         const cached = await getCache(cacheKey);
@@ -541,7 +586,7 @@ router.post('/messages', verifyToken, [
             const countQuery = { conversationId: conversation._id };
             countQuery.createdAt = { $gte: new Date(targetDate) };
             if (before) countQuery.createdAt.$lt = new Date(before);
-            
+
             const count = await Message.countDocuments(countQuery);
             customLimit = Math.max(customLimit, count + 30);
         }
@@ -598,14 +643,14 @@ router.get('/messages/search', verifyToken, [
             conversationId, deletedAt: null,
             $text: { $search: q },
         })
-        .sort({ score: { $meta: 'textScore' } })
-        .limit(20)
-        .populate({
-            path: 'replyTo',
-            select: 'content media sender',
-            populate: { path: 'sender', select: 'fullname' }
-        })
-        .lean();
+            .sort({ score: { $meta: 'textScore' } })
+            .limit(20)
+            .populate({
+                path: 'replyTo',
+                select: 'content media sender',
+                populate: { path: 'sender', select: 'fullname' }
+            })
+            .lean();
 
         res.json(messages);
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
@@ -622,7 +667,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
     try {
         const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost, replyTo } = req.body;
         const sender = req.userId;
-        
+
         let conv;
         if (conversationId) {
             conv = await Conversation.findOne({ _id: conversationId, 'participants.userId': sender });
@@ -630,7 +675,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
             // Find or create conversation by recipientId
             const participantIds = [sender, recipientId];
             conv = await Conversation.findOne({ 'participants.userId': { $all: participantIds }, isGroup: false });
-            
+
             if (!conv) {
                 const [senderUser, recipientUser] = await Promise.all([
                     User.findById(sender).select('fullname profile_picture').lean(),
@@ -645,7 +690,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
                         return res.status(403).json({ error: 'This account is private. Follow to message.' });
                     }
                 }
-                
+
                 conv = await Conversation.create({
                     participants: [
                         { userId: sender, fullname: senderUser.fullname, profilePicture: senderUser.profile_picture || '' },
@@ -691,9 +736,9 @@ router.post(['/messages/create', '/send'], verifyToken, [
         }
 
         const updatedConv = await Conversation.findByIdAndUpdate(conv._id, {
-            lastMessage: { 
-                id: message._id, 
-                message: content || `📎 ${mediaType || 'file'}`, 
+            lastMessage: {
+                id: message._id,
+                message: content || `📎 ${mediaType || 'file'}`,
                 isRead: false,
                 isReply: !!message.replyTo
             },
@@ -702,7 +747,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
 
         const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
         const otherParticipants = conv.participants.filter(p => p.userId.toString() !== sender.toString());
-        
+
         // Create notifications for all other members
         if (otherParticipants.length > 0) {
             await Promise.all(otherParticipants.map(p => {
@@ -733,9 +778,9 @@ router.post(['/messages/create', '/send'], verifyToken, [
             });
         }
         res.status(201).json(message);
-    } catch (err) { 
+    } catch (err) {
         console.error('[Send Message Error]:', err);
-        res.status(500).json({ error: "Internal Server Error" }); 
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -754,8 +799,8 @@ router.patch('/messages/:messageId', verifyToken, [
         if (!message.originalContent) {
             message.originalContent = message.content;
         }
-        message.content = content; 
-        message.edited = true; 
+        message.content = content;
+        message.edited = true;
         message.editedAt = new Date();
         await message.save();
 
@@ -865,9 +910,9 @@ router.post('/messages/mark-read', verifyToken, [
             }
         }
         res.json({ success: true });
-    } catch (err) { 
+    } catch (err) {
         console.error('[Conversation] Mark read error:', err.message);
-        res.status(500).json({ error: "Internal Server Error" }); 
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -897,7 +942,7 @@ router.get('/unread-total', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         // Find conversations where last message is unread AND was NOT sent by current user
-        const total = await Conversation.countDocuments({ 
+        const total = await Conversation.countDocuments({
             'participants.userId': userId,
             'lastMessage.isRead': false,
             lastMessageBy: { $ne: userId }

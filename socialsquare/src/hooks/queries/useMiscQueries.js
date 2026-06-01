@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api, getToken } from '../../store/zustand/useAuthStore';
 
+const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
+
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const miscKeys = {
     activeSessions: (userId) => ['sessions', 'active', userId],
@@ -13,7 +15,7 @@ export function useActiveSessions(userId) {
     return useQuery({
         queryKey: miscKeys.activeSessions(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/auth/sessions`);
+            const res = await api.get(`${BASE}/api/auth/sessions`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: !!userId,
@@ -27,7 +29,7 @@ export function useSessionUserInfo(userId) {
     return useQuery({
         queryKey: miscKeys.userInfo(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/auth/user/${userId}`);
+            const res = await api.get(`${BASE}/api/auth/user/${userId}`);
             return res.data;
         },
         enabled: !!userId,
@@ -42,7 +44,7 @@ export function useToggle2FA() {
 
     return useMutation({
         mutationFn: async () => {
-            const res = await api.post(`/api/auth/toggle-2fa`, {});
+            const res = await api.post(`${BASE}/api/auth/toggle-2fa`, {});
             return res.data;
         },
         onSuccess: () => {
@@ -57,7 +59,7 @@ export function useChatbot() {
     return useMutation({
         mutationFn: async ({ prompt, conversationHistory }) => {
             const token = getToken();
-            const res = await fetch(`/api/chatbot/chat`, {
+            const res = await fetch(`${BASE}/api/chatbot/chat`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

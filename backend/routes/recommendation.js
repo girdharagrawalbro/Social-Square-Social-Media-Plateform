@@ -22,6 +22,25 @@ const {
 const Post = require("../models/Post");
 const User = require("../models/User");
 
+// ─── CURSOR HELPERS ──────────────────────────────────────────────────────────
+const encodeCursor = (date, id) => {
+    if (!date || !id) return null;
+    const timestamp = new Date(date).getTime();
+    return Buffer.from(`${timestamp}_${id}`).toString('base64');
+};
+
+const decodeCursor = (cursorStr) => {
+    try {
+        if (!cursorStr) return null;
+        const decoded = Buffer.from(cursorStr, 'base64').toString('ascii');
+        const [timestamp, id] = decoded.split('_');
+        if (!timestamp || !id) return null;
+        return { date: new Date(parseInt(timestamp)), id };
+    } catch (e) {
+        return null;
+    }
+};
+
 // Helper to limit consecutive posts from the same user (maxConsecutive defaults to 2)
 function limitConsecutiveUserPosts(posts, maxConsecutive = 2) {
     const result = [];
@@ -74,6 +93,7 @@ router.get("/posts", verifyToken, async (req, res) => {
 
     try {
         const userId = req.userId;
+        const cursor = req.query.cursor;
         if (!userId) {
             console.error(`${_tag} ❌ No userId from token — verifyToken may have failed silently`);
             return res.status(401).json({ items: [], message: "Unauthorized" });
@@ -125,12 +145,24 @@ router.get("/posts", verifyToken, async (req, res) => {
             .filter(Boolean);
         if (selfObjectId) restrictedObjectIds.push(selfObjectId);
 
-        const candidates = await Post.find({
+        const candidatesQuery = {
             "user._id": { $nin: restrictedObjectIds },
             isAnonymous: { $ne: true },
             isVisible: { $ne: false },
             deletedAt: null
-        })
+        };
+
+        if (cursor) {
+            const decoded = decodeCursor(cursor);
+            if (decoded) {
+                candidatesQuery.$or = [
+                    { createdAt: { $lt: decoded.date } },
+                    { createdAt: decoded.date, _id: { $lt: decoded.id } }
+                ];
+            }
+        }
+
+        const candidates = await Post.find(candidatesQuery)
             .sort({ createdAt: -1 })
             .limit(100)
             .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll')
@@ -144,9 +176,13 @@ router.get("/posts", verifyToken, async (req, res) => {
             redis.set('cache:fallback_posts', JSON.stringify(candidates.slice(0, 20)), 'EX', 600).catch(() => { });
         }
 
+        const hasMore = candidates.length >= 100;
+        const lastFetchedPost = candidates[candidates.length - 1];
+        const nextCursor = (hasMore && lastFetchedPost) ? encodeCursor(lastFetchedPost.createdAt, lastFetchedPost._id) : null;
+
         if (!interest || !interest.interestVector || !interest.interestVector.length) {
             console.log(`${_tag} [4] Returning top ${Math.min(candidates.length, 20)} posts (no interest vector — chronological)`);
-            return res.json({ items: candidates.slice(0, 20), isColdStart: true });
+            return res.json({ items: candidates.slice(0, 20), nextCursor, hasMore, isColdStart: true });
         }
 
         // ── Step 5: Fetch post vectors ────────────────────────────────────────
@@ -184,7 +220,7 @@ router.get("/posts", verifyToken, async (req, res) => {
         const result = limitConsecutiveUserPosts(ranked.slice(0, 30), 2);
         const elapsed = Date.now() - _t0;
         console.log(`${_tag} ✅ SUCCESS — returning ${result.length} posts in ${elapsed}ms`);
-        res.json({ items: result });
+        res.json({ items: result, nextCursor, hasMore });
 
     } catch (err) {
         const elapsed = Date.now() - _t0;

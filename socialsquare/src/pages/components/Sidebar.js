@@ -121,7 +121,7 @@ export default function Sidebar() {
             <aside
                 onMouseEnter={() => setOpen(true)}
                 onMouseLeave={() => setOpen(false)}
-                className={`sticky top-0 h-screen hidden lg:flex flex-col bg-[var(--surface-1)] border-r border-[var(--border-color)] transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
+                className={`sticky top-0 h-screen hidden md:flex flex-col bg-[var(--surface-1)] border-r border-[var(--border-color)] transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
             >
                 {/* Logo */}
                 <div className="flex items-center justify-between px-3 py-4 border-b border-[var(--border-color)]">
