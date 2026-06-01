@@ -216,7 +216,7 @@ const ToolbarBtn = ({ onClick, title, danger = false, children }) => {
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
 const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply }) => {
     const activeParticipant = useConversationStore(s => s.activeParticipant);
-    
+
     let checkmarkStatus = 'sent';
     if (isOwn) {
         if (isGroup) {
@@ -225,7 +225,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                 const rId = r._id || r;
                 return String(rId) !== String(loggeduser?._id);
             });
-            
+
             if (otherReaders.length === 0) {
                 checkmarkStatus = 'sent';
             } else if (otherReaders.length < otherParticipants.length) {
@@ -361,10 +361,10 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
         <div id={`msg-${message._id}`} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '6px', position: 'relative', gap: '8px' }}>
             {!isOwn && isGroup && (
                 <div style={{ alignSelf: 'flex-end', marginBottom: '14px', flexShrink: 0 }}>
-                    <img 
-                        src={senderAvatarStr} 
-                        alt="" 
-                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} 
+                    <img
+                        src={senderAvatarStr}
+                        alt=""
+                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }}
                     />
                 </div>
             )}
@@ -855,6 +855,7 @@ const ChatPanel = ({
     const fileInputRef = useRef(null);
     const typingTimer = useRef(null);
     const conversationIdRef = useRef(null);
+    const lastFetchParamsRef = useRef({ conversationId: null, recipientId: null, refreshKey: null });
 
     const [text, setText] = useState('');
     const [uploading, setUploading] = useState(false);
@@ -950,14 +951,29 @@ const ChatPanel = ({
     const deleteMessageMut = useDeleteMessage();
     const reactToMessageMut = useReactToMessage();
     const { mutate: markRead } = useMarkMessagesRead();
+    const markReadRef = useRef(markRead);
+    useEffect(() => { markReadRef.current = markRead; }, [markRead]);
+
+    const activeIsGroup = activeParticipant?.isGroup;
+    const activeConversationId = activeParticipant?.conversationId;
 
     const fetchMessages = useCallback(async () => {
-        if (!user?._id || (!participantId && !activeParticipant?.isGroup)) return;
+        if (!user?._id || (!participantId && !activeIsGroup)) return;
+        if (
+            lastFetchParamsRef.current.conversationId === activeConversationId &&
+            lastFetchParamsRef.current.recipientId === participantId &&
+            lastFetchParamsRef.current.refreshKey === refreshKey
+        ) {
+            return;
+        }
+        lastFetchParamsRef.current = { conversationId: activeConversationId, recipientId: participantId, refreshKey };
         setLoading(true);
         try {
-            const reqPayload = activeParticipant?.isGroup
-                ? { conversationId: activeParticipant.conversationId, limit: 30 }
-                : { recipientId: participantId, limit: 30 };
+            const reqPayload = {
+                limit: 30,
+                ...(activeConversationId ? { conversationId: activeConversationId } : {}),
+                ...(participantId ? { recipientId: participantId } : {})
+            };
             const res = await api.post(`/api/conversation/messages`, reqPayload);
             const fetchedMessages = res.data.messages || [];
             const fetchedConversationId = res.data.conversation?._id || null;
@@ -984,13 +1000,19 @@ const ChatPanel = ({
             ) {
 
                 // Mark messages read in DB
-                markRead({
-                    unreadMessageIds: unreadIncomingIds,
-                    lastMessage:
-                        unreadIncomingIds[
+                // markRead({
+                //     unreadMessageIds: unreadIncomingIds,
+                //     lastMessage:
+                //         unreadIncomingIds[
+                //         unreadIncomingIds.length - 1
+                //         ],
+                //     conversationId: fetchedConversationId
+                // });
+
+                markReadRef.current({
+                    unreadMessageIds: unreadIncomingIds, lastMessage: unreadIncomingIds[
                         unreadIncomingIds.length - 1
-                        ],
-                    conversationId: fetchedConversationId
+                    ], conversationId: fetchedConversationId
                 });
 
                 // Update local UI
@@ -1003,7 +1025,7 @@ const ChatPanel = ({
                 );
 
                 // Emit socket event back to sender (only for direct messages)
-                if (!activeParticipant?.isGroup) {
+                if (!activeIsGroup) {
                     unreadMessages.forEach((msg) => {
                         socket.emit('readMessage', {
                             messageId: msg._id,
@@ -1021,17 +1043,20 @@ const ChatPanel = ({
             if (err.response?.status === 403) setPrivacyError(err.response.data.error || 'This account is private');
         }
         setLoading(false);
-    }, [user?._id, participantId, activeParticipant, markRead]);
+    }, [user?._id, participantId, activeIsGroup, activeConversationId, refreshKey]);
 
     const fetchMoreMessages = useCallback(async () => {
-        if (loadingMore || !hasMore || !messages.length || (!participantId && !activeParticipant?.isGroup)) return;
+        if (loadingMore || !hasMore || !messages.length || (!participantId && !activeIsGroup)) return;
         setLoadingMore(true);
         const before = messages[0].createdAt;
         const oldScrollHeight = chatRef.current?.scrollHeight;
         try {
-            const reqPayload = activeParticipant?.isGroup
-                ? { conversationId: activeParticipant.conversationId, before, limit: 30 }
-                : { recipientId: participantId, before, limit: 30 };
+            const reqPayload = {
+                before,
+                limit: 30,
+                ...(activeConversationId ? { conversationId: activeConversationId } : {}),
+                ...(participantId ? { recipientId: participantId } : {})
+            };
             const res = await api.post(`/api/conversation/messages`, reqPayload);
             const olderMessages = res.data.messages || [];
             if (olderMessages.length > 0) {
@@ -1041,7 +1066,7 @@ const ChatPanel = ({
             } else { setHasMore(false); }
         } catch (err) { console.error('Failed to fetch more messages', err); }
         finally { setLoadingMore(false); }
-    }, [loadingMore, hasMore, messages, participantId, activeParticipant]);
+    }, [loadingMore, hasMore, messages, participantId, activeIsGroup, activeConversationId]);
 
     const handleScroll = (e) => {
         const { scrollTop, scrollHeight, clientHeight } = e.target;
@@ -1078,7 +1103,7 @@ const ChatPanel = ({
             }
             setMessages(prev => { if (prev.some(m => String(m._id) === String(message._id))) return prev; return [...prev, message]; });
             if (conversationIdRef.current) {
-                markRead({ unreadMessageIds: [message._id], lastMessage: message._id, conversationId: conversationIdRef.current });
+                markReadRef.current({ unreadMessageIds: [message._id], lastMessage: message._id, conversationId: conversationIdRef.current });
                 if (!activeParticipant?.isGroup) {
                     socket.emit('readMessage', { messageId: message._id, recipientId: message.senderId || message.sender });
                 }

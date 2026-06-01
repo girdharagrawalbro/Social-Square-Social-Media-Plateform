@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 
+const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
+
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const authKeys = {
     users: ['users'],
@@ -25,7 +27,7 @@ export function useOwnProfile(enabled = true) {
     return useQuery({
         queryKey: authKeys.ownProfile,
         queryFn: async () => {
-            const res = await api.get('/api/auth/me');
+            const res = await api.get(`${BASE}/api/auth/me`);
             return res.data;
         },
         enabled: initialized && !!user && !!enabled,
@@ -40,7 +42,7 @@ export function useOtherUserProfile(userId) {
     return useQuery({
         queryKey: authKeys.userProfile(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/auth/other-user/view/${userId}`);
+            const res = await api.get(`${BASE}/api/auth/other-user/view/${userId}`);
             return res.data;
         },
         enabled: initialized && !!userId,
@@ -56,7 +58,7 @@ export function usePrefetchUserProfile() {
         qc.prefetchQuery({
             queryKey: authKeys.userProfile(userId),
             queryFn: async () => {
-                const res = await api.get(`/api/auth/other-user/view/${userId}`);
+                const res = await api.get(`${BASE}/api/auth/other-user/view/${userId}`);
                 return res.data;
             },
             staleTime: 1000 * 60 * 5,
@@ -70,7 +72,7 @@ export function useCreatorAnalytics(userId) {
     return useQuery({
         queryKey: authKeys.analytics(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/auth/analytics/${userId}`);
+            const res = await api.get(`${BASE}/api/auth/analytics/${userId}`);
             return res.data;
         },
         enabled: initialized && !!userId,
@@ -94,7 +96,7 @@ export function useUserDetails(ids = []) {
             
             const results = await Promise.all(
                 chunks.map(async (chunk) => {
-                    const res = await api.post(`/api/auth/users/details`, { ids: chunk });
+                    const res = await api.post(`${BASE}/api/auth/users/details`, { ids: chunk });
                     return res.data?.users || [];
                 })
             );
@@ -114,7 +116,7 @@ export function useOtherUsers(limit = 8) {
     return useQuery({
         queryKey: [...authKeys.otherUsers, limit],
         queryFn: async () => {
-            const res = await api.get(`/api/auth/other-users?limit=${limit}`);
+            const res = await api.get(`${BASE}/api/auth/other-users?limit=${limit}`);
             return Array.isArray(res.data) ? res.data : [];
         },
         staleTime: 1000 * 60 * 10,
@@ -130,7 +132,7 @@ export function useInfiniteOtherUsers(limit = 10) {
     return useInfiniteQuery({
         queryKey: [...authKeys.otherUsers, 'infinite', limit],
         queryFn: async ({ pageParam = 1 }) => {
-            const res = await api.get(`/api/auth/other-users?page=${pageParam}&limit=${limit}`);
+            const res = await api.get(`${BASE}/api/auth/other-users?page=${pageParam}&limit=${limit}`);
             return Array.isArray(res.data) ? res.data : [];
         },
         getNextPageParam: (lastPage, allPages) => {
@@ -149,7 +151,7 @@ export function useStoryFeed(userId) {
     return useQuery({
         queryKey: authKeys.storyFeed(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/story/feed`);
+            const res = await api.get(`${BASE}/api/story/feed`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: initialized && !!userId,
@@ -163,7 +165,7 @@ export function useCollabInvites(userId) {
     return useQuery({
         queryKey: authKeys.collabInvites(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/post/collaborate/invites/${userId}`);
+            const res = await api.get(`${BASE}/api/post/collaborate/invites/${userId}`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: initialized && !!userId,
@@ -177,7 +179,7 @@ export function useUserProfile(userId) {
     return useQuery({
         queryKey: authKeys.userProfile(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/auth/user/${userId}`);
+            const res = await api.get(`${BASE}/api/auth/user/${userId}`);
             return res.data;
         },
         enabled: initialized && !!userId,
@@ -191,7 +193,7 @@ export function usePublicUserProfile(userId) {
     return useQuery({
         queryKey: ['user', 'public-profile', userId],
         queryFn: async () => {
-            const res = await api.get(`/api/auth/public/profile/${userId}`);
+            const res = await api.get(`${BASE}/api/auth/public/profile/${userId}`);
             return res.data;
         },
         enabled: initialized && !!userId,
@@ -205,7 +207,7 @@ export function useInfiniteFollowers(userId, limit = 10, options = {}) {
     return useInfiniteQuery({
         queryKey: [...authKeys.followers(userId), 'infinite', limit],
         queryFn: async ({ pageParam = null }) => {
-            const res = await api.get(`/api/auth/followers/${userId}`, {
+            const res = await api.get(`${BASE}/api/auth/followers/${userId}`, {
                 params: { limit, cursor: pageParam }
             });
             return res.data;
@@ -224,7 +226,7 @@ export function useInfiniteFollowing(userId, limit = 10, options = {}) {
     return useInfiniteQuery({
         queryKey: [...authKeys.following(userId), 'infinite', limit],
         queryFn: async ({ pageParam = null }) => {
-            const res = await api.get(`/api/auth/following/${userId}`, {
+            const res = await api.get(`${BASE}/api/auth/following/${userId}`, {
                 params: { limit, cursor: pageParam }
             });
             return res.data;
@@ -245,7 +247,7 @@ export function useFollowUser() {
 
     return useMutation({
         mutationFn: async ({ targetUserId }) => {
-            const res = await api.post(`/api/auth/follow`, { userId: user._id, followUserId: targetUserId });
+            const res = await api.post(`${BASE}/api/auth/follow`, { userId: user._id, followUserId: targetUserId });
             return res.data;
         },
         onSuccess: (data, { targetUserId }) => {
@@ -267,7 +269,7 @@ export function useUnfollowUser() {
 
     return useMutation({
         mutationFn: ({ targetUserId }) =>
-            api.post(`/api/auth/unfollow`, { userId: user._id, unfollowUserId: targetUserId }),
+            api.post(`${BASE}/api/auth/unfollow`, { userId: user._id, unfollowUserId: targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             // Update local Zustand store so button changes to "Follow" immediately
             unfollowUser(targetUserId);
@@ -284,7 +286,7 @@ export function useAcceptFollowRequest() {
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ requesterId }) =>
-            api.post(`/api/auth/follow-request/accept`, { userId: user?._id, requesterId }),
+            api.post(`${BASE}/api/auth/follow-request/accept`, { userId: user?._id, requesterId }),
         onMutate: async ({ requesterId }) => {
             await qc.cancelQueries({ queryKey: ['notifications', user?._id] });
             const previousNotifications = qc.getQueryData(['notifications', user?._id]);
@@ -308,7 +310,7 @@ export function useDeclineFollowRequest() {
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ requesterId }) =>
-            api.post(`/api/auth/follow-request/decline`, { userId: user?._id, requesterId }),
+            api.post(`${BASE}/api/auth/follow-request/decline`, { userId: user?._id, requesterId }),
         onMutate: async ({ requesterId }) => {
             await qc.cancelQueries({ queryKey: ['notifications', user?._id] });
             const previousNotifications = qc.getQueryData(['notifications', user?._id]);
@@ -331,7 +333,7 @@ export function useCancelFollowRequest() {
     const loggedUser = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: async ({ targetUserId }) =>
-            api.post(`/api/auth/follow-request/cancel`, { targetUserId }),
+            api.post(`${BASE}/api/auth/follow-request/cancel`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
             qc.invalidateQueries({ queryKey: authKeys.otherUsers });
@@ -350,7 +352,7 @@ export function useRemoveFollower() {
 
     return useMutation({
         mutationFn: ({ followerId }) =>
-            api.post(`/api/auth/remove-follower`, { userId: user._id, followerId }),
+            api.post(`${BASE}/api/auth/remove-follower`, { userId: user._id, followerId }),
         onSuccess: (_, { followerId }) => {
             // Update local state is optional but good for immediate feedback
             if (user) {
@@ -369,7 +371,7 @@ export function useGroups() {
     return useQuery({
         queryKey: authKeys.groups,
         queryFn: async () => {
-            const res = await api.get(`/api/group/all`);
+            const res = await api.get(`${BASE}/api/group/all`);
             return res.data;
         },
         staleTime: 1000 * 60 * 5,
@@ -382,7 +384,7 @@ export function useGroupDetail(groupId) {
     return useQuery({
         queryKey: authKeys.groupDetail(groupId),
         queryFn: async () => {
-            const res = await api.get(`/api/group/${groupId}`);
+            const res = await api.get(`${BASE}/api/group/${groupId}`);
             return res.data;
         },
         enabled: initialized && !!groupId,
@@ -393,7 +395,7 @@ export function useGroupDetail(groupId) {
 export function useCreateGroup() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (groupData) => api.post(`/api/group/create`, groupData),
+        mutationFn: (groupData) => api.post(`${BASE}/api/group/create`, groupData),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: authKeys.groups });
         },
@@ -403,7 +405,7 @@ export function useCreateGroup() {
 export function useJoinGroup() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ groupId }) => api.post(`/api/group/join/${groupId}`),
+        mutationFn: ({ groupId }) => api.post(`${BASE}/api/group/join/${groupId}`),
         onSuccess: (_, { groupId }) => {
             qc.invalidateQueries({ queryKey: authKeys.groups });
             qc.invalidateQueries({ queryKey: authKeys.groupDetail(groupId) });
@@ -414,7 +416,7 @@ export function useJoinGroup() {
 export function useLeaveGroup() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ groupId }) => api.post(`/api/group/leave/${groupId}`),
+        mutationFn: ({ groupId }) => api.post(`${BASE}/api/group/leave/${groupId}`),
         onSuccess: (_, { groupId }) => {
             qc.invalidateQueries({ queryKey: authKeys.groups });
             qc.invalidateQueries({ queryKey: authKeys.groupDetail(groupId) });
@@ -427,7 +429,7 @@ export function useMuteUser() {
     const qc = useQueryClient();
     const addMutedUser = useAuthStore(s => s.addMutedUser);
     return useMutation({
-        mutationFn: ({ targetUserId }) => api.post('/api/auth/mute', { targetUserId }),
+        mutationFn: ({ targetUserId }) => api.post(`${BASE}/api/auth/mute`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             addMutedUser(targetUserId);
             qc.invalidateQueries({ queryKey: ['posts'] });
@@ -440,7 +442,7 @@ export function useUnmuteUser() {
     const qc = useQueryClient();
     const removeMutedUser = useAuthStore(s => s.removeMutedUser);
     return useMutation({
-        mutationFn: ({ targetUserId }) => api.post('/api/auth/unmute', { targetUserId }),
+        mutationFn: ({ targetUserId }) => api.post(`${BASE}/api/auth/unmute`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             removeMutedUser(targetUserId);
             qc.invalidateQueries({ queryKey: ['posts'] });
@@ -454,7 +456,7 @@ export function useBlockUser() {
     const unfollowUser = useAuthStore(s => s.unfollowUser);
     const addBlockedUser = useAuthStore(s => s.addBlockedUser);
     return useMutation({
-        mutationFn: ({ targetUserId }) => api.post('/api/auth/block', { targetUserId }),
+        mutationFn: ({ targetUserId }) => api.post(`${BASE}/api/auth/block`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             unfollowUser(targetUserId);
             addBlockedUser(targetUserId);
@@ -469,7 +471,7 @@ export function useUnblockUser() {
     const qc = useQueryClient();
     const removeBlockedUser = useAuthStore(s => s.removeBlockedUser);
     return useMutation({
-        mutationFn: ({ targetUserId }) => api.post('/api/auth/unblock', { targetUserId }),
+        mutationFn: ({ targetUserId }) => api.post(`${BASE}/api/auth/unblock`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
             removeBlockedUser(targetUserId);
             qc.invalidateQueries({ queryKey: ['user'] });

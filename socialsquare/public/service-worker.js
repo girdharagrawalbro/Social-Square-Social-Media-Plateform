@@ -31,7 +31,7 @@ self.addEventListener('fetch', event => {
   // Skip API requests (should be handled by network first or similar)
   if (event.request.url.includes('/api/')) {
     event.respondWith(
-        fetch(event.request).catch(() => caches.match('/offline.html'))
+      fetch(event.request).catch(() => caches.match('/offline.html'))
     );
     return;
   }
@@ -45,7 +45,7 @@ self.addEventListener('fetch', event => {
         }
         return fetch(event.request);
       }
-    )
+      )
   );
 });
 

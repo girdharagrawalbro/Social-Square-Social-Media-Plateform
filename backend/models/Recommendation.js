@@ -8,9 +8,6 @@ const PostVectorSchema = new mongoose.Schema({
     tags: [{ type: String }],
     createdAt: { type: Date, default: Date.now }
 });
-// Index for fast lookups by postId (unique constraint already creates one, but explicit for clarity)
-PostVectorSchema.index({ postId: 1 });
-
 // Stores the aggregated interest profile for each user
 const UserInterestSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
@@ -21,7 +18,6 @@ const UserInterestSchema = new mongoose.Schema({
     lastUpdated: { type: Date, default: Date.now }
 });
 // Index for fast lookups and sorting
-UserInterestSchema.index({ userId: 1 });
 UserInterestSchema.index({ lastUpdated: -1 });
 
 const PostVector = mongoose.model('PostVector', PostVectorSchema);

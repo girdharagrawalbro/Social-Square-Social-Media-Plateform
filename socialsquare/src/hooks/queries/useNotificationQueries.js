@@ -5,6 +5,8 @@ import { api } from '../../store/zustand/useAuthStore';
 import { Capacitor } from '@capacitor/core';
 import cacheService from '../../utils/CacheService';
 
+const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
+
 export const notifKeys = {
     list:     (userId) => ['notifications', userId],
     settings: (userId) => ['notifications', 'settings', userId],
@@ -23,7 +25,7 @@ export function useNotifications(userId) {
                 if (cached) return cached;
             }
 
-            const res = await api.get(`/api/conversation/notifications`);
+            const res = await api.get(`${BASE}/api/conversation/notifications`);
             
             // ✅ UPDATE CACHE
             if (Capacitor.isNativePlatform() && res.data) {
@@ -47,7 +49,7 @@ export function useNotifications(userId) {
     }, [userId, qc]);
 
     const markRead = useMutation({
-        mutationFn: (Ids) => api.patch(`/api/conversation/notifications/mark-read`, { Ids }),
+        mutationFn: (Ids) => api.patch(`${BASE}/api/conversation/notifications/mark-read`, { Ids }),
         onSuccess: (_, Ids) => {
             qc.setQueryData(notifKeys.list(userId), (old = []) =>
                 old.filter(n => !Ids.includes(n._id))
@@ -67,7 +69,7 @@ export function useNotificationSettings(userId) {
     const query = useQuery({
         queryKey: notifKeys.settings(userId),
         queryFn: async () => {
-            const res = await api.get(`/api/auth/notification-settings`);
+            const res = await api.get(`${BASE}/api/auth/notification-settings`);
             return res.data;
         },
         enabled: !!userId,
@@ -75,7 +77,7 @@ export function useNotificationSettings(userId) {
     });
 
     const updateSettings = useMutation({
-        mutationFn: (settings) => api.patch(`/api/auth/notification-settings`, settings),
+        mutationFn: (settings) => api.patch(`${BASE}/api/auth/notification-settings`, settings),
         onSuccess: (res) => {
             qc.setQueryData(notifKeys.settings(userId), res.data);
         },
