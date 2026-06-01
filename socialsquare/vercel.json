@@ -24,8 +24,12 @@
   ],
   "rewrites": [
     {
-      "source": "/:path*",
-      "destination": "https://social-square-social-media-plateform.onrender.com/:path*"
+      "source": "/api/:path*",
+      "destination": "https://socialsquare.ambitioushill-a50180b1.koreacentral.azurecontainerapps.io/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
