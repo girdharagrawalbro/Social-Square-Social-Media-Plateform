@@ -1,8 +1,11 @@
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Connects via Cloudflare custom domain (e.g. wss://api.social-square.me)
+// The real Azure backend URL is NEVER exposed to the browser.
+// Set REACT_APP_SOCKET_URL=https://api.social-square.me in your Vercel env vars.
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || '/';
 
-export const socket = io(BACKEND_URL, {
+export const socket = io(SOCKET_URL, {
     withCredentials: true,
     transports: ['websocket', 'polling'],
     autoConnect: true,
