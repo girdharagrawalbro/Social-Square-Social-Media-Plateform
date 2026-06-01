@@ -82,7 +82,7 @@ if (isDisabled) {
             // Support EX/NX arguments by ignoring them but returning 'OK' to satisfy callers
             const isNX = args.includes('NX');
             if (isNX && inMemoryData[key] !== undefined) return null;
-            
+
             inMemoryData[key] = value;
             return 'OK';
         },
