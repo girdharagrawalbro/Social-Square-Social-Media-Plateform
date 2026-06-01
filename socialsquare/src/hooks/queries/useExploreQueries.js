@@ -1,6 +1,8 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '../../store/zustand/useAuthStore';
 
+const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
+
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const exploreKeys = {
     confessions: ['posts', 'confessions'],
@@ -16,7 +18,7 @@ export function useExploreReels() {
         queryFn: async ({ pageParam = null }) => {
             const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
-            const res = await api.get(`/api/post/explore-reels?${params}`);
+            const res = await api.get(`${BASE}/api/post/explore-reels?${params}`);
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -31,7 +33,7 @@ export function useConfessions() {
         queryFn: async ({ pageParam = null }) => {
             const params = new URLSearchParams({ limit: '10' });
             if (pageParam) params.append('cursor', pageParam);
-            const res = await api.get(`/api/post/confessions?${params}`);
+            const res = await api.get(`${BASE}/api/post/confessions?${params}`);
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -44,7 +46,7 @@ export function useTrending() {
     return useQuery({
         queryKey: exploreKeys.trending,
         queryFn: async () => {
-            const res = await api.get('/api/post/trending');
+            const res = await api.get(`${BASE}/api/post/trending`);
             return res.data;
         },
         staleTime: 1000 * 60 * 10, // trending changes slowly
@@ -56,7 +58,7 @@ export function useSearchUsers(query) {
     return useQuery({
         queryKey: exploreKeys.search(query),
         queryFn: async () => {
-            const res = await api.post('/api/auth/search', { query });
+            const res = await api.post(`${BASE}/api/auth/search`, { query });
             return res.data?.users || [];
         },
         enabled: !!query && query.length > 0,

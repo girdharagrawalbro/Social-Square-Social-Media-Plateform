@@ -1,35 +1,17 @@
-const { connect, StringCodec } = require("nats");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { PostVector, UserInterest } = require("./models/Recommendation");
 const Post = require("./models/Post");
-const http = require('http');
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
 
-// Configuration
-const NATS_URL = process.env.NATS_URL || "nats://localhost:4222";
-const MONGO_URI = process.env.MONGO_URI;
-const NATS_TOKEN = process.env.NATS_TOKEN || "7905038";
 const ALPHA = 0.2; // EMA factor for user interest
 
-let extractor = null;
-const sc = StringCodec();
-
-// 1. HEALTH CHECK SERVER (Required for Render Free Tier)
-const dummyPort = process.env.PORT || 10000;
-http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end('Worker is active');
-}).listen(dummyPort, () => {
-  console.log(`🚀 Health-check server listening on port ${dummyPort}`);
-});
-
-// 2. EMBEDDING HELPER WITH EXPONENTIAL BACKOFF RETRY
+// 1. EMBEDDING HELPER WITH EXPONENTIAL BACKOFF RETRY
 async function getEmbedding(text, retries = 5, initialDelay = 1500) {
   let delay = initialDelay;
   for (let i = 0; i < retries; i++) {
@@ -43,12 +25,12 @@ async function getEmbedding(text, retries = 5, initialDelay = 1500) {
       if (i === retries - 1) throw err;
       console.warn(`⚠️ [Gemini API] Embedding failed (attempt ${i + 1}/${retries}): ${err.message}. Retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2; // Exponential backoff
+      delay *= 2;
     }
   }
 }
 
-// 3. POST CREATED HANDLER
+// 2. POST CREATED HANDLER
 async function handlePostCreated(data) {
   const { postId, caption, category, tags = [] } = data;
   const textToEmbed = `${caption} ${category} ${tags.join(' ')}`.trim();
@@ -64,7 +46,7 @@ async function handlePostCreated(data) {
   console.log(`✅ Post ${postId} embedded`);
 }
 
-// 4. USER ACTIVITY HANDLER
+// 3. USER ACTIVITY HANDLER
 async function handleUserActivity(data) {
   const { userId, postId, action, category, tags = [] } = data;
   if (!userId || !postId) return;
@@ -90,22 +72,22 @@ async function handleUserActivity(data) {
   console.log(`👤 Updating interest profile for user ${userId} (${action})...`);
   let interest = await UserInterest.findOne({ userId });
 
-  let currentAlpha = ALPHA; // default 0.2
+  let currentAlpha = ALPHA;
   let shouldUpdateTags = true;
 
   if (action === 'not_interested') {
-    currentAlpha = -0.15; // Push away
+    currentAlpha = -0.15;
     shouldUpdateTags = false;
   } else if (action === 'interested') {
-    currentAlpha = 0.3; // Strong pull
+    currentAlpha = 0.3;
   } else if (action === 'like' || action === 'save' || action === 'share') {
-    currentAlpha = 0.2; // Normal pull
+    currentAlpha = 0.2;
   } else if (action === 'view') {
-    currentAlpha = 0.05; // Weak pull
+    currentAlpha = 0.05;
   }
 
   if (!interest) {
-    if (action === 'not_interested') return; // Do not create a new profile just to push away
+    if (action === 'not_interested') return;
 
     interest = new UserInterest({
       userId,
@@ -114,15 +96,12 @@ async function handleUserActivity(data) {
       topCategories: category ? [category] : []
     });
   } else {
-    // FIX: If dimensions differ (e.g. embedding model changed), reset vector instead of corrupting with NaN
     if (interest.interestVector.length !== postVecDoc.vector.length) {
       console.warn(`⚠️ Vector dimension mismatch for user ${userId}: stored=${interest.interestVector.length}, new=${postVecDoc.vector.length}. Resetting interest vector.`);
       interest.interestVector = postVecDoc.vector;
     } else {
-      // Math.abs ensures we scale the existing vector properly while currentAlpha determines the pull/push direction
       const newVector = interest.interestVector.map((val, i) => {
         const updated = (1 - Math.abs(currentAlpha)) * val + currentAlpha * (postVecDoc.vector[i] ?? 0);
-        // FIX: Guard against NaN propagation (can happen with corrupt stored values)
         return Number.isFinite(updated) ? updated : val;
       });
       interest.interestVector = newVector;
@@ -136,7 +115,6 @@ async function handleUserActivity(data) {
         interest.topCategories = [category, ...interest.topCategories.filter(c => c !== category)].slice(0, 5);
       }
     } else if (action === 'not_interested') {
-      // If they are not interested, we can optionally remove these tags from their liked tags
       if (tags.length > 0) {
         interest.likedTags = interest.likedTags.filter(t => !tags.includes(t));
       }
@@ -148,61 +126,40 @@ async function handleUserActivity(data) {
   console.log(`✅ User ${userId} profile updated (${action})`);
 }
 
-// 5. MAIN WORKER INIT
+// 4. MAIN WORKER INIT EXPORTED FOR MAIN SERVER
 async function initWorker() {
-  // Database
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGO_URI);
-    console.log("📦 Connected to MongoDB");
-  }
-
-  // AI Model is now handled externally via Gemini API
+  console.log("⚡ Initializing integrated Recommender Worker...");
   console.log("✅ AI Model ready (using Gemini API)");
 
-  // NATS Connection
-  try {
-    const nc = await connect({
-      servers: NATS_URL,
-      token: NATS_TOKEN,
-      waitOnFirstConnect: true,
-      timeout: 60000
-    });
-    console.log(`🔌 Connected to NATS at ${NATS_URL}`);
+  const eventBus = require('./lib/eventBus');
 
-    const sub = nc.subscribe(">");
+  // Subscribe to in-memory events instead of Redis Pub/Sub
+  eventBus.on("post.created", async (data) => {
+    try {
+      const rid = data.requestId ? ` [${data.requestId}]` : '';
+      console.log(`📝${rid} [Recommender Worker] Processing post.created for ${data.postId || data.id}`);
+      await handlePostCreated({
+        postId: data.postId || data.id,
+        caption: data.caption || "",
+        category: data.category || "",
+        tags: data.tags || []
+      });
+    } catch (err) {
+      console.error(`❌ [Recommender Worker] Error processing post.created:`, err.message);
+    }
+  });
 
-    (async () => {
-      for await (const m of sub) {
-        try {
-          const subject = m.subject;
-          const data = JSON.parse(sc.decode(m.data));
-          const rid = data.requestId ? ` [${data.requestId}]` : '';
+  eventBus.on("user.activity.*", async (subject, data) => {
+    try {
+      const rid = data.requestId ? ` [${data.requestId}]` : '';
+      console.log(`👤${rid} [Recommender Worker] Processing activity "${subject}" for user ${data.userId}`);
+      await handleUserActivity(data);
+    } catch (err) {
+      console.error(`❌ [Recommender Worker] Error processing activity event "${subject}":`, err.message);
+    }
+  });
 
-          if (rid) {
-            // If we had a logger, we would use AsyncLocalStorage here. 
-            // For console.log, we just prefix.
-          }
-
-          if (subject === "post.created") {
-            console.log(`📝${rid} Processing post.created for ${data.postId}`);
-            await handlePostCreated(data);
-          } else if (subject.startsWith("user.activity.")) {
-            console.log(`👤${rid} Processing user.activity for ${data.userId}`);
-            await handleUserActivity(data);
-          }
-        } catch (err) {
-          console.error(`❌ Message processing error:`, err.message);
-        }
-      }
-    })().catch(err => console.error("Subscription loop error:", err));
-
-  } catch (err) {
-    console.error("❌ NATS Connection failed:", err);
-  }
+  console.log("🔌 Recommender Worker subscribed to local EventBus");
 }
 
-// Start
-initWorker().catch(err => {
-  console.error("🔥 Worker failed to start:", err);
-  process.exit(1);
-});
+module.exports = { initWorker };

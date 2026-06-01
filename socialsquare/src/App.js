@@ -25,6 +25,7 @@ import SettingsLayout from './pages/components/SettingsLayout';
 import useTabTitle from './hooks/useTabTitle';
 import useFeedSocket from './hooks/useFeedSocket';
 import useAuthCheck from './hooks/useAuthCheck';
+import CallModal from './pages/components/CallModal';
 
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
 import Sidebar from './pages/components/Sidebar';
@@ -84,7 +85,7 @@ function AppInit() {
     const initAuth = useAuthStore(s => s.initAuth);
     const user = useAuthStore(s => s.user);
     const initialized = useAuthStore(s => s.initialized);
-    const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification } = useConversationStore();
+    const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setActiveCall } = useConversationStore();
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     useFeedSocket();
 
@@ -565,9 +566,22 @@ function AppInit() {
             });
         };
 
+        const handleIncomingCall = ({ callerId, callerName, callerAvatar, type, conversationId }) => {
+            console.log('[Socket] Incoming call from:', callerName);
+            setActiveCall({
+                conversationId,
+                callerId,
+                callerName,
+                callerAvatar,
+                callType: type,
+                isIncoming: true
+            });
+        };
+
         socket.on('newNotification', handleNewNotification);
         socket.on('newStory', handleNewStory);
         socket.on('collaborationInvite', handleCollabInvite);
+        socket.on('incomingCall', handleIncomingCall);
 
         return () => {
             clearInterval(heartbeatInterval);
@@ -578,8 +592,9 @@ function AppInit() {
             socket.off('newNotification', handleNewNotification);
             socket.off('newStory', handleNewStory);
             socket.off('collaborationInvite', handleCollabInvite);
+            socket.off('incomingCall', handleIncomingCall);
         };
-    }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate]);
+    }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate, setActiveCall]);
 
     return null;
 }
@@ -776,16 +791,24 @@ function App() {
 
 }
 
-// ─── GLOBAL OVERLAYS ──────────────────────────────────────────────────────────
 function GlobalOverlays() {
     const { postDetailId, profileDetailId, setPostDetailId, setProfileDetailId, sharingPostToStory, clearSharingPostToStory } = usePostStore();
     const user = useAuthStore(s => s.user);
     const isStoryViewerOpen = usePostStore(s => s.isStoryViewerOpen);
     const location = useLocation();
+    const activeCall = useConversationStore(s => s.activeCall);
+    const setActiveCall = useConversationStore(s => s.setActiveCall);
 
     return (
         <>
             {!location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && <Chatbot />}
+
+            {activeCall && (
+                <CallModal
+                    {...activeCall}
+                    onClose={() => setActiveCall(null)}
+                />
+            )}
 
             <Dialog
                 showHeader={false}

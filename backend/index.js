@@ -39,6 +39,16 @@ const { correlationMiddleware } = require('./middleware/correlation');
 app.set('trust proxy', 1);
 app.use(correlationMiddleware);
 
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
+app.use(cors({
+    origin: allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-fingerprint', 'x-request-id']
+}));
+
 // ─── SECURITY + COMPRESSION ───────────────────────────────────────────────────
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false, crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
@@ -55,7 +65,7 @@ const authWriteLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many attempts. Try again in 15 minutes.' },
     skip: (req) => {
-        const safePaths = ['/refresh', '/get', '/other-users', '/search', '/other-user', '/notification-settings'];
+        const safePaths = ['/refresh', '/get', '/other-users', '/search', '/other-user', '/user', '/notification-settings'];
         return safePaths.some(p => req.path.includes(p));
     },
 });
@@ -80,16 +90,6 @@ const reportLimiter = rateLimit({
 app.use('/api/auth', authWriteLimiter);
 app.use('/api/admin/report', reportLimiter);
 app.use('/api', apiLimiter);
-
-// ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
-
-app.use(cors({
-    origin: allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-fingerprint', 'x-request-id']
-}));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -151,6 +151,10 @@ async function initPubSubLayer() {
         await initPubSub();
         await initPostSubscriber();
         console.log('[PubSub] Initialized');
+
+        // Initialize integrated Recommender Worker locally
+        const { initWorker: initRecommenderWorker } = require('./recommenderWorker');
+        await initRecommenderWorker();
     } catch (err) {
         console.warn('[PubSub] Failed:', err.message);
     }
@@ -213,6 +217,7 @@ app.use('/api/conversation', conversationRouter);
 app.use('/api/story', storyRouter);
 app.use('/api/group', require('./routes/group'));
 app.use('/api/live', liveRouter);
+app.use('/api/conversation/call', require('./routes/livekitCall.js'));
 app.use('/api/ai', (req, res, next) => require('./routes/ai.js')(req, res, next));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/admin', (req, res, next) => require('./routes/admin.js')(req, res, next));
@@ -240,6 +245,43 @@ const socketGlobalLimiter = (process.env.DISABLE_REDIS === 'true' || !process.en
 const socketStrictLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
     ? new RateLimiterMemory({ points: 2, duration: 1 })
     : new RateLimiterRedis({ storeClient: redis, points: 2, duration: 1, keyPrefix: 'socket_strict' });
+
+const activeCalls = new Map();
+
+async function saveCallMessage(io, conversationId, senderId, content) {
+    try {
+        const Message = require('./models/Message');
+        const Conversation = require('./models/Conversation');
+        const User = require('./models/User');
+
+        const message = await Message.create({
+            conversationId,
+            sender: senderId,
+            content: content
+        });
+
+        const updatedConv = await Conversation.findByIdAndUpdate(conversationId, {
+            lastMessage: {
+                id: message._id,
+                message: content,
+                isRead: false
+            },
+            lastMessageAt: new Date(),
+            lastMessageBy: senderId,
+        }, { new: true }).lean();
+
+        const senderUser = await User.findById(senderId).select('fullname').lean();
+        const participants = updatedConv.participants.map(p => p.userId.toString());
+
+        const msgObj = { ...message.toObject(), senderId: senderId, senderName: senderUser?.fullname };
+        participants.forEach(p => {
+            io.to(p).emit('receiveMessage', msgObj);
+            io.to(p).emit('conversationUpdated', updatedConv);
+        });
+    } catch (err) {
+        console.error('[saveCallMessage Error]:', err);
+    }
+}
 
 io.on('connection', (socket) => {
     console.log(`[Socket] Connected: ${socket.id} from ${socket.handshake.address}`);
@@ -286,8 +328,49 @@ io.on('connection', (socket) => {
 
             // 3. Update MongoDB
             await User.findByIdAndUpdate(userId, { isOnline: true });
+
+            // 4. Check if there is an active call waiting for this user (e.g. after a page refresh)
+            for (const [convId, call] of activeCalls.entries()) {
+                if (call.recipientId === userId && !call.accepted) {
+                    const User = require('./models/User');
+                    const callerUser = await User.findById(call.callerId).select('fullname profile_picture').lean();
+                    socket.emit('incomingCall', {
+                        callerId: call.callerId,
+                        callerName: callerUser?.fullname || 'Someone',
+                        callerAvatar: callerUser?.profile_picture || '',
+                        type: call.type,
+                        conversationId: convId
+                    });
+                    console.log(`[Socket] Restored active call to reconnected user: ${userId}`);
+                    break;
+                }
+            }
         } catch (err) {
             console.error('[Socket] Redis error (registerUser):', err.message);
+        }
+    });
+
+    // ─── CHECK ACTIVE CALL (Solves page refresh race condition) ───────────────────
+    socket.on('checkActiveCall', async () => {
+        const userId = socket.userId;
+        if (!userId) return;
+        
+        console.log(`🔍 [Socket] User ${userId} requested active call check`);
+        for (const [convId, call] of activeCalls.entries()) {
+            if (call.recipientId === userId && !call.accepted) {
+                const User = require('./models/User');
+                const callerUser = await User.findById(call.callerId).select('fullname profile_picture').lean();
+                socket.emit('incomingCall', {
+                    callerId: call.callerId,
+                    callerName: callerUser?.fullname || 'Someone',
+                    callerAvatar: callerUser?.profile_picture || '',
+                    type: call.type,
+                    conversationId: convId,
+                    isRestored: true
+                });
+                console.log(`[Socket] Restored active incoming call to ${userId} on request`);
+                break;
+            }
         }
     });
 
@@ -373,6 +456,85 @@ io.on('connection', (socket) => {
 
     socket.on('messageReaction', ({ messageId, conversationId, reactions, recipientId }) => {
         if (recipientId) io.to(recipientId).emit('messageReaction', { messageId, conversationId, reactions });
+    });
+
+    socket.on('initiateCall', ({ recipientId, type, conversationId, callerName, callerAvatar }) => {
+        if (recipientId) {
+            activeCalls.set(conversationId, {
+                startTime: Date.now(),
+                type,
+                callerId: socket.userId,
+                recipientId,
+                accepted: false
+            });
+
+            io.to(recipientId).emit('incomingCall', {
+                callerId: socket.userId,
+                callerName,
+                callerAvatar,
+                type,
+                conversationId
+            });
+        }
+    });
+
+    socket.on('acceptCall', ({ callerId, conversationId }) => {
+        if (callerId) {
+            const call = activeCalls.get(conversationId);
+            if (call) {
+                call.accepted = true;
+                call.connectTime = Date.now();
+            }
+            io.to(callerId).emit('callAccepted', { receiverId: socket.userId, conversationId });
+        }
+    });
+
+    socket.on('declineCall', ({ callerId }) => {
+        if (callerId) {
+            let callToDecline = null;
+            let foundConvId = null;
+            for (const [convId, call] of activeCalls.entries()) {
+                if (call.callerId === callerId && call.recipientId === socket.userId) {
+                    callToDecline = call;
+                    foundConvId = convId;
+                    break;
+                }
+            }
+
+            if (callToDecline && foundConvId) {
+                const content = callToDecline.type === 'video' ? '📹 Missed video chat' : '📞 Missed voice call';
+                saveCallMessage(io, foundConvId, callToDecline.callerId, content);
+                activeCalls.delete(foundConvId);
+            }
+
+            io.to(callerId).emit('callDeclined');
+        }
+    });
+
+    socket.on('endCall', ({ recipientId, conversationId }) => {
+        if (recipientId) {
+            const call = activeCalls.get(conversationId);
+            if (call) {
+                let content = '';
+                if (call.accepted && call.connectTime) {
+                    const durationSec = Math.floor((Date.now() - call.connectTime) / 1000);
+                    const minutes = Math.floor(durationSec / 60);
+                    const seconds = durationSec % 60;
+                    const durationStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                    content = call.type === 'video'
+                        ? `📹 Video chat ended - ${durationStr}`
+                        : `📞 Voice call ended - ${durationStr}`;
+                } else {
+                    content = call.type === 'video'
+                        ? '📹 Missed video chat'
+                        : '📞 Missed voice call';
+                }
+                saveCallMessage(io, conversationId, call.callerId, content);
+                activeCalls.delete(conversationId);
+            }
+
+            io.to(recipientId).emit('callEnded', { conversationId });
+        }
     });
 
     socket.on('disconnect', async (reason) => {

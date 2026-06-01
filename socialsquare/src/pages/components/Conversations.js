@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import { useUserProfile } from '../../hooks/queries/useAuthQueries';
 import ChatPanel from './ChatPanel';
+// import CallModal from './CallModal';
 import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
@@ -25,6 +26,8 @@ const Conversations = () => {
     const incrementUnread = useConversationStore(s => s.incrementUnread);
     const clearUnread = useConversationStore(s => s.clearUnread);
     const unreadCounts = useConversationStore(s => s.unreadCounts);
+    // const activeCall = useConversationStore(s => s.activeCall);
+    const setActiveCall = useConversationStore(s => s.setActiveCall);
 
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -48,7 +51,12 @@ const Conversations = () => {
     const { userId: routeUserId } = useParams();
     const toId = (v) => (v && typeof v === 'object' && v.toString ? v.toString() : String(v || ''));
 
-    const { data: fetchedProfile } = useUserProfile(routeUserId);
+    const isGroupRoute = useMemo(() => {
+        if (!routeUserId) return false;
+        return conversations.some(c => c.isGroup && toId(c._id) === routeUserId);
+    }, [conversations, routeUserId]);
+
+    const { data: fetchedProfile } = useUserProfile(isGroupRoute ? null : routeUserId);
 
     const selectedParticipant = useMemo(() => {
         if (!routeUserId) return null;
@@ -328,6 +336,28 @@ const Conversations = () => {
         };
     }, [handleRefetch, incrementUnread, queryClient, user?._id]);
 
+    const handleStartCall = async (type) => {
+        if (!selectedParticipant?.conversationId) {
+            toast.error("Please send at least one message to establish a secure chat before calling!");
+            return;
+        }
+        setActiveCall({
+            conversationId: selectedParticipant.conversationId,
+            recipientId: selectedParticipant.userId,
+            recipientName: selectedParticipant.fullname,
+            recipientAvatar: selectedParticipant.profilePicture,
+            callType: type,
+            isIncoming: false
+        });
+        socket.emit('initiateCall', {
+            recipientId: selectedParticipant.userId,
+            type,
+            conversationId: selectedParticipant.conversationId,
+            callerName: user.fullname,
+            callerAvatar: user.profile_picture || ''
+        });
+    };
+
     const openChat = (participant, lastMsgId) => {
         setLastMessageId(lastMsgId || null);
         openChatGlobal(participant.conversationId || null, participant);
@@ -599,6 +629,16 @@ const Conversations = () => {
                                         </div>
                                     ) : (
                                         <>
+                                            {!selectedParticipant?.isGroup && (
+                                                <>
+                                                    <button onClick={() => handleStartCall('voice')} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title="Voice Call">
+                                                        <i className="pi pi-phone" style={{ fontSize: '13px' }}></i>
+                                                    </button>
+                                                    <button onClick={() => handleStartCall('video')} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title="Video Call">
+                                                        <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
+                                                    </button>
+                                                </>
+                                            )}
                                             <button onClick={() => setIsSearching(true)} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title="Search messages">
                                                 <i className="pi pi-search" style={{ fontSize: '13px' }}></i>
                                             </button>

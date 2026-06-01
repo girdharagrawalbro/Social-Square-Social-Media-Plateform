@@ -8,6 +8,10 @@ const useConversationStore = create(
             activeConversationId: null,
             activeParticipant: null, // { userId, fullname, profilePicture }
 
+            // ─── Call state ───────────────────────────────────────────────
+            activeCall: null, // { conversationId, callerId, callerName, callerAvatar, recipientId, recipientName, recipientAvatar, callType, isIncoming }
+            setActiveCall: (call) => set({ activeCall: call }),
+
             // ─── Online users ─────────────────────────────────────────────
             onlineUserIds: new Set(),
             lastSeenMap: {}, // userId → Date string
