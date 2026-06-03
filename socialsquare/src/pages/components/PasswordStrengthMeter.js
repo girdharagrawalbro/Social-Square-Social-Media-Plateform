@@ -54,9 +54,9 @@ export default function PasswordStrengthMeter({ password }) {
 
       {/* Hints */}
       {hints.length > 0 && score < 4 && (
-        <ul style={{ margin: '4px 0 0', padding: '0 0 0 16px', fontSize: '11px', color: '#9ca3af' }}>
-          {hints.map((hint, i) => <li key={i}>{hint}</li>)}
-        </ul>
+        <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9ca3af', textAlign: 'center', lineHeight: '1.4' }}>
+          {hints.join(' • ')}
+        </p>
       )}
     </div>
   );

@@ -86,28 +86,31 @@ const Signup = () => {
     }
   };
 
+  const inputClass = `px-4 py-2.5 w-full my-2 border rounded-lg transition-all duration-200 outline-none focus:ring-2 focus:ring-[#808bf5]/50 ${isDark ? 'bg-white/5 border-gray-800 text-white placeholder-gray-500' : 'bg-white border-gray-200 text-gray-800'}`;
 
   return (
     <>
       <Bg>
-        <div className="w-full flex items-center justify-center gap-6 flex-col md:flex-row">
-          <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col text-left">
-            <div className="mb-6 text-center">
-              <h3 className="font-pacifico text-3xl sm:text-4xl text-[#808bf5] mb-2">Social Square</h3>
-              <p className="text-gray-500 font-medium whitespace-nowrap">Join your community today</p>
+        <div className="w-xl flex items-center justify-center gap-10 flex-col md:flex-row p-8">
+          <div className={`flex flex-col justify-center w-full max-w-md mx-auto rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
+            <div className="mb-8">
+              <h3 className="font-pacifico text-4xl text-[#808bf5] mb-3">Social Square</h3>
+              <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Log in to your account</p>
             </div>
-            <form onSubmit={handleSubmit}>
-              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
-              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="text" name="fullname" placeholder="Full Name" value={formData.fullname} onChange={handleChange} required />
+            <form onSubmit={handleSubmit} className="space-y-1">
+              <input className={inputClass} type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
+              <input className={inputClass} type="text" name="fullname" placeholder="Full Name" value={formData.fullname} onChange={handleChange} required />
               <div className="relative">
-                <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type={showPassword ? "text" : "password"} name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+                <input className={inputClass} type={showPassword ? "text" : "password"} name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
                 <i
                   className={`pi ${showPassword ? 'pi-eye-slash' : 'pi-eye'} absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-[#808bf5] transition-colors`}
                   onClick={() => setShowPassword(!showPassword)}
                 ></i>
               </div>
               <PasswordStrengthMeter password={formData.password} />
-              <button className="py-2 mt-2 bg-themeAccent text-white w-full rounded" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign up'}</button>
+              <button className="py-2.5 bg-[#808bf5] hover:bg-[#6c79f2] text-white w-full rounded-lg font-bold transition-all transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50" type="submit" disabled={loading}>
+                {loading ? 'Signing up...' : 'Sign up'}
+              </button>
             </form>
 
             <div className="flex items-center my-6">
@@ -177,7 +180,7 @@ const Signup = () => {
               <p>Have an account? <Link to="/login" className="text-themeStart font-semibold">Log in</Link></p>
             </div>
           </div>
-          <div className="hidden md:block md:max-w-sm lg:max-w-md">
+          <div className="hidden md:block md:max-w-sm lg:max-w-md animate-in fade-in duration-700">
             <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" className="w-full h-auto" />
           </div>
         </div>

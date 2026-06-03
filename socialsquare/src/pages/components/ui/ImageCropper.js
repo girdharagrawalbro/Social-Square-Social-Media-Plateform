@@ -56,7 +56,8 @@ const ImageCropper = ({
   visible,
   initialAspect = 1,
   duration = 60,
-  isNextImage = false
+  isNextImage = false,
+  onBack = null
 }) => {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -144,7 +145,7 @@ const ImageCropper = ({
       <div className="w-full flex flex-col bg-[var(--surface-1)]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
-          <button onClick={onCancel} className="text-[var(--text-sub)] hover:text-[var(--text-main)] transition">
+          <button onClick={onBack || onCancel} className="text-[var(--text-sub)] hover:text-[var(--text-main)] transition">
             <i className="pi pi-arrow-left text-lg"></i>
           </button>
           <h2 className="text-sm font-bold text-[var(--text-main)] m-0">{video ? 'Trim & Crop' : 'Crop'}</h2>

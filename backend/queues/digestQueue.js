@@ -66,14 +66,8 @@ async function runAdminDigests() {
         try {
             await sendResendEmail({
                 to: admin.email,
-                subject: `📊 Admin Daily Growth Digest — Social Square`,
-                html: buildGrowthDigestEmail(admin, growthStats)
-            });
-
-            await sendResendEmail({
-                to: admin.email,
-                subject: `🤖 Admin Daily AI Usage Digest — Social Square`,
-                html: buildAIUsageDigestEmail(admin, aiStats)
+                subject: `📊 Admin Daily Digest — Social Square`,
+                html: buildCombinedAdminDigestEmail(admin, growthStats, aiStats)
             });
         } catch (err) {
             console.error(`[Admin Digest] Failed for ${admin.email}:`, err.message);
@@ -81,30 +75,38 @@ async function runAdminDigests() {
     }
 }
 
-function buildGrowthDigestEmail(user, stats) {
+function buildCombinedAdminDigestEmail(user, growthStats, aiStats) {
     return `
     <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
-    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
-        <h2 style="color:#808bf5;margin:0 0 16px">📊 Daily Growth Digest</h2>
-        <p style="color:#374151;font-size:14px">System status summary for Administrator <strong>${user.fullname}</strong>.</p>
-        <div style="margin:24px 0;background:#f3f4f6;border-radius:12px;padding:20px">
-            <p style="margin:8px 0;font-size:15px">👤 <strong>New Signups:</strong> ${stats.newUsers}</p>
-            <p style="margin:8px 0;font-size:15px">📝 <strong>New Publications:</strong> ${stats.newPosts}</p>
-            <p style="margin:8px 0;font-size:15px">🔥 <strong>Active Segment:</strong> ${stats.activeUsers} members</p>
-            <p style="margin:8px 0;font-size:15px">📈 <strong>Week-over-Week Delta:</strong> ${stats.wowDelta}%</p>
+    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:32px 28px;text-align:center">
+            <h1 style="color:#fff;margin:0;font-size:24px">Social Square</h1>
+            <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">Admin Daily Activity & Analytics Digest</p>
         </div>
-    </div></body></html>`;
-}
+        <div style="padding:28px">
+            <p style="font-size:16px;color:#374151;margin:0">Hi <strong>${user.fullname}</strong> (Administrator) 👋</p>
+            <p style="font-size:14px;color:#6b7280;margin:8px 0 20px">Here is the daily system overview and resource utilization summary.</p>
+            
+            <h3 style="color:#808bf5;margin:24px 0 12px;font-size:16px;border-bottom:1px solid #e5e7eb;padding-bottom:6px">📊 Daily Growth Metrics</h3>
+            <div style="background:#f9fafb;border:1px solid #f3f4f6;border-radius:12px;padding:16px;margin-bottom:20px">
+                <p style="margin:8px 0;font-size:14px;color:#374151">👤 <strong>New Signups:</strong> ${growthStats.newUsers}</p>
+                <p style="margin:8px 0;font-size:14px;color:#374151">📝 <strong>New Publications:</strong> ${growthStats.newPosts}</p>
+                <p style="margin:8px 0;font-size:14px;color:#374151">🔥 <strong>Active Segment:</strong> ${growthStats.activeUsers} members</p>
+                <p style="margin:8px 0;font-size:14px;color:#374151">📈 <strong>Week-over-Week Delta:</strong> ${growthStats.wowDelta}%</p>
+            </div>
 
-function buildAIUsageDigestEmail(user, stats) {
-    return `
-    <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
-    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
-        <h2 style="color:#6366f1;margin:0 0 16px">🤖 Daily AI Usage Digest</h2>
-        <p style="color:#374151;font-size:14px">Resource usage insights for Administrator <strong>${user.fullname}</strong>.</p>
-        <div style="margin:24px 0;background:#f5f3ff;border-radius:12px;padding:20px">
-            <p style="margin:8px 0;font-size:15px">⚡ <strong>AI Posts Generated:</strong> ${stats.aiPosts}</p>
-            <p style="margin:8px 0;font-size:15px">💸 <strong>Approximate Costs:</strong> $${stats.estimatedCost}</p>
+            <h3 style="color:#6366f1;margin:24px 0 12px;font-size:16px;border-bottom:1px solid #e5e7eb;padding-bottom:6px">🤖 Daily AI Usage Insights</h3>
+            <div style="background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:16px;margin-bottom:20px">
+                <p style="margin:8px 0;font-size:14px;color:#374151">⚡ <strong>AI Posts Generated:</strong> ${aiStats.aiPosts}</p>
+                <p style="margin:8px 0;font-size:14px;color:#374151">💸 <strong>Approximate Costs:</strong> $${aiStats.estimatedCost}</p>
+            </div>
+            
+            <div style="text-align:center;margin-top:28px">
+                <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/admin" style="display:inline-block;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px">Open Admin Control Panel →</a>
+            </div>
+        </div>
+        <div style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;text-align:center">
+            <p style="font-size:11px;color:#9ca3af;margin:0">This is an automated system email sent to administrators.</p>
         </div>
     </div></body></html>`;
 }

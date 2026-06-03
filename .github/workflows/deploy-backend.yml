@@ -1,0 +1,58 @@
+name: Deploy Backend to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/social-square-backend:latest
+            ghcr.io/${{ github.repository_owner }}/social-square-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          imageToDeploy: ghcr.io/${{ github.repository_owner }}/social-square-backend:${{ github.sha }}
+          containerAppName: ${{ secrets.AZURE_CONTAINER_APP_NAME || 'social-square-backend' }}
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP || 'social-square-rg' }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ secrets.GHCR_USERNAME || github.repository_owner }}
+          registryPassword: ${{ secrets.GHCR_PAT }}
