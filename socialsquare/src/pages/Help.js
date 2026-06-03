@@ -11,12 +11,9 @@ const Help = () => {
             <div className="w-full max-w-4xl mx-auto text-left">
                 <div className={`rounded-2xl border transition-all duration-200 p-4 sm:p-6 md:p-8 ${isDark ? 'bg-black/40 border-gray-800' : 'bg-white/95 border-gray-100'}`}>
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Help & How It Works</h1>
-                    <p className={`text-sm sm:text-base mb-6 sm:mb-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Getting started is simple: create an account, complete your profile, and begin posting or chatting with your community.
-                    </p>
-
-                    <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Key Features</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                 
+          
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-6 sm:mb-8 mt-3">
                         {[
                             { emoji: '✨', title: 'Share Your Thoughts', desc: 'Post photos and updates. Others can like and comment on your posts.' },
                             { emoji: '💬', title: 'Engage with the Community', desc: 'Explore posts and interact with people you follow.' },

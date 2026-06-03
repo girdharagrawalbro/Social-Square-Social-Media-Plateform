@@ -131,6 +131,17 @@ const Navbar = () => {
       </div>
 
       <div className="sm:hidden flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+
+        {/* Mobile Theme Toggle */}
+        <button
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={toggle}
+          className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <i className={`pi ${isDark ? 'pi-sun' : 'pi-moon'} text-xs sm:text-base`}></i>
+        </button>
+
         {isAuthenticated && !isLandingPage ? (
           <>
             {!mobileSearchActive ? (

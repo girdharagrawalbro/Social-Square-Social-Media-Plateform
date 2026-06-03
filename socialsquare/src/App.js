@@ -647,7 +647,7 @@ function PublicLayout({ children }) {
     return (
         <div className="flex flex-col min-h-[100dvh] w-full">
             <Navbar />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 flex flex-col">{children}</main>
             <Footer />
         </div>
     );

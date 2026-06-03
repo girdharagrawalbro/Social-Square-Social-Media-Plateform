@@ -41,7 +41,7 @@ const Forgot = () => {
                 {sent ? (
                     <div className="animate-in fade-in zoom-in duration-500">
                         <div className="text-green-500 text-xl font-bold mb-4 flex items-center justify-center gap-2">
-                            <span>✅</span> Check your email!
+                            Check your email!
                         </div>
                         <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                             We sent a password reset link to <strong className="text-[#808bf5]">{email}</strong>.
