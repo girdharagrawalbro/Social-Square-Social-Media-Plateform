@@ -197,9 +197,7 @@ const NewPost = ({ visible, onHide }) => {
         if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
         setIsGeneratingAi(true);
         try {
-            const refinedPrompt = `You are a social media expert. Write a short, engaging, and highly creative caption for: "${aiPrompt}". 
-            IMPORTANT: Return ONLY the caption text. Do not ask questions. Do not use hashtags. Do not use markdown.`;
-            const res = await api.post(`/api/ai/generate-text`, { prompt: refinedPrompt });
+            const res = await api.post(`/api/ai/generate-text`, { prompt: aiPrompt });
             setFormData(p => ({ ...p, caption: res.data.text }));
             setUsedAiForThisPost(true);
             setAiLimits(prev => ({ ...prev, text: res.data.remaining }));
@@ -213,8 +211,7 @@ const NewPost = ({ visible, onHide }) => {
         if (images.length >= 5) { toast.error('Max 5 images reached'); return; }
         setIsGeneratingAi(true);
         try {
-            const refinedPrompt = `A high-quality, cinematic, professional social media photography of: ${aiPrompt}. 8k resolution, highly detailed.`;
-            const res = await api.post(`/api/ai/generate-image`, { prompt: refinedPrompt });
+            const res = await api.post(`/api/ai/generate-image`, { prompt: aiPrompt });
             const newImg = { id: Math.random().toString(36).slice(2), preview: res.data.imageUrl, url: res.data.imageUrl, uploaded: true, progress: 100 };
             setImages(prev => {
                 const next = [...prev, newImg];
@@ -241,13 +238,9 @@ const NewPost = ({ visible, onHide }) => {
         setIsGeneratingAi(true);
 
         try {
-            const refinedTextPrompt = `You are a professional content creator. Generate a compelling social media caption for: "${aiPrompt}". 
-            Return ONLY the caption text. No hashtags. No conversational filler.`;
-            const refinedImgPrompt = `A professional, cinematic social media photograph: ${aiPrompt}. 8k, highly detailed, realistic composition.`;
-
-            // Start all tasks
-            const textPromise = api.post(`/api/ai/generate-text`, { prompt: refinedTextPrompt });
-            const imgPromise = api.post(`/api/ai/generate-image`, { prompt: refinedImgPrompt });
+            // Start all tasks using raw aiPrompt
+            const textPromise = api.post(`/api/ai/generate-text`, { prompt: aiPrompt });
+            const imgPromise = api.post(`/api/ai/generate-image`, { prompt: aiPrompt });
             const metaPromise = api.post(`/api/ai/suggest-meta`, { prompt: aiPrompt });
 
             // 1. Handle Text & Meta as soon as they arrive (usually faster)

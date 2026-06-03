@@ -143,7 +143,9 @@ router.post('/generate-text', verifyToken, [
             return res.status(429).json({ error: 'Daily text generation limit of 2 reached.' });
         }
 
-        const { text, model } = await generateNvidiaText(prompt);
+        const formattedPrompt = `You are a social media expert. Write a short, engaging, and highly creative caption for: "${prompt}".\n            IMPORTANT: Return ONLY the caption text. Do not ask questions. Do not use hashtags. Do not use markdown.`;
+
+        const { text, model } = await generateNvidiaText(formattedPrompt);
         await consumeAiUsage(userId, 'text');
 
         const textRemaining = getRemaining(DAILY_TEXT_LIMIT, textCount + 1);
@@ -168,7 +170,9 @@ router.post('/generate-image', verifyToken, [
             return res.status(429).json({ error: 'Daily image generation limit of 2 reached.' });
         }
 
-        const { buffer: imageBuffer, imageBase64, model, seed, finishReason } = await generateNvidiaImage(prompt);
+        const formattedPrompt = `A high-quality, cinematic, professional social media photography of: ${prompt}. 8k resolution, highly detailed.`;
+
+        const { buffer: imageBuffer, imageBase64, model, seed, finishReason } = await generateNvidiaImage(formattedPrompt);
 
         let imageUrl;
         let imageStorage = 'cloudinary';
