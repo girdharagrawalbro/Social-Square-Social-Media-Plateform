@@ -61,7 +61,7 @@ const ImageCropper = ({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [aspect, setAspect] = useState(initialAspect);
-    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isCropperLoaded, setIsCropperLoaded] = useState(false);
   const [imageAspect, setImageAspect] = useState(initialAspect);
@@ -194,8 +194,8 @@ const ImageCropper = ({
                       setSelectedPreset(preset.label);
                     }}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${selectedPreset === preset.label
-                        ? 'bg-[#808bf5] text-white border-[#808bf5]'
-                        : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'
+                      ? 'bg-[#808bf5] text-white border-[#808bf5]'
+                      : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'
                       }`}
                   >
                     {preset.label}
