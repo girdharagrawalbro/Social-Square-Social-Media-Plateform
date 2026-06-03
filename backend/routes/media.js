@@ -61,10 +61,34 @@ router.post('/drive/sign-upload', verifyToken, async (req, res) => {
             folder: req.body.folder
         });
 
-        res.json(response.data);
+        const responseData = response.data || {};
+        if (responseData.sessionUrl) {
+            delete responseData.sessionUrl;
+        }
+        res.json(responseData);
     } catch (error) {
         console.error('[Drive Sign Error]:', error.message);
         res.status(500).json({ success: false, message: 'Failed to initiate upload' });
+    }
+});
+
+/**
+ * @route POST /api/media/drive/upload
+ * @desc Proxy base64/JSON file upload to Drive microservice (eliminates browser CORS issues)
+ * @access Private
+ */
+router.post('/drive/upload', verifyToken, async (req, res) => {
+    try {
+        const { file, folder, name } = req.body;
+        if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
+
+        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
+            file, folder, name
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('[Drive Proxy Upload Error]:', error.message);
+        res.status(error.response?.status || 500).json({ success: false, message: error.message });
     }
 });
 

@@ -61,80 +61,31 @@ function formatResult(data = {}) {
  * This bypasses the main backend process for large file data.
  */
 export async function uploadToDrive(file, onProgress, options = {}) {
-    // 1. Get resumable session URL from our backend
-    const { sessionUrl, success, message } = await api.post('/api/media/drive/sign-upload', {
+    // Convert file to base64 data URL
+    const toBase64 = (f) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(f);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (error) => reject(error);
+    });
+
+    const base64File = await toBase64(file);
+
+    if (onProgress) onProgress(30); // Show incremental progress
+
+    const response = await api.post('/api/media/drive/upload', {
+        file: base64File,
         name: options.name || file.name,
-        mimeType: file.type,
         folder: options.folder
     }).then(r => r.data);
 
-    if (!success) throw new Error(message || 'Failed to initiate Drive upload');
+    if (onProgress) onProgress(100);
 
-    // 2. Upload DIRECTLY to Google's session URL
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', sessionUrl, true);
-        // Resumable uploads use PUT and don't need the Auth token (it's encoded in the sessionUrl)
+    if (response?.success === false) {
+        throw new Error(response?.message || 'Drive upload failed');
+    }
 
-        if (onProgress) {
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const percent = Math.round((event.loaded / event.total) * 100);
-                    onProgress(percent);
-                }
-            };
-        }
-
-        xhr.onload = () => {
-            try {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    // Drive returns file metadata on successful PUT completion
-                    let data = {};
-                    console.log('[Drive] Upload response status:', xhr.status, 'Content-Type:', xhr.getResponseHeader('Content-Type'));
-                    
-                    try {
-                        const responseText = xhr.responseText;
-                        console.log('[Drive] Response body length:', responseText?.length, 'First 100 chars:', responseText?.substring(0, 100));
-                        if (responseText && responseText.trim()) {
-                            data = JSON.parse(responseText);
-                            console.log('[Drive] Parsed metadata:', { id: data.id, name: data.name, hasWebContentLink: !!data.webContentLink });
-                        }
-                    } catch (e) {
-                        console.warn('[Drive] Response parsing failed:', e.message);
-                        // If response body is empty, try to get Location header or other metadata
-                        const locationHeader = xhr.getResponseHeader('Location');
-                        if (locationHeader) {
-                            console.log('[Drive] Using Location header:', locationHeader);
-                            data = { webContentLink: locationHeader };
-                        }
-                    }
-                    
-                    // If we still have no metadata, we have a problem
-                    if (!data.webContentLink && !data.webViewLink && !data.id) {
-                        console.error('[Drive] No file metadata found in response. Data:', data);
-                        reject(new Error('Upload succeeded but no file metadata was returned'));
-                    } else {
-                        console.log('[Drive] Successfully formatted result for URL:', data.webContentLink || data.webViewLink || 'Drive ID: ' + data.id);
-                        resolve(formatResult(data));
-                    }
-                } else {
-                    let errorDetail = 'Unknown error';
-                    try {
-                        const errorRes = JSON.parse(xhr.responseText);
-                        errorDetail = errorRes.error?.message || errorRes.message || xhr.responseText;
-                    } catch (e) {
-                        errorDetail = xhr.responseText || xhr.statusText;
-                    }
-                    reject(new Error(`Drive upload failed with status ${xhr.status}: ${errorDetail}`));
-                }
-            } catch (e) {
-                reject(new Error('Error processing Drive upload response: ' + e.message));
-            }
-        };
-
-        xhr.onerror = () => reject(new Error('Network error during direct Drive upload'));
-        xhr.send(file); // Send raw file blob
-    });
+    return formatResult(response.data);
 }
 
 /**
