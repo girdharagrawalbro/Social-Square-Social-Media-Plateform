@@ -61,17 +61,27 @@ const ImageCropper = ({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [aspect, setAspect] = useState(initialAspect);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isCropperLoaded, setIsCropperLoaded] = useState(false);
   const [imageAspect, setImageAspect] = useState(initialAspect);
   const [trimRange, setTrimRange] = useState([0, Math.min(duration, 60)]);
+  const [selectedPreset, setSelectedPreset] = useState('Square');
 
   useEffect(() => {
     if (visible) {
       setCrop({ x: 0, y: 0 });
       setZoom(1);
       setAspect(initialAspect);
+      if (initialAspect === 1) {
+        setSelectedPreset('Square');
+      } else if (initialAspect === 9 / 16) {
+        setSelectedPreset('Portrait');
+      } else if (initialAspect === 16 / 9) {
+        setSelectedPreset('Landscape');
+      } else {
+        setSelectedPreset('Original');
+      }
       setIsCropperLoaded(false);
       setTrimRange([0, Math.min(duration, 60)]);
     }
@@ -87,6 +97,9 @@ const ImageCropper = ({
     const ratio = mediaSize.width / mediaSize.height;
     setImageAspect(ratio);
     setIsCropperLoaded(true);
+    if (selectedPreset === 'Original') {
+      setAspect(ratio);
+    }
   };
 
   const handleApplyCrop = async () => {
@@ -176,8 +189,11 @@ const ImageCropper = ({
                 {aspectPresets.map((preset) => (
                   <button
                     key={preset.label}
-                    onClick={() => setAspect(preset.value)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${aspect === preset.value
+                    onClick={() => {
+                      setAspect(preset.value);
+                      setSelectedPreset(preset.label);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${selectedPreset === preset.label
                         ? 'bg-[#808bf5] text-white border-[#808bf5]'
                         : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'
                       }`}
