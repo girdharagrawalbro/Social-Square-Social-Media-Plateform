@@ -587,10 +587,12 @@ const NewPost = ({ visible, onHide }) => {
                 }
 
                 let mood = null;
-                try {
-                    const moodRes = await api.post(`/api/ai/detect-mood`, { caption: postFormData.caption });
-                    mood = moodRes.data.mood;
-                } catch { }
+                if (postFormData.caption?.trim()) {
+                    try {
+                        const moodRes = await api.post(`/api/ai/detect-mood`, { caption: postFormData.caption });
+                        mood = moodRes.data.mood;
+                    } catch { }
+                }
 
                 const postData = {
                     ...postFormData, loggeduser: loggeduser?._id, imageURLs,

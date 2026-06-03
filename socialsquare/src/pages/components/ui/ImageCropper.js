@@ -94,7 +94,9 @@ const ImageCropper = ({
   }, []);
 
   const onMediaLoaded = (mediaSize) => {
-    const ratio = mediaSize.width / mediaSize.height;
+    const width = mediaSize.naturalWidth || mediaSize.videoWidth || mediaSize.width;
+    const height = mediaSize.naturalHeight || mediaSize.videoHeight || mediaSize.height;
+    const ratio = width / height;
     setImageAspect(ratio);
     setIsCropperLoaded(true);
     if (selectedPreset === 'Original') {
@@ -192,6 +194,8 @@ const ImageCropper = ({
                     onClick={() => {
                       setAspect(preset.value);
                       setSelectedPreset(preset.label);
+                      setZoom(1);
+                      setCrop({ x: 0, y: 0 });
                     }}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${selectedPreset === preset.label
                       ? 'bg-[#808bf5] text-white border-[#808bf5]'
