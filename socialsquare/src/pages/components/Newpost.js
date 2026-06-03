@@ -47,6 +47,7 @@ const NewPost = ({ visible, onHide }) => {
     const [step, setStep] = useState(STEPS.SELECT);
     const [formData, setFormData] = useState({ caption: "", category: "Default" });
     const [images, setImages] = useState([]);
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [video, setVideo] = useState(null);
     const [isPosting, setIsPosting] = useState(false);
     const [openFeaturePanel, setOpenFeaturePanel] = useState(null);
@@ -107,6 +108,7 @@ const NewPost = ({ visible, onHide }) => {
         setStep(STEPS.SELECT);
         setFormData({ caption: "", category: "Default" });
         setImages([]);
+        setActiveImageIndex(0);
         setVideo(null);
         setCroppingState({ active: false, imageSrc: null, videoSrc: null, pendingFiles: [], isVideo: false });
         setLocation({ name: '', lat: null, lng: null });
@@ -214,7 +216,11 @@ const NewPost = ({ visible, onHide }) => {
             const refinedPrompt = `A high-quality, cinematic, professional social media photography of: ${aiPrompt}. 8k resolution, highly detailed.`;
             const res = await api.post(`/api/ai/generate-image`, { prompt: refinedPrompt });
             const newImg = { id: Math.random().toString(36).slice(2), preview: res.data.imageUrl, url: res.data.imageUrl, uploaded: true, progress: 100 };
-            setImages(prev => [...prev, newImg]);
+            setImages(prev => {
+                const next = [...prev, newImg];
+                setActiveImageIndex(next.length - 1);
+                return next;
+            });
             setUsedAiForThisPost(true);
             setAiLimits(prev => ({ ...prev, image: res.data.remaining }));
             toast.success(`✨ Image generated`);
@@ -274,6 +280,7 @@ const NewPost = ({ visible, onHide }) => {
             };
 
             setImages([newImg]);
+            setActiveImageIndex(0);
             setUsedAiForThisPost(true);
             setAiLimits(prev => ({
                 ...prev,
@@ -444,6 +451,7 @@ const NewPost = ({ visible, onHide }) => {
 
             const updatedImages = [...images, newMediaObj];
             setImages(updatedImages);
+            setActiveImageIndex(updatedImages.length - 1);
 
             if (croppingState.pendingFiles.length > 0) {
                 const nextFile = croppingState.pendingFiles[0];
@@ -918,13 +926,24 @@ const NewPost = ({ visible, onHide }) => {
                             {video ? (
                                 <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
                             ) : (
-                                images.length > 0 && <img src={images[0]?.preview} key={images[0]?.preview} className="w-full h-full object-contain" alt="preview" />
+                                images.length > 0 && (
+                                    <img 
+                                        src={images[activeImageIndex]?.preview || images[0]?.preview} 
+                                        key={images[activeImageIndex]?.preview || images[0]?.preview} 
+                                        className="w-full h-full object-contain" 
+                                        alt="preview" 
+                                    />
+                                )
                             )}
                         </div>
                         {images.length > 1 && (
                             <div className="w-full p-2 bg-black/40 backdrop-blur-md flex gap-2 overflow-x-auto custom-scrollbar no-scrollbar border-t border-white/10">
                                 {images.map((img, idx) => (
-                                    <div key={img.id} className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${idx === 0 ? 'border-[#6366f1]' : 'border-transparent opacity-60'}`}>
+                                    <div 
+                                        key={img.id} 
+                                        onClick={() => setActiveImageIndex(idx)}
+                                        className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-all ${idx === activeImageIndex ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                    >
                                         <img src={img.preview} className="w-full h-full object-cover" alt="" />
                                     </div>
                                 ))}
