@@ -46,7 +46,7 @@ class CallSynth {
                 try {
                     osc1.stop();
                     osc2.stop();
-                } catch (e) {}
+                } catch (e) { }
             }, 2200);
         };
 
@@ -95,7 +95,7 @@ class CallSynth {
                 try {
                     modulator.stop();
                     osc1.stop();
-                } catch (e) {}
+                } catch (e) { }
             }, 1200);
         };
 
@@ -111,7 +111,7 @@ class CallSynth {
         if (this.ctx) {
             try {
                 this.ctx.close();
-            } catch (e) {}
+            } catch (e) { }
             this.ctx = null;
         }
     }
@@ -151,7 +151,7 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
         if (!activeLocalTrack || !videoEl || isVideoOff) return;
         activeLocalTrack.attach(videoEl);
         return () => {
-            try { activeLocalTrack.detach(videoEl); } catch (e) {}
+            try { activeLocalTrack.detach(videoEl); } catch (e) { }
         };
     }, [activeLocalTrack, isVideoOff]);
 
@@ -161,7 +161,7 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
         if (!activeRemoteTrack || !videoEl) return;
         activeRemoteTrack.attach(videoEl);
         return () => {
-            try { activeRemoteTrack.detach(videoEl); } catch (e) {}
+            try { activeRemoteTrack.detach(videoEl); } catch (e) { }
         };
     }, [activeRemoteTrack]);
 

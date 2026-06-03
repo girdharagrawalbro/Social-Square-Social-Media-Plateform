@@ -5,8 +5,8 @@ const Footer = () => {
     const { isDark } = useDarkMode();
 
     return (
-        <footer className={`py-10 px-5 border-t transition-colors duration-200 ${isDark ? 'bg-[#000000] border-gray-800' : 'bg-white border-gray-100'}`}>
-            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+        <footer className={`pb-2 pt-3 px-5 border-t transition-colors duration-200 ${isDark ? 'bg-[#000000] border-gray-800' : 'bg-white border-gray-100'}`}>
+            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
                 <div className="text-center md:text-left">
                     <h3 className="font-pacifico text-2xl text-[#808bf5]">Social Square</h3>
                     <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Building connections that matter</p>
