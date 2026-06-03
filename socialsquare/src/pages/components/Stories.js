@@ -1059,9 +1059,33 @@ const Stories = () => {
             }
         };
         fetchActiveStreams();
-        const interval = setInterval(fetchActiveStreams, 30000);
-        return () => clearInterval(interval);
-    }, [initialized, loggeduser?._id]);
+
+        // Listen for real-time updates instead of polling
+        const handleLiveStarted = (stream) => {
+            // Only add if we follow the host or it's us
+            const followingIds = (loggeduser.following || []).map(id => id.toString());
+            const hostId = stream.host?._id?.toString() || stream.host?.toString();
+
+            if (hostId === loggeduser._id.toString() || followingIds.includes(hostId)) {
+                setActiveStreams(prev => {
+                    if (prev.find(s => s._id === stream._id)) return prev;
+                    return [stream, ...prev];
+                });
+            }
+        };
+
+        const handleLiveEnded = (streamId) => {
+            setActiveStreams(prev => prev.filter(s => s._id !== streamId));
+        };
+
+        socket.on('liveStreamStarted', handleLiveStarted);
+        socket.on('liveStreamEnded', handleLiveEnded);
+
+        return () => {
+            socket.off('liveStreamStarted', handleLiveStarted);
+            socket.off('liveStreamEnded', handleLiveEnded);
+        };
+    }, [initialized, loggeduser]);
 
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {
