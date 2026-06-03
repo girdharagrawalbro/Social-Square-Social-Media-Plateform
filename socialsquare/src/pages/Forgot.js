@@ -38,9 +38,11 @@ const Forgot = () => {
         <Bg>
             <div className={`max-w-md mx-auto p-8 sm:p-10 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
                 <h3 className="font-pacifico text-4xl text-[#808bf5] mb-4">Social Square</h3>
+                <p className="text-gray-500 font-medium">Forget Password</p>
+
                 {sent ? (
-                    <div className="animate-in fade-in zoom-in duration-500">
-                        <div className="text-green-500 text-xl font-bold mb-4 flex items-center justify-center gap-2">
+                    <div className="animate-in fade-in zoom-in duration-500 mt-4">
+                        <div className="text-green-500 text-md font-bold mb-2 flex items-center justify-center gap-2">
                             Check your email!
                         </div>
                         <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -51,8 +53,8 @@ const Forgot = () => {
                         </Link>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <form onSubmit={handleSubmit} className="mt-4">
+                        <p className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                             Enter your email and we'll send you a password reset link.
                         </p>
                         <input

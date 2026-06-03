@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { encryptPassword } from '../utils/crypto';
+import { useDarkMode } from '../context/DarkModeContext';
+import Bg from './components/Bg';
 
 const ResetPassword = () => {
+  const { isDark } = useDarkMode();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
@@ -55,12 +58,10 @@ const ResetPassword = () => {
   }
 
   return (
-    <>
-      <div className="max-w-md mx-auto bg-white border border-gray-100 p-6 sm:p-8 rounded-xl shadow-sm text-center mt-20">
-        <div className="mb-6">
-          <h3 className="font-pacifico text-3xl sm:text-4xl text-[#808bf5] mb-2">Social Square</h3>
-          <p className="text-gray-500 font-medium">Reset Password</p>
-        </div>
+    <Bg>
+      <div className={`max-w-md mx-auto p-8 sm:p-10 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
+        <h3 className="font-pacifico text-4xl text-[#808bf5] mb-4">Social Square</h3>
+        <p className="text-gray-500 font-medium">Reset Password</p>
         <form onSubmit={handleSubmit}>
           <input
             className="px-3 py-2 bg-white text-gray-800 w-full my-2 border rounded"
@@ -78,7 +79,7 @@ const ResetPassword = () => {
         </form>
       </div>
       <Toaster />
-    </>
+    </Bg>
   );
 };
 

@@ -95,7 +95,9 @@ const NewPost = ({ visible, onHide }) => {
         videoSrc: null,
         pendingFiles: [],
         isVideo: false,
-        duration: 60
+        duration: 60,
+        originalFile: null,
+        replacingId: null
     });
 
     const resetState = () => {
@@ -105,7 +107,7 @@ const NewPost = ({ visible, onHide }) => {
         setActiveImageIndex(0);
         setActiveMediaType('image');
         setVideo(null);
-        setCroppingState({ active: false, imageSrc: null, videoSrc: null, pendingFiles: [], isVideo: false });
+        setCroppingState({ active: false, imageSrc: null, videoSrc: null, pendingFiles: [], isVideo: false, originalFile: null, replacingId: null });
         setLocation({ name: '', lat: null, lng: null });
         setCollaborators([]);
         setAiPrompt("");
@@ -461,34 +463,109 @@ const NewPost = ({ visible, onHide }) => {
                 setStep(STEPS.FINALIZE);
             }
         } else {
-            newMediaObj = {
-                file: result.croppedFile,
-                preview: URL.createObjectURL(result.croppedFile),
-                url: null, progress: 0, uploaded: false,
-                id: Math.random().toString(36).slice(2),
-                isVideo: false
-            };
-
-            const updatedImages = [...images, newMediaObj];
-            setImages(updatedImages);
-            setActiveImageIndex(updatedImages.length - 1);
-
-            if (croppingState.pendingFiles.length > 0) {
-                const nextFile = croppingState.pendingFiles[0];
-                const reader = new FileReader();
-                reader.onload = () => {
-                    setCroppingState(prev => ({
-                        ...prev,
-                        imageSrc: reader.result,
-                        pendingFiles: prev.pendingFiles.slice(1),
-                        originalFile: nextFile
-                    }));
-                };
-                reader.readAsDataURL(nextFile);
+            if (croppingState.replacingId) {
+                setImages(prev => prev.map(img => {
+                    if (img.id === croppingState.replacingId) {
+                        return {
+                            ...img,
+                            file: result.croppedFile,
+                            preview: URL.createObjectURL(result.croppedFile),
+                            originalFile: croppingState.originalFile || img.originalFile,
+                            url: null,
+                            uploaded: false,
+                            progress: 0
+                        };
+                    }
+                    return img;
+                }));
+                setCroppingState(prev => ({ ...prev, active: false, replacingId: null }));
             } else {
-                setCroppingState(prev => ({ ...prev, active: false }));
-                setStep(STEPS.FINALIZE);
+                newMediaObj = {
+                    file: result.croppedFile,
+                    preview: URL.createObjectURL(result.croppedFile),
+                    originalFile: croppingState.originalFile,
+                    url: null, progress: 0, uploaded: false,
+                    id: Math.random().toString(36).slice(2),
+                    isVideo: false
+                };
+
+                const updatedImages = [...images, newMediaObj];
+                setImages(updatedImages);
+                setActiveImageIndex(updatedImages.length - 1);
+
+                if (croppingState.pendingFiles.length > 0) {
+                    const nextFile = croppingState.pendingFiles[0];
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        setCroppingState(prev => ({
+                            ...prev,
+                            imageSrc: reader.result,
+                            pendingFiles: prev.pendingFiles.slice(1),
+                            originalFile: nextFile
+                        }));
+                    };
+                    reader.readAsDataURL(nextFile);
+                } else {
+                    setCroppingState(prev => ({ ...prev, active: false }));
+                    setStep(STEPS.FINALIZE);
+                }
             }
+        }
+    };
+
+    const handleEditImage = (img) => {
+        const fileToCrop = img.originalFile || img.file;
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCroppingState({
+                active: true,
+                imageSrc: reader.result,
+                videoSrc: null,
+                pendingFiles: [],
+                isVideo: false,
+                originalFile: fileToCrop,
+                replacingId: img.id
+            });
+        };
+        reader.readAsDataURL(fileToCrop);
+    };
+
+    const handleCropBack = () => {
+        const currentFile = croppingState.originalFile;
+
+        if (images.length > 0) {
+            const lastImage = images[images.length - 1];
+            setImages(prev => prev.slice(0, -1));
+
+            const fileToCrop = lastImage.originalFile || lastImage.file;
+            const reader = new FileReader();
+            reader.onload = () => {
+                setCroppingState(prev => ({
+                    ...prev,
+                    active: true,
+                    imageSrc: reader.result,
+                    videoSrc: null,
+                    isVideo: false,
+                    originalFile: fileToCrop,
+                    replacingId: lastImage.id,
+                    pendingFiles: currentFile ? [currentFile, ...prev.pendingFiles] : prev.pendingFiles
+                }));
+            };
+            reader.readAsDataURL(fileToCrop);
+        } else if (video) {
+            const videoToCrop = video;
+            setVideo(null);
+
+            setCroppingState(prev => ({
+                ...prev,
+                active: true,
+                videoSrc: videoToCrop.preview,
+                imageSrc: null,
+                isVideo: true,
+                originalFile: videoToCrop.file,
+                duration: videoToCrop.duration || 60,
+                pendingFiles: currentFile ? [currentFile, ...prev.pendingFiles] : prev.pendingFiles
+            }));
         }
     };
 
@@ -958,6 +1035,40 @@ const NewPost = ({ visible, onHide }) => {
                                     />
                                 )
                             )}
+                            {/* Remove active media button */}
+                            <button
+                                onClick={() => {
+                                    if (activeMediaType === 'video') {
+                                        setVideo(null);
+                                        if (images.length > 0) {
+                                            setActiveMediaType('image');
+                                            setActiveImageIndex(0);
+                                        }
+                                    } else {
+                                        const updatedImages = images.filter((_, idx) => idx !== activeImageIndex);
+                                        setImages(updatedImages);
+                                        if (updatedImages.length > 0) {
+                                            setActiveImageIndex(Math.max(0, activeImageIndex - 1));
+                                        } else if (video) {
+                                            setActiveMediaType('video');
+                                        }
+                                    }
+                                }}
+                                title="Remove current media"
+                                className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white text-[10px] font-bold p-2 rounded-lg flex items-center justify-center border border-white/20 backdrop-blur transition-all cursor-pointer z-10"
+                            >
+                                <i className="pi pi-trash text-[12px]"></i>
+                            </button>
+                            {/* Recrop active image button */}
+                            {activeMediaType === 'image' && images.length > 0 && (
+                                <button
+                                    onClick={() => handleEditImage(images[activeImageIndex])}
+                                    title="Recrop image"
+                                    className="absolute top-2 right-12 bg-black/60 hover:bg-[#6366f1] text-white text-[10px] font-bold p-2 rounded-lg flex items-center justify-center border border-white/20 backdrop-blur transition-all cursor-pointer z-10"
+                                >
+                                    <i className="pi pi-pencil text-[12px]"></i>
+                                </button>
+                            )}
                             {/* Add more images button */}
                             <button
                                 onClick={() => fileInputRef.current?.click()}
@@ -968,29 +1079,74 @@ const NewPost = ({ visible, onHide }) => {
                                 Add Image
                             </button>
                         </div>
-                        {/* Unified thumbnail strip — shown whenever there is a video, or 2+ images */}
-                        {(video || images.length > 1) ? (
+                        {/* Unified thumbnail strip — shown whenever there is a video, or 1+ images */}
+                        {(video || images.length > 0) ? (
                             <div className="w-full p-2 bg-black/40 backdrop-blur-md flex gap-2 overflow-x-auto no-scrollbar border-t border-white/10">
                                 {/* Video thumbnail */}
                                 {video && (
-                                    <div
-                                        onClick={() => setActiveMediaType('video')}
-                                        className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-all relative ${activeMediaType === 'video' ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                                    >
-                                        <video src={video.preview} className="w-full h-full object-cover" muted />
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                                            <i className="pi pi-play text-white text-xs"></i>
+                                    <div className="relative group flex-shrink-0">
+                                        <div
+                                            onClick={() => setActiveMediaType('video')}
+                                            className={`w-14 h-14 rounded-lg overflow-hidden border-2 cursor-pointer transition-all relative ${activeMediaType === 'video' ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                        >
+                                            <video src={video.preview} className="w-full h-full object-cover" muted />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                                <i className="pi pi-play text-white text-xs"></i>
+                                            </div>
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setVideo(null);
+                                                if (images.length > 0) {
+                                                    setActiveMediaType('image');
+                                                    setActiveImageIndex(0);
+                                                }
+                                            }}
+                                            className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md cursor-pointer z-10"
+                                        >
+                                            <i className="pi pi-times text-[8px] font-bold"></i>
+                                        </button>
                                     </div>
                                 )}
                                 {/* Image thumbnails */}
                                 {images.map((img, idx) => (
-                                    <div
-                                        key={img.id}
-                                        onClick={() => { setActiveMediaType('image'); setActiveImageIndex(idx); }}
-                                        className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-all ${activeMediaType === 'image' && idx === activeImageIndex ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                                    >
-                                        <img src={img.preview} className="w-full h-full object-cover" alt="" />
+                                    <div key={img.id} className="relative group flex-shrink-0">
+                                        <div
+                                            onClick={() => { setActiveMediaType('image'); setActiveImageIndex(idx); }}
+                                            className={`w-14 h-14 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${activeMediaType === 'image' && idx === activeImageIndex ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                        >
+                                            <img src={img.preview} className="w-full h-full object-cover" alt="" />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const updatedImages = images.filter((_, i) => i !== idx);
+                                                setImages(updatedImages);
+                                                if (activeImageIndex >= updatedImages.length) {
+                                                    setActiveImageIndex(Math.max(0, updatedImages.length - 1));
+                                                }
+                                                if (updatedImages.length === 0 && video) {
+                                                    setActiveMediaType('video');
+                                                }
+                                            }}
+                                            className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md cursor-pointer z-10"
+                                        >
+                                            <i className="pi pi-times text-[8px] font-bold"></i>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditImage(img);
+                                            }}
+                                            title="Recrop image"
+                                            className="absolute -bottom-1 -right-1 bg-[#6366f1] hover:bg-[#818cf8] text-white w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <i className="pi pi-pencil text-[8px] font-bold"></i>
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -1197,6 +1353,7 @@ const NewPost = ({ visible, onHide }) => {
                 isNextImage={croppingState.pendingFiles.length > 0}
                 onCropComplete={handleCropComplete}
                 onCancel={() => setCroppingState(prev => ({ ...prev, active: false }))}
+                onBack={(step === STEPS.SELECT && (images.length > 0 || !!video)) ? handleCropBack : null}
             />
         </>
     );

@@ -9,7 +9,7 @@ const Post = require('../models/Post');
 const LoginSession = require('../models/LoginSession');
 const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
-const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail, sendSessionRevokedEmail, sendEmail } = require('../utils/mailer');
+const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail, sendSessionRevokedEmail, sendEmail, sendWelcomeEmail, sendPasswordChangedEmail } = require('../utils/mailer');
 const { getSuggestedUsers } = require('../services/suggestionService');
 const { createNotification } = require('../lib/notification');
 const logger = require('../utils/logger');
@@ -485,6 +485,9 @@ router.post('/add', authRateLimiter, [
         });
         await newUser.save();
 
+        // Send welcome email
+        sendWelcomeEmail(newUser.email, newUser.fullname).catch(err => logger.error('[SIGNUP] Welcome email failed:', err));
+
         // Send verification email
         const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
         // sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
@@ -558,15 +561,21 @@ router.post('/google', async (req, res) => {
             if (user.isBanned) return res.status(403).json({ error: user.banReason || 'This account has been banned.' });
         }
 
+        let isNewUser = false;
         if (!user) {
             const username = await generateUniqueUsername(name);
             user = new User({ fullname: name, username, email, profile_picture: picture, googleId, authProvider: 'google' });
+            isNewUser = true;
         } else {
             user.googleId = googleId;
             if (!user.username) user.username = await generateUniqueUsername(name);
             if (!user.profile_picture || user.profile_picture.includes('OIP')) user.profile_picture = picture;
         }
         await user.save();
+
+        if (isNewUser) {
+            sendWelcomeEmail(user.email, user.fullname).catch(err => logger.error('[GOOGLE SIGNUP] Welcome email failed:', err));
+        }
 
         // ── SESSION CREATION OR REUSE ──
         const hashedFingerprint = hashValue(fingerprint);
@@ -801,7 +810,7 @@ router.post('/forgot-password', authRateLimiter, [body('email').isEmail()], asyn
     try {
         const { email } = req.body;
         const user = await User.findOne({ email: email.toLowerCase().trim() });
-        if (!user || user.authProvider !== 'local') return res.status(200).json({ message: 'If that email exists, a reset link has been sent.' });
+        if (!user) return res.status(200).json({ message: 'If that email exists, a reset link has been sent.' });
         const resetToken = crypto.randomBytes(32).toString('hex');
         user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
         user.resetPasswordExpires = Date.now() + 60 * 60 * 1000;
@@ -829,6 +838,15 @@ router.post('/reset-password', authRateLimiter, [body('token').notEmpty(), body(
         user.resetPasswordExpires = null;
         await user.save();
         await LoginSession.updateMany({ userId: user._id }, { isRevoked: true });
+
+        // Send email alert and system notification
+        sendPasswordChangedEmail(user.email, user.fullname).catch(err => console.error('[RESET PASSWORD] Email failed:', err));
+        createNotification({
+            recipientId: user._id,
+            type: 'system',
+            message: { content: '🔒 Security Alert: Your account password was recently changed.' }
+        }).catch(err => console.error('[RESET PASSWORD] Notification failed:', err));
+
         return res.status(200).json({ message: 'Password reset successful. Please log in.' });
     } catch (error) {
         console.error('Reset password error:', error);

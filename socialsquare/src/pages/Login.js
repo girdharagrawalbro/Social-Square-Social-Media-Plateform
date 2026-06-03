@@ -96,8 +96,8 @@ const Login = () => {
     return (
         <>
             <Bg>
-                <div className="w-full flex items-center justify-center gap-10 flex-col md:flex-row">
-                    <div className={`flex flex-col justify-center w-full max-w-md mx-auto p-8 sm:p-10 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
+                <div className="w-xl flex items-center justify-center gap-10 flex-col md:flex-row p-8">
+                    <div className={`flex flex-col justify-center w-full max-w-md mx-auto rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
                         <div className="mb-8">
                             <h3 className="font-pacifico text-4xl text-[#808bf5] mb-3">Social Square</h3>
                             <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Log in to your account</p>
@@ -117,7 +117,7 @@ const Login = () => {
                                 </button>
                             </div>
                         </form>
-
+                        <Link to="/forgot" className="block mt-6 text-[#808bf5] font-semibold hover:underline">Forgot Password?</Link>
                         <div className="flex items-center my-6">
                             <div className={`flex-1 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}></div>
                             <span className={`px-4 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>OR</span>
@@ -181,13 +181,12 @@ const Login = () => {
 
                         </div>
 
-                        <Link to="/forgot" className="block mt-6 text-[#808bf5] font-semibold hover:underline">Forgot Password?</Link>
-                        <div className={`mt-4 pt-6 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
-                            <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>Don't have an account? <Link to="/signup" className="text-[#808bf5] font-bold hover:underline">Sign up</Link></p>
+                        <div className={`mt-4 text-center`}>
+                            <p>Don't have an account? <Link to="/signup" className="text-themeStart font-semibold">Sign up</Link></p>
                         </div>
                     </div>
                     <div className="hidden md:block md:max-w-sm lg:max-w-md animate-in fade-in duration-700">
-                        <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" className="w-full h-auto rounded-2xl shadow-xl" />
+                        <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" className="w-full h-auto" />
                     </div>
                 </div>
             </Bg>
