@@ -9,6 +9,7 @@ import { ImageCarousel } from "./ImageCarosel";
 import { HeartBurst } from "./HeartBurst";
 import PollCard from '../PollCard';
 import ReactionPicker from '../ReactionPicker';
+import ProgressiveImage from './ProgressiveImage';
 
 import formatDate from '../../../utils/formatDate';
 import { getMediaThumbnail } from '../../../utils/mediaUtils';
@@ -61,18 +62,40 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
     const videoRef = useRef(null);
     const isMuted = usePostStore(s => s.isMuted);
     const setIsMuted = usePostStore(s => s.setIsMuted);
-    const { ref, inView } = useInView({
-        threshold: 0.6,
-    });
+    const [isPlaying, setIsPlaying] = useState(true);
+    const [showIndicator, setShowIndicator] = useState(null); // 'play' | 'pause' | null
+    const indicatorTimer = useRef(null);
+    const { ref, inView } = useInView({ threshold: 0.6 });
 
     useEffect(() => {
         if (!videoRef.current) return;
         if (inView && !isLocked) {
-            videoRef.current.play().catch(() => { });
+            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
         } else {
             videoRef.current.pause();
+            setIsPlaying(false);
         }
     }, [inView, isLocked]);
+
+    const handleClick = (e) => {
+        e.stopPropagation();
+        if (!videoRef.current || isLocked) return;
+        if (videoRef.current.paused) {
+            videoRef.current.play().catch(() => {});
+            setIsPlaying(true);
+            flashIndicator('play');
+        } else {
+            videoRef.current.pause();
+            setIsPlaying(false);
+            flashIndicator('pause');
+        }
+    };
+
+    const flashIndicator = (type) => {
+        setShowIndicator(type);
+        clearTimeout(indicatorTimer.current);
+        indicatorTimer.current = setTimeout(() => setShowIndicator(null), 800);
+    };
 
     const toggleMute = (e) => {
         e.stopPropagation();
@@ -80,7 +103,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
     };
 
     return (
-        <div ref={ref} className="relative w-full bg-black overflow-hidden group">
+        <div ref={ref} className="relative w-full bg-black overflow-hidden group" onClick={handleClick}>
             <video
                 ref={videoRef}
                 src={src}
@@ -92,13 +115,34 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
                 onTouchEnd={onTouchEnd}
                 className="w-full h-full object-contain cursor-pointer max-h-[600px]"
             />
+
+            {/* ── Click-to-play/pause centre indicator ───────────── */}
+            {showIndicator && (
+                <div
+                    key={showIndicator}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in zoom-in-50 fade-in duration-150"
+                >
+                    <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-xl">
+                        <i className={`pi ${showIndicator === 'play' ? 'pi-play' : 'pi-pause'} text-white`} style={{ fontSize: '22px', marginLeft: showIndicator === 'play' ? '3px' : '0' }}></i>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Mute toggle ─────────────────────────────────────── */}
             <button
                 onClick={toggleMute}
-                className="absolute bottom-2 right-2 z-10 w-6 h-6 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-lg"
-                title={isMuted ? "Unmute" : "Mute"}
+                className="absolute bottom-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-lg"
+                title={isMuted ? 'Unmute' : 'Mute'}
             >
-                <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '14px' }}></i>
+                <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '13px' }}></i>
             </button>
+
+            {/* ── Play/Pause state hint (bottom-left, subtle) ──────── */}
+            {!isPlaying && !showIndicator && (
+                <div className="absolute bottom-2 left-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 pointer-events-none">
+                    <i className="pi pi-play text-white" style={{ fontSize: '11px', marginLeft: '2px' }}></i>
+                </div>
+            )}
         </div>
     );
 };
@@ -151,7 +195,94 @@ const CollabInviteBanner = ({ post, user }) => {
     );
 };
 
+// ─── FEED MEDIA AREA ──────────────────────────────────────────────────────────
+// Handles posts that have video, images, or BOTH.
+// When both exist a unified thumbnail strip is shown (video first, then images).
+// ──────────────────────────────────────────────────────────────────────────────
+const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultiple, locked, heartVisible, onImageDoubleClick, onImageTap, prefetchPost }) => {
+    const [activeType, setActiveType] = useState(hasVideo ? 'video' : 'image'); // 'video' | 'image'
+    const [activeImageIdx, setActiveImageIdx] = useState(0);
+
+    return (
+        <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" onMouseEnter={() => prefetchPost(post._id)}>
+            {/* ── Main media display ──────────────────────────────── */}
+            {activeType === 'video' && hasVideo ? (
+                <FeedVideo
+                    src={post.video}
+                    poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
+                    onDoubleClick={() => !locked && onImageDoubleClick(post)}
+                    onTouchEnd={() => !locked && onImageTap(post)}
+                    isLocked={locked}
+                />
+            ) : hasImages ? (
+                // Images-only mode OR images when video is not active
+                hasMultiple && hasVideo ? (
+                    // Single image viewer (strip handles navigation)
+                    <div
+                        onDoubleClick={() => !locked && onImageDoubleClick(post)}
+                        style={{ maxHeight: '600px', minHeight: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <ProgressiveImage
+                            key={images[activeImageIdx]}
+                            src={images[activeImageIdx]}
+                            alt={`Image ${activeImageIdx + 1}`}
+                            objectFit="contain"
+                            style={{ maxHeight: '600px', minHeight: '260px' }}
+                        />
+                    </div>
+                ) : (
+                    <ImageCarousel
+                        images={images}
+                        onDoubleClick={() => !locked && onImageDoubleClick(post)}
+                        onTouchEnd={() => !locked && onImageTap(post)}
+                    />
+                )
+            ) : null}
+
+            {/* ── Unified thumbnail strip (only when both video + images exist) ── */}
+            {hasMultiple && hasVideo && hasImages && (
+                <div className="w-full px-2 py-2 bg-black/50 backdrop-blur-md flex gap-2 overflow-x-auto no-scrollbar border-t border-white/10">
+                    {/* Video thumbnail */}
+                    <button
+                        onClick={() => setActiveType('video')}
+                        className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 p-0 bg-black relative transition-all cursor-pointer
+                            ${activeType === 'video'
+                                ? 'border-[#6366f1] opacity-100 scale-105 shadow-md shadow-indigo-500/30'
+                                : 'border-transparent opacity-55 hover:opacity-85 hover:scale-105'
+                            }`}
+                        aria-label="Show video"
+                    >
+                        <video src={post.video} className="w-full h-full object-cover" muted />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <i className="pi pi-play text-white" style={{ fontSize: '11px', marginLeft: '2px' }}></i>
+                        </div>
+                    </button>
+                    {/* Image thumbnails */}
+                    {images.map((src, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => { setActiveType('image'); setActiveImageIdx(idx); }}
+                            className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 p-0 bg-transparent transition-all cursor-pointer
+                                ${activeType === 'image' && idx === activeImageIdx
+                                    ? 'border-[#6366f1] opacity-100 scale-105 shadow-md shadow-indigo-500/30'
+                                    : 'border-transparent opacity-55 hover:opacity-85 hover:scale-105'
+                                }`}
+                            aria-label={`Show image ${idx + 1}`}
+                        >
+                            <img src={src} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            <HeartBurst visible={heartVisible} />
+            {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
+        </div>
+    );
+});
+
 export const PostItem = React.memo(({
+
     post, user, isLikedByMe, likesCount, isSavedByMe, isFollowing, heartVisible,
     visiblePostId, pickerPostId, savingPostIds,
     onLikeToggle, onImageDoubleClick, onImageTap, onSave, onDelete, onReport,
@@ -270,29 +401,28 @@ export const PostItem = React.memo(({
                 </div>
             </div>
 
-            {/* Images */}
-            {images.length > 0 && (
-                <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" onMouseEnter={() => prefetchPost(post._id)}>
-                    <ImageCarousel images={images} onDoubleClick={() => !locked && onImageDoubleClick(post)} onTouchEnd={() => !locked && onImageTap(post)} />
-                    {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
-                    <HeartBurst visible={heartVisible} />
-                </div>
-            )}
+            {/* ── Unified media area: images and/or video ─────────── */}
+            {(images.length > 0 || post.video) && (() => {
+                const hasVideo = !!post.video;
+                const hasImages = images.length > 0;
+                const hasMultiple = (hasVideo ? 1 : 0) + images.length > 1;
 
-            {/* Video */}
-            {post.video && !post.image_urls?.length && !post.image_url && (
-                <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden">
-                    <FeedVideo
-                        src={post.video}
-                        poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
-                        onDoubleClick={() => !locked && onImageDoubleClick(post)}
-                        onTouchEnd={() => !locked && onImageTap(post)}
-                        isLocked={locked}
+                // State for which media item is active lives in a small wrapper
+                return (
+                    <FeedMediaArea
+                        post={post}
+                        images={images}
+                        hasVideo={hasVideo}
+                        hasImages={hasImages}
+                        hasMultiple={hasMultiple}
+                        locked={locked}
+                        heartVisible={heartVisible}
+                        onImageDoubleClick={onImageDoubleClick}
+                        onImageTap={onImageTap}
+                        prefetchPost={prefetchPost}
                     />
-                    <HeartBurst visible={heartVisible} />
-                    {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
-                </div>
-            )}
+                );
+            })()}
 
             {post.poll && <PollCard poll={post.poll} postId={post._id} />}
 

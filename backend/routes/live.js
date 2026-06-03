@@ -71,6 +71,12 @@ router.post('/start', verifyToken, [
         }
 
         const populated = await stream.populate('host', 'fullname profile_picture');
+
+        // Emit socket event to all clients so they can update their active streams
+        if (_io) {
+            _io.emit('liveStreamStarted', populated);
+        }
+
         res.status(201).json(populated);
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
@@ -106,6 +112,11 @@ router.post('/end/:id', verifyToken, [
                 // Room may already be gone — safe to ignore
                 console.warn('[LiveKit] deleteRoom warning (non-fatal):', err.message);
             }
+        }
+
+        // Emit socket event so clients can remove it from their active streams
+        if (_io) {
+            _io.emit('liveStreamEnded', req.params.id);
         }
 
         res.json(stream);

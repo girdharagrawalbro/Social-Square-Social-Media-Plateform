@@ -14,6 +14,7 @@ const Signup = () => {
 
   const { isDark } = useDarkMode();
   const [formData, setFormData] = useState({ email: '', fullname: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const signup = useAuthStore(s => s.signup);
   const googleLogin = useAuthStore(s => s.googleLogin);
@@ -98,7 +99,13 @@ const Signup = () => {
             <form onSubmit={handleSubmit}>
               <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
               <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="text" name="fullname" placeholder="Full Name" value={formData.fullname} onChange={handleChange} required />
-              <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+              <div className="relative">
+                <input className="px-3 py-2 bg-white text-dark w-full my-2 border rounded" type={showPassword ? "text" : "password"} name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+                <i
+                  className={`pi ${showPassword ? 'pi-eye-slash' : 'pi-eye'} absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 hover:text-[#808bf5] transition-colors`}
+                  onClick={() => setShowPassword(!showPassword)}
+                ></i>
+              </div>
               <PasswordStrengthMeter password={formData.password} />
               <button className="py-2 mt-2 bg-themeAccent text-white w-full rounded" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign up'}</button>
             </form>

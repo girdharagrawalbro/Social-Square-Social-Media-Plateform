@@ -13,6 +13,7 @@ import { Capacitor } from '@capacitor/core';
 const Login = () => {
     const { isDark } = useDarkMode();
     const [formData, setFormData] = useState({ identifier: '', password: '' });
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const login = useAuthStore(s => s.login);
@@ -103,7 +104,13 @@ const Login = () => {
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-1">
                             <input className={inputClass} type="text" name="identifier" placeholder="Email" value={formData.identifier} onChange={handleChange} required />
-                            <input className={inputClass} type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+                            <div className="relative">
+                                <input className={inputClass} type={showPassword ? "text" : "password"} name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+                                <i
+                                    className={`pi ${showPassword ? 'pi-eye-slash' : 'pi-eye'} absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer ${isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-[#808bf5] transition-colors`}
+                                    onClick={() => setShowPassword(!showPassword)}
+                                ></i>
+                            </div>
                             <div className="pt-2">
                                 <button className="py-2.5 bg-[#808bf5] hover:bg-[#6c79f2] text-white w-full rounded-lg font-bold transition-all transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50" type="submit" disabled={loading}>
                                     {loading ? 'Logging in...' : 'Log in'}

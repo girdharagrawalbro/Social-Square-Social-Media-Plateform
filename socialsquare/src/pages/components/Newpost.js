@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Geolocation } from '@capacitor/geolocation';
+import { useGroups } from '../../hooks/queries/useAuthQueries';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
@@ -48,6 +49,7 @@ const NewPost = ({ visible, onHide }) => {
     const [formData, setFormData] = useState({ caption: "", category: "Default" });
     const [images, setImages] = useState([]);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [activeMediaType, setActiveMediaType] = useState('image'); // 'video' | 'image'
     const [video, setVideo] = useState(null);
     const [isPosting, setIsPosting] = useState(false);
     const [openFeaturePanel, setOpenFeaturePanel] = useState(null);
@@ -84,15 +86,7 @@ const NewPost = ({ visible, onHide }) => {
 
     // Groups
     const [selectedGroupId, setSelectedGroupId] = useState(null);
-    const [groups, setGroups] = useState([]);
-
-    useEffect(() => {
-        if (visible) {
-            api.get('/api/group/all')
-                .then(res => setGroups(res.data))
-                .catch(err => console.error('Failed to load groups:', err));
-        }
-    }, [visible]);
+    const { data: groups = [] } = useGroups();
 
     // ── Cropping State ──────────────────────────────────────────────────────
     const [croppingState, setCroppingState] = useState({
@@ -109,6 +103,7 @@ const NewPost = ({ visible, onHide }) => {
         setFormData({ caption: "", category: "Default" });
         setImages([]);
         setActiveImageIndex(0);
+        setActiveMediaType('image');
         setVideo(null);
         setCroppingState({ active: false, imageSrc: null, videoSrc: null, pendingFiles: [], isVideo: false });
         setLocation({ name: '', lat: null, lng: null });
@@ -345,13 +340,25 @@ const NewPost = ({ visible, onHide }) => {
             });
             if (duration === 0) { toast.error('Unable to read video metadata'); e.target.value = ''; return; }
 
-            setImages([]);
+            // Collect any valid image files from the SAME selection so they can be
+            // cropped right after the video trim is done (pendingFiles chain).
+            const imageFilesInSelection = files
+                .filter(f => f !== videoFile && f.type && f.type.startsWith('image/'))
+                .filter(f => {
+                    const typeErr = validateImageType(f);
+                    if (typeErr) { toast.error(typeErr); return false; }
+                    const sizeWarn = validateImageFile(f);
+                    if (sizeWarn) toast.error(sizeWarn);
+                    return true;
+                });
+
+            // NOTE: We do NOT clear images here — video and images can coexist in the same post.
             const videoUrl = URL.createObjectURL(videoFile);
             setCroppingState({
                 active: true,
                 videoSrc: videoUrl,
                 imageSrc: null,
-                pendingFiles: [],
+                pendingFiles: imageFilesInSelection, // queued for image-crop after video
                 isVideo: true,
                 originalFile: videoFile,
                 duration
@@ -430,9 +437,29 @@ const NewPost = ({ visible, onHide }) => {
                 trimRange: result.trimRange
             };
             setVideo(newMediaObj);
-            setImages([]);
-            setCroppingState(prev => ({ ...prev, active: false }));
-            setStep(STEPS.FINALIZE);
+            setActiveMediaType('video'); // Switch preview to show the newly added video
+            // NOTE: images are NOT cleared — video and images can coexist in the same post.
+
+            if (croppingState.pendingFiles.length > 0) {
+                // There are image files queued from the same selection — chain into image cropping
+                const nextFile = croppingState.pendingFiles[0];
+                const reader = new FileReader();
+                reader.onload = () => {
+                    setCroppingState({
+                        active: true,
+                        imageSrc: reader.result,
+                        videoSrc: null,
+                        pendingFiles: croppingState.pendingFiles.slice(1),
+                        isVideo: false,
+                        originalFile: nextFile
+                    });
+                };
+                reader.readAsDataURL(nextFile);
+                // Don't navigate to FINALIZE yet — still need to crop the queued images
+            } else {
+                setCroppingState(prev => ({ ...prev, active: false }));
+                setStep(STEPS.FINALIZE);
+            }
         } else {
             newMediaObj = {
                 file: result.croppedFile,
@@ -917,33 +944,57 @@ const NewPost = ({ visible, onHide }) => {
                 {/* Left: Media Preview */}
                 {hasMedia && (
                     <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative flex-shrink-0">
+                        {/* Main media display */}
                         <div className="flex-1 flex h-[40vh] items-center justify-center w-full relative">
-                            {video ? (
+                            {activeMediaType === 'video' && video ? (
                                 <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
                             ) : (
                                 images.length > 0 && (
-                                    <img 
-                                        src={images[activeImageIndex]?.preview || images[0]?.preview} 
-                                        key={images[activeImageIndex]?.preview || images[0]?.preview} 
-                                        className="w-full h-full object-contain" 
-                                        alt="preview" 
+                                    <img
+                                        src={images[activeImageIndex]?.preview || images[0]?.preview}
+                                        key={images[activeImageIndex]?.preview || images[0]?.preview}
+                                        className="w-full h-full object-contain"
+                                        alt="preview"
                                     />
                                 )
                             )}
+                            {/* Add more images button */}
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                title="Add more images"
+                                className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 border border-white/20 backdrop-blur transition-all"
+                            >
+                                <i className="pi pi-plus text-[9px]"></i>
+                                Add Image
+                            </button>
                         </div>
-                        {images.length > 1 && (
-                            <div className="w-full p-2 bg-black/40 backdrop-blur-md flex gap-2 overflow-x-auto custom-scrollbar no-scrollbar border-t border-white/10">
+                        {/* Unified thumbnail strip — shown whenever there is a video, or 2+ images */}
+                        {(video || images.length > 1) ? (
+                            <div className="w-full p-2 bg-black/40 backdrop-blur-md flex gap-2 overflow-x-auto no-scrollbar border-t border-white/10">
+                                {/* Video thumbnail */}
+                                {video && (
+                                    <div
+                                        onClick={() => setActiveMediaType('video')}
+                                        className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-all relative ${activeMediaType === 'video' ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                    >
+                                        <video src={video.preview} className="w-full h-full object-cover" muted />
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                            <i className="pi pi-play text-white text-xs"></i>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* Image thumbnails */}
                                 {images.map((img, idx) => (
-                                    <div 
-                                        key={img.id} 
-                                        onClick={() => setActiveImageIndex(idx)}
-                                        className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-all ${idx === activeImageIndex ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                    <div
+                                        key={img.id}
+                                        onClick={() => { setActiveMediaType('image'); setActiveImageIndex(idx); }}
+                                        className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-all ${activeMediaType === 'image' && idx === activeImageIndex ? 'border-[#6366f1]' : 'border-transparent opacity-60 hover:opacity-100'}`}
                                     >
                                         <img src={img.preview} className="w-full h-full object-cover" alt="" />
                                     </div>
                                 ))}
                             </div>
-                        )}
+                        ) : null}
                     </div>
                 )}
 
