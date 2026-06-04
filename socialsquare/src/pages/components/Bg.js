@@ -23,8 +23,8 @@ const Bg = ({ children }) => {
                 <div className="absolute bottom-[30%] left-[3%] sm:left-[8%] w-10 h-2 bg-[#808bf5]/20 -rotate-12 rounded-sm backdrop-blur-sm"></div>
             </div>
 
-            {/* Content Container */}
-            <div className={`relative z-10 flex max-h-full overflow-y-auto custom-scrollbar rounded-xl shadow-2xl mx-auto transition-colors duration-200 ${isDark ? 'bg-[#121212] text-white shadow-white/5 border border-white/10' : 'bg-white text-gray-800 border border-gray-100'}`}>
+        {/* Content Container */}
+            <div className="relative z-10 w-full flex items-center justify-center overflow-x-hidden">
                 {children}
             </div>
         </div>

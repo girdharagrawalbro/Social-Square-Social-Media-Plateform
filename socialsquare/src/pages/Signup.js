@@ -91,8 +91,8 @@ const Signup = () => {
   return (
     <>
       <Bg>
-        <div className="w-xl flex items-center justify-center gap-10 flex-col md:flex-row p-8">
-          <div className={`flex flex-col justify-center w-full max-w-md mx-auto rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
+        <div className="flex items-center justify-center gap-4 md:gap-10 flex-col md:flex-row p-4 sm:p-6 md:p-8 w-full">
+          <div className={`flex flex-col justify-center w-full max-w-[420px] p-6 sm:p-8 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
             <div className="mb-8">
               <h3 className="font-pacifico text-4xl text-[#808bf5] mb-3">Social Square</h3>
               <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Log in to your account</p>
@@ -175,14 +175,18 @@ const Signup = () => {
               )}
             </div>
 
-
             <div className="mt-4 text-center">
-              <p>Have an account? <Link to="/login" className="text-themeStart font-semibold">Log in</Link></p>
-            </div>
+            <p>Have an account?{' '}
+              <Link
+                to="/login"
+                className="text-[#808bf5] font-semibold hover:underline"
+              >
+                Log in
+              </Link>
+            </p>
           </div>
-          <div className="hidden md:block md:max-w-sm lg:max-w-md animate-in fade-in duration-700">
-            <img src="https://i.ibb.co/3zgV9GB/image.png" alt="" className="w-full h-auto" />
           </div>
+         
         </div>
       </Bg>
       <Toaster />

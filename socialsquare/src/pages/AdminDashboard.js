@@ -98,6 +98,14 @@ const SettingsIcon = () => (
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2 3.46- .07-.02a1.65 1.65 0 0 0-2.18.66L15 21h-6l-.54-.98a1.65 1.65 0 0 0-2.18-.66l-.07.02-2-3.46.06-.06A1.65 1.65 0 0 0 4.6 15L4 14v-4l.6-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06 2-3.46.07.02a1.65 1.65 0 0 0 2.18-.66L9 3h6l.54.98a1.65 1.65 0 0 0 2.18.66l.07-.02 2 3.46-.06.06A1.65 1.65 0 0 0 19.4 9l.6 1v4l-.6 1z" />
     </svg>
 );
+
+const MailIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+    </svg>
+);
+
 // ─── PASSWORD GATE ────────────────────────────────────────────────────────────
 const PasswordGate = ({ onSuccess }) => {
     const [password, setPassword] = useState('');
@@ -1413,6 +1421,264 @@ const SystemTab = () => {
     );
 };
 
+// ─── CONTACTS TAB ─────────────────────────────────────────────────────────────
+const ContactsTab = () => {
+    const { headers } = useAdmin();
+    const [contacts, setContacts] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const [status, setStatus] = useState('all');
+    const [loading, setLoading] = useState(true);
+    
+    const [selectedContact, setSelectedContact] = useState(null);
+    const [replyText, setReplyText] = useState('');
+    const [replyLoading, setReplyLoading] = useState(false);
+
+    const fetchContacts = useCallback(() => {
+        setLoading(true);
+        api.get('/api/admin/contacts', { headers, params: { page, status } })
+            .then(r => {
+                setContacts(r.data.contacts || []);
+                setTotal(r.data.total || 0);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, [page, status, headers]);
+
+    useEffect(() => {
+        fetchContacts();
+    }, [fetchContacts]);
+
+    const updateStatus = async (id, newStatus) => {
+        try {
+            const res = await api.patch(`/api/admin/contacts/${id}/status`, { status: newStatus }, { headers });
+            if (res.data?.success) {
+                toast.success(`Marked as ${newStatus}`);
+                setContacts(prev => prev.map(c => c._id === id ? { ...c, status: newStatus } : c));
+            }
+        } catch (err) {
+            toast.error('Failed to update status');
+        }
+    };
+
+    const handleReply = async (e) => {
+        e.preventDefault();
+        if (!replyText.trim() || !selectedContact) return;
+        setReplyLoading(true);
+        try {
+            const res = await api.post(`/api/admin/contacts/${selectedContact._id}/reply`, { message: replyText }, { headers });
+            if (res.data?.success) {
+                toast.success('Reply sent successfully!');
+                setReplyText('');
+                setSelectedContact(res.data.contact);
+                setContacts(prev => prev.map(c => c._id === selectedContact._id ? res.data.contact : c));
+            }
+        } catch (err) {
+            toast.error('Failed to send reply');
+        } finally {
+            setReplyLoading(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-3">
+            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] opacity-50">Filter Status:</span>
+                    <select 
+                        value={status} 
+                        onChange={e => { setStatus(e.target.value); setPage(1); }} 
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all"
+                    >
+                        <option value="all">All Submissions</option>
+                        <option value="unseen">Unseen</option>
+                        <option value="seen">Seen</option>
+                        <option value="replied">Replied</option>
+                    </select>
+                </div>
+                <div className="px-3 py-2.5 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center gap-2 ml-auto">
+                    <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse"></span>
+                    <span className="text-xs font-black text-[var(--text-main)] uppercase tracking-tight">{total} Queries</span>
+                </div>
+            </div>
+
+            <div className="bg-[var(--surface-1)] rounded shadow-sm border border-[var(--border-color)] overflow-hidden flex-1 min-h-0 flex flex-col">
+                <div className="overflow-x-auto flex-1 custom-scrollbar">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead className="sticky top-0 z-10">
+                            <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border-color)' }}>
+                                {['User Info', 'Message', 'Meta info', 'Status', 'Date', 'Actions'].map(h => (
+                                    <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '10px', fontWeight: 900, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6 }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-color)]">
+                            {loading ? (
+                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '64px', color: 'var(--text-sub)' }}>
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin" />
+                                        <span className="text-xs font-black uppercase tracking-widest opacity-50">Syncing contacts...</span>
+                                    </div>
+                                </td></tr>
+                            ) : contacts.length === 0 ? (
+                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '64px', color: 'var(--text-sub)' }}>
+                                    <div className="flex flex-col items-center gap-2 opacity-40">
+                                        <i className="pi pi-envelope text-4xl"></i>
+                                        <span className="text-xs font-bold">No queries found</span>
+                                    </div>
+                                </td></tr>
+                            ) : contacts.map(c => (
+                                <tr key={c._id} className={`transition-all duration-200 ${
+                                    c.status === 'unseen' 
+                                        ? 'bg-[#808bf5]/5 hover:bg-[#808bf5]/10 border-l-4 border-[#808bf5]' 
+                                        : 'hover:bg-[var(--surface-2)]/50 border-l-4 border-transparent'
+                                }`}>
+                                    <td style={{ padding: '20px' }} onClick={() => setSelectedContact(c)} className="cursor-pointer">
+                                        <div className="flex flex-col gap-0.5">
+                                            <p className="text-sm font-black text-[var(--text-main)] m-0">{c.name}</p>
+                                            <p className="text-xs text-[var(--text-sub)] m-0">{c.email}</p>
+                                            {c.mobile && <p className="text-[10px] text-[var(--text-sub)] opacity-70 m-0">{c.mobile}</p>}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '20px', maxWidth: '300px' }} onClick={() => setSelectedContact(c)} className="cursor-pointer">
+                                        <p className="text-xs text-[var(--text-main)] font-semibold line-clamp-2 m-0">"{c.message}"</p>
+                                    </td>
+                                    <td style={{ padding: '20px', fontSize: '11px', color: 'var(--text-sub)' }} onClick={() => setSelectedContact(c)} className="cursor-pointer">
+                                        <p className="m-0 font-bold">IP: <span className="text-[var(--text-main)]">{c.ip}</span></p>
+                                        <p className="m-0 font-bold mt-0.5">Device: <span className="text-[var(--text-main)]">{c.device}</span></p>
+                                        <p className="m-0 font-bold mt-0.5">Loc: <span className="text-[#808bf5]">{c.location?.city || 'Unknown'}, {c.location?.country || 'Unknown'}</span></p>
+                                    </td>
+                                    <td style={{ padding: '20px' }}>
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
+                                            c.status === 'replied' ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' :
+                                            c.status === 'seen' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
+                                            'bg-red-500/10 text-red-500 border border-red-500/20'
+                                        }`}>
+                                            {c.status}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '20px', fontSize: '11px', color: 'var(--text-sub)', fontWeight: 700 }}>
+                                        {new Date(c.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    </td>
+                                    <td style={{ padding: '20px' }}>
+                                        <div className="flex gap-2">
+                                            {c.status === 'unseen' ? (
+                                                <button 
+                                                    onClick={() => updateStatus(c._id, 'seen')}
+                                                    className="bg-green-500 text-white hover:bg-green-600 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-95 shadow-sm"
+                                                >
+                                                    Mark Seen
+                                                </button>
+                                            ) : c.status === 'seen' ? (
+                                                <button 
+                                                    onClick={() => updateStatus(c._id, 'unseen')}
+                                                    className="bg-[var(--surface-3)] text-[var(--text-main)] hover:bg-gray-400/20 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border border-[var(--border-color)] cursor-pointer transition-all active:scale-95"
+                                                >
+                                                    Unseen
+                                                </button>
+                                            ) : null}
+                                            <button 
+                                                onClick={() => setSelectedContact(c)}
+                                                className="bg-[#808bf5] text-white hover:bg-indigo-600 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-95 shadow-sm"
+                                            >
+                                                Reply
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="flex justify-between items-center bg-[var(--surface-1)] p-2 border-t border-[var(--border-color)] rounded-b-[32px]">
+                <p className="text-[10px] font-black text-[var(--text-sub)] m-0 uppercase tracking-widest opacity-60">Listing {Math.min(20, contacts.length)} of {total} Queries</p>
+                <div className="flex gap-3">
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-3 py-2 px-3 text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                        <i className="pi pi-chevron-left text-[8px]"></i> Previous
+                    </button>
+                    <div className="flex items-center py-2 px-3 bg-[var(--surface-2)] rounded text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] uppercase tracking-widest">
+                        Page {page}
+                    </div>
+                    <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="flex items-center gap-3 py-2 px-3 text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                        Next <i className="pi pi-chevron-right text-[8px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            {selectedContact && (
+                <div className="fixed inset-y-0 right-0 w-[460px] bg-[var(--surface-1)] border-l border-[var(--border-color)] shadow-2xl z-[1000] flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
+                        <div>
+                            <h3 className="m-0 text-base font-black text-[var(--text-main)]">{selectedContact.name}</h3>
+                            <p className="m-0 text-xs font-bold text-[var(--text-sub)] opacity-60">{selectedContact.email}</p>
+                        </div>
+                        <button onClick={() => { setSelectedContact(null); setReplyText(''); }} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all">Close</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 custom-scrollbar">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Submission Context</p>
+                            <div className="p-4 bg-[var(--surface-2)] rounded border border-[var(--border-color)] text-[11px] font-bold text-[var(--text-sub)] space-y-1">
+                                <p className="m-0">IP: <span className="text-[var(--text-main)]">{selectedContact.ip}</span></p>
+                                <p className="m-0">Device: <span className="text-[var(--text-main)]">{selectedContact.device}</span></p>
+                                <p className="m-0">Location: <span className="text-[var(--text-main)]">{selectedContact.location?.city}, {selectedContact.location?.region}, {selectedContact.location?.country}</span></p>
+                                <p className="m-0">Date: <span className="text-[var(--text-main)]">{new Date(selectedContact.createdAt).toLocaleString()}</span></p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Message</p>
+                            <div className="p-4 bg-[var(--surface-2)] rounded border border-[var(--border-color)] italic relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-[#808bf5]"></div>
+                                <p className="text-xs text-[var(--text-main)] m-0 leading-relaxed pr-6 font-semibold opacity-90">"{selectedContact.message}"</p>
+                            </div>
+                        </div>
+
+                        {selectedContact.replies && selectedContact.replies.length > 0 && (
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Reply History</p>
+                                <div className="flex flex-col gap-3">
+                                    {selectedContact.replies.map((reply, idx) => (
+                                        <div key={idx} className="p-4 bg-indigo-500/5 rounded border border-indigo-500/10 text-xs">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="font-black text-[#808bf5]">{reply.sender?.fullname || 'Admin'}</span>
+                                                <span className="text-[9px] font-bold text-[var(--text-sub)] opacity-50">{new Date(reply.sentAt).toLocaleString()}</span>
+                                            </div>
+                                            <p className="m-0 text-[var(--text-main)] leading-relaxed font-semibold">{reply.message}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="border-t border-[var(--border-color)] pt-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Send Email Reply</p>
+                            <form onSubmit={handleReply} className="flex flex-col gap-3">
+                                <textarea 
+                                    value={replyText} 
+                                    onChange={e => setReplyText(e.target.value)} 
+                                    placeholder="Type a response to send directly to this user's email address..." 
+                                    rows={4} 
+                                    className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-4 text-xs text-[var(--text-main)] outline-none focus:ring-1 ring-[#808bf5] focus:border-[#808bf5] transition-all resize-none"
+                                    required
+                                />
+                                <button 
+                                    type="submit" 
+                                    disabled={replyLoading || !replyText.trim()}
+                                    className="w-full py-2.5 bg-[#808bf5] hover:bg-indigo-600 text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer transition-all shadow-md disabled:opacity-50"
+                                >
+                                    {replyLoading ? 'Sending...' : 'Send Reply Email'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 // ─── CONTENT FILTER TAB ───────────────────────────────────────────────────────
 const ContentFilterTab = () => {
@@ -1560,6 +1826,7 @@ const AdminDashboard = () => {
         { key: 'users', icon: <UsersIcon />, label: 'Users' },
         { key: 'posts', icon: <PostsIcon />, label: 'Posts' },
         { key: 'reports', icon: <ReportIcon />, label: 'Reports' },
+        { key: 'contacts', icon: <MailIcon />, label: 'Contacts' },
         { key: 'audit_log', icon: <AuditIcon />, label: 'Audit Log' },
         { key: 'content_filter', icon: <ShieldIcon />, label: 'Content Filter' },
         { key: 'system', icon: <SettingsIcon />, label: 'System' },
@@ -1628,6 +1895,7 @@ const AdminDashboard = () => {
                         {activeTab === 'users' && <UsersTab />}
                         {activeTab === 'posts' && <PostsTab />}
                         {activeTab === 'reports' && <ReportsTab />}
+                        {activeTab === 'contacts' && <ContactsTab />}
                         {activeTab === 'audit_log' && <AuditLogTab />}
                         {activeTab === 'content_filter' && <ContentFilterTab />}
                         {activeTab === 'system' && <SystemTab />}

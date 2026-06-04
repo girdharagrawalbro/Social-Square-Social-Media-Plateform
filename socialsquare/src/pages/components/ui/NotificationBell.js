@@ -124,7 +124,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
             </button>
 
             {!useRoute && (
-                <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '500px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
+                <Dialog header="Notifications & Collabs" visible={open} style={{ width: '360px', height: '515px' }} onHide={() => setOpen(false)} modal={false} closable={false} draggable={false} resizable={false} contentStyle={{ padding: 0 }} position='center' className="notification-bell-dialog border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
                     <div className="flex flex-col h-full bg-[var(--surface-1)]">
                         {/* Tabs */}
                         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--surface-1)' }}>
@@ -185,9 +185,11 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                                     setActiveTab('collabs');
                                                 }
                                             }}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = n.read ? 'var(--surface-1)' : 'var(--surface-2)'}>
+                                                className={`flex items-center gap-3 py-3 px-3 cursor-pointer border-b border-[var(--border-color)] transition-all duration-200 ${!n.read
+                                                    ? 'bg-gray-100 hover:bg-gray-200/80 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60'
+                                                    : 'bg-[var(--surface-1)] hover:bg-[var(--surface-2)]'
+                                                    }`}
+                                            >
 
                                                 <img
                                                     src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'livestream' ? 'https://img.icons8.com/fluency/96/camera.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
@@ -266,6 +268,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                         </div>
                                     )}
                                 </div>
+
                             </div>
                         )}
 
@@ -279,7 +282,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                     </div>
                                 ) : (
                                     followRequests.map(n => (
-                                        <div key={n._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onClick={() => { handleMarkRead(n._id); }}>
+                                        <div key={n._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onClick={() => { handleMarkRead(n._id); }}>
                                             <img src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
@@ -312,6 +315,18 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                                 <CollabManager mode="invites" compact />
                             </div>
                         )}
+
+                        <div className='absoulte bottom-10 p-2  bg-[--surface-1] flex justsify-center' >
+                            <button
+                                onClick={() => {
+                                    navigate('/notifications');
+                                    setOpen(false);
+                                }}
+                                className="w-full py-2.5 bg-gradient-to-r from-indigo-500/10 to-blue-500/10 hover:from-indigo-500/15 hover:to-blue-500/15 text-[#808bf5] border-0 rounded-2xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all active:scale-[0.98]"
+                            >
+                                See complete notifications
+                            </button>
+                        </div>
                     </div>
                 </Dialog>
             )}
