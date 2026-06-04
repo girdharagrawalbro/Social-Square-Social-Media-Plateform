@@ -279,7 +279,7 @@ const Conversations = () => {
                 incrementUnread(conversationId);
             }
 
-            handleRefetch();
+            // handleRefetch(); // Commented out to prevent unnecessary API calls
         };
 
         const handleMessageEdited = ({ messageId, content, conversationId }) => {
@@ -296,7 +296,7 @@ const Conversations = () => {
                     }))
                 };
             });
-            handleRefetch();
+            // handleRefetch(); // Commented out to prevent unnecessary API calls
         };
 
         const handleMessageDeleted = ({ messageId, conversationId }) => {
@@ -313,7 +313,7 @@ const Conversations = () => {
                     }))
                 };
             });
-            handleRefetch();
+            // handleRefetch(); // Commented out to prevent unnecessary API calls
         };
 
         const handleConversationUpdated = (updatedConv) => {

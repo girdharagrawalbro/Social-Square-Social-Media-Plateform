@@ -1096,10 +1096,16 @@ const ChatPanel = ({
 
     useEffect(() => {
         const handleReceive = (message) => {
+            const isOwn = (message.senderId || message.sender?._id || message.sender) === user?._id;
             if (activeParticipant?.isGroup) {
                 if (String(message.conversationId) !== String(conversationIdRef.current)) return;
             } else {
                 if (String(message.senderId) !== String(participantId) && String(message.sender) !== String(participantId)) return;
+            }
+            if (isOwn) {
+                // Already appended via handleSend. Just update potential missing DB metadata.
+                setMessages(prev => prev.map(m => String(m._id) === String(message._id) ? message : m));
+                return;
             }
             setMessages(prev => { if (prev.some(m => String(m._id) === String(message._id))) return prev; return [...prev, message]; });
             if (conversationIdRef.current) {
