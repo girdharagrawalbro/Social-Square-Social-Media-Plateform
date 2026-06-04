@@ -34,7 +34,7 @@ const Landing = () => {
                             and building meaningful relationships in a safe and vibrant social space.
                         </p>
                         <div className="flex gap-4 flex-wrap">
-                            <Link to="/signup" className="bg-white text-[#6366f1] border-2 border-white px-8 py-3 rounded-xl font-bold transition transform hover:-translate-y-1 hover:shadow-lg">Get Started</Link>
+                            <Link to="/signup" className="border-2 border-white text-white px-8 py-3 rounded-xl font-bold transition transform hover:-translate-y-1 hover:bg-white/10 backdrop-blur-lg">Get Started</Link>
                             <Link to="/login" className="border-2 border-white text-white px-8 py-3 rounded-xl font-bold transition transform hover:-translate-y-1 hover:bg-white/10 backdrop-blur-lg">Sign In</Link>
                         </div>
                     </div>

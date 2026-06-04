@@ -7,6 +7,7 @@ const Report = require('../models/Report');
 const jwt = require('jsonwebtoken');
 const AuditLog = require('../models/AuditLog');
 const ContentFilter = require('../models/ContentFilter');
+const Contact = require('../models/Contact');
 const { logAdminAction } = require('../utils/audit.helper');
 const SystemSetting = require('../models/SystemSetting');
 const Notification = require('../models/Notification');
@@ -965,6 +966,118 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
 
         res.json({ success: true, message: `Announcement sent to ${users.length} users` });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// ─── CONTACTS MANAGEMENT ──────────────────────────────────────────────────────
+router.get('/contacts', requireAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        const status = req.query.status || 'all';
+
+        const filter = {};
+        if (status !== 'all') {
+            filter.status = status;
+        }
+
+        const [contacts, total] = await Promise.all([
+            Contact.find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .populate('replies.sender', 'fullname email profile_picture')
+                .lean(),
+            Contact.countDocuments(filter)
+        ]);
+
+        res.json({ success: true, contacts, total });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.patch('/contacts/:id/status', requireAdmin, [
+    param('id').isMongoId().withMessage('Invalid Contact ID'),
+    body('status').isIn(['unseen', 'seen', 'replied']).withMessage('Invalid status'),
+    validate
+], async (req, res) => {
+    try {
+        const { status } = req.body;
+        const contact = await Contact.findByIdAndUpdate(req.params.id, { status }, { new: true });
+        if (!contact) return res.status(404).json({ error: 'Contact submission not found' });
+
+        await logAdminAction({
+            adminId: req.adminId,
+            action: 'update_contact_status',
+            targetType: 'contact',
+            targetId: contact._id,
+            meta: { status, ip: req.ip },
+        });
+
+        res.json({ success: true, contact });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post('/contacts/:id/reply', requireAdmin, [
+    param('id').isMongoId().withMessage('Invalid Contact ID'),
+    body('message').trim().notEmpty().withMessage('Reply message cannot be empty'),
+    validate
+], async (req, res) => {
+    try {
+        const { message } = req.body;
+        const contact = await Contact.findById(req.params.id);
+        if (!contact) return res.status(404).json({ error: 'Contact submission not found' });
+
+        contact.replies.push({
+            sender: req.adminId,
+            message,
+            sentAt: new Date()
+        });
+        contact.status = 'replied';
+        await contact.save();
+
+        const admin = await User.findById(req.adminId).select('fullname').lean();
+
+        const { sendEmail } = require('../utils/mailer');
+        const replyEmailHtml = `
+        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+            <h2 style="color:#808bf5;margin-top:0">Support Response ✉️</h2>
+            <p>Hi <strong>${contact.name}</strong>,</p>
+            <p>We have a reply regarding your contact query from our support representative, <strong>${admin?.fullname || 'Support Representative'}</strong>:</p>
+            <div style="background:#f5f3ff;border-left:4px solid #808bf5;padding:16px;margin:16px 0;font-size:14px;color:#374151;border-radius:0 8px 8px 0">
+                <p style="margin:0">${message}</p>
+            </div>
+            <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0" />
+            <p style="color:#6b7280;font-size:11px;margin-top:10px">Your original query was:</p>
+            <p style="color:#9ca3af;font-size:11px;font-style:italic">"${contact.message}"</p>
+        </div>`;
+
+        await sendEmail({
+            to: contact.email,
+            subject: 'Re: Social Square Support Query',
+            html: replyEmailHtml
+        });
+
+        await logAdminAction({
+            adminId: req.adminId,
+            action: 'reply_to_contact',
+            targetType: 'contact',
+            targetId: contact._id,
+            meta: { ip: req.ip },
+        });
+
+        const updatedContact = await Contact.findById(contact._id)
+            .populate('replies.sender', 'fullname email profile_picture')
+            .lean();
+
+        res.json({ success: true, contact: updatedContact });
+    } catch (err) {
+        console.error('Contact reply error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 module.exports = router;

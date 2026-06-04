@@ -92,7 +92,7 @@ const Navbar = () => {
           !isLandingPage && <NotificationBell userId={loggeduser?._id} showLabel={false} />
         ) : (
           location.pathname === '/login' ? (
-            <Link to="/signup" className="border border-[#808bf5] text-[#808bf5] px-4 py-1 rounded no-underline hover:bg-[#808bf5] hover:text-white transition-all">Sign Up</Link>
+            <Link to="/signup" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Sign Up</Link>
           ) : (
             <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Login</Link>
           )

@@ -9,10 +9,8 @@ const Help = () => {
     return (
         <Bg>
             <div className="w-full max-w-4xl mx-auto text-left">
-                <div className={`rounded-2xl border transition-all duration-200 p-4 sm:p-6 md:p-8 ${isDark ? 'bg-black/40 border-gray-800' : 'bg-white/95 border-gray-100'}`}>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Help & How It Works</h1>
-                 
-          
+                <div className={`rounded-2xl border transition-all duration-200 p-4 sm:p-6 md:p-8 ${isDark ? 'bg-black border-gray-800' : 'bg-white/95 border-gray-100'}`}>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Help &amp; How It Works</h1>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-6 sm:mb-8 mt-3">
                         {[
                             { emoji: '✨', title: 'Share Your Thoughts', desc: 'Post photos and updates. Others can like and comment on your posts.' },
@@ -54,4 +52,3 @@ const Help = () => {
 }
 
 export default Help;
-

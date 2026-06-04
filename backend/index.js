@@ -223,6 +223,7 @@ app.use('/api/media', require('./routes/media'));
 app.use('/api/admin', (req, res, next) => require('./routes/admin.js')(req, res, next));
 app.use('/api/chatbot', (req, res, next) => require('./routes/chatbot.js')(req, res, next));
 app.use("/api/recommendation", require("./routes/recommendation"));
+app.use('/api/contact', require('./routes/contact.js'));
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {

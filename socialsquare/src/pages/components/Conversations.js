@@ -18,6 +18,19 @@ import { useMemo } from 'react';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 import { Image } from 'primereact/image';
 
+const SkeletonConversationItem = () => (
+    <div className="flex items-center gap-4 p-3.5 rounded-2xl select-none">
+        <div className="skeleton rounded-full w-14 h-14 shrink-0" />
+        <div className="flex flex-col justify-center flex-1 min-w-0 gap-2">
+            <div className="flex justify-between items-center">
+                <div className="skeleton rounded h-4 w-24" />
+                <div className="skeleton rounded h-3 w-10" />
+            </div>
+            <div className="skeleton rounded h-3.5 w-36" />
+        </div>
+    </div>
+);
+
 const Conversations = () => {
     const user = useAuthStore(s => s.user);
     const queryClient = useQueryClient();
@@ -37,7 +50,8 @@ const Conversations = () => {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
-        refetch
+        refetch,
+        isLoading
     } = useConversations(user?._id);
 
     // Deep search query for conversations not in current pages
@@ -418,9 +432,12 @@ const Conversations = () => {
             <div className="flex flex-1 min-h-0">
                 {/* Conversation list - left column */}
                 <div className={`w-full sm:w-80 md:w-[30rem] border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden ${selectedParticipant ? 'hidden sm:flex' : 'flex'}`}>
-                    <div className="p-4 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-lg">
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="m-0 text-xl font-black text-[var(--test-main)]">Conversations</h2>
+                    <div className="p-3 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-lg">
+                        <div className="flex items-center justify-between max-w-4xl mx-auto mb-3">
+                            <h2 className="m-0 text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
+                                <i className="pi pi-envelope text-[#808bf5]"></i>
+                                Conversations
+                            </h2>
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setIsGroupCreateOpen(true)}
@@ -466,7 +483,13 @@ const Conversations = () => {
                                 zIndex: 0,
                             }}
                         />
-                        {sortedConversations.length === 0 ? (
+                        {isLoading && sortedConversations.length === 0 ? (
+                            <div className="flex flex-col gap-1">
+                                {[...Array(5)].map((_, i) => (
+                                    <SkeletonConversationItem key={i} />
+                                ))}
+                            </div>
+                        ) : sortedConversations.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 px-4 opacity-60">
                                 <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
                                     <i className={`pi ${searchQuery ? 'pi-search' : 'pi-envelope'} text-gray-400`}></i>
@@ -978,8 +1001,8 @@ const Conversations = () => {
                                 preview
                             />
 
-                                             </div>
- 
+                        </div>
+
                         {isEditingGroupName ? (
                             <div className="w-full flex items-center justify-center gap-2 px-4">
                                 <input

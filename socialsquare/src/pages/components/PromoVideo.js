@@ -86,10 +86,7 @@ const PromoVideo = () => {
             <div className="scrim-top-strong" />
             <div className="s2-top">
               <span className="pill-badge">INTRODUCING</span>
-
             </div>
-            {/* Pulse glow on "Get Started" button – ~51–58% from top */}
-            <div className="s2-btn-glow" />
           </div>
 
           {/* ══ S3 · Vibe Check Feed ═══════════════════════ */}

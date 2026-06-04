@@ -102,7 +102,7 @@ const NotificationsPage = () => {
         <div className="flex justify-center min-h-[calc(100vh-64px)] bg-[var(--app-bg)] w-full">
             <div className="w-full max-w-2xl bg-[var(--surface-1)] border-x border-[var(--border-color)]">
                 <div className="sticky top-0 z-20 bg-[var(--surface-1)]/90 backdrop-blur-md border-b border-[var(--border-color)]">
-                    <div className="p-4">
+                    <div className="px-3 pt-3">
                         <h2 className="text-xl font-bold m-0 text-[var(--text-main)]">Notifications</h2>
                     </div>
                     {/* Tabs */}
@@ -208,11 +208,10 @@ const NotificationsPage = () => {
                                                             setActiveTab('collabs');
                                                         }
                                                     }}
-                                                    className={`flex items-start gap-4 px-5 py-4 cursor-pointer transition-all duration-300 relative border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 ${
-                                                        !n.read 
-                                                            ? 'bg-gradient-to-r from-[#808bf5]/5 via-[#808bf5]/1 to-transparent border-l-4 border-[#808bf5] shadow-[inset_4px_0_0_0_#808bf5]' 
-                                                            : 'border-l-4 border-transparent'
-                                                    }`}
+                                                    className={`flex items-start gap-4 px-3 py-3 cursor-pointer transition-all duration-300 relative border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 ${!n.read
+                                                        ? 'bg-gray-100 hover:bg-gray-200/80 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60 border-l-4 border-[#808bf5]'
+                                                        : 'border-l-4 border-transparent'
+                                                        }`}
                                                 >
                                                     <div className="relative shrink-0 select-none">
                                                         <img
@@ -223,20 +222,18 @@ const NotificationsPage = () => {
                                                         />
                                                         {/* Type Badge Overlay */}
                                                         {n.type !== 'system' && (
-                                                            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md ${
-                                                                n.type === 'like' ? 'bg-gradient-to-tr from-rose-500 to-pink-400' :
+                                                            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md ${n.type === 'like' ? 'bg-gradient-to-tr from-rose-500 to-pink-400' :
                                                                 n.type === 'comment' ? 'bg-gradient-to-tr from-purple-600 to-indigo-400' :
-                                                                n.type === 'follow' || n.type === 'follow_request' ? 'bg-gradient-to-tr from-blue-500 to-cyan-400' :
-                                                                n.type === 'message' ? 'bg-gradient-to-tr from-green-500 to-emerald-400' :
-                                                                'bg-gray-500'
-                                                            }`}>
-                                                                <i className={`pi ${
-                                                                    n.type === 'like' ? 'pi-heart-fill' :
+                                                                    n.type === 'follow' || n.type === 'follow_request' ? 'bg-gradient-to-tr from-blue-500 to-cyan-400' :
+                                                                        n.type === 'message' ? 'bg-gradient-to-tr from-green-500 to-emerald-400' :
+                                                                            'bg-gray-500'
+                                                                }`}>
+                                                                <i className={`pi ${n.type === 'like' ? 'pi-heart-fill' :
                                                                     n.type === 'comment' ? 'pi-comment' :
-                                                                    n.type === 'follow' || n.type === 'follow_request' ? 'pi-user-plus' :
-                                                                    n.type === 'message' ? 'pi-envelope' :
-                                                                    'pi-info-circle'
-                                                                }`}></i>
+                                                                        n.type === 'follow' || n.type === 'follow_request' ? 'pi-user-plus' :
+                                                                            n.type === 'message' ? 'pi-envelope' :
+                                                                                'pi-info-circle'
+                                                                    }`}></i>
                                                             </div>
                                                         )}
                                                     </div>
@@ -330,7 +327,7 @@ const NotificationsPage = () => {
                                 {followRequests.map(n => (
                                     <div
                                         key={n._id}
-                                        className="flex items-center gap-4 px-5 py-4 border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 transition-colors"
+                                        className="flex items-center gap-4 p-3 border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 transition-colors"
                                     >
                                         <div className="relative shrink-0 select-none">
                                             <img
