@@ -115,7 +115,6 @@ export function useCreateConversation() {
 }
 
 export function useSendMessage() {
-    const qc = useQueryClient();
     const addSocketMessage = useConversationStore(s => s.addSocketMessage);
     const user = useAuthStore(s => s.user);
 

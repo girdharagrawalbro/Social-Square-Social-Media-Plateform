@@ -1172,7 +1172,7 @@ const ChatPanel = ({
             socket.off('userTyping', handleTyping);
             socket.off('userStoppedTyping', handleStopTyping);
         };
-    }, [participantId, markRead, setTyping, clearTyping, activeParticipant]);
+    }, [participantId, markRead, setTyping, clearTyping, activeParticipant, user?._id]);
 
     const handleSend = async (e) => {
         e.preventDefault();
