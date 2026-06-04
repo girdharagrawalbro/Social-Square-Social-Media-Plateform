@@ -129,7 +129,8 @@ export function useSendMessage() {
         onSuccess: (res, { conversationId }) => {
             // Optimistically add to Zustand socket messages
             addSocketMessage(conversationId, res.data);
-            qc.invalidateQueries({ queryKey: convoKeys.list(user?._id) });
+            // Redundant with Socket.io conversationUpdated list updates
+            // qc.invalidateQueries({ queryKey: convoKeys.list(user?._id) });
         },
     });
 }
