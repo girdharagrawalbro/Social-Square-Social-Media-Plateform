@@ -186,7 +186,7 @@ function sanitizeUser(user) {
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 
 router.post('/login', authRateLimiter, [
-    body('identifier').isEmail(),
+    body('identifier').trim().notEmpty().withMessage('Email or username is required'),
     body('password').notEmpty(),
 ], async (req, res) => {
     try {
@@ -196,8 +196,14 @@ router.post('/login', authRateLimiter, [
         const { identifier, password, fingerprint } = req.body;
         if (!fingerprint) return res.status(400).json({ error: 'Missing browser fingerprint' });
 
-        const user = await User.findOne({ email: identifier.toLowerCase().trim() });
-        if (!user || user.deletedAt || !user.password) return res.status(401).json({ error: 'Invalid email or password' });
+        const searchIdentifier = identifier.toLowerCase().trim();
+        const user = await User.findOne({
+            $or: [
+                { email: searchIdentifier },
+                { username: searchIdentifier }
+            ]
+        });
+        if (!user || user.deletedAt || !user.password) return res.status(401).json({ error: 'Invalid email, username or password' });
 
         if (user.isBanned) {
             return res.status(403).json({ error: user.banReason || 'Your account has been banned for violating our community guidelines.' });
@@ -235,7 +241,7 @@ router.post('/login', authRateLimiter, [
 
             await user.save();
             const attemptsLeft = MAX_FAILED_ATTEMPTS - user.failedLoginAttempts;
-            return res.status(401).json({ error: `Invalid email or password. ${attemptsLeft} attempt(s) remaining.` });
+            return res.status(401).json({ error: `Invalid email, username or password. ${attemptsLeft} attempt(s) remaining.` });
         }
 
         // ── RESET FAILED ATTEMPTS ON SUCCESS ──

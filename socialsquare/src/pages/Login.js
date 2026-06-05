@@ -40,14 +40,13 @@ const Login = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.identifier)) { toast.error('Please enter a valid email address'); return; }
+        if (!formData.identifier.trim()) { toast.error('Please enter your email or username'); return; }
         if (formData.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
 
         try {
             const encryptedPassword = encryptPassword(formData.password);
             const fingerprint = await getFingerprint();
-            const result = await login({ email: formData.identifier, password: encryptedPassword, fingerprint });
+            const result = await login({ email: formData.identifier.trim(), password: encryptedPassword, fingerprint });
 
             if (result?.requiresOtp) {
                 navigate('/verify-otp', { state: { userId: result.userId } });
@@ -63,7 +62,7 @@ const Login = () => {
                 }
                 navigate(`/${username}${location.search}`);
             } else {
-                toast.error(result?.error || 'Login failed');
+                toast.error(result?.error);
             }
         } catch { toast.error('Network error! Please try again.'); }
     };
@@ -103,7 +102,7 @@ const Login = () => {
                             <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Log in to your account</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-1">
-                            <input className={inputClass} type="text" name="identifier" placeholder="Email" value={formData.identifier} onChange={handleChange} required />
+                            <input className={inputClass} type="text" name="identifier" placeholder="Email or Username" value={formData.identifier} onChange={handleChange} required />
                             <div className="relative">
                                 <input className={inputClass} type={showPassword ? "text" : "password"} name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
                                 <i
@@ -192,7 +191,7 @@ const Login = () => {
                             </p>
                         </div>
                     </div>
-                 
+
                 </div>
             </Bg>
             <Toaster />

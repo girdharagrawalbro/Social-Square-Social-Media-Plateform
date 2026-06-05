@@ -626,7 +626,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                 await api.post('/api/conversation/send', {
                     conversationId,
                     recipientId: targetUser._id,
-                    content: "You sent an attachment",
+                    content: "sent an attachment",
                     storyReply: {
                         storyId: story._id,
                         mediaUrl: story.media?.url,

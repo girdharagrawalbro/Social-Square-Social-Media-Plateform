@@ -665,7 +665,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
     validate
 ], async (req, res) => {
     try {
-        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost, replyTo } = req.body;
+        const { conversationId, senderName, content, recipientId, mediaUrl, mediaType, mediaName, mediaSize, storyReply, sharedPost, replyTo, thumbnailUrl } = req.body;
         const sender = req.userId;
 
         let conv;
@@ -720,7 +720,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
             conversationId: conv._id,
             sender,
             content: content || '',
-            media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize } : {},
+            media: mediaUrl ? { url: mediaUrl, type: mediaType, name: mediaName, size: mediaSize, thumbnailUrl } : {},
             storyReply: storyReply || undefined,
             sharedPost: sharedPost || undefined,
             replyTo: replyTo || null,

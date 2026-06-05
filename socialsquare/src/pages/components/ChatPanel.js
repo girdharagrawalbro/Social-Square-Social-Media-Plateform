@@ -7,6 +7,7 @@ import { Capacitor } from '@capacitor/core';
 import { urlToFile } from "../../utils/nativeUtils";
 import { uploadToCloudinary, uploadVideoToCloudinary } from '../../utils/cloudinary';
 import { uploadToDrive, getFileIcon, formatFileSize } from '../../utils/drive';
+import { getMediaThumbnail } from '../../utils/mediaUtils';
 
 import toast from 'react-hot-toast';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
@@ -602,8 +603,8 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                                         </div>
                                                     </div>
                                                     <div className="relative w-full overflow-hidden" style={{ aspectRatio: '1/1', maxHeight: '300px' }}>
-                                                        {message.sharedPost.mediaUrl ? (
-                                                            <ProgressiveImage src={message.sharedPost.mediaUrl} alt="Post Content" objectFit="cover" placeholderColor="rgba(0,0,0,0.4)" />
+                                                        {message.sharedPost.thumbnailUrl || message.sharedPost.mediaUrl ? (
+                                                            <ProgressiveImage src={message.sharedPost.thumbnailUrl || message.sharedPost.mediaUrl} alt="Post Content" objectFit="cover" placeholderColor="rgba(0,0,0,0.4)" />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center bg-black/20 text-4xl">📦</div>
                                                         )}
@@ -674,7 +675,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                                 />
                                             )}
                                             {message.media.type === 'audio' && <VoiceNotePlayer url={message.media.url} duration={message.media.size} />}
-                                            {message.media.type === 'video' && <video src={message.media.url} controls style={{ maxWidth: '200px', borderRadius: '12px', opacity: message.isOptimistic ? 0.6 : 1 }} />}
+                                            {message.media.type === 'video' && <video src={message.media.url} poster={message.media.thumbnailUrl || getMediaThumbnail(message.media.url, 'video')} controls style={{ maxWidth: '200px', borderRadius: '12px', opacity: message.isOptimistic ? 0.6 : 1 }} />}
                                             {message.media.type === 'file' && (
                                                 // eslint-disable-next-line jsx-a11y/anchor-is-valid
                                                 <a href={message.isOptimistic ? '#' : message.media.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isOwn ? '#fff' : '#808bf5', textDecoration: 'none', fontSize: '13px', opacity: message.isOptimistic ? 0.6 : 1 }}>
@@ -1251,6 +1252,7 @@ const ChatPanel = ({
                     };
 
                     try {
+                        let thumbnailUrl = null;
                         if (file.type.startsWith('image/')) {
                             const existing = currentPreviews.find(p => p.file === file);
                             if (existing && existing.uploadedUrl) {
@@ -1262,6 +1264,7 @@ const ChatPanel = ({
                         } else if (file.type.startsWith('video/')) {
                             const r = await uploadVideoToCloudinary(file, onProgress);
                             mediaUrl = typeof r === 'string' ? r : r?.url;
+                            thumbnailUrl = r?.thumbnailUrl;
                         } else {
                             const r = await uploadToDrive(file, onProgress);
                             mediaUrl = r?.url;
@@ -1275,6 +1278,7 @@ const ChatPanel = ({
                             mediaType,
                             mediaName: file.name,
                             mediaSize: file.size,
+                            thumbnailUrl,
                             replyTo: i === 0 && currentReplyTo?._id ? currentReplyTo._id : null
                         });
 

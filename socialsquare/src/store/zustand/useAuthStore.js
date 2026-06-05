@@ -102,7 +102,7 @@ const useAuthStore = create(
                     }
                     return { success: true, user };
                 } catch (err) {
-                    const msg = err.response?.data?.message || 'Login failed';
+                    const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
                     set({ loading: false, error: msg });
                     return { error: msg };
                 }
