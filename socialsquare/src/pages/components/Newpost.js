@@ -716,8 +716,8 @@ const NewPost = ({ visible, onHide }) => {
                     toast.success("Post shared successfully!", { id: uploadToast });
 
                     if (response.data.isFirstPost) {
-                        import('../../utils/confettiUtils').then(({ fireFlowerConfetti }) => {
-                            fireFlowerConfetti();
+                        import('../../utils/confettiUtils').then(({ fireSleekBalloons }) => {
+                            fireSleekBalloons();
                         });
                     }
                 } else {
