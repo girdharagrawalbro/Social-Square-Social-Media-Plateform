@@ -12,6 +12,7 @@ const MessageSchema = new mongoose.Schema({
         type: { type: String, enum: ['image', 'video', 'audio', 'file'], default: null },
         name: { type: String, default: null },
         size: { type: Number, default: null },
+        thumbnailUrl: { type: String, default: null },
     },
 
     // Reply-to-message
@@ -45,6 +46,7 @@ const MessageSchema = new mongoose.Schema({
         caption: String,
         mediaUrl: String,
         mediaType: String,
+        thumbnailUrl: String,
     },
 }, { timestamps: true });
 

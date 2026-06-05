@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useUserDetails } from '../../../hooks/queries/useAuthQueries';
 import { useConversations, useSendMessage } from '../../../hooks/queries/useConversationQueries';
 import { useSearchUsers } from '../../../hooks/queries/useExploreQueries';
+import { getMediaThumbnail } from '../../../utils/mediaUtils';
 
 const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -50,12 +51,12 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
         setSendingUsers(prev => [...prev, targetUser._id]);
 
         try {
-            const content = `You sent an attachment`;
+            const content = `sent an attachment`;
 
             // Find existing conversation or it will be handled by the mutation logic
             const conv = conversations.find(c => c.participants.some(p => p.userId === targetUser._id));
 
-            await sendMessageMut.mutateAsync({
+             await sendMessageMut.mutateAsync({
                 conversationId: conv?._id,
                 content,
                 recipientId: targetUser._id,
@@ -65,8 +66,9 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
                     authorUsername: post.user?.fullname?.toLowerCase().replace(/\s/g, '_'), // Best guess for username if not in post object
                     authorProfilePicture: post.user?.profile_picture,
                     caption: post.caption,
-                    mediaUrl: post.image_urls?.[0] || post.image_url || post.videoURL,
-                    mediaType: post.videoURL ? 'video' : 'image'
+                    mediaUrl: post.image_urls?.[0] || post.image_url || post.videoURL || post.video,
+                    mediaType: (post.videoURL || post.video) ? 'video' : 'image',
+                    thumbnailUrl: post.videoThumbnail || getMediaThumbnail(post.videoURL || post.video, 'video')
                 }
             });
 
