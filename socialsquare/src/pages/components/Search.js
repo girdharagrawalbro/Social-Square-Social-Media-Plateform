@@ -227,7 +227,7 @@ const Search = ({ onClose, desc = true }) => {
                 </div>
 
 
-                <div className={`absolute left-0 right-0 bg-[var(--surface-1)] rounded-2xl z-50 overflow-hidden mt-2 shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'} transition-all duration-300`} style={{ top: '100%', maxHeight: '500px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                <div className={`absolute left-0 w-[90vw] sm:w-[500px] md:w-[600px] lg:w-full bg-[var(--surface-1)] rounded-2xl z-50 overflow-hidden mt-2 shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'} transition-all duration-300`} style={{ top: '100%', maxHeight: '500px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (

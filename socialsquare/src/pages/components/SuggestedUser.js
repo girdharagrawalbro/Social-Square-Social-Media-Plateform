@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
-import useAuthStore, { api } from '../../store/zustand/useAuthStore';
+import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { useOtherUsers, useFollowUser, useUnfollowUser, useCancelFollowRequest } from '../../hooks/queries/useAuthQueries';
 import UserProfile from './UserProfile';
@@ -19,17 +19,17 @@ const SuggestedUser = () => {
 
     const [selectedId, setSelectedId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
-    const [localDismissed, setLocalDismissed] = useState([]);
+    // const [localDismissed, setLocalDismissed] = useState([]);
 
-    const handleDismiss = async (e, targetUserId) => {
-        e.stopPropagation();
-        setLocalDismissed(prev => [...prev, targetUserId]);
-        try {
-            await api.post('/api/auth/dismiss-user', { targetUserId });
-        } catch (err) {
-            console.error('Failed to dismiss user:', err);
-        }
-    };
+    // const handleDismiss = async (e, targetUserId) => {
+    //     e.stopPropagation();
+    //     setLocalDismissed(prev => [...prev, targetUserId]);
+    //     try {
+    //         await api.post('/api/auth/dismiss-user', { targetUserId });
+    //     } catch (err) {
+    //         console.error('Failed to dismiss user:', err);
+    //     }
+    // };
 
     const handleFollow = (e, userId, isRequested) => {
         e.stopPropagation();
@@ -77,8 +77,8 @@ const SuggestedUser = () => {
                     {users.filter(u =>
                         u._id !== user?._id &&
                         !user?.following?.some(f => f?.toString() === u._id?.toString()) &&
-                        !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString()) &&
-                        !localDismissed.includes(u._id)
+                        !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString())
+                        //  && !localDismissed.includes(u._id)
                     ).slice(0, 8).map(u => {
                         const userIsOnline = isOnline(u._id);
                         const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());

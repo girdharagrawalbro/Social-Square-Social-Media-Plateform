@@ -70,7 +70,7 @@ const Navbar = () => {
       <div className="hidden sm:flex items-center justify-center flex-1 max-w-xl px-4">
         {!isLandingPage && isAuthenticated && (
           <div className="w-full">
-            <Search onClose={() => setMobileMenuOpen(false)} desc={false}  />
+            <Search onClose={() => setMobileMenuOpen(false)} desc={false} />
           </div>
         )}
       </div>
