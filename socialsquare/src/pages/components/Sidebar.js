@@ -119,7 +119,7 @@ export default function Sidebar() {
             : 'text-[var(--text-main)] hover:bg-gray-100 dark:hover:bg-neutral-900'
         }`;
 
-    const iconClass = 'text-xl relative z-10 shrink-0 w-6 text-center';
+    const iconClass = 'text-xl relative z-10 shrink-0 w-6 h-6 flex items-center justify-center';
     const labelClass = 'font-semibold text-base relative z-10 truncate';
 
     return (
@@ -154,8 +154,8 @@ export default function Sidebar() {
                         aria-hidden="true"
                         style={{
                             position: 'absolute',
-                            left: open ? '8px' : '12px',
-                            right: open ? '8px' : '12px',
+                            left: open ? '8px' : '16px',
+                            right: open ? '8px' : '16px',
                             top: pillStyle.top,
                             height: pillStyle.height,
                             borderRadius: '9999px',
@@ -313,15 +313,15 @@ export default function Sidebar() {
                 header="Search Users, Posts, Categories..."
                 visible={isSearchOpen}
                 onHide={() => setIsSearchOpen(false)}
-                style={{ width: '50vw', height: '100vh' }}
+                style={{ width: '50vw', height: '70vh' }}
                 position="center"
-                baseZIndex={2000}
+                baseZIndex={9999}
                 appendTo={document.body}
                 draggable={false}
                 resizable={false}
                 modal
             >
-                <div style={{ padding: 8 }}>
+                <div style={{ padding: 8 }} className='z-[9999]'>
                     <Search onClose={() => setIsSearchOpen(false)} />
                 </div>
             </Dialog>

@@ -28,9 +28,9 @@ export default function FloatMessagesButton() {
     return (
         <Link
             to="/conversations"
-            className="flex items-center gap-2 px-4 py-3 rounded-full bg-[#18181b]/95 hover:bg-neutral-800 text-white font-bold shadow-2xl border border-neutral-800 transition-all active:scale-95 duration-200"
+            className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/95 dark:bg-[#18181b]/95 hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-800 dark:text-white font-bold shadow-2xl border border-gray-200 dark:border-neutral-800 transition-all active:scale-95 duration-200"
             style={{
-                boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+                boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
                 minWidth: '150px'
             }}
         >
@@ -59,7 +59,7 @@ export default function FloatMessagesButton() {
                             key={index}
                             src={url}
                             alt=""
-                            className="w-[24px] h-[24px] rounded-full border-2 border-[#18181b] object-cover shadow-md"
+                            className="w-[24px] h-[24px] rounded-full border-2 border-white dark:border-[#18181b] object-cover shadow-md"
                             style={{ zIndex: 3 - index }}
                         />
                     ))}

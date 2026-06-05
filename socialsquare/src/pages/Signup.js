@@ -176,17 +176,17 @@ const Signup = () => {
             </div>
 
             <div className="mt-4 text-center">
-            <p>Have an account?{' '}
-              <Link
-                to="/login"
-                className="text-[#808bf5] font-semibold hover:underline"
-              >
-                Log in
-              </Link>
-            </p>
+              <p>Have an account?{' '}
+                <Link
+                  to="/login"
+                  className="text-[#808bf5] font-semibold hover:underline"
+                >
+                  Log in
+                </Link>
+              </p>
+            </div>
           </div>
-          </div>
-         
+
         </div>
       </Bg>
       <Toaster />

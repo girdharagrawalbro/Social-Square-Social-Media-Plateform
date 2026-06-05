@@ -11,7 +11,7 @@ const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_AP
 const RECENT_KEY = 'recentSearches';
 const MAX_RECENT = 8; // Increased slightly for better UX
 
-const Search = ({ onClose }) => {
+const Search = ({ onClose, desc = true }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const [isVisible, setVisible] = useState(false);
@@ -265,7 +265,7 @@ const Search = ({ onClose }) => {
 
 
                     {!searchTerm && categories.length > 0 && (
-                        <div className="p-2 mt-2">
+                        <div className="p-2 mt-2 ">
                             <h3 className="text-[10px] font-bold text-[var(--text-sub)] uppercase tracking-widest mb-2">Browse Categories</h3>
                             <div className="flex flex-wrap gap-2">
                                 {categories.slice(0, 8).map((cat, i) => (
@@ -389,6 +389,19 @@ const Search = ({ onClose }) => {
                     )}
                 </div>
             </div>
+
+            {/* Welcome Search Prompt */}
+            {!searchTerm && desc && (
+                <div className="p-5 text-center mt-16 hidden md:block">
+                    <div className="w-12 h-12 rounded-2xl bg-[#808bf5]/10 flex items-center justify-center mx-auto mb-3">
+                        <i className="pi pi-search text-xl text-[#808bf5]" />
+                    </div>
+                    <h4 className="m-0 font-bold text-sm text-[var(--text-main)]">Search Social Square</h4>
+                    <p className="mt-1 mb-0 text-xs text-[var(--text-sub)] max-w-[260px] mx-auto leading-relaxed">
+                        Search for your favorite people, explore trending posts, browse categories, or find communities.
+                    </p>
+                </div>
+            )}
 
             {/* User Profile Dialog - Popup/Dialog Mode */}
             <Dialog header="Profile" visible={isVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setVisible(false)} >
