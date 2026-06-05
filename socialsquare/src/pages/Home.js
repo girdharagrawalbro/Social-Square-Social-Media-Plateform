@@ -15,6 +15,8 @@ import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 import OnboardingGuide from './components/OnboardingGuide';
 import { api } from '../store/zustand/useAuthStore';
+import FloatMessagesButton from './components/ui/FloatMessagesButton';
+
 
 const Home = () => {
     const activeView = 'feed';
@@ -174,6 +176,10 @@ const Home = () => {
                     </div>
                 )}
             </section >
+
+            <div className="hidden md:block fixed bottom-6 right-[88px] z-[9999]">
+                <FloatMessagesButton />
+            </div>
 
             <OnboardingGuide
                 visible={showGuide}

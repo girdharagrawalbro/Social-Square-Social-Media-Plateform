@@ -306,7 +306,27 @@ const Profile = ({ userId }) => {
     return (
         <>
             <div className="w-full max-w-4xl mx-auto">
-                <div className="bg-[var(--surface-1)] flex flex-col  min-h-screen">
+                <div className="flex right-0 lg:right-[5rem] fixed lg:top-6 z-50">
+                    {displayUser.isAdmin ?
+                        <button
+                            onClick={() => { navigate('/admin'); }}
+                            className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors'}`}
+                            title="Sessions"
+                        >
+                            <i className="pi pi-shield text-lg"></i>
+                        </button>
+                        :
+                        ""
+                    }
+                    <button
+                        onClick={() => { navigate('/sessions'); }}
+                        className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors'}`}
+                        title="Sessions"
+                    >
+                        <i className="pi pi-cog text-lg"></i>
+                    </button>
+                </div>
+                <div className="bg-[var(--surface-1)] flex flex-col min-h-screen">
 
                     {/* Header: Sticky Profile Info */}
                     <div className="bg-[var(--surface-1)] bg-opacity-90 backdrop-blur-md py-2 sm:py-0 sm:px-0 sm:mx-0 sm:px-0 max-w-xl w-full mx-auto">

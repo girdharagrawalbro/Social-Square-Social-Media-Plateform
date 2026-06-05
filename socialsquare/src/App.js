@@ -668,6 +668,7 @@ function MainLayout({ children }) {
                     <NotificationBell userId={user?._id} showLabel={false} />
                 </div>
             )}
+
             <div className="flex w-full flex-1 min-h-0">
                 <Sidebar />
                 <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar relative">

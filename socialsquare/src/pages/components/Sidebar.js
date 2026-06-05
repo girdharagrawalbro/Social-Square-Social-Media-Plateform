@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { Link, useLocation } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
@@ -12,6 +12,7 @@ export default function Sidebar() {
     const [newpostVisible, setnewpostVisible] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [open, setOpen] = useState(false);
+    const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
     const user = useAuthStore(s => s.user);
     const logout = useAuthStore(s => s.logout);
@@ -24,7 +25,7 @@ export default function Sidebar() {
     const [pillReady, setPillReady] = useState(false);
 
 
-    const links = !user
+    const allNavItems = !user
         ? [
             { key: 'home', label: 'Home', icon: 'pi pi-home', to: '/' },
             { key: 'login', label: 'Log In', icon: 'pi pi-sign-in', to: '/login', accent: true },
@@ -38,21 +39,13 @@ export default function Sidebar() {
             { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
             { key: 'confessions', label: 'Confessions', icon: 'pi pi-map', to: '/confessions' },
             { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
-            { key: 'profile', label: 'Profile', icon: 'pi pi-user', to: user?._id ? `/profile/${user._id}` : '/profile' },
             { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
-            { key: 'sessions', label: 'Sessions', icon: 'pi pi-cog', to: '/sessions' },
         ];
-
-    const allNavItems = [
-        ...links,
-        ...(user?.isAdmin ? [{ key: 'admin', label: 'Admin', icon: 'pi pi-shield', to: '/admin' }] : []),
-    ];
 
     // Find active key including admin
     const getActiveKey = () => {
         if (isSearchOpen) return 'search';
         if (newpostVisible) return 'addpost';
-        if (user?.isAdmin && location.pathname.startsWith('/admin')) return 'admin';
         for (const l of allNavItems) {
             if (!l.to) continue;
             if (l.to === `/${user?.username}` && (location.pathname === l.to || location.pathname === '/')) return l.key;
@@ -82,7 +75,18 @@ export default function Sidebar() {
         setPillReady(true);
     }, [activeKey, open, location.pathname, isSearchOpen, newpostVisible]);
 
-    // ── Recalculate on scroll inside nav ────────────────────────────────────
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMoreMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     useEffect(() => {
         const nav = navRef.current;
         if (!nav) return;
@@ -104,6 +108,8 @@ export default function Sidebar() {
         itemRefs.current[key] = el;
     };
 
+
+
     // ── Shared item classes (no bg — pill handles it) ────────────────────────
     const itemBase = (key) =>
         `relative z-10 flex items-center rounded-full transition-colors duration-150 border-0 cursor-pointer text-left w-full
@@ -113,7 +119,7 @@ export default function Sidebar() {
             : 'text-[var(--text-main)] hover:bg-gray-100 dark:hover:bg-neutral-900'
         }`;
 
-    const iconClass = 'text-xl relative z-10 shrink-0';
+    const iconClass = 'text-xl relative z-10 shrink-0 w-6 text-center';
     const labelClass = 'font-semibold text-base relative z-10 truncate';
 
     return (
@@ -121,10 +127,10 @@ export default function Sidebar() {
             <aside
                 onMouseEnter={() => setOpen(true)}
                 onMouseLeave={() => setOpen(false)}
-                className={`sticky top-0 h-screen hidden md:flex flex-col bg-[var(--surface-1)] border-r border-[var(--border-color)] transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
+                className={`sticky top-0 h-screen hidden md:flex flex-col bg-transparent transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
             >
                 {/* Logo */}
-                <div className="flex items-center justify-between px-3 py-4 border-b border-[var(--border-color)]">
+                <div className="flex items-center justify-between px-3 py-4">
                     <div className="flex items-center gap-3">
                         <Link to={user?.username ? `/${user.username}` : "/"} className="flex items-center shrink-0 ml-1">
                             <img src="/logo.jpg" alt="Logo" className="w-12 h-12 rounded-full" />
@@ -140,7 +146,7 @@ export default function Sidebar() {
                 {/* Nav */}
                 <nav
                     ref={navRef}
-                    className="flex-1 overflow-auto py-1 relative"
+                    className="flex-1 flex flex-col justify-center overflow-auto py-1 relative"
                     style={{ scrollbarWidth: 'none' }}
                 >
                     {/* ── Floating pill ── */}
@@ -178,11 +184,12 @@ export default function Sidebar() {
                         }} />
                     </div>
 
-                    <ul className={`flex flex-col gap-2 ${open ? 'px-2 items-start' : 'px-3 items-center'}`}>
-                        {links.map(l => (
-                            <li key={l.key} className="w-full" ref={setItemRef(l.key)}>
+                    <ul className="flex flex-col gap-2 px-2 items-center w-full">
+                        {allNavItems.map(l => (
+                            <li key={l.key} className="w-full">
                                 {l.key === 'search' ? (
                                     <button
+                                        ref={setItemRef(l.key)}
                                         aria-label={l.label}
                                         onClick={() => setIsSearchOpen(true)}
                                         className={`${itemBase(l.key)} h-12`}
@@ -192,6 +199,7 @@ export default function Sidebar() {
                                     </button>
                                 ) : l.key === 'addpost' ? (
                                     <button
+                                        ref={setItemRef(l.key)}
                                         aria-label={l.label}
                                         onClick={() => setnewpostVisible(true)}
                                         className={`${itemBase(l.key)} h-12`}
@@ -201,6 +209,7 @@ export default function Sidebar() {
                                     </button>
                                 ) : l.key === 'notifications' ? (
                                     <NotificationBell
+                                        ref={setItemRef(l.key)}
                                         userId={user?._id}
                                         useRoute={true}
                                         showLabel={open}
@@ -208,6 +217,7 @@ export default function Sidebar() {
                                     />
                                 ) : (
                                     <Link
+                                        ref={setItemRef(l.key)}
                                         aria-label={l.label}
                                         to={l.to || '#'}
                                         className={`${itemBase(l.key)} h-12`}
@@ -219,59 +229,73 @@ export default function Sidebar() {
                             </li>
                         ))}
 
-                        {/* Admin link */}
-                        {user?.isAdmin && (
-                            <li className="w-full" ref={setItemRef('admin')}>
-                                <Link
-                                    to="/admin"
-                                    aria-label="Admin"
-                                    className={`${itemBase('admin')} h-12`}
-                                >
-                                    <i className={`pi pi-shield ${iconClass}`} />
-                                    {open && <span className={labelClass}>Admin</span>}
-                                </Link>
-                            </li>
-                        )}
 
-                        {/* Theme toggle — not part of pill system */}
-                        <li className="w-full">
-                            <button
-                                aria-label="Theme"
-                                onClick={toggle}
-                                className={`${open ? 'w-full px-4' : 'w-12'} h-12 flex items-center ${open ? 'justify-start gap-4' : 'justify-center'} rounded-full hover:bg-gray-100 dark:hover:bg-neutral-900 border-0 cursor-pointer text-left transition-colors`}
-                            >
-                                <i className={`pi ${isDark ? 'pi-moon' : 'pi-sun'} text-xl`} />
-                                {open && <span className="font-semibold text-base">Theme</span>}
-                            </button>
-                        </li>
                     </ul>
                 </nav>
 
                 {/* User footer */}
                 {user && (
-                    <div className={`p-3 border-t border-[var(--border-color)] flex flex-col items-${open ? 'start' : 'center'} gap-3 w-full`}>
-                        <Link to={`/profile/${user._id}`}>
+                    <div
+                        ref={menuRef}
+                        className={`relative p-3 border-t border-[var(--border-color)] flex flex-col items-${open ? 'start' : 'center'} gap-3 w-full`}
+                    >
+                        <Link to={`/profile/${user._id}`} className="w-full">
                             <div className="flex items-center gap-3 w-full px-1">
                                 <img
                                     src={user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
                                     alt="me"
-                                    className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm"
+                                    className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm shrink-0"
                                 />
                                 {open && (
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-[var(--text-main)] leading-none">{user?.fullname || 'User'}</span>
+                                    <div className="flex flex-col truncate">
+                                        <span className="text-sm font-bold text-[var(--text-main)] leading-none truncate">{user?.fullname || 'User'}</span>
                                     </div>
                                 )}
                             </div>
                         </Link>
+
+                        {/* The Hamburger Button */}
                         <button
-                            onClick={() => logout()}
-                            className={`flex items-center ${open ? 'w-full px-4 py-2 justify-start gap-3' : 'w-10 h-10 justify-center'} rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border-0 cursor-pointer p-0`}
-                            aria-label="Logout"
+                            onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                            className={`flex items-center ${open ? 'w-full px-3 py-2 justify-start gap-4' : 'w-10 h-10 justify-center'} rounded-full hover:bg-gray-100 dark:hover:bg-neutral-900 border-0 cursor-pointer transition-colors bg-transparent`}
+                            aria-label="More options"
                         >
-                            <i className={`pi pi-sign-out ${open ? 'text-lg' : 'text-xl'}`} />
-                            {open && <span className="font-bold text-sm">Logout</span>}
+                            <i className="pi pi-bars text-xl w-6 text-center text-[var(--text-main)] shrink-0" />
+                            {open && <span className="font-semibold text-base text-[var(--text-main)]">More</span>}
                         </button>
+
+                        {/* The Popup Menu */}
+                        {isMoreMenuOpen && (
+                            <div className="absolute bottom-full left-2 mb-2 w-48 bg-[var(--surface-1)] dark:bg-neutral-900 rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden z-50 animate-fade-in">
+                                <div className="flex flex-col">
+
+                                    {/* Theme Toggle Inside Popup */}
+                                    <button
+                                        onClick={() => {
+                                            toggle();
+                                            setIsMoreMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-700 text-left text-sm text-[var(--text-main)] border-0 cursor-pointer bg-transparent"
+                                    >
+                                        <i className={`pi ${isDark ? 'pi-moon' : 'pi-sun'} text-lg w-6 text-center`} />
+                                        <span className="font-semibold">{isDark ? 'Dark' : 'Light'}</span>
+                                    </button>
+
+                                    {/* Logout Inside Popup */}
+                                    <button
+                                        onClick={() => {
+                                            logout();
+                                            setIsMoreMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-left text-sm text-red-500 border-0 cursor-pointer bg-transparent transition-colors"
+                                    >
+                                        <i className="pi pi-sign-out text-lg w-6 text-center" />
+                                        <span className="font-semibold">Log out</span>
+                                    </button>
+
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </aside>
