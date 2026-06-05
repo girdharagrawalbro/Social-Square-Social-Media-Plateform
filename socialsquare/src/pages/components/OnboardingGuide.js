@@ -23,47 +23,6 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
         if (dialogContent) dialogContent.scrollTop = 0;
     }, [step]);
 
-    const renderArrow = () => {
-        if (!visible) return null;
-
-        // Step 4: Create Post (Sidebar or BottomNav)
-        // Step 5: Chat (Sidebar or BottomNav)
-
-        let positionClass = "";
-        let arrowIcon = "";
-
-        if (step === 4) { // Add Post
-            if (isDesktop) {
-                positionClass = "fixed left-20 top-[45%] -translate-y-1/2 z-[20001]";
-                arrowIcon = "pi-arrow-left";
-            } else {
-                positionClass = "fixed bottom-20 left-1/2 -translate-x-1/2 z-[20001]";
-                arrowIcon = "pi-arrow-down";
-            }
-        } else if (step === 5) { // Chat
-            if (isDesktop) {
-                positionClass = "fixed left-20 top-[60%] -translate-y-1/2 z-[20001]";
-                arrowIcon = "pi-arrow-left";
-            } else {
-                positionClass = "fixed bottom-20 right-10 z-[20001]";
-                arrowIcon = "pi-arrow-down";
-            }
-        } else {
-            return null;
-        }
-
-        return (
-            <div className={`${positionClass} flex flex-col items-center gap-2 animate-bounce`}>
-                <div className="bg-[#6366f1] text-white p-3 rounded-full shadow-2xl border-4 border-white dark:border-neutral-900">
-                    <i className={`pi ${arrowIcon} text-xl font-bold`}></i>
-                </div>
-                <div className="bg-[#6366f1] text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest whitespace-nowrap shadow-xl">
-                    Look Here!
-                </div>
-            </div>
-        );
-    };
-
     const renderStepContent = () => {
         switch (step) {
             case 1:
@@ -74,7 +33,7 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
                         </div>
                         <h2 className="text-2xl font-bold text-[var(--text-main)]">Welcome to Social Square, {userName}!</h2>
                         <p className="text-[var(--text-sub)] leading-relaxed">
-                            We're thrilled to have you here. Let's take a quick 1-minute tour to show you how to get the most out of your new favorite social space.
+                            Let's take a quick 1 tour to show you how to get the most out of your new favorite social space.
                         </p>
                     </div>
                 );
@@ -160,7 +119,6 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
 
     return (
         <>
-            {renderArrow()}
             <Dialog
                 visible={visible}
                 onHide={onHide}
@@ -171,6 +129,13 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
                 style={{ width: '90vw', maxWidth: '450px' }}
                 contentStyle={{ padding: 0, borderRadius: '24px', overflow: 'hidden', background: 'var(--surface-1)' }}
             >
+                {/* Skip Button */}
+                <button
+                    onClick={onHide}
+                    className="absolute top-4 right-4 z-10 text-[var(--text-sub)] hover:text-[var(--text-main)] text-sm font-medium px-3 py-1 bg-[var(--surface-2)] rounded-full transition-colors"
+                >
+                    Skip
+                </button>
                 <div className="flex flex-col min-h-[400px]">
                     {/* Content */}
                     <div className="flex-1 flex items-center justify-center">
@@ -197,7 +162,7 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
                         </button>
                         <button
                             onClick={nextStep}
-                            className="bg-[#6366f1] text-white px-8 py-3 rounded-2xl font-bold hover:bg-[#4f46e5] transition-all transform active:scale-95 shadow-lg shadow-[#6366f1]/20"
+                            className="bg-[#6366f1] text-white px-8 py-2 rounded-2xl font-bold hover:bg-[#4f46e5] transition-all transform active:scale-95 shadow-lg shadow-[#6366f1]/20"
                         >
                             {step === totalSteps ? "Let's Go!" : "Next"}
                         </button>
