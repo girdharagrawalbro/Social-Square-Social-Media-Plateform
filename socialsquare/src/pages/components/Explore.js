@@ -5,7 +5,6 @@ import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import toast from 'react-hot-toast';
 import { useExploreReels } from '../../hooks/queries/useExploreQueries';
-import { Skeleton } from 'primereact/skeleton';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useNavigate } from 'react-router-dom';
