@@ -70,7 +70,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
     useEffect(() => {
         if (!videoRef.current) return;
         if (inView && !isLocked) {
-            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
         } else {
             videoRef.current.pause();
             setIsPlaying(false);
@@ -81,7 +81,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
         e.stopPropagation();
         if (!videoRef.current || isLocked) return;
         if (videoRef.current.paused) {
-            videoRef.current.play().catch(() => {});
+            videoRef.current.play().catch(() => { });
             setIsPlaying(true);
             flashIndicator('play');
         } else {
@@ -131,7 +131,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
             {/* ── Mute toggle ─────────────────────────────────────── */}
             <button
                 onClick={toggleMute}
-                className="absolute bottom-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-lg"
+                className="absolute bottom-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 cursor-pointer"
                 title={isMuted ? 'Unmute' : 'Mute'}
             >
                 <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '13px' }}></i>

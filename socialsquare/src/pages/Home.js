@@ -35,14 +35,15 @@ const Home = () => {
     // ✅ Welcome Celebration & Guide for new users
     useEffect(() => {
         if (initialized && !loading && loggeduser && loggeduser.hasSeenWelcome === false) {
-            import('../utils/confettiUtils').then(({ fireFlowerConfetti }) => {
-                fireFlowerConfetti();
+
+            import('../utils/confettiUtils').then(({ fireSleekBalloons }) => {
+                fireSleekBalloons();
             });
 
-            // Show guide after a small delay to let confetti shine
+            // Show guide after balloons finish bursting (approx 3.5 seconds)
             setTimeout(() => {
                 setShowGuide(true);
-            }, 1500);
+            }, 3500);
 
             // Mark as seen on backend
             api.put('/api/auth/mark-welcome-seen')
