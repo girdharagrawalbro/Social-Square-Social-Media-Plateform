@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog } from 'primereact/dialog';
-import useWindowWidth from '../../hooks/useWindowWidth';
 
 const OnboardingGuide = ({ visible, onHide, userName }) => {
     const [step, setStep] = useState(1);
     const totalSteps = 7;
-    const windowWidth = useWindowWidth();
-    const isDesktop = windowWidth >= 1024;
+
 
     const nextStep = () => {
         if (step < totalSteps) setStep(step + 1);
