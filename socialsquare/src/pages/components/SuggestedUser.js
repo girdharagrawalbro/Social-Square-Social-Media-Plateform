@@ -5,8 +5,9 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { useOtherUsers, useFollowUser, useUnfollowUser, useCancelFollowRequest } from '../../hooks/queries/useAuthQueries';
 import UserProfile from './UserProfile';
+import { Link } from 'react-router-dom';
 
-const OtherUsers = () => {
+const SuggestedUser = () => {
     const user = useAuthStore(s => s.user);
     const isOnline = useConversationStore(s => s.isOnline);
 
@@ -59,19 +60,20 @@ const OtherUsers = () => {
     };
 
     if (isLoading) return (
-        <div className="p-3 bordershadow bg-white rounded mt-3">
-            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl mb-2 animate-pulse" />)}
+        <div className="p-3 bg-white dark:bg-[#0d0d0d] border border-gray-100 dark:border-neutral-800/50 rounded-2xl mt-3 w-80 shadow-md">
+            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 dark:bg-neutral-800/50 rounded-xl mb-2 animate-pulse" />)}
         </div>
     );
 
     return (
         <>
-            <div className="flex flex-col flex-1 min-h-0 glass-card rounded-2xl overflow-hidden transition-all duration-300">
-                <div className="px-4 py-3  border-b border-gray-100 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md">
-                    <h5 className="font-semibold m-0 text-gray-800 dark:text-gray-100">Suggested Users</h5>
+            <div className="flex flex-col flex-1 min-h-0 glass-card rounded-2xl overflow-hidden transition-all duration-300 bg-white dark:bg-[#0d0d0d] border border-gray-100 dark:border-neutral-800/50 w-100 shadow-md">
+                <div className="px-4 py-3 flex justify-between items-center">
+                    <h5 className="font-semibold m-0 text-gray-800 dark:text-gray-100">Suggested for you</h5>
+                    <Link to="/discover" className='font-semibold m-0 text-blue-600 dark:text-[#808bf5] hover:underline text-sm'>See all</Link>
                 </div>
 
-                <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1 custom-scrollbar scroll-smooth">
+                <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1">
                     {users.filter(u =>
                         u._id !== user?._id &&
                         !user?.following?.some(f => f?.toString() === u._id?.toString()) &&
@@ -103,11 +105,6 @@ const OtherUsers = () => {
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <button onClick={e => handleDismiss(e, u._id)}
-                                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-400 hover:text-gray-600 transition-colors border-0 bg-transparent flex items-center justify-center"
-                                        title="Dismiss suggestion">
-                                        <i className="pi pi-times" style={{ fontSize: '10px' }}></i>
-                                    </button>
                                     <button onClick={(e) => handleFollow(e, u._id, isRequested)}
                                         disabled={isMutating}
                                         className={`text-[10px] sm:text-xs px-4 py-1.5 rounded-full border-0 cursor-pointer font-bold transition min-w-[85px] ${isFollowing ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}>
@@ -130,4 +127,4 @@ const OtherUsers = () => {
     );
 };
 
-export default OtherUsers;
+export default SuggestedUser;

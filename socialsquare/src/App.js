@@ -58,7 +58,7 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
-const UsersPage = lazy(() => import('./pages/UsersPage'));
+const DiscoverPage = lazy(() => import('./pages/DiscoverPage'));
 const Pulse = lazy(() => import('./pages/Pulse'));
 const StoriesPage = lazy(() => import('./pages/StoriesPage'));
 
@@ -756,7 +756,7 @@ function App() {
                                         <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
                                         <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
                                         <Route path="/confessions" element={<MainLayout><Communities /></MainLayout>} />
-                                        <Route path="/discover" element={<MainLayout><UsersPage /></MainLayout>} />
+                                        <Route path="/discover" element={<MainLayout><DiscoverPage /></MainLayout>} />
                                         <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
                                         <Route path="/stories/:username" element={<StoriesPage />} />
                                         <Route path="/stories/:username/:storyId" element={<StoriesPage />} />

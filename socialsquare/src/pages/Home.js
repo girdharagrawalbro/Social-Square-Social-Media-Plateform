@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import MainSkeleton from './components/MainSkeleton';
-import OtherUsers from './components/OtherUsers';
 import Feed from './components/Feed';
 import Profile from './components/Profile';
 import Conversations from './components/Conversations';
@@ -16,6 +15,7 @@ import usePostStore from '../store/zustand/usePostStore';
 import OnboardingGuide from './components/OnboardingGuide';
 import { api } from '../store/zustand/useAuthStore';
 import FloatMessagesButton from './components/ui/FloatMessagesButton';
+import SuggestedUser from './components/SuggestedUser';
 
 
 const Home = () => {
@@ -139,7 +139,6 @@ const Home = () => {
             case 'explore': return <Explore />;
             case 'communities': return <Communities />;
             case 'profile': return <Profile />;
-            case 'otherUsers': return <OtherUsers />;
             case 'messages': return <div className="h-full flex flex-col"><Conversations /></div>;
             default: return null;
         }
@@ -153,18 +152,16 @@ const Home = () => {
             </Helmet>
             <section className={`w-full min-h-full ${bg} transition-colors duration-200 pb-20`}>
                 {isDesktop ? (
-                    <div className="flex justify-center items-start gap-3 w-full max-w-6xl mx-auto p-3">
-                        <div className="flex-1 px-0 sm:px-3">
-                            <div className="max-w-screen-md mx-auto w-full">
-                                <Stories />
-                                <div className="max-w-md mx-auto">
-                                    <MoodFeedToggle
-                                        activeMood={activeMood}
-                                        onMoodSelect={setActiveMood}
-                                        onClear={() => setActiveMood(null)}
-                                    />
-                                    <Feed activeMood={activeMood} />
-                                </div>
+                    <div className="flex justify-start items-start w-full max-w-5xl mx-auto p-3 lg:pl-16">
+                        <div className="w-[640px] px-0 sm:px-3 shrink-0">
+                            <Stories />
+                            <div className="max-w-[470px] mx-auto">
+                                <MoodFeedToggle
+                                    activeMood={activeMood}
+                                    onMoodSelect={setActiveMood}
+                                    onClear={() => setActiveMood(null)}
+                                />
+                                <Feed activeMood={activeMood} />
                             </div>
                         </div>
                     </div>
@@ -177,7 +174,12 @@ const Home = () => {
                 )}
             </section >
 
-            <div className="hidden md:block fixed bottom-6 right-[88px] z-[9999]">
+            <div className="hidden min-[1384px]:block fixed top-4 right-[10rem] z-[8888]">
+                <SuggestedUser />
+            </div>
+
+
+            <div className="hidden md:block fixed bottom-6 right-[88px] z-[8888]">
                 <FloatMessagesButton />
             </div>
 

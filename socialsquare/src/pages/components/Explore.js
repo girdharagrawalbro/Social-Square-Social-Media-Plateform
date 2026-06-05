@@ -282,7 +282,7 @@ const Explore = () => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-4xl mx-auto">
       <div className="sticky top-0 z-20 px-4 py-2 bg-[var(--surface-1)]/80 backdrop-blur-lg border-b border-[var(--border-color)] mb-2">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <h2 className="m-0 text-2xl font-black text-[var(--text-main)]">
@@ -302,7 +302,7 @@ const Explore = () => {
         {isLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
             {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} shape="rectangle" className="rounded-2xl w-full" style={{ aspectRatio: '9/16' }} />
+              <div key={i} className="skeleton rounded-2xl w-full" style={{ aspectRatio: '9/16', minHeight: '200px' }} />
             ))}
           </div>
         ) : videos.length === 0 ? (
