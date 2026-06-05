@@ -32,6 +32,7 @@ export default function ProfilePage() {
             <div className="max-w-7xl mx-auto">
                 <main className="flex mx-auto">
                     <div className="max-w-4xl w-full mx-auto pt-2">
+                   
                         <Profile userId={userId} />
                     </div>
                 </main>

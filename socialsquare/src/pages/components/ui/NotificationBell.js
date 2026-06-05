@@ -109,6 +109,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
                            rounded-full 
                            transition-all 
                            ${active ? activeClass : inactiveClass} border-0 cursor-pointer`}
+                title="Notifications"
             >
                 {active && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
                 <div className="relative flex items-center justify-center w-6 shrink-0 z-10">

@@ -434,8 +434,7 @@ const Conversations = () => {
                 <div className={`w-full sm:w-80 md:w-[30rem] border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden ${selectedParticipant ? 'hidden sm:flex' : 'flex'}`}>
                     <div className="p-3 border-b border-gray-50 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-lg">
                         <div className="flex items-center justify-between max-w-4xl mx-auto mb-3">
-                            <h2 className="m-0 text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
-                                <i className="pi pi-envelope text-[#808bf5]"></i>
+                            <h2 className="m-0 text-2xl font-black text-[var(--text-main)]">
                                 Conversations
                             </h2>
                             <div className="flex gap-2">

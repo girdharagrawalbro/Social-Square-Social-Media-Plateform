@@ -285,8 +285,7 @@ const Explore = () => {
     <div className="w-full">
       <div className="sticky top-0 z-20 px-4 py-2 bg-[var(--surface-1)]/80 backdrop-blur-lg border-b border-[var(--border-color)] mb-2">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <h2 className="m-0 text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
-            <i className="pi pi-compass text-[#808bf5]"></i>
+          <h2 className="m-0 text-2xl font-black text-[var(--text-main)]">
             Explore
           </h2>
           <button

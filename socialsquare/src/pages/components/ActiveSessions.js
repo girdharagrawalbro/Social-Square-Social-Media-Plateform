@@ -120,121 +120,123 @@ const ActiveSessions = () => {
   };
 
   return (
-    <div className="h-[calc(100dvh-64px)] overflow-hidden bg-gray-50">
-      <div className="w-full max-w-3xl mx-auto p-3 sm:p-4 h-full flex flex-col">
-        <p className="text-sm text-gray-500 mb-5">
-          Manage your active sessions and security preferences.
-        </p>
-
-        {/* 2FA Toggle */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
-          <div>
-            <h3 className="text-sm font-bold m-0">
-              Two-Factor Authentication
-            </h3>
-            <p className="text-xs text-gray-500 mt-1 m-0">
-              {twoFaEnabled
-                ? "✅ Enabled — OTP sent to your email on every login"
-                : "Add an extra layer of security to your account"}
-            </p>
-          </div>
-
-          <button
-            onClick={toggle2FA}
-            disabled={toggling2FA}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed ${twoFaEnabled
-                ? "bg-red-100 text-red-500 hover:bg-red-200"
-                : "bg-indigo-500 text-white hover:bg-indigo-600"
-              }`}
-          >
-            {toggling2FA ? "Please wait..." : twoFaEnabled ? "Disable" : "Enable"}
-          </button>
+    <div className="w-full max-w-4xl mx-auto">
+      <div className="sticky top-0 z-20 p-3 bg-[var(--surface-1)]/80 backdrop-blur-lg border-b border-[var(--border-color)] mb-2">
+        <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <h2 className="m-0 text-2xl font-black text-[var(--text-main)]">
+            Active Sessions
+          </h2>
         </div>
-
-        {/* Sessions header */}
-        <div className="flex items-center justify-between mb-3 mt-6">
-          <h3 className="text-sm font-bold m-0">
-            Active Sessions ({sessions.length})
-          </h3>
-
-          {sessions.length > 1 && (
-            <button
-              onClick={revokeAllSessions}
-              disabled={revokingAll}
-              className="text-red-500 bg-transparent border-0 text-xs font-semibold cursor-pointer hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {revokingAll ? "Revoking..." : "Logout from other devices"}
-            </button>
-          )}
-        </div>
-
-        {/* Sessions list */}
-        <div className="flex-1 overflow-auto py-2 pr-1">
-          {loading ? (
-            <SkeletonSessions />
-          ) : sessions.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">
-              No active sessions found.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {sessions.map((session) => {
-                const isCurrentSession = !!session?.isCurrentSession;
-
-                return (
-                  <div
-                    key={session._id}
-                    className="bg-white border border-gray-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-sm"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-2xl flex-shrink-0">
-                        {deviceIcon(session.device)}
-                      </span>
-
-                      <div className="min-w-0">
-                        <p className="m-0 text-sm font-semibold truncate">
-                          {session.device || "Unknown Device"}
-                          {isCurrentSession && (
-                            <span className="ml-2 text-green-600 text-xs font-medium">
-                              · This device
-                            </span>
-                          )}
-                        </p>
-
-                        <p className="m-0 text-xs text-gray-500 truncate">
-                          {getLocationText(session.location)} ·{" "}
-                          {session.ip || "Unknown IP"}
-                        </p>
-
-                        <p className="m-0 text-xs text-gray-400">
-                          Last active: {formatDate(session.lastUsedAt)}
-                          {session.isNewDevice && (
-                            <span className="ml-2 text-yellow-500 font-semibold">
-                              · New device
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        revokeSession(session._id, isCurrentSession)
-                      }
-                      disabled={isCurrentSession || revokingSessionId === session._id}
-                      className="bg-red-100 text-red-500 border-0 rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer whitespace-nowrap hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {revokingSessionId === session._id ? "Revoking..." : "Revoke"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Global Toaster is provided in App.js; avoid local Toaster to prevent duplicates */}
       </div>
+
+      {/* 2FA Toggle */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 mx-3 flex items-center justify-between gap-4 shadow-sm">
+        <div>
+          <h3 className="text-sm font-bold m-0">
+            Two-Factor Authentication
+          </h3>
+          <p className="text-xs text-gray-500 mt-1 m-0">
+            {twoFaEnabled
+              ? "✅ Enabled — OTP sent to your email on every login"
+              : "Add an extra layer of security to your account"}
+          </p>
+        </div>
+
+        <button
+          onClick={toggle2FA}
+          disabled={toggling2FA}
+          className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed ${twoFaEnabled
+            ? "bg-red-100 text-red-500 hover:bg-red-200"
+            : "bg-indigo-500 text-white hover:bg-indigo-600"
+            }`}
+        >
+          {toggling2FA ? "Please wait..." : twoFaEnabled ? "Disable" : "Enable"}
+        </button>
+      </div>
+
+      {/* Sessions header */}
+      <div className="flex items-center justify-between mb-3 mx-3 mt-6">
+        <h3 className="text-sm font-bold m-0">
+          Active Sessions ({sessions.length})
+        </h3>
+
+        {sessions.length > 1 && (
+          <button
+            onClick={revokeAllSessions}
+            disabled={revokingAll}
+            className="text-red-500 bg-transparent border-0 text-xs font-semibold cursor-pointer hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {revokingAll ? "Revoking..." : "Logout from other devices"}
+          </button>
+        )}
+      </div>
+
+      {/* Sessions list */}
+      <div className="flex-1 overflow-auto py-2 pr-1 mx-3">
+        {loading ? (
+          <SkeletonSessions />
+        ) : sessions.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">
+            No active sessions found.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {sessions.map((session) => {
+              const isCurrentSession = !!session?.isCurrentSession;
+
+              return (
+                <div
+                  key={session._id}
+                  className="bg-white border border-gray-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-2xl flex-shrink-0">
+                      {deviceIcon(session.device)}
+                    </span>
+
+                    <div className="min-w-0">
+                      <p className="m-0 text-sm font-semibold truncate">
+                        {session.device || "Unknown Device"}
+                        {isCurrentSession && (
+                          <span className="ml-2 text-green-600 text-xs font-medium">
+                            · This device
+                          </span>
+                        )}
+                      </p>
+
+                      <p className="m-0 text-xs text-gray-500 truncate">
+                        {getLocationText(session.location)} ·{" "}
+                        {session.ip || "Unknown IP"}
+                      </p>
+
+                      <p className="m-0 text-xs text-gray-400">
+                        Last active: {formatDate(session.lastUsedAt)}
+                        {session.isNewDevice && (
+                          <span className="ml-2 text-yellow-500 font-semibold">
+                            · New device
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      revokeSession(session._id, isCurrentSession)
+                    }
+                    disabled={isCurrentSession || revokingSessionId === session._id}
+                    className="bg-red-100 text-red-500 border-0 rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer whitespace-nowrap hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {revokingSessionId === session._id ? "Revoking..." : "Revoke"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Global Toaster is provided in App.js; avoid local Toaster to prevent duplicates */}
     </div>
   );
 };

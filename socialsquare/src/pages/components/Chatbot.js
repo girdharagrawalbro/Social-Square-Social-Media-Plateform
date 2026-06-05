@@ -220,10 +220,10 @@ const Chatbot = () => {
                                 🤖
                             </div>
                             <div style={{ flex: 1 }}>
-                                <p style={{ margin: 0, fontWeight: 700, color: '#fff', fontSize: '14px' }}>SocialBot</p>
+                                <p style={{ margin: 0, fontWeight: 700, color: '#fff', fontSize: '14px' }}>Social Square Bot</p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />
-                                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '11px' }}>Online · Powered by Mistral AI</p>
+                                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '11px' }}>Online </p>
                                 </div>
                             </div>
                             <button type="button" onClick={clearChat} aria-label="Clear chat" title="Clear chat"
@@ -314,6 +314,7 @@ const Chatbot = () => {
                                 animation: !hasOpened.current ? 'bubblePulse 2s ease infinite' : 'none',
                                 transition: 'transform 0.2s, background 0.2s',
                                 fontSize: '24px',
+                                color: 'white',
                             }}
                             onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
                             onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
