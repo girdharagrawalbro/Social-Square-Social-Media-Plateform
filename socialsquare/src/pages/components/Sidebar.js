@@ -6,6 +6,7 @@ import NotificationBell from './ui/NotificationBell';
 import { Dialog } from 'primereact/dialog';
 import Search from './Search';
 import NewPost from "./Newpost";
+import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
 
 export default function Sidebar() {
     const { isDark, toggle } = useDarkMode();
@@ -17,13 +18,13 @@ export default function Sidebar() {
     const user = useAuthStore(s => s.user);
     const logout = useAuthStore(s => s.logout);
     const location = useLocation();
+    const { data: flags } = useSystemFlags();
 
     // ── Floating pill state ──────────────────────────────────────────────────
     const navRef = useRef(null);
     const itemRefs = useRef({});
     const [pillStyle, setPillStyle] = useState({ top: 0, height: 48, opacity: 0 });
     const [pillReady, setPillReady] = useState(false);
-
 
     const allNavItems = !user
         ? [
@@ -40,7 +41,7 @@ export default function Sidebar() {
             { key: 'confessions', label: 'Confessions', icon: 'pi pi-map', to: '/confessions' },
             { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
             { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
-        ];
+        ].filter(item => !(item.key === 'confessions' && flags?.anonymous_posts === false));
 
     // Find active key including admin
     const getActiveKey = () => {
@@ -127,7 +128,7 @@ export default function Sidebar() {
             <aside
                 onMouseEnter={() => setOpen(true)}
                 onMouseLeave={() => setOpen(false)}
-                className={`sticky top-0 h-screen hidden md:flex flex-col bg-transparent transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
+                className={`sticky top-0 h-full hidden md:flex flex-col bg-transparent transition-all duration-300 ease-in-out shadow-xl z-40 ${open ? 'w-72' : 'w-20'}`}
             >
                 {/* Logo */}
                 <div className="flex items-center justify-between px-3 py-4">

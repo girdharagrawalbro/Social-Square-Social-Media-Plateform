@@ -570,14 +570,15 @@ const Conversations = () => {
                 <div className={`flex-1 flex flex-col min-h-0 h-full ${selectedParticipant ? 'flex' : 'hidden sm:flex'}`}>
                     {selectedParticipant ? (
                         <div className="flex flex-col flex-1 min-h-0 h-full">
-                            <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between min-h-[64px] bg-white/80 dark:bg-black/80 backdrop-blur-md">
-                                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => !selectedParticipant.isGroup && handleProfileClick(selectedParticipant.userId)}>
-                                    <button
+                            <div className="px-2 py-2 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between min-h-[64px] bg-white/80 dark:bg-black/80 backdrop-blur-md">
+                                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => !selectedParticipant.isGroup && handleProfileClick(selectedParticipant.userId)}>
+                                    {/* <button
                                         onClick={(e) => { e.stopPropagation(); closeChat(); }}
                                         className="sm:hidden -ml-2 p-2 rounded-full border-0 bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center justify-center"
                                     >
                                         <i className="pi pi-chevron-left text-lg"></i>
-                                    </button>
+                                    </button> */}
+
                                     <div className="relative">
                                         <img src={selectedParticipant.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
                                         {!selectedParticipant.isGroup && isOnline(selectedParticipant.userId) && (
@@ -589,6 +590,7 @@ const Conversations = () => {
                                             </span>
                                         )}
                                     </div>
+
                                     <div className={`${isSearching ? 'hidden sm:block' : ''}`}>
                                         <div className="font-black text-sm text-[var(--text-main)] group-hover:text-indigo-500 transition-colors leading-tight">{selectedParticipant.fullname}</div>
                                         {!isSearching && (
@@ -613,7 +615,7 @@ const Conversations = () => {
                                                     autoFocus
                                                     value={searchQ}
                                                     onChange={e => { setSearchQ(e.target.value); setSearchIndex(0); }}
-                                                    className="w-40 sm:w-56 bg-gray-50 dark:bg-gray-900 border-0 rounded-2xl py-2 pl-8 pr-16 text-xs text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/20 transition-all font-medium"
+                                                    className="w-56 sm:w-56 bg-gray-50 dark:bg-gray-900 border-0 rounded-2xl py-2 pl-8 pr-16 text-xs text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/20 transition-all font-medium"
                                                 />
                                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pr-1">
                                                     {searchQ && searchCount > 0 && (
@@ -646,7 +648,7 @@ const Conversations = () => {
                                                 onClick={() => { setIsSearching(false); setSearchQ(''); }}
                                                 className="bg-transparent border-0 text-gray-400 text-[11px] font-black uppercase tracking-wider cursor-pointer hover:text-indigo-500 px-1 transition-colors"
                                             >
-                                                Exit
+                                                <i className="pi pi-times text-red-500" style={{ fontSize: '12px' }}></i>
                                             </button>
                                         </div>
                                     ) : (

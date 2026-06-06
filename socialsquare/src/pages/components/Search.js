@@ -6,16 +6,22 @@ import { debounce } from 'lodash';
 import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
 import useAuthStore from "../../store/zustand/useAuthStore";
 import SkeletonSearch from './ui/SkeletonSearch';
+import usePostStore from '../../store/zustand/usePostStore';
+import { getMediaThumbnail } from '../../utils/mediaUtils';
+import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
+
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
 const RECENT_KEY = 'recentSearches';
 const MAX_RECENT = 8; // Increased slightly for better UX
 
 const Search = ({ onClose, desc = true }) => {
+    const setPostDetailId = usePostStore(s => s.setPostDetailId);
     const [searchTerm, setSearchTerm] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const [isVisible, setVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
+    const { data: flags } = useSystemFlags();
     const [recentSearches, setRecentSearches] = useState(() => {
         try {
             const saved = JSON.parse(localStorage.getItem(RECENT_KEY)) || [];
@@ -327,54 +333,69 @@ const Search = ({ onClose, desc = true }) => {
                                             </div>
                                         </div>
                                     )}
-
-                                    {/* AI Recommended results */}
-                                    {aiResults.length > 0 && (
-                                        <div className="mt-4">
+                                    {aiResults.length > 0 && flags?.ai_features !== false && (
+                                        <div className="pb-2">
                                             <p className="text-[10px] font-bold text-[#808bf5] mb-2 m-0 uppercase tracking-widest px-1">✨ AI Recommended</p>
                                             <div className="flex flex-col gap-1.5">
-                                                {aiResults.slice(0, 3).map(post => (
-                                                    <div key={post._id} className="flex items-center gap-4 px-3 py-3 rounded-2xl bg-[#808bf5]/5 border border-[#808bf5]/10 hover:bg-[#808bf5]/10 transition-colors cursor-pointer group">
-                                                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-[var(--surface-2)] flex-shrink-0 shadow-sm">
-                                                            {(post.image_urls?.[0] || post.image_url)
-                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                                                : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '14px' }}></i></div>
-                                                            }
+                                                {aiResults.slice(0, 3).map(post => {
+                                                    const thumbnail = post.image_urls?.[0] || post.image_url || post.videoThumbnail || (post.video ? getMediaThumbnail(post.video, 'video') : null);
+                                                    return (
+                                                        <div key={post._id}
+                                                            onClick={() => {
+                                                                saveRecentSearch(post.caption || '(No caption)');
+                                                                if (onClose) onClose();
+                                                                setPostDetailId(post._id);
+                                                            }}
+                                                            className="flex items-center gap-4 px-3 py-3 rounded-2xl bg-[#808bf5]/5 border border-[#808bf5]/10 hover:bg-[#808bf5]/10 transition-colors cursor-pointer group"
+                                                        >
+                                                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-[var(--surface-2)] flex-shrink-0 shadow-sm">
+                                                                {thumbnail
+                                                                    ? <img src={thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                    : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '14px' }}></i></div>
+                                                                }
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
+                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
+                                                            </div>
+                                                            <i className="pi pi-sparkles text-[var(--text-sub)] opacity-30 group-hover:opacity-100 transition-opacity"></i>
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
-                                                            <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
-                                                        </div>
-                                                        <i className="pi pi-sparkles text-[var(--text-sub)] opacity-30 group-hover:opacity-100 transition-opacity"></i>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
 
                                     {/* Post results */}
                                     {searchResults.posts?.length > 0 && (
-                                        <div className="mt-4">
+                                        <div className="mt-2">
                                             <p className="text-[10px] font-bold text-[var(--text-sub)] mb-2 m-0 uppercase tracking-widest px-1">Posts</p>
                                             <div className="flex flex-col gap-0.5">
-                                                {searchResults.posts.slice(0, 4).map(post => (
-                                                    <div
-                                                        key={post._id}
-                                                        onClick={() => saveRecentSearch(post.caption)}
-                                                        className="flex items-center gap-4 px-3 py-2.5 rounded-2xl hover:bg-[var(--surface-2)] transition-colors cursor-pointer group"
-                                                    >
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-[var(--surface-3)] flex-shrink-0 shadow-sm">
-                                                            {(post.image_urls?.[0] || post.image_url)
-                                                                ? <img src={post.image_urls?.[0] || post.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                                                : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '12px' }}></i></div>
-                                                            }
+                                                {searchResults.posts.slice(0, 4).map(post => {
+                                                    const thumbnail = post.image_urls?.[0] || post.image_url || post.videoThumbnail || (post.video ? getMediaThumbnail(post.video, 'video') : null);
+                                                    return (
+                                                        <div
+                                                            key={post._id}
+                                                            onClick={() => {
+                                                                saveRecentSearch(post.caption || '(No caption)');
+                                                                if (onClose) onClose();
+                                                                setPostDetailId(post._id);
+                                                            }}
+                                                            className="flex items-center gap-4 px-3 py-2.5 rounded-2xl hover:bg-[var(--surface-2)] transition-colors cursor-pointer group"
+                                                        >
+                                                            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[var(--surface-3)] flex-shrink-0 shadow-sm">
+                                                                {thumbnail
+                                                                    ? <img src={thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                    : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '12px' }}></i></div>
+                                                                }
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
+                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
-                                                            <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}

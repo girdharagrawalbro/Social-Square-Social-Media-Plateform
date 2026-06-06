@@ -52,15 +52,29 @@ const UsersPage = () => {
     const unfollowMutation = useUnfollowUser();
     const cancelMutation = useCancelFollowRequest();
 
-    // Local state for UI responsiveness
     const [localDismissed, setLocalDismissed] = useState([]);
     const [selectedId, setSelectedId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
+    const [optimisticStates, setOptimisticStates] = useState({}); // userId -> 'following' | 'requested' | 'unfollowed' | null
+    const [localUsers, setLocalUsers] = useState([]);
+
+    useEffect(() => {
+        if (users && users.length > 0) {
+            setLocalUsers(prev => {
+                if (prev.length === 0) return users;
+                const newUsersMap = new Map(users.map(u => [u._id, u]));
+                const preserved = prev.filter(p => newUsersMap.has(p._id) || optimisticStates[p._id] !== undefined);
+                const preservedIds = new Set(preserved.map(p => p._id));
+                const added = users.filter(u => !preservedIds.has(u._id));
+                return [...preserved, ...added];
+            });
+        }
+    }, [users, optimisticStates]);
 
     const handleFollow = (e, targetUserId, isRequested) => {
         e.stopPropagation();
-        const isFollowing = user?.following?.some(f => f?.toString() === targetUserId?.toString());
-        if (isFollowing) {
+        const isFollowingUser = user?.following?.some(f => f?.toString() === targetUserId?.toString());
+        if (isFollowingUser) {
             confirmDialog({
                 message: 'Are you sure you want to unfollow this user?',
                 header: 'Unfollow User',
@@ -68,7 +82,15 @@ const UsersPage = () => {
                 acceptLabel: 'Unfollow',
                 rejectLabel: 'Cancel',
                 acceptClassName: 'p-button-danger',
-                accept: () => unfollowMutation.mutate({ targetUserId }),
+                accept: () => {
+                    setOptimisticStates(prev => ({ ...prev, [targetUserId]: 'unfollowed' }));
+                    unfollowMutation.mutate(
+                        { targetUserId },
+                        {
+                            onSettled: () => setOptimisticStates(prev => ({ ...prev, [targetUserId]: null })),
+                        }
+                    );
+                },
             });
         } else if (isRequested) {
             confirmDialog({
@@ -78,10 +100,26 @@ const UsersPage = () => {
                 acceptLabel: 'Withdraw Request',
                 rejectLabel: 'Keep',
                 acceptClassName: 'p-button-secondary',
-                accept: () => cancelMutation.mutate({ targetUserId }),
+                accept: () => {
+                    setOptimisticStates(prev => ({ ...prev, [targetUserId]: 'unfollowed' }));
+                    cancelMutation.mutate(
+                        { targetUserId },
+                        {
+                            onSettled: () => setOptimisticStates(prev => ({ ...prev, [targetUserId]: null })),
+                        }
+                    );
+                },
             });
         } else {
-            followMutation.mutate({ targetUserId });
+            const targetUser = localUsers.find(u => u._id?.toString() === targetUserId?.toString());
+            const nextState = targetUser?.isPrivate ? 'requested' : 'following';
+            setOptimisticStates(prev => ({ ...prev, [targetUserId]: nextState }));
+            followMutation.mutate(
+                { targetUserId },
+                {
+                    onSettled: () => setOptimisticStates(prev => ({ ...prev, [targetUserId]: null })),
+                }
+            );
         }
     };
 
@@ -113,7 +151,7 @@ const UsersPage = () => {
         );
     }
 
-    const filteredUsers = users.filter(u =>
+    const filteredUsers = localUsers.filter(u =>
         u._id !== user?._id &&
         !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString()) &&
         !localDismissed.includes(u._id)
@@ -130,11 +168,12 @@ const UsersPage = () => {
                 </div>
             </div>
 
-            <div className="grid px-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            <div className="flex flex-col gap-2 px-3">
                 {filteredUsers.map((u) => {
                     const userIsOnline = isOnline(u._id);
-                    const following = isFollowing(u._id);
-                    const isRequested = u.followRequests?.some(r => r?.toString() === user?._id?.toString());
+                    const optState = optimisticStates[u._id];
+                    const following = optState === 'following' ? true : optState === 'unfollowed' ? false : isFollowing(u._id);
+                    const isRequested = optState === 'requested' ? true : optState === 'unfollowed' ? false : (u.isRequested || u.followRequests?.some(r => r?.toString() === user?._id?.toString()));
                     const isMutating = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
                         (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id) ||
                         (cancelMutation.isPending && cancelMutation.variables?.targetUserId === u._id);
@@ -142,81 +181,54 @@ const UsersPage = () => {
                     return (
                         <div
                             key={u._id}
-                            className={`group relative p-4 sm:p-6 rounded-2xl sm:rounded-3xl border transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${isDark ? 'bg-[#1a1a1a] border-[#2a2a2a] hover:bg-[#222]' : 'bg-white border-gray-100 hover:shadow-2xl'
-                                }`}
+                            className={`flex items-center justify-between gap-3 p-3 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-all duration-200 border border-transparent hover:border-[var(--border-color)] ${isDark ? 'bg-[#1a1a1a]/40' : 'bg-white'}`}
                             onClick={() => { setSelectedId(u._id); setProfileVisible(true); }}
                         >
-                            {/* Dismiss button */}
-                            <button
-                                onClick={(e) => handleDismiss(e, u._id)}
-                                className="absolute top-2 right-2 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500 text-gray-400 border-0 bg-transparent flex items-center justify-center cursor-pointer"
-                            >
-                                <i className="pi pi-times text-[10px] sm:text-xs"></i>
-                            </button>
-
-                            <div className="flex flex-col items-center w-full">
-                                <div className="relative w-16 h-16 sm:w-24 sm:h-24 mb-3 sm:mb-4">
-                                    <img
-                                        src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
-                                        alt={u.fullname}
-                                        className="w-full h-full rounded-full object-cover border-4 border-[#808bf5]/10 group-hover:border-[#808bf5]/30 transition-all"
-                                    />
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="relative flex-shrink-0">
+                                    <div className="w-12 h-12 rounded-full overflow-hidden shadow-sm ring-2 ring-white dark:ring-gray-800">
+                                        <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt={u.fullname} className="w-full h-full object-cover" />
+                                    </div>
                                     {userIsOnline && (
-                                        <div className="absolute bottom-0 right-0 w-4 h-4 sm:w-5 sm:h-5 bg-green-500 border-2 sm:border-4 border-white dark:border-[#1a1a1a] rounded-full shadow-lg"></div>
+                                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 shadow-sm" />
                                     )}
                                 </div>
-
-                                <div className="text-center w-full mb-2">
-                                    <h3 className="font-bold text-sm sm:text-lg m-0 truncate px-1 sm:px-2">{u.fullname}</h3>
-                                    <p className={`text-[10px] sm:text-xs mt-1 font-medium ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        {u.reason || 'Recommended'}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="m-0 text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{u.fullname}</p>
+                                        {u.isVerified && <i className="pi pi-check-circle text-blue-500 text-xs"></i>}
+                                    </div>
+                                    <p className="m-0 text-xs text-gray-400 dark:text-gray-500 font-medium truncate mt-0.5">
+                                        {u.reason || `${u.followersCount || 0} followers`}
                                     </p>
                                 </div>
+                            </div>
 
-                                {/* 📝 BIO BOX: Clamped exactly to 2 lines to maintain same card heights */}
-                                <div
-                                    className={`w-full px-1 sm:px-2 mb-3 text-[11px] sm:text-sm text-center leading-normal sm:leading-relaxed overflow-hidden text-ellipsis ${isDark ? 'text-gray-400' : 'text-gray-500'
-                                        }`}
-                                    style={{
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                        height: '34px', // Fixed height prevents uneven box heights
-                                    }}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                    disabled={isMutating}
+                                    onClick={(e) => handleFollow(e, u._id, isRequested)}
+                                    className={`text-xs px-4 py-2 rounded-full border-0 cursor-pointer font-bold transition min-w-[90px] ${following ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}
                                 >
-                                    {u.bio || "No bio added yet."}
-                                </div>
-
-                                <div className="flex gap-4 mb-4">
-                                    <div className="text-center">
-                                        <p className="font-bold text-xs sm:text-sm m-0">{u.followersCount || 0}</p>
-                                        <p className="text-[8px] sm:text-[10px] uppercase tracking-wider opacity-50 font-bold m-0">Followers</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-1.5 sm:gap-2 w-full mt-auto">
-                                    <button
-                                        disabled={isMutating}
-                                        onClick={(e) => handleFollow(e, u._id, isRequested)}
-                                        className={`flex-1 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold transition-all border-0 cursor-pointer ${following
-                                            ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                                            : isRequested
-                                                ? 'bg-gray-200 text-gray-500 cursor-default'
-                                                : 'bg-[#808bf5] text-white hover:shadow-[0_8px_20px_-6px_rgba(128,139,245,0.6)]'
-                                            } ${isMutating ? 'opacity-50' : ''}`}
-                                    >
-                                        {isMutating ? '...' : (following ? 'Following' : isRequested ? 'Requested' : 'Follow')}
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/profile/${u._id}`);
-                                        }}
-                                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-500 flex items-center justify-center border-0 cursor-pointer hover:bg-gray-100 transition-colors"
-                                    >
-                                        <i className="pi pi-user text-xs sm:text-sm"></i>
-                                    </button>
-                                </div>
+                                    {following ? 'Following' : isRequested ? 'Requested' : 'Follow'}
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/profile/${u._id}`);
+                                    }}
+                                    className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 flex items-center justify-center border-0 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    title="View Profile"
+                                >
+                                    <i className="pi pi-user text-sm"></i>
+                                </button>
+                                <button
+                                    onClick={(e) => handleDismiss(e, u._id)}
+                                    className="w-9 h-9 rounded-full bg-transparent text-gray-400 flex items-center justify-center border-0 cursor-pointer hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/20 transition-colors"
+                                    title="Dismiss Suggestion"
+                                >
+                                    <i className="pi pi-times text-sm"></i>
+                                </button>
                             </div>
                         </div>
                     );

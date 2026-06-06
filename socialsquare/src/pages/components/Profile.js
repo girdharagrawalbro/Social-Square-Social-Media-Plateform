@@ -50,6 +50,7 @@ const Profile = ({ userId }) => {
     const tabItemRefs = useRef({});
     const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
     const [tabPillReady, setTabPillReady] = useState(false);
+    const [settingsVisible, setSettingsVisible] = useState(false);
 
     useLayoutEffect(() => {
         let observer = null;
@@ -319,9 +320,9 @@ const Profile = ({ userId }) => {
                         ""
                     }
                     <button
-                        onClick={() => { navigate('/sessions'); }}
+                        onClick={() => { setSettingsVisible(true); }}
                         className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors'}`}
-                        title="Sessions"
+                        title="Settings"
                     >
                         <i className="pi pi-cog text-lg"></i>
                     </button>
@@ -331,7 +332,7 @@ const Profile = ({ userId }) => {
                     {/* Header: Sticky Profile Info */}
                     <div className="bg-[var(--surface-1)] bg-opacity-90 backdrop-blur-md py-2 sm:py-0 sm:px-0 sm:mx-0 sm:px-0 max-w-xl w-full mx-auto">
                         {/* Avatar + identity */}
-                        <div className="flex items-center justify-center text-center flex-col gap-1 mb-4">
+                        <div className="flex items-center justify-center text-center flex-col gap-1 mb-3">
                             <div className="relative">
                                 <Image
                                     src={displayUser?.profile_picture}
@@ -387,7 +388,7 @@ const Profile = ({ userId }) => {
 
                         {/* Level/Streak/XP */}
                         {!isPrivateAndNotFollowing && !isBlockedByMe && (
-                            <div className="flex gap-3 justify-center mb-4">
+                            <div className="flex gap-3 justify-center mb-3">
                                 <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
                                     <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
                                     <span className="text-lg font-black text-[#808bf5]">{displayUser?.level || 1}</span>
@@ -748,6 +749,53 @@ const Profile = ({ userId }) => {
                     </div>}>
                         <PostDetail post={postDetail} onHide={() => setPostDetailVisible(false)} />
                     </React.Suspense>
+                </div>
+            </Dialog>
+
+            <Dialog
+                header="Settings"
+                visible={settingsVisible}
+                style={{ width: '90vw', maxWidth: '400px' }}
+                onHide={() => setSettingsVisible(false)}
+                className="custom-dialog"
+            >
+                <div className="flex flex-col gap-2 py-1 pb-2 px-2">
+                    <button
+                        onClick={() => {
+                            setSettingsVisible(false);
+                            navigate('/settings/notifications');
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-3)] cursor-pointer text-left transition-all active:scale-95"
+                    >
+                        <span className="text-xl">🔔</span>
+                        <div className="flex-1">
+                            <p className="m-0 text-sm font-bold">Notification Settings</p>
+                            <p className="m-0 text-[10px] text-[var(--text-sub)] opacity-70 mt-0.5">Toggle daily digest emails and preferences</p>
+                        </div>
+                        <i className="pi pi-chevron-right text-[10px] text-gray-400"></i>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setSettingsVisible(false);
+                            navigate('/sessions');
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-3)] cursor-pointer text-left transition-all active:scale-95"
+                    >
+                        <span className="text-xl">🔑</span>
+                        <div className="flex-1">
+                            <p className="m-0 text-sm font-bold">Active Sessions & Security</p>
+                            <p className="m-0 text-[10px] text-[var(--text-sub)] opacity-70 mt-0.5">Manage logged in devices and 2FA settings</p>
+                        </div>
+                        <i className="pi pi-chevron-right text-[10px] text-gray-400"></i>
+                    </button>
+
+                    {/* <button
+                        onClick={() => setSettingsVisible(false)}
+                        className="w-full mt-2 py-3 rounded-xl border border-dashed border-[var(--border-color)] bg-transparent text-[var(--text-sub)] hover:text-[var(--text-main)] hover:border-gray-400 cursor-pointer font-bold uppercase tracking-wider text-xs transition-all active:scale-95"
+                    >
+                        Cancel
+                    </button> */}
                 </div>
             </Dialog>
 

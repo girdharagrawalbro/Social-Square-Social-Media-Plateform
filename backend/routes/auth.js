@@ -193,6 +193,17 @@ router.post('/login', authRateLimiter, [
         const errors = validationResult(req);
         if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
+        // Maintenance Mode Check
+        const SystemSetting = require('../models/SystemSetting');
+        const maintenanceSetting = await SystemSetting.findOne({ key: 'maintenance_mode' }).lean();
+        if (maintenanceSetting?.value === true) {
+            // Allow admin users to bypass maintenance mode
+            const userToCheck = await User.findById(session.userId).select('isAdmin').lean();
+            if (!userToCheck || !userToCheck.isAdmin) {
+                return res.status(503).json({ error: 'System is currently undergoing maintenance. Please try again later.', code: 'MAINTENANCE_MODE' });
+            }
+        }
+
         const { identifier, password, fingerprint } = req.body;
         if (!fingerprint) return res.status(400).json({ error: 'Missing browser fingerprint' });
 
@@ -487,7 +498,7 @@ router.post('/add', authRateLimiter, [
             password: hashedPassword,
             authProvider: 'local',
             emailVerificationToken: hashedVerificationToken,
-            isEmailVerified: true,
+            isEmailVerified: false,
         });
         await newUser.save();
 
@@ -496,7 +507,7 @@ router.post('/add', authRateLimiter, [
 
         // Send verification email
         const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
-        // sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
+        sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
 
         const family = generateFamily();
         const accessToken = generateAccessToken(newUser._id, family);
@@ -570,7 +581,7 @@ router.post('/google', async (req, res) => {
         let isNewUser = false;
         if (!user) {
             const username = await generateUniqueUsername(name);
-            user = new User({ fullname: name, username, email, profile_picture: picture, googleId, authProvider: 'google' });
+            user = new User({ fullname: name, username, email, profile_picture: picture, googleId, authProvider: 'google', isEmailVerified: true });
             isNewUser = true;
         } else {
             user.googleId = googleId;
@@ -653,6 +664,30 @@ router.post('/google', async (req, res) => {
     }
 });
 
+// ─── GET SYSTEM FLAGS ──────────────────────────────────────────────────────────
+router.get('/system/flags', async (req, res) => {
+    try {
+        const SystemSetting = require('../models/SystemSetting');
+        const flags = await SystemSetting.find({ key: { $in: ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode'] } }).lean();
+
+        const defaults = {
+            ai_features: true,
+            anonymous_posts: true,
+            story_creation: true,
+            maintenance_mode: false
+        };
+
+        const result = { ...defaults };
+        flags.forEach(f => {
+            result[f.key] = f.value;
+        });
+
+        res.json({ success: true, flags: result });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // ─── REFRESH TOKEN ────────────────────────────────────────────────────────────
 
 router.post('/refresh', async (req, res) => {
@@ -665,6 +700,17 @@ router.post('/refresh', async (req, res) => {
         const hashedToken = hashValue(token);
         const session = await LoginSession.findOne({ refreshToken: hashedToken });
         if (!session) return res.status(401).json({ error: 'Session not found', code: 'SESSION_NOT_FOUND' });
+
+        // Maintenance Mode Check
+        const SystemSetting = require('../models/SystemSetting');
+        const maintenanceSetting = await SystemSetting.findOne({ key: 'maintenance_mode' }).lean();
+        if (maintenanceSetting?.value === true) {
+            // Allow admin users to bypass maintenance mode
+            const userToCheck = await User.findById(session.userId).select('isAdmin').lean();
+            if (!userToCheck || !userToCheck.isAdmin) {
+                return res.status(503).json({ error: 'System is currently undergoing maintenance. Please try again later.', code: 'MAINTENANCE_MODE' });
+            }
+        }
 
         if (session.isRevoked) return res.status(401).json({ error: 'Session revoked', code: 'SESSION_REVOKED' });
         if (session.expiresAt < new Date()) return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });

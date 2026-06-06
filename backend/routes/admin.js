@@ -11,6 +11,7 @@ const Contact = require('../models/Contact');
 const { logAdminAction } = require('../utils/audit.helper');
 const SystemSetting = require('../models/SystemSetting');
 const Notification = require('../models/Notification');
+const MailLog = require('../models/MailLog');
 const verifyToken = require('../middleware/Verifytoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
@@ -773,7 +774,7 @@ router.post('/debug/admin-digest', requireAdmin, async (req, res) => {
     try {
         const { runAdminDigests } = require('../queues/digestQueue');
         if (process.env.DISABLE_REDIS === 'true') {
-            await runAdminDigests();
+            await runAdminDigests(true);
             return res.json({ message: 'Internal fallback Admin digests completed instantly.' });
         }
         const job = await digestQueue.add('admin-daily-digest', { manual: true });
@@ -867,16 +868,28 @@ router.delete('/content-filter/:id', requireAdmin, [
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+router.patch('/content-filter/policy', requireAdmin, [
+    body('action').isIn(['flag', 'block']),
+    validate
+], async (req, res) => {
+    try {
+        const { action } = req.body;
+        await ContentFilter.updateMany({}, { action });
+        res.json({ success: true, message: 'Policy updated for all filters' });
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
 // ─── SYSTEM SETTINGS & FEATURE FLAGS ─────────────────────────────────────────
 router.get('/system/flags', requireAdmin, async (req, res) => {
     try {
-        const flags = await SystemSetting.find({ key: { $in: ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode'] } }).lean();
+        const flags = await SystemSetting.find({ key: { $in: ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode', 'admin_daily_digest'] } }).lean();
 
         const defaults = {
             ai_features: true,
             anonymous_posts: true,
             story_creation: true,
-            maintenance_mode: false
+            maintenance_mode: false,
+            admin_daily_digest: true
         };
 
         const result = { ...defaults };
@@ -895,7 +908,7 @@ router.post('/system/flags', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Invalid flags payload' });
         }
 
-        const allowed = ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode'];
+        const allowed = ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode', 'admin_daily_digest'];
         const updates = [];
 
         for (const key of allowed) {
@@ -927,33 +940,53 @@ router.post('/system/flags', requireAdmin, async (req, res) => {
 // ─── BROADCAST ANNOUNCEMENTS ─────────────────────────────────────────────────
 router.post('/broadcast', requireAdmin, async (req, res) => {
     try {
-        const { content, segment } = req.body;
+        const { content, segment, sendEmail: emailChecked, sendInApp: inAppChecked } = req.body;
         if (!content?.trim()) return res.status(400).json({ error: 'Content required' });
 
         const query = {};
         if (segment === 'active') query.isBanned = { $ne: true };
         if (segment === 'admins') query.isAdmin = true;
 
-        const users = await User.find(query).select('_id').lean();
+        const users = await User.find(query).select('_id email fullname').lean();
         const admin = await User.findById(req.adminId).select('fullname profile_picture').lean();
 
-        const notifications = users.map(user => ({
-            recipient: user._id,
-            sender: {
-                id: admin._id,
-                fullname: admin.fullname,
-                profile_picture: admin.profile_picture
-            },
-            type: 'system',
-            message: {
-                content: content.trim()
-            },
-            read: false,
-            createdAt: new Date()
-        }));
+        // 1. Dispatch In-App Notifications if selected
+        if (inAppChecked !== false) {
+            const notificationsPromises = users.map(user => {
+                return require('../lib/notification').createNotification({
+                    recipientId: user._id,
+                    sender: {
+                        id: admin._id,
+                        fullname: admin.fullname,
+                        profile_picture: admin.profile_picture
+                    },
+                    type: 'system',
+                    message: {
+                        content: content.trim()
+                    }
+                });
+            });
+            await Promise.all(notificationsPromises);
+        }
 
-        if (notifications.length > 0) {
-            await Notification.insertMany(notifications);
+        // 2. Dispatch Broadcast Emails if selected
+        if (emailChecked === true) {
+            const { sendEmail } = require('../utils/mailer');
+            users.forEach(user => {
+                if (user.email) {
+                    sendEmail({
+                        to: user.email,
+                        subject: '📢 Announcement from Social Square',
+                        html: `
+                        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+                            <h2 style="color:#6366f1;margin-top:0">Announcement</h2>
+                            <p>Hi ${user.fullname || 'there'},</p>
+                            <p style="font-size:14px;line-height:1.6;color:#374151">${content.trim()}</p>
+                            <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
+                        </div>`
+                    }).catch(err => console.error(`[Broadcast Email Error] Failed for ${user.email}:`, err.message));
+                }
+            });
         }
 
         await logAdminAction({
@@ -961,7 +994,7 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
             action: 'warn_user',
             targetType: 'system',
             targetId: `broadcast_${segment}`,
-            meta: { content: content.slice(0, 100), recipient_count: users.length, ip: req.ip },
+            meta: { content: content.slice(0, 100), recipient_count: users.length, ip: req.ip, channels: { email: !!emailChecked, inApp: inAppChecked !== false } },
         });
 
         res.json({ success: true, message: `Announcement sent to ${users.length} users` });
@@ -1076,6 +1109,33 @@ router.post('/contacts/:id/reply', requireAdmin, [
         res.json({ success: true, contact: updatedContact });
     } catch (err) {
         console.error('Contact reply error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ─── MAIL LOGS ───────────────────────────────────────────────────────────────
+router.get('/mail-logs', requireAdmin, async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = 20;
+        const skip = (page - 1) * limit;
+        const search = req.query.search?.trim() || '';
+
+        const query = {};
+        if (search) {
+            query.$or = [
+                { to: { $regex: search, $options: 'i' } },
+                { subject: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const [logs, total] = await Promise.all([
+            MailLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            MailLog.countDocuments(query)
+        ]);
+
+        res.json({ success: true, logs, total });
+    } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
 });

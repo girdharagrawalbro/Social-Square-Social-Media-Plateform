@@ -11,8 +11,6 @@ import { confirmDialog } from 'primereact/confirmdialog';
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 import { urlToFile } from "../../utils/nativeUtils";
 
-
-
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
 import LiveStream from './LiveStream';
@@ -21,6 +19,7 @@ import ImageCropper from './ui/ImageCropper';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useWindowWidth from '../../hooks/useWindowWidth';
+import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
 
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
@@ -1028,6 +1027,7 @@ const Stories = () => {
     const queryClient = useQueryClient();
     const { user: loggeduser, initialized } = useAuthStore();
     const { data: storyFeed } = useStoryFeed(loggeduser?._id);
+    const { data: flags } = useSystemFlags();
     const [groups, setGroups] = useState([]);
     const viewedRef = useRef(new Set());
     const [createOpen, setCreateOpen] = useState(false);
@@ -1223,7 +1223,17 @@ const Stories = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                         <div style={{ position: 'relative', width: storySize, height: storySize }}>
                             <div
-                                onClick={() => ownGroup ? openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString())) : setCreateOpen(true)}
+                                onClick={() => {
+                                    if (ownGroup) {
+                                        openViewer(groups.findIndex(g => g.user._id.toString() === loggeduser?._id?.toString()));
+                                    } else {
+                                        if (flags?.story_creation === false) {
+                                            toast.error('Story creation is temporarily disabled by administrator.');
+                                        } else {
+                                            setCreateOpen(true);
+                                        }
+                                    }
+                                }}
                                 style={{
                                     width: storySize, height: storySize, borderRadius: '50%', padding: '2px',
                                     background: ownGroup ? ((!ownGroup.hasUnviewed || viewedStoryGroups.has(loggeduser?._id?.toString())) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
@@ -1239,7 +1249,14 @@ const Stories = () => {
                                 </div>
                             </div>
                             <div
-                                onClick={(e) => { e.stopPropagation(); setCreateOpen(true); }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (flags?.story_creation === false) {
+                                        toast.error('Story creation is temporarily disabled by administrator.');
+                                    } else {
+                                        setCreateOpen(true);
+                                    }
+                                }}
                                 style={{ position: 'absolute', bottom: isMobile ? 0 : 4, right: isMobile ? 0 : 4, width: isMobile ? 20 : 24, height: isMobile ? 20 : 24, background: '#808bf5', borderRadius: '50%', border: '2px solid var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, zIndex: 5 }}
                             >
                                 <i className="pi pi-plus" style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: 'bold' }}></i>

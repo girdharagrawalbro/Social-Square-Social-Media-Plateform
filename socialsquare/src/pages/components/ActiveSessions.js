@@ -130,7 +130,7 @@ const ActiveSessions = () => {
       </div>
 
       {/* 2FA Toggle */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 mx-3 flex items-center justify-between gap-4 shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-2xl p-3 mx-3 flex items-center justify-between gap-4 shadow-sm">
         <div>
           <h3 className="text-sm font-bold m-0">
             Two-Factor Authentication
@@ -172,7 +172,7 @@ const ActiveSessions = () => {
       </div>
 
       {/* Sessions list */}
-      <div className="flex-1 overflow-auto py-2 pr-1 mx-3">
+      <div className="flex-1 overflow-auto py-2 pr-1 mx-2">
         {loading ? (
           <SkeletonSessions />
         ) : sessions.length === 0 ? (
@@ -180,14 +180,14 @@ const ActiveSessions = () => {
             No active sessions found.
           </p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1 sm:gap-3">
             {sessions.map((session) => {
               const isCurrentSession = !!session?.isCurrentSession;
 
               return (
                 <div
                   key={session._id}
-                  className="bg-white border border-gray-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-sm"
+                  className="bg-white border border-gray-200 rounded-2xl p-2 sm:px-4 sm:py-3 flex items-center justify-between gap-3 shadow-sm"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-2xl flex-shrink-0">
