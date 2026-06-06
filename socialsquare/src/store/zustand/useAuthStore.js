@@ -32,6 +32,7 @@ const useAuthStore = create(
             loading: true,
             initialized: false,
             error: null,
+            isMaintenance: false,
 
             setUser: (user) => set({ user }),
             updateAuthToken: (token) => {
@@ -80,6 +81,10 @@ const useAuthStore = create(
                         await refreshAccessToken();
                         set({ loading: false, error: null, initialized: true });
                     } catch (err) {
+                        if (err.response?.status === 503 || err.response?.data?.code === 'MAINTENANCE_MODE') {
+                            set({ isMaintenance: true, loading: false, initialized: true });
+                            return;
+                        }
                         clearToken();
                         set({ user: null, loading: false, initialized: true });
                     } finally {
@@ -173,6 +178,12 @@ const useAuthStore = create(
                     set({ loading: false, error: err.response?.data?.message });
                     return { error: err.response?.data?.message };
                 }
+            },
+
+            verifyEmailLocally: () => {
+                set(s => ({
+                    user: s.user ? { ...s.user, isEmailVerified: true } : null
+                }));
             }
         }),
         { name: 'AuthStore' }
@@ -232,6 +243,10 @@ api.interceptors.response.use(
     res => res,
     async err => {
         const originalRequest = err.config;
+        if (err.response?.status === 503 && err.response?.data?.code === 'MAINTENANCE_MODE') {
+            useAuthStore.setState({ isMaintenance: true });
+            return Promise.reject(err);
+        }
         if (err.response?.status !== 401 || originalRequest._retry || originalRequest.url?.includes('/auth/refresh')) {
             return Promise.reject(err);
         }

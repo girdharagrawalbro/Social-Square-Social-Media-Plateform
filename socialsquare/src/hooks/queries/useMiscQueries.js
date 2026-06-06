@@ -8,6 +8,7 @@ export const miscKeys = {
     activeSessions: (userId) => ['sessions', 'active', userId],
     userInfo: (userId) => ['user', 'info', userId],
     chatbot: ['chatbot', 'conversation'],
+    systemFlags: ['system', 'flags'],
 };
 
 // ─── ACTIVE SESSIONS ───────────────────────────────────────────────────────────
@@ -62,13 +63,28 @@ export function useChatbot() {
             const res = await fetch(`${BASE}/api/chatbot/chat`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : ''
+                     'Content-Type': 'application/json',
+                     'Authorization': token ? `Bearer ${token}` : ''
                 },
                 body: JSON.stringify({ prompt, conversationHistory }),
             });
             if (!res.ok) throw new Error('Chatbot error');
             return res.json();
         },
+    });
+}
+
+// ─── SYSTEM FLAGS ─────────────────────────────────────────────────────────────
+export function useSystemFlags() {
+    const user = useAuthStore(s => s.user);
+    return useQuery({
+        queryKey: miscKeys.systemFlags,
+        queryFn: async () => {
+            const res = await api.get(`/api/auth/system/flags`);
+            return res.data?.flags || {};
+        },
+        enabled: !!user,
+        staleTime: 1000 * 60 * 10, // Cache settings for 10 minutes to avoid refetching
+        gcTime: 1000 * 60 * 30,    // Cache garbage collection in 30 minutes
     });
 }

@@ -8,6 +8,7 @@ import NotificationBell from "./ui/NotificationBell";
 import { useDarkMode } from '../../context/DarkModeContext';
 import { requestNotificationPermission } from '../../utils/pushNotifications';
 import NewPost from "./Newpost";
+import { useSystemFlags } from "../../hooks/queries/useMiscQueries";
 
 
 const Navbar = () => {
@@ -23,6 +24,7 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
   const mobileMenuRef = useRef(null);
+  const { data: flags } = useSystemFlags();
 
 
   useEffect(() => {
@@ -221,17 +223,19 @@ const Navbar = () => {
               onClick={() => { navigate('/sessions'); setMobileMenuOpen(false); }}
               className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
             >
-              <i className="pi pi-cog text-lg text-blue-400"></i> Sessions
+              <i className="pi pi-cog text-lg text-blue-400"></i> Settings
             </button>
 
 
 
-            <button
-              onClick={() => { setChatbotOpen(true); setMobileMenuOpen(false); }}
-              className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
-            >
-              <i className="pi pi-sparkles text-lg text-blue-400"></i> AI SocialBot
-            </button>
+            {flags?.ai_features !== false && (
+              <button
+                onClick={() => { setChatbotOpen(true); setMobileMenuOpen(false); }}
+                className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                <i className="pi pi-sparkles text-lg text-blue-400"></i> AI SocialBot
+              </button>
+            )}
 
             <button
               onClick={() => { navigate('/help'); setMobileMenuOpen(false); }}

@@ -355,7 +355,7 @@ io.on('connection', (socket) => {
     socket.on('checkActiveCall', async () => {
         const userId = socket.userId;
         if (!userId) return;
-        
+
         console.log(`🔍 [Socket] User ${userId} requested active call check`);
         for (const [convId, call] of activeCalls.entries()) {
             if (call.recipientId === userId && !call.accepted) {

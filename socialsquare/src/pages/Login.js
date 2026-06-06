@@ -95,8 +95,8 @@ const Login = () => {
     return (
         <>
             <Bg>
-                <div className="flex items-center justify-center gap-4 md:gap-10 flex-col md:flex-row p-4 sm:p-6 md:p-8 w-full">
-                    <div className={`flex flex-col justify-center w-full max-w-[420px] p-6 sm:p-8 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
+                <div className="flex items-center justify-center gap-4 md:gap-10 flex-col md:flex-row p-2 sm:p-6 md:p-8 w-full">
+                    <div className={`flex flex-col justify-center w-full max-w-[420px] p-4 sm:p-8 rounded-2xl text-center transition-all duration-200 ${isDark ? 'bg-[#121212]' : 'bg-white'}`}>
                         <div className="mb-8">
                             <h3 className="font-pacifico text-4xl text-[#808bf5] mb-3">Social Square</h3>
                             <p className={`${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Log in to your account</p>

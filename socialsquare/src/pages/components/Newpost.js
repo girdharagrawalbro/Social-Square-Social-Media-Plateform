@@ -11,6 +11,7 @@ import ImageCropper from './ui/ImageCropper';
 import { urlToFile } from "../../utils/nativeUtils";
 
 import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
+import { useSystemFlags } from "../../hooks/queries/useMiscQueries";
 
 
 import { Dialog } from 'primereact/dialog';
@@ -41,6 +42,7 @@ const EmojiSelector = ({ onSelect }) => (
 const NewPost = ({ visible, onHide }) => {
     const loggeduser = useAuthStore(s => s.user);
     const addSocketPost = usePostStore(s => s.addSocketPost);
+    const { data: flags } = useSystemFlags();
     const createPostMutation = useCreatePost();
     const fileInputRef = useRef(null);
     const captionRef = useRef(null);
@@ -805,13 +807,15 @@ const NewPost = ({ visible, onHide }) => {
                         <i className="pi pi-pencil text-sm"></i>
                         Text Post
                     </button>
-                    <button
-                        onClick={() => setStep(STEPS.AI_PROMPT)}
-                        className="flex-1 bg-gradient-to-tr from-indigo-500 to-purple-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
-                    >
-                        <i className="pi pi-sparkles text-sm"></i>
-                        AI Magic Post
-                    </button>
+                    {flags?.ai_features !== false && (
+                        <button
+                            onClick={() => setStep(STEPS.AI_PROMPT)}
+                            className="flex-1 bg-gradient-to-tr from-indigo-500 to-purple-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                        >
+                            <i className="pi pi-sparkles text-sm"></i>
+                            AI Magic Post
+                        </button>
+                    )}
                 </div>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
@@ -959,13 +963,15 @@ const NewPost = ({ visible, onHide }) => {
                             </button>
                             {openFeaturePanel === 'advanced' && (
                                 <div className="p-4 bg-[var(--surface-2)]/50 flex flex-col gap-4 animate-in slide-in-from-top-2">
-                                    <label className="flex items-center justify-between cursor-pointer group">
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
-                                            <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
-                                        </div>
-                                        <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1]" />
-                                    </label>
+                                    {flags?.anonymous_posts !== false && (
+                                        <label className="flex items-center justify-between cursor-pointer group">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
+                                                <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
+                                            </div>
+                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1]" />
+                                        </label>
+                                    )}
                                     <div className="flex pt-1 flex-col gap-2">
                                         <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
                                         <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
@@ -1270,13 +1276,15 @@ const NewPost = ({ visible, onHide }) => {
                                 </button>
                                 {openFeaturePanel === 'advanced' && (
                                     <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-4 animate-in slide-in-from-top-2">
-                                        <label className="flex items-center justify-between cursor-pointer group">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
-                                                <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
-                                            </div>
-                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
-                                        </label>
+                                        {flags?.anonymous_posts !== false && (
+                                            <label className="flex items-center justify-between cursor-pointer group">
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
+                                                    <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
+                                                </div>
+                                                <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
+                                            </label>
+                                        )}
                                         <div className="flex  pt-1 flex-col gap-2">
                                             <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
                                             <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
@@ -1289,32 +1297,34 @@ const NewPost = ({ visible, onHide }) => {
                                 )}
                             </div>
 
-                            <div>
-                                <button onClick={() => togglePanel('ai')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group text-[#6366f1]">
-                                    <span className="text-sm font-bold flex items-center gap-2">
-                                        <span className="animate-pulse">✨</span> AI Magic Tools
-                                    </span>
-                                    <i className={`pi pi-chevron-${openFeaturePanel === 'ai' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
-                                </button>
-                                {openFeaturePanel === 'ai' && (
-                                    <div className=" flex flex-col gap-3 m-1 animate-in zoom-in-95">
-                                        <div className="flex justify-between items-center px-1">
-                                            <span className="text-[9px] font-bold text-[var(--text-sub)] uppercase">Remaining: {aiLimits.text} Text / {aiLimits.image} Image</span>
-                                            {isGeneratingAi && <i className="pi pi-spin pi-spinner text-[10px] text-[#6366f1]"></i>}
+                            {flags?.ai_features !== false && (
+                                <div>
+                                    <button onClick={() => togglePanel('ai')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group text-[#6366f1]">
+                                        <span className="text-sm font-bold flex items-center gap-2">
+                                            <span className="animate-pulse">✨</span> AI Magic Tools
+                                        </span>
+                                        <i className={`pi pi-chevron-${openFeaturePanel === 'ai' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
+                                    </button>
+                                    {openFeaturePanel === 'ai' && (
+                                        <div className=" flex flex-col gap-3 m-1 animate-in zoom-in-95">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-[9px] font-bold text-[var(--text-sub)] uppercase">Remaining: {aiLimits.text} Text / {aiLimits.image} Image</span>
+                                                {isGeneratingAi && <i className="pi pi-spin pi-spinner text-[10px] text-[#6366f1]"></i>}
+                                            </div>
+                                            <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
+                                            <div className="flex gap-2">
+                                                <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
+                                                    {isGeneratingAi ? <i className="pi pi-spin pi-spinner mr-1"></i> : null}
+                                                    Generate Text
+                                                </button>
+                                                <button onClick={generateAiImage} disabled={isGeneratingAi} className="flex-1 py-2 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
+                                                    Generate Image
+                                                </button>
+                                            </div>
                                         </div>
-                                        <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
-                                        <div className="flex gap-2">
-                                            <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
-                                                {isGeneratingAi ? <i className="pi pi-spin pi-spinner mr-1"></i> : null}
-                                                Generate Text
-                                            </button>
-                                            <button onClick={generateAiImage} disabled={isGeneratingAi} className="flex-1 py-2 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
-                                                Generate Image
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

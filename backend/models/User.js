@@ -53,7 +53,7 @@ const UserSchema = new mongoose.Schema({
   mutedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   // Verification
-  isEmailVerified: { type: Boolean, default: true },
+  isEmailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String, default: null },
   emailVerificationTokenSentAt: { type: Date, default: null },
 
@@ -64,6 +64,9 @@ const UserSchema = new mongoose.Schema({
   notificationSettings: {
     emailDigest: { type: Boolean, default: false },
     pushEnabled: { type: Boolean, default: true },
+    postNotifications: { type: Boolean, default: true },
+    userNotifications: { type: Boolean, default: true },
+    chatNotifications: { type: Boolean, default: true },
   },
 
   // Presence

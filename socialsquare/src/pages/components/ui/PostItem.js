@@ -122,8 +122,8 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
                     key={showIndicator}
                     className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in zoom-in-50 fade-in duration-150"
                 >
-                    <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-xl">
-                        <i className={`pi ${showIndicator === 'play' ? 'pi-play' : 'pi-pause'} text-white`} style={{ fontSize: '22px', marginLeft: showIndicator === 'play' ? '3px' : '0' }}></i>
+                    <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center shadow-xl">
+                        <i className={`pi ${showIndicator === 'play' ? 'pi-play' : 'pi-pause'} text-white`} style={{ fontSize: '18px', marginLeft: showIndicator === 'play' ? '3px' : '0' }}></i>
                     </div>
                 </div>
             )}
@@ -131,7 +131,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
             {/* ── Mute toggle ─────────────────────────────────────── */}
             <button
                 onClick={toggleMute}
-                className="absolute bottom-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/20 cursor-pointer"
+                className="absolute bottom-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white cursor-pointer"
                 title={isMuted ? 'Unmute' : 'Mute'}
             >
                 <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '13px' }}></i>
@@ -139,7 +139,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
 
             {/* ── Play/Pause state hint (bottom-left, subtle) ──────── */}
             {!isPlaying && !showIndicator && (
-                <div className="absolute bottom-2 left-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 pointer-events-none">
+                <div className="absolute bottom-2 left-2 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center  pointer-events-none">
                     <i className="pi pi-play text-white" style={{ fontSize: '11px', marginLeft: '2px' }}></i>
                 </div>
             )}

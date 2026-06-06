@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import useConversationStore from '../../store/zustand/useConversationStore';
+import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
 
 const BottomNav = () => {
     const navigate = useNavigate();
@@ -10,6 +11,7 @@ const BottomNav = () => {
     const { isDark } = useDarkMode();
     const user = useAuthStore(s => s.user);
     const { totalUnread } = useConversationStore();
+    const { data: flags } = useSystemFlags();
 
     const isChatOpen = location.pathname.startsWith('/conversation/') && location.pathname.split('/').length > 2;
     const cardBg = isDark ? 'bg-black/90 border-neutral-800' : 'bg-white/95 border-gray-200';
@@ -22,7 +24,7 @@ const BottomNav = () => {
         { key: 'confessions', icon: 'pi-map', to: () => '/confessions' },
         { key: 'messages', icon: 'pi-envelope', to: () => '/conversations', badge: msgCount },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
-    ];
+    ].filter(item => !(item.key === 'confessions' && flags?.anonymous_posts === false));
 
     const isActive = (key, to) => {
         const currentPath = location.pathname || '';

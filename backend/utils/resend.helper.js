@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { sendEmail } = require('./mailer');
+const MailLog = require('../models/MailLog');
 
 async function sendResendEmail({ to, subject, html }) {
     const apiKey = process.env.RESEND_API_KEY;
@@ -25,10 +26,29 @@ async function sendResendEmail({ to, subject, html }) {
                 }
             }
         );
+        
+        await MailLog.create({
+            to: Array.isArray(to) ? to.join(', ') : to,
+            from: 'Social Square <onboarding@resend.dev>',
+            subject,
+            html,
+            status: 'sent'
+        }).catch(err => console.error('[Resend MailLog Error]:', err.message));
+
         return response.data;
     } catch (error) {
         const errorMsg = error.response?.data?.message || error.message;
         console.error('[Resend] API call failed:', errorMsg);
+        
+        await MailLog.create({
+            to: Array.isArray(to) ? to.join(', ') : to,
+            from: 'Social Square <onboarding@resend.dev>',
+            subject,
+            html,
+            status: 'failed',
+            error: errorMsg
+        }).catch(err => console.error('[Resend MailLog Error]:', err.message));
+
         // Fallback
         return sendEmail({ to, subject, html });
     }

@@ -116,7 +116,7 @@ const EditProfile = ({ users, closeSidebar }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="w-full h-full px-3">
+        <form onSubmit={handleSubmit} className="w-full h-full px-3 ">
 
             {/* Profile Picture Upload */}
             <div className="mb-4 flex flex-col items-center gap-2">
@@ -194,7 +194,7 @@ const EditProfile = ({ users, closeSidebar }) => {
                 <p className="mt-1 text-[10px] text-[var(--text-sub)] font-medium">Choosing a mood will automatically blend related posts into your main feed.</p>
             </div>
 
-            <div className="mb-6 p-4 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
+            <div className="mb-2 p-2 bg-[var(--surface-2)] rounded-2xl border border-[var(--border-color)]">
                 <div className="flex items-center justify-between">
                     <div>
                         <h4 className="m-0 text-sm font-bold text-[var(--text-main)]">Private Account</h4>
@@ -216,7 +216,7 @@ const EditProfile = ({ users, closeSidebar }) => {
             <button
                 type="submit"
                 disabled={uploading}
-                className="btn btn-primary w-full text-white py-1 px-3 rounded"
+                className="btn btn-primary w-full text-white py-1 px-3 rounded mb-2"
                 style={{ opacity: uploading ? 0.6 : 1 }}
             >
                 {uploading ? 'Uploading...' : 'Save Changes'}

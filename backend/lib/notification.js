@@ -19,30 +19,53 @@ const setIo = (socketIoInstance) => {
  */
 const createNotification = async ({ recipientId, sender, type, postId, message, url }) => {
   try {
-    // 🛡️ Null Guard: Ensure required identity fields exist
-    if (!recipientId || !sender || !sender.id) {
+    // 🛡️ Null Guard: Ensure required identity fields exist (allow system notifications without a sender)
+    if (!recipientId || (type !== 'system' && (!sender || !sender.id))) {
       console.warn('[Notification] Skipped: Missing identity data', { recipientId, senderId: sender?.id });
       return null;
     }
 
+    const finalSender = sender || {
+      id: '000000000000000000000000',
+      fullname: 'System',
+      profile_picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+    };
+
     // 🛡️ Safety Guard: Don't notify deleted users
-    const recipient = await User.findById(recipientId).select('deletedAt fcmToken').lean();
+    const recipient = await User.findById(recipientId).select('deletedAt fcmToken notificationSettings').lean();
     if (!recipient || recipient.deletedAt) {
       console.warn('[Notification] Skipped: Recipient is deleted or does not exist', { recipientId });
       return null;
     }
 
     // Don't notify yourself (unless it's a system notification like login alert)
-    if (recipientId.toString() === sender.id.toString() && type !== 'system') {
+    if (recipientId.toString() === finalSender.id.toString() && type !== 'system') {
       return null;
+    }
+
+    // Determine type categories
+    const isLoginAlert = type === 'system' && (message?.content?.includes('Login') || message?.content?.includes('login') || message?.content?.includes('Password') || message?.content?.includes('OTP') || message?.content?.includes('Secure'));
+    const isChat = type === 'message';
+    const isPostRelated = ['like', 'comment', 'new_post'].includes(type);
+    const isUserRelated = ['follow', 'follow_request'].includes(type);
+
+    const postEnabled = recipient?.notificationSettings?.postNotifications !== false;
+    const userEnabled = recipient?.notificationSettings?.userNotifications !== false;
+
+    // Check if we should skip creating the database record entirely
+    if (!isLoginAlert && !isChat) {
+      if (isPostRelated && !postEnabled) {
+        return null; // Don't create DB record at all for disabled post notifications
+      }
+      // Note: for user notifications (follows/requests), we still save to DB so they "always be shown in request list".
     }
 
     const notification = await Notification.create({
       recipient: recipientId,
       sender: {
-        id: sender.id,
-        fullname: sender.fullname || 'Unknown User',
-        profile_picture: sender.profile_picture || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+        id: finalSender.id,
+        fullname: finalSender.fullname || 'System',
+        profile_picture: finalSender.profile_picture || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
       },
       type,
       post: postId || null,
@@ -51,40 +74,70 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
     });
 
     // 1. Emit real-time notification via Socket.io (Foreground)
-    if (io) {
+    let shouldEmitSocket = false;
+    if (isLoginAlert || isChat) {
+      shouldEmitSocket = true;
+    } else {
+      if (isPostRelated && postEnabled) {
+        shouldEmitSocket = true;
+      } else if (isUserRelated && userEnabled) {
+        shouldEmitSocket = true;
+      } else if (!isPostRelated && !isUserRelated) {
+        shouldEmitSocket = true;
+      }
+    }
+
+    if (io && shouldEmitSocket) {
       io.to(recipientId.toString()).emit('newNotification', notification);
     }
 
     // 2. Send Push Notification via Firebase (Background/Foreground)
     try {
-        const { sendPushNotification } = require('../utils/firebase');
-        
-        if (recipient?.fcmToken) {
-            let title = 'Social Square';
-            let body = '';
+      const { sendPushNotification } = require('../utils/firebase');
 
-            switch (type) {
-                case 'like': body = `${sender.fullname} liked your post`; break;
-                case 'comment': body = `${sender.fullname} commented: "${message?.content?.substring(0, 30) || '...'}"`; break;
-                case 'follow': body = `${sender.fullname} started following you`; break;
-                case 'message': body = `New message from ${sender.fullname}`; title = 'Social Square Chat'; break;
-                case 'new_post': body = `${sender.fullname} shared a new post`; break;
-                case 'system': body = message?.content || 'New system update'; break;
-                default: body = `${sender.fullname} sent you a notification`;
-            }
+      if (recipient?.fcmToken) {
+        const pushEnabled = recipient?.notificationSettings?.pushEnabled !== false;
+        let shouldSendPush = false;
 
-            await sendPushNotification(recipientWithToken.fcmToken, {
-                title,
-                body,
-                data: {
-                    type,
-                    postId: postId ? postId.toString() : '',
-                    notificationId: notification._id.toString()
-                }
-            });
+        if (isLoginAlert || isChat) {
+          shouldSendPush = true; // Always send login alerts and chat notifications
+        } else if (pushEnabled) {
+          if (isPostRelated && postEnabled) {
+            shouldSendPush = true;
+          } else if (isUserRelated && userEnabled) {
+            shouldSendPush = true;
+          } else if (!isPostRelated && !isUserRelated) {
+            shouldSendPush = true;
+          }
         }
+
+        if (shouldSendPush) {
+          let title = 'Social Square';
+          let body = '';
+
+          switch (type) {
+            case 'like': body = `${finalSender.fullname} liked your post`; break;
+            case 'comment': body = `${finalSender.fullname} commented: "${message?.content?.substring(0, 30) || '...'}"`; break;
+            case 'follow': body = `${finalSender.fullname} started following you`; break;
+            case 'message': body = `New message from ${finalSender.fullname}`; title = 'Social Square Chat'; break;
+            case 'new_post': body = `${finalSender.fullname} shared a new post`; break;
+            case 'system': body = message?.content || 'New system update'; break;
+            default: body = `${finalSender.fullname} sent you a notification`;
+          }
+
+          await sendPushNotification(recipient.fcmToken, {
+            title,
+            body,
+            data: {
+              type,
+              postId: postId ? postId.toString() : '',
+              notificationId: notification._id.toString()
+            }
+          });
+        }
+      }
     } catch (pushErr) {
-        console.error('[Notification Push Error]', pushErr.message);
+      console.error('[Notification Push Error]', pushErr.message);
     }
 
     return notification;

@@ -4,6 +4,7 @@ const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const redis = require('../lib/redis');
 const { sendEmail } = require('../utils/mailer');
+const SystemSetting = require('../models/SystemSetting');
 
 const isRedisDisabled = process.env.DISABLE_REDIS === 'true';
 
@@ -39,7 +40,18 @@ async function scheduleDailyDigest() {
     }
 }
 
-async function runAdminDigests() {
+async function runAdminDigests(bypassFlag = false) {
+    if (!bypassFlag) {
+        try {
+            const setting = await SystemSetting.findOne({ key: 'admin_daily_digest' }).lean();
+            if (setting && setting.value === false) {
+                console.log('[Digest] Admin daily digest is disabled via system settings.');
+                return;
+            }
+        } catch (err) {
+            console.error('[Digest] Error checking admin_daily_digest flag:', err.message);
+        }
+    }
     const yesterday = new Date(Date.now() - 86400000);
     const lastWeek = new Date(Date.now() - 604800000);
 
@@ -181,7 +193,8 @@ if (!isRedisDisabled) {
     const worker = new Worker('emailDigest', async (job) => {
         if (job.name === 'admin-daily-digest') {
             console.log('[Digest] Starting Admin daily digests job');
-            await runAdminDigests();
+            const bypassFlag = job.data?.manual || false;
+            await runAdminDigests(bypassFlag);
             return;
         }
         if (job.name !== 'daily-digest') return;

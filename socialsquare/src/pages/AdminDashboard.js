@@ -106,6 +106,15 @@ const MailIcon = () => (
     </svg>
 );
 
+const MailLogsIcon = () => (
+    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <path d="M9 9h6" />
+        <path d="M9 13h6" />
+        <path d="M9 17h4" />
+    </svg>
+);
+
 // ─── PASSWORD GATE ────────────────────────────────────────────────────────────
 const PasswordGate = ({ onSuccess }) => {
     const [password, setPassword] = useState('');
@@ -1247,7 +1256,8 @@ const SystemTab = () => {
         ai_features: true,
         anonymous_posts: true,
         story_creation: true,
-        maintenance_mode: false
+        maintenance_mode: false,
+        admin_daily_digest: true
     });
     const [flagsLoading, setFlagsLoading] = useState(false);
 
@@ -1689,7 +1699,12 @@ const ContentFilterTab = () => {
 
     const fetchWords = useCallback(() => {
         api.get('/api/admin/content-filter', { headers })
-            .then(r => setBannedWords(r.data))
+            .then(r => {
+                setBannedWords(r.data);
+                if (r.data && r.data.length > 0) {
+                    setAction(r.data[0].action || 'flag');
+                }
+            })
             .catch(() => { });
     }, [headers]);
 
@@ -1715,6 +1730,17 @@ const ContentFilterTab = () => {
             fetchWords();
         } catch {
             toast.error('Failed');
+        }
+    };
+
+    const handlePolicyChange = async (newPolicy) => {
+        try {
+            await api.patch('/api/admin/content-filter/policy', { action: newPolicy }, { headers });
+            setAction(newPolicy);
+            toast.success(`Enforcement policy updated to ${newPolicy === 'block' ? 'Block Publication' : 'Auto-Flag'}`);
+            fetchWords();
+        } catch {
+            toast.error('Failed to update policy');
         }
     };
 
@@ -1757,12 +1783,173 @@ const ContentFilterTab = () => {
                         <p className="text-xs font-black text-[var(--text-main)] m-0 uppercase tracking-wider">Enforcement Policy</p>
                         <p className="text-[10px] text-[var(--text-sub)] m-0 mt-1 font-bold opacity-60">Choose what happens when a match is found.</p>
                     </div>
-                    <select value={action} onChange={e => setAction(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer">
+                    <select value={action} onChange={e => handlePolicyChange(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer">
                         <option value="flag">Auto-Flag for Review</option>
                         <option value="block">Block Publication</option>
                     </select>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// ─── MAIL LOGS TAB ────────────────────────────────────────────────────────────
+const MailLogsTab = () => {
+    const { headers } = useAdmin();
+    const [logs, setLogs] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const [search, setSearch] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [selectedLog, setSelectedLog] = useState(null);
+
+    const fetchLogs = useCallback(() => {
+        setLoading(true);
+        api.get('/api/admin/mail-logs', { headers, params: { page, search } })
+            .then(r => {
+                setLogs(r.data.logs || []);
+                setTotal(r.data.total || 0);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, [page, search, headers]);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
+
+    return (
+        <div className="flex flex-col gap-3">
+            <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
+                <div className="relative flex-1 min-w-[240px]">
+                    <i className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-sub)] opacity-50"></i>
+                    <input type="text" placeholder="Search recipient or subject..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded py-2.5 pl-11 pr-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all" />
+                </div>
+                <div className="px-3 py-2.5 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse"></span>
+                    <span className="text-xs font-black text-[var(--text-main)] uppercase tracking-tight">{total} Mail Records</span>
+                </div>
+            </div>
+
+            <div className="bg-[var(--surface-1)] rounded shadow-sm border border-[var(--border-color)] overflow-hidden flex-1 min-h-0 flex flex-col">
+                <div className="overflow-x-auto flex-1 custom-scrollbar">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead className="sticky top-0 z-10">
+                            <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border-color)' }}>
+                                {['Recipient', 'Subject', 'Sender', 'Status', 'Date', 'Actions'].map(h => (
+                                    <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '10px', fontWeight: 900, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6 }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-color)]">
+                            {loading ? (
+                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '64px', color: 'var(--text-sub)' }}>
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin" />
+                                        <span className="text-xs font-black uppercase tracking-widest opacity-50">Syncing mail logs...</span>
+                                    </div>
+                                </td></tr>
+                            ) : logs.length === 0 ? (
+                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '64px', color: 'var(--text-sub)' }}>
+                                    <div className="flex flex-col items-center gap-2 opacity-40">
+                                        <i className="pi pi-envelope text-4xl"></i>
+                                        <span className="text-xs font-bold">No mail records found</span>
+                                    </div>
+                                </td></tr>
+                            ) : logs.map(log => (
+                                <tr key={log._id} className="hover:bg-[var(--surface-2)]/50 transition-all duration-200 cursor-pointer">
+                                    <td style={{ padding: '20px' }} onClick={() => setSelectedLog(log)} className="cursor-pointer">
+                                        <p className="text-sm font-black text-[var(--text-main)] m-0">{log.to}</p>
+                                    </td>
+                                    <td style={{ padding: '20px', maxWidth: '300px' }} onClick={() => setSelectedLog(log)} className="cursor-pointer">
+                                        <p className="text-xs text-[var(--text-main)] font-semibold truncate m-0">{log.subject}</p>
+                                    </td>
+                                    <td style={{ padding: '20px', fontSize: '11px', color: 'var(--text-sub)' }} onClick={() => setSelectedLog(log)} className="cursor-pointer">
+                                        <p className="m-0 font-bold">{log.from}</p>
+                                    </td>
+                                    <td style={{ padding: '20px' }}>
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
+                                            log.status === 'sent' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
+                                            'bg-red-500/10 text-red-500 border border-red-500/20'
+                                        }`}>
+                                            {log.status}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '20px', fontSize: '11px', color: 'var(--text-sub)', fontWeight: 700 }}>
+                                        {new Date(log.createdAt).toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: '20px' }}>
+                                        <button 
+                                            onClick={() => setSelectedLog(log)}
+                                            className="bg-[#808bf5] text-white hover:bg-indigo-600 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-95 shadow-sm"
+                                        >
+                                            View Mail
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="flex justify-between items-center bg-[var(--surface-1)] p-2 border-t border-[var(--border-color)] rounded-b-[32px]">
+                <p className="text-[10px] font-black text-[var(--text-sub)] m-0 uppercase tracking-widest opacity-60">Listing {Math.min(20, logs.length)} of {total} Records</p>
+                <div className="flex gap-3">
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-3 py-2 px-3 text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                        <i className="pi pi-chevron-left text-[8px]"></i> Previous
+                    </button>
+                    <div className="flex items-center py-2 px-3 bg-[var(--surface-2)] rounded text-[10px] font-black text-[#808bf5] border border-[var(--border-color)] uppercase tracking-widest">
+                        Page {page}
+                    </div>
+                    <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="flex items-center gap-3 py-2 px-3 text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)] border border-[var(--border-color)] rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                        Next <i className="pi pi-chevron-right text-[8px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            {selectedLog && (
+                <div className="fixed inset-y-0 right-0 w-[600px] max-w-[95vw] bg-[var(--surface-1)] border-l border-[var(--border-color)] shadow-2xl z-[1000] flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
+                        <div className="min-w-0 flex-1 pr-4">
+                            <h3 className="m-0 text-base font-black text-[var(--text-main)] truncate">{selectedLog.subject}</h3>
+                            <p className="m-0 text-xs font-bold text-[var(--text-sub)] opacity-60">To: {selectedLog.to}</p>
+                        </div>
+                        <button onClick={() => setSelectedLog(null)} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all flex-shrink-0">Close</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 custom-scrollbar bg-white dark:bg-black/20">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Mail Metadata</p>
+                            <div className="p-4 bg-[var(--surface-2)] rounded border border-[var(--border-color)] text-[11px] font-bold text-[var(--text-sub)] space-y-1">
+                                <p className="m-0">From: <span className="text-[var(--text-main)]">{selectedLog.from}</span></p>
+                                <p className="m-0">Status: <span className={selectedLog.status === 'sent' ? 'text-green-500' : 'text-red-500'}>{selectedLog.status.toUpperCase()}</span></p>
+                                {selectedLog.error && <p className="m-0 text-red-500">Error: <span>{selectedLog.error}</span></p>}
+                                <p className="m-0">Sent At: <span className="text-[var(--text-main)]">{new Date(selectedLog.createdAt).toLocaleString()}</span></p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Email Content Preview</p>
+                            <div className="border border-[var(--border-color)] rounded-xl overflow-hidden bg-white">
+                                {selectedLog.html ? (
+                                    <iframe 
+                                        srcDoc={selectedLog.html} 
+                                        title="Email Preview"
+                                        className="w-full min-h-[400px] border-0 bg-white"
+                                        sandbox="allow-same-origin"
+                                    />
+                                ) : (
+                                    <div className="p-6 text-sm font-mono text-gray-800 whitespace-pre-wrap">
+                                        {selectedLog.text}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1827,6 +2014,7 @@ const AdminDashboard = () => {
         { key: 'posts', icon: <PostsIcon />, label: 'Posts' },
         { key: 'reports', icon: <ReportIcon />, label: 'Reports' },
         { key: 'contacts', icon: <MailIcon />, label: 'Contacts' },
+        { key: 'mail_logs', icon: <MailLogsIcon />, label: 'Mail Logs' },
         { key: 'audit_log', icon: <AuditIcon />, label: 'Audit Log' },
         { key: 'content_filter', icon: <ShieldIcon />, label: 'Content Filter' },
         { key: 'system', icon: <SettingsIcon />, label: 'System' },
@@ -1896,6 +2084,7 @@ const AdminDashboard = () => {
                         {activeTab === 'posts' && <PostsTab />}
                         {activeTab === 'reports' && <ReportsTab />}
                         {activeTab === 'contacts' && <ContactsTab />}
+                        {activeTab === 'mail_logs' && <MailLogsTab />}
                         {activeTab === 'audit_log' && <AuditLogTab />}
                         {activeTab === 'content_filter' && <ContentFilterTab />}
                         {activeTab === 'system' && <SystemTab />}

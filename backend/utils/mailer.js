@@ -1,4 +1,5 @@
 const axios = require('./http');
+const MailLog = require('../models/MailLog');
 
 const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
 const MAIL_SERVICE_TIMEOUT_MS = Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 30000);
@@ -8,7 +9,7 @@ function shouldRetry(error) {
 }
 
 // ─── BASE EMAIL WRAPPER ───────────────────────────────────────────────────────
-async function sendEmail({ to, from, subject, html, text }) {
+async function sendEmailBase({ to, from, subject, html, text }) {
     const payload = {
         to,
         from: from || `Social Square <${RESEND_FROM_EMAIL}>`,
@@ -91,6 +92,32 @@ async function sendEmail({ to, from, subject, html, text }) {
             console.error(`[Mailer] [FAILED] Email send failed completely. Microservice: ${reason}. Direct: ${fallbackError.message}`);
             throw new Error(`Mail API send failed: ${reason} (Direct API fallback: ${fallbackError.message})`);
         }
+    }
+}
+
+async function sendEmail(args) {
+    try {
+        const result = await sendEmailBase(args);
+        await MailLog.create({
+            to: Array.isArray(args.to) ? args.to.join(', ') : args.to,
+            from: args.from || `Social Square <${RESEND_FROM_EMAIL}>`,
+            subject: args.subject,
+            html: args.html,
+            text: args.text || args.html?.replace(/<[^>]*>/g, ''),
+            status: 'sent'
+        }).catch(err => console.error('[Mailer MailLog Error]:', err.message));
+        return result;
+    } catch (err) {
+        await MailLog.create({
+            to: Array.isArray(args.to) ? args.to.join(', ') : args.to,
+            from: args.from || `Social Square <${RESEND_FROM_EMAIL}>`,
+            subject: args.subject,
+            html: args.html,
+            text: args.text || args.html?.replace(/<[^>]*>/g, ''),
+            status: 'failed',
+            error: err.message
+        }).catch(e => console.error('[Mailer MailLog Error]:', e.message));
+        throw err;
     }
 }
 

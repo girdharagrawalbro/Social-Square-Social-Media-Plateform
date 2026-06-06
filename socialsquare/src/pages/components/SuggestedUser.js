@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import useAuthStore from '../../store/zustand/useAuthStore';
@@ -19,7 +19,21 @@ const SuggestedUser = () => {
 
     const [selectedId, setSelectedId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
-    // const [localDismissed, setLocalDismissed] = useState([]);
+    const [optimisticStates, setOptimisticStates] = useState({}); // userId -> 'following' | 'requested' | 'unfollowed' | null
+    const [localUsers, setLocalUsers] = useState([]);
+
+    useEffect(() => {
+        if (users && users.length > 0) {
+            setLocalUsers(prev => {
+                if (prev.length === 0) return users;
+                const newUsersMap = new Map(users.map(u => [u._id, u]));
+                const preserved = prev.filter(p => newUsersMap.has(p._id) || optimisticStates[p._id] !== undefined);
+                const preservedIds = new Set(preserved.map(p => p._id));
+                const added = users.filter(u => !preservedIds.has(u._id));
+                return [...preserved, ...added];
+            });
+        }
+    }, [users, optimisticStates]);
 
     // const handleDismiss = async (e, targetUserId) => {
     //     e.stopPropagation();
@@ -42,7 +56,15 @@ const SuggestedUser = () => {
                 acceptLabel: 'Unfollow',
                 rejectLabel: 'Cancel',
                 acceptClassName: 'p-button-danger',
-                accept: () => unfollowMutation.mutate({ targetUserId: userId }),
+                accept: () => {
+                    setOptimisticStates(prev => ({ ...prev, [userId]: 'unfollowed' }));
+                    unfollowMutation.mutate(
+                        { targetUserId: userId },
+                        {
+                            onSettled: () => setOptimisticStates(prev => ({ ...prev, [userId]: null })),
+                        }
+                    );
+                },
             });
         } else if (isRequested) {
             confirmDialog({
@@ -52,10 +74,26 @@ const SuggestedUser = () => {
                 acceptLabel: 'Withdraw Request',
                 rejectLabel: 'Keep',
                 acceptClassName: 'p-button-secondary',
-                accept: () => cancelMutation.mutate({ targetUserId: userId }),
+                accept: () => {
+                    setOptimisticStates(prev => ({ ...prev, [userId]: 'unfollowed' }));
+                    cancelMutation.mutate(
+                        { targetUserId: userId },
+                        {
+                            onSettled: () => setOptimisticStates(prev => ({ ...prev, [userId]: null })),
+                        }
+                    );
+                },
             });
         } else {
-            followMutation.mutate({ targetUserId: userId });
+            const targetUser = localUsers.find(u => u._id?.toString() === userId?.toString());
+            const nextState = targetUser?.isPrivate ? 'requested' : 'following';
+            setOptimisticStates(prev => ({ ...prev, [userId]: nextState }));
+            followMutation.mutate(
+                { targetUserId: userId },
+                {
+                    onSettled: () => setOptimisticStates(prev => ({ ...prev, [userId]: null })),
+                }
+            );
         }
     };
 
@@ -74,15 +112,15 @@ const SuggestedUser = () => {
                 </div>
 
                 <div className="flex flex-col gap-1 p-2 overflow-y-auto flex-1">
-                    {users.filter(u =>
+                    {localUsers.filter(u =>
                         u._id !== user?._id &&
-                        !user?.following?.some(f => f?.toString() === u._id?.toString()) &&
                         !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString())
                         //  && !localDismissed.includes(u._id)
                     ).slice(0, 8).map(u => {
                         const userIsOnline = isOnline(u._id);
-                        const isFollowing = user?.following?.some(f => f?.toString() === u._id?.toString());
-                        const isRequested = u.followRequests?.some(r => r?.toString() === user?._id?.toString());
+                        const optState = optimisticStates[u._id];
+                        const isFollowing = optState === 'following' ? true : optState === 'unfollowed' ? false : user?.following?.some(f => f?.toString() === u._id?.toString());
+                        const isRequested = optState === 'requested' ? true : optState === 'unfollowed' ? false : (u.isRequested || u.followRequests?.some(r => r?.toString() === user?._id?.toString()));
                         const isMutating = (followMutation.isPending && followMutation.variables?.targetUserId === u._id) ||
                             (unfollowMutation.isPending && unfollowMutation.variables?.targetUserId === u._id) ||
                             (cancelMutation.isPending && cancelMutation.variables?.targetUserId === u._id);
@@ -108,7 +146,7 @@ const SuggestedUser = () => {
                                     <button onClick={(e) => handleFollow(e, u._id, isRequested)}
                                         disabled={isMutating}
                                         className={`text-[10px] sm:text-xs px-4 py-1.5 rounded-full border-0 cursor-pointer font-bold transition min-w-[85px] ${isFollowing ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}>
-                                        {isMutating ? '...' : (isFollowing ? 'Unfollow' : isRequested ? 'Requested' : 'Follow')}
+                                        {isFollowing ? 'Unfollow' : isRequested ? 'Requested' : 'Follow'}
                                     </button>
                                 </div>
                             </div>
