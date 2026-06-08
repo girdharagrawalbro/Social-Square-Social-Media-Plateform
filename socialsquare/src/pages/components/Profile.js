@@ -203,7 +203,17 @@ const Profile = ({ userId }) => {
             accept: () => unfollowMutation.mutate({ targetUserId: profileId }),
         });
     };
-    const handleCancelRequest = () => cancelRequestMutation.mutate({ targetUserId: profileId });
+    const handleCancelRequest = () => {
+        confirmDialog({
+            message: 'Do you want to cancel your follow request?',
+            header: 'Cancel Request',
+            icon: 'pi pi-times-circle',
+            acceptLabel: 'Withdraw Request',
+            rejectLabel: 'Keep',
+            acceptClassName: 'p-button-secondary',
+            accept: () => cancelRequestMutation.mutate({ targetUserId: profileId }),
+        });
+    };
 
 
     const handleBlock = () => {

@@ -192,7 +192,17 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
             accept: () => unfollowMutation.mutate({ targetUserId: id }),
         });
     };
-    const handleCancelRequest = () => cancelRequestMutation.mutate({ targetUserId: id });
+    const handleCancelRequest = () => {
+        confirmDialog({
+            message: 'Do you want to cancel your follow request?',
+            header: 'Cancel Request',
+            icon: 'pi pi-times-circle',
+            acceptLabel: 'Withdraw Request',
+            rejectLabel: 'Keep',
+            acceptClassName: 'p-button-secondary',
+            accept: () => cancelRequestMutation.mutate({ targetUserId: id }),
+        });
+    };
 
     const handleMessage = async () => {
         try {
