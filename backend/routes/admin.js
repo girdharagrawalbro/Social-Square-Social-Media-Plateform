@@ -787,6 +787,32 @@ router.post('/debug/admin-digest', requireAdmin, async (req, res) => {
     }
 });
 
+router.post('/debug/auto-post', requireAdmin, async (req, res) => {
+    try {
+        const { runAutoPostJob } = require('../queues/autoPostQueue');
+        const force = req.query.force === 'true';
+
+        console.log(`[Debug] Triggering manual AI auto-post (force=${force})...`);
+        const post = await runAutoPostJob(force);
+
+        if (post) {
+            res.json({
+                success: true,
+                message: 'AI auto-post completed successfully',
+                post
+            });
+        } else {
+            res.json({
+                success: false,
+                message: 'AI auto-post was skipped (likely due to recent post or flag. Use ?force=true to override)'
+            });
+        }
+    } catch (err) {
+        console.error('[Debug Auto-Post Error]:', err.message);
+        res.status(500).json({ error: `AI auto-post failed: ${err.message}` });
+    }
+});
+
 // ─── AUDIT LOGS ──────────────────────────────────────────────────────────────
 // ─── AUDIT LOGS (PAGINATED) ─────────────────────────────────────────────────
 router.get('/audit', requireAdmin, async (req, res) => {
@@ -882,14 +908,16 @@ router.patch('/content-filter/policy', requireAdmin, [
 // ─── SYSTEM SETTINGS & FEATURE FLAGS ─────────────────────────────────────────
 router.get('/system/flags', requireAdmin, async (req, res) => {
     try {
-        const flags = await SystemSetting.find({ key: { $in: ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode', 'admin_daily_digest'] } }).lean();
+        const flags = await SystemSetting.find({ key: { $in: ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode', 'admin_daily_digest', 'content_filter', 'ai_auto_posting'] } }).lean();
 
         const defaults = {
             ai_features: true,
             anonymous_posts: true,
             story_creation: true,
             maintenance_mode: false,
-            admin_daily_digest: true
+            admin_daily_digest: true,
+            content_filter: true,
+            ai_auto_posting: true
         };
 
         const result = { ...defaults };
@@ -908,7 +936,7 @@ router.post('/system/flags', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Invalid flags payload' });
         }
 
-        const allowed = ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode', 'admin_daily_digest'];
+        const allowed = ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode', 'admin_daily_digest', 'content_filter', 'ai_auto_posting'];
         const updates = [];
 
         for (const key of allowed) {
@@ -940,7 +968,7 @@ router.post('/system/flags', requireAdmin, async (req, res) => {
 // ─── BROADCAST ANNOUNCEMENTS ─────────────────────────────────────────────────
 router.post('/broadcast', requireAdmin, async (req, res) => {
     try {
-        const { content, segment, sendEmail: emailChecked, sendInApp: inAppChecked } = req.body;
+        const { content, segment, sendEmail, sendInApp, broadcastType = 'warning' } = req.body;
         if (!content?.trim()) return res.status(400).json({ error: 'Content required' });
 
         const query = {};
@@ -950,8 +978,8 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
         const users = await User.find(query).select('_id email fullname').lean();
         const admin = await User.findById(req.adminId).select('fullname profile_picture').lean();
 
-        // 1. Dispatch In-App Notifications if selected
-        if (inAppChecked !== false) {
+        // 1. Dispatch In-App Notifications if selected (defaults to true if undefined)
+        if (sendInApp !== false) {
             const notificationsPromises = users.map(user => {
                 return require('../lib/notification').createNotification({
                     recipientId: user._id,
@@ -960,7 +988,7 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
                         fullname: admin.fullname,
                         profile_picture: admin.profile_picture
                     },
-                    type: 'system',
+                    type: broadcastType === 'warning' ? 'system' : 'announcement',
                     message: {
                         content: content.trim()
                     }
@@ -969,17 +997,21 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
             await Promise.all(notificationsPromises);
         }
 
-        // 2. Dispatch Broadcast Emails if selected
-        if (emailChecked === true) {
-            const { sendEmail } = require('../utils/mailer');
+        // 2. Dispatch Broadcast Emails if selected (defaults to false)
+        if (sendEmail === true) {
+            const { sendEmail: mailerSend } = require('../utils/mailer');
+            const emailSubject = broadcastType === 'warning' ? '⚠️ Security Warning from Social Square' : '📢 Announcement from Social Square';
+            const headerColor = broadcastType === 'warning' ? '#ef4444' : '#6366f1';
+            const headerTitle = broadcastType === 'warning' ? 'Security Warning' : 'Announcement';
+
             users.forEach(user => {
                 if (user.email) {
-                    sendEmail({
+                    mailerSend({
                         to: user.email,
-                        subject: '📢 Announcement from Social Square',
+                        subject: emailSubject,
                         html: `
                         <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
-                            <h2 style="color:#6366f1;margin-top:0">Announcement</h2>
+                            <h2 style="color:${headerColor};margin-top:0">${headerTitle}</h2>
                             <p>Hi ${user.fullname || 'there'},</p>
                             <p style="font-size:14px;line-height:1.6;color:#374151">${content.trim()}</p>
                             <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
@@ -991,13 +1023,13 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
 
         await logAdminAction({
             adminId: req.adminId,
-            action: 'warn_user',
+            action: broadcastType === 'warning' ? 'warn_user' : 'broadcast_announcement',
             targetType: 'system',
             targetId: `broadcast_${segment}`,
-            meta: { content: content.slice(0, 100), recipient_count: users.length, ip: req.ip, channels: { email: !!emailChecked, inApp: inAppChecked !== false } },
+            meta: { content: content.slice(0, 100), recipient_count: users.length, ip: req.ip, channels: { email: !!sendEmail, inApp: sendInApp !== false }, broadcastType },
         });
 
-        res.json({ success: true, message: `Announcement sent to ${users.length} users` });
+        res.json({ success: true, message: `Broadcast sent to ${users.length} users` });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

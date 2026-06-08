@@ -19,8 +19,8 @@ const setIo = (socketIoInstance) => {
  */
 const createNotification = async ({ recipientId, sender, type, postId, message, url }) => {
   try {
-    // 🛡️ Null Guard: Ensure required identity fields exist (allow system notifications without a sender)
-    if (!recipientId || (type !== 'system' && (!sender || !sender.id))) {
+    // 🛡️ Null Guard: Ensure required identity fields exist (allow system and announcement notifications without a sender)
+    if (!recipientId || ((type !== 'system' && type !== 'announcement') && (!sender || !sender.id))) {
       console.warn('[Notification] Skipped: Missing identity data', { recipientId, senderId: sender?.id });
       return null;
     }
@@ -38,8 +38,8 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
       return null;
     }
 
-    // Don't notify yourself (unless it's a system notification like login alert)
-    if (recipientId.toString() === finalSender.id.toString() && type !== 'system') {
+    // Don't notify yourself (unless it's a system/announcement notification like login alert)
+    if (recipientId.toString() === finalSender.id.toString() && type !== 'system' && type !== 'announcement') {
       return null;
     }
 
@@ -122,6 +122,7 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
             case 'message': body = `New message from ${finalSender.fullname}`; title = 'Social Square Chat'; break;
             case 'new_post': body = `${finalSender.fullname} shared a new post`; break;
             case 'system': body = message?.content || 'New system update'; break;
+            case 'announcement': body = message?.content || 'New announcement'; title = 'Social Square Announcement'; break;
             default: body = `${finalSender.fullname} sent you a notification`;
           }
 

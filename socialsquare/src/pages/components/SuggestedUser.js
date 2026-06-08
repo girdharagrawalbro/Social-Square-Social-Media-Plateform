@@ -98,14 +98,15 @@ const SuggestedUser = () => {
     };
 
     if (isLoading) return (
-        <div className="p-3 bg-white dark:bg-[#0d0d0d] border border-gray-100 dark:border-neutral-800/50 rounded-2xl mt-3 w-80 shadow-md">
+        <div className="p-3 rounded-2xl mt-3 w-80">
             {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 dark:bg-neutral-800/50 rounded-xl mb-2 animate-pulse" />)}
         </div>
     );
 
     return (
         <>
-            <div className="flex flex-col flex-1 min-h-0 glass-card rounded-2xl overflow-hidden transition-all duration-300 bg-white dark:bg-[#0d0d0d] border border-gray-100 dark:border-neutral-800/50 w-100 shadow-md">
+            <div className="flex flex-col flex-1 min-h-0 rounded-2xl overflow-hidden transition-all duration-300 w-100"
+            >
                 <div className="px-4 py-3 flex justify-between items-center">
                     <h5 className="font-semibold m-0 text-gray-800 dark:text-gray-100">Suggested for you</h5>
                     <Link to="/discover" className='font-semibold m-0 text-blue-600 dark:text-[#808bf5] hover:underline text-sm'>See all</Link>
@@ -156,6 +157,10 @@ const SuggestedUser = () => {
                         <p className="text-gray-400 dark:text-gray-500 text-xs text-center py-6 opacity-60">No suggestions right now</p>
                     )}
                 </div>
+                <div>
+
+                </div>
+
             </div>
 
             <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)}>
