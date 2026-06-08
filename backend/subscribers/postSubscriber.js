@@ -19,6 +19,32 @@ async function initPostSubscriber() {
         console.log('[NATS] Author and Full Post found');
 
 
+        const isAiPost = data.isAi || (user && user.username === 'social_square_ai');
+
+        if (isAiPost) {
+            console.log('[NATS] AI Post detected. Distributing to all active users...');
+            const activeUsers = await User.find({ isBanned: { $ne: true }, deletedAt: null }).select('_id').lean();
+            const recipientIds = activeUsers.map(u => u._id);
+
+            if (recipientIds.length > 0) {
+                const feedEntries = recipientIds.map(userId => ({ userId, post: postId }));
+                await Feed.insertMany(feedEntries);
+                console.log(`[NATS] AI Feed updated for ${recipientIds.length} users`);
+            }
+
+            if (_io && fullPost) {
+                _io.emit('newFeedPost', fullPost);
+                console.log('[NATS] AI newFeedPost broadcasted via Socket.io to everyone');
+            }
+
+            await Analytics.create({
+                event: 'post.created', userId: user._id, postId, category,
+                meta: { isAi: true, followersNotified: recipientIds.length },
+            });
+            console.log(`[NATS] AI post ${postId} analytics tracked`);
+            return;
+        }
+
         if (!author || !author.followers.length) {
             console.log('[NATS] No followers, skipping...');
             return;

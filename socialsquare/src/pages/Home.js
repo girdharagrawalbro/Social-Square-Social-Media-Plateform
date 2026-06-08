@@ -174,12 +174,12 @@ const Home = () => {
                 )}
             </section >
 
-            <div className="hidden min-[1384px]:block fixed top-4 right-[10rem] z-[8888]">
+            <div className="hidden min-[1384px]:block max-w-[380px] min-w-[380px] fixed top-4 right-[10rem]">
                 <SuggestedUser />
             </div>
 
 
-            <div className="hidden md:block fixed bottom-6 right-[88px] z-[8888]">
+            <div className="hidden md:block fixed bottom-6 right-[88px]">
                 <FloatMessagesButton />
             </div>
 

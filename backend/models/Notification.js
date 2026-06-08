@@ -13,7 +13,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['like', 'comment', 'follow', 'follow_request', 'follow_accept', 'follow_decline', 'message', 'system', 'new_post'],  // added follow_accept/decline
+    enum: ['like', 'comment', 'follow', 'follow_request', 'follow_accept', 'follow_decline', 'message', 'system', 'new_post', 'announcement'],  // added follow_accept/decline
     default: 'message'
   },
   // Optional — only for message notifications

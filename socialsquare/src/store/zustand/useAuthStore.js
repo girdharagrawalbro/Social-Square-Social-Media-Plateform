@@ -238,7 +238,12 @@ api.interceptors.request.use(config => {
     config.headers['x-request-id'] = `req-${Math.random().toString(36).substr(2, 9)}-${Date.now().toString(36)}`;
     return config;
 });
-api.interceptors.response.use(res => res, handleRateLimit);
+api.interceptors.response.use(res => {
+    if (typeof res.data === 'string' && res.data) {
+        try { res.data = JSON.parse(res.data); } catch (e) { }
+    }
+    return res;
+}, handleRateLimit);
 api.interceptors.response.use(
     res => res,
     async err => {

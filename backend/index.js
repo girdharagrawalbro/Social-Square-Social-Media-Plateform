@@ -169,6 +169,16 @@ async function initCleanupJobs() {
     }
 }
 
+async function initAutoPostJobs() {
+    try {
+        const { scheduleAutoPost } = require('./queues/autoPostQueue');
+        await scheduleAutoPost();
+    } catch (err) {
+        console.warn('[AutoPost] Failed to schedule auto-post jobs:', err.message);
+    }
+}
+
+
 // ─── ROUTES (lazy-loaded to reduce startup memory) ────────────────────────────
 // Each require() loads the module + its dependencies into memory
 // By using a getter pattern we defer loading until first request
@@ -762,6 +772,7 @@ async function bootstrap() {
     await initRedis();
     await initPubSubLayer();
     await initCleanupJobs();
+    await initAutoPostJobs();
     const { scheduleDailyDigest } = require('./queues/digestQueue');
     await scheduleDailyDigest();
 

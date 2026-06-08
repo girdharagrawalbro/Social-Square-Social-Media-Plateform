@@ -3,7 +3,7 @@ import { Network } from '@capacitor/network';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState, useRef } from 'react';
 import queryClient from './queryClient';
 import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
@@ -88,6 +88,16 @@ function AppInit() {
     const initAuth = useAuthStore(s => s.initAuth);
     const user = useAuthStore(s => s.user);
     const initialized = useAuthStore(s => s.initialized);
+
+    const sessionStartTime = useRef(Date.now());
+    const prevUserId = useRef(user?._id);
+
+    useEffect(() => {
+        if (user?._id !== prevUserId.current) {
+            sessionStartTime.current = Date.now();
+            prevUserId.current = user?._id;
+        }
+    }, [user?._id]);
     const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setActiveCall } = useConversationStore();
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     useFeedSocket();
@@ -305,12 +315,22 @@ function AppInit() {
             }
 
             if (type === 'system') {
-
-
-
                 actionText =
                     message?.content ||
                     'Security Alert';
+                icon = '🛡️';
+                
+                // Skip displaying the toast if it is a New Login notification received right after login session start
+                if (actionText.includes('New Login') && (Date.now() - sessionStartTime.current < 15000)) {
+                    return;
+                }
+            }
+
+            if (type === 'announcement') {
+                actionText =
+                    message?.content ||
+                    'New Announcement';
+                icon = '📢';
             }
 
             if (type === 'new_post') {
@@ -422,8 +442,9 @@ function AppInit() {
                         >
                             <img
                                 src={
-                                    sender?.profile_picture ||
-                                    'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'
+                                    type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' :
+                                    type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' :
+                                    (sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')
                                 }
                                 alt=""
                                 style={{

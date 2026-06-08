@@ -1,5 +1,6 @@
 const ContentFilter = require('../models/ContentFilter');
 const AuditLog = require('../models/AuditLog');
+const SystemSetting = require('../models/SystemSetting');
 
 const checkContent = async (text) => {
     if (!text || typeof text !== 'string') return null;
@@ -28,6 +29,12 @@ const contentFilterMiddleware = async (req, res, next) => {
     let violationFound = null;
 
     try {
+        // Bypass if content_filter flag is disabled
+        const filterFlag = await SystemSetting.findOne({ key: 'content_filter' }).lean();
+        if (filterFlag && filterFlag.value === false) {
+            return next();
+        }
+
         for (const field of fieldsToFilter) {
             if (req.body[field]) {
                 violationFound = await checkContent(req.body[field]);

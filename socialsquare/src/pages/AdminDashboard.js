@@ -13,7 +13,7 @@ const useAdmin = () => {
 };
 
 const Header = ({ user, onLock, onHome, onToggleSidebar }) => (
-    <div className="sticky top-0 z-50 w-full backdrop-blur-xl bg-[var(--surface-1)] border-b border-[var(--border-color)] px-4 md:px-6 py-3 flex items-center justify-between shadow-sm">
+    <div className="sticky top-0 z-50 w-full backdrop-blur-xl bg-[var(--surface-1)] border-b border-[var(--border-color)] px-2 md:px-6 py-2 md:px-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2 md:gap-4">
             <button onClick={onToggleSidebar} className="lg:hidden p-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] rounded transition-all border-0 cursor-pointer text-[var(--text-main)] shadow-sm flex items-center justify-center">
                 <i className="pi pi-bars text-sm font-bold"></i>
@@ -27,10 +27,10 @@ const Header = ({ user, onLock, onHome, onToggleSidebar }) => (
         <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
                 <img src={user?.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-[var(--surface-1)] shadow-sm" />
-                <span className="text-xs font-bold text-[var(--text-main)]">{user?.fullname}</span>
+                <span className="text-xs hidden md:block font-bold text-[var(--text-main)]">{user?.fullname}</span>
             </div>
             <button onClick={onLock} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-2 rounded text-xs font-black transition-all border-0 cursor-pointer shadow-sm active:scale-95">
-                <i className="pi pi-lock"></i> LOCK
+                <i className="pi pi-lock"></i>
             </button>
         </div>
     </div>
@@ -86,11 +86,7 @@ const AuditIcon = () => (
     </svg>
 );
 
-const ShieldIcon = () => (
-    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z" />
-    </svg>
-);
+
 
 const SettingsIcon = () => (
     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1251,33 +1247,70 @@ const ReportsTab = () => {
 const SystemTab = () => {
     const { headers } = useAdmin();
     const [loading, setLoading] = useState(false);
+    const [subTab, setSubTab] = useState('feature_flags');
 
-    const [flags, setFlags] = useState({
-        ai_features: true,
-        anonymous_posts: true,
-        story_creation: true,
-        maintenance_mode: false,
-        admin_daily_digest: true
-    });
-    const [flagsLoading, setFlagsLoading] = useState(false);
+    // --- Feature Flags State ---
+    const [flags, setFlags] = useState(null);
+    const [flagsLoading, setFlagsLoading] = useState(true);
 
+    // --- Content Moderation Filter State ---
+    const [bannedWords, setBannedWords] = useState([]);
+    const [newWord, setNewWord] = useState('');
+    const [moderationAction, setModerationAction] = useState('flag');
+    const [wordsLoading, setWordsLoading] = useState(false);
+
+    // --- Broadcast State ---
     const [broadcastContent, setBroadcastContent] = useState('');
     const [broadcastSegment, setBroadcastSegment] = useState('all');
     const [broadcastLoading, setBroadcastLoading] = useState(false);
+    const [broadcastType, setBroadcastType] = useState('warning');
+    const [sendEmail, setSendEmail] = useState(false);
+    const [sendInApp, setSendInApp] = useState(true);
 
-    useEffect(() => {
-        const fetchFlags = async () => {
-            try {
-                const res = await api.get('/api/admin/system/flags', { headers });
-                if (res.data?.success) setFlags(res.data.flags);
-            } catch (err) {
-                console.error('Failed to load flags');
+    // --- Load Feature Flags ---
+    const fetchFlags = useCallback(async () => {
+        setFlagsLoading(true);
+        try {
+            const res = await api.get('/api/admin/system/flags', { headers });
+            if (res.data?.success) {
+                setFlags(res.data.flags);
             }
-        };
-        fetchFlags();
+        } catch (err) {
+            console.error('Failed to load flags');
+            toast.error('Failed to load system feature flags');
+        } finally {
+            setFlagsLoading(false);
+        }
     }, [headers]);
 
+    // --- Load Banned Words ---
+    const fetchWords = useCallback(async () => {
+        setWordsLoading(true);
+        try {
+            const r = await api.get('/api/admin/content-filter', { headers });
+            setBannedWords(r.data || []);
+            if (r.data && r.data.length > 0) {
+                setModerationAction(r.data[0].action || 'flag');
+            }
+        } catch (err) {
+            console.error('Failed to load banned words');
+        } finally {
+            setWordsLoading(false);
+        }
+    }, [headers]);
+
+    useEffect(() => {
+        fetchFlags();
+    }, [fetchFlags]);
+
+    useEffect(() => {
+        if (subTab === 'content_moderation') {
+            fetchWords();
+        }
+    }, [subTab, fetchWords]);
+
     const toggleFlag = async (key) => {
+        if (!flags) return;
         const updated = { ...flags, [key]: !flags[key] };
         setFlags(updated);
         setFlagsLoading(true);
@@ -1307,125 +1340,298 @@ const SystemTab = () => {
     const handleBroadcast = async (e) => {
         e.preventDefault();
         if (!broadcastContent.trim()) return;
+        if (!sendEmail && !sendInApp) {
+            toast.error('Please select at least one delivery channel (Push or Email)');
+            return;
+        }
         setBroadcastLoading(true);
         try {
-            await api.post('/api/admin/broadcast', { content: broadcastContent, segment: broadcastSegment }, { headers });
-            toast.success('Broadcast announcement sent');
+            await api.post('/api/admin/broadcast', { 
+                content: broadcastContent, 
+                segment: broadcastSegment,
+                broadcastType,
+                sendEmail,
+                sendInApp
+            }, { headers });
+            toast.success('Broadcast sent successfully');
             setBroadcastContent('');
         } catch (err) {
-            toast.error('Broadcast failed');
+            toast.error(err.response?.data?.error || 'Broadcast failed');
         } finally {
             setBroadcastLoading(false);
         }
     };
 
+    // --- Content Moderation Functions ---
+    const addWord = async (e) => {
+        e.preventDefault();
+        if (!newWord.trim()) return;
+        try {
+            await api.post('/api/admin/content-filter', { word: newWord, action: moderationAction }, { headers });
+            toast.success('Word added');
+            setNewWord('');
+            fetchWords();
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed');
+        }
+    };
+
+    const removeWord = async (id) => {
+        try {
+            await api.delete(`/api/admin/content-filter/${id}`, { headers });
+            toast.success('Word removed');
+            fetchWords();
+        } catch {
+            toast.error('Failed');
+        }
+    };
+
+    const handlePolicyChange = async (newPolicy) => {
+        try {
+            await api.patch('/api/admin/content-filter/policy', { action: newPolicy }, { headers });
+            setModerationAction(newPolicy);
+            toast.success(`Enforcement policy updated to ${newPolicy === 'block' ? 'Block Publication' : 'Auto-Flag'}`);
+            fetchWords();
+        } catch {
+            toast.error('Failed to update policy');
+        }
+    };
+
+    const subTabs = [
+        { key: 'feature_flags', label: 'Feature Flags', icon: '⚙️' },
+        { key: 'content_moderation', label: 'Content Moderation', icon: '🛡️' },
+        { key: 'broadcasts', label: 'Broadcast Alerts', icon: '📣' },
+        { key: 'control_cluster', label: 'Control Cluster', icon: '📡' },
+    ];
+
     return (
-        <div className="flex flex-col gap-8 max-w-3xl">
-            {/* Feature Flags Panel */}
-            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
-                <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded bg-[#808bf5]/10 flex items-center justify-center text-4xl border border-indigo-500/20">⚙️</div>
-                    <div>
-                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Feature Flags</h3>
-                        <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Enable or Disable System Modules</p>
-                    </div>
-                </div>
+        <div className="flex flex-col gap-6 max-w-3xl">
+            {/* Dynamic Pill Sub-Tabs */}
+            <div className="flex gap-2 bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm overflow-x-auto custom-scrollbar">
+                {subTabs.map(st => (
+                    <button
+                        key={st.key}
+                        onClick={() => setSubTab(st.key)}
+                        className={`px-4 py-2.5 rounded text-[10px] font-black uppercase tracking-wider border-0 cursor-pointer transition-all flex items-center gap-2 flex-shrink-0 ${subTab === st.key
+                            ? 'bg-[#808bf5] text-white shadow-md shadow-indigo-500/20'
+                            : 'bg-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'
+                            }`}
+                    >
+                        <span className="text-sm">{st.icon}</span>
+                        <span>{st.label}</span>
+                    </button>
+                ))}
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(flags).map(([key, val]) => (
-                        <div key={key} className="p-6 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center justify-between shadow-inner">
+            {/* Sub-tab Content Area */}
+            <div className="animate-in fade-in duration-300">
+                {subTab === 'feature_flags' && (
+                    <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]">
+                        <div className="flex items-center gap-6 mb-3">
+                            <div className="w-16 h-16 rounded bg-[#808bf5]/10 flex items-center justify-center text-4xl border border-indigo-500/20">⚙️</div>
                             <div>
-                                <p className="text-xs font-black text-[var(--text-main)] m-0 capitalize tracking-wider">{key.replace(/_/g, ' ')}</p>
-                                <p className="text-[9px] font-bold text-[var(--text-sub)] opacity-60 m-0 mt-1 uppercase tracking-widest">Live State Toggle</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={val} onChange={() => toggleFlag(key)} className="sr-only peer" disabled={flagsLoading} />
-                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Global Broadcast */}
-            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
-                <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded bg-indigo-500/10 flex items-center justify-center text-4xl border border-indigo-500/20">📣</div>
-                    <div>
-                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Broadcast Alerts</h3>
-                        <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Push System Notifications globally</p>
-                    </div>
-                </div>
-
-                <form onSubmit={handleBroadcast} className="flex flex-col gap-4">
-                    <textarea
-                        value={broadcastContent}
-                        onChange={e => setBroadcastContent(e.target.value)}
-                        placeholder="Type a message to dispatch to your user segment..."
-                        rows={4}
-                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-5 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none"
-                    />
-
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <select
-                            value={broadcastSegment}
-                            onChange={e => setBroadcastSegment(e.target.value)}
-                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer"
-                        >
-                            <option value="all">All Members</option>
-                            <option value="active">Recently Active</option>
-                            <option value="admins">Administrators</option>
-                        </select>
-
-                        <button
-                            type="submit"
-                            disabled={broadcastLoading || !broadcastContent.trim()}
-                            className="px-8 py-3 bg-[#808bf5] text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {broadcastLoading ? 'Dispatching...' : 'Send Broadcast'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            {/* Original Cluster Digest Module */}
-            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
-                <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded bg-[#808bf5]/10 flex items-center justify-center text-4xl shadow-inner border border-indigo-500/20">📡</div>
-                    <div>
-                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Control Cluster</h3>
-                        <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Global Activity & Service Engine</p>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    <div className="p-8 bg-[var(--surface-2)] rounded border border-[var(--border-color)] shadow-inner">
-                        <p className="text-xs font-black text-[var(--text-main)] mb-3 m-0 uppercase tracking-[0.2em] opacity-80">Manual Data Sync</p>
-                        <p className="text-xs text-[var(--text-sub)] mb-8 m-0 leading-relaxed font-medium opacity-60">
-                            Force an immediate broadcast of the daily activity digest. This will bypass the system cron and deliver
-                            personalized updates to all registered users instantly.
-                        </p>
-                        <button
-                            onClick={triggerDigest}
-                            disabled={loading}
-                            className={`flex items-center gap-3 px-8 py-4 rounded text-[11px] font-black uppercase tracking-[0.2em] transition-all border-0 cursor-pointer shadow-2xl active:scale-95 ${loading ? 'bg-[var(--surface-3)] text-[var(--text-sub)]' : 'bg-[#808bf5] text-white hover:bg-indigo-600 hover:shadow-indigo-500/30'
-                                }`}
-                        >
-                            {loading ? <i className="pi pi-spin pi-spinner"></i> : <i className="pi pi-bolt"></i>}
-                            {loading ? 'Transmitting...' : 'Initiate Broadcast'}
-                        </button>
-                    </div>
-
-                    <div className="p-6 border border-indigo-500/20 bg-indigo-500/5 rounded">
-                        <div className="flex gap-4">
-                            <i className="pi pi-info-circle text-[#808bf5] mt-1 text-lg"></i>
-                            <div className="text-[11px] text-[#808bf5] space-y-3 font-bold uppercase tracking-wider">
-                                <p className="m-0 opacity-100">Core Schedule: 08:00 UTC Daily</p>
-                                <p className="m-0 opacity-60 leading-relaxed">The engine is synchronized to provide 24-hour cycle transparency. Admins receive priority status reports regardless of system volatility.</p>
+                                <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Feature Flags</h3>
+                                <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Enable or Disable System Modules</p>
                             </div>
                         </div>
+
+                        {flagsLoading && !flags ? (
+                            <div className="flex justify-center p-8">
+                                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        ) : flags ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {Object.entries(flags).map(([key, val]) => (
+                                    <div key={key} className="p-3 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center justify-between shadow-inner hover:border-[var(--border-color)]/80 transition-all">
+                                        <div>
+                                            <p className="text-xs font-black text-[var(--text-main)] m-0 capitalize tracking-wider">{key.replace(/_/g, ' ')}</p>
+                                            <p className="text-[9px] font-bold text-[var(--text-sub)] opacity-60 m-0 mt-1 uppercase tracking-widest">Live State Toggle</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" checked={val} onChange={() => toggleFlag(key)} className="sr-only peer" disabled={flagsLoading} />
+                                            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-center text-[var(--text-sub)] text-xs p-4">No feature flags available</p>
+                        )}
                     </div>
-                </div>
+                )}
+
+                {subTab === 'content_moderation' && (
+                    <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]">
+                        <div className="flex items-center gap-6 mb-3">
+                            <div className="w-16 h-16 rounded bg-orange-500/10 flex items-center justify-center text-4xl border border-orange-500/20">🛡️</div>
+                            <div>
+                                <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Content Moderation Filter</h3>
+                                <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Manage Banned Words & Policies</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={addWord} className="flex gap-3 mb-3">
+                            <input
+                                type="text"
+                                placeholder="Add new banned word/phrase..."
+                                value={newWord}
+                                onChange={e => setNewWord(e.target.value)}
+                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all"
+                            />
+                            <button type="submit" className="px-3 py-2.5 bg-[#808bf5] text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg">Add</button>
+                        </form>
+
+                        <div className="p-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)] mb-3">
+                            <p className="text-xs font-black text-[var(--text-main)] mb-4 m-0 uppercase tracking-[0.2em] opacity-80">Currently Banned Words</p>
+                            {wordsLoading && bannedWords.length === 0 ? (
+                                <div className="flex justify-center p-4">
+                                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            ) : bannedWords.length === 0 ? (
+                                <p className="text-xs font-bold text-[var(--text-sub)] opacity-50 m-0">No words currently banned.</p>
+                            ) : (
+                                <div className="flex gap-2 flex-wrap max-h-60 overflow-y-auto custom-scrollbar p-1">
+                                    {bannedWords.map(item => (
+                                        <span key={item._id} className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--surface-1)] border border-[var(--border-color)] rounded text-xs font-bold text-[var(--text-main)] shadow-sm">
+                                            {item.word}
+                                            <button type="button" onClick={() => removeWord(item._id)} className="border-0 bg-transparent text-red-500 cursor-pointer font-bold hover:scale-110 transition-transform">×</button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 border border-[var(--border-color)] rounded">
+                            <div>
+                                <p className="text-xs font-black text-[var(--text-main)] m-0 uppercase tracking-wider">Enforcement Policy</p>
+                                <p className="text-[10px] text-[var(--text-sub)] m-0 mt-1 font-bold opacity-60">Choose what happens when a match is found.</p>
+                            </div>
+                            <select value={moderationAction} onChange={e => handlePolicyChange(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer">
+                                <option value="flag">Auto-Flag for Review</option>
+                                <option value="block">Block Publication</option>
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                {subTab === 'broadcasts' && (
+                    <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]">
+                        <div className="flex items-center gap-6 mb-3">
+                            <div className="w-16 h-16 rounded bg-indigo-500/10 flex items-center justify-center text-4xl border border-indigo-500/20">📣</div>
+                            <div>
+                                <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Broadcast Alerts</h3>
+                                <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Push System Notifications globally</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleBroadcast} className="flex flex-col gap-4">
+                            <textarea
+                                value={broadcastContent}
+                                onChange={e => setBroadcastContent(e.target.value)}
+                                placeholder="Type a message to dispatch to your user segment..."
+                                rows={4}
+                                className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none"
+                            />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-2">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-sub)] opacity-70">Broadcast Type</label>
+                                    <select
+                                        value={broadcastType}
+                                        onChange={e => setBroadcastType(e.target.value)}
+                                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer w-full"
+                                    >
+                                        <option value="warning">🛡️ Security Warning / Alert</option>
+                                        <option value="announcement">📢 General Announcement</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-sub)] opacity-70">Delivery Channels</label>
+                                    <div className="flex items-center gap-6 mt-2">
+                                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--text-main)] select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={sendInApp}
+                                                onChange={e => setSendInApp(e.target.checked)}
+                                                className="cursor-pointer w-4 h-4 rounded border-[var(--border-color)] bg-[var(--surface-2)] text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            Push/In-App
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--text-main)] select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={sendEmail}
+                                                onChange={e => setSendEmail(e.target.checked)}
+                                                className="cursor-pointer w-4 h-4 rounded border-[var(--border-color)] bg-[var(--surface-2)] text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            Email Broadcast
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between flex-wrap gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-sub)] opacity-70">Recipient Segment</label>
+                                    <select
+                                        value={broadcastSegment}
+                                        onChange={e => setBroadcastSegment(e.target.value)}
+                                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer"
+                                    >
+                                        <option value="all">All Members</option>
+                                        <option value="active">Recently Active</option>
+                                        <option value="admins">Administrators</option>
+                                    </select>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={broadcastLoading || !broadcastContent.trim()}
+                                    className="px-3 py-2.5 bg-[#808bf5] text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
+                                >
+                                    {broadcastLoading ? 'Dispatching...' : 'Send Broadcast'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {subTab === 'control_cluster' && (
+                    <div className="bg-[var(--surface-1)] rounded p-3 shadow-sm border border-[var(--border-color)]">
+                        <div className="flex items-center gap-6 mb-3">
+                            <div className="w-16 h-16 rounded bg-[#808bf5]/10 flex items-center justify-center text-4xl shadow-inner border border-indigo-500/20">📡</div>
+                            <div>
+                                <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Control Cluster</h3>
+                                <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Global Activity & Service Engine</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="p-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)] shadow-inner">
+                                <p className="text-xs font-black text-[var(--text-main)] mb-3 m-0 uppercase tracking-[0.2em] opacity-80">Initiate Broadcast</p>
+                                <p className="text-xs text-[var(--text-sub)] mb-8 m-0 leading-relaxed font-medium opacity-60">
+                                    An immediate broadcast of the daily activity digest.
+                                </p>
+                                <button
+                                    onClick={triggerDigest}
+                                    disabled={loading}
+                                    className={`mt-2 flex items-center gap-3 px-3 py-2.5 rounded text-[11px] font-black uppercase tracking-[0.2em] transition-all border-0 cursor-pointer shadow-2xl active:scale-95 ${loading ? 'bg-[var(--surface-3)] text-[var(--text-sub)]' : 'bg-[#808bf5] text-white hover:bg-indigo-600 hover:shadow-indigo-500/30'
+                                        }`}
+                                >
+                                    {loading ? <i className="pi pi-spin pi-spinner"></i> : <i className="pi pi-bolt"></i>}
+                                    {loading ? 'Transmitting...' : 'Initiate Broadcast'}
+                                </button>
+                            </div>
+
+                            <div className="p-3 border border-indigo-500/20 bg-indigo-500/5 rounded">
+                                <div className="flex gap-1 text-lg items-center">
+                                    <i className="pi pi-info-circle text-[#808bf5]"></i>
+                                    <p className="m-0 opacity-100 text-[11px] text-[#808bf5]">Core Schedule: 08:00 UTC Daily</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1439,7 +1645,7 @@ const ContactsTab = () => {
     const [page, setPage] = useState(1);
     const [status, setStatus] = useState('all');
     const [loading, setLoading] = useState(true);
-    
+
     const [selectedContact, setSelectedContact] = useState(null);
     const [replyText, setReplyText] = useState('');
     const [replyLoading, setReplyLoading] = useState(false);
@@ -1495,9 +1701,9 @@ const ContactsTab = () => {
             <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] opacity-50">Filter Status:</span>
-                    <select 
-                        value={status} 
-                        onChange={e => { setStatus(e.target.value); setPage(1); }} 
+                    <select
+                        value={status}
+                        onChange={e => { setStatus(e.target.value); setPage(1); }}
                         className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all"
                     >
                         <option value="all">All Submissions</option>
@@ -1538,11 +1744,10 @@ const ContactsTab = () => {
                                     </div>
                                 </td></tr>
                             ) : contacts.map(c => (
-                                <tr key={c._id} className={`transition-all duration-200 ${
-                                    c.status === 'unseen' 
-                                        ? 'bg-[#808bf5]/5 hover:bg-[#808bf5]/10 border-l-4 border-[#808bf5]' 
-                                        : 'hover:bg-[var(--surface-2)]/50 border-l-4 border-transparent'
-                                }`}>
+                                <tr key={c._id} className={`transition-all duration-200 ${c.status === 'unseen'
+                                    ? 'bg-[#808bf5]/5 hover:bg-[#808bf5]/10 border-l-4 border-[#808bf5]'
+                                    : 'hover:bg-[var(--surface-2)]/50 border-l-4 border-transparent'
+                                    }`}>
                                     <td style={{ padding: '20px' }} onClick={() => setSelectedContact(c)} className="cursor-pointer">
                                         <div className="flex flex-col gap-0.5">
                                             <p className="text-sm font-black text-[var(--text-main)] m-0">{c.name}</p>
@@ -1559,11 +1764,10 @@ const ContactsTab = () => {
                                         <p className="m-0 font-bold mt-0.5">Loc: <span className="text-[#808bf5]">{c.location?.city || 'Unknown'}, {c.location?.country || 'Unknown'}</span></p>
                                     </td>
                                     <td style={{ padding: '20px' }}>
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
-                                            c.status === 'replied' ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' :
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest ${c.status === 'replied' ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' :
                                             c.status === 'seen' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
-                                            'bg-red-500/10 text-red-500 border border-red-500/20'
-                                        }`}>
+                                                'bg-red-500/10 text-red-500 border border-red-500/20'
+                                            }`}>
                                             {c.status}
                                         </span>
                                     </td>
@@ -1573,21 +1777,21 @@ const ContactsTab = () => {
                                     <td style={{ padding: '20px' }}>
                                         <div className="flex gap-2">
                                             {c.status === 'unseen' ? (
-                                                <button 
+                                                <button
                                                     onClick={() => updateStatus(c._id, 'seen')}
                                                     className="bg-green-500 text-white hover:bg-green-600 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-95 shadow-sm"
                                                 >
                                                     Mark Seen
                                                 </button>
                                             ) : c.status === 'seen' ? (
-                                                <button 
+                                                <button
                                                     onClick={() => updateStatus(c._id, 'unseen')}
                                                     className="bg-[var(--surface-3)] text-[var(--text-main)] hover:bg-gray-400/20 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border border-[var(--border-color)] cursor-pointer transition-all active:scale-95"
                                                 >
                                                     Unseen
                                                 </button>
                                             ) : null}
-                                            <button 
+                                            <button
                                                 onClick={() => setSelectedContact(c)}
                                                 className="bg-[#808bf5] text-white hover:bg-indigo-600 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-95 shadow-sm"
                                             >
@@ -1666,16 +1870,16 @@ const ContactsTab = () => {
                         <div className="border-t border-[var(--border-color)] pt-4">
                             <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Send Email Reply</p>
                             <form onSubmit={handleReply} className="flex flex-col gap-3">
-                                <textarea 
-                                    value={replyText} 
-                                    onChange={e => setReplyText(e.target.value)} 
-                                    placeholder="Type a response to send directly to this user's email address..." 
-                                    rows={4} 
+                                <textarea
+                                    value={replyText}
+                                    onChange={e => setReplyText(e.target.value)}
+                                    placeholder="Type a response to send directly to this user's email address..."
+                                    rows={4}
                                     className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-4 text-xs text-[var(--text-main)] outline-none focus:ring-1 ring-[#808bf5] focus:border-[#808bf5] transition-all resize-none"
                                     required
                                 />
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     disabled={replyLoading || !replyText.trim()}
                                     className="w-full py-2.5 bg-[#808bf5] hover:bg-indigo-600 text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer transition-all shadow-md disabled:opacity-50"
                                 >
@@ -1690,108 +1894,7 @@ const ContactsTab = () => {
     );
 };
 
-// ─── CONTENT FILTER TAB ───────────────────────────────────────────────────────
-const ContentFilterTab = () => {
-    const { headers } = useAdmin();
-    const [bannedWords, setBannedWords] = useState([]);
-    const [newWord, setNewWord] = useState('');
-    const [action, setAction] = useState('flag');
 
-    const fetchWords = useCallback(() => {
-        api.get('/api/admin/content-filter', { headers })
-            .then(r => {
-                setBannedWords(r.data);
-                if (r.data && r.data.length > 0) {
-                    setAction(r.data[0].action || 'flag');
-                }
-            })
-            .catch(() => { });
-    }, [headers]);
-
-    useEffect(() => { fetchWords(); }, [fetchWords]);
-
-    const addWord = async (e) => {
-        e.preventDefault();
-        if (!newWord.trim()) return;
-        try {
-            await api.post('/api/admin/content-filter', { word: newWord, action }, { headers });
-            toast.success('Word added');
-            setNewWord('');
-            fetchWords();
-        } catch (err) {
-            toast.error(err.response?.data?.error || 'Failed');
-        }
-    };
-
-    const removeWord = async (id) => {
-        try {
-            await api.delete(`/api/admin/content-filter/${id}`, { headers });
-            toast.success('Word removed');
-            fetchWords();
-        } catch {
-            toast.error('Failed');
-        }
-    };
-
-    const handlePolicyChange = async (newPolicy) => {
-        try {
-            await api.patch('/api/admin/content-filter/policy', { action: newPolicy }, { headers });
-            setAction(newPolicy);
-            toast.success(`Enforcement policy updated to ${newPolicy === 'block' ? 'Block Publication' : 'Auto-Flag'}`);
-            fetchWords();
-        } catch {
-            toast.error('Failed to update policy');
-        }
-    };
-
-    return (
-        <div className="flex flex-col gap-8 max-w-3xl">
-            <div className="bg-[var(--surface-1)] rounded p-10 shadow-sm border border-[var(--border-color)]">
-                <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 rounded bg-orange-500/10 flex items-center justify-center text-4xl border border-orange-500/20">🛡️</div>
-                    <div>
-                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] uppercase tracking-tight">Content Moderation Filter</h3>
-                        <p className="m-0 text-[var(--text-sub)] text-xs font-bold opacity-60 mt-1 uppercase tracking-widest">Manage Banned Words & Policies</p>
-                    </div>
-                </div>
-
-                <form onSubmit={addWord} className="flex gap-4 mb-8">
-                    <input
-                        type="text"
-                        placeholder="Add new banned word/phrase..."
-                        value={newWord}
-                        onChange={e => setNewWord(e.target.value)}
-                        className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all"
-                    />
-                    <button type="submit" className="px-8 py-3 bg-[#808bf5] text-white rounded text-xs font-black uppercase tracking-widest border-0 cursor-pointer hover:bg-indigo-600 transition-all shadow-lg">Add</button>
-                </form>
-
-                <div className="p-6 bg-[var(--surface-2)] rounded border border-[var(--border-color)] mb-8">
-                    <p className="text-xs font-black text-[var(--text-main)] mb-4 m-0 uppercase tracking-[0.2em] opacity-80">Currently Banned Words</p>
-                    <div className="flex gap-2 flex-wrap">
-                        {bannedWords.map(item => (
-                            <span key={item._id} className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--surface-1)] border border-[var(--border-color)] rounded text-xs font-bold text-[var(--text-main)] shadow-sm">
-                                {item.word}
-                                <button type="button" onClick={() => removeWord(item._id)} className="border-0 bg-transparent text-red-500 cursor-pointer font-bold hover:scale-110 transition-transform">×</button>
-                            </span>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between p-6 border border-[var(--border-color)] rounded">
-                    <div>
-                        <p className="text-xs font-black text-[var(--text-main)] m-0 uppercase tracking-wider">Enforcement Policy</p>
-                        <p className="text-[10px] text-[var(--text-sub)] m-0 mt-1 font-bold opacity-60">Choose what happens when a match is found.</p>
-                    </div>
-                    <select value={action} onChange={e => handlePolicyChange(e.target.value)} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-5 py-3 text-xs font-black uppercase tracking-wider text-[var(--text-main)] outline-none cursor-pointer">
-                        <option value="flag">Auto-Flag for Review</option>
-                        <option value="block">Block Publication</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 // ─── MAIL LOGS TAB ────────────────────────────────────────────────────────────
 const MailLogsTab = () => {
@@ -1869,10 +1972,9 @@ const MailLogsTab = () => {
                                         <p className="m-0 font-bold">{log.from}</p>
                                     </td>
                                     <td style={{ padding: '20px' }}>
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
-                                            log.status === 'sent' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest ${log.status === 'sent' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
                                             'bg-red-500/10 text-red-500 border border-red-500/20'
-                                        }`}>
+                                            }`}>
                                             {log.status}
                                         </span>
                                     </td>
@@ -1880,7 +1982,7 @@ const MailLogsTab = () => {
                                         {new Date(log.createdAt).toLocaleString()}
                                     </td>
                                     <td style={{ padding: '20px' }}>
-                                        <button 
+                                        <button
                                             onClick={() => setSelectedLog(log)}
                                             className="bg-[#808bf5] text-white hover:bg-indigo-600 px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer transition-all active:scale-95 shadow-sm"
                                         >
@@ -1934,8 +2036,8 @@ const MailLogsTab = () => {
                             <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Email Content Preview</p>
                             <div className="border border-[var(--border-color)] rounded-xl overflow-hidden bg-white">
                                 {selectedLog.html ? (
-                                    <iframe 
-                                        srcDoc={selectedLog.html} 
+                                    <iframe
+                                        srcDoc={selectedLog.html}
                                         title="Email Preview"
                                         className="w-full min-h-[400px] border-0 bg-white"
                                         sandbox="allow-same-origin"
@@ -2016,7 +2118,6 @@ const AdminDashboard = () => {
         { key: 'contacts', icon: <MailIcon />, label: 'Contacts' },
         { key: 'mail_logs', icon: <MailLogsIcon />, label: 'Mail Logs' },
         { key: 'audit_log', icon: <AuditIcon />, label: 'Audit Log' },
-        { key: 'content_filter', icon: <ShieldIcon />, label: 'Content Filter' },
         { key: 'system', icon: <SettingsIcon />, label: 'System' },
     ];
 
@@ -2034,23 +2135,22 @@ const AdminDashboard = () => {
                 {/* Mobile Sidebar Backdrop */}
                 {sidebarOpen && (
                     <div
-                        className="fixed inset-0 bg-black/50 z-[40] lg:hidden transition-opacity duration-300 animate-in fade-in"
+                        className="fixed inset-0 bg-black/50 z-[99] lg:hidden transition-opacity duration-300 animate-in fade-in"
                         onClick={() => setSidebarOpen(false)}
                     />
                 )}
 
                 {/* Sidebar */}
                 <div className={`bg-[var(--surface-1)] border-r border-[var(--border-color)] w-64 flex-shrink-0 flex flex-col h-full shadow-lg 
-                    fixed inset-y-0 left-0 z-[45] lg:static lg:z-0 lg:translate-x-0 transform transition-transform duration-300
+                    fixed inset-y-0 left-0 z-[100] lg:static lg:z-0 lg:translate-x-0 transform transition-transform duration-300
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                     <div className="flex-1 overflow-y-auto py-2  flex flex-col gap-2 relative">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-sub)] p-4  opacity-50">Master Control</p>
 
                         {/* Sliding Active Indicator */}
                         <div
                             style={{
                                 position: 'absolute',
-                                left: 24,
+                                left: 16,
                                 right: 24,
                                 top: sliderStyle.top,
                                 height: sliderStyle.height,
@@ -2086,7 +2186,6 @@ const AdminDashboard = () => {
                         {activeTab === 'contacts' && <ContactsTab />}
                         {activeTab === 'mail_logs' && <MailLogsTab />}
                         {activeTab === 'audit_log' && <AuditLogTab />}
-                        {activeTab === 'content_filter' && <ContentFilterTab />}
                         {activeTab === 'system' && <SystemTab />}
                     </div>
                 </div>

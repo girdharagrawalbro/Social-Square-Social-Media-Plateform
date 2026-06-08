@@ -333,7 +333,7 @@ router.post('/login', authRateLimiter, [
         createNotification({
             recipientId: user._id,
             type: 'system',
-            message: { content: `✅ New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
+            message: { content: `New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
         setRefreshTokenCookie(res, refreshToken);
@@ -668,13 +668,15 @@ router.post('/google', async (req, res) => {
 router.get('/system/flags', async (req, res) => {
     try {
         const SystemSetting = require('../models/SystemSetting');
-        const flags = await SystemSetting.find({ key: { $in: ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode'] } }).lean();
+        const flags = await SystemSetting.find({ key: { $in: ['ai_features', 'anonymous_posts', 'story_creation', 'maintenance_mode', 'content_filter', 'ai_auto_posting'] } }).lean();
 
         const defaults = {
             ai_features: true,
             anonymous_posts: true,
             story_creation: true,
-            maintenance_mode: false
+            maintenance_mode: false,
+            content_filter: true,
+            ai_auto_posting: true
         };
 
         const result = { ...defaults };

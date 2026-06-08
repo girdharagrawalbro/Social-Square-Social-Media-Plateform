@@ -19,6 +19,7 @@ const ACTION_META = {
     dismiss_report: { label: 'Dismissed report', color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.2)', icon: '🙈' },
     trigger_digest: { label: 'Triggered digest', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.2)', icon: '📡' },
     warn_user: { label: 'Warned user', color: '#eab308', bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.2)', icon: '⚠️' },
+    broadcast_announcement: { label: 'System Announcement', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.2)', icon: '📢' },
     content_flagged: { label: 'Content flagged', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', icon: '⚠️' },
 };
 
@@ -91,16 +92,16 @@ const AuditLogTab = () => {
     const totalPages = Math.ceil(total / 20);
 
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
 
             {/* ── Header strip ──────────────────────────────────────────── */}
-            <div className="flex gap-3 flex-wrap items-center bg-[var(--surface-1)] p-4 rounded border border-[var(--border-color)] shadow-sm">
+            <div className="flex gap-3 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
 
                 {/* Action filter */}
                 <select
                     value={filters.action}
                     onChange={e => setFilter('action', e.target.value)}
-                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
+                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
                 >
                     <option value="all">All actions</option>
                     {Object.entries(ACTION_META).map(([k, v]) => (
@@ -112,7 +113,7 @@ const AuditLogTab = () => {
                 <select
                     value={filters.targetType}
                     onChange={e => setFilter('targetType', e.target.value)}
-                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
+                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
                 >
                     <option value="all">All targets</option>
                     <option value="user">Users</option>
@@ -127,7 +128,7 @@ const AuditLogTab = () => {
                     <select
                         value={filters.adminId}
                         onChange={e => setFilter('adminId', e.target.value)}
-                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-4 py-3 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-black text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-pointer transition-all uppercase tracking-widest"
                     >
                         <option value="all">All admins</option>
                         {adminList.map(a => (
@@ -142,7 +143,7 @@ const AuditLogTab = () => {
                         type="date"
                         value={filters.from}
                         onChange={e => setFilter('from', e.target.value)}
-                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-3 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
                         title="From date"
                     />
                     <span className="text-[10px] font-black text-[var(--text-sub)] opacity-50">TO</span>
@@ -150,13 +151,13 @@ const AuditLogTab = () => {
                         type="date"
                         value={filters.to}
                         onChange={e => setFilter('to', e.target.value)}
-                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-3 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
+                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs font-bold text-[var(--text-main)] outline-none focus:border-[#808bf5] transition-all"
                         title="To date"
                     />
                     {(filters.from || filters.to) && (
                         <button
                             onClick={() => { setFilter('from', ''); setFilter('to', ''); }}
-                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-3 text-[10px] font-black text-red-400 hover:bg-red-500/10 cursor-pointer transition-all"
+                            className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-[10px] font-black text-red-400 hover:bg-red-500/10 cursor-pointer transition-all"
                         >
                             Clear
                         </button>
@@ -164,9 +165,9 @@ const AuditLogTab = () => {
                 </div>
 
                 {/* Total badge */}
-                <div className="ml-auto px-5 py-3 bg-[#808bf5]/10 border border-indigo-500/20 rounded flex items-center gap-3 flex-shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse shadow-[0_0_8px_rgba(128,139,245,0.5)]" />
-                    <span className="text-[10px] font-black text-[#808bf5] uppercase tracking-widest">{total.toLocaleString()} Log Entries</span>
+                <div className="px-3 py-2.5 bg-[var(--surface-2)] border border-[var(--border-color)] rounded flex items-center gap-2 ml-auto">
+                    <span className="w-2 h-2 rounded-full bg-[#808bf5] animate-pulse"></span>
+                    <span className="text-xs font-black text-[var(--text-main)] uppercase tracking-tight">{total.toLocaleString()} Log Entries</span>
                 </div>
             </div>
 

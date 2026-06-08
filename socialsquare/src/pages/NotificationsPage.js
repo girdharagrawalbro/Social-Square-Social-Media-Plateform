@@ -18,12 +18,12 @@ const NotificationsPage = () => {
     const declineMutation = useDeclineFollowRequest();
 
     // ✅ Auto-mark all as read when opening page
-    React.useEffect(() => {
-        const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
-        if (unreadIds.length > 0) {
-            markRead.mutate(unreadIds);
-        }
-    }, [notifications, markRead]);
+    //   useEffect(() => {
+    //     const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
+    //     if (unreadIds.length > 0) {
+    //         markRead.mutate(unreadIds);
+    //     }
+    // }, [notifications, markRead]);
 
     const handleMarkRead = (id) => markRead.mutate([id]);
 
@@ -51,6 +51,7 @@ const NotificationsPage = () => {
         if (n.type === 'follow') return 'started following you.';
         if (n.type === 'follow_request') return 'sent you a follow request.';
         if (n.type === 'system') return n.message?.content || 'Security alert.';
+        if (n.type === 'announcement') return n.message?.content || 'New announcement.';
         return 'sent a notification.';
     };
 
@@ -100,9 +101,9 @@ const NotificationsPage = () => {
 
     return (
         <div className="flex justify-center min-h-[calc(100vh-64px)] bg-[var(--app-bg)] w-full">
-            <div className="w-full max-w-2xl bg-[var(--surface-1)] border-x border-[var(--border-color)]">
+            <div className="w-full max-w-2xl bg-[var(--surface-1)] ">
                 <div className="sticky top-0 z-20 bg-[var(--surface-1)]/90 backdrop-blur-md border-b border-[var(--border-color)]">
-                    <div className="px-3 pt-3">
+                    <div className="px-3 pt-3 pb-2">
                         <h2 className="text-xl font-bold m-0 text-[var(--text-main)]">Notifications</h2>
                     </div>
                     {/* Tabs */}
@@ -208,27 +209,27 @@ const NotificationsPage = () => {
                                                             setActiveTab('collabs');
                                                         }
                                                     }}
-                                                    className={`flex items-start gap-4 px-3 py-3 cursor-pointer transition-all duration-300 relative border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 ${!n.read
-                                                        ? 'bg-gray-100 hover:bg-gray-200/80 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60 border-l-4 border-[#808bf5]'
-                                                        : 'border-l-4 border-transparent'
+                                                    className={`flex items-start gap-4 px-3 py-3 cursor-pointer transition-all duration-300 relative hover:bg-[var(--surface-2)]/60 ${!n.read
+                                                        ? 'bg-gray-100 hover:bg-gray-200/80 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60 '
+                                                        : ''
                                                         }`}
                                                 >
                                                     <div className="relative shrink-0 select-none">
                                                         <img
-                                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
+                                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
                                                             alt=""
                                                             className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
                                                             onError={(e) => { e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'; }}
                                                         />
-                                                        {/* Type Badge Overlay */}
-                                                        {n.type !== 'system' && (
+                                                         {/* Type Badge Overlay */}
+                                                        {n.type !== 'system' && n.type !== 'announcement' && (
                                                             <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md ${n.type === 'like' ? 'bg-gradient-to-tr from-rose-500 to-pink-400' :
                                                                 n.type === 'comment' ? 'bg-gradient-to-tr from-purple-600 to-indigo-400' :
                                                                     n.type === 'follow' || n.type === 'follow_request' ? 'bg-gradient-to-tr from-blue-500 to-cyan-400' :
                                                                         n.type === 'message' ? 'bg-gradient-to-tr from-green-500 to-emerald-400' :
                                                                             'bg-gray-500'
                                                                 }`}>
-                                                                <i className={`pi ${n.type === 'like' ? 'pi-heart-fill' :
+                                                                <i className={`pi text-[9px] ${n.type === 'like' ? 'pi-heart-fill' :
                                                                     n.type === 'comment' ? 'pi-comment' :
                                                                         n.type === 'follow' || n.type === 'follow_request' ? 'pi-user-plus' :
                                                                             n.type === 'message' ? 'pi-envelope' :
@@ -243,11 +244,11 @@ const NotificationsPage = () => {
                                                             <span className="font-bold cursor-pointer hover:underline" onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 const id = n.sender?.id || n.sender?._id;
-                                                                if (id && n.type !== 'system') navigate(`/profile/${id}`);
+                                                                if (id && n.type !== 'system' && n.type !== 'announcement') navigate(`/profile/${id}`);
                                                             }}>
-                                                                {n.type === 'system' ? 'Security Alert' : (n.sender?.username || n.sender?.fullname || 'User')}
-                                                            </span>{' '}
-                                                            <span className="text-[var(--text-main)] opacity-90">{getNotificationText(n)}</span>{' '}<br />
+                                                                {n.type === 'system' ? 'Security Alert' : n.type === 'announcement' ? 'System Announcement' : (n.sender?.username || n.sender?.fullname || 'User')}
+                                                            </span>{' '} <br />
+                                                            <span className="text-[var(--text-main)] opacity-90 text-[11px]">{getNotificationText(n)}</span>{' '}<br />
                                                             <span className="text-[var(--text-sub)] text-[11px] font-medium mt-1 block italic">{formatTime(n.createdAt)}</span>
                                                         </p>
 
@@ -289,7 +290,7 @@ const NotificationsPage = () => {
                                                                 onError={(e) => { e.target.style.display = 'none'; }}
                                                             />
                                                         ) : !n.read && n.type !== 'follow_request' ? (
-                                                            <div className="w-2.5 h-2.5 rounded-full bg-[#808bf5] shadow-[0_0_8px_rgba(128,139,245,0.5)]" />
+                                                            ""
                                                         ) : null}
                                                     </div>
                                                 </div>
@@ -327,29 +328,29 @@ const NotificationsPage = () => {
                                 {followRequests.map(n => (
                                     <div
                                         key={n._id}
-                                        className="flex items-center gap-4 p-3 border-b border-[var(--border-color)]/30 hover:bg-[var(--surface-2)]/60 transition-colors"
+                                        className="flex items-center gap-4 p-3 border-b border-gray-100 hover:bg-[var(--surface-2)]/60 transition-colors"
                                     >
                                         <div className="relative shrink-0 select-none">
                                             <img
-                                                src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
+                                                src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
                                                 alt=""
                                                 className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
                                                 onClick={() => {
                                                     const id = n.sender?.id || n.sender?._id;
-                                                    if (id && n.type !== 'system') navigate(`/profile/${id}`);
+                                                    if (id && n.type !== 'system' && n.type !== 'announcement') navigate(`/profile/${id}`);
                                                 }}
                                             />
                                             {/* Follow type badge overlay */}
                                             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md bg-gradient-to-tr from-blue-500 to-cyan-400">
-                                                <i className="pi pi-user-plus"></i>
+                                                <i className="pi pi-user-plus text-[9px]"></i>
                                             </div>
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="m-0 text-[14px] font-bold text-[var(--text-main)]" onClick={() => {
                                                 const id = n.sender?.id || n.sender?._id;
-                                                if (id && n.type !== 'system') navigate(`/profile/${id}`);
+                                                if (id && n.type !== 'system' && n.type !== 'announcement') navigate(`/profile/${id}`);
                                             }}>
-                                                {n.type === 'system' ? 'Security Alert' : (n.sender?.username || n.sender?.fullname || 'User')}
+                                                {n.type === 'system' ? 'Security Alert' : n.type === 'announcement' ? 'System Announcement' : (n.sender?.username || n.sender?.fullname || 'User')}
                                             </p>
                                             <p className="m-0 text-[12px] text-[var(--text-sub)]">{getNotificationText(n)}</p>
                                         </div>
