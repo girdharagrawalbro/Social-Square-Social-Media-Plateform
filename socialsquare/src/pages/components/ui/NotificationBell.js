@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, forwardRef } from 'react';
 import { Badge } from 'primereact/badge';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } from '../../../hooks/queries/useAuthQueries';
@@ -9,11 +9,11 @@ import { Dialog } from 'primereact/dialog';
 import { useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../../../context/DarkModeContext';
 
-export default function NotificationBell({ userId, useRoute = false, showLabel = true, active = false }) {
+const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = true, active = false }, forwardedRef) => {
     const { isDark } = useDarkMode();
     const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'collabs' | 'requests'
-    const ref = useRef(null);
+    const localRef = useRef(null);
     const navigate = useNavigate();
 
     // ✅ Sync with Global Store via hook
@@ -32,7 +32,7 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     useEffect(() => {
         const handler = (e) => {
             const target = e.target;
-            const clickedBell = ref.current && ref.current.contains(target);
+            const clickedBell = localRef.current && localRef.current.contains(target);
             const clickedDialog = target?.closest && target.closest('.notification-bell-dialog');
             if (!clickedBell && !clickedDialog) setOpen(false);
         };
@@ -100,8 +100,17 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
     const activeClass = "bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white font-bold shadow-lg shadow-indigo-500/40 relative overflow-hidden";
     const inactiveClass = `hover:bg-gray-100 dark:hover:bg-neutral-900 ${isDark ? 'bg-transparent text-white' : 'bg-transparent text-gray-800'}`;
 
+    const setRefs = (el) => {
+        localRef.current = el;
+        if (typeof forwardedRef === 'function') {
+            forwardedRef(el);
+        } else if (forwardedRef) {
+            forwardedRef.current = el;
+        }
+    };
+
     return (
-        <div ref={ref}>
+        <div ref={setRefs}>
             {/* Bell button */}
             <button
                 onClick={() => useRoute ? navigate('/notifications') : setOpen(o => !o)}
@@ -334,4 +343,6 @@ export default function NotificationBell({ userId, useRoute = false, showLabel =
             )}
         </div>
     );
-}
+});
+
+export default NotificationBell;

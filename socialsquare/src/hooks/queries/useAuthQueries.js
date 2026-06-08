@@ -87,20 +87,20 @@ export function useUserDetails(ids = []) {
         queryKey: authKeys.userDetails(ids),
         queryFn: async () => {
             if (!ids?.length) return [];
-            
+
             // Batch requests if more than 100 IDs
             const chunks = [];
             for (let i = 0; i < ids.length; i += 100) {
                 chunks.push(ids.slice(i, i + 100));
             }
-            
+
             const results = await Promise.all(
                 chunks.map(async (chunk) => {
                     const res = await api.post(`${BASE}/api/auth/users/details`, { ids: chunk });
                     return res.data?.users || [];
                 })
             );
-            
+
             return results.flat();
         },
         enabled: initialized && !!ids?.length,
@@ -256,6 +256,46 @@ export function useFollowUser() {
                 qc.invalidateQueries({ queryKey: authKeys.followers(user?._id) });
                 qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
             }
+
+            // Update user profile details cache immediately
+            qc.setQueryData(authKeys.userProfile(targetUserId), (prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    isFollowing: !data.requested,
+                    hasPendingRequest: data.requested,
+                    followRequests: data.requested
+                        ? [...(prev.followRequests || []).filter(r => (r?.userId || r)?.toString() !== user?._id?.toString()), user?._id]
+                        : prev.followRequests
+                };
+            });
+
+            // Update other users lists cache immediately
+            qc.setQueriesData({ queryKey: ['users', 'other-users'] }, (old) => {
+                if (!old) return old;
+                const updateFn = (u) => {
+                    if (u._id !== targetUserId) return u;
+                    return {
+                        ...u,
+                        isFollowing: !data.requested,
+                        isRequested: data.requested,
+                        followRequests: data.requested
+                            ? [...(u.followRequests || []).filter(r => r?.toString() !== user?._id?.toString()), user?._id]
+                            : u.followRequests
+                    };
+                };
+                if (old.pages) {
+                    return {
+                        ...old,
+                        pages: old.pages.map(page => Array.isArray(page) ? page.map(updateFn) : page)
+                    };
+                }
+                if (Array.isArray(old)) {
+                    return old.map(updateFn);
+                }
+                return old;
+            });
+
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
             qc.invalidateQueries({ queryKey: authKeys.otherUsers });
         },
@@ -273,10 +313,45 @@ export function useUnfollowUser() {
         onSuccess: (_, { targetUserId }) => {
             // Update local Zustand store so button changes to "Follow" immediately
             unfollowUser(targetUserId);
+
+            // Update user profile details cache immediately
+            qc.setQueryData(authKeys.userProfile(targetUserId), (prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    isFollowing: false,
+                    hasPendingRequest: false
+                };
+            });
+
+            // Update other users lists cache immediately
+            qc.setQueriesData({ queryKey: ['users', 'other-users'] }, (old) => {
+                if (!old) return old;
+                const updateFn = (u) => {
+                    if (u._id !== targetUserId) return u;
+                    return {
+                        ...u,
+                        isFollowing: false,
+                        isRequested: false
+                    };
+                };
+                if (old.pages) {
+                    return {
+                        ...old,
+                        pages: old.pages.map(page => Array.isArray(page) ? page.map(updateFn) : page)
+                    };
+                }
+                if (Array.isArray(old)) {
+                    return old.map(updateFn);
+                }
+                return old;
+            });
+
             // Invalidate profile so follower count updates if profile is open
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
             // Invalidate current user's following list
             qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
+            qc.invalidateQueries({ queryKey: authKeys.otherUsers });
         },
     });
 }
@@ -335,6 +410,43 @@ export function useCancelFollowRequest() {
         mutationFn: async ({ targetUserId }) =>
             api.post(`${BASE}/api/auth/follow-request/cancel`, { targetUserId }),
         onSuccess: (_, { targetUserId }) => {
+            // Update user profile details cache immediately
+            qc.setQueryData(authKeys.userProfile(targetUserId), (prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    hasPendingRequest: false,
+                    followRequests: (prev.followRequests || []).filter(
+                        (r) => (r?.userId || r)?.toString() !== loggedUser?._id?.toString()
+                    ),
+                };
+            });
+
+            // Update other users lists cache immediately
+            qc.setQueriesData({ queryKey: ['users', 'other-users'] }, (old) => {
+                if (!old) return old;
+                const updateFn = (u) => {
+                    if (u._id !== targetUserId) return u;
+                    return {
+                        ...u,
+                        isRequested: false,
+                        followRequests: (u.followRequests || []).filter(
+                            (r) => r?.toString() !== loggedUser?._id?.toString()
+                        ),
+                    };
+                };
+                if (old.pages) {
+                    return {
+                        ...old,
+                        pages: old.pages.map(page => Array.isArray(page) ? page.map(updateFn) : page)
+                    };
+                }
+                if (Array.isArray(old)) {
+                    return old.map(updateFn);
+                }
+                return old;
+            });
+
             qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
             qc.invalidateQueries({ queryKey: authKeys.otherUsers });
             // Invalidate the notifications list for the current user

@@ -1456,7 +1456,7 @@ router.post('/follow-request/cancel', verifyToken, [
         if (!targetUserId) return res.status(400).json({ message: 'Target user ID required' });
 
         // Remove loggedUserId from targetUserId's followRequests
-        await User.findByIdAndUpdate(targetUserId, { $pull: { followRequests: loggedUserId } });
+        await User.findByIdAndUpdate(targetUserId, { $pull: { followRequests: { userId: loggedUserId } } });
         // Remove any pending follow request notification
         await require('../lib/notification.js').deleteNotifications({
             recipient: targetUserId,
@@ -1722,7 +1722,7 @@ router.all("/search", [
                 followingCount: u.followingCount || 0,
                 postCount: canSeeCount ? (u.postsCount || 0) : "Private", // Fix Risk 1
                 isPrivate: u.isPrivate,
-                hasPendingRequest: (u.followRequests || []).some(id => id.toString() === requesterId?.toString())
+                hasPendingRequest: (u.followRequests || []).some(r => (r.userId || r).toString() === requesterId?.toString())
             };
         });
 

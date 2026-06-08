@@ -27,7 +27,9 @@ const SuggestedUser = () => {
             setLocalUsers(prev => {
                 if (prev.length === 0) return users;
                 const newUsersMap = new Map(users.map(u => [u._id, u]));
-                const preserved = prev.filter(p => newUsersMap.has(p._id) || optimisticStates[p._id] !== undefined);
+                const preserved = prev
+                    .filter(p => newUsersMap.has(p._id) || optimisticStates[p._id] !== undefined)
+                    .map(p => newUsersMap.has(p._id) ? newUsersMap.get(p._id) : p);
                 const preservedIds = new Set(preserved.map(p => p._id));
                 const added = users.filter(u => !preservedIds.has(u._id));
                 return [...preserved, ...added];
@@ -116,8 +118,17 @@ const SuggestedUser = () => {
                     {localUsers.filter(u =>
                         u._id !== user?._id &&
                         !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString())
-                        //  && !localDismissed.includes(u._id)
-                    ).slice(0, 8).map(u => {
+                    ).sort((a, b) => {
+                        const getWeight = (usr) => {
+                            const opt = optimisticStates[usr._id];
+                            const following = opt === 'following' ? true : opt === 'unfollowed' ? false : user?.following?.some(f => f?.toString() === usr._id?.toString());
+                            const requested = opt === 'requested' ? true : opt === 'unfollowed' ? false : (usr.isRequested || usr.followRequests?.some(r => r?.toString() === user?._id?.toString()));
+                            if (requested) return 2; // Bottom
+                            if (following) return 1; // Middle
+                            return 0; // Top
+                        };
+                        return getWeight(a) - getWeight(b);
+                    }).slice(0, 8).map(u => {
                         const userIsOnline = isOnline(u._id);
                         const optState = optimisticStates[u._id];
                         const isFollowing = optState === 'following' ? true : optState === 'unfollowed' ? false : user?.following?.some(f => f?.toString() === u._id?.toString());

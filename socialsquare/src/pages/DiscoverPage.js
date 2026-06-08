@@ -63,7 +63,9 @@ const UsersPage = () => {
             setLocalUsers(prev => {
                 if (prev.length === 0) return users;
                 const newUsersMap = new Map(users.map(u => [u._id, u]));
-                const preserved = prev.filter(p => newUsersMap.has(p._id) || optimisticStates[p._id] !== undefined);
+                const preserved = prev
+                    .filter(p => newUsersMap.has(p._id) || optimisticStates[p._id] !== undefined)
+                    .map(p => newUsersMap.has(p._id) ? newUsersMap.get(p._id) : p);
                 const preservedIds = new Set(preserved.map(p => p._id));
                 const added = users.filter(u => !preservedIds.has(u._id));
                 return [...preserved, ...added];
@@ -155,7 +157,17 @@ const UsersPage = () => {
         u._id !== user?._id &&
         !user?.dismissedUsers?.some(d => d?.toString() === u._id?.toString()) &&
         !localDismissed.includes(u._id)
-    );
+    ).sort((a, b) => {
+        const getWeight = (usr) => {
+            const opt = optimisticStates[usr._id];
+            const following = opt === 'following' ? true : opt === 'unfollowed' ? false : isFollowing(usr._id);
+            const requested = opt === 'requested' ? true : opt === 'unfollowed' ? false : (usr.isRequested || usr.followRequests?.some(r => r?.toString() === user?._id?.toString()));
+            if (requested) return 2; // Bottom
+            if (following) return 1; // Middle
+            return 0; // Top
+        };
+        return getWeight(a) - getWeight(b);
+    });
 
     return (
         <div className="w-full max-w-4xl mx-auto">
