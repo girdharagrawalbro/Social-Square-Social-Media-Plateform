@@ -999,9 +999,6 @@ const ChatPanel = ({
 
             if (unreadIncomingIds.length > 0) {
                 setFirstUnreadId(prev => prev || unreadIncomingIds[0]);
-            } else if (!hasMore) {
-                // If there are no unread messages currently fetched and no more to fetch, clear it
-                // Actually, let's keep it if it was set, or clear it when switching chats.
             }
 
             if (
