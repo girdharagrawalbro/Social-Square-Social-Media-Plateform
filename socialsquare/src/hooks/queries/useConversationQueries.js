@@ -188,17 +188,23 @@ export function useClearChat() {
     const qc = useQueryClient();
     const user = useAuthStore(s => s.user);
     const clearSocketMessages = useConversationStore(s => s.clearSocketMessages);
+    const clearConversationHistory = useConversationStore(s => s.clearConversationHistory);
     return useMutation({
         mutationFn: (conversationId) => api.delete(`${BASE}/api/conversation/${conversationId}/clear`),
         onMutate: async (conversationId) => {
             clearSocketMessages(conversationId);
+            clearConversationHistory(conversationId);
             const queryKey = convoKeys.list(user?._id);
             await qc.cancelQueries({ queryKey });
             const prev = qc.getQueryData(queryKey);
-            if (prev) {
-                qc.setQueryData(queryKey, prev.map(c =>
-                    c._id === conversationId ? { ...c, lastMessage: null, lastMessageAt: null } : c
-                ));
+            if (prev && prev.pages) {
+                const updatedPages = prev.pages.map(page => ({
+                    ...page,
+                    conversations: (page.conversations || []).map(c =>
+                        String(c._id) === String(conversationId) ? { ...c, lastMessage: null, lastMessageAt: null } : c
+                    )
+                }));
+                qc.setQueryData(queryKey, { ...prev, pages: updatedPages });
             }
             return { prev };
         },
@@ -215,15 +221,21 @@ export function useDeleteChat() {
     const qc = useQueryClient();
     const user = useAuthStore(s => s.user);
     const clearSocketMessages = useConversationStore(s => s.clearSocketMessages);
+    const removeConversation = useConversationStore(s => s.removeConversation);
     return useMutation({
         mutationFn: (conversationId) => api.delete(`${BASE}/api/conversation/${conversationId}`),
         onMutate: async (conversationId) => {
             clearSocketMessages(conversationId);
+            removeConversation(conversationId);
             const queryKey = convoKeys.list(user?._id);
             await qc.cancelQueries({ queryKey });
             const prev = qc.getQueryData(queryKey);
-            if (prev) {
-                qc.setQueryData(queryKey, prev.filter(c => c._id !== conversationId));
+            if (prev && prev.pages) {
+                const updatedPages = prev.pages.map(page => ({
+                    ...page,
+                    conversations: (page.conversations || []).filter(c => String(c._id) !== String(conversationId))
+                }));
+                qc.setQueryData(queryKey, { ...prev, pages: updatedPages });
             }
             return { prev };
         },

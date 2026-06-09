@@ -199,6 +199,35 @@ const useConversationStore = create(
                     unreadNotificationsCount: nextNotifications.filter(n => !n.read).length
                 };
             }),
+
+            // ─── Conversations list ───────────────────────────────────────
+            conversations: [],
+            setConversations: (newConvs) => set(state => {
+                const map = new Map();
+                state.conversations.forEach(c => map.set(c._id.toString(), c));
+                newConvs.forEach(c => map.set(c._id.toString(), c));
+                return { conversations: Array.from(map.values()) };
+            }),
+            addOrUpdateConversation: (conv) => set(state => {
+                const exists = state.conversations.some(c => c._id.toString() === conv._id.toString());
+                let nextList;
+                if (exists) {
+                    nextList = state.conversations.map(c => c._id.toString() === conv._id.toString() ? { ...c, ...conv } : c);
+                } else {
+                    nextList = [conv, ...state.conversations];
+                }
+                return { conversations: nextList };
+            }),
+            removeConversation: (conversationId) => set(state => ({
+                conversations: state.conversations.filter(c => c._id.toString() !== conversationId.toString())
+            })),
+            clearConversationHistory: (conversationId) => set(state => ({
+                conversations: state.conversations.map(c =>
+                    c._id.toString() === conversationId.toString()
+                        ? { ...c, lastMessage: null, lastMessageAt: null }
+                        : c
+                )
+            })),
         }),
         { name: 'ConversationStore' }
     )

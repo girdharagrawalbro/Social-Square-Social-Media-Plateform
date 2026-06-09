@@ -57,9 +57,18 @@ const Conversations = () => {
     // Deep search query for conversations not in current pages
     const { data: deepSearchResults = [] } = useSearchConversations(user?._id, searchQuery);
 
-    const conversations = useMemo(() => {
+    const conversations = useConversationStore(s => s.conversations);
+    const setConversations = useConversationStore(s => s.setConversations);
+
+    const infiniteConvs = useMemo(() => {
         return infiniteData?.pages.flatMap(page => page.conversations) || [];
     }, [infiniteData]);
+
+    useEffect(() => {
+        if (infiniteData) {
+            setConversations(infiniteConvs);
+        }
+    }, [infiniteData, infiniteConvs, setConversations]);
 
     const navigate = useNavigate();
     const { userId: routeUserId } = useParams();
@@ -316,37 +325,14 @@ const Conversations = () => {
             // handleRefetch(); // Commented out to prevent unnecessary API calls
         };
 
-        const handleConversationUpdated = (updatedConv) => {
-            queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
-                if (!old || !old.pages) return { pages: [{ conversations: [updatedConv] }], pageParams: [null] };
-
-                let found = false;
-                const newPages = old.pages.map(page => {
-                    const exists = page.conversations.find(c => toId(c._id) === toId(updatedConv._id));
-                    if (exists) {
-                        found = true;
-                        return { ...page, conversations: page.conversations.map(c => toId(c._id) === toId(updatedConv._id) ? updatedConv : c) };
-                    }
-                    return page;
-                });
-
-                if (!found) {
-                    newPages[0].conversations = [updatedConv, ...newPages[0].conversations];
-                }
-                return { ...old, pages: newPages };
-            });
-        };
-
         socket.on('receiveMessage', handleReceiveMessage);
         socket.on('messageEdited', handleMessageEdited);
         socket.on('messageDeleted', handleMessageDeleted);
-        socket.on('conversationUpdated', handleConversationUpdated);
 
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
             socket.off('messageEdited', handleMessageEdited);
             socket.off('messageDeleted', handleMessageDeleted);
-            socket.off('conversationUpdated', handleConversationUpdated);
         };
     }, [handleRefetch, incrementUnread, queryClient, user?._id]);
 

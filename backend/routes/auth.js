@@ -118,9 +118,9 @@ function generateRefreshToken(userId, family) {
 
 function getRefreshCookieOptions(isForClear = false) {
     const fromEnvSecure = process.env.COOKIE_SECURE;
-    const inferredSecure = process.env.NODE_ENV === 'production'
-        || (/^https:\/\//i.test(CLIENT_URL) && !/localhost|127\.0\.0\.1/i.test(CLIENT_URL));
+    const inferredSecure = process.env.NODE_ENV === 'production';
     const secure = typeof fromEnvSecure === 'string' ? fromEnvSecure === 'true' : inferredSecure;
+
 
     const fromEnvSameSite = process.env.COOKIE_SAMESITE?.toLowerCase();
     const sameSite = fromEnvSameSite || (secure ? 'none' : 'lax');
@@ -1312,7 +1312,7 @@ router.post('/follow', verifyToken, [
 
         // Public account logic
         await User.findByIdAndUpdate(userId, { $addToSet: { following: followUserId }, $inc: { followingCount: 1 } });
-        const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId }, $inc: { followersCount: 1 } }, { new: true }).select('followersCount followingCount');
+        const user = await User.findByIdAndUpdate(followUserId, { $addToSet: { followers: userId }, $inc: { followersCount: 1 } }, { new: true }).select('followersCount followingCount username fullname profile_picture');
 
         // Notification for immediate follow
         const sender = await User.findById(userId).select('fullname profile_picture');
@@ -1321,6 +1321,14 @@ router.post('/follow', verifyToken, [
             sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
             type: 'follow',
         });
+
+        // Trigger welcome message if target is social_square_ai
+        if (user && user.username === 'social_square_ai') {
+            const aiChatService = require('../services/aiChatService');
+            aiChatService.triggerAiWelcomeMessage(userId, user).catch(err => {
+                console.error('[AI Welcome Error]:', err);
+            });
+        }
 
         res.status(200).json({
             _id: followUserId,

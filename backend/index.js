@@ -192,6 +192,9 @@ const liveRouter = require('./routes/live.js');
 const notificationUtils = require('./lib/notification.js');
 notificationUtils.setIo(io);
 
+const aiChatService = require('./services/aiChatService');
+aiChatService.setIo(io);
+
 postRouter.setIo(io);
 storyRouter.setIo(io);
 conversationRouter.setIo(io);
