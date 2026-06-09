@@ -1106,7 +1106,7 @@ const ChatPanel = ({
 
     useEffect(() => {
         const handleReceive = (message) => {
-            const isOwn = (message.senderId || message.sender?._id || message.sender) === user?._id;
+            const isOwn = !message.isSystem && (message.senderId || message.sender?._id || message.sender) === user?._id;
             if (activeParticipant?.isGroup) {
                 if (String(message.conversationId) !== String(conversationIdRef.current)) return;
             } else {
@@ -1477,16 +1477,16 @@ const ChatPanel = ({
                             const prevMessage = index > 0 ? messages[index - 1] : null;
                             const currentMsgDate = new Date(message.createdAt);
                             const prevMsgDate = prevMessage ? new Date(prevMessage.createdAt) : null;
-                            
+
                             let showDateDivider = false;
                             let dateLabel = '';
-                            
+
                             if (!prevMsgDate || currentMsgDate.toDateString() !== prevMsgDate.toDateString()) {
                                 showDateDivider = true;
                                 const today = new Date();
                                 const yesterday = new Date(today);
                                 yesterday.setDate(yesterday.getDate() - 1);
-                                
+
                                 if (currentMsgDate.toDateString() === today.toDateString()) {
                                     dateLabel = 'Today';
                                 } else if (currentMsgDate.toDateString() === yesterday.toDateString()) {
@@ -1495,7 +1495,7 @@ const ChatPanel = ({
                                     dateLabel = currentMsgDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
                                 }
                             }
-                            
+
                             return (
                                 <React.Fragment key={message._id}>
                                     {showDateDivider && (
@@ -1515,7 +1515,7 @@ const ChatPanel = ({
                                             <div style={{ flex: 1, height: '1px', background: 'var(--border-color)', opacity: 0.5 }}></div>
                                         </div>
                                     )}
-                                    
+
                                     {message.isSystem ? (
                                         <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
                                             <div style={{ background: 'var(--surface-2)', padding: '6px 14px', borderRadius: '16px', fontSize: '11px', color: 'var(--text-main)', textAlign: 'center', maxWidth: '80%', opacity: 0.8 }}>
