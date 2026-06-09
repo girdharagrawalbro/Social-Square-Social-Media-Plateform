@@ -214,12 +214,21 @@ router.post('/group/create', verifyToken, [
             }
         });
 
+        const sysMsg = await Message.create({
+            conversationId: conversation._id,
+            sender: senderId,
+            content: 'Group created',
+            isSystem: true
+        });
+
         // Clear cached conversation lists for all participants
         await delCache(...uniqueIds.map(id => `convs:${id}`));
 
         if (_io) {
             uniqueIds.forEach(id => {
-                _io.to(id.toString()).emit('conversationUpdated', conversation.toObject());
+                const strId = id.toString();
+                _io.to(strId).emit('conversationUpdated', conversation.toObject());
+                _io.to(strId).emit('receiveMessage', sysMsg.toObject());
             });
         }
 
@@ -270,11 +279,19 @@ router.post('/group/:id/add-members', verifyToken, [
 
         conv.participants.push(...newParticipants);
         conv.lastMessageAt = new Date();
+        const contentStr = `${newParticipants.map(p => p.fullname).join(', ')} added to the group`;
         conv.lastMessage = {
-            message: `${newParticipants.map(p => p.fullname).join(', ')} added to the group`,
+            message: contentStr,
             isRead: false
         };
         await conv.save();
+
+        const sysMsg = await Message.create({
+            conversationId: conv._id,
+            sender: senderId,
+            content: contentStr,
+            isSystem: true
+        });
 
         const allMemberIds = conv.participants.map(p => p.userId.toString());
         await delCache(...allMemberIds.map(id => `convs:${id}`));
@@ -282,6 +299,7 @@ router.post('/group/:id/add-members', verifyToken, [
         if (_io) {
             allMemberIds.forEach(id => {
                 _io.to(id).emit('conversationUpdated', conv.toObject());
+                _io.to(id).emit('receiveMessage', sysMsg.toObject());
             });
         }
 
@@ -326,11 +344,19 @@ router.post('/group/:id/remove-members', verifyToken, [
         conv.groupAdmins = conv.groupAdmins.filter(a => !memberIds.includes(a.toString()));
 
         conv.lastMessageAt = new Date();
+        const contentStr = `${removedUsers.map(p => p.fullname).join(', ')} removed from the group`;
         conv.lastMessage = {
-            message: `${removedUsers.map(p => p.fullname).join(', ')} removed from the group`,
+            message: contentStr,
             isRead: false
         };
         await conv.save();
+
+        const sysMsg = await Message.create({
+            conversationId: conv._id,
+            sender: senderId,
+            content: contentStr,
+            isSystem: true
+        });
 
         const allUserIds = [...conv.participants.map(p => p.userId.toString()), ...memberIds];
         await delCache(...allUserIds.map(id => `convs:${id}`));
@@ -338,6 +364,7 @@ router.post('/group/:id/remove-members', verifyToken, [
         if (_io) {
             allUserIds.forEach(id => {
                 _io.to(id).emit('conversationUpdated', conv.toObject());
+                _io.to(id).emit('receiveMessage', sysMsg.toObject());
             });
         }
 
@@ -377,11 +404,19 @@ router.post('/group/:id/leave', verifyToken, [
         }
 
         conv.lastMessageAt = new Date();
+        const contentStr = `${leaver.fullname} left the group`;
         conv.lastMessage = {
-            message: `${leaver.fullname} left the group`,
+            message: contentStr,
             isRead: false
         };
         await conv.save();
+
+        const sysMsg = await Message.create({
+            conversationId: conv._id,
+            sender: senderId,
+            content: contentStr,
+            isSystem: true
+        });
 
         const notifyIds = [...conv.participants.map(p => p.userId.toString()), senderId];
         await delCache(...notifyIds.map(id => `convs:${id}`));
@@ -389,6 +424,7 @@ router.post('/group/:id/leave', verifyToken, [
         if (_io) {
             notifyIds.forEach(id => {
                 _io.to(id).emit('conversationUpdated', conv.toObject());
+                _io.to(id).emit('receiveMessage', sysMsg.toObject());
             });
         }
 
@@ -430,11 +466,19 @@ router.patch('/group/:id/update', verifyToken, [
         }
 
         conv.lastMessageAt = new Date();
+        const updateStr = name ? `Group name changed to "${name}"` : 'Group details updated';
         conv.lastMessage = {
-            message: `Group details updated`,
+            message: updateStr,
             isRead: false
         };
         await conv.save();
+
+        const sysMsg = await Message.create({
+            conversationId: conv._id,
+            sender: senderId,
+            content: updateStr,
+            isSystem: true
+        });
 
         const allMemberIds = conv.participants.map(p => p.userId.toString());
         await delCache(...allMemberIds.map(id => `convs:${id}`));
@@ -442,6 +486,7 @@ router.patch('/group/:id/update', verifyToken, [
         if (_io) {
             allMemberIds.forEach(id => {
                 _io.to(id).emit('conversationUpdated', conv.toObject());
+                _io.to(id).emit('receiveMessage', sysMsg.toObject());
             });
         }
 

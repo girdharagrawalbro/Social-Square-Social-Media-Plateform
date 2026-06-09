@@ -1112,12 +1112,12 @@ router.post('/contacts/:id/reply', requireAdmin, [
             <h2 style="color:#808bf5;margin-top:0">Support Response ✉️</h2>
             <p>Hi <strong>${contact.name}</strong>,</p>
             <p>We have a reply regarding your contact query from our support representative, <strong>${admin?.fullname || 'Support Representative'}</strong>:</p>
-            <div style="background:#f5f3ff;border-left:4px solid #808bf5;padding:16px;margin:16px 0;font-size:14px;color:#374151;border-radius:0 8px 8px 0">
-                <p style="margin:0">${message}</p>
+            <div style="background:#f5f3ff;border-left:4px solid #808bf5;padding:16px;margin:16px 0;font-size:14px;color:#374151;border-radius:0 8px 8px 0;white-space:pre-wrap">
+                <p style="margin:0">${message.replace(/\n/g, '<br />')}</p>
             </div>
             <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0" />
             <p style="color:#6b7280;font-size:11px;margin-top:10px">Your original query was:</p>
-            <p style="color:#9ca3af;font-size:11px;font-style:italic">"${contact.message}"</p>
+            <p style="color:#9ca3af;font-size:11px;font-style:italic;white-space:pre-wrap">"${contact.message.replace(/\n/g, '<br />')}"</p>
         </div>`;
 
         await sendEmail({

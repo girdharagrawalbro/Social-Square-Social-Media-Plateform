@@ -178,6 +178,26 @@ const Conversations = () => {
     const [isEditingGroupName, setIsEditingGroupName] = useState(false);
     const [newGroupNameInput, setNewGroupNameInput] = useState('');
 
+    const defaultUsersToSelect = useMemo(() => {
+        const users = [];
+        const seen = new Set();
+        conversations.forEach(c => {
+            if (!c.isGroup && c.participants) {
+                const other = c.participants.find(p => p.userId !== user?._id);
+                if (other && !seen.has(other.userId)) {
+                    seen.add(other.userId);
+                    users.push({
+                        _id: other.userId,
+                        fullname: other.fullname,
+                        profile_picture: other.profilePicture,
+                        username: other.username || ''
+                    });
+                }
+            }
+        });
+        return users;
+    }, [conversations, user?._id]);
+
     const [isSearching, setIsSearching] = useState(false);
     const [searchQ, setSearchQ] = useState('');
     const [searchIndex, setSearchIndex] = useState(0);
@@ -557,7 +577,7 @@ const Conversations = () => {
                     {selectedParticipant ? (
                         <div className="flex flex-col flex-1 min-h-0 h-full">
                             <div className="px-2 py-2 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between min-h-[64px] bg-white/80 dark:bg-black/80 backdrop-blur-md">
-                                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => !selectedParticipant.isGroup && handleProfileClick(selectedParticipant.userId)}>
+                                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => selectedParticipant.isGroup ? setIsGroupSettingsOpen(true) : handleProfileClick(selectedParticipant.userId)}>
                                     {/* <button
                                         onClick={(e) => { e.stopPropagation(); closeChat(); }}
                                         className="sm:hidden -ml-2 p-2 rounded-full border-0 bg-transparent text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center justify-center"
@@ -894,7 +914,10 @@ const Conversations = () => {
 
                     {/* Member search results */}
                     <div className="max-h-48 overflow-y-auto flex flex-col gap-1 custom-scrollbar">
-                        {groupSearch && groupSearchResults.filter(u => u._id !== user?._id).map(u => {
+                        {!groupSearch && defaultUsersToSelect.length > 0 && (
+                            <div className="px-2 py-1 text-[10px] font-black uppercase tracking-widest text-gray-400 opacity-60">Recent Chats</div>
+                        )}
+                        {(groupSearch ? groupSearchResults : defaultUsersToSelect).filter(u => u._id !== user?._id).map(u => {
                             const isSelected = selectedMembers.some(m => m._id === u._id);
                             return (
                                 <div
@@ -911,13 +934,13 @@ const Conversations = () => {
                                     <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-9 h-9 rounded-full object-cover" alt="" />
                                     <div className="flex flex-col">
                                         <div className="font-bold text-xs text-[var(--text-main)]">{u.fullname}</div>
-                                        <div className="text-[10px] text-gray-400">@{u.username}</div>
+                                        {u.username && <div className="text-[10px] text-gray-400">@{u.username}</div>}
                                     </div>
                                     <i className={`pi ${isSelected ? 'pi-check-circle text-indigo-500' : 'pi-circle'} ml-auto text-sm transition-colors`}></i>
                                 </div>
                             );
                         })}
-                        {!groupSearch && (
+                        {!groupSearch && defaultUsersToSelect.length === 0 && (
                             <div className="text-center py-6 text-gray-400 text-xs font-medium">Type a name to search and select members.</div>
                         )}
                     </div>
@@ -1072,9 +1095,9 @@ const Conversations = () => {
 
                                 return (
                                     <div key={p.userId} className="flex items-center gap-3 p-2.5 rounded-2xl bg-gray-50/50 dark:bg-gray-900/35 border border-gray-100/50 dark:border-gray-800/10 relative">
-                                        <img src={p.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-9 h-9 rounded-full object-cover" alt="" />
-                                        <div className="flex flex-col min-w-0">
-                                            <span className="font-bold text-xs truncate text-[var(--text-main)]">{p.fullname} {isMe && "(You)"}</span>
+                                        <img src={p.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-9 h-9 rounded-full object-cover cursor-pointer" alt="" onClick={() => handleProfileClick(p.userId)} />
+                                        <div className="flex flex-col min-w-0 cursor-pointer" onClick={() => handleProfileClick(p.userId)}>
+                                            <span className="font-bold text-xs truncate text-[var(--text-main)] hover:underline">{p.fullname} {isMe && "(You)"}</span>
                                         </div>
 
                                         <div className="ml-auto flex items-center gap-2">
@@ -1205,7 +1228,7 @@ const Conversations = () => {
                 className="dark:bg-[var(--surface-1)]"
                 closable={true}
             >
-                <div className="py-3 flex flex-col gap-4">
+                <div className="py-3 flex flex-col gap-3 px-2">
                     <div className="relative">
                         <i className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                         <input
@@ -1229,7 +1252,10 @@ const Conversations = () => {
                     )}
 
                     <div className="max-h-48 overflow-y-auto flex flex-col gap-1 custom-scrollbar">
-                        {addMembersSearch && addMembersSearchResults
+                        {!addMembersSearch && defaultUsersToSelect.filter(u => u._id !== user?._id && !selectedParticipant?.participants?.some(p => p.userId === u._id)).length > 0 && (
+                            <div className="px-2 py-1 text-[10px] font-black uppercase tracking-widest text-gray-400 opacity-60">Recent Chats</div>
+                        )}
+                        {(addMembersSearch ? addMembersSearchResults : defaultUsersToSelect)
                             .filter(u => u._id !== user?._id && !selectedParticipant?.participants?.some(p => p.userId === u._id))
                             .map(u => {
                                 const isSelected = selectedNewMembers.some(m => m._id === u._id);
@@ -1248,13 +1274,13 @@ const Conversations = () => {
                                         <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-9 h-9 rounded-full object-cover" alt="" />
                                         <div className="flex flex-col">
                                             <div className="font-bold text-xs text-[var(--text-main)]">{u.fullname}</div>
-                                            <div className="text-[10px] text-gray-400">@{u.username}</div>
+                                            {u.username && <div className="text-[10px] text-gray-400">@{u.username}</div>}
                                         </div>
                                         <i className={`pi ${isSelected ? 'pi-check-circle text-indigo-500' : 'pi-circle'} ml-auto text-sm transition-colors`}></i>
                                     </div>
                                 );
                             })}
-                        {!addMembersSearch && (
+                        {!addMembersSearch && defaultUsersToSelect.filter(u => u._id !== user?._id && !selectedParticipant?.participants?.some(p => p.userId === u._id)).length === 0 && (
                             <div className="text-center py-6 text-gray-400 text-xs font-medium">Type a name to search and select members to add.</div>
                         )}
                     </div>

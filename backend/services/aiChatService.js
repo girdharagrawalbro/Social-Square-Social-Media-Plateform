@@ -2,8 +2,10 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const UserMemory = require('../models/UserMemory');
 const { UserInterest } = require('../models/Recommendation');
 const { generateNvidiaChat } = require('../utils/nvidia');
+const { extractAndSaveMemory } = require('./aiMemoryService');
 const mongoose = require('mongoose');
 
 let _io = null;
@@ -35,17 +37,38 @@ async function triggerAiReply(conversationId, userSenderId, userMessageContent, 
                 content: m.content
             }));
 
+        // Fetch user memories
+        const userMemory = await UserMemory.findOne({ userId: userSenderId }).lean();
+        const facts = userMemory?.facts || [];
+        const memoryContext = facts.length > 0
+            ? `\nHere are some permanent facts you have learned about this user from previous conversations:\n- ${facts.join('\n- ')}\nUse this information naturally if it is relevant to the conversation.`
+            : '';
+
         const systemPrompt = {
             role: 'system',
             content: "You are Social Square AI, the official bot for the Social Square social media platform. You are replying to a direct message from a user. " +
                 "Answer in a very friendly, respectful, and short manner (10 to 30 words, 1-2 sentences max). " +
                 "Use Hinglish or English matching the user's message tone and language. " +
-                "Do not repeat the user's message, do not add placeholders, and do not use generic AI intro/outro. Direct response only."
+                "Do not repeat the user's message, do not add placeholders, and do not use generic AI intro/outro. Direct response only." +
+                memoryContext
         };
 
         const messages = [systemPrompt, ...formattedHistory];
 
+        if (_io) {
+            _io.to(userSenderId.toString()).emit('userTyping', {
+                senderName: aiUser.fullname,
+                conversationId
+            });
+        }
+
         const aiResponseText = await generateNvidiaChat(messages);
+
+        if (_io) {
+            _io.to(userSenderId.toString()).emit('userStoppedTyping', {
+                conversationId
+            });
+        }
         const replyText = (aiResponseText || '').trim();
 
         if (!replyText) {
@@ -110,6 +133,11 @@ async function triggerAiReply(conversationId, userSenderId, userMessageContent, 
             });
         }
 
+        // Trigger memory extraction in the background (Non-blocking)
+        extractAndSaveMemory(userSenderId, formattedHistory).catch(err => {
+            console.error('[AI Chat Error] Background memory extraction failed:', err);
+        });
+
         // console.log('[AI Chat] AI reply sent successfully');
     } catch (err) {
         console.error('[AI Chat Error] triggerAiReply failed:', err);
@@ -121,10 +149,6 @@ async function triggerAiReply(conversationId, userSenderId, userMessageContent, 
  */
 async function triggerAiWelcomeMessage(userId, aiUser) {
     try {
-        // console.log(`[AI Chat] Waiting 10 seconds before generating welcome message for user: ${userId}`);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        // console.log(`[AI Chat] Generating welcome message for user: ${userId}`);
-
         const [user, userInterest] = await Promise.all([
             User.findById(userId).select('fullname bio').lean(),
             UserInterest.findOne({ userId }).lean()
@@ -152,6 +176,16 @@ async function triggerAiWelcomeMessage(userId, aiUser) {
             });
         }
 
+        if (_io) {
+            _io.to(userId.toString()).emit('userTyping', {
+                senderName: aiUser.fullname,
+                conversationId: conv._id
+            });
+        }
+
+        // Delay to simulate human typing
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
         const systemPrompt = "You are Social Square AI, the official bot for the Social Square social media platform. A user has just followed you! " +
             "Send a direct welcome message to the user. " +
             "Tailor the message using their name, bio, and top interests to welcome them in a warm, respectful, and friendly way. " +
@@ -167,6 +201,12 @@ async function triggerAiWelcomeMessage(userId, aiUser) {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
         ]);
+
+        if (_io) {
+            _io.to(userId.toString()).emit('userStoppedTyping', {
+                conversationId: conv._id
+            });
+        }
 
         const welcomeText = (aiResponseText || '').trim();
         if (!welcomeText) {

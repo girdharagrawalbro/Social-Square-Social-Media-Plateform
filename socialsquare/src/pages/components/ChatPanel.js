@@ -874,6 +874,7 @@ const ChatPanel = ({
 
     const [infoMessage, setInfoMessage] = useState(null);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
+    const [firstUnreadId, setFirstUnreadId] = useState(null);
 
     const handleShowMessageInfo = async (messageId) => {
         try {
@@ -967,6 +968,7 @@ const ChatPanel = ({
         ) {
             return;
         }
+        setFirstUnreadId(null);
         lastFetchParamsRef.current = { conversationId: activeConversationId, recipientId: participantId, refreshKey };
         setLoading(true);
         try {
@@ -994,6 +996,13 @@ const ChatPanel = ({
             );
             const unreadIncomingIds =
                 unreadMessages.map(m => m._id);
+
+            if (unreadIncomingIds.length > 0) {
+                setFirstUnreadId(prev => prev || unreadIncomingIds[0]);
+            } else if (!hasMore) {
+                // If there are no unread messages currently fetched and no more to fetch, clear it
+                // Actually, let's keep it if it was set, or clear it when switching chats.
+            }
 
             if (
                 fetchedConversationId &&
@@ -1446,7 +1455,14 @@ const ChatPanel = ({
                 style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '2px' }}
             >
                 {loading ? (
-                    <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading...</div>
+                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: i % 2 === 0 ? 'flex-end' : 'flex-start', gap: '4px' }}>
+                                <div style={{ width: i % 2 === 0 ? '60%' : '70%', height: '40px', background: 'var(--surface-2)', borderRadius: i % 2 === 0 ? '18px 18px 4px 18px' : '18px 18px 18px 4px', animation: 'pulse 1.5s infinite', opacity: 0.6 }} />
+                                <div style={{ width: '40px', height: '10px', background: 'var(--surface-2)', borderRadius: '4px', animation: 'pulse 1.5s infinite', opacity: 0.4 }} />
+                            </div>
+                        ))}
+                    </div>
                 ) : (
                     <>
                         {loadingMore && <div style={{ textAlign: 'center', padding: '10px', color: '#808bf5' }}><i className="pi pi-spin pi-spinner" style={{ fontSize: '14px' }}></i></div>}
@@ -1457,20 +1473,72 @@ const ChatPanel = ({
                                 </p>
                             </div>
                         )}
-                        {messages.map(message => (
-                            <MessageBubble
-                                key={message._id} message={message}
-                                isOwn={message.sender?._id?.toString() === user?._id?.toString() || message.sender?.toString() === user?._id?.toString() || message.senderId === user?._id}
-                                isGroup={activeParticipant?.isGroup}
-                                conversationId={conversationId} loggeduser={user}
-                                onReact={handleReact} onEdit={handleEdit} onDelete={handleDelete}
-                                onShowInfo={handleShowMessageInfo}
-                                searchQ={searchQ}
-                                isSelected={selectedMessageId === message._id}
-                                onSelect={(msgId = message._id) => setSelectedMessageId(msgId)}
-                                onReply={msg => setReplyTo(msg)}
-                            />
-                        ))}
+                        {messages.map((message, index) => {
+                            const prevMessage = index > 0 ? messages[index - 1] : null;
+                            const currentMsgDate = new Date(message.createdAt);
+                            const prevMsgDate = prevMessage ? new Date(prevMessage.createdAt) : null;
+                            
+                            let showDateDivider = false;
+                            let dateLabel = '';
+                            
+                            if (!prevMsgDate || currentMsgDate.toDateString() !== prevMsgDate.toDateString()) {
+                                showDateDivider = true;
+                                const today = new Date();
+                                const yesterday = new Date(today);
+                                yesterday.setDate(yesterday.getDate() - 1);
+                                
+                                if (currentMsgDate.toDateString() === today.toDateString()) {
+                                    dateLabel = 'Today';
+                                } else if (currentMsgDate.toDateString() === yesterday.toDateString()) {
+                                    dateLabel = 'Yesterday';
+                                } else {
+                                    dateLabel = currentMsgDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                                }
+                            }
+                            
+                            return (
+                                <React.Fragment key={message._id}>
+                                    {showDateDivider && (
+                                        <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0 8px 0' }}>
+                                            <div style={{ background: 'var(--surface-2)', padding: '4px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-sub)', border: '1px solid var(--border-color)' }}>
+                                                {dateLabel}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {firstUnreadId === message._id && (
+                                        <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ flex: 1, height: '1px', background: 'var(--border-color)', opacity: 0.5 }}></div>
+                                            <div style={{ background: 'var(--surface-2)', padding: '4px 12px', borderRadius: '12px', fontSize: '10px', fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                Unread Messages
+                                            </div>
+                                            <div style={{ flex: 1, height: '1px', background: 'var(--border-color)', opacity: 0.5 }}></div>
+                                        </div>
+                                    )}
+                                    
+                                    {message.isSystem ? (
+                                        <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
+                                            <div style={{ background: 'var(--surface-2)', padding: '6px 14px', borderRadius: '16px', fontSize: '11px', color: 'var(--text-main)', textAlign: 'center', maxWidth: '80%', opacity: 0.8 }}>
+                                                {message.content}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <MessageBubble
+                                            message={message}
+                                            isOwn={message.sender?._id?.toString() === user?._id?.toString() || message.sender?.toString() === user?._id?.toString() || message.senderId === user?._id}
+                                            isGroup={activeParticipant?.isGroup}
+                                            conversationId={conversationId} loggeduser={user}
+                                            onReact={handleReact} onEdit={handleEdit} onDelete={handleDelete}
+                                            onShowInfo={handleShowMessageInfo}
+                                            searchQ={searchQ}
+                                            isSelected={selectedMessageId === message._id}
+                                            onSelect={(msgId = message._id) => setSelectedMessageId(msgId)}
+                                            onReply={msg => setReplyTo(msg)}
+                                        />
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
                     </>
                 )}
                 {isTypingOther && (
