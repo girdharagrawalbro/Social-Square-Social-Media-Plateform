@@ -1053,7 +1053,7 @@ const Stories = () => {
         const fetchActiveStreams = async () => {
             try {
                 const res = await api.get('/api/live/active');
-                setActiveStreams(res.data || []);
+                setActiveStreams(Array.isArray(res.data) ? res.data : []);
             } catch (err) {
                 console.error('Failed to fetch active streams:', err);
             }

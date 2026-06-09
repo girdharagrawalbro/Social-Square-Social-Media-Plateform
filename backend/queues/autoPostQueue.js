@@ -163,7 +163,7 @@ async function runAutoPostJob(force = false) {
         const promptResult = await generateNvidiaText(themePrompt);
         const imagePrompt = promptResult.text.trim() || `A beautiful high-quality scene depicting ${actualCategoryName}`;
 
-        console.log(`[AutoPost] Generated Flux Image Prompt: "${imagePrompt}"`);
+        console.log(`[AutoPost] Generated Flux Image`);
 
         // 6. Generate Image
         const imageResult = await generateNvidiaImage(imagePrompt);
@@ -173,7 +173,6 @@ async function runAutoPostJob(force = false) {
 
         // 7. Upload to Cloudinary
         const imageUrl = await uploadGeneratedImageToCloudinary(imageResult.buffer);
-        console.log(`[AutoPost] Cloudinary URL: ${imageUrl}`);
 
         // 8. Generate Caption
         let captionPrompt;

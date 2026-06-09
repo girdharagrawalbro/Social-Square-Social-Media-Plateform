@@ -98,7 +98,7 @@ function AppInit() {
             prevUserId.current = user?._id;
         }
     }, [user?._id]);
-    const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setActiveCall } = useConversationStore();
+    const { setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setActiveCall, addOrUpdateConversation } = useConversationStore();
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
     useFeedSocket();
 
@@ -319,7 +319,7 @@ function AppInit() {
                     message?.content ||
                     'Security Alert';
                 icon = '🛡️';
-                
+
                 // Skip displaying the toast if it is a New Login notification received right after login session start
                 if (actionText.includes('New Login') && (Date.now() - sessionStartTime.current < 15000)) {
                     return;
@@ -443,8 +443,8 @@ function AppInit() {
                             <img
                                 src={
                                     type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' :
-                                    type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' :
-                                    (sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')
+                                        type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' :
+                                            (sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')
                                 }
                                 alt=""
                                 style={{
@@ -604,10 +604,34 @@ function AppInit() {
             });
         };
 
+        const handleConversationUpdated = (updatedConv) => {
+            console.log('[Socket] Global conversationUpdated received:', updatedConv);
+            addOrUpdateConversation(updatedConv);
+
+            // Sync React Query cache
+            queryClient.setQueryData(['conversations', user?._id], (old) => {
+                if (!old || !old.pages) return { pages: [{ conversations: [updatedConv] }], pageParams: [null] };
+                let found = false;
+                const newPages = old.pages.map(page => {
+                    const exists = (page.conversations || []).find(c => String(c._id) === String(updatedConv._id));
+                    if (exists) {
+                        found = true;
+                        return { ...page, conversations: page.conversations.map(c => String(c._id) === String(updatedConv._id) ? updatedConv : c) };
+                    }
+                    return page;
+                });
+                if (!found) {
+                    newPages[0].conversations = [updatedConv, ...(newPages[0].conversations || [])];
+                }
+                return { ...old, pages: newPages };
+            });
+        };
+
         socket.on('newNotification', handleNewNotification);
         socket.on('newStory', handleNewStory);
         socket.on('collaborationInvite', handleCollabInvite);
         socket.on('incomingCall', handleIncomingCall);
+        socket.on('conversationUpdated', handleConversationUpdated);
 
         return () => {
             clearInterval(heartbeatInterval);
@@ -619,8 +643,9 @@ function AppInit() {
             socket.off('newStory', handleNewStory);
             socket.off('collaborationInvite', handleCollabInvite);
             socket.off('incomingCall', handleIncomingCall);
+            socket.off('conversationUpdated', handleConversationUpdated);
         };
-    }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate, setActiveCall]);
+    }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate, setActiveCall, addOrUpdateConversation]);
 
     return null;
 }

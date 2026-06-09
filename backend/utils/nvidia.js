@@ -94,7 +94,28 @@ async function generateNvidiaImage(prompt, options = {}) {
     }
 }
 
+// ── Text chat generation via NVIDIA Llama 3.1 ────────────────────────────────
+async function generateNvidiaChat(messages) {
+    if (!NVIDIA_KEY) throw new Error('NVIDIA_API_KEY is not set');
+    try {
+        const client = createClient();
+        const completion = await client.chat.completions.create({
+            model: 'meta/llama-3.1-8b-instruct',
+            messages: messages,
+            temperature: 0.7,
+            top_p: 0.9,
+            max_tokens: 1024,
+        });
+        return completion.choices[0]?.message?.content || '';
+    } catch (error) {
+        const status = error.status || error.response?.status;
+        console.error(`[NVIDIA Chat Error] status=${status}:`, error.message);
+        throw new Error('AI chat response generation failed.');
+    }
+}
+
 module.exports = {
     generateNvidiaText,
     generateNvidiaImage,
-};
+    generateNvidiaChat,
+};

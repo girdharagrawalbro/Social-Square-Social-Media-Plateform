@@ -777,6 +777,21 @@ router.post(['/messages/create', '/send'], verifyToken, [
                 });
             });
         }
+
+        // Trigger AI reply if it's a 1-on-1 chat and recipient is social_square_ai
+        if (!conv.isGroup) {
+            const aiParticipant = conv.participants.find(p => p.userId.toString() !== sender.toString());
+            if (aiParticipant) {
+                const aiUser = await User.findById(aiParticipant.userId).select('username fullname profile_picture').lean();
+                if (aiUser && aiUser.username === 'social_square_ai') {
+                    const aiChatService = require('../services/aiChatService');
+                    aiChatService.triggerAiReply(conv._id, sender, content || '', aiUser).catch(err => {
+                        console.error('[AI Reply Trigger Error]:', err);
+                    });
+                }
+            }
+        }
+
         res.status(201).json(message);
     } catch (err) {
         console.error('[Send Message Error]:', err);
@@ -794,7 +809,7 @@ router.patch('/messages/:messageId', verifyToken, [
         const { content } = req.body;
         const userId = req.userId;
         const message = await Message.findById(req.params.messageId);
-        if (!message || message.sender.toString() !== userId) return res.status(403).json({ error: 'Unauthorized' });
+        if (!message || message.sender.toString() !== userId.toString()) return res.status(403).json({ error: 'Unauthorized' });
 
         if (!message.originalContent) {
             message.originalContent = message.content;
