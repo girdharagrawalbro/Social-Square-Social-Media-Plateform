@@ -815,7 +815,7 @@ const UsersTab = () => {
 
             {drawerUser && (
                 <div className="fixed inset-y-0 right-0 w-[420px] bg-[var(--surface-1)] border-l border-[var(--border-color)] shadow-2xl z-[1000] flex flex-col animate-in slide-in-from-right duration-300">
-                    <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
+                    <div className="p-3 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
                         <div className="flex items-center gap-3">
                             <img src={drawerUser.profile_picture} alt="" className="w-12 h-12 rounded object-cover border border-[var(--border-color)]" />
                             <div>
@@ -1346,8 +1346,8 @@ const SystemTab = () => {
         }
         setBroadcastLoading(true);
         try {
-            await api.post('/api/admin/broadcast', { 
-                content: broadcastContent, 
+            await api.post('/api/admin/broadcast', {
+                content: broadcastContent,
                 segment: broadcastSegment,
                 broadcastType,
                 sendEmail,
@@ -1823,7 +1823,7 @@ const ContactsTab = () => {
 
             {selectedContact && (
                 <div className="fixed inset-y-0 right-0 w-[460px] bg-[var(--surface-1)] border-l border-[var(--border-color)] shadow-2xl z-[1000] flex flex-col animate-in slide-in-from-right duration-300">
-                    <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
+                    <div className="p-3 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
                         <div>
                             <h3 className="m-0 text-base font-black text-[var(--text-main)]">{selectedContact.name}</h3>
                             <p className="m-0 text-xs font-bold text-[var(--text-sub)] opacity-60">{selectedContact.email}</p>
@@ -1831,10 +1831,10 @@ const ContactsTab = () => {
                         <button onClick={() => { setSelectedContact(null); setReplyText(''); }} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all">Close</button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 custom-scrollbar">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Submission Context</p>
-                            <div className="p-4 bg-[var(--surface-2)] rounded border border-[var(--border-color)] text-[11px] font-bold text-[var(--text-sub)] space-y-1">
+                            <div className="p-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)] text-[11px] font-bold text-[var(--text-sub)] space-y-1">
                                 <p className="m-0">IP: <span className="text-[var(--text-main)]">{selectedContact.ip}</span></p>
                                 <p className="m-0">Device: <span className="text-[var(--text-main)]">{selectedContact.device}</span></p>
                                 <p className="m-0">Location: <span className="text-[var(--text-main)]">{selectedContact.location?.city}, {selectedContact.location?.region}, {selectedContact.location?.country}</span></p>
@@ -1855,7 +1855,7 @@ const ContactsTab = () => {
                                 <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Reply History</p>
                                 <div className="flex flex-col gap-3">
                                     {selectedContact.replies.map((reply, idx) => (
-                                        <div key={idx} className="p-4 bg-indigo-500/5 rounded border border-indigo-500/10 text-xs">
+                                        <div key={idx} className="p-3 bg-indigo-500/5 rounded border border-indigo-500/10 text-xs">
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="font-black text-[#808bf5]">{reply.sender?.fullname || 'Admin'}</span>
                                                 <span className="text-[9px] font-bold text-[var(--text-sub)] opacity-50">{new Date(reply.sentAt).toLocaleString()}</span>
@@ -1874,8 +1874,8 @@ const ContactsTab = () => {
                                     value={replyText}
                                     onChange={e => setReplyText(e.target.value)}
                                     placeholder="Type a response to send directly to this user's email address..."
-                                    rows={4}
-                                    className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-4 text-xs text-[var(--text-main)] outline-none focus:ring-1 ring-[#808bf5] focus:border-[#808bf5] transition-all resize-none"
+                                    rows={10}
+                                    className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-2 text-xs text-[var(--text-main)] outline-none focus:ring-1 ring-[#808bf5] focus:border-[#808bf5] transition-all resize-none"
                                     required
                                 />
                                 <button
@@ -2013,7 +2013,7 @@ const MailLogsTab = () => {
 
             {selectedLog && (
                 <div className="fixed inset-y-0 right-0 w-[600px] max-w-[95vw] bg-[var(--surface-1)] border-l border-[var(--border-color)] shadow-2xl z-[1000] flex flex-col animate-in slide-in-from-right duration-300">
-                    <div className="p-6 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
+                    <div className="p-3 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--surface-2)]">
                         <div className="min-w-0 flex-1 pr-4">
                             <h3 className="m-0 text-base font-black text-[var(--text-main)] truncate">{selectedLog.subject}</h3>
                             <p className="m-0 text-xs font-bold text-[var(--text-sub)] opacity-60">To: {selectedLog.to}</p>
@@ -2021,10 +2021,10 @@ const MailLogsTab = () => {
                         <button onClick={() => setSelectedLog(null)} className="px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--border-color)] rounded text-xs font-black uppercase cursor-pointer text-[var(--text-main)] transition-all flex-shrink-0">Close</button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 custom-scrollbar bg-white dark:bg-black/20">
+                    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 custom-scrollbar bg-white dark:bg-black/20">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-sub)] mb-2 opacity-70">Mail Metadata</p>
-                            <div className="p-4 bg-[var(--surface-2)] rounded border border-[var(--border-color)] text-[11px] font-bold text-[var(--text-sub)] space-y-1">
+                            <div className="p-3 bg-[var(--surface-2)] rounded border border-[var(--border-color)] text-[11px] font-bold text-[var(--text-sub)] space-y-1">
                                 <p className="m-0">From: <span className="text-[var(--text-main)]">{selectedLog.from}</span></p>
                                 <p className="m-0">Status: <span className={selectedLog.status === 'sent' ? 'text-green-500' : 'text-red-500'}>{selectedLog.status.toUpperCase()}</span></p>
                                 {selectedLog.error && <p className="m-0 text-red-500">Error: <span>{selectedLog.error}</span></p>}
@@ -2043,7 +2043,7 @@ const MailLogsTab = () => {
                                         sandbox="allow-same-origin"
                                     />
                                 ) : (
-                                    <div className="p-6 text-sm font-mono text-gray-800 whitespace-pre-wrap">
+                                    <div className="p-3 text-sm font-mono text-gray-800 whitespace-pre-wrap">
                                         {selectedLog.text}
                                     </div>
                                 )}
