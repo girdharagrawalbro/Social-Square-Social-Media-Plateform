@@ -1833,6 +1833,10 @@ router.post('/block', verifyToken, [
         await User.findByIdAndUpdate(req.userId, { $pull: { following: targetUserId } });
         await User.findByIdAndUpdate(targetUserId, { $pull: { followers: req.userId } });
 
+        const redis = require('../lib/redis');
+        await redis.del(`restricted_users:excl:${req.userId}`);
+        await redis.del(`restricted_users:excl:${targetUserId}`);
+
         res.status(200).json({ message: 'User blocked' });
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
@@ -1846,6 +1850,11 @@ router.post('/unblock', verifyToken, [
     try {
         const { targetUserId } = req.body;
         await User.findByIdAndUpdate(req.userId, { $pull: { blockedUsers: targetUserId } });
+
+        const redis = require('../lib/redis');
+        await redis.del(`restricted_users:excl:${req.userId}`);
+        await redis.del(`restricted_users:excl:${targetUserId}`);
+
         res.status(200).json({ message: 'User unblocked' });
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
@@ -1859,6 +1868,10 @@ router.post('/mute', verifyToken, [
     try {
         const { targetUserId } = req.body;
         await User.findByIdAndUpdate(req.userId, { $addToSet: { mutedUsers: targetUserId } });
+
+        const redis = require('../lib/redis');
+        await redis.del(`restricted_users:excl:${req.userId}`);
+
         res.status(200).json({ message: 'User muted' });
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
@@ -1872,6 +1885,10 @@ router.post('/unmute', verifyToken, [
     try {
         const { targetUserId } = req.body;
         await User.findByIdAndUpdate(req.userId, { $pull: { mutedUsers: targetUserId } });
+
+        const redis = require('../lib/redis');
+        await redis.del(`restricted_users:excl:${req.userId}`);
+
         res.status(200).json({ message: 'User unmuted' });
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
