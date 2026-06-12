@@ -21,6 +21,7 @@ const ACTION_META = {
     warn_user: { label: 'Warned user', color: '#eab308', bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.2)', icon: '⚠️' },
     broadcast_announcement: { label: 'System Announcement', color: '#6366f1', bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.2)', icon: '📢' },
     content_flagged: { label: 'Content flagged', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', icon: '⚠️' },
+    AUTOMATED_MODERATION: { label: 'AI Moderation', color: '#a855f7', bg: 'rgba(168,85,247,0.1)', border: 'rgba(168,85,247,0.2)', icon: '🤖' },
 };
 
 // ── Relative time helper ──────────────────────────────────────────────────────
@@ -247,17 +248,23 @@ const AuditLogTab = () => {
                                             {/* Admin */}
                                             <td style={{ padding: '14px 20px' }}>
                                                 <div className="flex items-center gap-3">
-                                                    <img
-                                                        src={log.admin?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
-                                                        alt=""
-                                                        style={{ width: 32, height: 32, borderRadius: 10, objectFit: 'cover', border: '2px solid var(--border-color)', flexShrink: 0 }}
-                                                    />
+                                                    {log.action === 'AUTOMATED_MODERATION' ? (
+                                                        <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--surface-2)', border: '2px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+                                                            🤖
+                                                        </div>
+                                                    ) : (
+                                                        <img
+                                                            src={log.admin?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                                            alt=""
+                                                            style={{ width: 32, height: 32, borderRadius: 10, objectFit: 'cover', border: '2px solid var(--border-color)', flexShrink: 0 }}
+                                                        />
+                                                    )}
                                                     <div className="flex flex-col gap-0.5">
                                                         <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
-                                                            {log.admin?.fullname || 'Unknown Admin'}
+                                                            {log.action === 'AUTOMATED_MODERATION' ? 'AI System' : (log.admin?.fullname || 'Unknown Admin')}
                                                         </span>
                                                         <span style={{ fontSize: 9, fontWeight: 700, color: '#808bf5', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                                            Administrator
+                                                            {log.action === 'AUTOMATED_MODERATION' ? 'System Process' : 'Administrator'}
                                                         </span>
                                                     </div>
                                                 </div>
