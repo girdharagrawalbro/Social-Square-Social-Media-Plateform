@@ -17,7 +17,7 @@ const processModerationJob = async (jobData) => {
     if (!content) return;
 
     // 1. Get toxicity score from AI (async, high-fidelity)
-    const score = await classifyToxicity(text);
+    let score = await classifyToxicity(text);
     
     // 2. Evaluate thresholds (combines local profanity + AI score)
     let { isVisible, isFlagged, reason } = await evaluateModeration(score, text);
@@ -34,6 +34,18 @@ const processModerationJob = async (jobData) => {
         for (const imageUrl of uniqueImages) {
             console.log(`[ModerationWorker] Moderating image: ${imageUrl}`);
             const imgMod = await checkImageNudity(imageUrl);
+            
+            // Update the overall moderation score to reflect image severity if it's higher than text
+            if (imgMod.details) {
+                const maxImgScore = Math.max(
+                    imgMod.details.sexual_activity || 0,
+                    imgMod.details.sexual_display || 0,
+                    imgMod.details.erotica || 0,
+                    imgMod.details.suggestive || 0
+                );
+                if (maxImgScore > score) score = maxImgScore;
+            }
+
             if (!imgMod.isSafe || imgMod.action === 'flag') {
                 if (imgMod.action === 'hide') {
                     isVisible = false;
