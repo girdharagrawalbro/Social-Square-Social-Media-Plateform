@@ -113,7 +113,7 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
                 playsInline
                 onDoubleClick={onDoubleClick}
                 onTouchEnd={onTouchEnd}
-                className="w-full h-full object-contain cursor-pointer max-h-[600px]"
+                className="w-full h-full object-contain cursor-pointer max-h-[800px]"
             />
 
             {/* ── Click-to-play/pause centre indicator ───────────── */}
@@ -240,9 +240,8 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
             ) : null}
 
             {/* ── Unified thumbnail strip (only when both video + images exist) ── */}
-            {hasMultiple && hasVideo && hasImages && (
+            {/* {hasMultiple && hasVideo && hasImages && (
                 <div className="w-full px-2 py-2 bg-black/50 backdrop-blur-md flex gap-2 overflow-x-auto no-scrollbar border-t border-white/10">
-                    {/* Video thumbnail */}
                     <button
                         onClick={() => setActiveType('video')}
                         className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 p-0 bg-black relative transition-all cursor-pointer
@@ -257,7 +256,6 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
                             <i className="pi pi-play text-white" style={{ fontSize: '11px', marginLeft: '2px' }}></i>
                         </div>
                     </button>
-                    {/* Image thumbnails */}
                     {images.map((src, idx) => (
                         <button
                             key={idx}
@@ -273,7 +271,7 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
                         </button>
                     ))}
                 </div>
-            )}
+            )} */}
 
             <HeartBurst visible={heartVisible} />
             {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
@@ -301,7 +299,7 @@ export const PostItem = React.memo(({
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
 
     return (
-        <article className="relative overflow-hidden w-full rounded-2xl border flex flex-col bg-white dark:bg-black mb-3 px-0 sm:px-0">
+        <article className="relative overflow-hidden w-full rounded-2xl flex flex-col mb-3 px-0 sm:px-0">
             <PostActivityTracker postId={post._id} onDwell={handleDwell} />
             <CollabInviteBanner post={post} user={user} />
 
@@ -442,7 +440,7 @@ export const PostItem = React.memo(({
 
             {/* Actions */}
             {!locked && (
-                <div className="bg-white dark:bg-black text-[var(--text-main)] w-full p-3">
+                <div className="text-[var(--text-main)] w-full p-3">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-4">
                             <div

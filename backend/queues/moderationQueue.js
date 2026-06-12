@@ -3,7 +3,7 @@ const redis = require('../lib/redis');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const AuditLog = require('../models/AuditLog');
-const { classifyToxicity, evaluateModeration } = require('../services/moderationService');
+const { classifyToxicity, evaluateModeration, checkImageNudity } = require('../services/moderationService');
 
 const isRedisDisabled = process.env.DISABLE_REDIS === 'true';
 
@@ -20,9 +20,35 @@ const processModerationJob = async (jobData) => {
     const score = await classifyToxicity(text);
     
     // 2. Evaluate thresholds (combines local profanity + AI score)
-    const { isVisible, isFlagged, reason } = await evaluateModeration(score, text);
+    let { isVisible, isFlagged, reason } = await evaluateModeration(score, text);
 
-    // 3. Update database
+    // 3. For posts, run image moderation using Google Cloud Vision Safe Search
+    if (contentType === 'post' && isVisible) {
+        const images = [];
+        if (content.image_url) images.push(content.image_url);
+        if (content.image_urls && content.image_urls.length > 0) {
+            images.push(...content.image_urls);
+        }
+        const uniqueImages = [...new Set(images)];
+
+        for (const imageUrl of uniqueImages) {
+            console.log(`[ModerationWorker] Moderating image: ${imageUrl}`);
+            const imgMod = await checkImageNudity(imageUrl);
+            if (!imgMod.isSafe || imgMod.action === 'flag') {
+                if (imgMod.action === 'hide') {
+                    isVisible = false;
+                    isFlagged = true;
+                    reason = imgMod.reason;
+                    break; // No need to check other images if one causes post to be hidden
+                } else if (imgMod.action === 'flag') {
+                    isFlagged = true;
+                    reason = reason ? `${reason} | ${imgMod.reason}` : imgMod.reason;
+                }
+            }
+        }
+    }
+
+    // 4. Update database
     await Model.findByIdAndUpdate(contentId, {
         isVisible,
         isFlagged,
