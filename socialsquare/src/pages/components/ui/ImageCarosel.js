@@ -66,7 +66,7 @@ export const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
                     onClick={e => { e.stopPropagation(); setCurrent(c => c - 1); }}
                     className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-[30px] h-[30px] rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-black transition-all active:scale-95 shadow-lg"
                 >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" color="black">
                         <path d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 </button>
@@ -75,9 +75,9 @@ export const ImageCarousel = ({ images, onDoubleClick, onTouchEnd }) => {
                 <button
                     aria-label="Next image"
                     onClick={e => { e.stopPropagation(); setCurrent(c => c + 1); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-[30px] h-[30px] rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-black transition-all active:scale-95 shadow-lg"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z10 w-[30px] h-[30px] rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-black transition-all active:scale-95 shadow-lg"
                 >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" color="black">
                         <path d="M4.5 2L8.5 6L4.5 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 </button>

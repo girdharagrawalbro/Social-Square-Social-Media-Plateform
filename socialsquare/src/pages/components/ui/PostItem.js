@@ -200,8 +200,8 @@ const CollabInviteBanner = ({ post, user }) => {
 // When both exist a unified thumbnail strip is shown (video first, then images).
 // ──────────────────────────────────────────────────────────────────────────────
 const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultiple, locked, heartVisible, onImageDoubleClick, onImageTap, prefetchPost }) => {
-    const [activeType, setActiveType] = useState(hasVideo ? 'video' : 'image'); // 'video' | 'image'
-    const [activeImageIdx, setActiveImageIdx] = useState(0);
+    const [activeType] = useState(hasVideo ? 'video' : 'image'); // 'video' | 'image'
+    const [activeImageIdx] = useState(0);
 
     return (
         <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" onMouseEnter={() => prefetchPost(post._id)}>
