@@ -105,6 +105,41 @@ if (isDisabled) {
             });
             return count;
         },
+        zadd: async (key, score, member) => {
+            if (!inMemoryData[key]) inMemoryData[key] = {};
+            inMemoryData[key][member] = Number(score);
+            return 1;
+        },
+        zrem: async (key, member) => {
+            if (inMemoryData[key] && inMemoryData[key][member] !== undefined) {
+                delete inMemoryData[key][member];
+                return 1;
+            }
+            return 0;
+        },
+        zrangebyscore: async (key, min, max) => {
+            if (!inMemoryData[key]) return [];
+            const results = [];
+            const maxVal = max === '+inf' ? Infinity : Number(max);
+            const minVal = min === '-inf' ? -Infinity : Number(min);
+            for (const [member, score] of Object.entries(inMemoryData[key])) {
+                if (score >= minVal && score <= maxVal) {
+                    results.push(member);
+                }
+            }
+            return results;
+        },
+        pipeline: function () {
+            const operations = [];
+            return {
+                hdel: (k, f) => { operations.push(() => this.hdel(k, f)); return this; },
+                zrem: (k, m) => { operations.push(() => this.zrem(k, m)); return this; },
+                exec: async () => {
+                    for (const op of operations) await op();
+                    return [];
+                }
+            };
+        },
         on: () => { },
         quit: async () => { },
         status: 'disabled',

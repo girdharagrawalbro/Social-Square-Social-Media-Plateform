@@ -7,7 +7,7 @@ const Post = require("./models/Post");
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
+const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
 const ALPHA = 0.2; // EMA factor for user interest
 
@@ -121,9 +121,33 @@ async function handleUserActivity(data) {
     }
   }
 
-  interest.lastUpdated = new Date();
-  await interest.save();
-  console.log(`✅ User ${userId} profile updated (${action})`);
+  // Exponential Backoff for Mongoose Optimistic Concurrency (VersionError)
+  let retries = 5;
+  while (retries > 0) {
+    try {
+      interest.lastUpdated = new Date();
+      await interest.save();
+      console.log(`✅ User ${userId} profile updated (${action})`);
+      break;
+    } catch (err) {
+      if (err.name === 'VersionError' && retries > 1) {
+        retries--;
+        const delay = Math.floor(Math.random() * 50) + 50; // Jittered 50-100ms
+        console.warn(`⚠️ [Recommender Worker] VersionError for user ${userId}. Retrying in ${delay}ms... (${retries} retries left)`);
+        await new Promise(r => setTimeout(r, delay));
+        
+        // Refetch the document and re-apply changes
+        const freshInterest = await UserInterest.findOne({ userId });
+        if (!freshInterest) break;
+        freshInterest.interestVector = interest.interestVector;
+        freshInterest.likedTags = interest.likedTags;
+        freshInterest.topCategories = interest.topCategories;
+        interest = freshInterest;
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 // 4. MAIN WORKER INIT EXPORTED FOR MAIN SERVER
