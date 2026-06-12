@@ -105,9 +105,80 @@ async function classifyToxicity(text) {
     }
 }
 
+/**
+ * Detect explicit content (nudity, etc.) in an image using Sightengine API.
+ * @param {string} imageUrl
+ * @returns {Promise<{isSafe: boolean, reason: string|null, action: string, details: Object|null}>}
+ */
+async function checkImageNudity(imageUrl) {
+    if (!imageUrl) return { isSafe: true, reason: null, action: 'none' };
+    
+    const apiUser = process.env.SIGHTENGINE_API_USER;
+    const apiSecret = process.env.SIGHTENGINE_API_SECRET;
+    
+    if (!apiUser || !apiSecret || apiUser === 'your_sightengine_api_user') {
+        console.warn('[Moderation Image]: Sightengine API User or Secret not configured. Skipping check.');
+        return { isSafe: true, reason: null, action: 'none' };
+    }
+
+    try {
+        const axios = require('axios');
+        const url = 'https://api.sightengine.com/1.0/check.json';
+        const response = await axios.get(url, {
+            params: {
+                url: imageUrl,
+                models: 'nudity-2.0',
+                api_user: apiUser,
+                api_secret: apiSecret
+            },
+            timeout: 10000
+        });
+
+        const data = response.data;
+        if (data.status !== 'success') {
+            console.error('[Moderation Image]: Sightengine returned error status:', data.error?.message || JSON.stringify(data));
+            return { isSafe: true, reason: null, action: 'none' }; // default safe
+        }
+
+        const nudity = data.nudity || {};
+        const sexualActivity = nudity.sexual_activity || 0;
+        const sexualDisplay = nudity.sexual_display || 0;
+        const erotica = nudity.erotica || 0;
+        const suggestive = nudity.suggestive || 0;
+
+        // Threshold policies
+        const isUnsafe = sexualActivity > 0.5 || sexualDisplay > 0.5 || erotica > 0.85;
+        const needsReview = erotica > 0.5 || suggestive > 0.85;
+
+        if (isUnsafe) {
+            return {
+                isSafe: false,
+                reason: `Auto-hidden: Image contains explicit content (Activity: ${sexualActivity.toFixed(2)}, Display: ${sexualDisplay.toFixed(2)}, Erotica: ${erotica.toFixed(2)}).`,
+                action: 'hide',
+                details: nudity
+            };
+        }
+
+        if (needsReview) {
+            return {
+                isSafe: true, // Visible but flagged
+                reason: `Flagged: Image contains suggestive content (Erotica: ${erotica.toFixed(2)}, Suggestive: ${suggestive.toFixed(2)}).`,
+                action: 'flag',
+                details: nudity
+            };
+        }
+
+        return { isSafe: true, reason: null, action: 'none', details: nudity };
+    } catch (error) {
+        console.error('[Moderation Image Error]:', error.response?.data || error.message);
+        return { isSafe: true, reason: null, action: 'none' };
+    }
+}
+
 module.exports = {
     localProfanityCheck,
     evaluateModeration,
     classifyToxicity,
+    checkImageNudity,
     THRESHOLDS
 };
