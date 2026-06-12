@@ -41,6 +41,7 @@ const processModerationJob = async (jobData) => {
                     reason = imgMod.reason;
                     break; // No need to check other images if one causes post to be hidden
                 } else if (imgMod.action === 'flag') {
+                    isVisible = false; // Enforce hiding even for 'flag' action
                     isFlagged = true;
                     reason = reason ? `${reason} | ${imgMod.reason}` : imgMod.reason;
                 }

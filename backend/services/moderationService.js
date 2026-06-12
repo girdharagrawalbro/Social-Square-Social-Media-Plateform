@@ -63,10 +63,10 @@ async function evaluateModeration(score, text) {
         };
     }
 
-    // Flagged state: Visible but marked
+    // Flagged state: Hidden and marked (Updated as per requirement)
     if (score >= THRESHOLDS.FLAG || hasProfanity) {
         return {
-            isVisible: true,
+            isVisible: false,
             isFlagged: true,
             reason: 'Flagged: Contains potentially sensitive or inappropriate language.'
         };

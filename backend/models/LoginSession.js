@@ -42,6 +42,8 @@ LoginSessionSchema.index({ accessToken: 1 });
 LoginSessionSchema.index({ refreshToken: 1 });
 // TTL index: MongoDB auto-deletes expired sessions at the document level
 LoginSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Fast lookup for token rotation
+LoginSessionSchema.index({ tokenFamily: 1 });
 
 // Auto-set updatedAt on every save/update
 LoginSessionSchema.pre('save', function (next) {
