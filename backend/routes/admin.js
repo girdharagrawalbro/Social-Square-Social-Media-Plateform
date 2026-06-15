@@ -975,6 +975,12 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
         const query = {};
         if (segment === 'active') query.isBanned = { $ne: true };
         if (segment === 'admins') query.isAdmin = true;
+        if (segment === 'specific') {
+            if (!req.body.specificUserIds || !Array.isArray(req.body.specificUserIds) || req.body.specificUserIds.length === 0) {
+                return res.status(400).json({ error: 'Specific user IDs required' });
+            }
+            query._id = { $in: req.body.specificUserIds };
+        }
 
         const users = await User.find(query).select('_id email fullname').lean();
         const admin = await User.findById(req.adminId).select('fullname profile_picture').lean();
@@ -1188,7 +1194,7 @@ router.put('/email-templates/:key', requireAdmin, async (req, res) => {
     try {
         const { key } = req.params;
         const { subject, html } = req.body;
-        
+
         if (!subject || !html) {
             return res.status(400).json({ success: false, message: 'Subject and HTML are required.' });
         }
@@ -1274,6 +1280,113 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
             <p style="color:#6b7280;font-size:12px">If you didn't request this, ignore this email.</p>
         </div>`,
                 variables: ['{{resetUrl}}']
+            },
+            {
+                key: 'new_device_alert',
+                name: 'New Device Alert Email',
+                subject: '⚠️ New device login detected — Social Square',
+                html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#ef4444">New Login Detected</h2>
+            <p>Your account was accessed from a new device:</p>
+            <ul style="color:#374151">
+                <li><strong>Device:</strong> {{device}}</li>
+                <li><strong>Location:</strong> {{locationStr}}</li>
+                <li><strong>Time:</strong> {{time}}</li>
+            </ul>
+            <p>If this was you, no action needed. If not, <a href="{{clientUrl}}/sessions">review your sessions</a> immediately.</p>
+        </div>`,
+                variables: ['{{device}}', '{{locationStr}}', '{{time}}', '{{clientUrl}}']
+            },
+            {
+                key: 'session_revoked',
+                name: 'Session Revoked Email',
+                subject: '🛡️ Session terminated — Social Square',
+                html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#6366f1">Session Revoked</h2>
+            <p>The following login session has been successfully terminated as per your request:</p>
+            <ul style="color:#374151">
+                <li><strong>Device:</strong> {{device}}</li>
+                <li><strong>Location:</strong> {{locationStr}}</li>
+                <li><strong>IP Address:</strong> {{ip}}</li>
+            </ul>
+            <p style="color:#6b7280;font-size:12px">If this wasn't you, your account may be compromised. Please change your password immediately.</p>
+        </div>`,
+                variables: ['{{device}}', '{{locationStr}}', '{{ip}}']
+            },
+            {
+                key: 'lockout_email',
+                name: 'Account Lockout Email',
+                subject: '🔒 Account temporarily locked — Social Square',
+                html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#f59e0b">Account Locked</h2>
+            <p>Hi {{fullname}},</p>
+            <p>Too many failed login attempts. Your account is locked until:</p>
+            <p style="font-size:18px;font-weight:bold;color:#808bf5">{{unlockTime}}</p>
+            <p style="color:#6b7280;font-size:12px">If this wasn't you, consider resetting your password after the lockout expires.</p>
+        </div>`,
+                variables: ['{{fullname}}', '{{unlockTime}}']
+            },
+            {
+                key: 'password_changed',
+                name: 'Password Changed Email',
+                subject: '🔒 Security Alert: Social Square password changed',
+                html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+            <h2 style="color:#ef4444;margin-top:0">Password Changed</h2>
+            <p>Hi {{fullname}},</p>
+            <p>This is a security alert to confirm that the password for your Social Square account was successfully changed.</p>
+            <p>If you made this change, you can safely ignore this email.</p>
+            <p style="color:#ef4444;font-weight:bold">If you didn't request this change, please contact support immediately to secure your account.</p>
+            <p style="color:#6b7280;font-size:12px;margin-top:20px">This is an automated security notification.</p>
+        </div>`,
+                variables: ['{{fullname}}']
+            },
+            {
+                key: 'digest_email',
+                name: 'Daily Digest Email',
+                subject: '{{fullname}}, you had {{totalInteractions}} interactions yesterday 🔥',
+                html: `
+        <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+            <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:32px 28px;text-align:center">
+                <h1 style="color:#fff;margin:0;font-size:24px">Social Square</h1>
+                <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">Your daily activity digest</p>
+            </div>
+            <div style="padding:28px">
+                <p style="font-size:16px;color:#374151;margin:0">Hi <strong>{{fullname}}</strong> 👋</p>
+                <p style="font-size:14px;color:#6b7280;margin:8px 0 20px">Here's what happened on Social Square yesterday.</p>
+                <div style="display:flex;gap:12px;margin-bottom:24px">
+                    <div style="flex:1;background:#f9fafb;border-radius:12px;padding:16px;text-align:center;border:1px solid #f3f4f6">
+                        <p style="font-size:24px;margin:0">👥</p>
+                        <p style="font-size:22px;font-weight:800;color:#111827;margin:8px 0 2px">{{newFollowers}}</p>
+                        <p style="font-size:11px;color:#9ca3af;margin:0;text-transform:uppercase;letter-spacing:.05em">New Followers</p>
+                    </div>
+                    <div style="flex:1;background:#f9fafb;border-radius:12px;padding:16px;text-align:center;border:1px solid #f3f4f6">
+                        <p style="font-size:24px;margin:0">❤️</p>
+                        <p style="font-size:22px;font-weight:800;color:#111827;margin:8px 0 2px">{{newLikes}}</p>
+                        <p style="font-size:11px;color:#9ca3af;margin:0;text-transform:uppercase;letter-spacing:.05em">Post Likes</p>
+                    </div>
+                    <div style="flex:1;background:#f9fafb;border-radius:12px;padding:16px;text-align:center;border:1px solid #f3f4f6">
+                        <p style="font-size:24px;margin:0">💬</p>
+                        <p style="font-size:22px;font-weight:800;color:#111827;margin:8px 0 2px">{{newComments}}</p>
+                        <p style="font-size:11px;color:#9ca3af;margin:0;text-transform:uppercase;letter-spacing:.05em">Comments</p>
+                    </div>
+                </div>
+                {{trendingPostsHtml}}
+                <div style="text-align:center;margin-top:24px">
+                    <a href="{{clientUrl}}" style="display:inline-block;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px">Open Social Square →</a>
+                </div>
+            </div>
+            <div style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;text-align:center">
+                <p style="font-size:11px;color:#9ca3af;margin:0">
+                    <a href="{{clientUrl}}/settings" style="color:#808bf5">Unsubscribe from digest</a>
+                </p>
+            </div>
+        </div></body></html>`,
+                variables: ['{{fullname}}', '{{totalInteractions}}', '{{newFollowers}}', '{{newLikes}}', '{{newComments}}', '{{trendingPostsHtml}}', '{{clientUrl}}']
             }
         ];
 

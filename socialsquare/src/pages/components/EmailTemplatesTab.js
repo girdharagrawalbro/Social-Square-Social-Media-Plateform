@@ -126,15 +126,26 @@ export default function EmailTemplatesTab() {
                                         className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-3 text-sm text-[var(--text-main)] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-[var(--text-sub)] uppercase tracking-wider mb-2">HTML Body</label>
-                                    <textarea
-                                        value={editForm.html}
-                                        onChange={(e) => setEditForm({ ...editForm, html: e.target.value })}
-                                        rows={12}
-                                        className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-3 text-sm font-mono text-[var(--text-main)] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all custom-scrollbar leading-relaxed"
-                                        spellCheck={false}
-                                    />
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-[var(--text-sub)] uppercase tracking-wider mb-2">HTML Code</label>
+                                        <textarea
+                                            value={editForm.html}
+                                            onChange={(e) => setEditForm({ ...editForm, html: e.target.value })}
+                                            rows={14}
+                                            className="w-full h-[400px] bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-3 text-sm font-mono text-[var(--text-main)] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all custom-scrollbar leading-relaxed"
+                                            spellCheck={false}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-[var(--text-sub)] uppercase tracking-wider mb-2 flex items-center gap-2">
+                                            <i className="pi pi-eye"></i> Live Preview
+                                        </label>
+                                        <div 
+                                            className="w-full h-[400px] bg-white border border-gray-200 rounded-lg p-4 overflow-y-auto custom-scrollbar shadow-inner"
+                                            dangerouslySetInnerHTML={{ __html: editForm.html }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         ) : (

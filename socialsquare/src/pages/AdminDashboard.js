@@ -1268,6 +1268,11 @@ const SystemTab = () => {
     const [sendEmail, setSendEmail] = useState(false);
     const [sendInApp, setSendInApp] = useState(true);
 
+    const [specificUserQuery, setSpecificUserQuery] = useState('');
+    const [specificUserResults, setSpecificUserResults] = useState([]);
+    const [selectedSpecificUsers, setSelectedSpecificUsers] = useState([]);
+    const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+
     // --- Load Feature Flags ---
     const fetchFlags = useCallback(async () => {
         setFlagsLoading(true);
@@ -1338,11 +1343,34 @@ const SystemTab = () => {
         }
     };
 
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (!specificUserQuery.trim()) {
+                setSpecificUserResults([]);
+                return;
+            }
+            setIsSearchingUsers(true);
+            try {
+                const res = await api.get(`/api/admin/users?search=${encodeURIComponent(specificUserQuery)}&limit=5`, { headers });
+                setSpecificUserResults(res.data?.users || []);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setIsSearchingUsers(false);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [specificUserQuery, headers]);
+
     const handleBroadcast = async (e) => {
         e.preventDefault();
         if (!broadcastContent.trim()) return;
         if (!sendEmail && !sendInApp) {
             toast.error('Please select at least one delivery channel (Push or Email)');
+            return;
+        }
+        if (broadcastSegment === 'specific' && selectedSpecificUsers.length === 0) {
+            toast.error('Please select at least one specific user');
             return;
         }
         setBroadcastLoading(true);
@@ -1352,7 +1380,8 @@ const SystemTab = () => {
                 segment: broadcastSegment,
                 broadcastType,
                 sendEmail,
-                sendInApp
+                sendInApp,
+                specificUserIds: selectedSpecificUsers.map(u => u._id)
             }, { headers });
             toast.success('Broadcast sent successfully');
             setBroadcastContent('');
@@ -1526,13 +1555,34 @@ const SystemTab = () => {
                         </div>
 
                         <form onSubmit={handleBroadcast} className="flex flex-col gap-4">
-                            <textarea
-                                value={broadcastContent}
-                                onChange={e => setBroadcastContent(e.target.value)}
-                                placeholder="Type a message to dispatch to your user segment..."
-                                rows={4}
-                                className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none"
-                            />
+                            <div className={sendEmail ? "grid grid-cols-1 lg:grid-cols-2 gap-4" : ""}>
+                                <div>
+                                    <textarea
+                                        value={broadcastContent}
+                                        onChange={e => setBroadcastContent(e.target.value)}
+                                        placeholder="Type a message to dispatch to your user segment. HTML is supported if sending via email..."
+                                        rows={sendEmail ? 12 : 4}
+                                        className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded p-3 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all resize-none font-mono custom-scrollbar"
+                                    />
+                                </div>
+                                {sendEmail && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-wider text-[var(--text-sub)] opacity-70 mb-2 flex items-center gap-2">
+                                            <i className="pi pi-eye"></i> Email Live Preview
+                                        </label>
+                                        <div className="w-full h-[260px] bg-white border border-gray-200 rounded-lg overflow-y-auto custom-scrollbar shadow-inner">
+                                            <div style={{ fontFamily: 'sans-serif', maxWidth: 500, margin: '0 auto', padding: 20 }}>
+                                                <h2 style={{ color: broadcastType === 'warning' ? '#ef4444' : '#6366f1', marginTop: 0, fontSize: '1.5em' }}>
+                                                    {broadcastType === 'warning' ? 'Security Warning' : 'Announcement'}
+                                                </h2>
+                                                <p style={{ color: '#374151' }}>Hi {'{Recipient Name}'},</p>
+                                                <div style={{ fontSize: 14, lineHeight: 1.6, color: '#374151' }} dangerouslySetInnerHTML={{ __html: broadcastContent.trim() || '<span class="opacity-50 text-gray-400">Your content will appear here...</span>' }} />
+                                                <p style={{ color: '#6b7280', fontSize: 12, marginTop: 20 }}>This email was sent by the system administration.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-2">
                                 <div className="flex flex-col gap-1.5">
@@ -1582,8 +1632,67 @@ const SystemTab = () => {
                                         <option value="all">All Members</option>
                                         <option value="active">Recently Active</option>
                                         <option value="admins">Administrators</option>
+                                        <option value="specific">Specific User</option>
                                     </select>
                                 </div>
+
+                                {broadcastSegment === 'specific' && (
+                                    <div className="flex flex-col gap-2 flex-1 min-w-[200px] relative">
+                                        <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-sub)] opacity-70">Search User(s)</label>
+                                        
+                                        {selectedSpecificUsers.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-1">
+                                                {selectedSpecificUsers.map(u => (
+                                                    <div key={u._id} className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded px-2 py-1 text-xs">
+                                                        <img src={u.profile_picture || `https://ui-avatars.com/api/?name=${u.fullname}`} alt="" className="w-4 h-4 rounded-full object-cover" />
+                                                        <span className="font-bold text-indigo-900">{u.fullname}</span>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => setSelectedSpecificUsers(prev => prev.filter(p => p._id !== u._id))} 
+                                                            className="text-indigo-400 hover:text-indigo-600 ml-1"
+                                                        >
+                                                            <i className="pi pi-times text-[10px]"></i>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={specificUserQuery}
+                                                onChange={e => setSpecificUserQuery(e.target.value)}
+                                                placeholder="Search by name, email or username..."
+                                                className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-3 py-2.5 text-xs text-[var(--text-main)] outline-none focus:border-indigo-500 transition-all"
+                                            />
+                                            {isSearchingUsers && <i className="pi pi-spinner pi-spin absolute right-3 top-3 text-[var(--text-sub)] text-xs"></i>}
+                                            {specificUserResults.length > 0 && (
+                                                <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--surface-1)] border border-[var(--border-color)] rounded shadow-lg z-50 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                                    {specificUserResults.map(u => (
+                                                        <div 
+                                                            key={u._id} 
+                                                            onClick={() => { 
+                                                                if (!selectedSpecificUsers.find(s => s._id === u._id)) {
+                                                                    setSelectedSpecificUsers(prev => [...prev, u]);
+                                                                }
+                                                                setSpecificUserResults([]); 
+                                                                setSpecificUserQuery(''); 
+                                                            }}
+                                                            className="px-3 py-2 hover:bg-[var(--surface-2)] cursor-pointer text-xs flex items-center gap-2 border-b border-[var(--border-color)] last:border-0"
+                                                        >
+                                                            <img src={u.profile_picture || `https://ui-avatars.com/api/?name=${u.fullname}`} alt="" className="w-5 h-5 rounded-full object-cover" />
+                                                            <div>
+                                                                <div className="font-bold text-[var(--text-main)]">{u.fullname}</div>
+                                                                <div className="text-[10px] text-[var(--text-sub)]">{u.email}</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <button
                                     type="submit"
