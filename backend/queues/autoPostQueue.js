@@ -76,6 +76,10 @@ async function runAutoPostJob(force = false) {
     try {
         // 1. Check feature flag setting
         if (!force) {
+            if (process.env.DISABLE_AI_AUTO_POSTING === 'true') {
+                console.log('[AutoPost] Skipped: AI auto-posting is disabled via environment variable DISABLE_AI_AUTO_POSTING.');
+                return null;
+            }
             const flagSetting = await SystemSetting.findOne({ key: 'ai_auto_posting' }).lean();
             if (flagSetting && flagSetting.value === false) {
                 console.log('[AutoPost] Skipped: AI auto-posting is disabled via system settings.');

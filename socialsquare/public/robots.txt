@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap Location
-Sitemap: https://socialsquare.vercel.app/sitemap.xml
+Sitemap: https://www.social-square.me/sitemap.xml

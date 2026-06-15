@@ -44,6 +44,7 @@ import ActiveSessions from './pages/components/ActiveSessions';
 import NotificationSettings from './pages/components/NotificationSettings';
 import MaintenancePage from './pages/components/MaintenancePage';
 import PleaseVerifyEmail from './pages/PleaseVerifyEmail';
+import EmailVerificationBanner from './pages/components/EmailVerificationBanner';
 import { useSystemFlags } from './hooks/queries/useMiscQueries';
 
 
@@ -711,6 +712,7 @@ function MainLayout({ children }) {
 
     return (
         <div className="relative flex flex-col h-screen w-full overflow-hidden">
+            <EmailVerificationBanner />
             <div className="lg:hidden">
                 <Navbar />
             </div>
@@ -770,9 +772,7 @@ function App() {
         return <MaintenancePage />;
     }
 
-    if (user && !user.isEmailVerified) {
-        return <PleaseVerifyEmail />;
-    }
+    // Removed PleaseVerifyEmail early return to allow unverified users to login
 
 
     return (
@@ -822,6 +822,7 @@ function App() {
                                     <Route path="/stories/:username" element={<StoriesPage />} />
                                     <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
                                     <Route path="/stories" element={<StoriesPage />} />
+                                    <Route path="/please-verify" element={<PleaseVerifyEmail />} />
                                     <Route path="*" element={<Navigate to={`/${user.username}`} replace />} />
                                 </>
                             ) : (
