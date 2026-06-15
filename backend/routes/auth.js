@@ -259,6 +259,12 @@ router.post('/login', authRateLimiter, [
         user.failedLoginAttempts = 0;
         user.lockoutUntil = null;
 
+        // ── AUTO VERIFY EMAIL ON SUCCESSFUL LOGIN ──
+        // If the user can log in with their email/password, they own the email.
+        if (!user.isEmailVerified) {
+            user.isEmailVerified = true;
+        }
+
         const hashedFingerprint = hashValue(fingerprint);
         let existingSession = await LoginSession.findOne({
             userId: user._id,

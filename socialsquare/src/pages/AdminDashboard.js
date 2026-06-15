@@ -6,6 +6,7 @@ import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
 import AuditLogTab from './components/AuditLogTab';
+import EmailTemplatesTab from './components/EmailTemplatesTab';
 
 const useAdmin = () => {
     const token = getToken();
@@ -2116,6 +2117,7 @@ const AdminDashboard = () => {
         { key: 'posts', icon: <PostsIcon />, label: 'Posts' },
         { key: 'reports', icon: <ReportIcon />, label: 'Reports' },
         { key: 'contacts', icon: <MailIcon />, label: 'Contacts' },
+        { key: 'email_templates', icon: <MailIcon />, label: 'Email Templates' },
         { key: 'mail_logs', icon: <MailLogsIcon />, label: 'Mail Logs' },
         { key: 'audit_log', icon: <AuditIcon />, label: 'Audit Log' },
         { key: 'system', icon: <SettingsIcon />, label: 'System' },
@@ -2183,8 +2185,9 @@ const AdminDashboard = () => {
                         {activeTab === 'users' && <UsersTab />}
                         {activeTab === 'posts' && <PostsTab />}
                         {activeTab === 'reports' && <ReportsTab />}
-                        {activeTab === 'contacts' && <ContactsTab />}
-                        {activeTab === 'mail_logs' && <MailLogsTab />}
+                        { activeTab === 'contacts' && <ContactsTab /> }
+                        { activeTab === 'email_templates' && <EmailTemplatesTab /> }
+                        { activeTab === 'mail_logs' && <MailLogsTab /> }
                         {activeTab === 'audit_log' && <AuditLogTab />}
                         {activeTab === 'system' && <SystemTab />}
                     </div>

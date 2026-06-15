@@ -1,26 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import Bg from './components/Bg';
 import { Toaster, toast } from 'react-hot-toast';
 import useAuthStore from '../store/zustand/useAuthStore';
 
 const VerifyEmail = () => {
     const { token } = useParams();
-    const [status, setStatus] = useState('verifying'); // verifying, success, error
-    const [message, setMessage] = useState('Verifying your email address...');
+    const navigate = useNavigate();
+    const [status, setStatus] = useState('verifying');
+    const [message, setMessage] = useState('');
     const verifyEmailLocally = useAuthStore(s => s.verifyEmailLocally);
+    const user = useAuthStore(s => s.user);
 
     useEffect(() => {
         const verify = async () => {
             try {
-                // Determine API URL based on environment
                 const API_BASE_URL = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
                 const response = await axios.get(`${API_BASE_URL}/auth/verify-email/${token}`);
-
                 setStatus('success');
                 setMessage(response.data.message || 'Email verified successfully!');
-                verifyEmailLocally(); // Sync the local user state if they are already logged in
+                verifyEmailLocally();
                 toast.success('Verification complete!');
             } catch (error) {
                 setStatus('error');
@@ -37,66 +36,119 @@ const VerifyEmail = () => {
         }
     }, [token, verifyEmailLocally]);
 
+    const handleContinue = () => {
+        if (user?.username) {
+            navigate(`/${user.username}`);
+        } else {
+            navigate('/login');
+        }
+    };
+
     return (
-        <>
-            <Bg>
-                <div className="w-full max-w-md mx-auto p-8 text-center">
-                    <h2 className="font-pacifico text-3xl mb-6 text-themeAccent">Social Square</h2>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 px-4">
+            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 text-center max-w-md w-full animate-in fade-in zoom-in duration-300">
 
-                    <div className="my-8">
-                        {status === 'verifying' && (
-                            <div className="flex flex-col items-center">
-                                <div className="w-16 h-16 border-4 border-themeAccent border-t-transparent rounded-full animate-spin mb-4" />
-                                <p className="text-gray-600 font-medium">Please wait while we verify your account...</p>
-                            </div>
-                        )}
+                {/* VERIFYING */}
+                {status === 'verifying' && (
+                    <>
+                        <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                            <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-800 mb-2">Verifying...</h2>
+                        <p className="text-gray-500 text-sm leading-relaxed">
+                            Please wait while we verify your email address.
+                        </p>
+                    </>
+                )}
 
-                        {status === 'success' && (
-                            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
-                                <div className="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </div>
-                                <h3 className="text-2xl font-bold text-gray-800 mb-2">Verified!</h3>
-                                <p className="text-gray-600 mb-8">{message}</p>
-                                <Link
-                                    to="/login"
-                                    className="w-full py-3 bg-gradient-to-r from-themeAccent to-blue-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95"
-                                >
-                                    Proceed to Login
+                {/* SUCCESS */}
+                {status === 'success' && (
+                    <>
+                        <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+
+                        <h2 className="text-2xl font-black text-gray-800 mb-2">Email Verified!</h2>
+                        <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                            Your email has been verified successfully.{' '}
+                            {user?.username
+                                ? 'You can now continue using Social Square.'
+                                : 'You can now log in to your account.'}
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={handleContinue}
+                                className="w-full py-3 rounded-xl font-bold transition-all active:scale-95 shadow-md bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg"
+                            >
+                                {user?.username ? 'Go to Feed' : 'Proceed to Login'}
+                            </button>
+                        </div>
+
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                            <p className="text-xs text-gray-400">
+                                Need help?{' '}
+                                <Link to="/contact" className="text-indigo-500 font-semibold hover:text-indigo-700">
+                                    Contact Support
                                 </Link>
-                            </div>
-                        )}
+                            </p>
+                        </div>
+                    </>
+                )}
 
-                        {status === 'error' && (
-                            <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </div>
-                                <h3 className="text-2xl font-bold text-gray-800 mb-2">Oops!</h3>
-                                <p className="text-gray-600 mb-8">{message}</p>
+                {/* ERROR */}
+                {status === 'error' && (
+                    <>
+                        <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </div>
+
+                        <h2 className="text-2xl font-black text-gray-800 mb-2">Link Expired</h2>
+                        <p className="text-gray-500 text-sm mb-6 leading-relaxed">{message}</p>
+
+                        <div className="space-y-3">
+                            {user?.username ? (
+                                <button
+                                    onClick={() => navigate(`/${user.username}`)}
+                                    className="w-full py-3 rounded-xl font-bold transition-all active:scale-95 shadow-md bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg"
+                                >
+                                    Back to Feed
+                                </button>
+                            ) : (
                                 <Link
                                     to="/signup"
-                                    className="w-full py-3 border-2 border-themeAccent text-themeAccent rounded-xl font-bold hover:bg-themeAccent hover:text-white transition-all active:scale-95"
+                                    className="block w-full py-3 rounded-xl font-bold transition-all active:scale-95 shadow-md bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg"
                                 >
-                                    Back to Signup
+                                    Create a New Account
                                 </Link>
-                            </div>
-                        )}
-                    </div>
+                            )}
+                            {!user?.username && (
+                                <Link
+                                    to="/login"
+                                    className="block w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95"
+                                >
+                                    Back to Login
+                                </Link>
+                            )}
+                        </div>
 
-                    <div className="pt-6 border-t border-gray-100">
-                        <p className="text-sm text-gray-500">
-                            Need help? <Link to="/contact" className="text-themeAccent font-semibold">Contact Support</Link>
-                        </p>
-                    </div>
-                </div>
-            </Bg>
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                            <p className="text-xs text-gray-400">
+                                Need help?{' '}
+                                <Link to="/contact" className="text-indigo-500 font-semibold hover:text-indigo-700">
+                                    Contact Support
+                                </Link>
+                            </p>
+                        </div>
+                    </>
+                )}
+            </div>
             <Toaster position="top-center" />
-        </>
+        </div>
     );
 };
 

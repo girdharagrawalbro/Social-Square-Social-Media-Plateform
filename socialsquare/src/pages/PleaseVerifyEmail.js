@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { api } from '../store/zustand/useAuthStore';
+import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 
 const PleaseVerifyEmail = () => {
     const user = useAuthStore(s => s.user);
-    const logout = useAuthStore(s => s.logout);
+    const navigate = useNavigate();
     const [resending, setResending] = useState(false);
     const [cooldown, setCooldown] = useState(0);
 
@@ -40,7 +41,7 @@ const PleaseVerifyEmail = () => {
                 
                 <h2 className="text-2xl font-black text-gray-800 mb-2">Verify Your Email</h2>
                 <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                    Thanks for joining! We've sent a verification link to <span className="font-bold text-indigo-600">{user?.email}</span>. 
+                    We've sent a verification link to <span className="font-bold text-indigo-600">{user?.email}</span>. 
                     Please click the link in that email to activate your account.
                 </p>
 
@@ -58,10 +59,10 @@ const PleaseVerifyEmail = () => {
                     </button>
 
                     <button
-                        onClick={logout}
-                        className="w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95"
+                        onClick={() => navigate(`/${user?.username}`)}
+                        className="w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
-                        Log Out
+                        Back to Feed
                     </button>
                 </div>
 
