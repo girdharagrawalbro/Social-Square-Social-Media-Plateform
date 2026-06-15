@@ -1020,7 +1020,7 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
                         <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
                             <h2 style="color:${headerColor};margin-top:0">${headerTitle}</h2>
                             <p>Hi ${user.fullname || 'there'},</p>
-                            <p style="font-size:14px;line-height:1.6;color:#374151">${content.trim()}</p>
+                            <p style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">${content.trim()}</p>
                             <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
                         </div>`
                     }).catch(err => console.error(`[Broadcast Email Error] Failed for ${user.email}:`, err.message));
@@ -1185,6 +1185,34 @@ router.get('/email-templates', requireAdmin, async (req, res) => {
     try {
         const templates = await EmailTemplate.find().sort({ key: 1 }).lean();
         res.json({ success: true, templates });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post('/email-templates', requireAdmin, async (req, res) => {
+    try {
+        const { key, name, subject, html, variables } = req.body;
+        if (!key || !name || !subject || !html) {
+            return res.status(400).json({ success: false, message: 'Key, name, subject, and HTML are required.' });
+        }
+        
+        const exists = await EmailTemplate.findOne({ key });
+        if (exists) {
+            return res.status(400).json({ success: false, message: 'Template key already exists.' });
+        }
+
+        const template = await EmailTemplate.create({ key, name, subject, html, variables: variables || [] });
+        
+        await logAdminAction({
+            adminId: req.adminId,
+            action: 'create_email_template',
+            targetType: 'system',
+            targetId: template._id,
+            meta: { key },
+        });
+
+        res.json({ success: true, template });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

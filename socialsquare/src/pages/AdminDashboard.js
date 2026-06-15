@@ -283,7 +283,7 @@ const PasswordGate = ({ onSuccess }) => {
                                 e.target.style.color = 'var(--text-sub)';
                             }}
                         >
-                            ← Return to Feed
+                            Return to Feed
                         </button>
                     </Link>
                 </form>
@@ -1435,7 +1435,7 @@ const SystemTab = () => {
     ];
 
     return (
-        <div className="flex flex-col gap-6 max-w-3xl">
+        <div className="flex flex-col gap-6 w-full">
             {/* Dynamic Pill Sub-Tabs */}
             <div className="flex gap-2 bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm overflow-x-auto custom-scrollbar">
                 {subTabs.map(st => (
@@ -1576,7 +1576,7 @@ const SystemTab = () => {
                                                     {broadcastType === 'warning' ? 'Security Warning' : 'Announcement'}
                                                 </h2>
                                                 <p style={{ color: '#374151' }}>Hi {'{Recipient Name}'},</p>
-                                                <div style={{ fontSize: 14, lineHeight: 1.6, color: '#374151' }} dangerouslySetInnerHTML={{ __html: broadcastContent.trim() || '<span class="opacity-50 text-gray-400">Your content will appear here...</span>' }} />
+                                                <div style={{ fontSize: 14, lineHeight: 1.6, color: '#374151', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: broadcastContent.trim() || '<span class="opacity-50 text-gray-400">Your content will appear here...</span>' }} />
                                                 <p style={{ color: '#6b7280', fontSize: 12, marginTop: 20 }}>This email was sent by the system administration.</p>
                                             </div>
                                         </div>
@@ -1639,16 +1639,16 @@ const SystemTab = () => {
                                 {broadcastSegment === 'specific' && (
                                     <div className="flex flex-col gap-2 flex-1 min-w-[200px] relative">
                                         <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-sub)] opacity-70">Search User(s)</label>
-                                        
+
                                         {selectedSpecificUsers.length > 0 && (
                                             <div className="flex flex-wrap gap-2 mb-1">
                                                 {selectedSpecificUsers.map(u => (
                                                     <div key={u._id} className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded px-2 py-1 text-xs">
                                                         <img src={u.profile_picture || `https://ui-avatars.com/api/?name=${u.fullname}`} alt="" className="w-4 h-4 rounded-full object-cover" />
                                                         <span className="font-bold text-indigo-900">{u.fullname}</span>
-                                                        <button 
-                                                            type="button" 
-                                                            onClick={() => setSelectedSpecificUsers(prev => prev.filter(p => p._id !== u._id))} 
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedSpecificUsers(prev => prev.filter(p => p._id !== u._id))}
                                                             className="text-indigo-400 hover:text-indigo-600 ml-1"
                                                         >
                                                             <i className="pi pi-times text-[10px]"></i>
@@ -1670,14 +1670,14 @@ const SystemTab = () => {
                                             {specificUserResults.length > 0 && (
                                                 <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--surface-1)] border border-[var(--border-color)] rounded shadow-lg z-50 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
                                                     {specificUserResults.map(u => (
-                                                        <div 
-                                                            key={u._id} 
-                                                            onClick={() => { 
+                                                        <div
+                                                            key={u._id}
+                                                            onClick={() => {
                                                                 if (!selectedSpecificUsers.find(s => s._id === u._id)) {
                                                                     setSelectedSpecificUsers(prev => [...prev, u]);
                                                                 }
-                                                                setSpecificUserResults([]); 
-                                                                setSpecificUserQuery(''); 
+                                                                setSpecificUserResults([]);
+                                                                setSpecificUserQuery('');
                                                             }}
                                                             className="px-3 py-2 hover:bg-[var(--surface-2)] cursor-pointer text-xs flex items-center gap-2 border-b border-[var(--border-color)] last:border-0"
                                                         >
@@ -2294,9 +2294,9 @@ const AdminDashboard = () => {
                         {activeTab === 'users' && <UsersTab />}
                         {activeTab === 'posts' && <PostsTab />}
                         {activeTab === 'reports' && <ReportsTab />}
-                        { activeTab === 'contacts' && <ContactsTab /> }
-                        { activeTab === 'email_templates' && <EmailTemplatesTab /> }
-                        { activeTab === 'mail_logs' && <MailLogsTab /> }
+                        {activeTab === 'contacts' && <ContactsTab />}
+                        {activeTab === 'email_templates' && <EmailTemplatesTab />}
+                        {activeTab === 'mail_logs' && <MailLogsTab />}
                         {activeTab === 'audit_log' && <AuditLogTab />}
                         {activeTab === 'system' && <SystemTab />}
                     </div>
