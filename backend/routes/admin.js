@@ -1286,7 +1286,7 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
             }
         }
 
-        res.json({ success: true, message: \`Seeded \${added} templates.\` });
+        res.json({ success: true, message: `Seeded ${added} templates.` });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
