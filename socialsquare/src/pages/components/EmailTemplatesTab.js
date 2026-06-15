@@ -27,6 +27,7 @@ export default function EmailTemplatesTab() {
 
     useEffect(() => {
         fetchTemplates();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleSeed = async () => {
