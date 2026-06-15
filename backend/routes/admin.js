@@ -12,6 +12,7 @@ const { logAdminAction } = require('../utils/audit.helper');
 const SystemSetting = require('../models/SystemSetting');
 const Notification = require('../models/Notification');
 const MailLog = require('../models/MailLog');
+const EmailTemplate = require('../models/EmailTemplate');
 const verifyToken = require('../middleware/Verifytoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
@@ -1167,6 +1168,125 @@ router.get('/mail-logs', requireAdmin, async (req, res) => {
         ]);
 
         res.json({ success: true, logs, total });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ─── EMAIL TEMPLATES ─────────────────────────────────────────────────────────
+
+router.get('/email-templates', requireAdmin, async (req, res) => {
+    try {
+        const templates = await EmailTemplate.find().sort({ key: 1 }).lean();
+        res.json({ success: true, templates });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.put('/email-templates/:key', requireAdmin, async (req, res) => {
+    try {
+        const { key } = req.params;
+        const { subject, html } = req.body;
+        
+        if (!subject || !html) {
+            return res.status(400).json({ success: false, message: 'Subject and HTML are required.' });
+        }
+
+        const template = await EmailTemplate.findOneAndUpdate(
+            { key },
+            { subject, html },
+            { new: true, runValidators: true }
+        );
+
+        if (!template) {
+            return res.status(404).json({ success: false, message: 'Template not found.' });
+        }
+
+        await logAdminAction({
+            adminId: req.adminId,
+            action: 'update_email_template',
+            targetType: 'system',
+            targetId: template._id,
+            meta: { key },
+        });
+
+        res.json({ success: true, template });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post('/email-templates/seed', requireAdmin, async (req, res) => {
+    try {
+        const defaultTemplates = [
+            {
+                key: 'verification_email',
+                name: 'Verification Email',
+                subject: 'Verify your Social Square account',
+                html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#808bf5">Welcome to Social Square!</h2>
+            <p>Please click the button below to verify your email address.</p>
+            <a href="{{verificationUrl}}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Verify Email</a>
+            <p style="color:#6b7280;font-size:12px">If you didn't create an account, ignore this email.</p>
+        </div>`,
+                variables: ['{{verificationUrl}}']
+            },
+            {
+                key: 'welcome_email',
+                name: 'Welcome Email',
+                subject: 'Welcome to Social Square! 🎉',
+                html: `
+        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+            <h2 style="color:#808bf5;margin-top:0">Welcome to Social Square! 🎉</h2>
+            <p>Hi <strong>{{fullname}}</strong>,</p>
+            <p>We are absolutely thrilled to have you join the Social Square community! Explore, connect, and share your moments with friends on a platform built for interaction.</p>
+            <div style="text-align:center;margin:24px 0">
+                <a href="{{clientUrl}}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:14px">Get Started</a>
+            </div>
+            <p style="color:#6b7280;font-size:12px;margin-top:20px">If you have any questions or need help, feel free to reply to this email.</p>
+        </div>`,
+                variables: ['{{fullname}}', '{{clientUrl}}']
+            },
+            {
+                key: 'otp_email',
+                name: 'OTP Email',
+                subject: 'Your Social Square verification code',
+                html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#808bf5">Social Square</h2>
+            <p>Your verification code is:</p>
+            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#808bf5;padding:16px;background:#f5f3ff;border-radius:8px;text-align:center">{{otp}}</div>
+            <p style="color:#6b7280;font-size:12px;margin-top:16px">Expires in 10 minutes. Do not share this code.</p>
+        </div>`,
+                variables: ['{{otp}}']
+            },
+            {
+                key: 'reset_email',
+                name: 'Password Reset Email',
+                subject: 'Reset your Social Square password',
+                html: `
+        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
+            <h2 style="color:#808bf5">Password Reset</h2>
+            <p>Click the button below to reset your password. This link expires in 1 hour.</p>
+            <a href="{{resetUrl}}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Reset Password</a>
+            <p style="color:#6b7280;font-size:12px">If you didn't request this, ignore this email.</p>
+        </div>`,
+                variables: ['{{resetUrl}}']
+            }
+        ];
+
+        let added = 0;
+        for (const template of defaultTemplates) {
+            const exists = await EmailTemplate.findOne({ key: template.key });
+            if (!exists) {
+                await EmailTemplate.create(template);
+                added++;
+            }
+        }
+
+        res.json({ success: true, message: \`Seeded \${added} templates.\` });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

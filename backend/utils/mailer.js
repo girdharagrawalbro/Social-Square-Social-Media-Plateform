@@ -1,5 +1,6 @@
 const axios = require('./http');
 const MailLog = require('../models/MailLog');
+const EmailTemplate = require('../models/EmailTemplate');
 
 const MAIL_SERVICE_BASE_URL = process.env.MAIL_SERVICE_BASE_URL;
 const MAIL_SERVICE_TIMEOUT_MS = Number(process.env.MAIL_SERVICE_TIMEOUT_MS || 30000);
@@ -121,35 +122,64 @@ async function sendEmail(args) {
     }
 }
 
+// ─── TEMPLATE PARSER ──────────────────────────────────────────────────────────
+
+async function getParsedTemplate(key, variables, defaultSubject, defaultHtml) {
+    try {
+        const template = await EmailTemplate.findOne({ key }).lean();
+        if (template) {
+            let parsedHtml = template.html;
+            let parsedSubject = template.subject;
+            for (const [vKey, vValue] of Object.entries(variables)) {
+                const regex = new RegExp(`{{${vKey}}}`, 'g');
+                parsedHtml = parsedHtml.replace(regex, vValue);
+                parsedSubject = parsedSubject.replace(regex, vValue);
+            }
+            return { subject: parsedSubject, html: parsedHtml };
+        }
+    } catch (error) {
+        console.error(`[Mailer] Failed to load template '${key}':`, error);
+    }
+    
+    // Fallback if template doesn't exist or DB fails
+    let parsedHtml = defaultHtml;
+    let parsedSubject = defaultSubject;
+    for (const [vKey, vValue] of Object.entries(variables)) {
+        const regex = new RegExp(`{{${vKey}}}`, 'g');
+        parsedHtml = parsedHtml.replace(regex, vValue);
+        parsedSubject = parsedSubject.replace(regex, vValue);
+    }
+    return { subject: parsedSubject, html: parsedHtml };
+}
+
 // ─── SPECIFIC EMAIL TYPES ─────────────────────────────────────────────────────
 
 async function sendOtpEmail(email, otp) {
-    return sendEmail({
-        to: email,
-        subject: 'Your Social Square verification code',
-        html: `
+    const defaultSubject = 'Your Social Square verification code';
+    const defaultHtml = `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
             <h2 style="color:#808bf5">Social Square</h2>
             <p>Your verification code is:</p>
-            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#808bf5;padding:16px;background:#f5f3ff;border-radius:8px;text-align:center">${otp}</div>
+            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#808bf5;padding:16px;background:#f5f3ff;border-radius:8px;text-align:center">{{otp}}</div>
             <p style="color:#6b7280;font-size:12px;margin-top:16px">Expires in 10 minutes. Do not share this code.</p>
-        </div>`
-    });
+        </div>`;
+    
+    const { subject, html } = await getParsedTemplate('otp_email', { otp }, defaultSubject, defaultHtml);
+    return sendEmail({ to: email, subject, html });
 }
 
 async function sendResetEmail(email, resetUrl) {
-    return sendEmail({
-        from: 'Social Square Support <support@social-square.me>',
-        to: email,
-        subject: 'Reset your Social Square password',
-        html: `
+    const defaultSubject = 'Reset your Social Square password';
+    const defaultHtml = `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
             <h2 style="color:#808bf5">Password Reset</h2>
             <p>Click the button below to reset your password. This link expires in 1 hour.</p>
-            <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Reset Password</a>
+            <a href="{{resetUrl}}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Reset Password</a>
             <p style="color:#6b7280;font-size:12px">If you didn't request this, ignore this email.</p>
-        </div>`
-    });
+        </div>`;
+
+    const { subject, html } = await getParsedTemplate('reset_email', { resetUrl }, defaultSubject, defaultHtml);
+    return sendEmail({ from: 'Social Square Support <support@social-square.me>', to: email, subject, html });
 }
 
 async function sendNewDeviceAlert(email, { device, location, time }) {
@@ -197,17 +227,17 @@ async function sendSessionRevokedEmail(email, { device, location, ip }) {
 }
 
 async function sendVerificationEmail(email, verificationUrl) {
-    return sendEmail({
-        to: email,
-        subject: 'Verify your Social Square account',
-        html: `
+    const defaultSubject = 'Verify your Social Square account';
+    const defaultHtml = `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
             <h2 style="color:#808bf5">Welcome to Social Square!</h2>
-            <p>Please click the button below to verify your email address and activate your account.</p>
-            <a href="${verificationUrl}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Verify Email</a>
+            <p>Please click the button below to verify your email address.</p>
+            <a href="{{verificationUrl}}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Verify Email</a>
             <p style="color:#6b7280;font-size:12px">If you didn't create an account, ignore this email.</p>
-        </div>`
-    });
+        </div>`;
+
+    const { subject, html } = await getParsedTemplate('verification_email', { verificationUrl }, defaultSubject, defaultHtml);
+    return sendEmail({ to: email, subject, html });
 }
 
 async function sendLockoutEmail(email, fullname, unlockTime) {
@@ -270,20 +300,21 @@ async function sendDigestEmail(user, stats) {
 }
 
 async function sendWelcomeEmail(email, fullname) {
-    return sendEmail({
-        to: email,
-        subject: 'Welcome to Social Square! 🎉',
-        html: `
+    const defaultSubject = 'Welcome to Social Square! 🎉';
+    const defaultHtml = `
         <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
             <h2 style="color:#808bf5;margin-top:0">Welcome to Social Square! 🎉</h2>
-            <p>Hi <strong>${fullname}</strong>,</p>
+            <p>Hi <strong>{{fullname}}</strong>,</p>
             <p>We are absolutely thrilled to have you join the Social Square community! Explore, connect, and share your moments with friends on a platform built for interaction.</p>
             <div style="text-align:center;margin:24px 0">
-                <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:14px">Get Started</a>
+                <a href="{{clientUrl}}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:14px">Get Started</a>
             </div>
             <p style="color:#6b7280;font-size:12px;margin-top:20px">If you have any questions or need help, feel free to reply to this email.</p>
-        </div>`
-    });
+        </div>`;
+
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    const { subject, html } = await getParsedTemplate('welcome_email', { fullname, clientUrl }, defaultSubject, defaultHtml);
+    return sendEmail({ to: email, subject, html });
 }
 
 async function sendPasswordChangedEmail(email, fullname) {

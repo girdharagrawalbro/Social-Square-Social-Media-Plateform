@@ -9,7 +9,7 @@ const EmailVerificationBanner = () => {
     if (!user || user.isEmailVerified) return null;
 
     return (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-3 sm:px-6 flex items-center justify-between z-[99999] relative shrink-0">
+        <div className="bg-yellow-50 border-b border-yellow-200 px-3 py-2 sm:px-6 flex items-center justify-between z-[99999] relative shrink-0">
             <div className="flex-1 flex items-center">
                 <span className="flex p-2 rounded-lg bg-yellow-400 mr-3">
                     <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
