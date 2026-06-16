@@ -306,6 +306,7 @@ const Conversations = () => {
             // If it's an incoming message, increment unread
             if ((message.senderId || message.sender) !== user?._id) {
                 incrementUnread(conversationId);
+                socket.emit('messageDelivered', { messageId: message._id, conversationId, senderId: message.senderId || message.sender });
             }
 
             // handleRefetch(); // Commented out to prevent unnecessary API calls
@@ -345,14 +346,20 @@ const Conversations = () => {
             // handleRefetch(); // Commented out to prevent unnecessary API calls
         };
 
+        const handleMessagesDelivered = ({ messageIds }) => {
+            queryClient.invalidateQueries({ queryKey: ['messages'] });
+        };
+
         socket.on('receiveMessage', handleReceiveMessage);
         socket.on('messageEdited', handleMessageEdited);
         socket.on('messageDeleted', handleMessageDeleted);
+        socket.on('messagesDelivered', handleMessagesDelivered);
 
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
             socket.off('messageEdited', handleMessageEdited);
             socket.off('messageDeleted', handleMessageDeleted);
+            socket.off('messagesDelivered', handleMessagesDelivered);
         };
     }, [handleRefetch, incrementUnread, queryClient, user?._id]);
 

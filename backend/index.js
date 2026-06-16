@@ -343,6 +343,46 @@ io.on('connection', (socket) => {
             // 3. Update MongoDB
             await User.findByIdAndUpdate(userId, { isOnline: true });
 
+            // 3.1. Mark undelivered messages to this user as delivered
+            try {
+                const Conversation = require('./models/Conversation');
+                const Message = require('./models/Message');
+                const userConvs = await Conversation.find({ 'participants.userId': userId }).select('_id');
+                if (userConvs.length > 0) {
+                    const convIds = userConvs.map(c => c._id);
+                    const undeliveredMessages = await Message.find({ 
+                        conversationId: { $in: convIds }, 
+                        sender: { $ne: userId }, 
+                        isDelivered: false 
+                    });
+
+                    if (undeliveredMessages.length > 0) {
+                        const msgIds = undeliveredMessages.map(m => m._id);
+                        await Message.updateMany(
+                            { _id: { $in: msgIds } }, 
+                            { $set: { isDelivered: true }, $addToSet: { deliveredTo: userId } }
+                        );
+
+                        // Group by sender to notify them
+                        const senderGroups = {};
+                        undeliveredMessages.forEach(m => {
+                            const sId = m.sender.toString();
+                            if (!senderGroups[sId]) senderGroups[sId] = [];
+                            senderGroups[sId].push(m._id);
+                        });
+
+                        for (const [sId, mIds] of Object.entries(senderGroups)) {
+                            const sidSocket = await redis.hget('online_users', sId);
+                            if (sidSocket) {
+                                io.to(sidSocket).emit('messagesDelivered', { messageIds: mIds });
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('[Socket] Delivered state update error:', err.message);
+            }
+
             // 4. Check if there is an active call waiting for this user (e.g. after a page refresh)
             for (const [convId, call] of activeCalls.entries()) {
                 if (call.recipientId === userId && !call.accepted) {
@@ -454,6 +494,19 @@ io.on('connection', (socket) => {
 
     socket.on('readMessage', ({ messageId, recipientId }) => {
         if (recipientId) io.to(recipientId).emit('seenMessage', { messageId });
+    });
+
+    socket.on('messageDelivered', async ({ messageId, conversationId, senderId }) => {
+        try {
+            const Message = require('./models/Message');
+            await Message.findByIdAndUpdate(messageId, { isDelivered: true, $addToSet: { deliveredTo: socket.userId } });
+            if (senderId) {
+                const sid = redis ? await redis.hget('online_users', senderId.toString()) : null;
+                if (sid) io.to(sid).emit('messagesDelivered', { messageIds: [messageId] });
+            }
+        } catch (err) {
+            console.error('[Socket] messageDelivered error:', err.message);
+        }
     });
 
     socket.on('collaborationResponse', ({ postId, userId, accepted }) => {
