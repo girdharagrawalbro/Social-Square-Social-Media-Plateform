@@ -850,13 +850,15 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                     onCreated(res.data);
                 } else {
                     for (const item of previewsToUpload) {
+                        const batchId = Math.random().toString(36).substring(2, 10) + '-' + Date.now();
+                        const folderPath = `stories/${batchId}`;
                         let mediaUrl, thumbnailUrl;
                         if (item.type === 'video') {
-                            const result = await uploadVideoToCloudinary(item.file);
+                            const result = await uploadVideoToCloudinary(item.file, null, { folder: folderPath });
                             mediaUrl = typeof result === 'string' ? result : result?.url;
                             thumbnailUrl = result?.thumbnailUrl || null;
                         } else {
-                            const result = await uploadToCloudinary(item.file);
+                            const result = await uploadToCloudinary(item.file, null, { folder: folderPath });
                             mediaUrl = typeof result === 'string' ? result : result?.url;
                         }
 

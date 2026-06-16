@@ -1,4 +1,5 @@
-import React, { useState, lazy } from "react";
+import React, { useState, lazy, useEffect } from "react";
+import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
 import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
@@ -27,6 +28,17 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
         hasNextPage,
         isFetchingNextPage
     } = useUserPosts(userId);
+
+    const { ref: loadMoreRef, inView } = useInView({
+        threshold: 0,
+        rootMargin: '100px',
+    });
+
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const allPosts = data?.pages.flatMap(page => page.posts) || [];
     const posts = maxPosts ? allPosts.slice(0, maxPosts) : allPosts;
@@ -84,14 +96,13 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
             </div>
 
             {hasNextPage && !maxPosts && (
-                <div className="flex justify-center mt-4">
-                    <button
-                        onClick={() => fetchNextPage()}
-                        disabled={isFetchingNextPage}
-                        className="w-full py-2 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-sub)] font-bold text-xs cursor-pointer hover:bg-[var(--surface-1)] transition flex items-center justify-center gap-2"
-                    >
-                        {isFetchingNextPage ? <i className="pi pi-spin pi-spinner"></i> : <span>Load More</span>}
-                    </button>
+                <div ref={loadMoreRef} className="flex justify-center mt-4 h-10">
+                    {isFetchingNextPage && (
+                        <div className="w-full py-2 flex items-center justify-center gap-2 text-[var(--text-sub)] font-bold text-xs">
+                            <i className="pi pi-spin pi-spinner"></i>
+                            <span>Loading...</span>
+                        </div>
+                    )}
                 </div>
             )}
 
