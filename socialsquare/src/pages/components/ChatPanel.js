@@ -235,7 +235,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                 checkmarkStatus = 'read';
             }
         } else {
-            checkmarkStatus = message.isRead ? 'read' : 'sent';
+            checkmarkStatus = message.isRead ? 'read' : (message.isDelivered ? 'delivered' : 'sent'); checkmarkStatus = message.isRead ? 'read' : 'sent';
         }
     }
 
