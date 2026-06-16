@@ -304,7 +304,7 @@ router.get("/similar/:postId", verifyToken, [
         // 3. Determine Privacy Bucket for Result Caching
         const targetPost = await Post.findById(postId).populate('user._id', 'isPrivate followers').lean();
 
-        if (!targetPost) {
+        if (!targetPost || targetPost.isVisible === false || targetPost.deletedAt) {
             return res.status(404).json({ message: "Post not found" });
         }
 
@@ -388,6 +388,7 @@ router.get("/similar/:postId", verifyToken, [
                     _id: { $ne: postId },
                     "user._id": { $nin: restrictedUserIds },
                     isAnonymous: { $ne: true },
+                    isVisible: { $ne: false },
                     deletedAt: null
                 }).sort({ createdAt: -1 }).limit(100).lean();
 
@@ -420,6 +421,7 @@ router.get("/similar/:postId", verifyToken, [
                 _id: { $ne: postId },
                 "user._id": { $nin: restrictedUserIds },
                 isAnonymous: { $ne: true },
+                isVisible: { $ne: false },
                 deletedAt: null,
                 $or: targetPost.category
                     ? [{ category: targetPost.category }, { tags: { $in: targetPost.tags || [] } }]
