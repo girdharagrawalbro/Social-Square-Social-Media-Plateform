@@ -100,7 +100,6 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
                     {isFetchingNextPage && (
                         <div className="w-full py-2 flex items-center justify-center gap-2 text-[var(--text-sub)] font-bold text-xs">
                             <i className="pi pi-spin pi-spinner"></i>
-                            <span>Loading...</span>
                         </div>
                     )}
                 </div>

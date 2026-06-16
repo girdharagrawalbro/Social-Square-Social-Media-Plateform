@@ -1007,22 +1007,38 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
         // 2. Dispatch Broadcast Emails if selected (defaults to false)
         if (sendEmail === true) {
             const { sendEmail: mailerSend } = require('../utils/mailer');
-            const emailSubject = broadcastType === 'warning' ? '⚠️ Security Warning from Social Square' : '📢 Announcement from Social Square';
-            const headerColor = broadcastType === 'warning' ? '#ef4444' : '#6366f1';
-            const headerTitle = broadcastType === 'warning' ? 'Security Warning' : 'Announcement';
+            const templateKey = broadcastType === 'warning' ? 'broadcast_warning' : 'broadcast_announcement';
+            let template = await EmailTemplate.findOne({ key: templateKey }).lean();
+            
+            if (!template) {
+                const emailSubject = broadcastType === 'warning' ? '⚠️ Security Warning from Social Square' : '📢 Announcement from Social Square';
+                const headerColor = broadcastType === 'warning' ? '#ef4444' : '#6366f1';
+                const headerTitle = broadcastType === 'warning' ? 'Security Warning' : 'Announcement';
+                template = {
+                    subject: emailSubject,
+                    html: `
+                    <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+                        <h2 style="color:${headerColor};margin-top:0">${headerTitle}</h2>
+                        <p>Hi {{fullname}},</p>
+                        <p style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">{{content}}</p>
+                        <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
+                    </div>`
+                };
+            }
 
             users.forEach(user => {
                 if (user.email) {
+                    const parsedHtml = template.html
+                        .replace(/{{fullname}}/g, user.fullname || 'there')
+                        .replace(/{{content}}/g, content.trim());
+                    const parsedSubject = template.subject
+                        .replace(/{{fullname}}/g, user.fullname || 'there')
+                        .replace(/{{content}}/g, content.trim());
+
                     mailerSend({
                         to: user.email,
-                        subject: emailSubject,
-                        html: `
-                        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
-                            <h2 style="color:${headerColor};margin-top:0">${headerTitle}</h2>
-                            <p>Hi ${user.fullname || 'there'},</p>
-                            <p style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">${content.trim()}</p>
-                            <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
-                        </div>`
+                        subject: parsedSubject,
+                        html: parsedHtml
                     }).catch(err => console.error(`[Broadcast Email Error] Failed for ${user.email}:`, err.message));
                 }
             });
@@ -1415,6 +1431,32 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
             </div>
         </div></body></html>`,
                 variables: ['{{fullname}}', '{{totalInteractions}}', '{{newFollowers}}', '{{newLikes}}', '{{newComments}}', '{{trendingPostsHtml}}', '{{clientUrl}}']
+            },
+            {
+                key: 'broadcast_warning',
+                name: 'Broadcast Warning Email',
+                subject: '⚠️ Security Warning from Social Square',
+                html: `
+        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+            <h2 style="color:#ef4444;margin-top:0">Security Warning</h2>
+            <p>Hi {{fullname}},</p>
+            <p style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">{{content}}</p>
+            <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
+        </div>`,
+                variables: ['{{fullname}}', '{{content}}']
+            },
+            {
+                key: 'broadcast_announcement',
+                name: 'Broadcast Announcement Email',
+                subject: '📢 Announcement from Social Square',
+                html: `
+        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+            <h2 style="color:#6366f1;margin-top:0">Announcement</h2>
+            <p>Hi {{fullname}},</p>
+            <p style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">{{content}}</p>
+            <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
+        </div>`,
+                variables: ['{{fullname}}', '{{content}}']
             }
         ];
 
