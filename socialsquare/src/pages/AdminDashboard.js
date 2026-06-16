@@ -1267,6 +1267,32 @@ const SystemTab = () => {
     const [broadcastType, setBroadcastType] = useState('warning');
     const [sendEmail, setSendEmail] = useState(false);
     const [sendInApp, setSendInApp] = useState(true);
+    const [templates, setTemplates] = useState([]);
+
+    const activeTemplate = useMemo(() => {
+        const key = broadcastType === 'warning' ? 'broadcast_warning' : 'broadcast_announcement';
+        return templates.find(t => t.key === key);
+    }, [templates, broadcastType]);
+
+    const getPreviewHtml = () => {
+        const contentVal = broadcastContent.trim() || '<span class="opacity-50 text-gray-400">Your content will appear here...</span>';
+        if (activeTemplate) {
+            return activeTemplate.html
+                .replace(/{{fullname}}/g, 'Recipient Name')
+                .replace(/{{content}}/g, contentVal);
+        }
+        
+        // Fallback default structure
+        const headerColor = broadcastType === 'warning' ? '#ef4444' : '#6366f1';
+        const headerTitle = broadcastType === 'warning' ? 'Security Warning' : 'Announcement';
+        return `
+        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
+            <h2 style="color:${headerColor};margin-top:0">${headerTitle}</h2>
+            <p style="color:#374151">Hi Recipient Name,</p>
+            <div style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">${contentVal}</div>
+            <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
+        </div>`;
+    };
 
     const [specificUserQuery, setSpecificUserQuery] = useState('');
     const [specificUserResults, setSpecificUserResults] = useState([]);
@@ -1305,9 +1331,26 @@ const SystemTab = () => {
         }
     }, [headers]);
 
+    const fetchTemplates = useCallback(async () => {
+        try {
+            const res = await api.get('/api/admin/email-templates', { headers });
+            if (res.data?.success) {
+                setTemplates(res.data.templates || []);
+            }
+        } catch (err) {
+            console.error('Failed to load email templates for preview', err);
+        }
+    }, [headers]);
+
     useEffect(() => {
         fetchFlags();
     }, [fetchFlags]);
+
+    useEffect(() => {
+        if (subTab === 'broadcasts') {
+            fetchTemplates();
+        }
+    }, [subTab, fetchTemplates]);
 
     useEffect(() => {
         if (subTab === 'content_moderation') {
@@ -1570,15 +1613,8 @@ const SystemTab = () => {
                                         <label className="block text-[10px] font-black uppercase tracking-wider text-[var(--text-sub)] opacity-70 mb-2 flex items-center gap-2">
                                             <i className="pi pi-eye"></i> Email Live Preview
                                         </label>
-                                        <div className="w-full h-[260px] bg-white border border-gray-200 rounded-lg overflow-y-auto custom-scrollbar shadow-inner">
-                                            <div style={{ fontFamily: 'sans-serif', maxWidth: 500, margin: '0 auto', padding: 20 }}>
-                                                <h2 style={{ color: broadcastType === 'warning' ? '#ef4444' : '#6366f1', marginTop: 0, fontSize: '1.5em' }}>
-                                                    {broadcastType === 'warning' ? 'Security Warning' : 'Announcement'}
-                                                </h2>
-                                                <p style={{ color: '#374151' }}>Hi {'{Recipient Name}'},</p>
-                                                <div style={{ fontSize: 14, lineHeight: 1.6, color: '#374151', whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: broadcastContent.trim() || '<span class="opacity-50 text-gray-400">Your content will appear here...</span>' }} />
-                                                <p style={{ color: '#6b7280', fontSize: 12, marginTop: 20 }}>This email was sent by the system administration.</p>
-                                            </div>
+                                        <div className="w-full h-[260px] bg-white border border-gray-200 rounded-lg overflow-y-auto custom-scrollbar shadow-inner p-4 text-black">
+                                            <div dangerouslySetInnerHTML={{ __html: getPreviewHtml() }} />
                                         </div>
                                     </div>
                                 )}
