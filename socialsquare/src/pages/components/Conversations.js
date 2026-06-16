@@ -160,7 +160,7 @@ const Conversations = () => {
         if (!file) return;
         setIsUploadingAvatar(true);
         try {
-            const url = await uploadToCloudinary(file);
+            const url = await uploadToCloudinary(file, null, { folder: 'chat' });
             setGroupAvatar(typeof url === 'string' ? url : url?.url);
             toast.success('Avatar uploaded successfully!');
         } catch (err) {

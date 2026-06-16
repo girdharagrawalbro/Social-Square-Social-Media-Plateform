@@ -1,4 +1,5 @@
-import React, { useState, useLayoutEffect, useRef } from 'react';
+import React, { useState, useLayoutEffect, useRef, useEffect } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
@@ -120,6 +121,17 @@ const Profile = ({ userId }) => {
         hasNextPage,
         isFetchingNextPage
     } = useUserPosts((initialized && currentUserId) ? profileId : null);
+
+    const { ref: loadMoreRef, inView } = useInView({
+        threshold: 0,
+        rootMargin: '100px',
+    });
+
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
     const { data: savedPostsData = [] } = useSavedPosts((initialized && currentUserId && viewingOwnProfile) ? profileId : null);
 
     // Fetch public posts (Logged Out)
@@ -655,26 +667,15 @@ const Profile = ({ userId }) => {
                         </div>
                     )}
 
-                    {/* Load More Button */}
+                    {/* Load More Trigger */}
                     {activeTab === 'posts' && hasNextPage && !isPrivateAndNotFollowing && (
-                        <div className="flex justify-center mt-6 mb-8">
-                            <button
-                                onClick={() => fetchNextPage()}
-                                disabled={isFetchingNextPage}
-                                className="px-8 py-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 text-indigo-500 font-bold text-sm cursor-pointer hover:bg-indigo-500/10 transition flex items-center gap-2"
-                            >
-                                {isFetchingNextPage ? (
-                                    <>
-                                        <i className="pi pi-spin pi-spinner"></i>
-                                        <span>Loading...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <i className="pi pi-plus-circle"></i>
-                                        <span>Load More Posts</span>
-                                    </>
-                                )}
-                            </button>
+                        <div ref={loadMoreRef} className="flex justify-center mt-6 mb-8 h-10">
+                            {isFetchingNextPage && (
+                                <div className="text-indigo-500 font-bold text-sm flex items-center gap-2">
+                                    <i className="pi pi-spin pi-spinner"></i>
+                                    <span>Loading...</span>
+                                </div>
+                            )}
                         </div>
                     )}
 

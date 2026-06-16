@@ -579,7 +579,7 @@ const NewPost = ({ visible, onHide }) => {
         await Promise.all(pending.map(async (img) => {
             const idx = uploaded.findIndex(i => i.id === img.id);
             try {
-                const result = await uploadToCloudinary(img.file, (p) => setImages(prev => prev.map(i => i.id === img.id ? { ...i, progress: p } : i)));
+                const result = await uploadToCloudinary(img.file, (p) => setImages(prev => prev.map(i => i.id === img.id ? { ...i, progress: p } : i)), { folder: 'posts' });
                 const url = typeof result === 'string' ? result : result?.url;
                 uploaded[idx] = { ...uploaded[idx], url, uploaded: true, progress: 100 };
             } catch {
@@ -596,7 +596,7 @@ const NewPost = ({ visible, onHide }) => {
     const uploadVideoIfNeeded = async () => {
         if (!video) return null;
         try {
-            const options = {};
+            const options = { folder: 'posts' };
             if (video.trimRange) {
                 options.start_offset = video.trimRange[0];
                 options.end_offset = video.trimRange[1];
@@ -652,6 +652,9 @@ const NewPost = ({ visible, onHide }) => {
         // 4. Run background task
         (async () => {
             try {
+                const batchId = Math.random().toString(36).substring(2, 10) + '-' + Date.now();
+                const folderPath = `posts/${batchId}`;
+
                 let imageURLs = [];
                 if (imagesToUpload.length > 0) {
                     const pending = imagesToUpload.filter(img => !img.uploaded);
@@ -660,7 +663,7 @@ const NewPost = ({ visible, onHide }) => {
                     await Promise.all(pending.map(async (img) => {
                         const idx = uploaded.findIndex(i => i.id === img.id);
                         try {
-                            const result = await uploadToCloudinary(img.file);
+                            const result = await uploadToCloudinary(img.file, null, { folder: folderPath });
                             const url = typeof result === 'string' ? result : result?.url;
                             uploaded[idx] = { ...uploaded[idx], url, uploaded: true };
                         } catch (err) {
@@ -674,14 +677,14 @@ const NewPost = ({ visible, onHide }) => {
                 let voiceNoteUrl = null, voiceNoteDuration = null;
                 if (voiceBlobToUpload) {
                     const voiceFile = new File([voiceBlobToUpload], 'voice.webm', { type: voiceBlobToUpload.type || 'audio/webm' });
-                    const result = await uploadVideoToCloudinary(voiceFile);
+                    const result = await uploadVideoToCloudinary(voiceFile, null, { folder: folderPath });
                     voiceNoteUrl = typeof result === 'string' ? result : result?.url;
                     voiceNoteDuration = recDuration;
                 }
 
                 let videoUrl = null, videoDuration = null, videoThumbnail = null;
                 if (videoToUpload) {
-                    const options = {};
+                    const options = { folder: folderPath };
                     if (videoToUpload.trimRange) {
                         options.start_offset = videoToUpload.trimRange[0];
                         options.end_offset = videoToUpload.trimRange[1];

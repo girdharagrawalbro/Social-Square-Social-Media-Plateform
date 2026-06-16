@@ -1264,15 +1264,15 @@ const ChatPanel = ({
                             if (existing && existing.uploadedUrl) {
                                 mediaUrl = existing.uploadedUrl;
                             } else {
-                                const r = await uploadToCloudinary(file, onProgress);
+                                const r = await uploadToCloudinary(file, onProgress, { folder: 'chat' });
                                 mediaUrl = typeof r === 'string' ? r : r?.url;
                             }
                         } else if (file.type.startsWith('video/')) {
-                            const r = await uploadVideoToCloudinary(file, onProgress);
+                            const r = await uploadVideoToCloudinary(file, onProgress, { folder: 'chat' });
                             mediaUrl = typeof r === 'string' ? r : r?.url;
                             thumbnailUrl = r?.thumbnailUrl;
                         } else {
-                            const r = await uploadToDrive(file, onProgress);
+                            const r = await uploadToDrive(file, onProgress, { folder: 'chat' });
                             mediaUrl = r?.url;
                         }
 
@@ -1376,7 +1376,7 @@ const ChatPanel = ({
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     setPreviews(prev => [...prev, { id, url: ev.target.result, file, uploading: true, uploadedUrl: null, error: null, isFile: false }]);
-                    uploadToCloudinary(file)
+                    uploadToCloudinary(file, null, { folder: 'chat' })
                         .then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); })
                         .catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
                 };
@@ -1428,7 +1428,7 @@ const ChatPanel = ({
                         isFile: false
                     }]);
 
-                    uploadToCloudinary(file)
+                    uploadToCloudinary(file, null, { folder: 'chat' })
                         .then(r => {
                             const url = typeof r === 'string' ? r : r?.url;
                             setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p));
@@ -1678,7 +1678,7 @@ const ChatPanel = ({
                                                     const reader = new FileReader();
                                                     reader.onload = (ev) => {
                                                         setPreviews(prev => [...prev, { id, url: ev.target.result, file, uploading: true, uploadedUrl: null, error: null }]);
-                                                        uploadToCloudinary(file).then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); }).catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
+                                                        uploadToCloudinary(file, null, { folder: 'chat' }).then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); }).catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
                                                     };
                                                     reader.readAsDataURL(file);
                                                 }

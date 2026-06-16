@@ -2,20 +2,40 @@ const express = require('express');
 const router = express.Router();
 const axios = require('../utils/http');
 const verifyToken = require('../middleware/Verifytoken');
+const User = require('../models/User');
 
 let CLOUDINARY_API_BASE_URL = process.env.CLOUDINARY_API_BASE_URL;
 
 const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL;
+
+async function getStandardizedFolder(req) {
+    let userFolder = req.userId || 'anonymous';
+    if (req.userId) {
+        try {
+            const user = await User.findById(req.userId).select('username').lean();
+            if (user && user.username) {
+                userFolder = `${req.userId}-${user.username}`;
+            }
+        } catch (err) {
+            console.error('Error fetching user for folder name:', err);
+        }
+    }
+    let folderType = req.body.folder || 'misc';
+    // Sanitize to prevent path traversal but allow internal slashes
+    folderType = folderType.replace(/\.\./g, '').replace(/^\/+/, '');
+    if (!folderType) folderType = 'misc';
+    return `SocialSquare/${userFolder}/${folderType}`;
+}
 
 /**
  * @route POST /api/media/sign-upload
  * @desc Generate a signature for direct Cloudinary upload (Bypasses proxy bottleneck)
  * @access Private
  */
-router.post('/sign-upload', verifyToken, (req, res) => {
+router.post('/sign-upload', verifyToken, async (req, res) => {
     try {
         const timestamp = Math.round(Date.now() / 1000);
-        const folder = req.body.folder || `users/${req.userId || 'anonymous'}`;
+        const folder = await getStandardizedFolder(req);
 
         // Ask microservice to generate the signature
         return axios.post(`${CLOUDINARY_API_BASE_URL}/sign`, { timestamp, folder })
@@ -58,7 +78,7 @@ router.post('/drive/sign-upload', verifyToken, async (req, res) => {
         const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/initiate-resumable`, {
             name: req.body.name,
             mimeType: req.body.mimeType,
-            folder: req.body.folder
+            folder: await getStandardizedFolder(req)
         });
 
         const responseData = response.data || {};
@@ -79,8 +99,9 @@ router.post('/drive/sign-upload', verifyToken, async (req, res) => {
  */
 router.post('/drive/upload', verifyToken, async (req, res) => {
     try {
-        const { file, folder, name } = req.body;
+        const { file, name } = req.body;
         if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
+        const folder = await getStandardizedFolder(req);
 
         const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
             file, folder, name
@@ -99,8 +120,9 @@ router.post('/drive/upload', verifyToken, async (req, res) => {
  */
 router.post('/drive/upload-url', verifyToken, async (req, res) => {
     try {
-        const { url, folder, name } = req.body;
+        const { url, name } = req.body;
         if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
+        const folder = getStandardizedFolder(req);
 
         const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload-url`, {
             url, folder, name
@@ -155,8 +177,9 @@ router.get('/drive/file/:fileId', verifyToken, async (req, res) => {
 
 router.post('/upload-base64', verifyToken, async (req, res) => {
     try {
-        const { file, folder, resourceType, start_offset, end_offset } = req.body;
+        const { file, resourceType, start_offset, end_offset } = req.body;
         if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
+        const folder = getStandardizedFolder(req);
 
         const response = await axios.post(`${CLOUDINARY_API_BASE_URL}/upload-base64`, {
             file, folder, resourceType, start_offset, end_offset
@@ -169,8 +192,9 @@ router.post('/upload-base64', verifyToken, async (req, res) => {
 
 router.post('/upload-url', verifyToken, async (req, res) => {
     try {
-        const { url, folder } = req.body;
+        const { url } = req.body;
         if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
+        const folder = getStandardizedFolder(req);
 
         const response = await axios.post(`${CLOUDINARY_API_BASE_URL}/upload-url`, {
             url, folder
