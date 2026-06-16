@@ -22,7 +22,7 @@ const StorySchema = new mongoose.Schema({
     expiresAt: {
         type: Date,
         default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        index: { expireAfterSeconds: 0 },
+        // Removed TTL index so documents are soft-deleted (kept in DB but expired)
     },
 }, { timestamps: true });
 
