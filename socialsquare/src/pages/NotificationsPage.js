@@ -216,12 +216,12 @@ const NotificationsPage = () => {
                                                 >
                                                     <div className="relative shrink-0 select-none">
                                                         <img
-                                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
+                                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')}
                                                             alt=""
                                                             className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
-                                                            onError={(e) => { e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'; }}
+                                                            onError={(e) => { e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'; }}
                                                         />
-                                                         {/* Type Badge Overlay */}
+                                                        {/* Type Badge Overlay */}
                                                         {n.type !== 'system' && n.type !== 'announcement' && (
                                                             <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md ${n.type === 'like' ? 'bg-gradient-to-tr from-rose-500 to-pink-400' :
                                                                 n.type === 'comment' ? 'bg-gradient-to-tr from-purple-600 to-indigo-400' :
@@ -332,7 +332,7 @@ const NotificationsPage = () => {
                                     >
                                         <div className="relative shrink-0 select-none">
                                             <img
-                                                src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')}
+                                                src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')}
                                                 alt=""
                                                 className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
                                                 onClick={() => {

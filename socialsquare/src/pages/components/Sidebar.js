@@ -243,7 +243,7 @@ export default function Sidebar() {
                         <Link to={`/profile/${user._id}`} className="w-full">
                             <div className="flex items-center gap-3 w-full px-1">
                                 <img
-                                    src={user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                    src={user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                     alt="me"
                                     className="w-10 h-10 rounded-full border-2 border-[#808bf5]/20 shadow-sm shrink-0"
                                 />

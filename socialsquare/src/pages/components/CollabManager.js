@@ -84,7 +84,7 @@ const InviteCard = ({ post, userId, onRespond }) => {
                     <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {post.collaborators?.map((c, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <img src={c.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
+                                <img src={c.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
                                 <span style={{ fontSize: '12px', flex: 1, color: 'var(--text-main)' }}>{c.fullname}</span>
                                 <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '8px', background: STATUS_STYLE[c.status]?.bg, color: STATUS_STYLE[c.status]?.color, fontWeight: 600 }}>
                                     {STATUS_STYLE[c.status]?.label}

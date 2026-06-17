@@ -356,7 +356,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
 
     const senderObj = message.sender && typeof message.sender === 'object' ? message.sender : null;
     const senderNameStr = message.senderName || senderObj?.fullname || 'Someone';
-    const senderAvatarStr = senderObj?.profile_picture || senderObj?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg';
+    const senderAvatarStr = senderObj?.profile_picture || senderObj?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
 
     return (
         <div id={`msg-${message._id}`} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '6px', position: 'relative', gap: '8px' }}>
@@ -549,7 +549,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                                         </div>
                                                         {message.storyReply.authorName && (
                                                             <div className="absolute top-3 left-3 flex items-center gap-2 z-10 px-2 py-1.5 bg-black/30 backdrop-blur-md rounded-full border border-white/10">
-                                                                <img src={message.storyReply.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-5 h-5 rounded-full object-cover border border-white/20" alt="" />
+                                                                <img src={message.storyReply.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-5 h-5 rounded-full object-cover border border-white/20" alt="" />
                                                                 <span className="text-[10px] font-bold text-white truncate max-w-[80px]">{message.storyReply.authorUsername || message.storyReply.authorName}</span>
                                                             </div>
                                                         )}
@@ -593,7 +593,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                             {message.sharedPost ? (
                                                 <>
                                                     <div className="flex items-center gap-2 p-3 border-b border-white/5">
-                                                        <img src={message.sharedPost.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-8 h-8 rounded-full object-cover border border-white/10" alt="" />
+                                                        <img src={message.sharedPost.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-8 h-8 rounded-full object-cover border border-white/10" alt="" />
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-1">
                                                                 <span className="text-[12px] font-bold truncate opacity-90">{message.sharedPost.authorName}</span>
@@ -1733,7 +1733,7 @@ const ChatPanel = ({
                                 {infoMessage.message?.readBy?.length > 0 ? (
                                     infoMessage.message.readBy.map(u => (
                                         <div key={u._id} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/20 dark:bg-gray-900/10 border border-gray-100/50 dark:border-gray-800/10">
-                                            <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                            <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
                                             <div className="flex flex-col min-w-0">
                                                 <span className="font-bold text-xs truncate text-[var(--text-main)]">{u.fullname}</span>
                                                 <span className="text-[10px] text-gray-400">@{u.username}</span>
@@ -1758,7 +1758,7 @@ const ChatPanel = ({
                                         ?.filter(p => p.userId !== infoMessage.message.sender && !infoMessage.message.readBy?.some(u => u._id === p.userId))
                                         .map(p => (
                                             <div key={p.userId} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/20 dark:bg-gray-900/10 border border-gray-100/50 dark:border-gray-800/10">
-                                                <img src={p.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                                <img src={p.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
                                                 <div className="flex flex-col min-w-0">
                                                     <span className="font-bold text-xs truncate text-[var(--text-main)]">{p.fullname}</span>
                                                 </div>

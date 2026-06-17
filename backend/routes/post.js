@@ -137,8 +137,8 @@ router.post("/vote", verifyToken, [
 
 function computeScore(post, followingIds = []) {
     const ageHours = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60);
-    return (post.views || 0) 
-        + (post.likes?.length || 0) * 2 
+    return (post.views || 0)
+        + (post.likes?.length || 0) * 2
         + (post.comments?.length || 0) * 4
         + (followingIds.includes(post.user._id.toString()) ? 20 : 0)
         + Math.max(0, 50 - ageHours * 0.5);
@@ -1017,7 +1017,7 @@ router.post("/save", verifyToken, [
     try {
         const { postId } = req.body;
         const userId = req.userId;
-        
+
         // Use atomic findOneAndUpdate to pull the post from savedPosts
         const updatedUser = await User.findOneAndUpdate(
             { _id: userId, savedPosts: postId },
@@ -1239,33 +1239,33 @@ router.post("/like", verifyToken, [
         await Post.updateOne({ _id: postId }, { $set: { score: newScore } });
         updatedPost.score = newScore;
 
-            // ✅ Broadcast like update to all connected users
-            if (_io) _io.emit('postLiked', { postId, userId, likesCount: updatedPost.likes.length });
+        // ✅ Broadcast like update to all connected users
+        if (_io) _io.emit('postLiked', { postId, userId, likesCount: updatedPost.likes.length });
 
-            // Create notification for post owner
-            const sender = await User.findById(userId).select('fullname profile_picture').lean();
-            if (sender) {
-                await notificationUtils.createNotification({
-                    recipientId: updatedPost.user._id,
-                    sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
-                    type: 'like',
-                    postId: updatedPost._id,
-                    thumbnail: updatedPost.image_urls?.[0],
-                    url: `/post/${updatedPost._id}`,
-                });
-            }
-
-            // ✅ Publish recommendation event
-            await publishEvent("user.activity.like", {
-                userId,
-                postId: updatedPost._id.toString(),
-                action: "like",
-                category: updatedPost.category || "",
-                tags: updatedPost.tags || [],
-                timestamp: Date.now() / 1000,
+        // Create notification for post owner
+        const sender = await User.findById(userId).select('fullname profile_picture').lean();
+        if (sender) {
+            await notificationUtils.createNotification({
+                recipientId: updatedPost.user._id,
+                sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
+                type: 'like',
+                postId: updatedPost._id,
+                thumbnail: updatedPost.image_urls?.[0],
+                url: `/post/${updatedPost._id}`,
             });
+        }
 
-            res.status(200).json({ success: true, post: updatedPost });
+        // ✅ Publish recommendation event
+        await publishEvent("user.activity.like", {
+            userId,
+            postId: updatedPost._id.toString(),
+            action: "like",
+            category: updatedPost.category || "",
+            tags: updatedPost.tags || [],
+            timestamp: Date.now() / 1000,
+        });
+
+        res.status(200).json({ success: true, post: updatedPost });
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -1662,7 +1662,7 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
             user: {
                 _id: null, // never reveal real _id
                 fullname: 'Anonymous',
-                profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg',
+                profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg',
             },
         }));
 

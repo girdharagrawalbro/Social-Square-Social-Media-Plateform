@@ -69,3 +69,5 @@ node_modules/
 service-account.json
 *.pem
 *.p12
+
+/backend/scripts/media.js

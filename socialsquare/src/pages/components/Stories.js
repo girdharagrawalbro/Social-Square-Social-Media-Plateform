@@ -284,7 +284,7 @@ const StoryViewer = ({
                         style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
                         onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}
                     >
-                        <img src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}>
                         <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
@@ -361,7 +361,7 @@ const StoryViewer = ({
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
                             <img
-                                src={story.sharedPostId.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                src={story.sharedPostId.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                 style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                                 alt=""
                             />
@@ -684,7 +684,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                     ) : filteredUsers.map(u => (
                         <div key={u._id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition">
                             <div className="flex items-center gap-3">
-                                <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
+                                <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
                                 <div>
                                     <p className="m-0 text-sm font-semibold text-gray-800">{u.fullname}</p>
                                     <p className="m-0 text-[11px] text-gray-400">@{u.username}</p>
@@ -1244,7 +1244,7 @@ const Stories = () => {
                             >
                                 <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
                                     <img
-                                        src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                        src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                         alt=""
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
@@ -1287,7 +1287,7 @@ const Stories = () => {
                                     >
                                         <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
                                             <img
-                                                src={host.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                                src={host.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                                 alt=""
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             />
@@ -1316,7 +1316,7 @@ const Stories = () => {
                                 >
                                     <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }} className={group.user.isOnline ? 'presence-glow' : ''}>
                                         <img
-                                            src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                            src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                             alt=""
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />

@@ -190,7 +190,7 @@ async function run() {
         console.error('🔥 Fatal Error:', err);
         try {
             await mongoose.disconnect();
-        } catch {}
+        } catch { }
         process.exit(1);
     }
 }

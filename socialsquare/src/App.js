@@ -445,7 +445,7 @@ function AppInit() {
                                 src={
                                     type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' :
                                         type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' :
-                                            (sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg')
+                                            (sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')
                                 }
                                 alt=""
                                 style={{
@@ -553,7 +553,7 @@ function AppInit() {
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid #ff4b2b' }}>
                             <img
-                                src={storyUser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                src={storyUser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                 alt=""
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
@@ -742,6 +742,21 @@ function App() {
     const isMaintenanceState = useAuthStore(s => s.isMaintenance);
     const { data: flags } = useSystemFlags();
     const isMaintenance = isMaintenanceState || flags?.maintenance_mode === true;
+
+    useEffect(() => {
+        const handleImageError = (e) => {
+            if (e.target && e.target.tagName === 'IMG') {
+                if (e.target.classList.contains('rounded-full') || e.target.src.includes('profile')) {
+                    if (!e.target.dataset.fallbackApplied) {
+                        e.target.dataset.fallbackApplied = 'true';
+                        e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+                    }
+                }
+            }
+        };
+        window.addEventListener('error', handleImageError, true);
+        return () => window.removeEventListener('error', handleImageError, true);
+    }, []);
 
     useEffect(() => {
         const initNetwork = async () => {
