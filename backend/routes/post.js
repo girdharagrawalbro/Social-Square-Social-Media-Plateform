@@ -8,8 +8,12 @@ const Comment = require('../models/Comment');
 const Category = require("../models/Category");
 const Group = require("../models/Group");
 const { publish } = require('../lib/pubsub');
+const { sanitizeAnonymousPost } = require('../utils/privacy');
+const notificationUtils = require('../utils/notification');
+const { getRestrictedUserIds, canViewPost } = require('../utils/privacy');
+const { analyzeComment } = require('../services/discussionAiService');
+const eventBus = require('../lib/eventBus');
 const redis = require('../lib/redis');
-const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
 const softVerifyToken = require('../middleware/softVerifyToken');
 const contentFilter = require('../middleware/contentFilter');
@@ -1443,8 +1447,117 @@ router.post('/comments/add', verifyToken, [
         const rewards = await updateGamification(user.id || user._id, 'comment');
         if (rewards && _io) _io.to((user.id || user._id).toString()).emit('levelUpdate', rewards);
 
+        // ✅ Asynchronous AI Quality & Topic Analysis (Only for parent comments or substantial replies)
+        if (!parentId || content.length > 20) {
+            setImmediate(async () => {
+                try {
+                    const analysis = await analyzeComment(content, postData?.caption || '');
+                    await Comment.findByIdAndUpdate(newComment._id, {
+                        quality: analysis.quality,
+                        topic: analysis.topic
+                    });
+                    
+                    if (_io) {
+                        _io.emit('commentUpdated', {
+                            commentId: newComment._id,
+                            postId: postId,
+                            updates: { quality: analysis.quality, topic: analysis.topic }
+                        });
+                    }
+
+                    // Emit to local eventBus for recommenderWorker to generate vector
+                    eventBus.emit("comment.created", {
+                        commentId: newComment._id,
+                        postId: postId,
+                        content: content,
+                        topic: analysis.topic
+                    });
+                } catch (err) {
+                    console.error('[Async AI Analysis Error]', err);
+                }
+            });
+        }
+
         return res.status(200).json({ ...newComment.toObject(), rewards });
     } catch (error) { return res.status(500).json({ error: 'Server error' }); }
+});
+
+// ─── MARK BEST ANSWER (PROTECTED) ─────────────────────────────────────────────
+router.put('/comments/:commentId/mark-best', verifyToken, [
+    param('commentId').isMongoId().withMessage('Invalid comment ID'),
+    validate
+], async (req, res) => {
+    try {
+        const userId = req.userId;
+        const comment = await Comment.findById(req.params.commentId);
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+        const post = await Post.findById(comment.postId).select('user').lean();
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        // Only post author can mark best answer
+        if (post.user._id.toString() !== userId.toString()) {
+            return res.status(403).json({ error: 'Only post author can mark the best answer' });
+        }
+
+        const isCurrentlyBest = comment.isBestAnswer;
+
+        // Reset all comments for this post
+        await Comment.updateMany({ postId: comment.postId }, { isBestAnswer: false });
+
+        // If it wasn't the best answer before, set it now. If it was, we just un-marked it.
+        if (!isCurrentlyBest) {
+            await Comment.findByIdAndUpdate(comment._id, { isBestAnswer: true });
+        }
+
+        if (_io) {
+            _io.emit('commentMarkedBest', {
+                postId: comment.postId,
+                commentId: !isCurrentlyBest ? comment._id : null
+            });
+        }
+
+        res.status(200).json({ isBestAnswer: !isCurrentlyBest });
+    } catch (error) {
+        console.error('[Mark Best Answer Error]', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─── MARK INSIGHTFUL (PROTECTED) ──────────────────────────────────────────────
+router.put('/comments/:commentId/mark-insightful', verifyToken, [
+    param('commentId').isMongoId().withMessage('Invalid comment ID'),
+    validate
+], async (req, res) => {
+    try {
+        const userId = req.userId;
+        const comment = await Comment.findById(req.params.commentId);
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+        const post = await Post.findById(comment.postId).select('user').lean();
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        // Only post author can mark insightful
+        if (post.user._id.toString() !== userId.toString()) {
+            return res.status(403).json({ error: 'Only post author can mark as insightful' });
+        }
+
+        const newValue = !comment.isInsightful;
+        await Comment.findByIdAndUpdate(comment._id, { isInsightful: newValue });
+
+        if (_io) {
+            _io.emit('commentUpdated', {
+                commentId: comment._id,
+                postId: comment.postId,
+                updates: { isInsightful: newValue }
+            });
+        }
+
+        res.status(200).json({ isInsightful: newValue });
+    } catch (error) {
+        console.error('[Mark Insightful Error]', error);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 // ─── DELETE COMMENT (PROTECTED) ───────────────────────────────────────────────

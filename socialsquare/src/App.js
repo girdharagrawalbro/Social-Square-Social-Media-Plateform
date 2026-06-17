@@ -65,6 +65,9 @@ const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const DiscoverPage = lazy(() => import('./pages/DiscoverPage'));
 const Pulse = lazy(() => import('./pages/Pulse'));
 const StoriesPage = lazy(() => import('./pages/StoriesPage'));
+const KnowledgeDashboard = lazy(() => import('./pages/KnowledgeDashboard'));
+const WikiListPage = lazy(() => import('./pages/WikiListPage'));
+const WikiPage = lazy(() => import('./pages/WikiPage'));
 
 const PageLoader = () => (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-[var(--surface-1)] z-[999999]">
@@ -838,6 +841,9 @@ function App() {
                                     <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
                                     <Route path="/stories" element={<StoriesPage />} />
                                     <Route path="/please-verify" element={<PleaseVerifyEmail />} />
+                                    <Route path="/knowledge" element={<MainLayout><KnowledgeDashboard /></MainLayout>} />
+                                    <Route path="/knowledge/wiki" element={<MainLayout><WikiListPage /></MainLayout>} />
+                                    <Route path="/knowledge/wiki/:slug" element={<MainLayout><WikiPage /></MainLayout>} />
                                     <Route path="*" element={<Navigate to={`/${user.username}`} replace />} />
                                 </>
                             ) : (

@@ -7,6 +7,7 @@ import usePostStore from '../../../store/zustand/usePostStore';
 import { useSavePost, useDeletePost, useUpdatePost } from '../../../hooks/queries/usePostQueries';
 import { useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser } from '../../../hooks/queries/useAuthQueries';
 import ReportDialog from './ReportDialog';
+import SaveAsNoteModal from '../SaveAsNoteModal';
 
 const PostMenu = ({ 
     post, 
@@ -29,6 +30,7 @@ const PostMenu = ({
     const [reportVisible, setReportVisible] = useState(false);
     const [editVisible, setEditVisible] = useState(false);
     const [editCaption, setEditCaption] = useState(post?.caption || '');
+    const [saveAsKnowledgeVisible, setSaveAsKnowledgeVisible] = useState(false);
 
     const loggeduser = useAuthStore(s => s.user);
     const user = passedUser || loggeduser;
@@ -197,6 +199,15 @@ const PostMenu = ({
             color: isSaved ? 'text-[#808bf5]' : 'text-[var(--text-main)]',
             onClick: () => {
                 handleSave();
+                setVisible(false);
+            }
+        },
+        {
+            label: 'Save as Knowledge',
+            icon: 'pi pi-book',
+            color: 'text-[#10b981]',
+            onClick: () => {
+                setSaveAsKnowledgeVisible(true);
                 setVisible(false);
             }
         },
@@ -398,6 +409,15 @@ const PostMenu = ({
                     color: var(--text-sub);
                 }
             `}</style>
+
+            {/* Save as Knowledge Modal */}
+            {saveAsKnowledgeVisible && (
+                <SaveAsNoteModal
+                    post={post}
+                    onClose={() => setSaveAsKnowledgeVisible(false)}
+                    onSaved={() => setSaveAsKnowledgeVisible(false)}
+                />
+            )}
         </div>
     );
 };

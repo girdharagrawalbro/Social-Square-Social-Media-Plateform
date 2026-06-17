@@ -255,13 +255,13 @@ export function useSimilarPosts(postId) {
     });
 }
 
-export function usePersonalizedSearch(userId, q) {
+export function usePersonalizedSearch(userId, q, typeFilter = 'all') {
     const initialized = useAuthStore(s => s.initialized);
     return useQuery({
-        queryKey: postKeys.personalizedSearch(userId, q),
+        queryKey: postKeys.personalizedSearch(userId, `${q}-${typeFilter}`),
         queryFn: async () => {
             const res = await api.get(`${BASE}/api/recommendation/search`, {
-                params: { q }
+                params: { q, typeFilter }
             });
             return res.data.items;
         },
@@ -270,7 +270,18 @@ export function usePersonalizedSearch(userId, q) {
     });
 }
 
-// ─── MUTATIONS ────────────────────────────────────────────────────────────────
+export function useAiAnswer(q, itemIds) {
+    const initialized = useAuthStore(s => s.initialized);
+    return useQuery({
+        queryKey: ['ai-answer', q, itemIds?.join(',')],
+        queryFn: async () => {
+            const res = await api.post(`${BASE}/api/recommendation/search/synthesize`, { q, itemIds });
+            return res.data.answer;
+        },
+        enabled: initialized && !!q && Array.isArray(itemIds) && itemIds.length > 0,
+        staleTime: 1000 * 60 * 5,
+    });
+}
 
 // ─── MUTATIONS ────────────────────────────────────────────────────────────────
 
@@ -515,6 +526,30 @@ export function useDeleteComment() {
                 qc.invalidateQueries({ queryKey: postKeys.recommended(user?._id) });
             }
         },
+    });
+}
+
+export function useMarkBestAnswer() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ commentId }) => api.put(`${BASE}/api/post/comments/${commentId}/mark-best`),
+        onSuccess: (_, variables) => {
+            if (variables?.postId) {
+                qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+            }
+        }
+    });
+}
+
+export function useMarkInsightful() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ commentId }) => api.put(`${BASE}/api/post/comments/${commentId}/mark-insightful`),
+        onSuccess: (_, variables) => {
+            if (variables?.postId) {
+                qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
+            }
+        }
     });
 }
 

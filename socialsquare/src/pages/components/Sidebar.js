@@ -41,6 +41,7 @@ export default function Sidebar() {
             { key: 'confessions', label: 'Confessions', icon: 'pi pi-map', to: '/confessions' },
             { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
             { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
+            { key: 'knowledge', label: 'Knowledge', icon: 'pi pi-book', to: '/knowledge' },
         ].filter(item => !(item.key === 'confessions' && flags?.anonymous_posts === false));
 
     // Find active key including admin
