@@ -1032,7 +1032,7 @@ router.get('/other-user/view/:id', verifyToken, [
         }
 
         const targetUser = await User.findById(targetId)
-            .select('fullname username profile_picture bio isPrivate followers following level streak xp profileViews isOnline followRequests blockedUsers postsCount followersCount followingCount')
+            .select('fullname username profile_picture bio isPrivate followers following level streak xp profileViews isOnline followRequests blockedUsers postsCount followersCount followingCount aiProfileSummary')
             .lean();
 
         if (!targetUser) return res.status(404).json({ message: 'User not found.' });

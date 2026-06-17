@@ -364,7 +364,7 @@ const Search = ({ onClose, desc = true }) => {
                                     {/* AI Answer Box */}
                                     {debouncedTerm && topResultIds.length > 0 && flags?.ai_features !== false && (
                                         <div className="mb-3 px-1">
-                                            <div className="bg-[#808bf5]/10 border border-[#808bf5]/20 rounded-2xl p-4">
+                                            <div className="bg-[#808bf5]/10 border border-[#808bf5]/20 rounded-2xl p-2">
                                                 <h4 className="text-[11px] font-bold text-[#808bf5] m-0 uppercase tracking-widest flex items-center gap-2 mb-2">
                                                     <i className="pi pi-sparkles"></i> AI Answer
                                                 </h4>

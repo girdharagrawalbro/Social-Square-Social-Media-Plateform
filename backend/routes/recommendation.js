@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const logger = require("../utils/logger");
 const router = express.Router();
 const verifyToken = require("../middleware/Verifytoken");
+const softVerifyToken = require("../middleware/softVerifyToken");
 const { body, param, query, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
@@ -165,7 +166,7 @@ router.get("/posts", verifyToken, async (req, res) => {
         const candidates = await Post.find(candidatesQuery)
             .sort({ createdAt: -1 })
             .limit(100)
-            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll')
+            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary')
             .lean()
             .maxTimeMS(10000);
 
