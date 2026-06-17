@@ -58,6 +58,9 @@ const PostSchema = new mongoose.Schema(
     // Analytics
     views: { type: Number, default: 0 },
     shares: { type: Number, default: 0 },
+    
+    // AI Pre-computed Summary for 3s Dwell Feature
+    aiSummary: { type: String, default: null },
 
     // Interactive Polls & Quizzes
     poll: {

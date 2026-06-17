@@ -1,11 +1,16 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const axios = require('axios');
 require('dotenv').config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+const OLLAMA_EMBED_URL = process.env.OLLAMA_URL 
+    ? process.env.OLLAMA_URL.replace('/api/generate', '/api/embeddings') 
+    : 'http://localhost:11434/api/embeddings';
+
+// all-minilm is 384 dimensions (matches previous Gemini outputDimensionality).
+// nomic-embed-text is 768 dimensions.
+const EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || 'all-minilm';
 
 /**
- * Generates an embedding for the given text using Gemini with exponential backoff.
+ * Generates an embedding for the given text using local Ollama.
  * @param {string} text - The text to embed.
  * @param {number} retries - Maximum number of retries.
  * @param {number} initialDelay - Initial delay for backoff.
@@ -17,14 +22,14 @@ async function getEmbedding(text, retries = 5, initialDelay = 1500) {
     let delay = initialDelay;
     for (let i = 0; i < retries; i++) {
         try {
-            const result = await model.embedContent({
-                content: { parts: [{ text }] },
-                outputDimensionality: 384
+            const response = await axios.post(OLLAMA_EMBED_URL, {
+                model: EMBED_MODEL,
+                prompt: text
             });
-            return result.embedding.values;
+            return response.data.embedding;
         } catch (err) {
             if (i === retries - 1) throw err;
-            console.warn(`⚠️ [Gemini API] Embedding failed (attempt ${i + 1}/${retries}): ${err.message}. Retrying in ${delay}ms...`);
+            console.warn(`⚠️ [Ollama API] Embedding failed (attempt ${i + 1}/${retries}): ${err.message}. Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             delay *= 2;
         }
