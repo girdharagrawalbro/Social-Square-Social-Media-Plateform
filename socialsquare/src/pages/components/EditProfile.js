@@ -122,7 +122,7 @@ const EditProfile = ({ users, closeSidebar }) => {
             <div className="mb-4 flex flex-col items-center gap-2">
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                     <img
-                        src={preview || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                        src={preview || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                         alt="Profile"
                         style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #e5e7eb' }}
                     />

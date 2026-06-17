@@ -33,7 +33,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
     const commentUserName = (typeof comment?.user === 'object' && comment?.user?.fullname) ? comment.user.fullname : 'Unknown';
     const commentUserPicture = (typeof comment?.user === 'object' && comment?.user?.profile_picture)
         ? comment.user.profile_picture
-        : 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg';
+        : 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
 
     // ✅ Fix: compare as strings to handle ObjectId vs string mismatch
     const loggedUserId = loggeduser?._id?.toString();
@@ -263,7 +263,7 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
 
             {/* Fixed Input Section at Bottom */}
             <div className="sticky bottom-0 p-3 flex gap-2 items-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10">
-                <img src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
+                <img src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
                 <form onSubmit={handleSubmit} className="flex w-full gap-2">
                     <input type="text" placeholder="Write a comment..." className="flex-1 text-sm border border-[var(--border-color)] rounded-full px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5]"
                         name="content" value={formData.content} onChange={e => setFormData({ content: e.target.value })} />

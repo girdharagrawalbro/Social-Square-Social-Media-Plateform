@@ -11,14 +11,14 @@ export default function FloatMessagesButton() {
     const avatars = React.useMemo(() => {
         if (!convoData?.pages) return [];
         const convs = convoData.pages.flatMap(page => page.conversations || []);
-        
+
         return convs
             .map(c => {
                 if (c.isGroup) {
-                    return c.groupAvatar || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg';
+                    return c.groupAvatar || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
                 }
                 const other = c.participants?.find(p => p.userId?.toString() !== user?._id?.toString());
-                return other?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg';
+                return other?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
             })
             .slice(0, 3);
     }, [convoData, user?._id]);

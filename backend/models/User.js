@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: false },
   profile_picture: {
     type: String,
-    default: "https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg",
+    default: "https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg",
   },
   bio: { type: String, default: null },
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

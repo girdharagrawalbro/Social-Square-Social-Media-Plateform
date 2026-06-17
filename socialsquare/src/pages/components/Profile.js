@@ -393,7 +393,7 @@ const Profile = ({ userId }) => {
                                         {displayUser.mutualFollowers?.slice(0, 3).map((m, idx) => (
                                             <img
                                                 key={m._id}
-                                                src={m.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                                src={m.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                                 alt={m.fullname}
                                                 className="w-5 h-5 rounded-full border-2 border-[var(--surface-1)] object-cover"
                                                 style={{ zIndex: 3 - idx }}

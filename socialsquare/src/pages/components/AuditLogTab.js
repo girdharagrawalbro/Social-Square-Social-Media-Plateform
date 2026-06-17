@@ -254,7 +254,7 @@ const AuditLogTab = () => {
                                                         </div>
                                                     ) : (
                                                         <img
-                                                            src={log.admin?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778489986/OIP_ik8g4k.jpg'}
+                                                            src={log.admin?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                                             alt=""
                                                             style={{ width: 32, height: 32, borderRadius: 10, objectFit: 'cover', border: '2px solid var(--border-color)', flexShrink: 0 }}
                                                         />
