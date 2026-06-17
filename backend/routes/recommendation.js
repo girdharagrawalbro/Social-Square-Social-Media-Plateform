@@ -513,20 +513,67 @@ router.get("/trending", verifyToken, async (req, res) => {
 // ─── PERSONALIZED SEARCH ──────────────────────────────────────────────────────
 router.get("/search", verifyToken, [
     query('q').optional().trim().escape(),
+    query('typeFilter').optional().trim().escape(),
     validate
 ], async (req, res) => {
     try {
         const userId = req.userId;
         const q = req.query.q || "";
+        const typeFilter = req.query.typeFilter || "all";
 
         const { getRestrictedUserIds } = require("../utils/privacy");
         const restrictedIds = await getRestrictedUserIds(userId);
 
-        const items = await getPersonalizedSearch(userId, q, restrictedIds);
+        const items = await getPersonalizedSearch(userId, q, restrictedIds, typeFilter);
         res.json({ items });
     } catch (err) {
         console.error('[Recommendation /search]', err);
         res.status(500).json({ message: "Failed to fetch personalized search" });
+    }
+});
+
+// ─── SYNTHESIZE AI ANSWER ───────────────────────────────────────────────────
+router.post("/search/synthesize", softVerifyToken, [
+    body('q').notEmpty().trim().escape().withMessage('Query is required'),
+    body('itemIds').isArray().withMessage('itemIds must be an array'),
+    validate
+], async (req, res) => {
+    try {
+        const { q, itemIds } = req.body;
+        if (!itemIds || itemIds.length === 0) {
+            return res.status(200).json({ answer: "I couldn't find enough context to answer that question." });
+        }
+
+        const Post = require("../models/Post");
+        const Comment = require("../models/Comment");
+        const { generateText } = require("../utils/gemini");
+
+        // Fetch snippets for context
+        const posts = await Post.find({ _id: { $in: itemIds } }).select('caption category').limit(5).lean();
+        const comments = await Comment.find({ _id: { $in: itemIds } }).select('content').limit(5).lean();
+
+        let contextText = "";
+        posts.forEach((p, i) => contextText += `[Post ${i + 1}] Category: ${p.category}\nContent: ${p.caption}\n\n`);
+        comments.forEach((c, i) => contextText += `[Comment ${i + 1}] Content: ${c.content}\n\n`);
+
+        const prompt = `You are a helpful community assistant. Based on the following discussions from our platform, provide a direct, concise answer to the user's query.
+
+User Query: "${q}"
+
+Discussions Context:
+${contextText}
+
+Instructions:
+1. Answer the query directly using ONLY the provided context.
+2. If the context does not contain the answer, say "I couldn't find a definitive answer in the current discussions, but here are some related posts."
+3. Highlight the most useful point or "best answer" in **bold**.
+4. Keep it under 3-4 sentences. Make it sound natural and helpful.`;
+
+        const answer = await generateText(prompt, { maxTokens: 200, temperature: 0.3 });
+        res.status(200).json({ answer: answer || "I couldn't find enough context to answer that." });
+    } catch (err) {
+        console.error('[Recommendation /search/synthesize]', err);
+        res.status(500).json({ error: "Failed to synthesize answer" });
     }
 });
 

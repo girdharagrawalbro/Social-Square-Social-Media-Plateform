@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog } from 'primereact/dialog';
 import UserProfile from './UserProfile';
 import { debounce } from 'lodash';
-import { useCategories, usePersonalizedSearch } from '../../hooks/queries/usePostQueries';
+import { useCategories, usePersonalizedSearch, useAiAnswer } from '../../hooks/queries/usePostQueries';
 import useAuthStore from "../../store/zustand/useAuthStore";
 import SkeletonSearch from './ui/SkeletonSearch';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -37,12 +37,19 @@ const Search = ({ onClose, desc = true }) => {
     const [searchResults, setSearchResults] = useState({ users: [], posts: [] });
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchCache, setSearchCache] = useState({});
+    const [typeFilter, setTypeFilter] = useState('all');
 
     const [debouncedTerm, setDebouncedTerm] = useState("");
 
     // AI Recommendations — use debounced term to sync with search results
-    const { data: aiResults = [] } = usePersonalizedSearch(user?._id, debouncedTerm);
+    const { data: aiResults = [] } = usePersonalizedSearch(user?._id, debouncedTerm, typeFilter);
     const loading = { search: searchLoading };
+    
+    const topResultIds = useMemo(() => {
+        return aiResults.slice(0, 3).map(r => r._id);
+    }, [aiResults]);
+    
+    const { data: aiAnswer, isLoading: isAiAnswerLoading } = useAiAnswer(debouncedTerm, topResultIds);
 
     const doSearch = async (term) => {
         const trimmedTerm = term.trim();
@@ -284,6 +291,26 @@ const Search = ({ onClose, desc = true }) => {
                         </div>
                     )}
 
+                    {searchTerm && (
+                        <div className="px-3 py-2 border-b border-[var(--border-color)]">
+                            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                                {['all', 'tutorial', 'discussion', 'beginner', 'comments'].map(tf => (
+                                    <button 
+                                        key={tf}
+                                        onClick={() => setTypeFilter(tf)}
+                                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider cursor-pointer border flex-shrink-0 transition-colors ${
+                                            typeFilter === tf 
+                                                ? 'bg-[#808bf5] text-white border-[#808bf5]' 
+                                                : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[#808bf5]'
+                                        }`}
+                                    >
+                                        {tf}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Search results */}
                     {searchTerm && (
                         <div className="pt-3 px-1">
@@ -333,11 +360,32 @@ const Search = ({ onClose, desc = true }) => {
                                             </div>
                                         </div>
                                     )}
+                                    
+                                    {/* AI Answer Box */}
+                                    {debouncedTerm && topResultIds.length > 0 && flags?.ai_features !== false && (
+                                        <div className="mb-3 px-1">
+                                            <div className="bg-[#808bf5]/10 border border-[#808bf5]/20 rounded-2xl p-4">
+                                                <h4 className="text-[11px] font-bold text-[#808bf5] m-0 uppercase tracking-widest flex items-center gap-2 mb-2">
+                                                    <i className="pi pi-sparkles"></i> AI Answer
+                                                </h4>
+                                                {isAiAnswerLoading ? (
+                                                    <div className="animate-pulse flex flex-col gap-2 mt-2">
+                                                        <div className="h-3 bg-[#808bf5]/20 rounded w-full"></div>
+                                                        <div className="h-3 bg-[#808bf5]/20 rounded w-5/6"></div>
+                                                        <div className="h-3 bg-[#808bf5]/20 rounded w-4/6"></div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm m-0 text-[var(--text-main)] leading-relaxed" dangerouslySetInnerHTML={{__html: aiAnswer?.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}}></p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {aiResults.length > 0 && flags?.ai_features !== false && (
                                         <div className="pb-2">
-                                            <p className="text-[10px] font-bold text-[#808bf5] mb-2 m-0 uppercase tracking-widest px-1">✨ AI Recommended</p>
+                                            <p className="text-[10px] font-bold text-[#808bf5] mb-2 m-0 uppercase tracking-widest px-1">✨ Semantic Results</p>
                                             <div className="flex flex-col gap-1.5">
-                                                {aiResults.slice(0, 3).map(post => {
+                                                {aiResults.slice(0, 5).map(post => {
                                                     const thumbnail = post.image_urls?.[0] || post.image_url || post.videoThumbnail || (post.video ? getMediaThumbnail(post.video, 'video') : null);
                                                     return (
                                                         <div key={post._id}
@@ -355,8 +403,8 @@ const Search = ({ onClose, desc = true }) => {
                                                                 }
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
-                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
+                                                                <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category || post.topic || post.type}</p>
+                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || post.content || '(No content)'}</p>
                                                             </div>
                                                             <i className="pi pi-sparkles text-[var(--text-sub)] opacity-30 group-hover:opacity-100 transition-opacity"></i>
                                                         </div>

@@ -1,34 +1,14 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { PostVector, UserInterest } = require("./models/Recommendation");
+const { PostVector, UserInterest, CommentVector } = require("./models/Recommendation");
 const Post = require("./models/Post");
+const Comment = require("./models/Comment");
+const { getEmbedding } = require("./utils/embeddings");
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-
 const ALPHA = 0.2; // EMA factor for user interest
 
-// 1. EMBEDDING HELPER WITH EXPONENTIAL BACKOFF RETRY
-async function getEmbedding(text, retries = 5, initialDelay = 1500) {
-  let delay = initialDelay;
-  for (let i = 0; i < retries; i++) {
-    try {
-      const result = await model.embedContent({
-        content: { parts: [{ text }] },
-        outputDimensionality: 384
-      });
-      return result.embedding.values;
-    } catch (err) {
-      if (i === retries - 1) throw err;
-      console.warn(`⚠️ [Gemini API] Embedding failed (attempt ${i + 1}/${retries}): ${err.message}. Retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2;
-    }
-  }
-}
 
 // 2. POST CREATED HANDLER
 async function handlePostCreated(data) {
@@ -180,6 +160,26 @@ async function initWorker() {
       await handleUserActivity(data);
     } catch (err) {
       console.error(`❌ [Recommender Worker] Error processing activity event "${subject}":`, err.message);
+    }
+  });
+
+  // Listen for comment creation
+  eventBus.on("comment.created", async (data) => {
+    try {
+      const { commentId, postId, content, topic } = data;
+      console.log(`💬 [Recommender Worker] Processing comment.created for ${commentId}`);
+      
+      const vector = await getEmbedding(content);
+      if (vector && vector.length > 0) {
+          await CommentVector.findOneAndUpdate(
+              { commentId },
+              { postId, vector, topic: topic || 'General', createdAt: new Date() },
+              { new: true, upsert: true }
+          );
+          console.log(`✅ Comment ${commentId} embedded`);
+      }
+    } catch (err) {
+      console.error(`❌ [Recommender Worker] Error processing comment.created:`, err.message);
     }
   });
 

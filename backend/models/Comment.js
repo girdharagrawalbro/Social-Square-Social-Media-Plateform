@@ -13,6 +13,12 @@ const commentSchema = new mongoose.Schema(
         parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
         replies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
 
+        // ─── SMART DISCUSSION FIELDS ──────────────────────────────────────────────
+        isBestAnswer: { type: Boolean, default: false },
+        isInsightful: { type: Boolean, default: false },
+        quality: { type: String, enum: ['high', 'normal', 'low'], default: 'normal' },
+        topic: { type: String, default: 'General' },
+
         // ─── MODERATION FIELDS ────────────────────────────────────────────────────
         isVisible: { type: Boolean, default: true, index: true },
         isFlagged: { type: Boolean, default: false, index: true },

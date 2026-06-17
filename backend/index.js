@@ -237,6 +237,7 @@ app.use('/api/admin', (req, res, next) => require('./routes/admin.js')(req, res,
 app.use('/api/chatbot', (req, res, next) => require('./routes/chatbot.js')(req, res, next));
 app.use("/api/recommendation", require("./routes/recommendation"));
 app.use('/api/contact', require('./routes/contact.js'));
+app.use('/api/knowledge', require('./routes/knowledge.js'));
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -831,6 +832,14 @@ async function bootstrap() {
     await initAutoPostJobs();
     const { scheduleDailyDigest } = require('./queues/digestQueue');
     await scheduleDailyDigest();
+
+    // ─── KNOWLEDGE LAYER: Wiki Auto-generation Worker ────────────────────────
+    try {
+        const { initWikiWorker } = require('./workers/wikiWorker');
+        await initWikiWorker();
+    } catch (err) {
+        console.warn('[WikiWorker] Failed to initialize:', err.message);
+    }
 
     // ─── MODERATION ───────────────────────────────────────────────────────────────
     try {

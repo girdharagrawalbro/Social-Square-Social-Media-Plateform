@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
-import { useComments, useCreateComment, useLikeComment, useDeleteComment } from '../../../hooks/queries/usePostQueries';
+import { useComments, useCreateComment, useLikeComment, useDeleteComment, useMarkBestAnswer, useMarkInsightful } from '../../../hooks/queries/usePostQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
@@ -20,14 +20,17 @@ const HeartBurst = ({ visible }) => visible ? (
     </div>
 ) : null;
 
-const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, depth = 0 }) => {
+const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, depth = 0, isOwnPost }) => {
     const [showReply, setShowReply] = useState(false);
     const [replyText, setReplyText] = useState('');
     const [showReplies, setShowReplies] = useState(false);
     const [replies, setReplies] = useState(comment.repliesList || []);
     const [liking, setLiking] = useState(false);
     const [heartVisible, setHeartVisible] = useState(false);
+    const [showLowQuality, setShowLowQuality] = useState(false);
     const likeMutation = useLikeComment();
+    const markBestMutation = useMarkBestAnswer();
+    const markInsightfulMutation = useMarkInsightful();
 
     const commentUserId = typeof comment?.user === 'string' ? comment.user : comment?.user?._id;
     const commentUserName = (typeof comment?.user === 'object' && comment?.user?.fullname) ? comment.user.fullname : 'Unknown';
@@ -99,18 +102,39 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                 <div className="flex-1">
                     <div
                         onDoubleClick={handleDoubleClick}
-                        className="bg-[var(--surface-2)] rounded-2xl px-3 py-2 relative cursor-pointer select-none"
+                        className={`bg-[var(--surface-2)] rounded-2xl px-3 py-2 relative cursor-pointer select-none border ${comment.isBestAnswer ? 'border-green-500/50 bg-green-500/5' : comment.isInsightful ? 'border-orange-500/50 bg-orange-500/5' : 'border-transparent'}`}
                     >
-                        <p
-                            className="m-0 text-xs font-semibold cursor-pointer hover:text-[#808bf5] transition text-[var(--text-main)]"
-                            onClick={() => commentUserId && onProfileClick?.(commentUserId)}
-                        >
-                            {commentUserName}
-                        </p>
-                        <p className="m-0 text-sm text-[var(--text-main)]">{comment.content}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <p
+                                className="m-0 text-xs font-semibold cursor-pointer hover:text-[#808bf5] transition text-[var(--text-main)]"
+                                onClick={() => commentUserId && onProfileClick?.(commentUserId)}
+                            >
+                                {commentUserName}
+                            </p>
+                            {comment.isBestAnswer && <span className="text-[10px] bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full font-bold">✔ Best Answer</span>}
+                            {comment.isInsightful && <span className="text-[10px] bg-orange-500/20 text-orange-500 px-2 py-0.5 rounded-full font-bold">🔥 Insightful</span>}
+                            {comment.topic && comment.topic !== 'General' && depth === 0 && <span className="text-[10px] text-[var(--text-sub)]">#{comment.topic}</span>}
+                        </div>
+                        
+                        {comment.quality === 'low' && !showLowQuality ? (
+                            <div className="py-1">
+                                <button onClick={() => setShowLowQuality(true)} className="text-xs text-[var(--text-sub)] hover:text-[#808bf5] border-0 bg-transparent p-0 cursor-pointer flex items-center gap-1">
+                                    <i className="pi pi-chevron-down text-[10px]"></i> Show low-quality reply
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="m-0 text-sm text-[var(--text-main)]">{comment.content}</p>
+                                {comment.quality === 'low' && showLowQuality && (
+                                    <button onClick={() => setShowLowQuality(false)} className="text-[10px] text-[var(--text-sub)] hover:text-[#808bf5] border-0 bg-transparent p-0 cursor-pointer mt-1">
+                                        Hide
+                                    </button>
+                                )}
+                            </>
+                        )}
                         <HeartBurst visible={heartVisible} />
                     </div>
-                    <div className="flex items-center gap-3 mt-1 px-1">
+                    <div className="flex items-center flex-wrap gap-3 mt-1 px-1">
                         <span className="text-xs text-[var(--text-sub)]">{formatDateTime(comment.createdAt)}</span>
 
                         {/* ✅ Like button with optimistic update and disabled state during request */}
@@ -137,6 +161,22 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                             <button onClick={() => onDelete(comment._id, comment.parentId)} className="text-xs text-red-400 border-0 bg-transparent cursor-pointer p-0">
                                 Delete
                             </button>
+                        )}
+                        {isOwnPost && depth === 0 && (
+                            <>
+                                <button 
+                                    onClick={() => markBestMutation.mutate({ commentId: comment._id, postId })}
+                                    className={`text-[10px] font-semibold border-0 bg-transparent cursor-pointer p-0 ${comment.isBestAnswer ? 'text-green-500' : 'text-[var(--text-sub)] hover:text-green-500'}`}
+                                >
+                                    {comment.isBestAnswer ? 'Unmark Best' : 'Mark Best'}
+                                </button>
+                                <button 
+                                    onClick={() => markInsightfulMutation.mutate({ commentId: comment._id, postId })}
+                                    className={`text-[10px] font-semibold border-0 bg-transparent cursor-pointer p-0 ${comment.isInsightful ? 'text-orange-500' : 'text-[var(--text-sub)] hover:text-orange-500'}`}
+                                >
+                                    {comment.isInsightful ? 'Unmark Insightful' : 'Mark Insightful'}
+                                </button>
+                            </>
                         )}
                     </div>
 
@@ -165,11 +205,12 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
     );
 };
 
-const Comment = ({ postId, setVisible, onProfileClick }) => {
+const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
     const user = useAuthStore(s => s.user);
     const loggeduser = user;
     const [formData, setFormData] = useState({ content: '' });
     const [localComments, setLocalComments] = useState(null);
+    const [selectedTopic, setSelectedTopic] = useState('All');
 
     const { data: fetchedComments, isLoading: commentsLoading } = useComments(postId);
     const createCommentMutation = useCreateComment();
@@ -178,6 +219,18 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
     const comments = fetchedComments || [];
     const displayComments = localComments ?? comments;
     const loading = { comments: commentsLoading };
+
+    const topics = ['All', ...new Set((displayComments || []).map(c => c.topic).filter(Boolean))];
+    const filteredComments = (displayComments || []).filter(c => selectedTopic === 'All' || c.topic === selectedTopic);
+    
+    // Sort logic: Best answer first, then insightful, then created at
+    const sortedComments = [...filteredComments].sort((a, b) => {
+        if (a.isBestAnswer && !b.isBestAnswer) return -1;
+        if (!a.isBestAnswer && b.isBestAnswer) return 1;
+        if (a.isInsightful && !b.isInsightful) return -1;
+        if (!a.isInsightful && b.isInsightful) return 1;
+        return new Date(a.createdAt) - new Date(b.createdAt);
+    });
 
     const commentsEndRef = useRef(null);
     const scrollContainerRef = useRef(null);
@@ -249,11 +302,26 @@ const Comment = ({ postId, setVisible, onProfileClick }) => {
                 ref={scrollContainerRef}
                 className="flex-1 overflow-y-auto p-3 min-h-0"
             >
+                {/* Topic Filter Pills */}
+                {topics.length > 1 && (
+                    <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+                        {topics.map(topic => (
+                            <button
+                                key={topic}
+                                onClick={() => setSelectedTopic(topic)}
+                                className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium transition ${selectedTopic === topic ? 'bg-[#808bf5] text-white border-0' : 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]'}`}
+                            >
+                                {topic}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {loading.comments || !displayComments ? (
                     <p className="text-[var(--text-sub)] text-xs text-center">Loading...</p>
-                ) : displayComments.length > 0 ? (
-                    displayComments.map(comment => (
-                        <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} onProfileClick={onProfileClick} />
+                ) : sortedComments.length > 0 ? (
+                    sortedComments.map(comment => (
+                        <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} onProfileClick={onProfileClick} isOwnPost={isOwnPost} />
                     ))
                 ) : (
                     <p className="text-[var(--text-sub)] text-xs text-center">No comments yet. Be the first!</p>

@@ -21,7 +21,7 @@ const BottomNav = () => {
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
         { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse' },
-        { key: 'confessions', icon: 'pi-map', to: () => '/confessions' },
+        { key: 'knowledge', icon: 'pi-book', to: () => '/knowledge' },
         { key: 'messages', icon: 'pi-envelope', to: () => '/conversations', badge: msgCount },
         { key: 'profile', icon: 'pi-user', to: () => `/profile/${user?._id || ''}` },
     ].filter(item => !(item.key === 'confessions' && flags?.anonymous_posts === false));

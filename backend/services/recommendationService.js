@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const Post = require("../models/Post");
 const User = require("../models/User");
-const { PostVector, UserInterest } = require("../models/Recommendation");
+const { PostVector, UserInterest, CommentVector } = require("../models/Recommendation");
+const { getEmbedding } = require("../utils/embeddings");
 
 /**
  * Gracefully handles recommendation logic locally without external Python dependency.
@@ -125,25 +126,107 @@ async function getPersonalizedTrending(userId) {
     }
 }
 
-async function getPersonalizedSearch(userId, q, restrictedIds = []) {
+async function getPersonalizedSearch(userId, q, restrictedIds = [], typeFilter = 'all') {
     try {
         if (!q) return [];
         // FIX: restrictedIds are strings — cast to ObjectIds for proper $nin matching against user._id (ObjectId)
         const restrictedObjectIds = restrictedIds
             .map(id => { try { return new mongoose.Types.ObjectId(id); } catch { return null; } })
             .filter(Boolean);
-        // Basic keyword search with privacy filter
-        return await Post.find({
-            $or: [
-                { caption: { $regex: q, $options: 'i' } },
-                { category: { $regex: q, $options: 'i' } },
-                { tags: { $in: [new RegExp(q, 'i')] } }
-            ],
+
+        // 1. Generate Embedding for query
+        const queryVector = await getEmbedding(q);
+        
+        if (typeFilter === 'comments') {
+            if (!queryVector || queryVector.length === 0) return [];
+            
+            // Search Comments Vector
+            const commentVecs = await CommentVector.aggregate([
+                {
+                    $vectorSearch: {
+                        index: "vector_index", // Requires vector index on CommentVector in Atlas
+                        path: "vector",
+                        queryVector: queryVector,
+                        numCandidates: 100,
+                        limit: 20
+                    }
+                }
+            ]);
+            
+            const commentIds = commentVecs.map(cv => cv.commentId);
+            const Comment = require("../models/Comment");
+            const comments = await Comment.find({ _id: { $in: commentIds }, isVisible: { $ne: false } })
+                .populate('user', 'fullname profile_picture')
+                .lean();
+                
+            return comments.map(c => ({ ...c, type: 'comment' }));
+        }
+
+        // Search Posts Vector
+        let postIds = [];
+        if (queryVector && queryVector.length > 0) {
+            let prefilter = {};
+            if (typeFilter === 'tutorial') {
+                prefilter = { $or: [{ category: 'Tutorial' }, { tags: { $in: ['tutorial', 'guide'] } }] };
+            } else if (typeFilter === 'discussion') {
+                prefilter = { category: 'Discussion' };
+            } else if (typeFilter === 'beginner') {
+                prefilter = { tags: { $in: ['beginner', '101', 'basics'] } };
+            }
+
+            const aggregationPipeline = [
+                {
+                    $vectorSearch: {
+                        index: "vector_index",
+                        path: "vector",
+                        queryVector: queryVector,
+                        numCandidates: 100,
+                        limit: 30,
+                        ...(Object.keys(prefilter).length > 0 ? { filter: prefilter } : {})
+                    }
+                }
+            ];
+
+            const vecResults = await PostVector.aggregate(aggregationPipeline);
+            postIds = vecResults.map(v => v.postId);
+        }
+
+        // Fallback to text search if vector search fails or no results
+        if (postIds.length === 0) {
+            const regexQuery = {
+                $or: [
+                    { caption: { $regex: q, $options: 'i' } },
+                    { category: { $regex: q, $options: 'i' } },
+                    { tags: { $in: [new RegExp(q, 'i')] } }
+                ],
+                "user._id": { $nin: restrictedObjectIds },
+                isAnonymous: { $ne: true },
+                isVisible: { $ne: false },
+                deletedAt: null
+            };
+            
+            if (typeFilter === 'tutorial') {
+                regexQuery.$or.push({ tags: 'tutorial' }, { category: 'Tutorial' });
+            } else if (typeFilter === 'beginner') {
+                regexQuery.$or.push({ tags: 'beginner' });
+            }
+
+            const posts = await Post.find(regexQuery).sort({ createdAt: -1 }).limit(20).lean();
+            return posts.map(p => ({ ...p, type: 'post' }));
+        }
+
+        const posts = await Post.find({
+            _id: { $in: postIds },
             "user._id": { $nin: restrictedObjectIds },
             isAnonymous: { $ne: true },
             isVisible: { $ne: false },
             deletedAt: null
-        }).sort({ createdAt: -1 }).limit(20).lean();
+        }).lean();
+        
+        // Re-order posts based on vector search results order
+        const orderedPosts = postIds.map(id => posts.find(p => p._id.toString() === id.toString())).filter(Boolean);
+        return orderedPosts.map(p => ({ ...p, type: 'post' }));
+
     } catch (err) {
         console.error("[RecommendationService] getPersonalizedSearch error:", err.message);
         return [];

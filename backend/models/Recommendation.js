@@ -20,7 +20,16 @@ const UserInterestSchema = new mongoose.Schema({
 // Index for fast lookups and sorting
 UserInterestSchema.index({ lastUpdated: -1 });
 
+const CommentVectorSchema = new mongoose.Schema({
+    commentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', required: true, unique: true },
+    postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+    vector: { type: [Number], required: true },
+    topic: { type: String },
+    createdAt: { type: Date, default: Date.now }
+});
+
 const PostVector = mongoose.model('PostVector', PostVectorSchema);
 const UserInterest = mongoose.model('UserInterest', UserInterestSchema);
+const CommentVector = mongoose.model('CommentVector', CommentVectorSchema);
 
-module.exports = { PostVector, UserInterest };
+module.exports = { PostVector, UserInterest, CommentVector };
