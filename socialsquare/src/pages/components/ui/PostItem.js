@@ -57,6 +57,52 @@ const TimeLockOverlay = ({ unlocksAt }) => {
     );
 };
 
+// ─── AI DWELL POPUP ────────────────────────────────────────────────────────────
+const AiDwellPopup = ({ post }) => {
+    const { ref, inView } = useInView({ threshold: 0.6 });
+    const [visible, setVisible] = useState(false);
+    const [dismissed, setDismissed] = useState(false);
+
+    useEffect(() => {
+        let timer;
+        if (inView && post.aiSummary && !dismissed) {
+            // Trigger popup after 3 seconds of continuous dwelling
+            timer = setTimeout(() => {
+                setVisible(true);
+            }, 3000);
+        } else {
+            setVisible(false);
+        }
+        return () => clearTimeout(timer);
+    }, [inView, post.aiSummary, dismissed]);
+
+    if (!post.aiSummary) return <div ref={ref} className="absolute inset-0 pointer-events-none" />;
+
+    return (
+        <div ref={ref} className="absolute inset-0 pointer-events-none z-40">
+            {visible && (
+                <div className="absolute top-4 left-4 right-4 sm:left-auto sm:w-80 pointer-events-auto bg-[var(--surface-1)]/95 backdrop-blur-xl border border-[#808bf5]/30 p-4 rounded-2xl shadow-[0_20px_60px_rgba(128,139,245,0.2)] animate-in slide-in-from-top-8 fade-in duration-500">
+                    <button 
+                        onClick={() => { setVisible(false); setDismissed(true); }} 
+                        className="absolute top-3 right-3 text-[var(--text-sub)] hover:text-[var(--text-main)] transition-colors border-0 bg-transparent cursor-pointer p-1"
+                    >
+                        <i className="pi pi-times text-xs"></i>
+                    </button>
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-[#808bf5]/10 flex items-center justify-center">
+                            <i className="pi pi-sparkles text-[#808bf5] text-xs"></i>
+                        </div>
+                        <span className="font-bold text-[10px] text-[#808bf5] uppercase tracking-widest">AI Insight</span>
+                    </div>
+                    <p className="text-sm m-0 leading-relaxed font-medium text-[var(--text-main)]">
+                        {post.aiSummary}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ─── FEED VIDEO ───────────────────────────────────────────────────────────────
 const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
     const videoRef = useRef(null);
@@ -301,6 +347,7 @@ export const PostItem = React.memo(({
     return (
         <article className="relative overflow-hidden w-full rounded-2xl flex flex-col mb-3 px-0 sm:px-0">
             <PostActivityTracker postId={post._id} onDwell={handleDwell} />
+            <AiDwellPopup post={post} />
             <CollabInviteBanner post={post} user={user} />
 
             {/* Header */}
