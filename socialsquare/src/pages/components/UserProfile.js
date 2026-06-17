@@ -354,6 +354,19 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                         {userDetails?.bio && (
                             <p className="text-sm text-[var(--text-main)] m-0 max-w-[260px] leading-6">{userDetails.bio}</p>
                         )}
+                        {userDetails?.aiProfileSummary && (
+                            <div className="mt-3 w-full max-w-[320px] p-3.5 rounded-2xl bg-[#808bf5]/5 backdrop-blur-md border border-[#808bf5]/20 flex flex-col gap-1.5 text-left shadow-[0_8px_32px_rgba(128,139,245,0.05)] animate-in fade-in duration-300">
+                                <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+                                    <div className="w-5 h-5 rounded-full bg-[#808bf5]/10 flex items-center justify-center">
+                                        <i className="pi pi-sparkles text-[#808bf5] text-[10px]"></i>
+                                    </div>
+                                    <span className="font-bold text-[9px] text-[#808bf5] uppercase tracking-wider">AI Profile Insight</span>
+                                </div>
+                                <p className="text-xs m-0 leading-relaxed font-medium text-[var(--text-main)]/90 text-center sm:text-left italic">
+                                    "{userDetails.aiProfileSummary}"
+                                </p>
+                            </div>
+                        )}
 
 
 

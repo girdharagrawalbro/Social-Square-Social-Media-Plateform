@@ -59,7 +59,7 @@ const TimeLockOverlay = ({ unlocksAt }) => {
 
 // ─── AI DWELL POPUP ────────────────────────────────────────────────────────────
 const AiDwellPopup = ({ post }) => {
-    const { ref, inView } = useInView({ threshold: 0.6 });
+    const { ref, inView } = useInView({ threshold: 0.2 });
     const [visible, setVisible] = useState(false);
     const [dismissed, setDismissed] = useState(false);
 
@@ -82,8 +82,8 @@ const AiDwellPopup = ({ post }) => {
         <div ref={ref} className="absolute inset-0 pointer-events-none z-40">
             {visible && (
                 <div className="absolute top-4 left-4 right-4 sm:left-auto sm:w-80 pointer-events-auto bg-[var(--surface-1)]/95 backdrop-blur-xl border border-[#808bf5]/30 p-4 rounded-2xl shadow-[0_20px_60px_rgba(128,139,245,0.2)] animate-in slide-in-from-top-8 fade-in duration-500">
-                    <button 
-                        onClick={() => { setVisible(false); setDismissed(true); }} 
+                    <button
+                        onClick={() => { setVisible(false); setDismissed(true); }}
                         className="absolute top-3 right-3 text-[var(--text-sub)] hover:text-[var(--text-main)] transition-colors border-0 bg-transparent cursor-pointer p-1"
                     >
                         <i className="pi pi-times text-xs"></i>

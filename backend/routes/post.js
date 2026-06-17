@@ -8,9 +8,14 @@ const Comment = require('../models/Comment');
 const Category = require("../models/Category");
 const Group = require("../models/Group");
 const { publish } = require('../lib/pubsub');
-const { sanitizeAnonymousPost } = require('../utils/privacy');
-const notificationUtils = require('../utils/notification');
-const { getRestrictedUserIds, canViewPost } = require('../utils/privacy');
+const { 
+    sanitizeAnonymousPost, 
+    getRestrictedUserIds, 
+    canViewPost, 
+    checkPostPrivacy, 
+    getOwnerToken, 
+    verifyOwnerToken 
+} = require('../utils/privacy');
 const { analyzeComment } = require('../services/discussionAiService');
 const eventBus = require('../lib/eventBus');
 const redis = require('../lib/redis');
@@ -18,13 +23,11 @@ const verifyToken = require('../middleware/Verifytoken');
 const softVerifyToken = require('../middleware/softVerifyToken');
 const contentFilter = require('../middleware/contentFilter');
 const { publishEvent } = require("../services/recommendationPublisher");
-const { checkPostPrivacy } = require('../utils/privacy');
 const { updateGamification } = require('../lib/gamification');
 const jwt = require('jsonwebtoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const RedisBloomFilter = require('../lib/bloomFilter');
-const { getOwnerToken, verifyOwnerToken, sanitizeAnonymousPost, getRestrictedUserIds } = require('../utils/privacy');
 const postWriteLimiter = require('../middleware/postWriteLimiter'); // Break circular dependency
 const { moderationQueue } = require('../queues/moderationQueue');
 const { body, param, query, validationResult } = require('express-validator');
