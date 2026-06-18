@@ -20,6 +20,7 @@ import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
+import MentionSuggestions from './ui/MentionSuggestions';
 
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
@@ -399,6 +400,47 @@ const StoryViewer = ({
                 </div>
             )}
 
+            {/* Tagged/Mentioned Users Overlay */}
+            {story.mentions && story.mentions.length > 0 && (
+                <div style={{ position: 'absolute', bottom: '80px', left: '16px', right: '16px', display: 'flex', flexWrap: 'wrap', gap: '6px', zIndex: 16, pointerEvents: 'auto' }}>
+                    {story.mentions.map((m, idx) => {
+                        const uid = typeof m === 'object' ? m._id : m;
+                        const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
+                        if (!uid) return null;
+                        return (
+                            <button
+                                key={uid}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsPaused(true);
+                                    setSelectedProfileId(uid);
+                                    setProfileVisible(true);
+                                }}
+                                style={{
+                                    background: 'rgba(0, 0, 0, 0.65)',
+                                    backdropFilter: 'blur(8px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                                    color: '#fff',
+                                    padding: '4px 10px',
+                                    borderRadius: '20px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    transition: 'all 0.2s'
+                                }}
+                                className="hover:bg-black/80 active:scale-95 animate-fade-in"
+                            >
+                                <i className="pi pi-user" style={{ fontSize: '9px' }}></i>
+                                @{name}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Interaction Overlay */}
             <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 10 }}
                 onMouseDown={() => setIsPaused(true)}
@@ -567,7 +609,7 @@ const StoryViewer = ({
             <Dialog
                 header="Profile"
                 visible={profileVisible}
-                style={{ width: '95vw', maxWidth: '500px' }}
+                style={{ width: '95vw', maxWidth: '450px' }}
                 onHide={() => { setProfileVisible(false); setIsPaused(false); }}
                 breakpoints={{ '640px': '100vw' }}
                 baseZIndex={2000000}
@@ -707,14 +749,47 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
 
 export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null }) => {
     const fileInputRef = useRef(null);
+    const textInputRef = useRef(null);
     const [previews, setPreviews] = useState([]); // [{url, type, file}]
     const [currentIndex, setCurrentIndex] = useState(0);
     const [text, setText] = useState('');
+    const [cursorPosition, setCursorPosition] = useState(0);
     const [textColor, setTextColor] = useState('#ffffff');
     const [textPosition, setTextPosition] = useState('center');
     // eslint-disable-next-line no-unused-vars
     const [uploading, setUploading] = useState(false);
     const [croppingState, setCroppingState] = useState({ visible: false, imageSrc: null, pendingFiles: [] });
+
+    // Tagged users (Direct Mentions)
+    const [taggedUsers, setTaggedUsers] = useState([]);
+    const [tagSearchTerm, setTagSearchTerm] = useState("");
+    const [tagSearchResults, setTagSearchResults] = useState([]);
+    const [isSearchingTags, setIsSearchingTags] = useState(false);
+    const [openTagPanel, setOpenTagPanel] = useState(false);
+
+    const handleSearchTags = async (query) => {
+        setTagSearchTerm(query);
+        if (query.length < 2) { setTagSearchResults([]); return; }
+        setIsSearchingTags(true);
+        try {
+            const res = await api.get(`/api/auth/search?query=${query}`);
+            const users = res.data?.users || [];
+            setTagSearchResults(users.filter(u => u._id !== loggeduser._id));
+        } catch { }
+        finally { setIsSearchingTags(false); }
+    };
+
+    const addTagUser = (user) => {
+        if (taggedUsers.length >= 5) { toast.error("Max 5 tagged users"); return; }
+        if (taggedUsers.some(c => c._id === user._id)) return;
+        setTaggedUsers(prev => [...prev, user]);
+        setTagSearchTerm("");
+        setTagSearchResults([]);
+    };
+
+    const removeTagUser = (id) => {
+        setTaggedUsers(prev => prev.filter(c => c._id !== id));
+    };
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
@@ -827,6 +902,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
         const textToUpload = text;
         const textColorToUpload = textColor;
         const textPositionToUpload = textPosition;
+        const tags = [...taggedUsers];
 
         setTimeout(() => {
             onClose();
@@ -845,7 +921,8 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         mediaUrl,
                         mediaType: 'image',
                         text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
-                        sharedPostId: sharedPostToUpload._id
+                        sharedPostId: sharedPostToUpload._id,
+                        mentionIds: tags.map(t => t._id)
                     });
                     onCreated(res.data);
                 } else {
@@ -865,7 +942,8 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         const res = await api.post(`/api/story/create`, {
                             mediaUrl, mediaType: item.type,
                             thumbnailUrl,
-                            text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null
+                            text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
+                            mentionIds: tags.map(t => t._id)
                         });
                         onCreated(res.data);
                     }
@@ -965,17 +1043,100 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                 </div>
 
                 <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
-                <input type="text" placeholder="Add text overlay (optional)" value={text} onChange={e => setText(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px', background: 'transparent', color: 'var(--text-main)' }} />
+                <div style={{ position: 'relative' }}>
+                    <MentionSuggestions 
+                        text={text} 
+                        cursorPosition={cursorPosition} 
+                        onSelect={(val) => {
+                            setText(val);
+                            if (textInputRef.current) {
+                                textInputRef.current.focus();
+                            }
+                        }} 
+                    />
+                    <input 
+                        ref={textInputRef}
+                        type="text" 
+                        placeholder="Add text overlay (optional)" 
+                        value={text} 
+                        onChange={e => {
+                            setText(e.target.value);
+                            setCursorPosition(e.target.selectionStart);
+                        }} 
+                        onKeyUp={e => setCursorPosition(e.target.selectionStart)}
+                        onSelect={e => setCursorPosition(e.target.selectionStart)}
+                        onClick={e => setCursorPosition(e.target.selectionStart)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px', background: 'transparent', color: 'var(--text-main)' }} 
+                    />
+                </div>
                 {text && (
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'].map(color => (
                             <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid var(--primary)' : '2px solid var(--border-color)', cursor: 'pointer' }} />
                         ))}
-                        <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', color: 'var(--text-main)' }}>
-                            <option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option>
+                        <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', color: 'var(--text-main)', outline: 'none' }}>
+                            <option value="top" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Top</option>
+                            <option value="center" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Center</option>
+                            <option value="bottom" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Bottom</option>
                         </select>
                     </div>
                 )}
+                <div style={{ marginBottom: '12px' }}>
+                    <button 
+                        type="button"
+                        onClick={() => setOpenTagPanel(v => !v)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', background: 'var(--surface-2)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <i className="pi pi-user-plus" style={{ fontSize: '12px' }}></i>
+                            {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag People"}
+                        </span>
+                        <i className={`pi pi-chevron-${openTagPanel ? 'up' : 'down'}`} style={{ marginLeft: 'auto', fontSize: '10px' }}></i>
+                    </button>
+                    {openTagPanel && (
+                        <div style={{ marginTop: '8px', padding: '10px', background: 'var(--surface-2)', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ position: 'relative' }}>
+                                <i className="pi pi-search" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', fontSize: '11px' }}></i>
+                                <input
+                                    type="text"
+                                    placeholder="Search users to tag..."
+                                    value={tagSearchTerm}
+                                    onChange={(e) => handleSearchTags(e.target.value)}
+                                    style={{ width: '100%', padding: '6px 12px 6px 28px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box', outline: 'none' }}
+                                />
+                                {isSearchingTags && <i className="pi pi-spin pi-spinner" style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: '#808bf5' }}></i>}
+                            </div>
+                            {tagSearchResults.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto', background: 'var(--surface-1)', borderRadius: '6px', border: '1px solid var(--border-color)', padding: '4px' }}>
+                                    {tagSearchResults.map(user => (
+                                        <div
+                                            key={user._id}
+                                            onClick={() => addTagUser(user)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
+                                            className="hover:bg-white/5"
+                                        >
+                                            <img src={user.profile_picture} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-main)' }}>{user.fullname}</span>
+                                                <span style={{ fontSize: '9px', color: 'var(--text-sub)' }}>@{user.username}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {taggedUsers.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+                                    {taggedUsers.map(user => (
+                                        <div key={user._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--surface-1)', border: '1px solid rgba(128, 139, 245, 0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>
+                                            <span>@{user.username}</span>
+                                            <button onClick={() => removeTagUser(user._id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, fontSize: '9px', display: 'flex', alignItems: 'center' }}>✕</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
                 <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost)} style={{ width: '100%', padding: '10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost) ? 0.6 : 1 }}>
                     {uploading ? 'Uploading...' : sharedPost ? 'Share Post to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
                 </button>

@@ -46,7 +46,7 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
     // Determine type categories
     const isLoginAlert = type === 'system' && (message?.content?.includes('Login') || message?.content?.includes('login') || message?.content?.includes('Password') || message?.content?.includes('OTP') || message?.content?.includes('Secure'));
     const isChat = type === 'message';
-    const isPostRelated = ['like', 'comment', 'new_post'].includes(type);
+    const isPostRelated = ['like', 'comment', 'new_post', 'mention'].includes(type);
     const isUserRelated = ['follow', 'follow_request'].includes(type);
 
     const postEnabled = recipient?.notificationSettings?.postNotifications !== false;
@@ -118,6 +118,7 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
           switch (type) {
             case 'like': body = `${finalSender.fullname} liked your post`; break;
             case 'comment': body = `${finalSender.fullname} commented: "${message?.content?.substring(0, 30) || '...'}"`; break;
+            case 'mention': body = `${finalSender.fullname} mentioned you: "${message?.content?.substring(0, 30) || '...'}"`; break;
             case 'follow': body = `${finalSender.fullname} started following you`; break;
             case 'message': body = `New message from ${finalSender.fullname}`; title = 'Social Square Chat'; break;
             case 'new_post': body = `${finalSender.fullname} shared a new post`; break;

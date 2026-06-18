@@ -166,7 +166,8 @@ router.get("/posts", verifyToken, async (req, res) => {
         const candidates = await Post.find(candidatesQuery)
             .sort({ createdAt: -1 })
             .limit(100)
-            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary')
+            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions')
+            .populate('mentions', 'username fullname')
             .lean()
             .maxTimeMS(10000);
 

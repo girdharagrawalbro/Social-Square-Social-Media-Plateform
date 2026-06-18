@@ -344,7 +344,7 @@ export default function KnowledgeDashboard() {
         } catch {
             toast.error('Update failed');
         }
-    };
+    };  
 
     const stats = dashboard?.stats;
 
@@ -382,7 +382,7 @@ export default function KnowledgeDashboard() {
                     ))}
 
                     <div style={{ maxWidth: 900, margin: '0 auto', position: 'relative' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10 }}>
                             <span style={{ fontSize: 40 }}>🧠</span>
                             <div>
                                 <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'white' }}>

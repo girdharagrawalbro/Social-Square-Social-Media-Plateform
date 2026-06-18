@@ -3,6 +3,8 @@ import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
 import { useComments, useCreateComment, useLikeComment, useDeleteComment, useMarkBestAnswer, useMarkInsightful } from '../../../hooks/queries/usePostQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 
+import MentionSuggestions from './MentionSuggestions';
+
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
 const formatDateTime = (dateString) => {
@@ -12,6 +14,34 @@ const formatDateTime = (dateString) => {
     if (mins < 60) return `${mins}m`;
     if (mins < 1440) return `${Math.floor(mins / 60)}h`;
     return new Date(dateString).toLocaleDateString();
+};
+
+const renderTextWithMentions = (text = '', onProfileClick) => {
+    if (!text) return '';
+    const parts = text.split(/(\s+)/);
+    return parts.map((part, index) => {
+        if (part.startsWith('@') && part.length > 1) {
+            const username = part.slice(1).replace(/[^a-zA-Z0-9_.]/g, '');
+            return (
+                <span 
+                    key={index} 
+                    onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                            const res = await api.get(`/api/auth/public/profile/${username}`);
+                            if (res.data?._id) onProfileClick(res.data._id);
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }}
+                    className="text-[#808bf5] font-bold cursor-pointer hover:underline"
+                >
+                    {part}
+                </span>
+            );
+        }
+        return part;
+    });
 };
 
 const HeartBurst = ({ visible }) => visible ? (
@@ -124,7 +154,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                             </div>
                         ) : (
                             <>
-                                <p className="m-0 text-sm text-[var(--text-main)]">{comment.content}</p>
+                                <p className="m-0 text-sm text-[var(--text-main)]">{renderTextWithMentions(comment.content, onProfileClick)}</p>
                                 {comment.quality === 'low' && showLowQuality && (
                                     <button onClick={() => setShowLowQuality(false)} className="text-[10px] text-[var(--text-sub)] hover:text-[#808bf5] border-0 bg-transparent p-0 cursor-pointer mt-1">
                                         Hide
@@ -211,6 +241,8 @@ const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
     const [formData, setFormData] = useState({ content: '' });
     const [localComments, setLocalComments] = useState(null);
     const [selectedTopic, setSelectedTopic] = useState('All');
+    const [cursorPosition, setCursorPosition] = useState(0);
+    const inputRef = useRef(null);
 
     const { data: fetchedComments, isLoading: commentsLoading } = useComments(postId);
     const createCommentMutation = useCreateComment();
@@ -243,10 +275,10 @@ const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
             postId, content: formData.content,
             user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }
         };
+        setFormData({ content: '' });
         createCommentMutation.mutate(payload, {
             onSuccess: (res) => {
                 setLocalComments(prev => [...(prev ?? comments ?? []), { ...res.data, repliesList: [] }]);
-                setFormData({ content: '' });
             },
             onError: console.error,
         });
@@ -330,11 +362,34 @@ const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
             </div>
 
             {/* Fixed Input Section at Bottom */}
-            <div className="sticky bottom-0 p-3 flex gap-2 items-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10">
+            <div className="relative sticky bottom-0 p-3 flex gap-2 items-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10">
+                <MentionSuggestions 
+                    text={formData.content} 
+                    cursorPosition={cursorPosition} 
+                    onSelect={(val) => {
+                        setFormData({ content: val });
+                        if (inputRef.current) {
+                            inputRef.current.focus();
+                        }
+                    }} 
+                />
                 <img src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
                 <form onSubmit={handleSubmit} className="flex w-full gap-2">
-                    <input type="text" placeholder="Write a comment..." className="flex-1 text-sm border border-[var(--border-color)] rounded-full px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5]"
-                        name="content" value={formData.content} onChange={e => setFormData({ content: e.target.value })} />
+                    <input 
+                        ref={inputRef}
+                        type="text" 
+                        placeholder="Write a comment..." 
+                        className="flex-1 text-sm border border-[var(--border-color)] rounded-full px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5]"
+                        name="content" 
+                        value={formData.content} 
+                        onChange={e => {
+                            setFormData({ content: e.target.value });
+                            setCursorPosition(e.target.selectionStart);
+                        }} 
+                        onKeyUp={e => setCursorPosition(e.target.selectionStart)}
+                        onSelect={e => setCursorPosition(e.target.selectionStart)}
+                        onClick={e => setCursorPosition(e.target.selectionStart)}
+                    />
                     <button type="submit" className="bg-[#808bf5] hover:bg-[#6b7ae6] text-white border-0 rounded-full px-4 py-2 cursor-pointer transition">
                         <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
                     </button>

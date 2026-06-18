@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useInView } from 'react-intersection-observer';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,7 @@ import { HeartBurst } from "./HeartBurst";
 import PollCard from '../PollCard';
 import ReactionPicker from '../ReactionPicker';
 import ProgressiveImage from './ProgressiveImage';
+import SaveCollectionModal from '../SaveCollectionModal';
 
 import formatDate from '../../../utils/formatDate';
 import { getMediaThumbnail } from '../../../utils/mediaUtils';
@@ -58,50 +59,207 @@ const TimeLockOverlay = ({ unlocksAt }) => {
 };
 
 // ─── AI DWELL POPUP ────────────────────────────────────────────────────────────
+// Renders OUTSIDE the feed card as a floating chip above the post
 const AiDwellPopup = ({ post }) => {
-    const { ref, inView } = useInView({ threshold: 0.2 });
+    const { ref: inViewRef, inView } = useInView({ threshold: 0.2 });
     const [visible, setVisible] = useState(false);
+    const [screenType, setScreenType] = useState('desktop'); // 'desktop' | 'tablet' | 'phone'
+    const [isLoading, setIsLoading] = useState(true);
     const [dismissed, setDismissed] = useState(false);
 
     useEffect(() => {
-        let timer;
+        const handleResize = () => {
+            const width = window.innerWidth;
+            if (width < 640) {
+                setScreenType('phone');
+            } else if (width < 1024) {
+                setScreenType('tablet');
+            } else {
+                setScreenType('desktop');
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+
+
+    useEffect(() => {
+        let showTimer;
+        let loadTimer;
         if (inView && post.aiSummary && !dismissed) {
-            // Trigger popup after 3 seconds of continuous dwelling
-            timer = setTimeout(() => {
+            // Show the popup with loading skeleton after 1 second
+            showTimer = setTimeout(() => {
                 setVisible(true);
-            }, 3000);
+                setIsLoading(true);
+
+                // Finish loading after another 1.8 seconds (2.8 seconds total dwell)
+                loadTimer = setTimeout(() => {
+                    setIsLoading(false);
+                }, 1000);
+            }, 500);
         } else {
             setVisible(false);
+            setIsLoading(true);
         }
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(showTimer);
+            clearTimeout(loadTimer);
+        };
     }, [inView, post.aiSummary, dismissed]);
 
-    if (!post.aiSummary) return <div ref={ref} className="absolute inset-0 pointer-events-none" />;
+    if (!post.aiSummary) return <div ref={inViewRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', pointerEvents: 'none' }} />;
+
+    // Responsive positioning logic
+    const getPositionStyles = () => {
+        const base = {
+            position: 'absolute',
+            zIndex: 50,
+            pointerEvents: 'auto',
+            WebkitBackdropFilter: 'blur(20px)',
+            padding: '14px 16px',
+            animation: 'aiPopupIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+            transition: 'all 0.5s cubic-bezier(0.25, 1, 0.5, 1)',
+            overflow: 'hidden',
+            width: 'calc(100% - 32px)',
+            maxWidth: '340px', borderRadius: '18px',
+
+        };
+
+        if (screenType === 'phone') {
+            return {
+                ...base,
+                bottom: '100%',
+                top: 'auto',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginBottom: '10px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '18px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                background: 'var(--surface-2)',
+                backdropFilter: 'blur(20px)',
+            };
+        } else {
+            return {
+                ...base,
+                top: '9%',
+                bottom: 'auto',
+                left: screenType === 'tablet' || '140%',
+                transform: 'translateX(-50%)',
+                background: 'var(--surface-2)',
+                 borderRadius: '18px',
+            };
+        }
+    };
 
     return (
-        <div ref={ref} className="absolute inset-0 pointer-events-none z-40">
+        <>
+            {/* Invisible sentinel — tracks when this post enters the viewport */}
+            <div ref={inViewRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', pointerEvents: 'none' }} />
+
             {visible && (
-                <div className="absolute top-4 left-4 right-4 sm:left-auto sm:w-80 pointer-events-auto bg-[var(--surface-1)]/95 backdrop-blur-xl border border-[#808bf5]/30 p-4 rounded-2xl shadow-[0_20px_60px_rgba(128,139,245,0.2)] animate-in slide-in-from-top-8 fade-in duration-500">
-                    <button
-                        onClick={() => { setVisible(false); setDismissed(true); }}
-                        className="absolute top-3 right-3 text-[var(--text-sub)] hover:text-[var(--text-main)] transition-colors border-0 bg-transparent cursor-pointer p-1"
-                    >
-                        <i className="pi pi-times text-xs"></i>
-                    </button>
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-full bg-[#808bf5]/10 flex items-center justify-center">
-                            <i className="pi pi-sparkles text-[#808bf5] text-xs"></i>
+                <div style={getPositionStyles()}>
+                    {/* Top row: sparkle icon + actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{
+                                width: '26px', height: '26px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg,rgba(128,139,245,0.25),rgba(192,132,252,0.25))',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 0 10px rgba(128,139,245,0.15)',
+                                animation: isLoading ? 'pulseScale 1.5s infinite ease-in-out' : 'none'
+                            }}>
+                                <i className="pi pi-sparkles" style={{ color: '#808bf5', fontSize: '11px' }}></i>
+                            </div>
+                            <span style={{
+                                fontWeight: 800,
+                                fontSize: '9px',
+                                color: '#808bf5',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.14em',
+                                opacity: isLoading ? 0.6 : 1,
+                                transition: 'opacity 0.3s ease'
+                            }}>
+                                {isLoading ? 'Thinking...' : 'AI Insight'}
+                            </span>
                         </div>
-                        <span className="font-bold text-[10px] text-[#808bf5] uppercase tracking-widest">AI Insight</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {/* <button
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', padding: '3px 6px', lineHeight: 1 }}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="More options"
+                            >
+                                <i className="pi pi-ellipsis-v" style={{ fontSize: '12px' }}></i>
+                            </button> */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setVisible(false); setDismissed(true); }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', padding: '3px', lineHeight: 1, display: 'flex', alignItems: 'center' }}
+                                aria-label="Dismiss AI insight"
+                            >
+                                <i className="pi pi-times" style={{ fontSize: '11px' }}></i>
+                            </button>
+                        </div>
                     </div>
-                    <p className="text-sm m-0 leading-relaxed font-medium text-[var(--text-main)]">
-                        {post.aiSummary}
-                    </p>
+
+                    {/* Content Section */}
+                    {isLoading ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px' }}>
+                            <div
+                                className="skeleton-bar"
+                                style={{
+                                    height: '10px',
+                                    width: '100%',
+                                    borderRadius: '5px',
+                                    background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)',
+                                    backgroundSize: '200% 100%',
+                                    animation: 'pulseGlow 1.5s infinite linear'
+                                }}
+                            />
+                            <div
+                                className="skeleton-bar"
+                                style={{
+                                    height: '10px',
+                                    width: '85%',
+                                    borderRadius: '5px',
+                                    background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)',
+                                    backgroundSize: '200% 100%',
+                                    animation: 'pulseGlow 1.5s infinite linear 0.2s'
+                                }}
+                            />
+                            <div
+                                className="skeleton-bar"
+                                style={{
+                                    height: '10px',
+                                    width: '60%',
+                                    borderRadius: '5px',
+                                    background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)',
+                                    backgroundSize: '200% 100%',
+                                    animation: 'pulseGlow 1.5s infinite linear 0.4s'
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        /* Summary text with typewriter/writing reveal effect */
+                        <p style={{
+                            margin: 0,
+                            fontSize: '13px',
+                            lineHeight: '1.6',
+                            fontWeight: 500,
+                            color: 'var(--text-main)',
+                            animation: 'writeReveal 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+                            display: 'inline-block'
+                        }}>
+                            {post.aiSummary}
+                        </p>
+                    )}
                 </div>
             )}
-        </div>
+        </>
     );
 };
+
 
 // ─── FEED VIDEO ───────────────────────────────────────────────────────────────
 const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked }) => {
@@ -245,9 +403,10 @@ const CollabInviteBanner = ({ post, user }) => {
 // Handles posts that have video, images, or BOTH.
 // When both exist a unified thumbnail strip is shown (video first, then images).
 // ──────────────────────────────────────────────────────────────────────────────
-const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultiple, locked, heartVisible, onImageDoubleClick, onImageTap, prefetchPost }) => {
+const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultiple, locked, heartVisible, onImageDoubleClick, onImageTap, prefetchPost, onProfileClick }) => {
     const [activeType] = useState(hasVideo ? 'video' : 'image'); // 'video' | 'image'
     const [activeImageIdx] = useState(0);
+    const [showTags, setShowTags] = useState(false);
 
     return (
         <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" onMouseEnter={() => prefetchPost(post._id)}>
@@ -321,6 +480,42 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
 
             <HeartBurst visible={heartVisible} />
             {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
+
+            {/* Tagged/Mentioned Users Overlay on Image */}
+            {showTags && post.mentions && post.mentions.length > 0 && (
+                <div className="absolute bottom-14 left-3 z-30 bg-black/85 backdrop-blur-md border border-white/20 p-2.5 rounded-xl flex flex-col gap-1.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Tagged People</span>
+                    {post.mentions.map((m, idx) => {
+                        const uid = typeof m === 'object' ? m._id : m;
+                        const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
+                        if (!uid) return null;
+                        return (
+                            <span
+                                key={uid}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onProfileClick) onProfileClick(uid);
+                                }}
+                                className="text-xs font-semibold text-white hover:text-[#808bf5] cursor-pointer flex items-center gap-1.5 transition-colors"
+                            >
+                                <i className="pi pi-user text-[10px]"></i>
+                                @{name}
+                            </span>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Human Icon Trigger Button */}
+            {post.mentions && post.mentions.length > 0 && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); setShowTags(prev => !prev); }}
+                    className={`absolute bottom-3 left-3 z-30 w-8 h-8 rounded-full border border-white/10 flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-90 ${showTags ? 'bg-[#808bf5] text-white' : 'bg-black/60 hover:bg-black/80 text-white'}`}
+                    title="Show Tagged Users"
+                >
+                    <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
+                </button>
+            )}
         </div>
     );
 });
@@ -343,224 +538,286 @@ export const PostItem = React.memo(({
     const locked = post.unlocksAt && new Date(post.unlocksAt) > Date.now() && !isOwn;
     const expiryRemaining = post.expiresAt ? Math.max(0, new Date(post.expiresAt) - Date.now()) : null;
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
-
+    const [collectionModalVisible, setCollectionModalVisible] = useState(false);
     return (
-        <article className="relative overflow-hidden w-full rounded-2xl flex flex-col mb-3 px-0 sm:px-0">
-            <PostActivityTracker postId={post._id} onDwell={handleDwell} />
+        <div style={{ position: 'relative' }}>
+            {/* AI Insight floats OUTSIDE the card, above it */}
             <AiDwellPopup post={post} />
-            <CollabInviteBanner post={post} user={user} />
 
-            {/* Header */}
-            <div className="flex items-center justify-between p-3">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div
-                        className="relative w-10 h-10 flex-shrink-0"
-                        onClick={() => !post.isAnonymous && post.user?._id && onProfileClick(post.user._id)}
-                        onMouseEnter={() => !post.isAnonymous && post.user?._id && prefetchUser(post.user._id)}
-                    >
-                        {post.isAnonymous ? (
-                            <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white border border-gray-100 bg-gradient-to-br from-[#808bf5] to-[#ec4899] select-none" style={{ fontSize: '18px' }}>
-                                🎭
-                            </div>
-                        ) : (
-                            <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user?.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
-                                <img
-                                    src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
-                                    alt="Profile"
-                                    loading="lazy"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex flex-col justify-center min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <div className="m-0 text-sm leading-none flex items-center gap-1 flex-wrap text-[var(--text-main)] shrink-0">
-                                <span
-                                    className={`font-bold ${!post.isAnonymous ? 'cursor-pointer hover:text-[#808bf5]' : ''} transition`}
-                                    onClick={() => !post.isAnonymous && post.user?._id && onProfileClick(post.user._id)}
-                                >
-                                    {post.isAnonymous ? 'Anonymous' : (post.user?.fullname || 'Anonymous User')}
-                                </span>
-                                {!post.isAnonymous && post.collaborators?.filter(c => c.status === 'accepted').length > 0 && (() => {
-                                    const collab = post.collaborators.find(c => c.status === 'accepted');
-                                    return (
-                                        <>
-                                            <span className="text-[var(--text-sub)] font-normal ml-0.5">&</span>
-                                            <span
-                                                className="font-bold cursor-pointer hover:text-[#808bf5] transition ml-0.5"
-                                                onClick={() => onProfileClick(collab.userId || collab._id)}
-                                            >
-                                                {collab.fullname}
-                                                {post.collaborators.filter(c => c.status === 'accepted').length > 1 && ` & ${post.collaborators.filter(c => c.status === 'accepted').length - 1} others`}
-                                            </span>
-                                        </>
-                                    );
-                                })()}
-                                {!post.isAnonymous && post.user?.isVerified && <i className="pi pi-check-circle text-blue-500 ml-1" style={{ fontSize: '11px' }}></i>}
-                            </div>
-                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider leading-none shrink-0 flex items-center gap-1.5 flex-wrap">
-                                {post.isAnonymous && post.category && (
-                                    <span className="bg-[#ede9fe] text-[#6366f1] rounded-full px-2 py-0.5 text-[9px] font-bold normal-case select-none">
-                                        #{post.category}
-                                    </span>
-                                )}
-                                {post.isAnonymous && post.mood && (
-                                    <span className="text-xs select-none">
-                                        {({ happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' })[post.mood]}
-                                    </span>
-                                )}
-                                {formatDate(post.updatedAt)}
-                            </span>
+            <style>{`
+                @keyframes aiPopupIn {
+                    from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.96); }
+                    to   { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1);    }
+                }
+                @keyframes pulseGlow {
+                    0% { background-position: 100% 0%; }
+                    100% { background-position: -100% 0%; }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to   { opacity: 1; }
+                }
+                @keyframes pulseScale {
+                    0%, 100% { transform: scale(1); opacity: 0.8; }
+                    50% { transform: scale(1.12); opacity: 1; }
+                }
+                @keyframes writeReveal {
+                    from {
+                        clip-path: polygon(0 0, 0 0, 0 100%, 0% 100%);
+                        opacity: 0.1;
+                    }
+                    to {
+                        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+                        opacity: 1;
+                    }
+                }
+            `}</style>
 
-                            {!isOwn && !isFollowing && !post.isAnonymous && (
-                                <button
-                                    onClick={() => post.user?._id && onFollow(post.user._id)}
-                                    className="text-[10px] px-2.5 py-1 rounded-full border border-indigo-500 bg-[#808bf5] text-white cursor-pointer font-semibold transition leading-none h-6 flex items-center"
-                                >
-                                    Follow
-                                </button>
+            <article className="relative overflow-hidden w-full rounded-2xl flex flex-col mb-3 px-0 sm:px-0">
+                <PostActivityTracker postId={post._id} onDwell={handleDwell} />
+                <CollabInviteBanner post={post} user={user} />
+
+                {/* Header */}
+                <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div
+                            className="relative w-10 h-10 flex-shrink-0"
+                            onClick={() => !post.isAnonymous && post.user?._id && onProfileClick(post.user._id)}
+                            onMouseEnter={() => !post.isAnonymous && post.user?._id && prefetchUser(post.user._id)}
+                        >
+                            {post.isAnonymous ? (
+                                <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white border border-gray-100 bg-gradient-to-br from-[#808bf5] to-[#ec4899] select-none" style={{ fontSize: '18px' }}>
+                                    🎭
+                                </div>
+                            ) : (
+                                <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user?.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
+                                    <img
+                                        src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                        alt="Profile"
+                                        loading="lazy"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
                             )}
                         </div>
-                        {post.isAnonymous ? "" : post.location?.name && (
-                            <div className="flex items-center gap-1 mt-1">
-                                <i className="pi pi-map-marker text-[9px] text-gray-400"></i>
-                                <span className="text-[10px] text-gray-400 font-medium">{post.location.name}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0 pl-2">
-                    {post.music?.title && <div className="music-tag flex items-center gap-1 bg-pink-50 rounded-full px-2 py-1 text-[11px] text-pink-500 font-medium max-w-[130px] truncate">🎵 {post.music.title}</div>}
-                    {expiryRemaining !== null && expiryRemaining < 3600000 && <span style={{ fontSize: '10px', background: '#fef3c7', color: '#d97706', borderRadius: '10px', padding: '1px 6px' }}>⏳ Expiring soon</span>}
-                    <PostMenu post={post} user={user} isSaved={isSavedByMe}
-                        onSave={() => onSave(post)}
-                        onEdit={() => onEdit(post)}
-                        onDelete={() => onDelete(post)}
-                        onReport={() => onReport(post)}
-                        onShareToStory={() => onShareToStory(post)}
-                        onMute={() => onMute(post)}
-                        onBlock={() => onBlock(post)}
-                        isSaving={savingPostIds.has(post._id)}
-                    />
-                </div>
-            </div>
-
-            {/* ── Unified media area: images and/or video ─────────── */}
-            {(images.length > 0 || post.video) && (() => {
-                const hasVideo = !!post.video;
-                const hasImages = images.length > 0;
-                const hasMultiple = (hasVideo ? 1 : 0) + images.length > 1;
-
-                // State for which media item is active lives in a small wrapper
-                return (
-                    <FeedMediaArea
-                        post={post}
-                        images={images}
-                        hasVideo={hasVideo}
-                        hasImages={hasImages}
-                        hasMultiple={hasMultiple}
-                        locked={locked}
-                        heartVisible={heartVisible}
-                        onImageDoubleClick={onImageDoubleClick}
-                        onImageTap={onImageTap}
-                        prefetchPost={prefetchPost}
-                    />
-                );
-            })()}
-
-            {post.poll && <PollCard poll={post.poll} postId={post._id} />}
-
-            {locked && images.length === 0 && (
-                <div style={{ background: '#f3f4f6', margin: '0 16px', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '32px', margin: 0 }}>🔒</p>
-                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0' }}>This post is time-locked</p>
-                </div>
-            )}
-
-            {/* Voice note */}
-            {post.voiceNote?.url && (
-                <div style={{ margin: '0 16px' }}>
-                    <audio src={post.voiceNote.url} controls style={{ width: '100%', height: '36px' }} />
-                </div>
-            )}
-
-            {/* Actions */}
-            {!locked && (
-                <div className="text-[var(--text-main)] w-full p-3">
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-4">
-                            <div
-                                className="relative flex items-center gap-2 cursor-pointer"
-                                onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
-                                onMouseLeave={() => setPickerPostId(null)}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <div onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }} className="cursor-pointer">
-                                        <Like id={`like-${post._id}`} isliked={isLikedByMe} />
-                                    </div>
+                        <div className="flex flex-col justify-center min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <div className="m-0 text-sm leading-none flex items-center gap-1 flex-wrap text-[var(--text-main)] shrink-0">
                                     <span
-                                        className="cursor-pointer hover:text-[#808bf5] transition-colors font-bold"
-                                        onClick={(e) => { e.stopPropagation(); onLikesClick(post.likes || []); }}
+                                        className={`font-bold ${!post.isAnonymous ? 'cursor-pointer hover:text-[#808bf5]' : ''} transition`}
+                                        onClick={() => !post.isAnonymous && post.user?._id && onProfileClick(post.user._id)}
                                     >
-                                        {likesCount.toLocaleString()}
+                                        {post.isAnonymous ? 'Anonymous' : (post.user?.fullname || 'Anonymous User')}
                                     </span>
+                                    {!post.isAnonymous && post.collaborators?.filter(c => c.status === 'accepted').length > 0 && (() => {
+                                        const collab = post.collaborators.find(c => c.status === 'accepted');
+                                        return (
+                                            <>
+                                                <span className="text-[var(--text-sub)] font-normal ml-0.5">&</span>
+                                                <span
+                                                    className="font-bold cursor-pointer hover:text-[#808bf5] transition ml-0.5"
+                                                    onClick={() => onProfileClick(collab.userId || collab._id)}
+                                                >
+                                                    {collab.fullname}
+                                                    {post.collaborators.filter(c => c.status === 'accepted').length > 1 && ` & ${post.collaborators.filter(c => c.status === 'accepted').length - 1} others`}
+                                                </span>
+                                            </>
+                                        );
+                                    })()}
+                                    {!post.isAnonymous && post.user?.isVerified && <i className="pi pi-check-circle text-blue-500 ml-1" style={{ fontSize: '11px' }}></i>}
                                 </div>
-
-                                {pickerPostId === post._id && (
-                                    <ReactionPicker
-                                        onSelect={(emoji) => handleReact(post, emoji)}
-                                        onClose={() => setPickerPostId(null)}
-                                    />
-                                )}
-
-                                {post.reactions?.length > 0 && (
-                                    <div className="flex gap-2 -space-x-1 ml-1 items-center bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
-                                        {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
-                                            <span key={i} className="text-[10px] leading-none">{emoji}</span>
-                                        ))}
-                                        <span className="text-[10px] text-[var(--text-sub)] ml-1 font-bold">{post.reactions.length}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <button aria-label={visiblePostId === post._id ? "Close comments" : "Open comments"} onClick={(e) => { e.stopPropagation(); setVisibleCommentId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] gap-2">
-                                <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i> {post.comments?.length || 0}
-                            </button>
-                            <button aria-label="Share post" onClick={(e) => { e.stopPropagation(); onSharePost(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)]">
-                                <i className="pi pi-send" style={{ fontSize: '1.15rem' }}></i>
-                            </button>
-                            <button aria-label="View post details" onClick={(e) => { e.stopPropagation(); setPostDetailId(post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] ml-auto" style={{ marginRight: '4px' }}>
-                                <i className="pi pi-external-link" style={{ fontSize: '1rem' }}></i>
-                            </button>
-                            <button aria-label={isSavedByMe ? 'Unsave post' : 'Save post'} onClick={(e) => { e.stopPropagation(); onSave(post); }} disabled={savingPostIds.has(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0" style={{ opacity: savingPostIds.has(post._id) ? 0.5 : 1, pointerEvents: savingPostIds.has(post._id) ? 'none' : 'auto' }}>
-                                <i className={`pi ${isSavedByMe ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: isSavedByMe ? '#808bf5' : 'currentColor' }}></i>
-                            </button>
-                        </div>
-                        <div className="m-0 mt-1 text-sm leading-relaxed">
-                            <span
-                                className={`font-semibold mr-1 ${!post.isAnonymous ? 'cursor-pointer hover:text-indigo-600' : ''} transition`}
-                                onClick={() => !post.isAnonymous && post.user?._id && onProfileClick(post.user._id)}
-                            >
-                                {post.isAnonymous ? 'Anonymous' : (post.user?.username || post.user?.fullname || 'Unknown')}
-                            </span>
-                            {renderCaption(post.caption || '', post._id)}
-                        </div>
-                        {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
-                            <div key={i} className="m-0 mt-0.5 text-sm leading-relaxed">
-                                <span
-                                    className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
-                                    onClick={() => onProfileClick(c.userId)}
-                                >
-                                    {c.username || c.fullname}
+                                <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider leading-none shrink-0 flex items-center gap-1.5 flex-wrap">
+                                    {post.isAnonymous && post.category && (
+                                        <span className="bg-[#ede9fe] text-[#6366f1] rounded-full px-2 py-0.5 text-[9px] font-bold normal-case select-none">
+                                            #{post.category}
+                                        </span>
+                                    )}
+                                    {post.isAnonymous && post.mood && (
+                                        <span className="text-xs select-none">
+                                            {({ happy: '😊', sad: '😢', excited: '🤩', angry: '😠', calm: '😌', romantic: '❤️', funny: '😂', inspirational: '💪', nostalgic: '🥹', neutral: '😐' })[post.mood]}
+                                        </span>
+                                    )}
+                                    {formatDate(post.updatedAt)}
                                 </span>
-                                {renderCaption(c.contribution || '')}
+
+                                {!isOwn && !isFollowing && !post.isAnonymous && (
+                                    <button
+                                        onClick={() => post.user?._id && onFollow(post.user._id)}
+                                        className="text-[10px] px-2.5 py-1 rounded-full border border-indigo-500 bg-[#808bf5] text-white cursor-pointer font-semibold transition leading-none h-6 flex items-center"
+                                    >
+                                        Follow
+                                    </button>
+                                )}
                             </div>
-                        ))}
+                            {post.isAnonymous ? "" : post.location?.name && (
+                                <div className="flex items-center gap-1 mt-1">
+                                    <i className="pi pi-map-marker text-[9px] text-gray-400"></i>
+                                    <span className="text-[10px] text-gray-400 font-medium">{post.location.name}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 pl-2">
+                        {post.music?.title && <div className="music-tag flex items-center gap-1 bg-pink-50 rounded-full px-2 py-1 text-[11px] text-pink-500 font-medium max-w-[130px] truncate">🎵 {post.music.title}</div>}
+                        {expiryRemaining !== null && expiryRemaining < 3600000 && <span style={{ fontSize: '10px', background: '#fef3c7', color: '#d97706', borderRadius: '10px', padding: '1px 6px' }}>⏳ Expiring soon</span>}
+                        <PostMenu post={post} user={user} isSaved={isSavedByMe}
+                            onSave={() => onSave(post)}
+                            onEdit={() => onEdit(post)}
+                            onDelete={() => onDelete(post)}
+                            onReport={() => onReport(post)}
+                            onShareToStory={() => onShareToStory(post)}
+                            onMute={() => onMute(post)}
+                            onBlock={() => onBlock(post)}
+                            isSaving={savingPostIds.has(post._id)}
+                        />
                     </div>
                 </div>
-            )}
 
-            {visiblePostId === post._id && <Comment postId={post._id} setVisible={() => setVisibleCommentId(null)} onProfileClick={onProfileClick} />}
-        </article>
+                {/* ── Unified media area: images and/or video ─────────── */}
+                {(images.length > 0 || post.video) && (() => {
+                    const hasVideo = !!post.video;
+                    const hasImages = images.length > 0;
+                    const hasMultiple = (hasVideo ? 1 : 0) + images.length > 1;
+
+                    // State for which media item is active lives in a small wrapper
+                    return (
+                        <FeedMediaArea
+                            post={post}
+                            images={images}
+                            hasVideo={hasVideo}
+                            hasImages={hasImages}
+                            hasMultiple={hasMultiple}
+                            locked={locked}
+                            heartVisible={heartVisible}
+                            onImageDoubleClick={onImageDoubleClick}
+                            onImageTap={onImageTap}
+                            prefetchPost={prefetchPost}
+                            onProfileClick={onProfileClick}
+                        />
+                    );
+                })()}
+
+                {post.poll && <PollCard poll={post.poll} postId={post._id} />}
+
+                {locked && images.length === 0 && (
+                    <div style={{ background: '#f3f4f6', margin: '0 16px', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '32px', margin: 0 }}>🔒</p>
+                        <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0' }}>This post is time-locked</p>
+                    </div>
+                )}
+
+                {/* Voice note */}
+                {post.voiceNote?.url && (
+                    <div style={{ margin: '0 16px' }}>
+                        <audio src={post.voiceNote.url} controls style={{ width: '100%', height: '36px' }} />
+                    </div>
+                )}
+
+                {/* Actions */}
+                {!locked && (
+                    <div className="text-[var(--text-main)] w-full p-3">
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-4">
+                                <div
+                                    className="relative flex items-center gap-2 cursor-pointer"
+                                    onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
+                                    onMouseLeave={() => setPickerPostId(null)}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <div onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }} className="cursor-pointer">
+                                            <Like id={`like-${post._id}`} isliked={isLikedByMe} />
+                                        </div>
+                                        <span
+                                            className="cursor-pointer hover:text-[#808bf5] transition-colors font-bold"
+                                            onClick={(e) => { e.stopPropagation(); onLikesClick(post.likes || []); }}
+                                        >
+                                            {likesCount.toLocaleString()}
+                                        </span>
+                                    </div>
+
+                                    {pickerPostId === post._id && (
+                                        <ReactionPicker
+                                            onSelect={(emoji) => handleReact(post, emoji)}
+                                            onClose={() => setPickerPostId(null)}
+                                        />
+                                    )}
+
+                                    {post.reactions?.length > 0 && (
+                                        <div className="flex gap-2 -space-x-1 ml-1 items-center bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
+                                            {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
+                                                <span key={i} className="text-[10px] leading-none">{emoji}</span>
+                                            ))}
+                                            <span className="text-[10px] text-[var(--text-sub)] ml-1 font-bold">{post.reactions.length}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <button aria-label={visiblePostId === post._id ? "Close comments" : "Open comments"} onClick={(e) => { e.stopPropagation(); setVisibleCommentId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] gap-2">
+                                    <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i> {post.comments?.length || 0}
+                                </button>
+                                <button aria-label="Share post" onClick={(e) => { e.stopPropagation(); onSharePost(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)]">
+                                    <i className="pi pi-send" style={{ fontSize: '1.15rem' }}></i>
+                                </button>
+                                <button aria-label="View post details" onClick={(e) => { e.stopPropagation(); setPostDetailId(post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] ml-auto" style={{ marginRight: '4px' }}>
+                                    <i className="pi pi-external-link" style={{ fontSize: '1rem' }}></i>
+                                </button>
+                                <button aria-label={isSavedByMe ? 'Unsave post' : 'Save post'} onClick={(e) => { e.stopPropagation(); onSave(post); if (!isSavedByMe) setCollectionModalVisible(true); }} disabled={savingPostIds.has(post._id)} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0" style={{ opacity: savingPostIds.has(post._id) ? 0.5 : 1, pointerEvents: savingPostIds.has(post._id) ? 'none' : 'auto' }}>
+                                    <i className={`pi ${isSavedByMe ? 'pi-bookmark-fill' : 'pi-bookmark'}`} style={{ fontSize: '1.1rem', color: isSavedByMe ? '#808bf5' : 'currentColor' }}></i>
+                                </button>
+                            </div>
+                            <div className="m-0 mt-1 text-sm leading-relaxed">
+                                <span
+                                    className={`font-semibold mr-1 ${!post.isAnonymous ? 'cursor-pointer hover:text-indigo-600' : ''} transition`}
+                                    onClick={() => !post.isAnonymous && post.user?._id && onProfileClick(post.user._id)}
+                                >
+                                    {post.isAnonymous ? 'Anonymous' : (post.user?.username || post.user?.fullname || 'Unknown')}
+                                </span>
+                                {renderCaption(post.caption || '', post._id)}
+                            </div>
+                            {post.mentions && post.mentions.length > 0 && (
+                                <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                                    <span className="text-[11px] text-[var(--text-sub)] font-medium">Tagged:</span>
+                                    {post.mentions.map((m, idx) => {
+                                        const uid = typeof m === 'object' ? m._id : m;
+                                        const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
+                                        if (!uid) return null;
+                                        return (
+                                            <span
+                                                key={uid}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onProfileClick(uid);
+                                                }}
+                                                className="inline-flex items-center gap-1 bg-indigo-50/80 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[11px] font-semibold cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                                            >
+                                                @{name}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
+                                <div key={i} className="m-0 mt-0.5 text-sm leading-relaxed">
+                                    <span
+                                        className="font-semibold mr-1 cursor-pointer hover:text-indigo-600 transition"
+                                        onClick={() => onProfileClick(c.userId)}
+                                    >
+                                        {c.username || c.fullname}
+                                    </span>
+                                    {renderCaption(c.contribution || '')}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {visiblePostId === post._id && <Comment postId={post._id} setVisible={() => setVisibleCommentId(null)} onProfileClick={onProfileClick} />}
+            </article>
+
+            <SaveCollectionModal
+                post={post}
+                visible={collectionModalVisible}
+                onHide={() => setCollectionModalVisible(false)}
+            />
+        </div>
     );
 });

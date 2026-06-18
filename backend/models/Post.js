@@ -45,6 +45,7 @@ const PostSchema = new mongoose.Schema(
       status: { type: String, enum: ['pending', 'accepted', 'declined'], default: 'pending' },
       contribution: { type: String, default: null },
     }],
+    mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
     // Voice Notes
     voiceNote: { url: { type: String, default: null }, duration: { type: Number, default: null } },

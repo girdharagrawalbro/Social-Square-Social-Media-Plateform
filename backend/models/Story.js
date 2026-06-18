@@ -18,7 +18,9 @@ const StorySchema = new mongoose.Schema({
     },
     viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     sharedPostId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', default: null },
+    sharedStoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story', default: null },
     expiresAt: {
         type: Date,
         default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours

@@ -1,4 +1,4 @@
-import React, { useState, lazy, useEffect } from "react";
+import React, { useState, lazy, useEffect, useMemo, useRef } from "react";
 import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
 import { Image } from "primereact/image";
@@ -12,6 +12,7 @@ import ChatPanel from './ChatPanel';
 
 import { confirmDialog } from 'primereact/confirmdialog';
 import toast from 'react-hot-toast';
+import { createPortal } from 'react-dom';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 
@@ -134,8 +135,256 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
         </>
     );
 };
+const AiProfileInsight = ({ summary, userId, cardRef, forceInline }) => {
+    const [screenType, setScreenType] = useState('desktop');
+    const [isLoading, setIsLoading] = useState(true);
+    const [visible, setVisible] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, left: 0, right: 0, width: 0, height: 0 });
+
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            if (width < 768) {
+                setScreenType('phone');
+            } else if (width < 1024) {
+                setScreenType('tablet');
+            } else {
+                setScreenType('desktop');
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        let showTimer;
+        let loadTimer;
+        if (summary) {
+            showTimer = setTimeout(() => {
+                setVisible(true);
+                setIsLoading(true);
+                loadTimer = setTimeout(() => {
+                    setIsLoading(false);
+                }, 1200);
+            }, 300);
+        } else {
+            setVisible(false);
+            setIsLoading(true);
+        }
+        return () => {
+            clearTimeout(showTimer);
+            clearTimeout(loadTimer);
+        };
+    }, [summary]);
+
+    const position = useMemo(() => {
+        if (!userId) return 'right';
+        let hash = 0;
+        for (let i = 0; i < userId.length; i++) {
+            hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return hash % 2 === 0 ? 'right' : 'left';
+    }, [userId]);
+
+    useEffect(() => {
+        if (forceInline || !cardRef || !cardRef.current || !visible) return;
+
+        const updateCoords = () => {
+            const rect = cardRef.current.getBoundingClientRect();
+            setCoords({
+                top: rect.top + window.scrollY,
+                left: rect.left,
+                right: window.innerWidth - rect.right,
+                width: rect.width,
+                height: rect.height
+            });
+        };
+
+        const timer = setTimeout(updateCoords, 50);
+        window.addEventListener('resize', updateCoords);
+        window.addEventListener('scroll', updateCoords, true);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('resize', updateCoords);
+            window.removeEventListener('scroll', updateCoords, true);
+        };
+    }, [cardRef, visible, screenType, forceInline]);
+
+    if (!visible) return null;
+
+    if (forceInline || screenType === 'phone') {
+        if (!forceInline) return null;
+        if (screenType !== 'phone') return null;
+
+        return (
+            <div className="mt-1 mb-1 md:mt-3 md:mb-3 w-full max-w-[340px] p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--border-color)] flex flex-col gap-1.5 text-left shadow-[0_8px_32px_rgba(0,0,0,0.15)] animate-in fade-in duration-300 mx-auto overflow-hidden">
+                <style>{`
+                    @keyframes pulseGlow {
+                        0% { background-position: 100% 0%; }
+                        100% { background-position: -100% 0%; }
+                    }
+                    @keyframes pulseScale {
+                        0%, 100% { transform: scale(1); opacity: 0.8; }
+                        50% { transform: scale(1.12); opacity: 1; }
+                    }
+                    @keyframes writeReveal {
+                        from {
+                            clip-path: polygon(0 0, 0 0, 0 100%, 0% 100%);
+                            opacity: 0.1;
+                        }
+                        to {
+                            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+                            opacity: 1;
+                        }
+                    }
+                `}</style>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{
+                        width: '24px', height: '24px', borderRadius: '50%',
+                        background: 'linear-gradient(135deg,rgba(128,139,245,0.25),rgba(192,132,252,0.25))',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 0 10px rgba(128,139,245,0.1)',
+                        animation: isLoading ? 'pulseScale 1.5s infinite ease-in-out' : 'none'
+                    }}>
+                        <i className="pi pi-sparkles" style={{ color: '#808bf5', fontSize: '10px' }}></i>
+                    </div>
+                    <span style={{
+                        fontWeight: 800,
+                        fontSize: '9px',
+                        color: '#808bf5',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.14em',
+                        opacity: isLoading ? 0.6 : 1,
+                        transition: 'opacity 0.3s ease'
+                    }}>
+                        {isLoading ? 'Thinking...' : 'AI Profile Insight'}
+                    </span>
+                </div>
+                {isLoading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px', marginTop: '4px' }}>
+                        <div style={{ height: '8px', width: '100%', borderRadius: '4px', background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)', backgroundSize: '200% 100%', animation: 'pulseGlow 1.5s infinite linear' }} />
+                        <div style={{ height: '8px', width: '75%', borderRadius: '4px', background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)', backgroundSize: '200% 100%', animation: 'pulseGlow 1.5s infinite linear 0.2s' }} />
+                    </div>
+                ) : (
+                    <p style={{
+                        margin: 0,
+                        fontSize: '12.5px',
+                        lineHeight: '1.55',
+                        fontWeight: 500,
+                        color: 'var(--text-main)',
+                        fontStyle: 'italic',
+                        animation: 'writeReveal 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+                        display: 'inline-block'
+                    }}>
+                        "{summary}"
+                    </p>
+                )}
+            </div>
+        );
+    }
+
+    const getFloatingStyles = () => {
+        const base = {
+            position: 'absolute',
+            zIndex: 25000,
+            background: 'var(--surface-2)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '18px',
+            padding: '14px 16px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            animation: 'aiPopupIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+            transition: 'all 0.5s cubic-bezier(0.25, 1, 0.5, 1)',
+            overflow: 'hidden',
+        };
+        const leftVal = position === 'right' ? `${coords.left + coords.width + 0}px` : 'auto';
+        const rightVal = position !== 'right' ? `${coords.right + coords.width + 0}px` : 'auto';
+        return {
+            ...base,
+            top: `${coords.top + 30}px`,
+            left: leftVal,
+            right: rightVal,
+            width: '280px',
+        };
+    };
+
+    return createPortal(
+        <div style={getFloatingStyles()}>
+            <style>{`
+                @keyframes aiPopupIn {
+                    from { opacity: 0; transform: translateY(8px) scale(0.96); }
+                    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+                }
+                @keyframes pulseGlow {
+                    0% { background-position: 100% 0%; }
+                    100% { background-position: -100% 0%; }
+                }
+                @keyframes pulseScale {
+                    0%, 100% { transform: scale(1); opacity: 0.8; }
+                    50% { transform: scale(1.12); opacity: 1; }
+                }
+                @keyframes writeReveal {
+                    from {
+                        clip-path: polygon(0 0, 0 0, 0 100%, 0% 100%);
+                        opacity: 0.1;
+                    }
+                    to {
+                        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+                        opacity: 1;
+                    }
+                }
+            `}</style>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <div style={{
+                    width: '24px', height: '24px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg,rgba(128,139,245,0.25),rgba(192,132,252,0.25))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 0 10px rgba(128,139,245,0.1)',
+                    animation: isLoading ? 'pulseScale 1.5s infinite ease-in-out' : 'none'
+                }}>
+                    <i className="pi pi-sparkles" style={{ color: '#808bf5', fontSize: '10px' }}></i>
+                </div>
+                <span style={{
+                    fontWeight: 800,
+                    fontSize: '9px',
+                    color: '#808bf5',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    opacity: isLoading ? 0.6 : 1,
+                    transition: 'opacity 0.3s ease'
+                }}>
+                    {isLoading ? 'Thinking...' : 'AI Profile Insight'}
+                </span>
+            </div>
+            {isLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px' }}>
+                    <div style={{ height: '9px', width: '100%', borderRadius: '4.5px', background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)', backgroundSize: '200% 100%', animation: 'pulseGlow 1.5s infinite linear' }} />
+                    <div style={{ height: '9px', width: '85%', borderRadius: '4.5px', background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)', backgroundSize: '200% 100%', animation: 'pulseGlow 1.5s infinite linear 0.2s' }} />
+                    <div style={{ height: '9px', width: '60%', borderRadius: '4.5px', background: 'linear-gradient(90deg, var(--surface-3) 0%, var(--border-color) 50%, var(--surface-3) 100%)', backgroundSize: '200% 100%', animation: 'pulseGlow 1.5s infinite linear 0.4s' }} />
+                </div>
+            ) : (
+                <p style={{
+                    margin: 0,
+                    fontSize: '12.5px',
+                    lineHeight: '1.55',
+                    fontWeight: 500,
+                    color: 'var(--text-main)',
+                    fontStyle: 'italic',
+                    animation: 'writeReveal 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+                    display: 'inline-block'
+                }}>
+                    "{summary}"
+                </p>
+            )}
+        </div>,
+        document.body
+    );
+};
 
 const UserProfile = ({ id, onClose, maxPosts }) => {
+    const cardRef = useRef(null);
 
     const [chatVisible, setChatVisible] = useState(false);
     const [followersVisible, setFollowersVisible] = useState(false);
@@ -325,7 +574,10 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     return (
         <>
             <div className={`w-full py-2 px-3 flex flex-col items-center`}>
-                <div className={`w-full flex flex-col gap-4 bg-[var(--surface-1)]`} style={{ maxWidth: '400px' }}>
+                <div ref={cardRef} className={`w-full flex flex-col gap-2 md:gap-4 bg-[var(--surface-1)] relative`} style={{ maxWidth: '400px' }}>
+                    {userDetails?.aiProfileSummary && (
+                        <AiProfileInsight summary={userDetails.aiProfileSummary} userId={id} cardRef={cardRef} />
+                    )}
                     <div className="flex items-center justify-center text-center flex-col gap-1 w-full">
                         <div className="relative">
                             <Image
@@ -354,19 +606,6 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                         {userDetails?.bio && (
                             <p className="text-sm text-[var(--text-main)] m-0 max-w-[260px] leading-6">{userDetails.bio}</p>
                         )}
-                        {userDetails?.aiProfileSummary && (
-                            <div className="mt-3 w-full max-w-[320px] p-3.5 rounded-2xl bg-[#808bf5]/5 backdrop-blur-md border border-[#808bf5]/20 flex flex-col gap-1.5 text-left shadow-[0_8px_32px_rgba(128,139,245,0.05)] animate-in fade-in duration-300">
-                                <div className="flex items-center gap-1.5 justify-center sm:justify-start">
-                                    <div className="w-5 h-5 rounded-full bg-[#808bf5]/10 flex items-center justify-center">
-                                        <i className="pi pi-sparkles text-[#808bf5] text-[10px]"></i>
-                                    </div>
-                                    <span className="font-bold text-[9px] text-[#808bf5] uppercase tracking-wider">AI Profile Insight</span>
-                                </div>
-                                <p className="text-xs m-0 leading-relaxed font-medium text-[var(--text-main)]/90 text-center sm:text-left italic">
-                                    "{userDetails.aiProfileSummary}"
-                                </p>
-                            </div>
-                        )}
 
 
 
@@ -388,6 +627,10 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     {userDetails.mutualCount > 1 ? ` and ${userDetails.mutualCount - 1} other${userDetails.mutualCount > 2 ? 's' : ''}` : ''}
                                 </p>
                             </div>
+                        )}
+
+                        {userDetails?.aiProfileSummary && (
+                            <AiProfileInsight summary={userDetails.aiProfileSummary} userId={id} forceInline={true} />
                         )}
                     </div>
 

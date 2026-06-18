@@ -20,14 +20,14 @@ const InviteCard = ({ post, userId, onRespond }) => {
     const myCollab = post.collaborators?.find(c => c.userId?.toString() === userId?.toString());
     const images = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
 
-    const respond = async (accepted) => {
-        if (accepted && !contribution.trim()) {
+    const respond = async (accepted, force = false) => {
+        if (accepted && !contribution.trim() && !force) {
             setShowContrib(true);
             return;
         }
         try {
             if (accepted) {
-                await acceptMut.mutateAsync({ postId: post._id, contribution });
+                await acceptMut.mutateAsync({ postId: post._id, contribution: contribution.trim() });
             } else {
                 await declineMut.mutateAsync({ postId: post._id });
             }
@@ -107,7 +107,7 @@ const InviteCard = ({ post, userId, onRespond }) => {
                         <>
                             <input
                                 type="text"
-                                placeholder="Add your contribution to this post..."
+                                placeholder="Add your contribution (optional)..."
                                 value={contribution}
                                 onChange={e => setContribution(e.target.value)}
                                 autoFocus
@@ -115,9 +115,9 @@ const InviteCard = ({ post, userId, onRespond }) => {
                             />
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button
-                                    onClick={() => respond(true)}
-                                    disabled={acceptMut.isPending || !contribution.trim()}
-                                    style={{ flex: 1, padding: '10px', background: contribution.trim() ? '#808bf5' : 'var(--surface-3)', color: contribution.trim() ? '#fff' : 'var(--text-sub)', border: 'none', borderRadius: '12px', cursor: contribution.trim() ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 700, transition: 'all 0.2s' }}>
+                                    onClick={() => respond(true, true)}
+                                    disabled={acceptMut.isPending}
+                                    style={{ flex: 1, padding: '10px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, transition: 'all 0.2s' }}>
                                     {acceptMut.isPending ? '...' : '🤝 Accept & Contribute'}
                                 </button>
                                 <button onClick={() => setShowContrib(false)} style={{ padding: '10px 16px', background: 'var(--surface-2)', color: 'var(--text-main)', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
@@ -128,7 +128,7 @@ const InviteCard = ({ post, userId, onRespond }) => {
                     ) : (
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button
-                                onClick={() => setShowContrib(true)}
+                                onClick={() => respond(true)}
                                 style={{ flex: 1, padding: '12px', background: '#808bf5', color: '#fff', border: 'none', borderRadius: '14px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, boxShadow: '0 4px 12px rgba(128, 139, 245, 0.3)' }}>
                                 🤝 Accept
                             </button>

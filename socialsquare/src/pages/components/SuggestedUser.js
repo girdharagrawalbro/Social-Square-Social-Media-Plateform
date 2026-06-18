@@ -174,7 +174,7 @@ const SuggestedUser = () => {
 
             </div>
 
-            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)}>
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '450px', maxHeight: '90vh' }} onHide={() => setProfileVisible(false)}>
                 <UserProfile id={selectedId} onClose={() => setProfileVisible(false)} />
             </Dialog>
         </>
