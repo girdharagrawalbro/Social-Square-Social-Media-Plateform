@@ -473,7 +473,7 @@ const Search = ({ onClose, desc = true }) => {
             )}
 
             {/* User Profile Dialog - Popup/Dialog Mode */}
-            <Dialog header="Profile" visible={isVisible} style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }} onHide={() => setVisible(false)} >
+            <Dialog header="Profile" visible={isVisible} style={{ width: '95vw', maxWidth: '450px', maxHeight: '90vh' }} onHide={() => setVisible(false)} >
                 <UserProfile id={selectedUserId} onClose={() => {
                     setVisible(false);
                     setIsFocused(false);

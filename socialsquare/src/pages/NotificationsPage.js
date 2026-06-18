@@ -52,6 +52,10 @@ const NotificationsPage = () => {
         if (n.type === 'follow_request') return 'sent you a follow request.';
         if (n.type === 'system') return n.message?.content || 'Security alert.';
         if (n.type === 'announcement') return n.message?.content || 'New announcement.';
+        if (n.type === 'mention') {
+            if (n.message?.content) return n.message.content + '.';
+            return n.url?.includes('stories') ? 'mentioned you in a story.' : 'mentioned you in a post.';
+        }
         return 'sent a notification.';
     };
 
@@ -200,6 +204,12 @@ const NotificationsPage = () => {
                                                             if (targetId) navigate(`/conversation/${targetId}`);
                                                         } else if (n.type === 'like' && n.story) {
                                                             setStoryDetailUserId(n.sender.id || n.sender._id);
+                                                        } else if (n.type === 'mention') {
+                                                            if (n.post) {
+                                                                setPostDetailId(n.post);
+                                                            } else if (n.url) {
+                                                                navigate(n.url);
+                                                            }
                                                         } else if (n.post) {
                                                             setPostDetailId(n.post);
                                                         } else if (n.type === 'follow') {

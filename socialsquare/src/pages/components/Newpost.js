@@ -15,6 +15,7 @@ import { useSystemFlags } from "../../hooks/queries/useMiscQueries";
 
 
 import { Dialog } from 'primereact/dialog';
+import MentionSuggestions from './ui/MentionSuggestions';
 
 const STEPS = {
     SELECT: 'select',
@@ -71,6 +72,12 @@ const NewPost = ({ visible, onHide }) => {
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
 
+    // Tagged users (Direct Mentions list)
+    const [taggedUsers, setTaggedUsers] = useState([]);
+    const [tagSearchTerm, setTagSearchTerm] = useState("");
+    const [tagSearchResults, setTagSearchResults] = useState([]);
+    const [isSearchingTags, setIsSearchingTags] = useState(false);
+
     // Voice note
     const [voiceBlob] = useState(null);
     const [recordingDuration] = useState(0);
@@ -89,6 +96,7 @@ const NewPost = ({ visible, onHide }) => {
     // Groups
     const [selectedGroupId, setSelectedGroupId] = useState(null);
     const { data: groups = [] } = useGroups();
+    const [cursorPosition, setCursorPosition] = useState(0);
 
     // ── Cropping State ──────────────────────────────────────────────────────
     const [croppingState, setCroppingState] = useState({
@@ -112,6 +120,10 @@ const NewPost = ({ visible, onHide }) => {
         setCroppingState({ active: false, imageSrc: null, videoSrc: null, pendingFiles: [], isVideo: false, originalFile: null, replacingId: null });
         setLocation({ name: '', lat: null, lng: null });
         setCollaborators([]);
+        setTaggedUsers([]);
+        setTagSearchTerm("");
+        setTagSearchResults([]);
+        setIsSearchingTags(false);
         setAiPrompt("");
         setPollOptions(['', '']);
         setIsAnonymous(false);
@@ -321,6 +333,30 @@ const NewPost = ({ visible, onHide }) => {
         const updated = collaborators.filter(c => c._id !== id);
         setCollaborators(updated);
         if (updated.length === 0) setIsCollaborative(false);
+    };
+
+    const handleSearchTags = async (query) => {
+        setTagSearchTerm(query);
+        if (query.length < 2) { setTagSearchResults([]); return; }
+        setIsSearchingTags(true);
+        try {
+            const res = await api.get(`/api/auth/search?query=${query}`);
+            const users = res.data?.users || [];
+            setTagSearchResults(users.filter(u => u._id !== loggeduser._id));
+        } catch { }
+        finally { setIsSearchingTags(false); }
+    };
+
+    const addTagUser = (user) => {
+        if (taggedUsers.length >= 5) { toast.error("Max 5 tagged users"); return; }
+        if (taggedUsers.some(c => c._id === user._id)) return;
+        setTaggedUsers(prev => [...prev, user]);
+        setTagSearchTerm("");
+        setTagSearchResults([]);
+    };
+
+    const removeTagUser = (id) => {
+        setTaggedUsers(prev => prev.filter(c => c._id !== id));
     };
 
     const handleFileSelect = async (e) => {
@@ -628,6 +664,7 @@ const NewPost = ({ visible, onHide }) => {
         const exp = expiresIn;
         const unl = unlocksAt;
         const col = [...collaborators];
+        const tags = [...taggedUsers];
         const aiGen = usedAiForThisPost;
         const poll = openFeaturePanel === 'poll' && pollOptions.filter(o => o.trim()).length >= 2 ? {
             options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })),
@@ -709,6 +746,7 @@ const NewPost = ({ visible, onHide }) => {
                     expiresAt: exp ? new Date(Date.now() + parseInt(exp) * 3600000).toISOString() : null,
                     unlocksAt: unl || null,
                     collaboratorIds: col.map(c => c._id),
+                    mentionIds: tags.map(t => t._id),
                     voiceNoteUrl, voiceNoteDuration,
                     videoURL: videoUrl, videoDuration, videoThumbnail, mood,
                     isAiGenerated: aiGen,
@@ -1174,12 +1212,28 @@ const NewPost = ({ visible, onHide }) => {
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 relative">
+                            <MentionSuggestions 
+                                text={formData.caption} 
+                                cursorPosition={cursorPosition} 
+                                onSelect={(val) => {
+                                    setFormData(prev => ({ ...prev, caption: val }));
+                                    if (captionRef.current) {
+                                        captionRef.current.focus();
+                                    }
+                                }} 
+                            />
                             <textarea
                                 ref={captionRef}
                                 placeholder="Write a caption..."
                                 value={formData.caption}
-                                onChange={handleChange}
+                                onChange={e => {
+                                    handleChange(e);
+                                    setCursorPosition(e.target.selectionStart);
+                                }}
+                                onKeyUp={e => setCursorPosition(e.target.selectionStart)}
+                                onSelect={e => setCursorPosition(e.target.selectionStart)}
+                                onClick={e => setCursorPosition(e.target.selectionStart)}
                                 name="caption"
                                 rows={3}
                                 className="w-full bg-transparent text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2"
@@ -1262,7 +1316,62 @@ const NewPost = ({ visible, onHide }) => {
                                                 <div key={user._id} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[#6366f1]/30 pl-1 pr-2 py-1 rounded-full animate-in zoom-in-95">
                                                     <img src={user.profile_picture} className="w-5 h-5 rounded-full object-cover" alt="" />
                                                     <span className="text-[10px] font-medium text-[var(--text-main)]">{user.username}</span>
-                                                    <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500 transition-colors">
+                                                    <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500 transition-colors border-0 bg-transparent cursor-pointer">
+                                                        <i className="pi pi-times text-[8px]"></i>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <button onClick={() => togglePanel('tag')} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
+                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                    <i className="pi pi-user-plus text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                    {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag/Mention People"}
+                                </span>
+                                <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
+                            </button>
+                            {openFeaturePanel === 'tag' && (
+                                <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                                    <div className="relative">
+                                        <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
+                                        <input
+                                            type="text"
+                                            placeholder="Search users to tag..."
+                                            value={tagSearchTerm}
+                                            onChange={(e) => handleSearchTags(e.target.value)}
+                                            className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl py-2 pl-8 pr-3 text-[11px] text-[var(--text-main)] outline-none focus:border-[#6366f1]"
+                                        />
+                                        {isSearchingTags && <i className="pi pi-spin pi-spinner absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#6366f1]"></i>}
+                                    </div>
+
+                                    {tagSearchResults.length > 0 && (
+                                        <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar bg-[var(--surface-1)] rounded-xl border border-[var(--border-color)] shadow-xl p-1">
+                                            {tagSearchResults.map(user => (
+                                                <div
+                                                    key={user._id}
+                                                    onClick={() => addTagUser(user)}
+                                                    className="flex items-center gap-2 p-2 hover:bg-[var(--surface-2)] rounded-lg cursor-pointer transition-colors"
+                                                >
+                                                    <img src={user.profile_picture} className="w-6 h-6 rounded-full object-cover" alt="" />
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold text-[var(--text-main)]">{user.fullname}</span>
+                                                        <span className="text-[9px] text-[var(--text-sub)]">@{user.username}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {taggedUsers.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border-color)]/30">
+                                            {taggedUsers.map(user => (
+                                                <div key={user._id} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[#6366f1]/30 pl-1 pr-2 py-1 rounded-full animate-in zoom-in-95">
+                                                    <img src={user.profile_picture} className="w-5 h-5 rounded-full object-cover" alt="" />
+                                                    <span className="text-[10px] font-medium text-[var(--text-main)]">{user.username}</span>
+                                                    <button onClick={() => removeTagUser(user._id)} className="hover:text-red-500 transition-colors border-0 bg-transparent cursor-pointer">
                                                         <i className="pi pi-times text-[8px]"></i>
                                                     </button>
                                                 </div>

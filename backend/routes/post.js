@@ -7,14 +7,15 @@ const User = require('../models/User');
 const Comment = require('../models/Comment');
 const Category = require("../models/Category");
 const Group = require("../models/Group");
+const Collection = require('../models/Collection');
 const { publish } = require('../lib/pubsub');
-const { 
-    sanitizeAnonymousPost, 
-    getRestrictedUserIds, 
-    canViewPost, 
-    checkPostPrivacy, 
-    getOwnerToken, 
-    verifyOwnerToken 
+const {
+    sanitizeAnonymousPost,
+    getRestrictedUserIds,
+    canViewPost,
+    checkPostPrivacy,
+    getOwnerToken,
+    verifyOwnerToken
 } = require('../utils/privacy');
 const { analyzeComment } = require('../services/discussionAiService');
 const eventBus = require('../lib/eventBus');
@@ -160,6 +161,8 @@ router.post("/create", verifyToken, [
     body('videoURL').optional({ checkFalsy: true }).isURL().withMessage('Invalid video URL'),
     body('collaboratorIds').optional().isArray(),
     body('collaboratorIds.*').optional().isMongoId(),
+    body('mentionIds').optional().isArray(),
+    body('mentionIds.*').optional().isMongoId(),
     body('groupId').optional({ checkFalsy: true }).isMongoId(),
     body('isAnonymous').optional().isBoolean(),
     body('isCollaborative').optional().isBoolean(),
@@ -170,7 +173,7 @@ router.post("/create", verifyToken, [
             caption, category, imageURLs, videoURL, location, music,
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
-            isAiGenerated, groupId, poll, videoThumbnail
+            isAiGenerated, groupId, poll, videoThumbnail, mentionIds
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
 
@@ -225,6 +228,7 @@ router.post("/create", verifyToken, [
             unlocksAt: unlocksAt ? new Date(unlocksAt) : null,
             isCollaborative: !!isCollaborative,
             collaborators,
+            mentions: mentionIds || [],
             voiceNote: voiceNoteUrl ? { url: voiceNoteUrl, duration: voiceNoteDuration || null } : {},
             mood: mood || null,
             isAiGenerated: !!isAiGenerated,
@@ -234,6 +238,12 @@ router.post("/create", verifyToken, [
             authorId: loggedUserId
         });
         await newPost.save();
+        if (!isAnonymous && caption) {
+            const { handleMentions } = require('../services/mentionService');
+            handleMentions(caption, loggedUserId, newPost._id, null, `/post/${newPost._id}`).catch(err => {
+                console.error('[Mentions Post Error]:', err.message);
+            });
+        }
         if (!isAnonymous) {
             await User.findByIdAndUpdate(loggedUserId, { $inc: { postsCount: 1 } });
         }
@@ -261,6 +271,30 @@ router.post("/create", verifyToken, [
                     thumbnail: newPost.image_urls?.[0],
                     url: `/post/${newPost._id}`,
                     message: { content: 'invited you to collaborate on a post' }
+                });
+            });
+        }
+
+        // Dispatch direct mention notifications
+        if (Array.isArray(mentionIds) && mentionIds.length > 0) {
+            const notificationUtils = require('../lib/notification.js');
+            mentionIds.forEach(async (mId) => {
+                if (mId.toString() === loggedUserId.toString()) return;
+                
+                // Real-time socket emit
+                if (_io) {
+                    _io.to(mId.toString()).emit('newMention', { postId: newPost._id, senderName: userDetails.fullname });
+                }
+
+                // Persistent notification
+                await notificationUtils.createNotification({
+                    recipientId: mId,
+                    sender: { id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
+                    type: 'mention',
+                    postId: newPost._id,
+                    thumbnail: newPost.image_urls?.[0],
+                    url: `/post/${newPost._id}`,
+                    message: { content: 'tagged you in a post' }
                 });
             });
         }
@@ -328,12 +362,15 @@ router.post("/collaborate/accept", verifyToken, [
         const userId = req.userId;
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
-        const idx = post.collaborators.findIndex(c => c.userId.toString() === userId);
+        const idx = post.collaborators.findIndex(c => {
+            const cId = c.userId || c._id;
+            return cId && cId.toString() === userId.toString();
+        });
         if (idx === -1) return res.status(403).json({ message: "Not a collaborator." });
         post.collaborators[idx].status = 'accepted';
         if (contribution) post.collaborators[idx].contribution = contribution;
         await post.save();
-        if (_io) _io.to(post.user._id.toString()).emit('collaborationAccepted', { postId, userId });
+        if (_io) _io.to(post.user._id.toString()).emit('collaborationAccepted', { postId, userId: userId.toString() });
         res.status(200).json(post);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
@@ -348,8 +385,16 @@ router.post("/collaborate/decline", verifyToken, [
         const userId = req.userId;
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: "Post not found." });
-        const idx = post.collaborators.findIndex(c => c.userId.toString() === userId);
-        if (idx !== -1) { post.collaborators[idx].status = 'declined'; await post.save(); }
+        const idx = post.collaborators.findIndex(c => {
+            const cId = c.userId || c._id;
+            return cId && cId.toString() === userId.toString();
+        });
+        if (idx !== -1) { 
+            post.collaborators[idx].status = 'declined'; 
+            await post.save(); 
+        } else {
+            return res.status(403).json({ message: "Not a collaborator." });
+        }
         res.status(200).json({ message: "Declined." });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
@@ -1073,6 +1118,147 @@ router.get("/saved/:userId", verifyToken, [
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// ─── SAVED POST COLLECTIONS (PROTECTED) ───────────────────────────────────────
+
+// Get all collections for the logged-in user
+router.get("/collections/all", verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const collections = await Collection.find({ user: userId })
+            .select('name posts coverImage createdAt')
+            .sort({ createdAt: -1 })
+            .lean();
+        
+        const formatted = collections.map(c => ({
+            _id: c._id,
+            name: c.name,
+            postCount: c.posts?.length || 0,
+            coverImage: c.coverImage || null,
+            posts: c.posts || []
+        }));
+        res.status(200).json(formatted);
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// Create a new collection
+router.post("/collections/create", verifyToken, [
+    body('name').notEmpty().trim().escape().withMessage('Collection name is required'),
+    body('postId').optional().isMongoId(),
+    validate
+], async (req, res) => {
+    try {
+        const { name, postId } = req.body;
+        const userId = req.userId;
+
+        const exists = await Collection.findOne({ user: userId, name: new RegExp(`^${name}$`, 'i') });
+        if (exists) return res.status(400).json({ message: 'Collection already exists with this name.' });
+
+        let coverImage = null;
+        let posts = [];
+
+        if (postId) {
+            const post = await Post.findById(postId).select('image_urls image_url videoThumbnail').lean();
+            if (post) {
+                posts.push(postId);
+                coverImage = post.image_urls?.[0] || post.image_url || post.videoThumbnail || null;
+                
+                await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
+            }
+        }
+
+        const newCollection = new Collection({
+            user: userId,
+            name,
+            posts,
+            coverImage
+        });
+
+        await newCollection.save();
+        res.status(201).json(newCollection);
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// Get post membership status across all collections
+router.get("/collections/post-status/:postId", verifyToken, async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const userId = req.userId;
+
+        const collections = await Collection.find({ user: userId }).lean();
+        const status = collections.map(c => ({
+            _id: c._id,
+            name: c.name,
+            hasPost: c.posts?.map(p => p.toString()).includes(postId.toString()) || false
+        }));
+
+        res.status(200).json(status);
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// Toggle a post in a collection (Add/Remove)
+router.post("/collections/toggle-post", verifyToken, [
+    body('collectionId').isMongoId().withMessage('Invalid collection ID'),
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
+    try {
+        const { collectionId, postId } = req.body;
+        const userId = req.userId;
+
+        const collection = await Collection.findOne({ _id: collectionId, user: userId });
+        if (!collection) return res.status(404).json({ message: 'Collection not found.' });
+
+        const postIndex = collection.posts.indexOf(postId);
+        let saved = false;
+
+        if (postIndex > -1) {
+            collection.posts.splice(postIndex, 1);
+            if (collection.posts.length > 0) {
+                const firstPost = await Post.findById(collection.posts[0]).select('image_urls image_url videoThumbnail').lean();
+                collection.coverImage = firstPost ? (firstPost.image_urls?.[0] || firstPost.image_url || firstPost.videoThumbnail) : null;
+            } else {
+                collection.coverImage = null;
+            }
+        } else {
+            collection.posts.push(postId);
+            saved = true;
+            if (!collection.coverImage) {
+                const post = await Post.findById(postId).select('image_urls image_url videoThumbnail').lean();
+                collection.coverImage = post ? (post.image_urls?.[0] || post.image_url || post.videoThumbnail) : null;
+            }
+
+            await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
+        }
+
+        await collection.save();
+        res.status(200).json({ success: true, saved, collection });
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// Delete a collection
+router.delete("/collections/:id", verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const result = await Collection.findOneAndDelete({ _id: req.params.id, user: userId });
+        if (!result) return res.status(404).json({ message: 'Collection not found.' });
+        res.status(200).json({ success: true, message: 'Collection deleted successfully.' });
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// Get posts in a collection
+router.get("/collections/:id", verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const collection = await Collection.findOne({ _id: req.params.id, user: userId }).lean();
+        if (!collection) return res.status(404).json({ message: 'Collection not found.' });
+
+        const posts = await Post.find({ _id: { $in: collection.posts } }).sort({ createdAt: -1 }).lean();
+        const sanitized = posts.map(p => sanitizeAnonymousPost(p, userId));
+
+        res.status(200).json({ collection, posts: sanitized });
+    } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
 // ─── REACT (PROTECTED) ────────────────────────────────────────────────────────
 router.post("/react", verifyToken, [
     body('postId').isMongoId().withMessage('Invalid post ID'),
@@ -1446,6 +1632,14 @@ router.post('/comments/add', verifyToken, [
             });
         }
 
+        // Dispatch mentions
+        if (content) {
+            const { handleMentions } = require('../services/mentionService');
+            handleMentions(content, user.id || user._id, postId, newComment._id, `/post/${postId}`).catch(err => {
+                console.error('[Mentions Comment Error]:', err.message);
+            });
+        }
+
         // ✅ Update Gamification
         const rewards = await updateGamification(user.id || user._id, 'comment');
         if (rewards && _io) _io.to((user.id || user._id).toString()).emit('levelUpdate', rewards);
@@ -1459,7 +1653,7 @@ router.post('/comments/add', verifyToken, [
                         quality: analysis.quality,
                         topic: analysis.topic
                     });
-                    
+
                     if (_io) {
                         _io.emit('commentUpdated', {
                             commentId: newComment._id,

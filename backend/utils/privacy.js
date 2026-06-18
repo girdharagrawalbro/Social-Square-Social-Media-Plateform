@@ -163,8 +163,8 @@ const checkPostPrivacy = async (req, res, next) => {
     try {
         const Post = require('../models/Post');
 
-        // 1. Fetch post with ownerToken for ownership check
-        const post = await Post.findById(req.params.postId).select('+ownerToken');
+        // 1. Fetch post with ownerToken for ownership check and populate mentions
+        const post = await Post.findById(req.params.postId).select('+ownerToken').populate('mentions', 'username fullname');
         if (!post || post.deletedAt || post.isVisible === false) return res.status(404).json({ message: "Post not found." });
 
         // 2. Run privacy check (req.userId should be resolved by preceding middleware)

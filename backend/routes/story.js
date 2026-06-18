@@ -24,10 +24,13 @@ router.post('/create', verifyToken, [
     body('mediaUrl').isURL().withMessage('Invalid media URL'),
     body('mediaType').isIn(['image', 'video']).withMessage('Invalid media type'),
     body('sharedPostId').optional().isMongoId(),
+    body('sharedStoryId').optional().isMongoId(),
+    body('mentionIds').optional().isArray(),
+    body('mentionIds.*').optional().isMongoId(),
     validate
 ], async (req, res) => {
     try {
-        const { mediaUrl, mediaType, text, sharedPostId, thumbnailUrl } = req.body;
+        const { mediaUrl, mediaType, text, sharedPostId, sharedStoryId, thumbnailUrl, mentionIds } = req.body;
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
 
@@ -39,8 +42,41 @@ router.post('/create', verifyToken, [
             media: { url: mediaUrl, type: mediaType, thumbnailUrl: thumbnailUrl || null },
             text: text || {},
             sharedPostId: sharedPostId || null,
+            sharedStoryId: sharedStoryId || null,
+            mentions: mentionIds || []
         });
         await story.save();
+        
+        // Dispatch text-based mentions
+        if (text && typeof text === 'object' && text.content) {
+            const { handleMentions } = require('../services/mentionService');
+            handleMentions(text.content, userId, null, null, `/stories?user=${userId}`).catch(err => {
+                console.error('[Mentions Story Error]:', err.message);
+            });
+        }
+
+        // Dispatch direct mention notifications
+        if (Array.isArray(mentionIds) && mentionIds.length > 0) {
+            mentionIds.forEach(async (mId) => {
+                if (mId.toString() === userId.toString()) return;
+                
+                // Real-time socket emit
+                if (_io) {
+                    _io.to(mId.toString()).emit('newMention', { storyId: story._id, senderName: user.fullname });
+                }
+
+                // Persistent notification
+                await notificationUtils.createNotification({
+                    recipientId: mId,
+                    sender: { id: user._id, fullname: user.fullname, profile_picture: user.profile_picture },
+                    type: 'mention',
+                    postId: null,
+                    thumbnail: story.media?.url,
+                    url: `/stories?user=${userId}`,
+                    message: { content: 'tagged you in a story' }
+                });
+            });
+        }
 
         if (_io && user.followers?.length > 0) {
             user.followers.forEach(followerId => {
@@ -76,6 +112,7 @@ router.get('/feed', verifyToken, async (req, res) => {
                 path: 'sharedPostId',
                 populate: { path: 'user', select: 'fullname profile_picture isOnline' }
             })
+            .populate('mentions', 'fullname username profile_picture')
             .sort({ createdAt: 1 });
 
         // Fetch fresh presence for all users in the feed

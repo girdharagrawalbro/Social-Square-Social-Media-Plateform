@@ -92,6 +92,10 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
         if (n.type === 'livestream') return n.message?.content || 'is currently live';
         if (n.type === 'system') return n.message?.content || 'Security alert';
         if (n.type === 'announcement') return n.message?.content || 'New announcement';
+        if (n.type === 'mention') {
+            if (n.message?.content) return n.message.content;
+            return n.url?.includes('stories') ? 'mentioned you in a story' : 'mentioned you in a post';
+        }
         return 'sent a notification';
     };
 
@@ -188,6 +192,13 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                                                     setOpen(false);
                                                 } else if (n.type === 'like' && n.story) {
                                                     setStoryDetailUserId(n.sender.id || n.sender._id);
+                                                    setOpen(false);
+                                                } else if (n.type === 'mention') {
+                                                    if (n.post) {
+                                                        setPostDetailId(n.post);
+                                                    } else if (n.url) {
+                                                        navigate(n.url);
+                                                    }
                                                     setOpen(false);
                                                 } else if (n.post) {
                                                     setPostDetailId(n.post);

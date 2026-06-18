@@ -406,7 +406,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                     const collab = post.collaborators.find(c => c.status === 'accepted');
                                                     return (
                                                         <>
-                                                            <span className="text-[var(--text-sub)] text-xs font-normal ml-0.5">and</span>
+                                                            <span className="text-[var(--text-sub)] text-xs font-medium ml-0.5">&</span>
                                                             <span
                                                                 className="text-sm font-bold text-[var(--text-main)] cursor-pointer hover:text-[#808bf5] transition ml-0.5"
                                                                 onClick={() => handleProfileClick(collab.userId || collab._id)}
@@ -572,7 +572,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 </div>
             </div>
 
-            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '500px' }} onHide={() => setProfileVisible(false)}>
+            <Dialog header="Profile" visible={profileVisible} style={{ width: '95vw', maxWidth: '450px' }} onHide={() => setProfileVisible(false)}>
                 <Suspense fallback={<div className="p-4 text-center text-[var(--text-sub)]">Loading Profile...</div>}>
                     <UserProfile id={selectedProfileId} />
                 </Suspense>

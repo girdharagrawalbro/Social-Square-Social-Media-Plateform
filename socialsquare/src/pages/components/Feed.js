@@ -165,7 +165,7 @@ const useDisplayPosts = ({
 
 const CAPTION_THRESHOLD = 80;
 
-const useCaption = () => {
+const useCaption = (onProfileClick) => {
     const [expandedIds, setExpandedIds] = useState(new Set());
 
     const toggle = useCallback((postId) => {
@@ -183,8 +183,31 @@ const useCaption = () => {
         const text = truncated ? safe.slice(0, CAPTION_THRESHOLD) + '…' : safe;
 
         const parts = text.split(/(\s+)/).map((token, i) => {
-            if (/^#[\w]+$/.test(token) || /^@[\w.]+$/.test(token))
+            if (/^#[\w]+$/.test(token)) {
                 return <span key={i} className="text-indigo-500 font-medium">{token}</span>;
+            }
+            if (/^@[\w.]+$/.test(token)) {
+                const username = token.slice(1).replace(/[^a-zA-Z0-9_.]/g, '');
+                return (
+                    <span 
+                        key={i} 
+                        onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                                const res = await api.get(`/api/auth/public/profile/${username}`);
+                                if (res.data?._id && onProfileClick) {
+                                    onProfileClick(res.data._id);
+                                }
+                            } catch (err) {
+                                console.error(err);
+                            }
+                        }}
+                        className="text-[#808bf5] font-bold cursor-pointer hover:underline"
+                    >
+                        {token}
+                    </span>
+                );
+            }
             return <span key={i}>{token}</span>;
         });
 
@@ -201,7 +224,7 @@ const useCaption = () => {
                 )}
             </span>
         );
-    }, [expandedIds, toggle]);
+    }, [expandedIds, toggle, onProfileClick]);
 
     return render;
 };
@@ -476,7 +499,7 @@ const Feed = ({ activeMood = null }) => {
     }, [user?.blockedUsers, blockMutation, unblockMutation]);
 
     // ── Caption ──────────────────────────────────────────────────────────────
-    const renderCaption = useCaption();
+    const renderCaption = useCaption(handleProfileClick);
 
     // ── Loading guard ────────────────────────────────────────────────────────
     const isLoading = feedQuery.isLoading && displayPosts.length === 0;
@@ -632,7 +655,7 @@ const Feed = ({ activeMood = null }) => {
                 <Dialog
                     header="Profile"
                     visible={profileVisible}
-                    style={{ width: '95vw', maxWidth: '500px', maxHeight: '90vh' }}
+                    style={{ width: '95vw', maxWidth: '450px', maxHeight: '90vh' }}
                     onHide={() => setProfileVisible(false)}
                 >
                     <UserProfile id={selectedProfileId} maxPosts={3} />

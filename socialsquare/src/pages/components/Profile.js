@@ -1,7 +1,7 @@
 import React, { useState, useLayoutEffect, useRef, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
-import useAuthStore from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
 import { useFollowUser, useUnfollowUser, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, useOwnProfile, useOtherUserProfile } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
@@ -52,6 +52,88 @@ const Profile = ({ userId }) => {
     const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
     const [tabPillReady, setTabPillReady] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
+
+    const [collections, setCollections] = useState([]);
+    const [selectedCollection, setSelectedCollection] = useState(null);
+    const [collectionPosts, setCollectionPosts] = useState([]);
+    const [loadingCollectionPosts, setLoadingCollectionPosts] = useState(false);
+    const [showNewCollectionDialog, setShowNewCollectionDialog] = useState(false);
+    const [newCollectionName, setNewCollectionName] = useState('');
+    const [creatingCollection, setCreatingCollection] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === 'saved') {
+            fetchCollections();
+        } else {
+            setSelectedCollection(null);
+        }
+    }, [activeTab]);
+
+    const fetchCollections = async () => {
+        try {
+            const res = await api.get('/api/post/collections/all');
+            setCollections(res.data || []);
+        } catch (error) {
+            console.error('Failed to fetch collections', error);
+        }
+    };
+
+    const handleOpenCollection = (col) => {
+        setSelectedCollection(col);
+        if (col && col !== 'all') {
+            fetchCollectionPosts(col._id);
+        }
+    };
+
+    const fetchCollectionPosts = async (collectionId) => {
+        setLoadingCollectionPosts(true);
+        try {
+            const res = await api.get(`/api/post/collections/${collectionId}`);
+            setCollectionPosts(res.data.posts || []);
+        } catch (error) {
+            toast.error('Failed to load collection posts');
+        } finally {
+            setLoadingCollectionPosts(false);
+        }
+    };
+
+    const handleCreateCollectionProfile = async (e) => {
+        e.preventDefault();
+        if (!newCollectionName.trim()) return;
+        setCreatingCollection(true);
+        try {
+            await api.post('/api/post/collections/create', { name: newCollectionName.trim() });
+            toast.success(`Created collection "${newCollectionName}"`);
+            setNewCollectionName('');
+            setShowNewCollectionDialog(false);
+            fetchCollections();
+        } catch (error) {
+            const msg = error.response?.data?.message || 'Failed to create collection';
+            toast.error(msg);
+        } finally {
+            setCreatingCollection(false);
+        }
+    };
+
+    const handleDeleteCollection = async (colId, e) => {
+        if (e) e.stopPropagation();
+        confirmDialog({
+            message: 'Are you sure you want to delete this collection? The saved posts will not be deleted.',
+            header: 'Delete Collection',
+            icon: 'pi pi-exclamation-triangle',
+            acceptClassName: 'p-button-danger',
+            accept: async () => {
+                try {
+                    await api.delete(`/api/post/collections/${colId}`);
+                    toast.success('Collection deleted');
+                    setSelectedCollection(null);
+                    fetchCollections();
+                } catch {
+                    toast.error('Failed to delete collection');
+                }
+            }
+        });
+    };
 
     useLayoutEffect(() => {
         let observer = null;
@@ -616,54 +698,140 @@ const Profile = ({ userId }) => {
                             <CreatorAnalytics userId={profileId} />
                         </div>
                     ) : (
-                        // Posts / Saved — 3-col grid   
-                        <div className="grid grid-cols-3 gap-[1px] sm:gap-[1px]">
-                            {isLoadingTab ? (
-                                [1, 2, 3, 4, 5, 6].map(i => (
-                                    <div key={i} className="bg-[var(--surface-2)] animate-pulse" style={{ aspectRatio: '1' }} />
-                                ))
-                            ) : (() => {
-                                let displayPosts = [];
-                                if (activeTab === 'posts') {
-                                    displayPosts = userPostsList;
-                                } else if (activeTab === 'reels') {
-                                    displayPosts = userPostsList.filter(p => !!p.video);
-                                } else if (activeTab === 'saved') {
-                                    displayPosts = savedPosts;
-                                }
-
-                                if (!isLoggedOut && !isOwner && !isFollowing) {
-                                    displayPosts = displayPosts.slice(0, 3);
-                                }
-
-                                return displayPosts.length > 0 ? (
-                                    displayPosts.map((post, index) => (
-                                        <PostCard
-                                            key={post._id}
-                                            post={post}
-                                            isBlur={(isLoggedOut && index > 8) || (!viewingOwnProfile && !isFollowing)}
-                                            onClick={(post) => {
-                                                if (isLoggedOut) {
-                                                    toast.error('Log in to view full post', { icon: '🔒' });
-                                                    navigate('/login');
-                                                } else if (isOwner || isFollowing) {
-                                                    setPostDetail(post);
-                                                    setPostDetailVisible(true);
-                                                } else {
-                                                    toast.error('Follow this user to see the full post', { icon: '🔒' });
-                                                }
-                                            }}
-                                        />
-                                    ))
-                                ) : (
-                                    <div className="col-span-3">
-                                        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                                            <i className={`pi ${activeTab === 'reels' ? 'pi-video' : 'pi-images'} text-4xl text-[var(--text-sub)] opacity-20 mb-4`}></i>
-                                            <h3 className="m-0 text-[var(--text-main)] font-bold text-base">No {activeTab} yet</h3>
+                        // Posts / Saved — Grid / Collections
+                        <div className="w-full">
+                            {activeTab === 'saved' && selectedCollection === null ? (
+                                <div className="px-4 py-3">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                        {/* Create Collection Card */}
+                                        <div onClick={() => setShowNewCollectionDialog(true)} style={{ cursor: 'pointer' }} className="flex flex-col gap-2 relative group">
+                                            <div style={{ aspectRatio: '1', background: 'var(--surface-2)', borderRadius: '16px', border: '2px dashed var(--border-color)' }} className="relative w-full flex flex-col items-center justify-center gap-2 hover:bg-[var(--surface-3)] transition-colors">
+                                                <i className="pi pi-plus text-3xl text-indigo-500"></i>
+                                                <span className="text-xs font-bold text-indigo-500">New Collection</span>
+                                            </div>
                                         </div>
+
+                                        {/* All Saved Posts Card */}
+                                        <div onClick={() => handleOpenCollection('all')} style={{ cursor: 'pointer' }} className="flex flex-col gap-2 relative group animate-fade-in">
+                                            <div style={{ aspectRatio: '1', background: 'var(--surface-2)', borderRadius: '16px', border: '1px solid var(--border-color)' }} className="relative overflow-hidden w-full flex items-center justify-center hover:bg-[var(--surface-3)] transition-colors">
+                                                {savedPosts.length > 0 && (savedPosts[0].image_urls?.[0] || savedPosts[0].image_url || savedPosts[0].videoThumbnail) ? (
+                                                    <img src={savedPosts[0].image_urls?.[0] || savedPosts[0].image_url || savedPosts[0].videoThumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="" />
+                                                ) : (
+                                                    <i className="pi pi-bookmark-fill text-4xl text-[var(--text-sub)] opacity-30"></i>
+                                                )}
+                                            </div>
+                                            <div className="px-1">
+                                                <h4 className="m-0 text-sm font-bold text-[var(--text-main)]">All Posts</h4>
+                                                <span className="text-[10px] text-[var(--text-sub)]">{savedPosts.length} posts</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Custom Collections Cards */}
+                                        {collections.map(c => (
+                                            <div key={c._id} onClick={() => handleOpenCollection(c)} style={{ cursor: 'pointer' }} className="flex flex-col gap-2 relative group animate-fade-in">
+                                                <div style={{ aspectRatio: '1', background: 'var(--surface-2)', borderRadius: '16px', border: '1px solid var(--border-color)' }} className="relative overflow-hidden w-full flex items-center justify-center">
+                                                    {c.coverImage ? (
+                                                        <img src={c.coverImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="" />
+                                                    ) : (
+                                                        <i className="pi pi-bookmark text-4xl text-[var(--text-sub)] opacity-30"></i>
+                                                    )}
+                                                </div>
+                                                <div className="px-1 flex justify-between items-center">
+                                                    <div className="min-w-0">
+                                                        <h4 className="m-0 text-sm font-bold text-[var(--text-main)] truncate" style={{ maxWidth: '100px' }}>{c.name}</h4>
+                                                        <span className="text-[10px] text-[var(--text-sub)]">{c.postCount} posts</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => handleDeleteCollection(c._id, e)}
+                                                        className="w-7 h-7 rounded-full border-0 bg-red-500/10 text-red-500 hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer shrink-0"
+                                                        title="Delete Collection"
+                                                    >
+                                                        <i className="pi pi-trash text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                );
-                            })()}
+                                </div>
+                            ) : (
+                                <div>
+                                    {/* Collection Header */}
+                                    {activeTab === 'saved' && selectedCollection && (
+                                        <div className="px-4 py-2 border-b border-[var(--border-color)] mb-3 flex items-center justify-between">
+                                            <button
+                                                onClick={() => setSelectedCollection(null)}
+                                                className="flex items-center gap-1 text-sm bg-transparent border-0 text-[#808bf5] cursor-pointer font-bold"
+                                            >
+                                                <i className="pi pi-chevron-left"></i> Collections
+                                            </button>
+                                            <span className="text-sm font-black text-[var(--text-main)]">
+                                                {selectedCollection === 'all' ? 'All Posts' : selectedCollection.name}
+                                            </span>
+                                            {selectedCollection !== 'all' ? (
+                                                <button
+                                                    onClick={(e) => handleDeleteCollection(selectedCollection._id, e)}
+                                                    className="w-8 h-8 rounded-full border-0 bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center cursor-pointer"
+                                                    title="Delete Collection"
+                                                >
+                                                    <i className="pi pi-trash"></i>
+                                                </button>
+                                            ) : (
+                                                <div className="w-8 h-8" />
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Posts Grid */}
+                                    <div className="grid grid-cols-3 gap-[1px] sm:gap-[1px]">
+                                        {isLoadingTab || loadingCollectionPosts ? (
+                                            [1, 2, 3].map(i => (
+                                                <div key={i} className="bg-[var(--surface-2)] animate-pulse" style={{ aspectRatio: '1' }} />
+                                            ))
+                                        ) : (() => {
+                                            let displayPosts = [];
+                                            if (activeTab === 'posts') {
+                                                displayPosts = userPostsList;
+                                            } else if (activeTab === 'reels') {
+                                                displayPosts = userPostsList.filter(p => !!p.video);
+                                            } else if (activeTab === 'saved') {
+                                                displayPosts = selectedCollection === 'all' ? savedPosts : collectionPosts;
+                                            }
+
+                                            if (!isLoggedOut && !isOwner && !isFollowing) {
+                                                displayPosts = displayPosts.slice(0, 3);
+                                            }
+
+                                            return displayPosts.length > 0 ? (
+                                                displayPosts.map((post, index) => (
+                                                    <PostCard
+                                                        key={post._id}
+                                                        post={post}
+                                                        isBlur={(isLoggedOut && index > 8) || (!viewingOwnProfile && !isFollowing)}
+                                                        onClick={(post) => {
+                                                            if (isLoggedOut) {
+                                                                toast.error('Log in to view full post', { icon: '🔒' });
+                                                                navigate('/login');
+                                                            } else if (isOwner || isFollowing) {
+                                                                setPostDetail(post);
+                                                                setPostDetailVisible(true);
+                                                            } else {
+                                                                toast.error('Follow this user to see the full post', { icon: '🔒' });
+                                                            }
+                                                        }}
+                                                    />
+                                                ))
+                                            ) : (
+                                                <div className="col-span-3">
+                                                    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                                                        <i className={`pi ${activeTab === 'reels' ? 'pi-video' : 'pi-images'} text-4xl text-[var(--text-sub)] opacity-20 mb-4`}></i>
+                                                        <h3 className="m-0 text-[var(--text-main)] font-bold text-base">No {activeTab} yet</h3>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -808,6 +976,57 @@ const Profile = ({ userId }) => {
                         Cancel
                     </button> */}
                 </div>
+            </Dialog>
+
+            {/* Create Collection Dialog */}
+            <Dialog
+                header="Create Collection"
+                visible={showNewCollectionDialog}
+                style={{ width: '90vw', maxWidth: '380px' }}
+                onHide={() => setShowNewCollectionDialog(false)}
+                dismissableMask
+                baseZIndex={21000}
+            >
+                <form onSubmit={handleCreateCollectionProfile} className="flex flex-col gap-4 p-1">
+                    <div className="flex flex-col gap-2">
+                        <span className="text-xs font-bold text-[var(--text-sub)] uppercase">Collection Name</span>
+                        <input
+                            type="text"
+                            placeholder="e.g. Travel, Food, Coding..."
+                            value={newCollectionName}
+                            onChange={e => setNewCollectionName(e.target.value)}
+                            disabled={creatingCollection}
+                            maxLength={30}
+                            style={{
+                                width: '100%',
+                                padding: '10px 14px',
+                                borderRadius: '12px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--surface-2)',
+                                color: 'var(--text-main)',
+                                fontSize: '13px',
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 mt-2">
+                        <button
+                            type="button"
+                            onClick={() => setShowNewCollectionDialog(false)}
+                            className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={creatingCollection || !newCollectionName.trim()}
+                            className="bg-[#808bf5] text-white border-0 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                        >
+                            {creatingCollection ? 'Creating...' : 'Create'}
+                        </button>
+                    </div>
+                </form>
             </Dialog>
 
             <Toaster />
