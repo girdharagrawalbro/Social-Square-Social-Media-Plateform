@@ -189,8 +189,8 @@ const useCaption = (onProfileClick) => {
             if (/^@[\w.]+$/.test(token)) {
                 const username = token.slice(1).replace(/[^a-zA-Z0-9_.]/g, '');
                 return (
-                    <span 
-                        key={i} 
+                    <span
+                        key={i}
                         onClick={async (e) => {
                             e.stopPropagation();
                             try {
@@ -503,7 +503,7 @@ const Feed = ({ activeMood = null }) => {
 
     // ── Loading guard ────────────────────────────────────────────────────────
     const isLoading = feedQuery.isLoading && displayPosts.length === 0;
-
+    console.log("displayPosts" + displayPosts)
     // ─────────────────────────────────────────────────────────────────────────
     return (
         <>

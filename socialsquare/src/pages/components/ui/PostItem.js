@@ -149,7 +149,7 @@ const AiDwellPopup = ({ post }) => {
                 left: screenType === 'tablet' || '140%',
                 transform: 'translateX(-50%)',
                 background: 'var(--surface-2)',
-                 borderRadius: '18px',
+                borderRadius: '18px',
             };
         }
     };
@@ -407,7 +407,7 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
     const [activeType] = useState(hasVideo ? 'video' : 'image'); // 'video' | 'image'
     const [activeImageIdx] = useState(0);
     const [showTags, setShowTags] = useState(false);
-
+console.log(post)
     return (
         <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" onMouseEnter={() => prefetchPost(post._id)}>
             {/* ── Main media display ──────────────────────────────── */}
@@ -484,7 +484,6 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
             {/* Tagged/Mentioned Users Overlay on Image */}
             {showTags && post.mentions && post.mentions.length > 0 && (
                 <div className="absolute bottom-14 left-3 z-30 bg-black/85 backdrop-blur-md border border-white/20 p-2.5 rounded-xl flex flex-col gap-1.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-150">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Tagged People</span>
                     {post.mentions.map((m, idx) => {
                         const uid = typeof m === 'object' ? m._id : m;
                         const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
@@ -498,7 +497,6 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
                                 }}
                                 className="text-xs font-semibold text-white hover:text-[#808bf5] cursor-pointer flex items-center gap-1.5 transition-colors"
                             >
-                                <i className="pi pi-user text-[10px]"></i>
                                 @{name}
                             </span>
                         );
@@ -506,13 +504,14 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
                 </div>
             )}
 
-            {/* Human Icon Trigger Button */}
+            {/* Human Icon Trigger Button - MOBILE */}
             {post.mentions && post.mentions.length > 0 && (
                 <button
                     onClick={(e) => { e.stopPropagation(); setShowTags(prev => !prev); }}
                     className={`absolute bottom-3 left-3 z-30 w-8 h-8 rounded-full border border-white/10 flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-90 ${showTags ? 'bg-[#808bf5] text-white' : 'bg-black/60 hover:bg-black/80 text-white'}`}
                     title="Show Tagged Users"
                 >
+                  
                     <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
                 </button>
             )}
