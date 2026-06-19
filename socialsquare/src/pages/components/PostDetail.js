@@ -48,6 +48,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     // Use fetchedPost only if available, otherwise fall back to initialPost as a placeholder
     const post = fetchedPost || (initialPost && initialPost._id === activePostId ? initialPost : null);
 
+    
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
     const [currentImage, setCurrentImage] = useState(0);
@@ -69,6 +70,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const windowWidth = useWindowWidth();
     const isDesktop = windowWidth >= 1024;
     const [expandedCaption, setExpandedCaption] = useState(false);
+    const [showTags, setShowTags] = useState(false);
 
 
     useEffect(() => {
@@ -291,6 +293,40 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         <span className="text-8xl">❤️</span>
                                     </div>
                                 )}
+
+                                {/* Tagged/Mentioned Users Overlay on Image - DESKTOP */}
+                                {showTags && post.mentions && post.mentions.length > 0 && (
+                                    <div className="absolute bottom-14 left-3 z-30 bg-black/85 backdrop-blur-md border border-white/20 p-2.5 rounded-xl flex flex-col gap-1.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+                                        {post.mentions.map((m, idx) => {
+                                            const uid = typeof m === 'object' ? m._id : m;
+                                            const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
+                                            if (!uid) return null;
+                                            return (
+                                                <span
+                                                    key={uid}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (handleProfileClick) handleProfileClick(uid);
+                                                    }}
+                                                    className="text-xs font-medium text-white hover:text-[#808bf5] cursor-pointer flex items-center gap-1.5 transition-colors"
+                                                >
+                                                    @{name}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Human Icon Trigger Button - DESKTOP */}
+                                {post.mentions && post.mentions.length > 0 && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowTags(prev => !prev); }}
+                                        className={`absolute bottom-3 left-3 z-30 w-8 h-8 rounded-full border border-white/10 flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-90 ${showTags ? 'bg-[#808bf5] text-white' : 'bg-black/60 hover:bg-black/80 text-white'}`}
+                                        title="Show Tagged Users"
+                                    >
+                                        <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -369,6 +405,41 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
                                                 <span className="text-7xl">❤️</span>
                                             </div>
+                                        )}
+
+                                        {/* Tagged/Mentioned Users Overlay on Image - MOBILE */}
+                                        {showTags && post.mentions && post.mentions.length > 0 && (
+                                            <div className="absolute bottom-14 left-3 z-30 bg-black/85 backdrop-blur-md border border-white/20 p-2.5 rounded-xl flex flex-col gap-1.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+                                                {post.mentions.map((m, idx) => {
+                                                    const uid = typeof m === 'object' ? m._id : m;
+                                                    const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
+                                                    if (!uid) return null;
+                                                    return (
+                                                        <span
+                                                            key={uid}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (handleProfileClick) handleProfileClick(uid);
+                                                            }}
+                                                            className="text-xs font-semibold text-white hover:text-[#808bf5] cursor-pointer flex items-center gap-1.5 transition-colors"
+                                                        >
+                                                            <i className="pi pi-user text-[10px]"></i>
+                                                            @{name}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Human Icon Trigger Button - MOBILE */}
+                                        {post.mentions && post.mentions.length > 0 && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setShowTags(prev => !prev); }}
+                                                className={`absolute bottom-3 left-3 z-30 w-8 h-8 rounded-full border border-white/10 flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-90 ${showTags ? 'bg-[#808bf5] text-white' : 'bg-black/60 hover:bg-black/80 text-white'}`}
+                                                title="Show Tagged Users"
+                                            >
+                                                <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
+                                            </button>
                                         )}
                                     </div>
                                 </div>
@@ -587,8 +658,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             >
                 <FollowFollowingList ids={likesIds} />
             </Dialog>
-
-
 
 
 

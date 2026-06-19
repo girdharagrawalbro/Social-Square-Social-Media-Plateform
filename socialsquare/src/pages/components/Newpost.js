@@ -990,7 +990,7 @@ const NewPost = ({ visible, onHide }) => {
                             <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
                         </button>
                         {openFeaturePanel === 'collab' && (
-                            <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                            <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2">
                                 <div className="relative">
                                     <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
                                     <input
@@ -1316,7 +1316,7 @@ const NewPost = ({ visible, onHide }) => {
                                 <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
                             </button>
                             {openFeaturePanel === 'collab' && (
-                                <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                                <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2">
                                     <div className="relative">
                                         <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
                                         <input
@@ -1366,12 +1366,12 @@ const NewPost = ({ visible, onHide }) => {
                             <button onClick={() => togglePanel('tag')} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
                                 <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
                                     <i className="pi pi-user-plus text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                    {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag/Mention People"}
+                                    {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag People"}
                                 </span>
                                 <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
                             </button>
                             {openFeaturePanel === 'tag' && (
-                                <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                                <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2">
                                     <div className="relative">
                                         <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
                                         <input
