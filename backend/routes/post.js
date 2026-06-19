@@ -173,7 +173,7 @@ router.post("/create", verifyToken, [
             caption, category, imageURLs, videoURL, location, music,
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
-            isAiGenerated, groupId, poll, videoThumbnail, mentionIds
+            isAiGenerated, groupId, poll, videoThumbnail, mentionIds, visibility
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
 
@@ -234,6 +234,7 @@ router.post("/create", verifyToken, [
             isAiGenerated: !!isAiGenerated,
             groupId: groupId || null,
             poll: poll || null,
+            visibility: visibility || 'public',
             // 🛡️ Store real authorId (select: false) to enforce private user follower checks
             authorId: loggedUserId
         });
@@ -629,6 +630,12 @@ router.get("/", async (req, res) => {
                 // Exclude blockers + muted/blocked from feed results (but NOT self)
                 excludedUserIds = [...new Set([...excludedUserIds, ...blockerIds])];
             }
+            
+            // Find users who have this user in their closeFriends list
+            const cfUsers = await User.find({ closeFriends: userId }).select('_id');
+            const closeFriendOfIds = cfUsers.map(u => u._id.toString());
+            req.closeFriendOfIds = closeFriendOfIds; // stash for later use
+
             try {
                 const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
                 userCategories = [...new Set(likedPosts.map(p => p.category))];
@@ -648,6 +655,22 @@ router.get("/", async (req, res) => {
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
         };
 
+        if (userId) {
+            query.$and = [
+                {
+                    $or: [
+                        { visibility: 'public' },
+                        { visibility: { $exists: false } },
+                        { visibility: 'followers', 'user._id': { $in: followingIds.map(id => new mongoose.Types.ObjectId(id)) } },
+                        { visibility: 'close_friends', 'user._id': { $in: (req.closeFriendOfIds || []).map(id => new mongoose.Types.ObjectId(id)) } },
+                        { 'user._id': new mongoose.Types.ObjectId(userId) }
+                    ]
+                }
+            ];
+        } else {
+            query.$and = [{ $or: [{ visibility: 'public' }, { visibility: { $exists: false } }] }];
+        }
+
         if (cursor) {
             const decoded = decodeCursor(cursor);
             if (decoded) {
@@ -665,7 +688,7 @@ router.get("/", async (req, res) => {
         const candidateMultiplier = 4; // Fetch 4x more candidates to allow robust diversification
         const fetchLimit = (recentLimit * candidateMultiplier) + 1;
 
-        const recentPosts = await Post.find(query).sort({ createdAt: -1 }).limit(fetchLimit).lean().maxTimeMS(5000);
+        const recentPosts = await Post.find(query).sort({ createdAt: -1 }).limit(fetchLimit).populate('mentions', 'username fullname').lean().maxTimeMS(5000);
         const hasMore = recentPosts.length > (recentLimit * candidateMultiplier);
 
         // Fetch old unseen pics (20% of feed)
@@ -692,6 +715,7 @@ router.get("/", async (req, res) => {
                 const oldPicsCandidates = await Post.find(oldPicsQuery)
                     .sort({ createdAt: -1 }) // Newer-old posts first
                     .limit(50)
+                    .populate('mentions', 'username fullname')
                     .lean();
 
                 if (oldPicsCandidates.length > 0) {
@@ -742,6 +766,7 @@ router.get("/", async (req, res) => {
                 let anonCandidates = await Post.find(anonymousQuery)
                     .sort({ score: -1, createdAt: -1 })
                     .limit(50)
+                    .populate('mentions', 'username fullname')
                     .lean();
 
                 // Fallback: If no posts matching categories, fetch general confessions
@@ -751,6 +776,7 @@ router.get("/", async (req, res) => {
                     anonCandidates = await Post.find(fallbackQuery)
                         .sort({ score: -1, createdAt: -1 })
                         .limit(50)
+                        .populate('mentions', 'username fullname')
                         .lean();
                 }
 
@@ -931,10 +957,11 @@ router.get("/user/:userId", [
         // Priority owner check - resolves identity before privacy check
         const isOwner = viewerId && viewerId.toString() === ownerId;
 
-        const postOwner = await User.findById(ownerId).select('isPrivate followers').lean();
+        const postOwner = await User.findById(ownerId).select('isPrivate followers closeFriends').lean();
         if (!postOwner) return res.status(404).json({ message: "User not found" });
 
         const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
+        const isCloseFriend = viewerId && postOwner.closeFriends?.some(f => f.toString() === viewerId.toString());
 
         if (postOwner.isPrivate && !isOwner && !isFollower) {
             return res.status(200).json({ posts: [], nextCursor: null, hasMore: false, isPrivate: true });
@@ -960,6 +987,19 @@ router.get("/user/:userId", [
             ...(!isOwner ? { isAnonymous: { $ne: true } } : {})
         };
 
+        if (!isOwner) {
+            query.$and = query.$and || [];
+            const privacyCondition = {
+                $or: [
+                    { visibility: 'public' },
+                    { visibility: { $exists: false } }
+                ]
+            };
+            if (isFollower) privacyCondition.$or.push({ visibility: 'followers' });
+            if (isCloseFriend) privacyCondition.$or.push({ visibility: 'close_friends' });
+            query.$and.push(privacyCondition);
+        }
+
         if (cursor) {
             const decoded = decodeCursor(cursor);
             if (decoded) {
@@ -974,7 +1014,7 @@ router.get("/user/:userId", [
             }
         }
 
-        const posts = await Post.find(query).sort({ createdAt: -1 }).limit(limit + 1).lean();
+        const posts = await Post.find(query).sort({ createdAt: -1 }).limit(limit + 1).populate('mentions', 'username fullname').lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         const sanitized = result.map(p => sanitizeAnonymousPost(p, viewerId));
@@ -1112,7 +1152,7 @@ router.get("/saved/:userId", verifyToken, [
 
         const user = await User.findById(userId).select('savedPosts');
         if (!user) return res.status(404).json({ message: 'User not found.' });
-        const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).lean();
+        const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).populate('mentions', 'username fullname').lean();
         const sanitized = posts.map(p => sanitizeAnonymousPost(p, req.userId));
         res.status(200).json(sanitized);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
@@ -1252,7 +1292,7 @@ router.get("/collections/:id", verifyToken, async (req, res) => {
         const collection = await Collection.findOne({ _id: req.params.id, user: userId }).lean();
         if (!collection) return res.status(404).json({ message: 'Collection not found.' });
 
-        const posts = await Post.find({ _id: { $in: collection.posts } }).sort({ createdAt: -1 }).lean();
+        const posts = await Post.find({ _id: { $in: collection.posts } }).sort({ createdAt: -1 }).populate('mentions', 'username fullname').lean();
         const sanitized = posts.map(p => sanitizeAnonymousPost(p, userId));
 
         res.status(200).json({ collection, posts: sanitized });

@@ -8,7 +8,8 @@ import {
     useUnfollowUser,
     useRemoveFollower,
     useCancelFollowRequest,
-    useUserDetails
+    useUserDetails,
+    useToggleCloseFriend
 } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { useInView } from 'react-intersection-observer';
@@ -67,6 +68,7 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
     const unfollowMutation = useUnfollowUser();
     const removeFollowerMutation = useRemoveFollower();
     const cancelMutation = useCancelFollowRequest();
+    const toggleCloseFriendMutation = useToggleCloseFriend();
 
     const filteredUsers = users.filter(u =>
         u.fullname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -200,6 +202,18 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
                                                 className="text-[10px] sm:text-xs px-3 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] cursor-pointer font-semibold hover:bg-[var(--surface-1)] transition min-w-[70px]"
                                             >
                                                 {(removeFollowerMutation.isPending && removeFollowerMutation.variables?.followerId === u._id) ? '...' : "Remove"}
+                                            </button>
+                                        )}
+
+                                        {/* Close Friends Toggle (Only if following & my profile) */}
+                                        {isFollowing && isMyProfile && (
+                                            <button
+                                                onClick={() => toggleCloseFriendMutation.mutate({ targetUserId: u._id })}
+                                                disabled={toggleCloseFriendMutation.isPending && toggleCloseFriendMutation.variables?.targetUserId === u._id}
+                                                className={`flex items-center justify-center w-8 h-8 rounded-full border border-[var(--border-color)] cursor-pointer transition ${user?.closeFriends?.includes(u._id) ? 'bg-green-500/20 text-green-500 border-green-500/50' : 'bg-[var(--surface-2)] text-[var(--text-sub)] hover:bg-[var(--surface-1)]'}`}
+                                                title={user?.closeFriends?.includes(u._id) ? "Remove from Close Friends" : "Add to Close Friends"}
+                                            >
+                                                {(toggleCloseFriendMutation.isPending && toggleCloseFriendMutation.variables?.targetUserId === u._id) ? <i className="pi pi-spin pi-spinner text-xs"></i> : <i className="pi pi-star-fill text-xs"></i>}
                                             </button>
                                         )}
 

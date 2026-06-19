@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
@@ -16,7 +16,6 @@ const MentionSuggestions = ({ text, cursorPosition, onSelect }) => {
             return;
         }
 
-        // Find the last "@" before the cursor position
         const textBeforeCursor = text.slice(0, cursorPosition);
         const lastAtIndex = textBeforeCursor.lastIndexOf('@');
 
@@ -25,14 +24,12 @@ const MentionSuggestions = ({ text, cursorPosition, onSelect }) => {
             return;
         }
 
-        // Check if there are spaces between "@" and the cursor
         const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
         if (/\s/.test(textAfterAt)) {
             setVisible(false);
             return;
         }
 
-        // We have an active mention query!
         setQuery(textAfterAt);
         setVisible(true);
         setActiveIndex(0);
@@ -48,13 +45,12 @@ const MentionSuggestions = ({ text, cursorPosition, onSelect }) => {
             try {
                 const token = localStorage.getItem('token');
                 const res = await axios.post(`${BASE}/api/auth/search`,
-                    { query: query || 'a' }, // default search term if query is empty
+                    { query: query || 'a' },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
 
-                // Get matching users and exclude users without usernames
                 const users = (res.data.users || []).filter(u => u.username);
-                setSuggestions(users.slice(0, 5)); // Cap at 5 suggestions
+                setSuggestions(users.slice(0, 5));
             } catch (err) {
                 console.error('[Mention Suggestions Fetch Error]:', err.message);
             }
@@ -64,7 +60,20 @@ const MentionSuggestions = ({ text, cursorPosition, onSelect }) => {
         return () => clearTimeout(timer);
     }, [query, visible]);
 
-    // Keyboard navigation handlers
+    // Define selectUser BEFORE using it
+    const selectUser = useCallback((user) => {
+        const textBeforeCursor = text.slice(0, cursorPosition);
+        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+        const before = text.slice(0, lastAtIndex);
+        const after = text.slice(cursorPosition);
+        const completed = `${before}@${user.username} ${after}`;
+
+        onSelect(completed);
+        setVisible(false);
+    }, [text, cursorPosition, onSelect]);
+
+    // Keyboard navigation handlers (now selectUser is defined)
     useEffect(() => {
         if (!visible || suggestions.length === 0) return;
 
@@ -85,20 +94,7 @@ const MentionSuggestions = ({ text, cursorPosition, onSelect }) => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [visible, suggestions, activeIndex]);
-
-    const selectUser = (user) => {
-        // Find last "@" before cursor to replace it correctly
-        const textBeforeCursor = text.slice(0, cursorPosition);
-        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-
-        const before = text.slice(0, lastAtIndex);
-        const after = text.slice(cursorPosition);
-        const completed = `${before}@${user.username} ${after}`;
-
-        onSelect(completed);
-        setVisible(false);
-    };
+    }, [visible, suggestions, activeIndex, selectUser]);
 
     if (!visible || suggestions.length === 0) return null;
 
@@ -108,9 +104,6 @@ const MentionSuggestions = ({ text, cursorPosition, onSelect }) => {
             className="bg-black absolute left-4 right-4 bottom-full mb-2 bg-[var(--surface-1)]/95 backdrop-blur-xl border border-[var(--border-color)] p-1 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] z-[9999] flex flex-col gap-0.5 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
             style={{ maxWidth: '300px' }}
         >
-            {/* <div className="px-3 py-1.5 text-[10px] font-bold text-[#808bf5] uppercase tracking-wider border-b border-[var(--border-color)]/30 mb-1">
-                Mention user
-            </div> */}
             {suggestions.map((user, idx) => (
                 <div
                     key={user._id}

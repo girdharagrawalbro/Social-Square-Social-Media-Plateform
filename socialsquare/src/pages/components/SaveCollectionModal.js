@@ -11,21 +11,33 @@ export default function SaveCollectionModal({ post, visible, onHide, onStatusCha
 
     useEffect(() => {
         if (visible && post?._id) {
+            const fetchCollectionStatuses = async () => {
+                setLoading(true);
+                try {
+                    const res = await api.get(`/api/post/collections/post-status/${post._id}`);
+                    setCollections(res.data || []);
+                } catch (error) {
+                    toast.error('Failed to load collections');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
             fetchCollectionStatuses();
         }
     }, [visible, post?._id]);
 
-    const fetchCollectionStatuses = async () => {
-        setLoading(true);
-        try {
-            const res = await api.get(`/api/post/collections/post-status/${post._id}`);
-            setCollections(res.data || []);
-        } catch (error) {
-            toast.error('Failed to load collections');
-        } finally {
-            setLoading(false);
-        }
-    };
+    // const fetchCollectionStatuses = async () => {
+    //     setLoading(true);
+    //     try {
+    //         const res = await api.get(`/api/post/collections/post-status/${post._id}`);
+    //         setCollections(res.data || []);
+    //     } catch (error) {
+    //         toast.error('Failed to load collections');
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
 
     const handleToggleCollection = async (collectionId, currentHasPost) => {
         try {
@@ -33,14 +45,14 @@ export default function SaveCollectionModal({ post, visible, onHide, onStatusCha
                 collectionId,
                 postId: post._id
             });
-            
+
             if (res.data.success) {
                 // Update local state
-                setCollections(prev => prev.map(c => 
+                setCollections(prev => prev.map(c =>
                     c._id === collectionId ? { ...c, hasPost: !currentHasPost } : c
                 ));
                 toast.success(!currentHasPost ? 'Added to collection' : 'Removed from collection');
-                
+
                 if (onStatusChanged) {
                     onStatusChanged(post._id, res.data.saved);
                 }
@@ -50,31 +62,36 @@ export default function SaveCollectionModal({ post, visible, onHide, onStatusCha
         }
     };
 
-    const handleCreateCollection = async (e) => {
-        e.preventDefault();
-        if (!newCollectionName.trim()) return;
+const handleCreateCollection = async (e) => {
+    e.preventDefault();
+    if (!newCollectionName.trim()) return;
 
-        setCreating(true);
-        try {
-            const res = await api.post('/api/post/collections/create', {
-                name: newCollectionName.trim(),
-                postId: post._id
-            });
-            
-            toast.success(`Created collection "${newCollectionName}"`);
-            setNewCollectionName('');
-            fetchCollectionStatuses();
-            
-            if (onStatusChanged) {
-                onStatusChanged(post._id, true);
-            }
-        } catch (error) {
-            const msg = error.response?.data?.message || 'Failed to create collection';
-            toast.error(msg);
-        } finally {
-            setCreating(false);
+    setCreating(true);
+    try {
+        await api.post('/api/post/collections/create', {
+            name: newCollectionName.trim(),
+            postId: post._id
+        });
+        
+        toast.success(`Created collection "${newCollectionName}"`);
+        setNewCollectionName('');
+        
+        // Fetch collections after creation
+        setLoading(true);
+        const res = await api.get(`/api/post/collections/post-status/${post._id}`);
+        setCollections(res.data || []);
+        setLoading(false);
+        
+        if (onStatusChanged) {
+            onStatusChanged(post._id, true);
         }
-    };
+    } catch (error) {
+        const msg = error.response?.data?.message || 'Failed to create collection';
+        toast.error(msg);
+    } finally {
+        setCreating(false);
+    }
+};
 
     return (
         <Dialog

@@ -30,7 +30,7 @@ router.post('/create', verifyToken, [
     validate
 ], async (req, res) => {
     try {
-        const { mediaUrl, mediaType, text, sharedPostId, sharedStoryId, thumbnailUrl, mentionIds } = req.body;
+        const { mediaUrl, mediaType, text, sharedPostId, sharedStoryId, thumbnailUrl, mentionIds, visibility } = req.body;
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
 
@@ -43,7 +43,8 @@ router.post('/create', verifyToken, [
             text: text || {},
             sharedPostId: sharedPostId || null,
             sharedStoryId: sharedStoryId || null,
-            mentions: mentionIds || []
+            mentions: mentionIds || [],
+            visibility: visibility || 'public'
         });
         await story.save();
         
@@ -99,19 +100,25 @@ router.get('/feed', verifyToken, async (req, res) => {
 
         const userIds = [userId, ...user.following.map(id => id.toString())];
 
-        // Fetch stories and then manually attach presence from current User state if needed, 
-        // OR better, populate the user info with isOnline.
-        // Since story.user is a subdocument saved at creation time, it might be stale.
-        // Let's modify the grouping logic to fetch fresh presence.
+        // Find users who added this user to their closeFriends list
+        const cfUsers = await User.find({ closeFriends: userId }).select('_id');
+        const closeFriendOfIds = cfUsers.map(u => u._id.toString());
 
         const stories = await Story.find({
             'user._id': { $in: userIds },
             expiresAt: { $gt: new Date() },
+            $or: [
+                { visibility: 'public' },
+                { visibility: { $exists: false } },
+                { visibility: 'followers' },
+                { visibility: 'close_friends', 'user._id': { $in: [...closeFriendOfIds.map(id => new mongoose.Types.ObjectId(id)), new mongoose.Types.ObjectId(userId)] } }
+            ]
         })
             .populate({
                 path: 'sharedPostId',
                 populate: { path: 'user', select: 'fullname profile_picture isOnline' }
             })
+            .populate('sharedStoryId')
             .populate('mentions', 'fullname username profile_picture')
             .sort({ createdAt: 1 });
 

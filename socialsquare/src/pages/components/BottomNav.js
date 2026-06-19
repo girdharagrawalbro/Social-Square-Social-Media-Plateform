@@ -20,6 +20,7 @@ const BottomNav = () => {
     const navItems = [
         { key: 'feed', icon: 'pi-home', to: () => `/${user?.username || ''}` },
         { key: 'explore', icon: 'pi-compass', to: () => '/explore' },
+        { key: 'reels', icon: 'pi-video', to: () => '/reels' },
         { key: 'pulse', icon: 'pi-bolt', to: () => '/pulse' },
         { key: 'knowledge', icon: 'pi-book', to: () => '/knowledge' },
         { key: 'messages', icon: 'pi-envelope', to: () => '/conversations', badge: msgCount },

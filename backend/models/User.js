@@ -13,6 +13,7 @@ const UserSchema = new mongoose.Schema({
   aiProfileSummary: { type: String, default: null },
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  closeFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   postsCount: { type: Number, default: 0 },
   followersCount: { type: Number, default: 0 },
   followingCount: { type: Number, default: 0 },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useInView } from 'react-intersection-observer';
 import toast from 'react-hot-toast';
 
@@ -590,12 +590,12 @@ export const PostItem = React.memo(({
                                     🎭
                                 </div>
                             ) : (
-                                <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.user?.isOnline ? 'presence-glow' : 'border-gray-100'}`}>
+                                <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.visibility === 'close_friends' ? 'border-2 border-green-500 p-[1px]' : (post.user?.isOnline ? 'presence-glow' : 'border-gray-100')}`}>
                                     <img
                                         src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
                                         alt="Profile"
                                         loading="lazy"
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-cover rounded-full"
                                     />
                                 </div>
                             )}
@@ -604,10 +604,15 @@ export const PostItem = React.memo(({
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
                                 <div className="m-0 text-sm leading-none flex items-center gap-1 flex-wrap text-[var(--text-main)] shrink-0">
                                     <span
-                                        className={`font-bold ${!post.isAnonymous ? 'cursor-pointer hover:text-[#808bf5]' : ''} transition`}
+                                        className={`font-bold ${!post.isAnonymous ? 'cursor-pointer hover:text-[#808bf5]' : ''} transition flex items-center gap-1`}
                                         onClick={() => !post.isAnonymous && post.user?._id && onProfileClick(post.user._id)}
                                     >
                                         {post.isAnonymous ? 'Anonymous' : (post.user?.fullname || 'Anonymous User')}
+                                        {post.visibility === 'close_friends' && (
+                                            <span className="bg-green-500 text-white rounded-full w-3 h-3 flex items-center justify-center ml-0.5" title="Close Friends">
+                                                <i className="pi pi-star-fill text-[6px]"></i>
+                                            </span>
+                                        )}
                                     </span>
                                     {!post.isAnonymous && post.collaborators?.filter(c => c.status === 'accepted').length > 0 && (() => {
                                         const collab = post.collaborators.find(c => c.status === 'accepted');
