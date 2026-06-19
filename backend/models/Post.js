@@ -20,6 +20,7 @@ const PostSchema = new mongoose.Schema(
       emoji: { type: String, default: '❤️' }
     }],
     comments: [],
+    visibility: { type: String, enum: ['public', 'followers', 'close_friends'], default: 'public' },
     category: { type: String, required: true },
     tags: [{ type: String }],
     location: { name: { type: String, default: null }, lat: { type: Number, default: null }, lng: { type: Number, default: null } },

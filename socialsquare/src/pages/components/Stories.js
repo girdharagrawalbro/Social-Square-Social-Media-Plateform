@@ -40,6 +40,7 @@ const StoryViewer = ({
     const navigate = useNavigate();
     const [groupIndex, setGroupIndex] = useState(startGroupIndex);
     const lastReportedIndex = useRef(startGroupIndex);
+    const [isResharing, setIsResharing] = useState(false);
 
     // ✅ Sync internal state with external prop (e.g. from previews)
     useEffect(() => {
@@ -305,21 +306,36 @@ const StoryViewer = ({
             </div>
 
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#1a1a1a' }}>
-                {story.media.type === 'video'
-                    ? <video src={story.media.url} poster={story.media.thumbnailUrl || getMediaThumbnail(story.media.url, 'video')} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    : <ProgressiveImage
+                {story.media.type === 'video' ? (
+                    <video
+                        src={story.media.url}
+                        poster={story.media.thumbnailUrl || getMediaThumbnail(story.media.url, 'video')}
+                        autoPlay
+                        playsInline
+                        muted
+                        loop
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: (story.sharedPostId || story.sharedStoryId) ? 'cover' : 'contain',
+                            filter: (story.sharedPostId || story.sharedStoryId) ? 'blur(100px) brightness(0.6)' : 'none',
+                            opacity: (story.sharedPostId || story.sharedStoryId) ? 0.8 : 1
+                        }}
+                    />
+                ) : (
+                    <ProgressiveImage
                         src={story.media.url}
                         alt="story"
-                        objectFit={story.sharedPostId ? 'cover' : 'contain'}
+                        objectFit={(story.sharedPostId || story.sharedStoryId) ? 'cover' : 'contain'}
                         placeholderColor="#111"
                         blurIntensity="10px"
                         style={{
-                            filter: story.sharedPostId ? 'blur(100px) brightness(0.6)' : 'none',
-                            opacity: story.sharedPostId ? 0.8 : 1,
+                            filter: (story.sharedPostId || story.sharedStoryId) ? 'blur(100px) brightness(0.6)' : 'none',
+                            opacity: (story.sharedPostId || story.sharedStoryId) ? 0.8 : 1,
                             background: '#030303'
                         }}
                     />
-                }
+                )}
 
                 {/* Left/Right Group Navigation Arrows */}
                 {groupIndex > 0 && (
@@ -388,6 +404,60 @@ const StoryViewer = ({
                             <p style={{ margin: 0, fontSize: '12px', color: '#1f2937', fontWeight: 600, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
                                 {story.sharedPostId.caption}
                             </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Shared Story Overlay (Sticker) */}
+                {story.sharedStoryId && (
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsPaused(true);
+                            const originalUser = story.sharedStoryId.user?.username || story.sharedStoryId.user?._id;
+                            if (originalUser) {
+                                navigate(`/stories/${originalUser}/${story.sharedStoryId._id}`);
+                            }
+                        }}
+                        style={{
+                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                            background: 'rgba(255, 255, 255, 0.95)',
+                            padding: '12px', borderRadius: '20px',
+                            width: '280px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', cursor: 'pointer',
+                            display: 'flex', flexDirection: 'column', gap: '8px',
+                            border: '1px solid rgba(255,255,255,0.4)',
+                            zIndex: 100,
+                            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                        }}
+                        className="shared-story-sticker hover:scale-[1.02]"
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
+                            <img
+                                src={story.sharedStoryId.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                                alt=""
+                            />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 800, color: '#000', letterSpacing: '-0.3px' }}>{story.sharedStoryId.user?.fullname}</span>
+                                <span style={{ fontSize: '10px', color: '#666', marginTop: '-2px' }}>Social Square Story</span>
+                            </div>
+                            <i className="pi pi-images ml-auto text-gray-400" style={{ fontSize: '12px' }}></i>
+                        </div>
+
+                        <div style={{ position: 'relative', width: '100%', aspectRatio: '9/16', overflow: 'hidden', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                            {story.sharedStoryId.media?.url ? (
+                                story.sharedStoryId.media.type === 'video' ? (
+                                    <video src={story.sharedStoryId.media.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline autoPlay loop />
+                                ) : (
+                                    <ProgressiveImage
+                                        src={story.sharedStoryId.media.url}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        alt=""
+                                    />
+                                )
+                            ) : (
+                                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #808bf5, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+                            )}
                         </div>
                     </div>
                 )}
@@ -619,6 +689,55 @@ const StoryViewer = ({
                     <UserProfile id={selectedProfileId} />
                 </React.Suspense>
             </Dialog>
+            {/* Mention-back / Reshare Button */}
+            {!isOwn && story.mentions?.some(m => (m._id || m) === loggeduser?._id) && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPaused(true);
+                        setIsResharing(true);
+                    }}
+                    style={{
+                        position: 'absolute',
+                        bottom: '130px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(255, 255, 255, 0.25)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        borderRadius: '20px',
+                        padding: '8px 16px',
+                        color: '#fff',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        zIndex: 30,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    }}
+                    className="hover:bg-white/40 active:scale-95 transition-all"
+                >
+                    ⚡ Add to your Story
+                </button>
+            )}
+
+            {isResharing && (
+                <CreateStoryModal
+                    onClose={() => {
+                        setIsResharing(false);
+                        setIsPaused(false);
+                    }}
+                    onCreated={(newStory) => {
+                        setIsResharing(false);
+                        setIsPaused(false);
+                        toast.success("Story reshared successfully!");
+                    }}
+                    loggeduser={loggeduser}
+                    sharedStory={story}
+                />
+            )}
         </div>
     );
 };
@@ -747,7 +866,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
     );
 };
 
-export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null }) => {
+export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null, sharedStory = null }) => {
     const fileInputRef = useRef(null);
     const textInputRef = useRef(null);
     const [previews, setPreviews] = useState([]); // [{url, type, file}]
@@ -759,6 +878,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
     // eslint-disable-next-line no-unused-vars
     const [uploading, setUploading] = useState(false);
     const [croppingState, setCroppingState] = useState({ visible: false, imageSrc: null, pendingFiles: [] });
+    const [visibility, setVisibility] = useState('public');
 
     // Tagged users (Direct Mentions)
     const [taggedUsers, setTaggedUsers] = useState([]);
@@ -895,10 +1015,11 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
     };
 
     const handleSubmit = async () => {
-        if (previews.length === 0 && !sharedPost) { toast.error('Please select an image or video'); return; }
+        if (previews.length === 0 && !sharedPost && !sharedStory) { toast.error('Please select an image or video'); return; }
 
         const previewsToUpload = [...previews];
         const sharedPostToUpload = sharedPost;
+        const sharedStoryToUpload = sharedStory;
         const textToUpload = text;
         const textColorToUpload = textColor;
         const textPositionToUpload = textPosition;
@@ -922,7 +1043,20 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         mediaType: 'image',
                         text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
                         sharedPostId: sharedPostToUpload._id,
-                        mentionIds: tags.map(t => t._id)
+                        mentionIds: tags.map(t => t._id),
+                        visibility
+                    });
+                    onCreated(res.data);
+                } else if (sharedStoryToUpload) {
+                    const mediaUrl = sharedStoryToUpload.media?.url;
+                    const mediaType = sharedStoryToUpload.media?.type || 'image';
+                    const res = await api.post(`/api/story/create`, {
+                        mediaUrl,
+                        mediaType,
+                        text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
+                        sharedStoryId: sharedStoryToUpload._id,
+                        mentionIds: tags.map(t => t._id),
+                        visibility
                     });
                     onCreated(res.data);
                 } else {
@@ -943,7 +1077,8 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                             mediaUrl, mediaType: item.type,
                             thumbnailUrl,
                             text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
-                            mentionIds: tags.map(t => t._id)
+                            mentionIds: tags.map(t => t._id),
+                            visibility
                         });
                         onCreated(res.data);
                     }
@@ -973,7 +1108,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
         >
             <div className="flex flex-col">
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
-                    <div onClick={() => !sharedPost && fileInputRef.current?.click()} style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: sharedPost ? 'default' : 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                    <div onClick={() => !sharedPost && !sharedStory && fileInputRef.current?.click()} style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: (sharedPost || sharedStory) ? 'default' : 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                         {sharedPost ? (
                             <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
@@ -982,6 +1117,21 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                                 </div>
                                 {(sharedPost.image_urls?.[0] || sharedPost.image_url) && (
                                     <img src={sharedPost.image_urls?.[0] || sharedPost.image_url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '1/1', objectFit: 'cover' }} alt="" />
+                                )}
+                            </div>
+                        ) : sharedStory ? (
+                            <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
+                                    <img src={sharedStory.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#000' }}>{sharedStory.user?.fullname}</span>
+                                    <span style={{ fontSize: '9px', color: '#666', marginLeft: 'auto' }}>Story</span>
+                                </div>
+                                {sharedStory.media?.url && (
+                                    sharedStory.media.type === 'video' ? (
+                                        <video src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} muted playsInline autoPlay loop />
+                                    ) : (
+                                        <img src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} alt="" />
+                                    )
                                 )}
                             </div>
                         ) : currentMedia ? (
@@ -1011,7 +1161,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                                 )}
                             </div>
                         )}
-                        {(currentMedia || sharedPost) && text && (
+                        {(currentMedia || sharedPost || sharedStory) && text && (
                             <div style={{ position: 'absolute', top: textPosition === 'top' ? '15%' : textPosition === 'bottom' ? '75%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: textColor, fontSize: '18px', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)', pointerEvents: 'none', width: '90%', textAlign: 'center', zIndex: 10 }}>
                                 {text}
                             </div>
@@ -1137,12 +1287,31 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         </div>
                     )}
                 </div>
-                <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost)} style={{ width: '100%', padding: '10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost) ? 0.6 : 1 }}>
-                    {uploading ? 'Uploading...' : sharedPost ? 'Share Post to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
+
+                <div style={{ marginBottom: '12px' }}>
+                    <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <i className="pi pi-eye" style={{ fontSize: '12px' }}></i>
+                            Visibility
+                        </span>
+                        <select
+                            value={visibility}
+                            onChange={(e) => setVisibility(e.target.value)}
+                            style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
+                        >
+                            <option value="public" style={{ background: 'var(--surface-1)' }}>🌐 Public</option>
+                            <option value="followers" style={{ background: 'var(--surface-1)' }}>👥 Followers Only</option>
+                            <option value="close_friends" style={{ background: 'var(--surface-1)' }}>🟢 Close Friends</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost && !sharedStory)} style={{ width: '100%', padding: '10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost && !sharedStory) ? 0.6 : 1 }}>
+                    {uploading ? 'Uploading...' : (sharedPost || sharedStory) ? 'Share to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
                 </button>
 
                 {/* Ephemeral Stream action (Go Live) inside Story popup */}
-                {!sharedPost && previews.length === 0 && (
+                {!sharedPost && !sharedStory && previews.length === 0 && (
                     <div className='mt-2'>
                         <button
                             onClick={async () => {
@@ -1399,7 +1568,7 @@ const Stories = () => {
                                 }}
                                 style={{
                                     width: storySize, height: storySize, borderRadius: '50%', padding: '2px',
-                                    background: ownGroup ? ((!ownGroup.hasUnviewed || viewedStoryGroups.has(loggeduser?._id?.toString())) ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)') : 'var(--border-color)',
+                                    background: ownGroup ? ((!ownGroup.hasUnviewed || viewedStoryGroups.has(loggeduser?._id?.toString())) ? 'var(--border-color)' : (ownGroup.stories.some(s => s.visibility === 'close_friends') ? 'linear-gradient(135deg, #22c55e, #10b981)' : 'linear-gradient(135deg, #808bf5, #ec4899)')) : 'var(--border-color)',
                                     transition: 'all 0.3s ease'
                                 }}
                             >
@@ -1469,11 +1638,13 @@ const Stories = () => {
                     {otherGroups.map(group => {
                         const realIndex = groups.findIndex(g => g.user._id.toString() === group.user._id.toString());
                         const allViewed = !group.hasUnviewed || viewedStoryGroups.has(group.user._id.toString());
+                        const hasCloseFriends = group.stories.some(s => s.visibility === 'close_friends');
+                        const ringGradient = hasCloseFriends ? 'linear-gradient(135deg, #22c55e, #10b981)' : 'linear-gradient(135deg, #808bf5, #ec4899)';
                         return (
                             <div key={group.user._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }}>
                                 <div
                                     onClick={() => openViewer(realIndex)}
-                                    style={{ position: 'relative', width: storySize, height: storySize, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : 'linear-gradient(135deg, #808bf5, #ec4899)', transition: 'all 0.3s ease', flexShrink: 0 }}
+                                    style={{ position: 'relative', width: storySize, height: storySize, borderRadius: '50%', padding: '2px', background: allViewed ? 'var(--border-color)' : ringGradient, transition: 'all 0.3s ease', flexShrink: 0 }}
                                 >
                                     <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }} className={group.user.isOnline ? 'presence-glow' : ''}>
                                         <img

@@ -19,6 +19,7 @@ const StorySchema = new mongoose.Schema({
     viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    visibility: { type: String, enum: ['public', 'followers', 'close_friends'], default: 'public' },
     sharedPostId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', default: null },
     sharedStoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story', default: null },
     expiresAt: {

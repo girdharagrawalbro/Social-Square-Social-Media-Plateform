@@ -101,7 +101,7 @@ startSessionCleanupJob();
 const OWN_USER_EXCLUSIONS = '-password -twoFactorOtp -twoFactorOtpExpires -resetPasswordToken -resetPasswordExpires -emailVerificationToken -emailVerificationTokenSentAt -loginSessions -__v';
 
 // For other users (OTHER), we exclude almost everything personal/sensitive
-const OTHER_USER_EXCLUSIONS = '-password -email -loginSessions -notificationSettings -resetPasswordToken -resetPasswordExpires -twoFactorOtp -twoFactorOtpExpires -failedLoginAttempts -lockoutUntil -googleId -githubId -emailVerificationToken -emailVerificationTokenSentAt -dismissedUsers -__v -twoFactorEnabled -authProvider -isAdmin -isVerified -creatorTier -isBanned -banReason -bannedAt -isEmailVerified -hasSeenWelcome -savedPosts -followers -following -followRequests';
+const OTHER_USER_EXCLUSIONS = '-password -email -loginSessions -notificationSettings -resetPasswordToken -resetPasswordExpires -twoFactorOtp -twoFactorOtpExpires -failedLoginAttempts -lockoutUntil -googleId -githubId -emailVerificationToken -emailVerificationTokenSentAt -dismissedUsers -__v -twoFactorEnabled -authProvider -isAdmin -isVerified -creatorTier -isBanned -banReason -bannedAt -isEmailVerified -hasSeenWelcome -savedPosts -followers -following -followRequests -closeFriends';
 
 if (!JWT_SECRET || !JWT_REFRESH_SECRET) { console.error('Missing JWT secrets'); process.exit(1); }
 
@@ -1970,6 +1970,28 @@ router.get('/follow-requests', verifyToken, async (req, res) => {
         }
 
         res.status(200).json(validRequests);
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// ─── CLOSE FRIENDS (PROTECTED) ──────────────────────────────────────────────────
+router.post('/close-friends/:userId/toggle', verifyToken, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const loggedUserId = req.userId;
+        
+        const user = await User.findById(loggedUserId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const isCloseFriend = user.closeFriends?.includes(userId);
+        if (isCloseFriend) {
+            await User.findByIdAndUpdate(loggedUserId, { $pull: { closeFriends: userId } });
+            res.status(200).json({ isCloseFriend: false });
+        } else {
+            await User.findByIdAndUpdate(loggedUserId, { $addToSet: { closeFriends: userId } });
+            res.status(200).json({ isCloseFriend: true });
+        }
     } catch (error) {
         res.status(500).json({ message: 'Internal server error' });
     }

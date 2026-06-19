@@ -63,6 +63,7 @@ const NewPost = ({ visible, onHide }) => {
     const [music] = useState({ title: '', artist: '' });
 
     // Features
+    const [visibility, setVisibility] = useState('public');
     const [isAnonymous, setIsAnonymous] = useState(false);
     const [expiresIn, setExpiresIn] = useState('');
     const [unlocksAt, setUnlocksAt] = useState('');
@@ -126,6 +127,7 @@ const NewPost = ({ visible, onHide }) => {
         setIsSearchingTags(false);
         setAiPrompt("");
         setPollOptions(['', '']);
+        setVisibility('public');
         setIsAnonymous(false);
         setExpiresIn('');
         setUnlocksAt('');
@@ -751,6 +753,7 @@ const NewPost = ({ visible, onHide }) => {
                     videoURL: videoUrl, videoDuration, videoThumbnail, mood,
                     isAiGenerated: aiGen,
                     poll, groupId: grp, isCollaborative: isCollab,
+                    visibility
                 };
 
                 const response = await createPostMutation.mutateAsync(postData);
@@ -951,6 +954,23 @@ const NewPost = ({ visible, onHide }) => {
                                 {groups && groups.map(g => (
                                     <option key={g._id} value={g._id}>👥 {g.name}</option>
                                 ))}
+                            </select>
+                        </div>
+
+                        {/* Visibility Picker */}
+                        <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
+                            <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                <i className="pi pi-eye text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                Visibility
+                            </span>
+                            <select
+                                value={visibility}
+                                onChange={(e) => setVisibility(e.target.value)}
+                                className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
+                            >
+                                <option value="public">🌐 Public</option>
+                                <option value="followers">👥 Followers Only</option>
+                                <option value="close_friends">🟢 Close Friends</option>
                             </select>
                         </div>
 
@@ -1260,6 +1280,23 @@ const NewPost = ({ visible, onHide }) => {
                                     {groups && groups.map(g => (
                                         <option key={g._id} value={g._id}>👥 {g.name}</option>
                                     ))}
+                                </select>
+                            </div>
+
+                            {/* Visibility Picker */}
+                            <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
+                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                    <i className="pi pi-eye text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                    Visibility
+                                </span>
+                                <select
+                                    value={visibility}
+                                    onChange={(e) => setVisibility(e.target.value)}
+                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
+                                >
+                                    <option value="public">🌐 Public</option>
+                                    <option value="followers">👥 Followers Only</option>
+                                    <option value="close_friends">🟢 Close Friends</option>
                                 </select>
                             </div>
 

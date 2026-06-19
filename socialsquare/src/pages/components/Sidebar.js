@@ -35,6 +35,7 @@ export default function Sidebar() {
             { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username}` },
             { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/search' },
             { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
+            { key: 'reels', label: 'Reels', icon: 'pi pi-video', to: '/reels' },
             { key: 'discover', label: 'Discover', icon: 'pi pi-users', to: '/discover' },
             { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse' },
             { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },

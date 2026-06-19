@@ -64,6 +64,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const DiscoverPage = lazy(() => import('./pages/DiscoverPage'));
 const Pulse = lazy(() => import('./pages/Pulse'));
+const Reels = lazy(() => import('./pages/Reels'));
 const StoriesPage = lazy(() => import('./pages/StoriesPage'));
 const KnowledgeDashboard = lazy(() => import('./pages/KnowledgeDashboard'));
 const WikiListPage = lazy(() => import('./pages/WikiListPage'));
@@ -712,14 +713,15 @@ function MainLayout({ children }) {
     const user = useAuthStore(s => s.user);
     const location = useLocation();
     const isMessages = location.pathname.startsWith('/conversation');
+    const isReels = location.pathname.startsWith('/reels');
 
     return (
         <div className="relative flex flex-col h-screen w-full overflow-hidden">
-            <EmailVerificationBanner />
-            <div className="lg:hidden">
+            {!isReels && <EmailVerificationBanner />}
+            {!isReels && <div className="lg:hidden">
                 <Navbar />
-            </div>
-            {!isMessages && (
+            </div>}
+            {!isMessages && !isReels && (
                 <div className="hidden lg:block fixed top-6 right-8 z-50">
                     <NotificationBell userId={user?._id} showLabel={false} />
                 </div>
@@ -729,7 +731,7 @@ function MainLayout({ children }) {
                 <Sidebar />
                 <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar relative">
                     {children}
-                    <BottomNav />
+                    {!isReels && <BottomNav />}
                 </main>
             </div>
         </div>
@@ -837,6 +839,7 @@ function App() {
                                     <Route path="/confessions" element={<MainLayout><Communities /></MainLayout>} />
                                     <Route path="/discover" element={<MainLayout><DiscoverPage /></MainLayout>} />
                                     <Route path="/pulse" element={<MainLayout><Pulse /></MainLayout>} />
+                                    <Route path="/reels" element={<MainLayout><Reels /></MainLayout>} />
                                     <Route path="/stories/:username" element={<StoriesPage />} />
                                     <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
                                     <Route path="/stories" element={<StoriesPage />} />

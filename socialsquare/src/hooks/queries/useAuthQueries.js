@@ -476,6 +476,31 @@ export function useRemoveFollower() {
     });
 }
 
+// ─── CLOSE FRIENDS MUTATION ───────────────────────────────────────────────────
+export function useToggleCloseFriend() {
+    const qc = useQueryClient();
+    const user = useAuthStore(s => s.user);
+    const setUser = useAuthStore(s => s.setUser);
+
+    return useMutation({
+        mutationFn: ({ targetUserId }) =>
+            api.post(`${BASE}/api/auth/close-friends/${targetUserId}/toggle`),
+        onSuccess: (data, { targetUserId }) => {
+            if (user) {
+                let newCloseFriends = user.closeFriends || [];
+                if (data.data.isCloseFriend) {
+                    newCloseFriends = [...newCloseFriends, targetUserId];
+                } else {
+                    newCloseFriends = newCloseFriends.filter(id => id?.toString() !== targetUserId?.toString());
+                }
+                setUser({ ...user, closeFriends: newCloseFriends });
+            }
+            qc.invalidateQueries({ queryKey: authKeys.following(user?._id) });
+            qc.invalidateQueries({ queryKey: authKeys.userProfile(targetUserId) });
+        },
+    });
+}
+
 // ─── GROUPS & COMMUNITIES ───────────────────────────────────────────────────
 export function useGroups() {
     const initialized = useAuthStore(s => s.initialized);
