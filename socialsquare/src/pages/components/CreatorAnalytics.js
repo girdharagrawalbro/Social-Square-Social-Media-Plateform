@@ -29,9 +29,9 @@ const CreatorAnalytics = ({ userId }) => {
     const { stats, topPosts } = analytics;
 
     return (
-        <div className="flex flex-col gap-8 pb-10">
+        <div className="flex flex-col gap-4 pb-10">
             {/* Glassmorphic Stats Grid */}
-            <div className="grid grid-cols-2 gap-4 px-1">
+            <div className="grid grid-cols-2 gap-2 px-1">
                 <div className="relative overflow-hidden group bg-gradient-to-br from-indigo-500/10 to-blue-500/10 p-5 rounded-3xl border border-indigo-500/20 backdrop-blur-lg transition-all hover:scale-[1.02]">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150"></div>
                     <span className="text-[10px] uppercase font-black text-indigo-500/70 tracking-widest block mb-2">Total Impressions</span>
@@ -65,16 +65,16 @@ const CreatorAnalytics = ({ userId }) => {
 
             {/* Performance Chart / List */}
             <div className="px-1">
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-3">
                     <h4 className="text-base font-black text-[var(--text-main)] m-0">Hall of Fame</h4>
                     <span className="text-[10px] text-indigo-500 font-bold bg-indigo-500/10 px-2 py-1 rounded-full">Top Performers</span>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2 pb-8">
                     {topPosts.map((post, idx) => (
                         <div
                             key={post.id}
-                            className="group flex items-center gap-4 p-3 bg-[var(--surface-2)] rounded-[24px] border border-[var(--border-color)] hover:border-indigo-500/30 transition-all hover:shadow-xl hover:shadow-indigo-500/5 active:scale-[0.98]"
+                            className="group flex items-center gap-3 p-2 bg-[var(--surface-2)] rounded-[24px] border border-[var(--border-color)] hover:border-indigo-500/30 transition-all hover:shadow-xl hover:shadow-indigo-500/5 active:scale-[0.98]"
                         >
                             <div className="relative w-14 h-14 rounded-2xl bg-[var(--surface-1)] overflow-hidden flex-shrink-0 shadow-sm border border-[var(--border-color)]">
                                 {post.image ? (

@@ -15,6 +15,8 @@ const StorySchema = new mongoose.Schema({
         content: { type: String, default: null },
         color: { type: String, default: '#ffffff' },
         position: { type: String, default: 'center' }, // top, center, bottom
+        x: { type: Number, default: 50 },
+        y: { type: Number, default: 50 }
     },
     viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -22,6 +24,20 @@ const StorySchema = new mongoose.Schema({
     visibility: { type: String, enum: ['public', 'followers', 'close_friends'], default: 'public' },
     sharedPostId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', default: null },
     sharedStoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story', default: null },
+    poll: {
+        question: { type: String, default: null },
+        options: [{
+            text: { type: String, required: true },
+            votes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+        }],
+        x: { type: Number, default: 50 },
+        y: { type: Number, default: 30 }
+    },
+    music: {
+        title: { type: String, default: null },
+        artist: { type: String, default: null },
+        url: { type: String, default: null },
+    },
     expiresAt: {
         type: Date,
         default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours

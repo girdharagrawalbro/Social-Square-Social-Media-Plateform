@@ -81,6 +81,18 @@ const PostSchema = new mongoose.Schema(
     // Security: One-way HMAC of owner ID (for anonymous posts)
     ownerToken: { type: String, select: false },
 
+    // Before / After Post Format
+    isBeforeAfter: { type: Boolean, default: false },
+    beforeAfter: {
+      beforeUrl: { type: String, default: null },
+      afterUrl: { type: String, default: null },
+      beforeLabel: { type: String, default: 'Before' },
+      afterLabel: { type: String, default: 'After' },
+      type: { type: String, enum: ['image', 'code', 'text'], default: 'image' },
+      beforeText: { type: String, default: null },
+      afterText: { type: String, default: null }
+    },
+
     // ─── MODERATION FIELDS ────────────────────────────────────────────────────
     isVisible: { type: Boolean, default: true, index: true },
     isFlagged: { type: Boolean, default: false, index: true },

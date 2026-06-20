@@ -77,10 +77,18 @@ const StoriesPage = () => {
         );
     };
 
-    const handleStoryLiked = (storyId, likes) => {
+    const handleStoryLiked = (storyId, likes, poll) => {
         setGroups(prev => prev.map(g => ({
             ...g,
-            stories: g.stories.map(s => s._id === storyId ? { ...s, likes } : s)
+            stories: g.stories.map(s => {
+                if (s._id === storyId) {
+                    const updated = { ...s };
+                    if (likes !== undefined) updated.likes = likes;
+                    if (poll !== undefined) updated.poll = poll;
+                    return updated;
+                }
+                return s;
+            })
         })));
     };
 

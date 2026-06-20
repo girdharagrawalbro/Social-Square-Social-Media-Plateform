@@ -52,6 +52,7 @@ const Profile = ({ userId }) => {
     const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
     const [tabPillReady, setTabPillReady] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
+    const [showCloseFriendsList, setShowCloseFriendsList] = useState(false);
 
     const [collections, setCollections] = useState([]);
     const [selectedCollection, setSelectedCollection] = useState(null);
@@ -499,7 +500,7 @@ const Profile = ({ userId }) => {
                                 </div>
                                 <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
                                     <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
-                                    <span className="text-lg font-black text-orange-500">🔥 {displayUser?.streak?.count || 0}</span>
+                                    <span className="text-lg font-black text-orange-500 flex items-center gap-1">{displayUser?.streak?.count || 0} <span className='text-sm'>🔥</span></span>
                                 </div>
                                 <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
                                     <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
@@ -510,7 +511,7 @@ const Profile = ({ userId }) => {
 
                         {/* Stats tiles */}
                         {!isBlockedByMe && (
-                            <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4">
+                            <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4 px-2">
                                 <div
                                     className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${isOwner || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
@@ -694,15 +695,15 @@ const Profile = ({ userId }) => {
                         <CollabManager mode="all" />
                     ) : activeTab === 'analytics' ? (
                         // Analytics tab
-                        <div className="px-4">
+                        <div className="px-2">
                             <CreatorAnalytics userId={profileId} />
                         </div>
                     ) : (
                         // Posts / Saved — Grid / Collections
                         <div className="w-full">
                             {activeTab === 'saved' && selectedCollection === null ? (
-                                <div className="px-4 py-3">
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                <div className="p-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                         {/* Create Collection Card */}
                                         <div onClick={() => setShowNewCollectionDialog(true)} style={{ cursor: 'pointer' }} className="flex flex-col gap-2 relative group">
                                             <div style={{ aspectRatio: '1', background: 'var(--surface-2)', borderRadius: '16px', border: '2px dashed var(--border-color)' }} className="relative w-full flex flex-col items-center justify-center gap-2 hover:bg-[var(--surface-3)] transition-colors">
@@ -720,7 +721,7 @@ const Profile = ({ userId }) => {
                                                     <i className="pi pi-bookmark-fill text-4xl text-[var(--text-sub)] opacity-30"></i>
                                                 )}
                                             </div>
-                                            <div className="px-1">
+                                            <div className="px-1 flex flex-col">
                                                 <h4 className="m-0 text-sm font-bold text-[var(--text-main)]">All Posts</h4>
                                                 <span className="text-[10px] text-[var(--text-sub)]">{savedPosts.length} posts</span>
                                             </div>
@@ -782,7 +783,7 @@ const Profile = ({ userId }) => {
                                     )}
 
                                     {/* Posts Grid */}
-                                    <div className="grid grid-cols-3 gap-[1px] sm:gap-[1px]">
+                                    <div className="grid grid-cols-3 gap-[1px] sm:gap-[1px] pb-16 md:pb-0">
                                         {isLoadingTab || loadingCollectionPosts ? (
                                             [1, 2, 3].map(i => (
                                                 <div key={i} className="bg-[var(--surface-2)] animate-pulse" style={{ aspectRatio: '1' }} />
@@ -898,7 +899,16 @@ const Profile = ({ userId }) => {
                 onHide={() => setShowFollowingList(false)}
                 className="rounded-3xl"
             >
-                <FollowFollowingList isfollowing={true} userId={displayUser?._id} />
+            </Dialog>
+
+            <Dialog
+                header="Close Friends"
+                visible={showCloseFriendsList}
+                style={{ width: '90vw', maxWidth: '420px', height: '80vh' }}
+                onHide={() => setShowCloseFriendsList(false)}
+                className="rounded-3xl"
+            >
+                <FollowFollowingList userId={loggeduser?._id} ids={loggeduser?.closeFriends || []} />
             </Dialog>
 
 
@@ -965,6 +975,21 @@ const Profile = ({ userId }) => {
                         <div className="flex-1">
                             <p className="m-0 text-sm font-bold">Active Sessions & Security</p>
                             <p className="m-0 text-[10px] text-[var(--text-sub)] opacity-70 mt-0.5">Manage logged in devices and 2FA settings</p>
+                        </div>
+                        <i className="pi pi-chevron-right text-[10px] text-gray-400"></i>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setSettingsVisible(false);
+                            setShowCloseFriendsList(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-3)] cursor-pointer text-left transition-all active:scale-95"
+                    >
+                        <span className="text-xl pr-2"><i className='pi pi-star-fill text-xl text-green-500' /></span>
+                        <div className="flex-1">
+                            <p className="m-0 text-sm font-bold">Close Friends</p>
+                            <p className="m-0 text-[10px] text-[var(--text-sub)] opacity-70 mt-0.5">Manage your close friends list</p>
                         </div>
                         <i className="pi pi-chevron-right text-[10px] text-gray-400"></i>
                     </button>

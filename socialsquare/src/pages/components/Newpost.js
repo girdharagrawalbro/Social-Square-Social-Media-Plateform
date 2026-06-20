@@ -47,6 +47,8 @@ const NewPost = ({ visible, onHide }) => {
     const createPostMutation = useCreatePost();
     const fileInputRef = useRef(null);
     const captionRef = useRef(null);
+    const beforeInputRef = useRef(null);
+    const afterInputRef = useRef(null);
 
     const [step, setStep] = useState(STEPS.SELECT);
     const [formData, setFormData] = useState({ caption: "", category: "Default" });
@@ -56,6 +58,16 @@ const NewPost = ({ visible, onHide }) => {
     const [video, setVideo] = useState(null);
     const [isPosting, setIsPosting] = useState(false);
     const [openFeaturePanel, setOpenFeaturePanel] = useState(null);
+
+    // Before / After State
+    const [isBeforeAfter, setIsBeforeAfter] = useState(false);
+    const [beforeAfterType, setBeforeAfterType] = useState('image'); // 'image' | 'code' | 'text'
+    const [beforeImage, setBeforeImage] = useState(null); // { preview, file }
+    const [afterImage, setAfterImage] = useState(null); // { preview, file }
+    const [beforeLabel, setBeforeLabel] = useState('Before');
+    const [afterLabel, setAfterLabel] = useState('After');
+    const [beforeText, setBeforeText] = useState('');
+    const [afterText, setAfterText] = useState('');
 
     // Location & music
     const [location, setLocation] = useState({ name: '', lat: null, lng: null });
@@ -132,6 +144,14 @@ const NewPost = ({ visible, onHide }) => {
         setExpiresIn('');
         setUnlocksAt('');
         setSelectedGroupId(null);
+        setIsBeforeAfter(false);
+        setBeforeAfterType('image');
+        setBeforeImage(null);
+        setAfterImage(null);
+        setBeforeLabel('Before');
+        setAfterLabel('After');
+        setBeforeText('');
+        setAfterText('');
     };
 
     const handleCloseInternal = (force = false) => {
@@ -359,6 +379,22 @@ const NewPost = ({ visible, onHide }) => {
 
     const removeTagUser = (id) => {
         setTaggedUsers(prev => prev.filter(c => c._id !== id));
+    };
+
+    const handleBeforeAfterFileSelect = (e, target) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const typeErr = validateImageType(file);
+        if (typeErr) { toast.error(typeErr); return; }
+        const sizeWarn = validateImageFile(file);
+        if (sizeWarn) toast.error(sizeWarn);
+        const preview = URL.createObjectURL(file);
+        if (target === 'before') {
+            setBeforeImage({ file, preview });
+        } else {
+            setAfterImage({ file, preview });
+        }
+        e.target.value = '';
     };
 
     const handleFileSelect = async (e) => {
@@ -652,7 +688,15 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     const handleSubmit = async () => {
-        if (!formData.caption.trim() && images.length === 0 && !video) { toast.error("Please add a caption, image, or video!"); return; }
+        if (isBeforeAfter) {
+            if (beforeAfterType === 'image') {
+                if (!beforeImage || !afterImage) { toast.error("Please upload both Before and After images!"); return; }
+            } else {
+                if (!beforeText.trim() || !afterText.trim()) { toast.error("Please write both Before and After contents!"); return; }
+            }
+        } else {
+            if (!formData.caption.trim() && images.length === 0 && !video) { toast.error("Please add a caption, image, or video!"); return; }
+        }
 
         // 1. Take snapshot of current state
         const imagesToUpload = [...images];
@@ -674,6 +718,8 @@ const NewPost = ({ visible, onHide }) => {
         } : null;
         const grp = selectedGroupId;
         const isCollab = isCollaborative;
+        const beforeImageToUpload = beforeImage;
+        const afterImageToUpload = afterImage;
 
         // 2. Close popup with 1s delay for better UX
         setIsPosting(true);
@@ -693,6 +739,16 @@ const NewPost = ({ visible, onHide }) => {
             try {
                 const batchId = Math.random().toString(36).substring(2, 10) + '-' + Date.now();
                 const folderPath = `posts/${batchId}`;
+
+                let beforeUrl = null;
+                let afterUrl = null;
+                if (isBeforeAfter && beforeAfterType === 'image') {
+                    const beforeRes = await uploadToCloudinary(beforeImageToUpload.file, null, { folder: folderPath });
+                    beforeUrl = typeof beforeRes === 'string' ? beforeRes : beforeRes?.url;
+
+                    const afterRes = await uploadToCloudinary(afterImageToUpload.file, null, { folder: folderPath });
+                    afterUrl = typeof afterRes === 'string' ? afterRes : afterRes?.url;
+                }
 
                 let imageURLs = [];
                 if (imagesToUpload.length > 0) {
@@ -753,7 +809,17 @@ const NewPost = ({ visible, onHide }) => {
                     videoURL: videoUrl, videoDuration, videoThumbnail, mood,
                     isAiGenerated: aiGen,
                     poll, groupId: grp, isCollaborative: isCollab,
-                    visibility
+                    visibility,
+                    isBeforeAfter,
+                    beforeAfter: isBeforeAfter ? {
+                        type: beforeAfterType,
+                        beforeUrl,
+                        afterUrl,
+                        beforeLabel,
+                        afterLabel,
+                        beforeText: beforeAfterType !== 'image' ? beforeText : null,
+                        afterText: beforeAfterType !== 'image' ? afterText : null
+                    } : null
                 };
 
                 const response = await createPostMutation.mutateAsync(postData);
@@ -860,6 +926,20 @@ const NewPost = ({ visible, onHide }) => {
                             AI Magic Post
                         </button>
                     )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                        onClick={() => {
+                            setIsBeforeAfter(true);
+                            setBeforeAfterType('image');
+                            setStep(STEPS.FINALIZE);
+                        }}
+                        className="flex-1 bg-gradient-to-tr from-rose-500 to-orange-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
+                    >
+                        <i className="pi pi-arrows-h text-sm"></i>
+                        Before / After Post
+                    </button>
                 </div>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
@@ -1081,73 +1161,249 @@ const NewPost = ({ visible, onHide }) => {
     );
 
     const renderFinalize = () => {
-        const hasMedia = images.length > 0 || video;
+        const hasMedia = isBeforeAfter ? true : (images.length > 0 || video);
 
         return (
             <div className={`flex flex-col md:flex-row w-full h-[calc(100vh-120px)] md:h-[calc(90vh-45px)] md:max-h-[600px] ${!hasMedia ? 'justify-center' : ''}`}>
                 {/* Left: Media Preview */}
                 {hasMedia && (
-                    <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-0 relative flex-shrink-0">
-                        {/* Main media display */}
-                        <div className="flex-1 flex h-[40vh] items-center justify-center w-full relative">
-                            {activeMediaType === 'video' && video ? (
-                                <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
-                            ) : (
-                                images.length > 0 && (
-                                    <img
-                                        src={images[activeImageIndex]?.preview || images[0]?.preview}
-                                        key={images[activeImageIndex]?.preview || images[0]?.preview}
-                                        className="w-full h-full object-contain"
-                                        alt="preview"
-                                    />
-                                )
-                            )}
-                            {/* Remove active media button */}
-                            <button
-                                onClick={() => {
-                                    if (activeMediaType === 'video') {
-                                        setVideo(null);
-                                        if (images.length > 0) {
-                                            setActiveMediaType('image');
-                                            setActiveImageIndex(0);
-                                        }
-                                    } else {
-                                        const updatedImages = images.filter((_, idx) => idx !== activeImageIndex);
-                                        setImages(updatedImages);
-                                        if (updatedImages.length > 0) {
-                                            setActiveImageIndex(Math.max(0, activeImageIndex - 1));
-                                        } else if (video) {
-                                            setActiveMediaType('video');
-                                        }
-                                    }
-                                }}
-                                title="Remove current media"
-                                className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white text-[10px] font-bold p-2 rounded-lg flex items-center justify-center border border-white/20 backdrop-blur transition-all cursor-pointer z-10"
-                            >
-                                <i className="pi pi-trash text-[12px]"></i>
-                            </button>
-                            {/* Recrop active image button */}
-                            {activeMediaType === 'image' && images.length > 0 && (
+                    <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-4 relative flex-shrink-0 overflow-y-auto custom-scrollbar">
+                        {isBeforeAfter ? (
+                            <div className="w-full h-full flex flex-col gap-4 max-w-[500px] justify-center">
+                                {/* Format Selector */}
+                                <div className="flex bg-[var(--surface-3)] p-1 rounded-xl gap-1">
+                                    {['image', 'code', 'text'].map((t) => (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => setBeforeAfterType(t)}
+                                            style={{ background: beforeAfterType === t ? '#6366f1' : 'transparent', color: beforeAfterType === t ? '#fff' : 'var(--text-sub)' }}
+                                            className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer"
+                                        >
+                                            {t === 'image' ? '📷 Image' : t === 'code' ? '💻 Code' : '📝 Text'}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Inputs for Image Comparison */}
+                                {beforeAfterType === 'image' && (
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex gap-4">
+                                            {/* Before image upload */}
+                                            <div 
+                                                onClick={() => beforeInputRef.current?.click()}
+                                                style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', background: 'var(--surface-2)', aspectRatio: '1/1', position: 'relative', cursor: 'pointer' }}
+                                                className="flex-1 flex flex-col items-center justify-center text-center p-2 overflow-hidden hover:brightness-110 transition"
+                                            >
+                                                {beforeImage ? (
+                                                    <>
+                                                        <img src={beforeImage.preview} alt="Before preview" className="w-full h-full object-cover absolute inset-0" />
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setBeforeImage(null); }}
+                                                            className="absolute top-1 right-1 bg-black/75 hover:bg-red-500 text-white border-0 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer text-[10px]"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-[var(--text-sub)]">Upload Before</span>
+                                                )}
+                                            </div>
+
+                                            {/* After image upload */}
+                                            <div 
+                                                onClick={() => afterInputRef.current?.click()}
+                                                style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', background: 'var(--surface-2)', aspectRatio: '1/1', position: 'relative', cursor: 'pointer' }}
+                                                className="flex-1 flex flex-col items-center justify-center text-center p-2 overflow-hidden hover:brightness-110 transition"
+                                            >
+                                                {afterImage ? (
+                                                    <>
+                                                        <img src={afterImage.preview} alt="After preview" className="w-full h-full object-cover absolute inset-0" />
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setAfterImage(null); }}
+                                                            className="absolute top-1 right-1 bg-black/75 hover:bg-red-500 text-white border-0 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer text-[10px]"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-[var(--text-sub)]">Upload After</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Labels */}
+                                        <div className="flex gap-4">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Before Label" 
+                                                value={beforeLabel} 
+                                                onChange={e => setBeforeLabel(e.target.value)}
+                                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
+                                            />
+                                            <input 
+                                                type="text" 
+                                                placeholder="After Label" 
+                                                value={afterLabel} 
+                                                onChange={e => setAfterLabel(e.target.value)}
+                                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Inputs for Code Comparison */}
+                                {beforeAfterType === 'code' && (
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Old Code (Before)</span>
+                                            <textarea 
+                                                rows={4} 
+                                                placeholder="Paste old/original code snippet here..."
+                                                value={beforeText}
+                                                onChange={e => setBeforeText(e.target.value)}
+                                                style={{ fontFamily: 'monospace' }}
+                                                className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl p-3 text-xs text-[var(--text-main)] outline-none resize-none"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">New Code (After)</span>
+                                            <textarea 
+                                                rows={4} 
+                                                placeholder="Paste refactored/new code snippet here..."
+                                                value={afterText}
+                                                onChange={e => setAfterText(e.target.value)}
+                                                style={{ fontFamily: 'monospace' }}
+                                                className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl p-3 text-xs text-[var(--text-main)] outline-none resize-none"
+                                            />
+                                        </div>
+                                        {/* Labels */}
+                                        <div className="flex gap-4">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Before Label" 
+                                                value={beforeLabel} 
+                                                onChange={e => setBeforeLabel(e.target.value)}
+                                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
+                                            />
+                                            <input 
+                                                type="text" 
+                                                placeholder="After Label" 
+                                                value={afterLabel} 
+                                                onChange={e => setAfterLabel(e.target.value)}
+                                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Inputs for Text Comparison */}
+                                {beforeAfterType === 'text' && (
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Rough Draft / Version 1</span>
+                                            <textarea 
+                                                rows={4} 
+                                                placeholder="Write old copy or original text here..."
+                                                value={beforeText}
+                                                onChange={e => setBeforeText(e.target.value)}
+                                                className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl p-3 text-xs text-[var(--text-main)] outline-none resize-none"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Final Draft / Version 2</span>
+                                            <textarea 
+                                                rows={4} 
+                                                placeholder="Write updated copy or polished text here..."
+                                                value={afterText}
+                                                onChange={e => setAfterText(e.target.value)}
+                                                className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl p-3 text-xs text-[var(--text-main)] outline-none resize-none"
+                                            />
+                                        </div>
+                                        {/* Labels */}
+                                        <div className="flex gap-4">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Before Label" 
+                                                value={beforeLabel} 
+                                                onChange={e => setBeforeLabel(e.target.value)}
+                                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
+                                            />
+                                            <input 
+                                                type="text" 
+                                                placeholder="After Label" 
+                                                value={afterLabel} 
+                                                onChange={e => setAfterLabel(e.target.value)}
+                                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <input ref={beforeInputRef} type="file" accept="image/*" onChange={(e) => handleBeforeAfterFileSelect(e, 'before')} hidden />
+                                <input ref={afterInputRef} type="file" accept="image/*" onChange={(e) => handleBeforeAfterFileSelect(e, 'after')} hidden />
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex h-[40vh] items-center justify-center w-full relative">
+                                {activeMediaType === 'video' && video ? (
+                                    <video src={video.preview} autoPlay muted loop className="w-full h-full object-contain" />
+                                ) : (
+                                    images.length > 0 && (
+                                        <img
+                                            src={images[activeImageIndex]?.preview || images[0]?.preview}
+                                            key={images[activeImageIndex]?.preview || images[0]?.preview}
+                                            className="w-full h-full object-contain"
+                                            alt="preview"
+                                        />
+                                    )
+                                )}
+                                {/* Remove active media button */}
                                 <button
-                                    onClick={() => handleEditImage(images[activeImageIndex])}
-                                    title="Recrop image"
-                                    className="absolute top-2 right-12 bg-black/60 hover:bg-[#6366f1] text-white text-[10px] font-bold p-2 rounded-lg flex items-center justify-center border border-white/20 backdrop-blur transition-all cursor-pointer z-10"
+                                    onClick={() => {
+                                        if (activeMediaType === 'video') {
+                                            setVideo(null);
+                                            if (images.length > 0) {
+                                                setActiveMediaType('image');
+                                                setActiveImageIndex(0);
+                                            }
+                                        } else {
+                                            const updatedImages = images.filter((_, idx) => idx !== activeImageIndex);
+                                            setImages(updatedImages);
+                                            if (updatedImages.length > 0) {
+                                                setActiveImageIndex(Math.max(0, activeImageIndex - 1));
+                                            } else if (video) {
+                                                setActiveMediaType('video');
+                                            }
+                                        }
+                                    }}
+                                    title="Remove current media"
+                                    className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white text-[10px] font-bold p-2 rounded-lg flex items-center justify-center border border-white/20 backdrop-blur transition-all cursor-pointer z-10"
                                 >
-                                    <i className="pi pi-pencil text-[12px]"></i>
+                                    <i className="pi pi-trash text-[12px]"></i>
                                 </button>
-                            )}
-                            {/* Add more images button */}
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                title="Add more images"
-                                className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 border border-white/20 backdrop-blur transition-all"
-                            >
-                                <i className="pi pi-plus text-[9px]"></i>
-                                Add Image
-                            </button>
-                        </div>
+                                {/* Recrop active image button */}
+                                {activeMediaType === 'image' && images.length > 0 && (
+                                    <button
+                                        onClick={() => handleEditImage(images[activeImageIndex])}
+                                        title="Recrop image"
+                                        className="absolute top-2 right-12 bg-black/60 hover:bg-[#6366f1] text-white text-[10px] font-bold p-2 rounded-lg flex items-center justify-center border border-white/20 backdrop-blur transition-all cursor-pointer z-10"
+                                    >
+                                        <i className="pi pi-pencil text-[12px]"></i>
+                                    </button>
+                                )}
+                                {/* Add more images button */}
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    title="Add more images"
+                                    className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 border border-white/20 backdrop-blur transition-all"
+                                >
+                                    <i className="pi pi-plus text-[9px]"></i>
+                                    Add Image
+                                </button>
+                            </div>
+                        )}
                         {/* Unified thumbnail strip — shown whenever there is a video, or 1+ images */}
-                        {(video || images.length > 0) ? (
+                        {!isBeforeAfter && (video || images.length > 0) ? (
                             <div className="w-full p-2 bg-black/40 backdrop-blur-md flex gap-2 overflow-x-auto no-scrollbar border-t border-white/10">
                                 {/* Video thumbnail */}
                                 {video && (

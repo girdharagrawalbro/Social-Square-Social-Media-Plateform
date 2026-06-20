@@ -16,6 +16,7 @@ import { Dialog } from 'primereact/dialog';
 import FollowFollowingList from './FollowFollowingList';
 import PostMenu from './ui/PostMenu';
 import ProgressiveImage from './ui/ProgressiveImage';
+import { BeforeAfterView } from './ui/PostItem';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import PostDetailSkeleton from './ui/PostDetailSkeleton';
@@ -216,8 +217,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             />
 
 
-            <div className={`flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative ${(!post?.video && images.length === 0) ? 'post-detail-text-only' : ''}`} style={{ borderRadius: isDesktop ? '12px' : '0' }}>
-                {(!post?.video && images.length === 0) && (
+            <div className={`flex flex-col h-full bg-[var(--surface-1)] overflow-hidden relative ${(!post?.video && images.length === 0 && !post.isBeforeAfter) ? 'post-detail-text-only' : ''}`} style={{ borderRadius: isDesktop ? '12px' : '0' }}>
+                {(!post?.video && images.length === 0 && !post.isBeforeAfter) && (
                     <style>{`
                         @media (min-width: 1024px) {
                             .p-dialog:has(.post-detail-text-only) {
@@ -230,9 +231,21 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                 <div className="flex flex-1 overflow-hidden">
                     {/* LEFT COLUMN - IMAGE */}
-                    {(post?.video || images.length > 0) && (
+                    {(post?.video || images.length > 0 || post.isBeforeAfter) && (
                         <div className="hidden md:flex flex-1 bg-[var(--surface-1)] items-center justify-center p-0 relative overflow-hidden">
-                            <div className="relative w-full h-full flex items-center justify-center">
+                            {post.isBeforeAfter && post.beforeAfter ? (
+                                <div className="w-full p-4">
+                                    <BeforeAfterView
+                                        post={post}
+                                        beforeAfter={post.beforeAfter}
+                                        onImageDoubleClick={handleImageDoubleClick}
+                                        onImageTap={handleImageTap}
+                                        locked={false}
+                                        heartVisible={heartVisible}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="relative w-full h-full flex items-center justify-center">
                                 {/* VIDEO RENDERER */}
                                 {post?.video ? (
                                     <div className="relative w-full h-full flex items-center justify-center bg-black">
@@ -328,18 +341,30 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     </button>
                                 )}
                             </div>
+                            )}
                         </div>
                     )}
 
                     {/* RIGHT COLUMN - ACTIONS & COMMENTS */}
-                    <div className={`${(post?.video || images.length > 0) ? 'w-full md:w-[450px]' : 'w-full'} flex flex-col h-full ${(post?.video || images.length > 0) && isDesktop ? 'border-l border-[var(--border-color)]' : ''} bg-[var(--surface-1)]`}>
+                    <div className={`${(post?.video || images.length > 0 || post.isBeforeAfter) ? 'w-full md:w-[450px]' : 'w-full'} flex flex-col h-full ${(post?.video || images.length > 0 || post.isBeforeAfter) && isDesktop ? 'border-l border-[var(--border-color)]' : ''} bg-[var(--surface-1)]`}>
                         {/* Scrollable Content */}
                         <div className="flex-1 flex flex-col min-h-0">
                             {/* MOBILE ONLY - MEDIA (image/video). Desktop uses the left column. */}
-                            {(post?.video || images.length > 0) && (
+                            {(post?.video || images.length > 0 || post.isBeforeAfter) && (
                                 <div className="md:hidden flex-shrink-0 border-b border-[var(--border-color)] bg-[var(--surface-1)]">
-                                    <div className="relative w-full h-[34vh] max-h-[360px] flex items-center justify-center overflow-hidden">
-                                        {post?.video ? (
+                                    <div className="relative w-full h-full min-h-[260px] flex items-center justify-center overflow-hidden">
+                                        {post.isBeforeAfter && post.beforeAfter ? (
+                                            <div className="w-full p-3">
+                                                <BeforeAfterView
+                                                    post={post}
+                                                    beforeAfter={post.beforeAfter}
+                                                    onImageDoubleClick={handleImageDoubleClick}
+                                                    onImageTap={handleImageTap}
+                                                    locked={false}
+                                                    heartVisible={heartVisible}
+                                                />
+                                            </div>
+                                        ) : post?.video ? (
                                             <>
                                                 <video
                                                     src={post.video}
