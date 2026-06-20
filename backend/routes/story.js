@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Story = require('../models/Story');
 const User = require('../models/User');
 const Conversation = require('../models/Conversation');
@@ -27,10 +28,12 @@ router.post('/create', verifyToken, [
     body('sharedStoryId').optional().isMongoId(),
     body('mentionIds').optional().isArray(),
     body('mentionIds.*').optional().isMongoId(),
+    body('poll').optional().isObject(),
+    body('music').optional().isObject(),
     validate
 ], async (req, res) => {
     try {
-        const { mediaUrl, mediaType, text, sharedPostId, sharedStoryId, thumbnailUrl, mentionIds, visibility } = req.body;
+        const { mediaUrl, mediaType, text, sharedPostId, sharedStoryId, thumbnailUrl, mentionIds, visibility, poll, music } = req.body;
         const userId = req.userId;
         if (!mediaUrl || !mediaType) return res.status(400).json({ message: 'Required fields missing.' });
 
@@ -44,7 +47,9 @@ router.post('/create', verifyToken, [
             sharedPostId: sharedPostId || null,
             sharedStoryId: sharedStoryId || null,
             mentions: mentionIds || [],
-            visibility: visibility || 'public'
+            visibility: visibility || 'public',
+            poll: poll || undefined,
+            music: music || undefined
         });
         await story.save();
         
@@ -250,7 +255,8 @@ router.post('/like/:storyId', verifyToken, [
             if (_io) {
                 _io.emit('storyUpdate', {
                     storyId: updatedStory._id,
-                    likesCount: updatedStory.likes.length
+                    likesCount: updatedStory.likes.length,
+                    likes: updatedStory.likes
                 });
             }
             const resObj = updatedStory.toObject();
@@ -268,7 +274,8 @@ router.post('/like/:storyId', verifyToken, [
             if (_io) {
                 _io.emit('storyUpdate', {
                     storyId: updatedStory._id,
-                    likesCount: updatedStory.likes.length
+                    likesCount: updatedStory.likes.length,
+                    likes: updatedStory.likes
                 });
             }
 
@@ -390,6 +397,45 @@ router.post('/reply/:storyId', verifyToken, [
         }
 
         res.status(200).json({ message: 'Reply sent' });
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ─── VOTE IN POLL (PROTECTED) ───────────────────────────────────────────────
+router.post('/vote/:storyId', verifyToken, [
+    param('storyId').isMongoId().withMessage('Invalid story ID'),
+    body('optionIndex').isInt({ min: 0 }).withMessage('Invalid option index'),
+    validate
+], async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { optionIndex } = req.body;
+
+        const story = await Story.findById(req.params.storyId);
+        if (!story) return res.status(404).json({ message: 'Story not found.' });
+        if (!story.poll || !story.poll.options || !story.poll.options[optionIndex]) {
+            return res.status(400).json({ message: 'Invalid poll option.' });
+        }
+
+        // Clean user's previous votes from this poll (single choice only)
+        story.poll.options.forEach(opt => {
+            opt.votes = opt.votes.filter(id => id.toString() !== userId.toString());
+        });
+
+        // Register new vote
+        story.poll.options[optionIndex].votes.push(userId);
+
+        await story.save();
+
+        if (_io) {
+            _io.emit('storyUpdate', {
+                storyId: story._id,
+                poll: story.poll
+            });
+        }
+
+        res.status(200).json(story);
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
     }

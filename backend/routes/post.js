@@ -173,7 +173,8 @@ router.post("/create", verifyToken, [
             caption, category, imageURLs, videoURL, location, music,
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
-            isAiGenerated, groupId, poll, videoThumbnail, mentionIds, visibility
+            isAiGenerated, groupId, poll, videoThumbnail, mentionIds, visibility,
+            isBeforeAfter, beforeAfter
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
 
@@ -209,9 +210,14 @@ router.post("/create", verifyToken, [
             collaborators = collabUsers.map(u => ({ userId: u._id, fullname: u.fullname, profile_picture: u.profile_picture, status: 'pending' }));
         }
 
+        let calculatedImageUrls = Array.isArray(imageURLs) ? imageURLs : [];
+        if (isBeforeAfter && beforeAfter && beforeAfter.type === 'image') {
+            calculatedImageUrls = [beforeAfter.beforeUrl, beforeAfter.afterUrl].filter(Boolean);
+        }
+
         const newPost = new Post({
             caption, category,
-            image_urls: Array.isArray(imageURLs) ? imageURLs : [],
+            image_urls: calculatedImageUrls,
             video: videoURL || null,
             videoThumbnail: videoThumbnail || null,
             user: isAnonymous
@@ -235,6 +241,8 @@ router.post("/create", verifyToken, [
             groupId: groupId || null,
             poll: poll || null,
             visibility: visibility || 'public',
+            isBeforeAfter: !!isBeforeAfter,
+            beforeAfter: beforeAfter || null,
             // 🛡️ Store real authorId (select: false) to enforce private user follower checks
             authorId: loggedUserId
         });
@@ -1463,9 +1471,10 @@ router.post("/like", verifyToken, [
 
         if (!updatedPost) {
             // Check if post exists or if it's already liked
-            const postExists = await Post.exists({ _id: postId });
-            if (!postExists) return res.status(404).json({ message: 'Post not found.' });
-            return res.status(400).json({ message: 'Already liked.' });
+            const post = await Post.findById(postId);
+            if (!post) return res.status(404).json({ message: 'Post not found.' });
+            // Return success even if already liked — for optimistic UI robustness
+            return res.status(200).json({ success: true, message: 'Already liked.', post });
         }
 
         const newScore = computeScore(updatedPost);

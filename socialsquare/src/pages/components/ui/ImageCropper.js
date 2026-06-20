@@ -61,32 +61,26 @@ const ImageCropper = ({
 }) => {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [aspect, setAspect] = useState(initialAspect);
+  const [aspect, setAspect] = useState(null);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isCropperLoaded, setIsCropperLoaded] = useState(false);
   const [imageAspect, setImageAspect] = useState(initialAspect);
   const [trimRange, setTrimRange] = useState([0, Math.min(duration, 60)]);
-  const [selectedPreset, setSelectedPreset] = useState('Square');
+  const [selectedPreset, setSelectedPreset] = useState('Custom');
+  const [customWidth, setCustomWidth] = useState(250);
+  const [customHeight, setCustomHeight] = useState(250);
 
   useEffect(() => {
     if (visible) {
       setCrop({ x: 0, y: 0 });
       setZoom(1);
-      setAspect(initialAspect);
-      if (initialAspect === 1) {
-        setSelectedPreset('Square');
-      } else if (initialAspect === 9 / 16) {
-        setSelectedPreset('Portrait');
-      } else if (initialAspect === 16 / 9) {
-        setSelectedPreset('Landscape');
-      } else {
-        setSelectedPreset('Original');
-      }
+      setAspect(null);
+      setSelectedPreset('Custom');
       setIsCropperLoaded(false);
       setTrimRange([0, Math.min(duration, 60)]);
     }
-  }, [visible, image, video, initialAspect, duration]);
+  }, [visible, image, video, duration]);
 
   const onCropChange = (crop) => setCrop(crop);
   const onZoomChange = (zoom) => setZoom(zoom);
@@ -123,6 +117,7 @@ const ImageCropper = ({
 
   // ✅ Original is now part of the presets array, using live imageAspect
   const aspectPresets = [
+    { label: 'Custom', value: null },
     { label: 'Square', value: 1 },
     { label: 'Portrait', value: 9 / 16 },
     { label: 'Landscape', value: 16 / 9 },
@@ -165,7 +160,8 @@ const ImageCropper = ({
             video={video}
             crop={crop}
             zoom={zoom}
-            aspect={aspect}
+            aspect={selectedPreset === 'Custom' ? undefined : aspect}
+            cropSize={selectedPreset === 'Custom' ? { width: customWidth, height: customHeight } : undefined}
             onCropChange={onCropChange}
             onCropComplete={onCropCompleteInternal}
             onZoomChange={onZoomChange}
@@ -185,28 +181,29 @@ const ImageCropper = ({
 
         {/* Controls */}
         <div className="p-4 bg-[var(--surface-1)]">
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               {/* ✅ Single unified loop — no separate Original button */}
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              <select
+                value={selectedPreset}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const preset = aspectPresets.find(p => p.label === val);
+                  if (preset) {
+                    setAspect(preset.value);
+                    setSelectedPreset(preset.label);
+                    setZoom(1);
+                    setCrop({ x: 0, y: 0 });
+                  }
+                }}
+                className="bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)] rounded-lg px-3 py-1.5 text-xs font-bold outline-none cursor-pointer hover:border-[var(--text-sub)] transition"
+              >
                 {aspectPresets.map((preset) => (
-                  <button
-                    key={preset.label}
-                    onClick={() => {
-                      setAspect(preset.value);
-                      setSelectedPreset(preset.label);
-                      setZoom(1);
-                      setCrop({ x: 0, y: 0 });
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${selectedPreset === preset.label
-                      ? 'bg-[#808bf5] text-white border-[#808bf5]'
-                      : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[var(--text-sub)]'
-                      }`}
-                  >
+                  <option key={preset.label} value={preset.label} style={{ background: 'var(--surface-1)' }}>
                     {preset.label}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
 
               <div className="flex items-center gap-3">
                 <i className="pi pi-minus text-[8px] text-[var(--text-sub)]"></i>
@@ -222,6 +219,39 @@ const ImageCropper = ({
                 <i className="pi pi-plus text-[8px] text-[var(--text-sub)]"></i>
               </div>
             </div>
+
+            {selectedPreset === 'Custom' && (
+              <div className="flex flex-col gap-4 p-2 bg-[var(--surface-2)] rounded-xl border border-[var(--border-color)]">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-[var(--text-sub)]">
+                    <span>CROP WIDTH: {customWidth}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    value={customWidth}
+                    min={50}
+                    max={450}
+                    step={1}
+                    onChange={(e) => setCustomWidth(parseInt(e.target.value))}
+                    className="w-full h-1 bg-[var(--surface-3)] rounded-lg appearance-none cursor-pointer accent-[#808bf5]"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-[var(--text-sub)]">
+                    <span>CROP HEIGHT: {customHeight}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    value={customHeight}
+                    min={50}
+                    max={350}
+                    step={1}
+                    onChange={(e) => setCustomHeight(parseInt(e.target.value))}
+                    className="w-full h-1 bg-[var(--surface-3)] rounded-lg appearance-none cursor-pointer accent-[#808bf5]"
+                  />
+                </div>
+              </div>
+            )}
 
             {video && (
               <div className="flex flex-col gap-3 pt-4 border-t border-[var(--border-color)]">

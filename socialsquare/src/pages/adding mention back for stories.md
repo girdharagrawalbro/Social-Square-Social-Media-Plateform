@@ -1,28 +1,4 @@
-
-5. "Close Friends" List (Privacy Settings 🟢)
-A custom list of users. When publishing a new post or story, the creator can choose to share it only with their "Close Friends" circle.
-
-4. Interactive Story Stickers (Polls/Music 🎵)
-Enhancing the existing Stories feature with:
-
-Interactive Polls: Viewers can tap options and see real-time percentage results.
-Music Overlays: Attach a background audio track to a story.
-
-If you'd like to brainstorm or design one of these, you can write back with your choice, or use the /grill-me command to have an interactive interview to align on the details. Which one would you like to build?
-
-Before / after post format
-
-Show progress visually
-
-A native post format with two sides — then vs now, old code vs new code, rough draft vs final. Built into the post editor. Instagram has no structured way to show progress.
-
-Streak + consistency tracker
-
-Visible posting consistency
-
-Show a public streak on profiles — "posted 47 days straight," "shared work 3 weeks in a row." Like GitHub's contribution graph but for your creative/learning output. Duolingo-style engagement.
-
-
+not to hide after 5 sen in desktop 
 
 Streak + consistency tracker
 

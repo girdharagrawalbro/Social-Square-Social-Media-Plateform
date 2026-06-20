@@ -822,7 +822,20 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                             <div style={{ width: '100%', height: '100%' }}>
                                 <StoryViewerComp groups={storyModalGroups} startGroupIndex={storyModalGroupIndex} initialStoryId={storyModalInitialStoryId}
                                     onClose={() => setStoryModalOpen(false)} loggeduser={loggeduser} onStoryDeleted={() => setStoryModalOpen(false)}
-                                    onStoryLiked={() => { }} onOpenPostDetail={(postId) => { setSelectedPostId(postId); setShowPostModal(true); }}
+                                    onStoryLiked={(storyId, likes, poll) => {
+                                        setStoryModalGroups(prev => prev.map(g => ({
+                                            ...g,
+                                            stories: g.stories.map(s => {
+                                                if (s._id === storyId) {
+                                                    const updated = { ...s };
+                                                    if (likes !== undefined) updated.likes = likes;
+                                                    if (poll !== undefined) updated.poll = poll;
+                                                    return updated;
+                                                }
+                                                return s;
+                                            })
+                                        })));
+                                    }} onOpenPostDetail={(postId) => { setSelectedPostId(postId); setShowPostModal(true); }}
                                     onShareStory={(s) => { setSharingStory(s); setShareOpen(true); }} />
                             </div>
                         </Dialog>

@@ -191,20 +191,9 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
                             </button>
 
                             {/* Actions */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
                                 {u._id !== user?._id && (
                                     <>
-                                        {/* If it's followers list AND it's MY list, show Remove button */}
-                                        {!isfollowing && isMyProfile && (
-                                            <button
-                                                onClick={() => handleRemoveFollower(u._id)}
-                                                disabled={removeFollowerMutation.isPending}
-                                                className="text-[10px] sm:text-xs px-3 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] cursor-pointer font-semibold hover:bg-[var(--surface-1)] transition min-w-[70px]"
-                                            >
-                                                {(removeFollowerMutation.isPending && removeFollowerMutation.variables?.followerId === u._id) ? '...' : "Remove"}
-                                            </button>
-                                        )}
-
                                         {/* Close Friends Toggle (Only if following & my profile) */}
                                         {isFollowing && isMyProfile && (
                                             <button
@@ -217,6 +206,19 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
                                             </button>
                                         )}
 
+
+                                        {/* If it's followers list AND it's MY list, show Remove button */}
+                                        {!isfollowing && isMyProfile && (
+                                            <button
+                                                onClick={() => handleRemoveFollower(u._id)}
+                                                disabled={removeFollowerMutation.isPending}
+                                                className="text-[10px] sm:text-xs px-1 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] cursor-pointer font-semibold hover:bg-[var(--surface-1)] transition min-w-[70px]"
+                                            >
+                                                {(removeFollowerMutation.isPending && removeFollowerMutation.variables?.followerId === u._id) ? '...' : "Remove"}
+                                            </button>
+                                        )}
+
+
                                         {/* Always show follow/unfollow unless it's yourself */}
                                         {(() => {
                                             const isRequested = u.followRequests?.some(r => r?.toString() === user?._id?.toString());
@@ -226,7 +228,7 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
                                             return (
                                                 <button onClick={() => handleFollow(u._id, isRequested)}
                                                     disabled={isMutating}
-                                                    className={`text-[10px] sm:text-xs px-4 py-1.5 rounded-full border-0 cursor-pointer font-bold transition min-w-[85px] ${isFollowing ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}>
+                                                    className={`text-[10px] sm:text-xs px-1 py-1.5 rounded-full border-0 cursor-pointer font-bold transition min-w-[85px] ${isFollowing ? 'bg-[var(--surface-2)] text-[var(--text-main)] border border-[var(--border-color)]' : isRequested ? 'bg-[var(--surface-2)] text-[var(--text-sub)] border border-[var(--border-color)]' : 'bg-[#808bf5] text-white shadow-sm hover:opacity-90'}`}>
                                                     {isMutating
                                                         ? '...'
                                                         : (isFollowing ? 'Unfollow' : isRequested ? 'Requested' : 'Follow')}

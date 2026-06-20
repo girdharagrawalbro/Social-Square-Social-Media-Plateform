@@ -25,6 +25,13 @@ import MentionSuggestions from './ui/MentionSuggestions';
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
 
+const AUDIO_PRESETS = [
+    { title: 'Summer Lo-Fi Chill', artist: 'Lofi Dreamer', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
+    { title: 'Synthwave Breeze', artist: 'Retro Waver', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+    { title: 'Inspiring Acoustic', artist: 'Acoustic Guitar Band', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
+    { title: 'Sunset Chillout', artist: 'Sunset Groove', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
+];
+
 const StoryViewer = ({
     groups,
     startGroupIndex,
@@ -86,15 +93,75 @@ const StoryViewer = ({
         }
     }, [story, loggeduser?._id]);
 
+    const activeAudioRef = useRef(null);
+
+    // Sync active background music
     useEffect(() => {
-        const handleStoryUpdate = ({ storyId, likes }) => {
+        const musicUrl = story?.music?.url;
+
+        if (!musicUrl) {
+            if (activeAudioRef.current) {
+                activeAudioRef.current.pause();
+                activeAudioRef.current = null;
+            }
+            return;
+        }
+
+        if (activeAudioRef.current && activeAudioRef.current.src !== musicUrl) {
+            activeAudioRef.current.pause();
+            activeAudioRef.current = null;
+        }
+
+        if (!activeAudioRef.current) {
+            activeAudioRef.current = new Audio(musicUrl);
+            activeAudioRef.current.loop = true;
+            activeAudioRef.current.volume = 0.4;
+        }
+
+        if (isPaused) {
+            activeAudioRef.current.pause();
+        } else {
+            activeAudioRef.current.play().catch(err => {
+                console.log('Audio autoplay blocked by browser policy:', err);
+            });
+        }
+    }, [story?._id, story?.music?.url, isPaused]);
+
+    useEffect(() => {
+        return () => {
+            if (activeAudioRef.current) {
+                activeAudioRef.current.pause();
+                activeAudioRef.current = null;
+            }
+        };
+    }, []);
+
+    const handleVote = async (e, optionIndex) => {
+        e.stopPropagation();
+        if (!story?._id) return;
+        try {
+            const { api } = await import('../../store/zustand/useAuthStore');
+            const res = await api.post(`/api/story/vote/${story._id}`, { optionIndex });
+            onStoryLiked(story._id, undefined, res.data.poll);
+            toast.success('Vote registered!');
+        } catch (err) {
+            console.error('Failed to vote:', err);
+            toast.error('Failed to register vote');
+        }
+    };
+
+    useEffect(() => {
+        const handleStoryUpdate = ({ storyId, likes, poll }) => {
             if (story?._id === storyId) {
-                setIsLiked(likes?.some(id => id.toString() === loggeduser?._id?.toString()));
+                if (likes !== undefined) {
+                    setIsLiked(likes.some(id => id.toString() === loggeduser?._id?.toString()));
+                }
+                onStoryLiked(storyId, likes, poll);
             }
         };
         socket.on('storyUpdate', handleStoryUpdate);
         return () => socket.off('storyUpdate', handleStoryUpdate);
-    }, [story?._id, loggeduser?._id]);
+    }, [story?._id, loggeduser?._id, onStoryLiked]);
 
     const goNext = React.useCallback(() => {
         if (!group) return;
@@ -461,11 +528,228 @@ const StoryViewer = ({
                         </div>
                     </div>
                 )}
+
+                {/* Interactive Poll Sticker */}
+                {story.poll && story.poll.question && (
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            position: 'absolute',
+                            top: story.poll.y !== undefined ? `${story.poll.y}%` : '30%',
+                            left: story.poll.x !== undefined ? `${story.poll.x}%` : '50%',
+                            transform: 'translate(-50%, -50%)',
+                            background: 'rgba(255, 255, 255, 0.15)',
+                            backdropFilter: 'blur(16px)',
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                            borderRadius: '20px',
+                            padding: '16px',
+                            width: '290px',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                            zIndex: 100,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            transition: 'all 0.3s'
+                        }}
+                    >
+                        <div style={{
+                            fontSize: '14px',
+                            fontWeight: 800,
+                            color: '#fff',
+                            textAlign: 'center',
+                            wordBreak: 'break-word',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                            marginBottom: '4px'
+                        }}>
+                            {story.poll.question}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            {story.poll.options?.map((opt, idx) => {
+                                const optVotes = opt.votes || [];
+                                const optionVoted = optVotes.some(id => id.toString() === loggeduser?._id?.toString());
+                                const totalVotes = story.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0);
+                                const percent = totalVotes > 0 ? Math.round((optVotes.length / totalVotes) * 100) : 0;
+                                const userHasVoted = story.poll.options.some(o => o.votes?.some(id => id.toString() === loggeduser?._id?.toString()));
+
+                                if (userHasVoted) {
+                                    return (
+                                        <div
+                                            key={idx}
+                                            style={{
+                                                flex: 1,
+                                                height: '40px',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                border: optionVoted ? '2px solid #808bf5' : '1px solid rgba(255,255,255,0.2)',
+                                                borderRadius: '12px',
+                                                position: 'relative',
+                                                overflow: 'hidden',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '0 12px',
+                                                boxSizing: 'border-box'
+                                            }}
+                                        >
+                                            <div style={{
+                                                position: 'absolute',
+                                                left: 0,
+                                                top: 0,
+                                                bottom: 0,
+                                                width: `${percent}%`,
+                                                background: optionVoted ? 'rgba(128, 139, 245, 0.45)' : 'rgba(255, 255, 255, 0.2)',
+                                                transition: 'width 0.8s cubic-bezier(0.1, 0.8, 0.2, 1)',
+                                                zIndex: 1
+                                            }} />
+                                            <span style={{
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                color: '#fff',
+                                                zIndex: 2,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                marginRight: '4px'
+                                            }}>
+                                                {opt.text} {optionVoted && '✓'}
+                                            </span>
+                                            <span style={{
+                                                fontSize: '12px',
+                                                fontWeight: 800,
+                                                color: optionVoted ? '#fff' : 'rgba(255,255,255,0.9)',
+                                                zIndex: 2
+                                            }}>
+                                                {percent}%
+                                            </span>
+                                        </div>
+                                    );
+                                } else {
+                                    return (
+                                        <button
+                                            key={idx}
+                                            onClick={(e) => handleVote(e, idx)}
+                                            style={{
+                                                flex: 1,
+                                                height: '40px',
+                                                background: '#fff',
+                                                border: 'none',
+                                                borderRadius: '12px',
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                color: '#808bf5',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                                            }}
+                                            className="hover:scale-105 active:scale-95"
+                                        >
+                                            {opt.text}
+                                        </button>
+                                    );
+                                }
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Background Music Spinning Disc Overlay */}
+                {story.music?.url && (
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '80px',
+                        right: '16px',
+                        background: 'rgba(0, 0, 0, 0.65)',
+                        backdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '30px',
+                        padding: '6px 12px 6px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        zIndex: 100,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                        maxWidth: '220px',
+                        pointerEvents: 'none'
+                    }}>
+                        <div
+                            className={`music-disc-spinning ${isPaused ? 'music-disc-paused' : ''}`}
+                            style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                background: 'radial-gradient(circle, #333 30%, #111 31%, #111 60%, #333 61%, #000 80%)',
+                                border: '2px solid #fff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                                position: 'relative'
+                            }}
+                        >
+                            <div style={{
+                                width: '10px',
+                                height: '10px',
+                                borderRadius: '50%',
+                                backgroundColor: '#808bf5',
+                                border: '1px solid #fff'
+                            }} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <span style={{
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                color: '#fff',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                letterSpacing: '-0.2px'
+                            }}>
+                                {story.music.title}
+                            </span>
+                            <span style={{
+                                fontSize: '9px',
+                                color: 'rgba(255,255,255,0.7)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                            }}>
+                                {story.music.artist}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                <style>{`
+                    @keyframes music-disc-spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                    .music-disc-spinning {
+                        animation: music-disc-spin 6s linear infinite;
+                    }
+                    .music-disc-paused {
+                        animation-play-state: paused;
+                    }
+                `}</style>
             </div>
 
             {/* Overlay Text */}
             {story.text?.content && (
-                <div style={{ position: 'absolute', top: story.text.position === 'top' ? '25%' : story.text.position === 'bottom' ? '70%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: story.text.color || '#fff', fontSize: '24px', fontWeight: 800, textShadow: '0 4px 12px rgba(0,0,0,0.9)', textAlign: 'center', padding: '10px 20px', borderRadius: '12px', maxWidth: '85%', zIndex: 15 }}>
+                <div style={{
+                    position: 'absolute',
+                    top: story.text.y !== undefined ? `${story.text.y}%` : (story.text.position === 'top' ? '25%' : story.text.position === 'bottom' ? '70%' : '50%'),
+                    left: story.text.x !== undefined ? `${story.text.x}%` : '50%',
+                    transform: 'translate(-50%, -50%)',
+                    color: story.text.color || '#fff',
+                    fontSize: '24px',
+                    fontWeight: 800,
+                    textShadow: '0 4px 12px rgba(0,0,0,0.9)',
+                    textAlign: 'center',
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    maxWidth: '85%',
+                    zIndex: 15
+                }}>
                     {story.text.content}
                 </div>
             )}
@@ -882,6 +1166,79 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
 
     // Tagged users (Direct Mentions)
     const [taggedUsers, setTaggedUsers] = useState([]);
+
+    // Poll Sticker State
+    const [hasPoll, setHasPoll] = useState(false);
+    const [pollQuestion, setPollQuestion] = useState('');
+    const [pollOption1, setPollOption1] = useState('Yes');
+    const [pollOption2, setPollOption2] = useState('No');
+
+    // Music State
+    const [selectedMusic, setSelectedMusic] = useState(null);
+    const previewAudioRef = useRef(null);
+    const [pollPos, setPollPos] = useState({ x: 50, y: 30 });
+    const [textPos, setTextPos] = useState({ x: 50, y: 50 });
+    const previewContainerRef = useRef(null);
+    const [step, setStep] = useState(1);
+
+    const handlePointerDown = (e, type) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const container = previewContainerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startPos = type === 'poll' ? pollPos : textPos;
+
+        const handlePointerMove = (moveEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const deltaY = moveEvent.clientY - startY;
+
+            const pctX = startPos.x + (deltaX / rect.width) * 100;
+            const pctY = startPos.y + (deltaY / rect.height) * 100;
+
+            const boundedX = Math.max(5, Math.min(95, pctX));
+            const boundedY = Math.max(5, Math.min(95, pctY));
+
+            if (type === 'poll') {
+                setPollPos({ x: boundedX, y: boundedY });
+            } else {
+                setTextPos({ x: boundedX, y: boundedY });
+            }
+        };
+
+        const handlePointerUp = () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+    };
+
+    useEffect(() => {
+        if (selectedMusic) {
+            if (previewAudioRef.current) {
+                previewAudioRef.current.pause();
+            }
+            previewAudioRef.current = new Audio(selectedMusic.url);
+            previewAudioRef.current.loop = true;
+            previewAudioRef.current.volume = 0.4;
+            previewAudioRef.current.play().catch(e => console.log('Audio preview block', e));
+        } else {
+            if (previewAudioRef.current) {
+                previewAudioRef.current.pause();
+                previewAudioRef.current = null;
+            }
+        }
+        return () => {
+            if (previewAudioRef.current) {
+                previewAudioRef.current.pause();
+            }
+        };
+    }, [selectedMusic]);
     const [tagSearchTerm, setTagSearchTerm] = useState("");
     const [tagSearchResults, setTagSearchResults] = useState([]);
     const [isSearchingTags, setIsSearchingTags] = useState(false);
@@ -1029,22 +1386,40 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
             onClose();
         }, 1000);
 
-        const uploadToast = toast.loading("Uploading story...", {
+        const uploadToast = toast.loading("Sharing story...", {
             position: 'bottom-right'
         });
 
         (async () => {
             try {
                 const { api } = await import('../../store/zustand/useAuthStore');
+                const pollData = hasPoll ? {
+                    question: pollQuestion || "Ask a question...",
+                    options: [
+                        { text: pollOption1 || "Yes", votes: [] },
+                        { text: pollOption2 || "No", votes: [] }
+                    ],
+                    x: pollPos.x,
+                    y: pollPos.y
+                } : null;
+
+                const musicData = selectedMusic ? {
+                    title: selectedMusic.title,
+                    artist: selectedMusic.artist,
+                    url: selectedMusic.url
+                } : null;
+
                 if (sharedPostToUpload) {
                     const mediaUrl = sharedPostToUpload.image_urls?.[0] || sharedPostToUpload.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80';
                     const res = await api.post(`/api/story/create`, {
                         mediaUrl,
                         mediaType: 'image',
-                        text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
+                        text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload, x: textPos.x, y: textPos.y } : null,
                         sharedPostId: sharedPostToUpload._id,
                         mentionIds: tags.map(t => t._id),
-                        visibility
+                        visibility,
+                        poll: pollData,
+                        music: musicData
                     });
                     onCreated(res.data);
                 } else if (sharedStoryToUpload) {
@@ -1053,10 +1428,12 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                     const res = await api.post(`/api/story/create`, {
                         mediaUrl,
                         mediaType,
-                        text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
+                        text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload, x: textPos.x, y: textPos.y } : null,
                         sharedStoryId: sharedStoryToUpload._id,
                         mentionIds: tags.map(t => t._id),
-                        visibility
+                        visibility,
+                        poll: pollData,
+                        music: musicData
                     });
                     onCreated(res.data);
                 } else {
@@ -1076,9 +1453,11 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         const res = await api.post(`/api/story/create`, {
                             mediaUrl, mediaType: item.type,
                             thumbnailUrl,
-                            text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload } : null,
+                            text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload, x: textPos.x, y: textPos.y } : null,
                             mentionIds: tags.map(t => t._id),
-                            visibility
+                            visibility,
+                            poll: pollData,
+                            music: musicData
                         });
                         onCreated(res.data);
                     }
@@ -1097,7 +1476,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
             visible={true}
             onHide={onClose}
             showHeader={true}
-            header={`Create Story ${previews.length > 0 ? `(${previews.length})` : ''}`}
+            header={step === 1 ? `Create Story ${previews.length > 0 ? `(${previews.length})` : ''}` : "Story Settings"}
             style={{ width: '95vw', maxWidth: '400px' }}
             modal
             appendTo={document.body}
@@ -1107,8 +1486,47 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
             contentStyle={{ padding: '20px', background: 'var(--surface-1)', borderRadius: '10px', borderTopRightRadius: '0px', borderTopLeftRadius: '0px' }}
         >
             <div className="flex flex-col">
+
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
-                    <div onClick={() => !sharedPost && !sharedStory && fileInputRef.current?.click()} style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: (sharedPost || sharedStory) ? 'default' : 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                    <div
+                        ref={previewContainerRef}
+                        onClick={() => {
+                            const hasContent = previews.length > 0 || sharedPost || sharedStory;
+                            if (hasContent) {
+                                textInputRef.current?.focus();
+                            } else {
+                                fileInputRef.current?.click();
+                            }
+                        }}
+                        style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}
+                    >
+                        {!sharedPost && !sharedStory && previews.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                                style={{
+                                    position: 'absolute',
+                                    top: '4px',
+                                    right: '4px',
+                                    background: '#808bf5',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '20px',
+                                    padding: '6px 12px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    zIndex: 50,
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                                }}
+                            >
+                                <i className="pi pi-plus" style={{ fontSize: '9px' }}></i>
+                                Add
+                            </button>
+                        )}
                         {sharedPost ? (
                             <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
@@ -1136,8 +1554,8 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                             </div>
                         ) : currentMedia ? (
                             currentMedia.type === 'video'
-                                ? <video src={currentMedia.url} style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'contain' }} controls />
-                                : <img src={currentMedia.url} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'contain' }} />
+                                ? <video src={currentMedia.url} style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'contain' }} controls />
+                                : <img src={currentMedia.url} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'contain' }} />
                         ) : (
                             <div className="flex flex-col items-center gap-4">
                                 <p style={{ fontSize: '32px', margin: 0 }}>📸</p>
@@ -1162,8 +1580,73 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                             </div>
                         )}
                         {(currentMedia || sharedPost || sharedStory) && text && (
-                            <div style={{ position: 'absolute', top: textPosition === 'top' ? '15%' : textPosition === 'bottom' ? '75%' : '50%', left: '50%', transform: 'translate(-50%, -50%)', color: textColor, fontSize: '18px', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)', pointerEvents: 'none', width: '90%', textAlign: 'center', zIndex: 10 }}>
+                            <div
+                                onPointerDown={(e) => handlePointerDown(e, 'text')}
+                                style={{
+                                    position: 'absolute',
+                                    top: `${textPos.y}%`,
+                                    left: `${textPos.x}%`,
+                                    transform: 'translate(-50%, -50%)',
+                                    color: textColor,
+                                    fontSize: '18px',
+                                    fontWeight: 700,
+                                    textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                                    pointerEvents: 'auto',
+                                    cursor: 'move',
+                                    userSelect: 'none',
+                                    touchAction: 'none',
+                                    width: '90%',
+                                    textAlign: 'center',
+                                    zIndex: 10
+                                }}
+                            >
                                 {text}
+                            </div>
+                        )}
+                        {hasPoll && (
+                            <div
+                                onPointerDown={(e) => handlePointerDown(e, 'poll')}
+                                style={{
+                                    position: 'absolute',
+                                    top: `${pollPos.y}%`,
+                                    left: `${pollPos.x}%`,
+                                    transform: 'translate(-50%, -50%)',
+                                    background: 'rgba(255,255,255,0.95)',
+                                    backdropFilter: 'blur(10px)',
+                                    borderRadius: '14px',
+                                    padding: '8px',
+                                    width: '60%',
+                                    zIndex: 12,
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                                    pointerEvents: 'auto',
+                                    cursor: 'move',
+                                    userSelect: 'none',
+                                    touchAction: 'none',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    border: '1px solid rgba(255,255,255,0.3)'
+                                }}
+                            >
+                                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000', textAlign: 'center', wordBreak: 'break-word', textShadow: 'none' }}>
+                                    {pollQuestion || "Ask a question..."}
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                    <div style={{ flex: 1, padding: '4px', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: '#808bf5', textAlign: 'center' }}>
+                                        {pollOption1 || "Yes"}
+                                    </div>
+                                    <div style={{ flex: 1, padding: '4px', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: '#808bf5', textAlign: 'center' }}>
+                                        {pollOption2 || "No"}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {selectedMusic && (
+                            <div style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)', borderRadius: '20px', padding: '6px 12px', zIndex: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%' }}>
+                                <span style={{ fontSize: '10px' }}>🎵</span>
+                                <div style={{ fontSize: '9px', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {selectedMusic.title} • {selectedMusic.artist}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1193,152 +1676,291 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                 </div>
 
                 <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
-                <div style={{ position: 'relative' }}>
-                    <MentionSuggestions 
-                        text={text} 
-                        cursorPosition={cursorPosition} 
-                        onSelect={(val) => {
-                            setText(val);
-                            if (textInputRef.current) {
-                                textInputRef.current.focus();
-                            }
-                        }} 
-                    />
-                    <input 
-                        ref={textInputRef}
-                        type="text" 
-                        placeholder="Add text overlay (optional)" 
-                        value={text} 
-                        onChange={e => {
-                            setText(e.target.value);
-                            setCursorPosition(e.target.selectionStart);
-                        }} 
-                        onKeyUp={e => setCursorPosition(e.target.selectionStart)}
-                        onSelect={e => setCursorPosition(e.target.selectionStart)}
-                        onClick={e => setCursorPosition(e.target.selectionStart)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px', background: 'transparent', color: 'var(--text-main)' }} 
-                    />
-                </div>
-                {text && (
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                        {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'].map(color => (
-                            <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid var(--primary)' : '2px solid var(--border-color)', cursor: 'pointer' }} />
-                        ))}
-                        <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', color: 'var(--text-main)', outline: 'none' }}>
-                            <option value="top" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Top</option>
-                            <option value="center" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Center</option>
-                            <option value="bottom" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Bottom</option>
-                        </select>
-                    </div>
-                )}
-                <div style={{ marginBottom: '12px' }}>
-                    <button 
-                        type="button"
-                        onClick={() => setOpenTagPanel(v => !v)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', background: 'var(--surface-2)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <i className="pi pi-user-plus" style={{ fontSize: '12px' }}></i>
-                            {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag People"}
-                        </span>
-                        <i className={`pi pi-chevron-${openTagPanel ? 'up' : 'down'}`} style={{ marginLeft: 'auto', fontSize: '10px' }}></i>
-                    </button>
-                    {openTagPanel && (
-                        <div style={{ marginTop: '8px', padding: '10px', background: 'var(--surface-2)', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ position: 'relative' }}>
-                                <i className="pi pi-search" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', fontSize: '11px' }}></i>
-                                <input
-                                    type="text"
-                                    placeholder="Search users to tag..."
-                                    value={tagSearchTerm}
-                                    onChange={(e) => handleSearchTags(e.target.value)}
-                                    style={{ width: '100%', padding: '6px 12px 6px 28px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box', outline: 'none' }}
-                                />
-                                {isSearchingTags && <i className="pi pi-spin pi-spinner" style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: '#808bf5' }}></i>}
+
+                {step === 1 && (
+                    <>
+                        <div style={{ position: 'relative' }}>
+                            <MentionSuggestions
+                                text={text}
+                                cursorPosition={cursorPosition}
+                                onSelect={(val) => {
+                                    setText(val);
+                                    if (textInputRef.current) {
+                                        textInputRef.current.focus();
+                                    }
+                                }}
+                            />
+                            <input
+                                ref={textInputRef}
+                                type="text"
+                                placeholder="Add text overlay (optional)"
+                                value={text}
+                                onChange={e => {
+                                    setText(e.target.value);
+                                    setCursorPosition(e.target.selectionStart);
+                                }}
+                                onKeyUp={e => setCursorPosition(e.target.selectionStart)}
+                                onSelect={e => setCursorPosition(e.target.selectionStart)}
+                                onClick={e => setCursorPosition(e.target.selectionStart)}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px', background: 'transparent', color: 'var(--text-main)' }}
+                            />
+                        </div>
+                        {text && (
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                                {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'].map(color => (
+                                    <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid var(--primary)' : '2px solid var(--border-color)', cursor: 'pointer' }} />
+                                ))}
+                                <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', color: 'var(--text-main)', outline: 'none' }}>
+                                    <option value="top" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Top</option>
+                                    <option value="center" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Center</option>
+                                    <option value="bottom" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Bottom</option>
+                                </select>
                             </div>
-                            {tagSearchResults.length > 0 && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto', background: 'var(--surface-1)', borderRadius: '6px', border: '1px solid var(--border-color)', padding: '4px' }}>
-                                    {tagSearchResults.map(user => (
-                                        <div
-                                            key={user._id}
-                                            onClick={() => addTagUser(user)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
-                                            className="hover:bg-white/5"
-                                        >
-                                            <img src={user.profile_picture} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-main)' }}>{user.fullname}</span>
-                                                <span style={{ fontSize: '9px', color: 'var(--text-sub)' }}>@{user.username}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                        )}
+
+                        <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
+                                        📊 Poll Sticker
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setHasPoll(!hasPoll)}
+                                        style={{ background: hasPoll ? '#ef4444' : '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                                    >
+                                        {hasPoll ? 'Remove' : 'Add Poll'}
+                                    </button>
                                 </div>
-                            )}
-                            {taggedUsers.length > 0 && (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
-                                    {taggedUsers.map(user => (
-                                        <div key={user._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--surface-1)', border: '1px solid rgba(128, 139, 245, 0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>
-                                            <span>@{user.username}</span>
-                                            <button onClick={() => removeTagUser(user._id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, fontSize: '9px', display: 'flex', alignItems: 'center' }}>✕</button>
+                                {hasPoll && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Ask a question..."
+                                            value={pollQuestion}
+                                            onChange={(e) => setPollQuestion(e.target.value)}
+                                            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
+                                        />
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Yes"
+                                                value={pollOption1}
+                                                onChange={(e) => setPollOption1(e.target.value)}
+                                                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="No"
+                                                value={pollOption2}
+                                                onChange={(e) => setPollOption2(e.target.value)}
+                                                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
+                                            />
                                         </div>
-                                    ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px' }}>
+                                <div className='flex gap-1 items-center'>
+                                    <select
+                                        value={selectedMusic ? selectedMusic.title : ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const found = AUDIO_PRESETS.find(a => a.title === val);
+                                            setSelectedMusic(found || null);
+                                        }}
+                                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}
+                                    >
+                                        <option value="">🎵 Background Music</option>
+                                        {AUDIO_PRESETS.map((track) => (
+                                            <option key={track.title} value={track.title}>
+                                                {track.title} (by {track.artist})
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    {selectedMusic && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedMusic(null)}
+                                            style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', padding: '7px 8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setStep(2)}
+                            disabled={previews.length === 0 && !sharedPost && !sharedStory}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                background: 'var(--primary)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                fontSize: '14px',
+                                opacity: (previews.length === 0 && !sharedPost && !sharedStory) ? 0.6 : 1
+                            }}
+                        >
+                            Next
+                        </button>
+
+                        {/* Ephemeral Stream action (Go Live) inside Story popup */}
+                        {!sharedPost && !sharedStory && previews.length === 0 && (
+                            <div className='mt-2'>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const { api } = await import('../../store/zustand/useAuthStore');
+                                            const res = await api.post('/api/live/start', { title: `${loggeduser?.fullname}'s Live Stream` });
+                                            const stream = res.data;
+                                            const { setLiveStream } = require('../../store/zustand/usePostStore').default.getState();
+                                            setLiveStream(stream._id, true);
+                                            toast.success('Live stream started successfully!');
+                                            onClose();
+                                        } catch (err) {
+                                            console.error('Failed to start stream:', err);
+                                            toast.error(err.response?.data?.error || 'Could not start live stream');
+                                        }
+                                    }}
+                                    className="bg-gradient-to-tr from-rose-500 to-red-600 text-white font-bold cursor-pointer"
+                                    style={{
+                                        width: '100%', padding: '10px', border: 'none', borderRadius: '10px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                        boxShadow: '0 4px 14px rgba(244,63,94,0.3)', fontSize: '14px'
+                                    }}
+                                >
+                                    <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
+                                    Go Live
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {step === 2 && (
+                    <>
+                        <div style={{ marginBottom: '12px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setOpenTagPanel(v => !v)}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', background: 'var(--surface-2)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <i className="pi pi-user-plus" style={{ fontSize: '12px' }}></i>
+                                    {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag People"}
+                                </span>
+                                <i className={`pi pi-chevron-${openTagPanel ? 'up' : 'down'}`} style={{ marginLeft: 'auto', fontSize: '10px' }}></i>
+                            </button>
+                            {openTagPanel && (
+                                <div style={{ marginTop: '8px', padding: '10px', background: 'var(--surface-2)', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <i className="pi pi-search" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', fontSize: '11px' }}></i>
+                                        <input
+                                            type="text"
+                                            placeholder="Search users to tag..."
+                                            value={tagSearchTerm}
+                                            onChange={(e) => handleSearchTags(e.target.value)}
+                                            style={{ width: '100%', padding: '6px 12px 6px 28px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box', outline: 'none' }}
+                                        />
+                                        {isSearchingTags && <i className="pi pi-spin pi-spinner" style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: '#808bf5' }}></i>}
+                                    </div>
+                                    {tagSearchResults.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto', background: 'var(--surface-1)', borderRadius: '6px', border: '1px solid var(--border-color)', padding: '4px' }}>
+                                            {tagSearchResults.map(user => (
+                                                <div
+                                                    key={user._id}
+                                                    onClick={() => addTagUser(user)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
+                                                    className="hover:bg-white/5"
+                                                >
+                                                    <img src={user.profile_picture} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-main)' }}>{user.fullname}</span>
+                                                        <span style={{ fontSize: '9px', color: 'var(--text-sub)' }}>@{user.username}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {taggedUsers.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+                                            {taggedUsers.map(user => (
+                                                <div key={user._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--surface-1)', border: '1px solid rgba(128, 139, 245, 0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>
+                                                    <span>@{user.username}</span>
+                                                    <button onClick={() => removeTagUser(user._id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, fontSize: '9px', display: 'flex', alignItems: 'center' }}>✕</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
 
-                <div style={{ marginBottom: '12px' }}>
-                    <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <i className="pi pi-eye" style={{ fontSize: '12px' }}></i>
-                            Visibility
-                        </span>
-                        <select
-                            value={visibility}
-                            onChange={(e) => setVisibility(e.target.value)}
-                            style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
-                        >
-                            <option value="public" style={{ background: 'var(--surface-1)' }}>🌐 Public</option>
-                            <option value="followers" style={{ background: 'var(--surface-1)' }}>👥 Followers Only</option>
-                            <option value="close_friends" style={{ background: 'var(--surface-1)' }}>🟢 Close Friends</option>
-                        </select>
-                    </div>
-                </div>
+                        <div style={{ marginBottom: '12px' }}>
+                            <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <i className="pi pi-eye" style={{ fontSize: '12px' }}></i>
+                                    Visibility
+                                </span>
+                                <select
+                                    value={visibility}
+                                    onChange={(e) => setVisibility(e.target.value)}
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
+                                >
+                                    <option value="public" style={{ background: 'var(--surface-1)' }}>🌐 Public</option>
+                                    <option value="followers" style={{ background: 'var(--surface-1)' }}>👥 Followers Only</option>
+                                    <option value="close_friends" style={{ background: 'var(--surface-1)' }}>🟢 Close Friends</option>
+                                </select>
+                            </div>
+                        </div>
 
-                <button onClick={handleSubmit} disabled={uploading || (previews.length === 0 && !sharedPost && !sharedStory)} style={{ width: '100%', padding: '10px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', opacity: (previews.length === 0 && !sharedPost && !sharedStory) ? 0.6 : 1 }}>
-                    {uploading ? 'Uploading...' : (sharedPost || sharedStory) ? 'Share to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
-                </button>
-
-                {/* Ephemeral Stream action (Go Live) inside Story popup */}
-                {!sharedPost && !sharedStory && previews.length === 0 && (
-                    <div className='mt-2'>
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const { api } = await import('../../store/zustand/useAuthStore');
-                                    const res = await api.post('/api/live/start', { title: `${loggeduser?.fullname}'s Live Stream` });
-                                    const stream = res.data;
-                                    const { setLiveStream } = require('../../store/zustand/usePostStore').default.getState();
-                                    setLiveStream(stream._id, true);
-                                    toast.success('Live stream started successfully!');
-                                    onClose();
-                                } catch (err) {
-                                    console.error('Failed to start stream:', err);
-                                    toast.error(err.response?.data?.error || 'Could not start live stream');
-                                }
-                            }}
-                            className="bg-gradient-to-tr from-rose-500 to-red-600 text-white font-bold cursor-pointer"
-                            style={{
-                                width: '100%', padding: '10px', border: 'none', borderRadius: '10px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                boxShadow: '0 4px 14px rgba(244,63,94,0.3)', fontSize: '14px'
-                            }}
-                        >
-                            <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
-                            Go Live
-                        </button>
-                    </div>
+                        <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    background: 'var(--surface-3)',
+                                    color: 'var(--text-main)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '10px',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '14px'
+                                }}
+                            >
+                                Back
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={uploading || (previews.length === 0 && !sharedPost && !sharedStory)}
+                                style={{
+                                    flex: 2,
+                                    padding: '10px',
+                                    background: 'var(--primary)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '10px',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '14px',
+                                    opacity: (uploading || (previews.length === 0 && !sharedPost && !sharedStory)) ? 0.6 : 1
+                                }}
+                            >
+                                {uploading ? 'Uploading...' : (sharedPost || sharedStory) ? 'Share to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
+                            </button>
+                        </div>
+                    </>
                 )}
             </div>
             {croppingState.visible && (

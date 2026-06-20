@@ -60,7 +60,7 @@ const TimeLockOverlay = ({ unlocksAt }) => {
 
 // ─── AI DWELL POPUP ────────────────────────────────────────────────────────────
 // Renders OUTSIDE the feed card as a floating chip above the post
-const AiDwellPopup = ({ post }) => {
+const AiDwellPopup = ({ post, forceShowToken }) => {
     const { ref: inViewRef, inView } = useInView({ threshold: 0.2 });
     const [visible, setVisible] = useState(false);
     const [screenType, setScreenType] = useState('desktop'); // 'desktop' | 'tablet' | 'phone'
@@ -83,7 +83,23 @@ const AiDwellPopup = ({ post }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    useEffect(() => {
+        if (forceShowToken > 0) {
+            setVisible(true);
+            setIsLoading(false);
+            setDismissed(false);
+        }
+    }, [forceShowToken]);
 
+    useEffect(() => {
+        let hideTimer;
+        if (visible && !isLoading) {
+            hideTimer = setTimeout(() => {
+                setVisible(false);
+            }, 5000);
+        }
+        return () => clearTimeout(hideTimer);
+    }, [visible, isLoading]);
 
     useEffect(() => {
         let showTimer;
@@ -130,11 +146,10 @@ const AiDwellPopup = ({ post }) => {
         if (screenType === 'phone') {
             return {
                 ...base,
-                bottom: '100%',
-                top: 'auto',
+                bottom: 'auto',
+                top: '64px',
                 left: '50%',
                 transform: 'translateX(-50%)',
-                marginBottom: '10px',
                 border: '1px solid var(--border-color)',
                 borderRadius: '18px',
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
@@ -399,6 +414,192 @@ const CollabInviteBanner = ({ post, user }) => {
     );
 };
 
+// ─── BEFORE / AFTER VIEW ─────────────────────────────────────────────────────
+export const BeforeAfterView = ({ post, beforeAfter, onImageDoubleClick, onImageTap, locked, heartVisible }) => {
+    const containerRef = useRef(null);
+    const [sliderPos, setSliderPos] = useState(50);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handlePointerDown = (e) => {
+        if (locked) return;
+        e.preventDefault();
+        setIsDragging(true);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        updateSliderPosition(e);
+    };
+
+    const handlePointerMove = (e) => {
+        if (!isDragging) return;
+        updateSliderPosition(e);
+    };
+
+    const handlePointerUp = (e) => {
+        setIsDragging(false);
+    };
+
+    const updateSliderPosition = (e) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+        setSliderPos(percentage);
+    };
+
+    const { type, beforeUrl, afterUrl, beforeLabel = 'Before', afterLabel = 'After', beforeText, afterText } = beforeAfter;
+
+    if (type === 'image') {
+        return (
+            <div className="relative mx-0 sm:mx-2 rounded-xl overflow-hidden select-none bg-black border border-white/10 shadow-lg">
+                <div
+                    ref={containerRef}
+                    className="relative w-full aspect-square sm:aspect-[4/3] cursor-ew-resize overflow-hidden group touch-none"
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onDoubleClick={() => !locked && onImageDoubleClick && onImageDoubleClick(post)}
+                    onTouchEnd={() => !locked && onImageTap && onImageTap(post)}
+                >
+                    {/* Before Image (underneath/left) */}
+                    <div className="absolute inset-0 w-full h-full">
+                        <img
+                            src={beforeUrl}
+                            alt={beforeLabel}
+                            className="w-full h-full object-cover pointer-events-none select-none"
+                            draggable="false"
+                        />
+                    </div>
+
+                    {/* After Image (clipped on top/right) */}
+                    <div 
+                        className="absolute inset-0 w-full h-full"
+                        style={{
+                            clipPath: `polygon(${sliderPos}% 0, 100% 0, 100% 100%, ${sliderPos}% 100%)`
+                        }}
+                    >
+                        <img
+                            src={afterUrl}
+                            alt={afterLabel}
+                            className="w-full h-full object-cover pointer-events-none select-none"
+                            draggable="false"
+                        />
+                    </div>
+
+                    {/* Labels overlay */}
+                    <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-white/20 select-none pointer-events-none">
+                        {beforeLabel}
+                    </div>
+                    <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-white/20 select-none pointer-events-none">
+                        {afterLabel}
+                    </div>
+
+                    {/* Draggable Divider line */}
+                    <div
+                        className="absolute top-0 bottom-0 w-1 bg-white shadow-2xl pointer-events-none"
+                        style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}
+                    >
+                        {/* Divider knob */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white text-gray-800 shadow-2xl flex items-center justify-center border border-white/50 cursor-ew-resize hover:scale-110 active:scale-95 transition-all">
+                            <i className="pi pi-arrows-h text-sm"></i>
+                        </div>
+                    </div>
+
+                    {/* Double-tap Heart Burst for likes */}
+                    <HeartBurst visible={heartVisible} />
+                    {locked && <TimeLockOverlay unlocksAt={post.unlocksAt} />}
+                </div>
+            </div>
+        );
+    }
+
+    if (type === 'code') {
+        return (
+            <div className="mx-0 sm:mx-2 bg-[#1a1b26] rounded-xl border border-white/10 shadow-lg overflow-hidden flex flex-col font-mono text-sm">
+                {/* Terminal Mac-style header */}
+                <div className="flex items-center justify-between px-4 py-3 bg-[#16161e] border-b border-white/5">
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+                        <span className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+                        <span className="w-3 h-3 rounded-full bg-[#27c93f]" />
+                    </div>
+                    <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Code Comparison</span>
+                    <div className="w-12" /> {/* spacer */}
+                </div>
+
+                {/* Compare Panes */}
+                <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/5 bg-[#1a1b26]">
+                    {/* Left Pane - Before */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <div className="px-4 py-1.5 bg-[#e05f65]/10 border-b border-white/5 flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#e05f65] flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#e05f65]" />
+                                {beforeLabel}
+                            </span>
+                        </div>
+                        <div className="p-4 overflow-x-auto max-h-[350px] custom-scrollbar text-[#a9b1d6]">
+                            <pre className="whitespace-pre text-xs leading-relaxed">
+                                <code>{beforeText || '// Empty'}</code>
+                            </pre>
+                        </div>
+                    </div>
+
+                    {/* Right Pane - After */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <div className="px-4 py-1.5 bg-[#39c5bb]/10 border-b border-white/5 flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#39c5bb] flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#39c5bb]" />
+                                {afterLabel}
+                            </span>
+                        </div>
+                        <div className="p-4 overflow-x-auto max-h-[350px] custom-scrollbar text-[#a9b1d6]">
+                            <pre className="whitespace-pre text-xs leading-relaxed">
+                                <code>{afterText || '// Empty'}</code>
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (type === 'text') {
+        return (
+            <div className="mx-0 sm:mx-2 bg-[var(--surface-2)] rounded-xl border border-white/10 shadow-lg overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="px-4 py-3 bg-[var(--surface-3)] border-b border-white/5 flex items-center justify-between">
+                    <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">Text Revision</span>
+                    <i className="pi pi-file-edit text-xs text-[var(--text-sub)]"></i>
+                </div>
+
+                {/* Compare Content */}
+                <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/5">
+                    {/* Left Pane - Before */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <div className="px-4 py-2 bg-red-500/5 border-b border-white/5 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-red-500">{beforeLabel}</span>
+                        </div>
+                        <div className="p-4 text-sm text-[var(--text-sub)] leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                            {beforeText || 'No text content'}
+                        </div>
+                    </div>
+
+                    {/* Right Pane - After */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <div className="px-4 py-2 bg-emerald-500/5 border-b border-white/5 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-emerald-500">{afterLabel}</span>
+                        </div>
+                        <div className="p-4 text-sm text-[var(--text-main)] leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto font-medium">
+                            {afterText || 'No text content'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return null;
+};
+
 // ─── FEED MEDIA AREA ──────────────────────────────────────────────────────────
 // Handles posts that have video, images, or BOTH.
 // When both exist a unified thumbnail strip is shown (video first, then images).
@@ -407,7 +608,6 @@ const FeedMediaArea = React.memo(({ post, images, hasVideo, hasImages, hasMultip
     const [activeType] = useState(hasVideo ? 'video' : 'image'); // 'video' | 'image'
     const [activeImageIdx] = useState(0);
     const [showTags, setShowTags] = useState(false);
-console.log(post)
     return (
         <div className="relative mx-0 sm:mx-2 rounded-sm overflow-hidden" onMouseEnter={() => prefetchPost(post._id)}>
             {/* ── Main media display ──────────────────────────────── */}
@@ -511,7 +711,7 @@ console.log(post)
                     className={`absolute bottom-3 left-3 z-30 w-8 h-8 rounded-full border border-white/10 flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-90 ${showTags ? 'bg-[#808bf5] text-white' : 'bg-black/60 hover:bg-black/80 text-white'}`}
                     title="Show Tagged Users"
                 >
-                  
+
                     <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
                 </button>
             )}
@@ -538,10 +738,11 @@ export const PostItem = React.memo(({
     const expiryRemaining = post.expiresAt ? Math.max(0, new Date(post.expiresAt) - Date.now()) : null;
     const setPostDetailId = usePostStore(s => s.setPostDetailId);
     const [collectionModalVisible, setCollectionModalVisible] = useState(false);
+    const [forceShowToken, setForceShowToken] = useState(0);
     return (
         <div style={{ position: 'relative' }}>
             {/* AI Insight floats OUTSIDE the card, above it */}
-            <AiDwellPopup post={post} />
+            <AiDwellPopup post={post} forceShowToken={forceShowToken} />
 
             <style>{`
                 @keyframes aiPopupIn {
@@ -677,8 +878,20 @@ export const PostItem = React.memo(({
                     </div>
                 </div>
 
+                {/* Before / After Post Format */}
+                {post.isBeforeAfter && post.beforeAfter && (
+                    <BeforeAfterView
+                        post={post}
+                        beforeAfter={post.beforeAfter}
+                        onImageDoubleClick={onImageDoubleClick}
+                        onImageTap={onImageTap}
+                        locked={locked}
+                        heartVisible={heartVisible}
+                    />
+                )}
+
                 {/* ── Unified media area: images and/or video ─────────── */}
-                {(images.length > 0 || post.video) && (() => {
+                {!post.isBeforeAfter && (images.length > 0 || post.video) && (() => {
                     const hasVideo = !!post.video;
                     const hasImages = images.length > 0;
                     const hasMultiple = (hasVideo ? 1 : 0) + images.length > 1;
@@ -761,6 +974,11 @@ export const PostItem = React.memo(({
                                 <button aria-label="Share post" onClick={(e) => { e.stopPropagation(); onSharePost(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)]">
                                     <i className="pi pi-send" style={{ fontSize: '1.15rem' }}></i>
                                 </button>
+                                {post.aiSummary && (
+                                    <button aria-label="Show AI insight" onClick={(e) => { e.stopPropagation(); setForceShowToken(prev => prev + 1); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)]" title="Show AI Insight">
+                                        <i className="pi pi-sparkles" style={{ fontSize: '1.15rem', color: '#808bf5' }}></i>
+                                    </button>
+                                )}
                                 <button aria-label="View post details" onClick={(e) => { e.stopPropagation(); setPostDetailId(post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] ml-auto" style={{ marginRight: '4px' }}>
                                     <i className="pi pi-external-link" style={{ fontSize: '1rem' }}></i>
                                 </button>

@@ -5,6 +5,7 @@ import usePostStore from '../store/zustand/usePostStore';
 import { useFeed, useLikePost } from '../hooks/queries/usePostQueries';
 import SharePostDialog from './components/ui/SharePostDialog';
 import Comment from './components/ui/Comment';
+import Like from './components/ui/Like';
 
 const FALLBACK_REELS = [
     {
@@ -39,7 +40,7 @@ const ReelsVideo = ({ post, active, muted, onToggleMute, onDoubleTap, onOpenComm
 
         if (active) {
             video.currentTime = video.currentTime || 0;
-            video.play().catch(() => {});
+            video.play().catch(() => { });
         } else {
             video.pause();
         }
@@ -90,11 +91,11 @@ const ActionButton = ({ icon, label, count, active, onClick }) => (
     <button
         type="button"
         onClick={onClick}
-        className="w-14 min-h-[58px] border-0 bg-transparent text-white cursor-pointer flex flex-col items-center justify-center gap-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+        className="w-10 h-10 border-0 bg-transparent text-white cursor-pointer flex flex-col items-center justify-center gap-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
         aria-label={label}
     >
         <span className={`w-11 h-11 flex items-center justify-center transition-all ${active ? 'text-red-500 scale-110' : 'text-white hover:scale-110'}`}>
-            <i className={`pi ${icon} text-3xl`} />
+            <i className={`pi ${icon} text-2xl`} />
         </span>
         {count !== undefined && <span className="text-[11px] font-bold leading-none">{formatCount(count)}</span>}
     </button>
@@ -183,143 +184,139 @@ const Reels = () => {
     return (
         <div className="h-full w-full bg-black text-white overflow-hidden md:flex md:items-center md:justify-center">
             <div className="relative h-full w-full bg-black overflow-hidden md:max-w-[430px] md:border-x md:border-white/10 md:shadow-[0_0_60px_rgba(0,0,0,0.55)]">
-            <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-[calc(14px+env(safe-area-inset-top))] pb-3 pointer-events-none">
-                <div>
-                    <h1 className="m-0 text-2xl font-black tracking-normal">Reels</h1>
-                    <p className="m-0 text-xs text-white/70 font-medium">Swipe for short videos</p>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => setMuted(value => !value)}
-                    className="pointer-events-auto w-10 h-10 rounded-full border border-white/15 bg-black/35 text-white cursor-pointer backdrop-blur-md"
-                    aria-label={muted ? 'Unmute reels' : 'Mute reels'}
-                >
-                    <i className={`pi ${muted ? 'pi-volume-off' : 'pi-volume-up'}`} />
-                </button>
-            </div>
+                <div className="h-full overflow-y-auto snap-y snap-mandatory overscroll-contain custom-scrollbar">
+                    {videoPosts.map((post, index) => {
+                        const liked = isLikedByMe(post);
+                        const count = likesCount(post);
+                        const author = post.user || {};
+                        const commentsCount = post.commentsCount ?? post.comments?.length ?? 0;
 
-            <div className="h-full overflow-y-auto snap-y snap-mandatory overscroll-contain custom-scrollbar">
-                {videoPosts.map((post, index) => {
-                    const liked = isLikedByMe(post);
-                    const count = likesCount(post);
-                    const author = post.user || {};
-                    const commentsCount = post.commentsCount ?? post.comments?.length ?? 0;
+                        return (
+                            <section
+                                key={post._id || index}
+                                ref={node => { itemRefs.current[index] = node; }}
+                                data-index={index}
+                                className="relative h-full min-h-full snap-start snap-always bg-black overflow-hidden"
+                            >
+                                <ReelsVideo
+                                    post={post}
+                                    active={activeIndex === index}
+                                    muted={muted}
+                                    onToggleMute={() => setMuted(value => !value)}
+                                    onDoubleTap={handleDoubleTap}
+                                    onOpenComments={() => setCommentPost(post)}
+                                />
 
-                    return (
-                        <section
-                            key={post._id || index}
-                            ref={node => { itemRefs.current[index] = node; }}
-                            data-index={index}
-                            className="relative h-full min-h-full snap-start snap-always bg-black overflow-hidden"
-                        >
-                            <ReelsVideo
-                                post={post}
-                                active={activeIndex === index}
-                                muted={muted}
-                                onToggleMute={() => setMuted(value => !value)}
-                                onDoubleTap={handleDoubleTap}
-                                onOpenComments={() => setCommentPost(post)}
-                            />
+                                <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/35 via-transparent to-black/75" />
 
-                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/35 via-transparent to-black/75" />
-
-                            {heartBurstId === post._id && (
-                                <div className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                                    <i className="pi pi-heart-fill text-red-500 text-8xl reels-heart-burst drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
-                                </div>
-                            )}
-
-                            <div className="absolute right-3 bottom-[calc(82px+env(safe-area-inset-bottom))] z-20 flex flex-col items-center gap-3">
-                                <ActionButton icon="pi-heart-fill" label={liked ? 'Unlike reel' : 'Like reel'} count={count} active={liked} onClick={() => toggleLike(post)} />
-                                <ActionButton icon="pi-comment" label="Comment" count={commentsCount} onClick={() => setCommentPost(post)} />
-                                <ActionButton icon="pi-send" label="Share" onClick={() => setSharePost(post)} />
-                                <ActionButton icon="pi-music" label="Audio track" onClick={() => copyAudio(post)} />
-                            </div>
-
-                            <div className="absolute left-4 right-24 bottom-[calc(26px+env(safe-area-inset-bottom))] z-20">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <img
-                                        src={author.profile_picture || '/logo.jpg'}
-                                        alt=""
-                                        className="w-10 h-10 rounded-full object-cover border border-white/30"
-                                    />
-                                    <div className="min-w-0">
-                                        <p className="m-0 text-sm font-black truncate">{author.fullname || author.username || 'Creator'}</p>
-                                        <p className="m-0 text-[11px] text-white/70 truncate">@{author.username || 'socialsquare'}</p>
+                                {heartBurstId === post._id && (
+                                    <div className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                                        <i className="pi pi-heart-fill text-red-500 text-8xl reels-heart-burst drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
                                     </div>
+                                )}
+
+                                <div className="absolute right-2 bottom-[calc(12px+env(safe-area-inset-bottom))] z-20 flex flex-col items-center gap-6">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleLike(post)}
+                                        className="w-10 h-10 border-0 bg-transparent text-white cursor-pointer flex flex-col items-center justify-center gap-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+                                        aria-label={liked ? 'Unlike reel' : 'Like reel'}
+                                    >
+                                        <span className="w-11 h-11 flex items-center justify-center transition-all hover:scale-110">
+                                            <Like id={`like-${post._id}`} isliked={liked} />
+                                        </span>
+                                        {count !== undefined && <span className="text-[11px] font-bold leading-none">{formatCount(count)}</span>}
+                                    </button>
+                                    <ActionButton icon="pi-comment" label="Comment" count={commentsCount} onClick={() => setCommentPost(post)} />
+                                    <ActionButton icon="pi-send" label="Share" onClick={() => setSharePost(post)} />
+                                    {/* <ActionButton icon="pi-audio" label="Audio track" onClick={() => copyAudio(post)} /> */}
+                                    <ActionButton icon={`${muted ? 'pi-volume-off' : 'pi-volume-up'}`} label={`${muted ? 'Unmute' : 'Mute'}`} onClick={() => setMuted(value => !value)} />
                                 </div>
-                                {post.caption && <p className="m-0 text-sm leading-snug line-clamp-2">{post.caption}</p>}
-                                <button
-                                    type="button"
-                                    onClick={() => copyAudio(post)}
-                                    className="mt-3 max-w-full border-0 rounded-full bg-white/12 text-white px-3 py-2 text-xs font-bold cursor-pointer backdrop-blur-md flex items-center gap-2"
-                                >
-                                    <i className="pi pi-music text-[11px]" />
-                                    <span className="truncate">{post.audioTrack || post.music || post.category || 'Original audio'}</span>
-                                </button>
-                            </div>
-                        </section>
-                    );
-                })}
 
-                {feedQuery.hasNextPage && (
-                    <div className="h-24 flex items-center justify-center bg-black">
-                        <button
-                            type="button"
-                            onClick={() => feedQuery.fetchNextPage()}
-                            disabled={feedQuery.isFetchingNextPage}
-                            className="border border-white/15 bg-white/10 text-white rounded-full px-5 py-2 text-sm font-bold cursor-pointer disabled:opacity-60"
-                        >
-                            {feedQuery.isFetchingNextPage ? 'Loading...' : 'Load more reels'}
-                        </button>
-                    </div>
-                )}
-            </div>
+                                <div className="absolute left-3 right-24 bottom-[calc(10px+env(safe-area-inset-bottom))] z-20">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <img
+                                            src={author.profile_picture || '/logo.jpg'}
+                                            alt=""
+                                            className="w-10 h-10 rounded-full object-cover border border-white/30"
+                                        />
+                                        <div className="min-w-0">
+                                            <p className="m-0 text-sm font-black truncate">{author.fullname || author.username || 'Creator'}</p>
+                                            <p className="m-0 text-[11px] text-white/70 truncate">@{author.username || 'socialsquare'}</p>
+                                        </div>
+                                    </div>
+                                    {post.caption && <p className="m-0 text-sm leading-snug line-clamp-2">{post.caption}</p>}
+                                    <button
+                                        type="button"
+                                        onClick={() => copyAudio(post)}
+                                        className="mt-1 max-w-full border-0 rounded-full bg-white/12 text-white px-3 py-2 text-xs font-bold cursor-pointer backdrop-blur-md flex items-center gap-2"
+                                    >
+                                        <i className="pi pi-music text-[11px]" />
+                                        <span className="truncate">{post.audioTrack || post.music || post.category || 'Original audio'}</span>
+                                    </button>
+                                </div>
+                            </section>
+                        );
+                    })}
 
-            {sharePost && (
-                <SharePostDialog
-                    visible={!!sharePost}
-                    onHide={() => setSharePost(null)}
-                    post={sharePost}
-                    user={user}
-                />
-            )}
-
-            {commentPost && (
-                <div className="absolute inset-0 z-40 flex items-end bg-black/35" onClick={() => setCommentPost(null)}>
-                    <div
-                        className="w-full h-[68%] max-h-[620px] rounded-t-[28px] bg-[var(--surface-1)] text-[var(--text-main)] shadow-[0_-18px_50px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] shrink-0">
-                            <div className="flex flex-col">
-                                <span className="text-sm font-black">Comments</span>
-                                <span className="text-[11px] text-[var(--text-sub)] truncate max-w-[260px]">
-                                    {commentPost.caption || 'Reel discussion'}
-                                </span>
-                            </div>
+                    {feedQuery.hasNextPage && (
+                        <div className="h-24 flex items-center justify-center bg-black">
                             <button
                                 type="button"
-                                onClick={() => setCommentPost(null)}
-                                className="w-9 h-9 rounded-full border-0 bg-[var(--surface-2)] text-[var(--text-main)] cursor-pointer flex items-center justify-center"
-                                aria-label="Close comments"
+                                onClick={() => feedQuery.fetchNextPage()}
+                                disabled={feedQuery.isFetchingNextPage}
+                                className="border border-white/15 bg-white/10 text-white rounded-full px-5 py-2 text-sm font-bold cursor-pointer disabled:opacity-60"
                             >
-                                <i className="pi pi-times text-sm" />
+                                {feedQuery.isFetchingNextPage ? 'Loading...' : 'Load more reels'}
                             </button>
                         </div>
-                        <div className="flex-1 min-h-0">
-                            <Comment
-                                postId={commentPost._id}
-                                setVisible={() => setCommentPost(null)}
-                                onProfileClick={setProfileDetailId}
-                                isOwnPost={commentPost.user?._id?.toString() === user?._id?.toString()}
-                            />
+                    )}
+                </div>
+
+                {sharePost && (
+                    <SharePostDialog
+                        visible={!!sharePost}
+                        onHide={() => setSharePost(null)}
+                        post={sharePost}
+                        user={user}
+                    />
+                )}
+
+                {commentPost && (
+                    <div className="absolute inset-0 z-40 flex items-end bg-black/35" onClick={() => setCommentPost(null)}>
+                        <div
+                            className="w-full h-[68%] max-h-[620px] rounded-t-[28px] bg-[var(--surface-1)] text-[var(--text-main)] shadow-[0_-18px_50px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] shrink-0">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-black">Comments</span>
+                                    <span className="text-[11px] text-[var(--text-sub)] truncate max-w-[260px]">
+                                        {commentPost.caption || 'Reel discussion'}
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setCommentPost(null)}
+                                    className="w-9 h-9 rounded-full border-0 bg-[var(--surface-2)] text-[var(--text-main)] cursor-pointer flex items-center justify-center"
+                                    aria-label="Close comments"
+                                >
+                                    <i className="pi pi-times text-sm" />
+                                </button>
+                            </div>
+                            <div className="flex-1 min-h-0">
+                                <Comment
+                                    postId={commentPost._id}
+                                    setVisible={() => setCommentPost(null)}
+                                    onProfileClick={setProfileDetailId}
+                                    isOwnPost={commentPost.user?._id?.toString() === user?._id?.toString()}
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            <style>{`
+                <style>{`
                 @keyframes reelsHeartBurst {
                     0% { opacity: 0; transform: scale(0.5) rotate(-8deg); }
                     25% { opacity: 1; transform: scale(1.15) rotate(4deg); }

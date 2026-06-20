@@ -61,13 +61,35 @@ const processModerationJob = async (jobData) => {
         }
     }
 
-    // 4. Update database
-    await Model.findByIdAndUpdate(contentId, {
+    // 4. Generate AI Summary for posts (if visible and has caption > 10 chars)
+    let aiSummary = null;
+    if (contentType === 'post' && isVisible && content.caption && content.caption.trim().length > 10) {
+        try {
+            const { generateText } = require('../utils/gemini');
+            const prompt = `You are an expert content summarizer for a social media platform. Summarize this post in 1-2 concise, highly engaging sentences for a quick hover-preview popup. Capture the core idea or question.
+Text: ${content.caption}
+Tags: ${content.tags?.join(', ') || 'None'}
+Output only the summary text, nothing else.`;
+            const summary = await generateText(prompt, { maxTokens: 150, temperature: 0.3 });
+            if (summary && summary.trim().length > 5) {
+                aiSummary = summary.trim();
+            }
+        } catch (sumErr) {
+            console.error('[ModerationWorker] Failed to generate AI summary:', sumErr.message);
+        }
+    }
+
+    // 5. Update database
+    const updateData = {
         isVisible,
         isFlagged,
         moderationScore: score,
         moderationReason: reason
-    });
+    };
+    if (aiSummary) {
+        updateData.aiSummary = aiSummary;
+    }
+    await Model.findByIdAndUpdate(contentId, updateData);
 
     // 4. Audit Log for traceability
     if (isFlagged || !isVisible) {

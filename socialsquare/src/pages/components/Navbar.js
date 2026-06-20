@@ -113,7 +113,7 @@ const Navbar = () => {
         <button
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           onClick={toggle}
-          className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+          className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           <i className={`pi ${isDark ? 'pi-sun' : 'pi-moon'}`}></i>
@@ -124,7 +124,7 @@ const Navbar = () => {
           <Link
             to="/admin"
             onClick={() => setMobileMenuOpen(false)}
-            className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+            className={`border-0 rounded-full w-9 h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
 
           >
             <i className="pi pi-cog"></i>
@@ -138,7 +138,7 @@ const Navbar = () => {
         <button
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           onClick={toggle}
-          className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+          className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           <i className={`pi ${isDark ? 'pi-sun' : 'pi-moon'} text-xs sm:text-base`}></i>
@@ -150,7 +150,7 @@ const Navbar = () => {
               <button
                 aria-label="Search"
                 onClick={() => setMobileSearchActive(true)}
-                className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+                className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
                 title="Search"
               >
                 <i className="pi pi-search text-xs sm:text-base"></i>
@@ -171,7 +171,7 @@ const Navbar = () => {
                 <button
                   aria-label="Create post"
                   onClick={() => setnewpostVisible(true)}
-                  className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-yellow-300' : 'bg-gray-100 text-gray-600'}`}
+                  className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
                   title="Create post"
                 >
                   <i className="pi pi-plus text-xs sm:text-base"></i>

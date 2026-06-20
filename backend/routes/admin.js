@@ -18,7 +18,6 @@ const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const { digestQueue } = require('../queues/digestQueue');
 const { propagateUserDeletion } = require('../utils/userPropagation');
-const { invalidateCache } = require('../lib/redis');
 const { body, param, query, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
@@ -45,6 +44,9 @@ function getCached(key) {
 function setCached(key, data) {
     if (process.env.DISABLE_REDIS === 'true') return; // Don't cache if disabled
     cache.set(key, { data, ts: Date.now() });
+}
+function invalidateCache() {
+    cache.clear();
 }
 
 
@@ -481,7 +483,7 @@ router.get('/posts', requireAdmin, async (req, res) => {
         const search = req.query.search?.trim() || '';
         const filter = req.query.filter || 'all';
 
-        const query = {};
+        const query = { deletedAt: null };
         if (search) query.caption = { $regex: search, $options: 'i' };
         if (req.query.userId) query['user._id'] = req.query.userId;
         if (filter === 'anonymous') query.isAnonymous = true;
@@ -489,6 +491,7 @@ router.get('/posts', requireAdmin, async (req, res) => {
 
         if (filter === 'reported') {
             const posts = await Post.aggregate([
+                { $match: { deletedAt: null } },
                 {
                     $lookup: {
                         from: 'reports',
@@ -522,6 +525,7 @@ router.get('/posts', requireAdmin, async (req, res) => {
             const total = await Post.countDocuments({
                 ...query, _id: {
                     $in: (await Post.aggregate([
+                        { $match: { deletedAt: null } },
                         { $lookup: { from: 'reports', let: { pid: '$_id' }, pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$targetId', '$$pid'] }, { $eq: ['$targetType', 'post'] }, { $eq: ['$status', 'pending'] }] } } }], as: 'r' } },
                         { $match: { 'r.0': { $exists: true } } },
                         { $project: { _id: 1 } }
@@ -576,7 +580,10 @@ router.delete('/posts/:postId', requireAdmin, [
         Report.deleteMany({ targetId: req.params.postId }).catch(console.error);
         invalidateCache();
         res.json({ message: 'Post deleted', postId: req.params.postId });
-    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (err) {
+        console.error('[Admin Post Delete Error]:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 router.post('/content/restore/:id', requireAdmin, [
@@ -1009,7 +1016,7 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
             const { sendEmail: mailerSend } = require('../utils/mailer');
             const templateKey = broadcastType === 'warning' ? 'broadcast_warning' : 'broadcast_announcement';
             let template = await EmailTemplate.findOne({ key: templateKey }).lean();
-            
+
             if (!template) {
                 const emailSubject = broadcastType === 'warning' ? '⚠️ Security Warning from Social Square' : '📢 Announcement from Social Square';
                 const headerColor = broadcastType === 'warning' ? '#ef4444' : '#6366f1';
@@ -1212,14 +1219,14 @@ router.post('/email-templates', requireAdmin, async (req, res) => {
         if (!key || !name || !subject || !html) {
             return res.status(400).json({ success: false, message: 'Key, name, subject, and HTML are required.' });
         }
-        
+
         const exists = await EmailTemplate.findOne({ key });
         if (exists) {
             return res.status(400).json({ success: false, message: 'Template key already exists.' });
         }
 
         const template = await EmailTemplate.create({ key, name, subject, html, variables: variables || [] });
-        
+
         await logAdminAction({
             adminId: req.adminId,
             action: 'create_email_template',
