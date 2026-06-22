@@ -59,6 +59,20 @@ const NewPost = ({ visible, onHide }) => {
     const [isPosting, setIsPosting] = useState(false);
     const [openFeaturePanel, setOpenFeaturePanel] = useState(null);
 
+    // Goals linking state
+    const [userGoals, setUserGoals] = useState([]);
+    const [selectedGoalId, setSelectedGoalId] = useState(null);
+
+    useEffect(() => {
+        if (visible && loggeduser?._id) {
+            api.get(`/api/goal/user/${loggeduser._id}`)
+                .then(res => {
+                    setUserGoals((res.data || []).filter(g => g.status === 'active'));
+                })
+                .catch(err => console.error("Failed to fetch goals:", err));
+        }
+    }, [visible, loggeduser?._id]);
+
     // Before / After State
     const [isBeforeAfter, setIsBeforeAfter] = useState(false);
     const [beforeAfterType, setBeforeAfterType] = useState('image'); // 'image' | 'code' | 'text'
@@ -111,6 +125,10 @@ const NewPost = ({ visible, onHide }) => {
     const { data: groups = [] } = useGroups();
     const [cursorPosition, setCursorPosition] = useState(0);
 
+    // Feedback request state
+    const [isFeedbackRequest, setIsFeedbackRequest] = useState(false);
+    const [feedbackCategory, setFeedbackCategory] = useState('general'); // 'design' | 'code' | 'writing' | 'general'
+
     // ── Cropping State ──────────────────────────────────────────────────────
     const [croppingState, setCroppingState] = useState({
         active: false,
@@ -152,6 +170,9 @@ const NewPost = ({ visible, onHide }) => {
         setAfterLabel('After');
         setBeforeText('');
         setAfterText('');
+        setIsFeedbackRequest(false);
+        setFeedbackCategory('general');
+        setSelectedGoalId(null);
     };
 
     const handleCloseInternal = (force = false) => {
@@ -819,7 +840,10 @@ const NewPost = ({ visible, onHide }) => {
                         afterLabel,
                         beforeText: beforeAfterType !== 'image' ? beforeText : null,
                         afterText: beforeAfterType !== 'image' ? afterText : null
-                    } : null
+                    } : null,
+                    isFeedbackRequest,
+                    feedbackCategory: isFeedbackRequest ? feedbackCategory : null,
+                    goalId: selectedGoalId
                 };
 
                 const response = await createPostMutation.mutateAsync(postData);
@@ -1167,7 +1191,7 @@ const NewPost = ({ visible, onHide }) => {
             <div className={`flex flex-col md:flex-row w-full h-[calc(100vh-120px)] md:h-[calc(90vh-45px)] md:max-h-[600px] ${!hasMedia ? 'justify-center' : ''}`}>
                 {/* Left: Media Preview */}
                 {hasMedia && (
-                    <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-4 relative flex-shrink-0 overflow-y-auto custom-scrollbar">
+                    <div className="w-full h-[40vh] md:h-auto md:w-[60%] bg-black flex flex-col items-center justify-center p-2 relative flex-shrink-0 overflow-y-auto custom-scrollbar">
                         {isBeforeAfter ? (
                             <div className="w-full h-full flex flex-col gap-4 max-w-[500px] justify-center">
                                 {/* Format Selector */}
@@ -1539,6 +1563,26 @@ const NewPost = ({ visible, onHide }) => {
                                 </select>
                             </div>
 
+                            {/* Goal Picker */}
+                            {userGoals.length > 0 && (
+                                <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
+                                    <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                        <i className="pi pi-target text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                        Link to Active Goal
+                                    </span>
+                                    <select
+                                        value={selectedGoalId || ""}
+                                        onChange={(e) => setSelectedGoalId(e.target.value || null)}
+                                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1] max-w-[180px] truncate"
+                                    >
+                                        <option value="">🎯 None</option>
+                                        {userGoals.map(g => (
+                                            <option key={g._id} value={g._id}>🏁 {g.title}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             {/* Visibility Picker */}
                             <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
                                 <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
@@ -1673,6 +1717,38 @@ const NewPost = ({ visible, onHide }) => {
                                     )}
                                 </div>
                             )}
+
+                            <div className="border-b border-[var(--border-color)]/50">
+                                <button onClick={() => togglePanel('feedback')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
+                                    <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
+                                        <i className="pi pi-comments text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                        Feedback Request Settings
+                                    </span>
+                                    <i className={`pi pi-chevron-${openFeaturePanel === 'feedback' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
+                                </button>
+                                {openFeaturePanel === 'feedback' && (
+                                    <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                                        <label className="flex items-center justify-between cursor-pointer group">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-[var(--text-main)]">Request Structured Feedback</span>
+                                                <span className="text-[10px] text-[var(--text-sub)]">Require critiques instead of likes</span>
+                                            </div>
+                                            <input type="checkbox" checked={isFeedbackRequest} onChange={e => setIsFeedbackRequest(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
+                                        </label>
+                                        {isFeedbackRequest && (
+                                            <div className="flex flex-col gap-2 pt-1">
+                                                <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Critique Category</span>
+                                                <select value={feedbackCategory} onChange={e => setFeedbackCategory(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none cursor-pointer">
+                                                    <option value="general">🗣️ General Feedback</option>
+                                                    <option value="design">🎨 Design Review</option>
+                                                    <option value="code">💻 Code Review</option>
+                                                    <option value="writing">📝 Writing Feedback</option>
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                             </div>
 
                             <div className="border-b border-[var(--border-color)]/50">
                                 <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">

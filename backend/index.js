@@ -226,6 +226,8 @@ app.post('/api/user/fcm-token', verifyToken, async (req, res) => {
 // ✅ Routes
 app.use('/api/auth', (req, res, next) => require('./routes/auth.js')(req, res, next));
 app.use('/api/post', postRouter);
+app.use('/api/goal', require('./routes/goal.js'));
+app.use('/api/idea', require('./routes/idea.js'));
 app.use('/api/conversation', conversationRouter);
 app.use('/api/story', storyRouter);
 app.use('/api/group', require('./routes/group'));

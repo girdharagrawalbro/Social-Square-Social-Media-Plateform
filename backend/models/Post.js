@@ -93,6 +93,17 @@ const PostSchema = new mongoose.Schema(
       afterText: { type: String, default: null }
     },
 
+    // Feedback Request Format
+    isFeedbackRequest: { type: Boolean, default: false },
+    feedbackCategory: { type: String, enum: ['design', 'code', 'writing', 'general', null], default: null },
+
+    // Linked Goal
+    goalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Goal', default: null },
+
+    // Reading time and depth score
+    readingTime: { type: Number, default: 0 },
+    depthScore: { type: String, enum: ['quick_take', 'deep_dive', 'long_read'], default: 'quick_take', index: true },
+
     // ─── MODERATION FIELDS ────────────────────────────────────────────────────
     isVisible: { type: Boolean, default: true, index: true },
     isFlagged: { type: Boolean, default: false, index: true },
@@ -101,6 +112,37 @@ const PostSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Pre-save hook to calculate reading time and depth score
+PostSchema.pre('save', function (next) {
+  const isTextOnly = !this.image_url && (!this.image_urls || this.image_urls.length === 0) && !this.video && (!this.voiceNote || !this.voiceNote.url);
+
+  let text = (this.caption || '') + ' ';
+  if (this.poll) {
+    text += (this.poll.question || '') + ' ';
+    if (this.poll.options) {
+      text += this.poll.options.map(o => o.text || '').join(' ') + ' ';
+    }
+  }
+  if (this.isBeforeAfter && this.beforeAfter) {
+    text += (this.beforeAfter.beforeText || '') + ' ';
+    text += (this.beforeAfter.afterText || '') + ' ';
+  }
+
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+
+  this.readingTime = isTextOnly ? Math.ceil(wordCount / 200) : 0;
+
+  if (wordCount < 50) {
+    this.depthScore = 'quick_take';
+  } else if (wordCount >= 50 && wordCount <= 200) {
+    this.depthScore = 'deep_dive';
+  } else {
+    this.depthScore = 'long_read';
+  }
+
+  next();
+});
 
 // Global protection for anonymous posts (when not using .lean())
 const { sanitizeAnonymousPost } = require('../utils/privacy');

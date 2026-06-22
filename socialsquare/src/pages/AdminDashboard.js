@@ -332,12 +332,13 @@ const StatCard = ({ label, value, sub, color = '#6366f1', icon }) => (
 const BarChart = ({ data, label }) => {
     if (!data?.length) return null;
     const max = Math.max(...data.map(d => d.count), 1);
+    const shouldRotate = data.length > 10;
     return (
-        <div className="flex flex-col h-full">
-            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-5 m-0 opacity  -70">{label}</p>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '120px', padding: '0 0px' }}>
+        <div className="flex flex-col h-full w-full">
+            <p className="text-xs font-black uppercase tracking-widest text-[var(--text-sub)] mb-5 m-0 opacity-70">{label}</p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '120px', padding: '0 0px', marginBottom: shouldRotate ? '12px' : '0px' }}>
                 {data.map((d, i) => (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', height: '100%', justifyContent: 'flex-end' }}>
+                    <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', height: '100%', justifyContent: 'flex-end' }}>
                         <div
                             style={{
                                 width: '100%',
@@ -350,7 +351,26 @@ const BarChart = ({ data, label }) => {
                             }}
                             title={`${d._id}: ${d.count}`}
                         />
-                        <span style={{ fontSize: '9px', color: 'var(--text-sub)', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>{d._id?.slice(8)}</span>
+                        <span 
+                            style={{ 
+                                fontSize: '9px', 
+                                color: 'var(--text-sub)', 
+                                fontWeight: 800, 
+                                textTransform: 'uppercase', 
+                                opacity: 0.6,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: '100%',
+                                transform: shouldRotate ? 'rotate(-45deg)' : 'none',
+                                transformOrigin: 'center',
+                                display: 'inline-block',
+                                marginTop: shouldRotate ? '4px' : '0px'
+                            }}
+                            title={d._id}
+                        >
+                            {d._id?.slice(8)}
+                        </span>
                     </div>
                 ))}
             </div>

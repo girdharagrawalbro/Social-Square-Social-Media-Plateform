@@ -9,7 +9,7 @@ const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_AP
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 export const postKeys = {
     all: ['posts'],
-    feed: (userId) => ['posts', 'feed', userId],
+    feed: (userId, depth = null) => ['posts', 'feed', userId, depth],
     userPosts: (userId) => ['posts', 'user', userId],
     saved: (userId) => ['posts', 'saved', userId],
     detail: (postId) => ['posts', 'detail', postId],
@@ -24,20 +24,21 @@ export const postKeys = {
 };
 
 // ─── FEED (infinite scroll) ───────────────────────────────────────────────────
-export function useFeed(userId) {
+export function useFeed(userId, depth = null) {
     const initialized = useAuthStore(s => s.initialized);
     return useInfiniteQuery({
-        queryKey: postKeys.feed(userId),
+        queryKey: postKeys.feed(userId, depth),
         queryFn: async ({ pageParam = null }) => {
             // ✅ NATIVE CACHE HYDRATION (First Page Only)
             if (!pageParam && Capacitor.isNativePlatform()) {
-                const cached = await cacheService.get(`feed_${userId}`);
+                const cached = await cacheService.get(`feed_${userId}_${depth || 'all'}`);
                 if (cached) return cached;
             }
 
             try {
                 const params = new URLSearchParams();
                 if (pageParam) params.append('cursor', pageParam);
+                if (depth) params.append('depth', depth);
                 const res = await api.get(`${BASE}/api/recommendation/posts?${params}`);
                 
                 // Transform recommendation response to match feed format
@@ -50,7 +51,7 @@ export function useFeed(userId) {
                 };
 
                 if (!pageParam && Capacitor.isNativePlatform()) {
-                    cacheService.set(`feed_${userId}`, transformedData);
+                    cacheService.set(`feed_${userId}_${depth || 'all'}`, transformedData);
                 }
 
                 return transformedData;
@@ -60,6 +61,7 @@ export function useFeed(userId) {
                 const params = new URLSearchParams({ limit: '10' });
                 if (userId) params.append('userId', userId);
                 if (pageParam) params.append('cursor', pageParam);
+                if (depth) params.append('depth', depth);
                 const res = await api.get(`${BASE}/api/post/?${params}`);
                 return res.data;
             }

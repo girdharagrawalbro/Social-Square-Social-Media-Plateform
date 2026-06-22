@@ -113,6 +113,7 @@ const useDisplayPosts = ({
     moodPosts,
     socketPosts,
     activeMood,
+    selectedDepth,
     user,
 }) => {
     // Stable per-post jitter — never changes between renders
@@ -155,9 +156,15 @@ const useDisplayPosts = ({
         // 6. Merge
         const merged = [...socketNew, ...scoredBase];
 
+        // 6.5. Filter by depth score if selected
+        let filtered = merged;
+        if (selectedDepth && selectedDepth !== 'all') {
+            filtered = merged.filter(p => p.depthScore === selectedDepth);
+        }
+
         // 7. Enforce max-consecutive-same-user rule
-        return limitConsecutive(merged, 2);
-    }, [serverPosts, recommendedPosts, moodPosts, socketPosts, activeMood, user]);
+        return limitConsecutive(filtered, 2);
+    }, [serverPosts, recommendedPosts, moodPosts, socketPosts, activeMood, selectedDepth, user]);
 };
 
 
@@ -282,8 +289,24 @@ const Feed = ({ activeMood = null }) => {
     const optimisticLikes = usePostStore(s => s.optimisticLikes);
     const setSharingPostToStory = usePostStore(s => s.setSharingPostToStory);
 
+    // ── UI State ─────────────────────────────────────────────────────────────
+    const [selectedDepth, setSelectedDepth] = useState('all');
+    const [pickerPostId, setPickerPostId] = useState(null);
+    const [visiblePostId, setVisiblePostId] = useState(null);
+    const [heartVisible, setHeartVisible] = useState({});
+    const [editingPost, setEditingPost] = useState(null);
+    const [editCaption, setEditCaption] = useState('');
+    const [sharePost, setSharePost] = useState(null);
+    const [savingPostIds, setSavingPostIds] = useState(new Set());
+    const [reportPost, setReportPost] = useState(null);
+    const [profileVisible, setProfileVisible] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState(null);
+    const [likesVisible, setLikesVisible] = useState(false);
+    const [likesIds, setLikesIds] = useState([]);
+    const lastTap = useRef({});
+
     // ── Queries ──────────────────────────────────────────────────────────────
-    const feedQuery = useFeed(user?._id);
+    const feedQuery = useFeed(user?._id, selectedDepth === 'all' ? null : selectedDepth);
     const { hasNextPage, isFetchingNextPage, fetchNextPage } = feedQuery;
     const recommendedQuery = useRecommendedPosts(user?._id);
     const moodQuery = useMoodFeed(activeMood || user?.preferredMood || '', user?._id);
@@ -300,21 +323,6 @@ const Feed = ({ activeMood = null }) => {
     const unmuteMutation = useUnmuteUser();
     const blockMutation = useBlockUser();
     const unblockMutation = useUnblockUser();
-
-    // ── UI State ─────────────────────────────────────────────────────────────
-    const [pickerPostId, setPickerPostId] = useState(null);
-    const [visiblePostId, setVisiblePostId] = useState(null);
-    const [heartVisible, setHeartVisible] = useState({});
-    const [editingPost, setEditingPost] = useState(null);
-    const [editCaption, setEditCaption] = useState('');
-    const [sharePost, setSharePost] = useState(null);
-    const [savingPostIds, setSavingPostIds] = useState(new Set());
-    const [reportPost, setReportPost] = useState(null);
-    const [profileVisible, setProfileVisible] = useState(false);
-    const [selectedProfileId, setSelectedProfileId] = useState(null);
-    const [likesVisible, setLikesVisible] = useState(false);
-    const [likesIds, setLikesIds] = useState([]);
-    const lastTap = useRef({});
 
     // ── Derived post lists ───────────────────────────────────────────────────
     const serverPosts = useMemo(
@@ -336,6 +344,7 @@ const Feed = ({ activeMood = null }) => {
         moodPosts,
         socketPosts,
         activeMood,
+        selectedDepth,
         user,
     });
 
@@ -521,6 +530,28 @@ const Feed = ({ activeMood = null }) => {
             `}</style>
 
             <div className={`feed-container max-w-md mx-auto ${isDark ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'} min-h-screen pb-20`}>
+                {/* Energy Filter Bar */}
+                <div className="sticky top-0 z-30 bg-[var(--app-bg)]/80 backdrop-blur-md border-b border-[var(--border-color)] px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none">
+                    {[
+                        { id: 'all', label: 'All Content' },
+                        { id: 'quick_take', label: '⚡ Quick Takes' },
+                        { id: 'deep_dive', label: '🧠 Deep Dives' },
+                        { id: 'long_read', label: '📚 Long Reads' }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setSelectedDepth(tab.id)}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black border transition-all cursor-pointer whitespace-nowrap ${
+                                selectedDepth === tab.id
+                                    ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
+                                    : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
+                            }`}
+                        >
+                            <span>{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
+
                 {isLoading ? (
                     <div className="mt-1 flex flex-col">
                         {[1, 2, 3].map(i => <SkeletonPost key={i} />)}

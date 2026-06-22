@@ -1,54 +1,18 @@
-/**
- * Ultra Optimized Recategorize All Posts Script (Ollama Edition)
- *
- * Improvements:
- * ✅ Parallel processing with concurrency control
- * ✅ Bulk MongoDB updates
- * ✅ Streaming cursor (low memory)
- * ✅ Removed artificial delay
- * ✅ Faster prompt
- * ✅ Keyword-based fast classification
- * ✅ Dynamic category registration
- * ✅ Better error handling
- * ✅ Reduced DB writes
- * ✅ Optimized Ollama usage
- *
- * Usage:
- *   npm install p-limit
- *
- * Run:
- *   node scripts/recategorize_all_posts.js
- *   node scripts/recategorize_all_posts.js --all
- */
-
 const path = require('path');
 require('dotenv').config({
     path: path.join(__dirname, '../.env')
 });
 
 const mongoose = require('mongoose');
-const axios = require('axios');
 const pLimit = require('p-limit');
 
 const Post = require('../models/Post');
 const Category = require('../models/Category');
 const { PostVector } = require('../models/Recommendation');
+const { generateText } = require('../utils/gemini');
 
 const MONGO_URI = process.env.MONGO_URI;
-
-const OLLAMA_URL = 'http://localhost:11434/api/generate';
-
-/**
- * Faster models:
- * mistral
- * qwen2.5:3b
- * qwen2.5:3b
- * gemma:2b
- */
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
-
 const CONCURRENCY = Number(process.env.CLASSIFY_CONCURRENCY || 2);
-
 const BATCH_SIZE = 100;
 
 if (!MONGO_URI) {
@@ -59,15 +23,12 @@ if (!MONGO_URI) {
 function cleanAndParseJson(text) {
     try {
         if (!text) return null;
-
         let cleanText = text.trim();
-
         cleanText = cleanText
             .replace(/^```json/i, '')
             .replace(/^```/, '')
             .replace(/```$/, '')
             .trim();
-
         return JSON.parse(cleanText);
     } catch (err) {
         return null;
@@ -76,7 +37,6 @@ function cleanAndParseJson(text) {
 
 /**
  * VERY FAST LOCAL KEYWORD CLASSIFIER
- * Avoids unnecessary AI calls
  */
 function classifyWithKeywords(caption = '', tags = []) {
     const text = `${caption} ${tags.join(' ')}`.toLowerCase();
@@ -109,60 +69,37 @@ function classifyWithKeywords(caption = '', tags = []) {
     return null;
 }
 
-async function classifyWithOllama(caption, tags, availableCategories) {
+async function classifyWithAI(caption, tags, availableCategories) {
     try {
-        const prompt = `
+        const prompt = `Analyze this post.
 Caption: ${caption || 'No caption'}
-
 Tags: ${tags.join(', ')}
 
 Available Categories:
 ${availableCategories.slice(0, 50).join(', ')}
 
 Return ONLY valid raw JSON:
-
 {
   "category": "CategoryName",
   "tags": ["tag1", "tag2", "tag3"]
 }
-`;
+Do not write anything else.`;
 
-        const response = await axios.post(
-            OLLAMA_URL,
-            {
-                model: OLLAMA_MODEL,
-                prompt,
-                stream: false
-            },
-            {
-                timeout: 60000
-            }
-        );
-
-        const resultObj = cleanAndParseJson(response.data.response);
+        const responseText = await generateText(prompt, { maxTokens: 256, temperature: 0.1 });
+        const resultObj = cleanAndParseJson(responseText);
 
         if (!resultObj || !resultObj.category) {
             return null;
         }
 
-        let category = resultObj.category
-            .trim()
-            .replace(/[^\w]/g, '');
-
+        let category = resultObj.category.trim().replace(/[^\w]/g, '');
         if (!category) return null;
 
-        category =
-            category.charAt(0).toUpperCase() +
-            category.slice(1).toLowerCase();
+        category = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
 
         const aiTags = Array.isArray(resultObj.tags)
             ? resultObj.tags
-                .map(t =>
-                    t
-                        .trim()
-                        .toLowerCase()
-                        .replace(/[^\w]/g, '')
-                )
+                .map(t => t.trim().toLowerCase().replace(/[^\w]/g, ''))
                 .filter(Boolean)
             : [];
 
@@ -173,7 +110,7 @@ Return ONLY valid raw JSON:
             tags: finalTags
         };
     } catch (err) {
-        console.warn(`⚠️ Ollama failed: ${err.message}`);
+        console.warn(`⚠️ AI failed: ${err.message}`);
         return null;
     }
 }
@@ -181,50 +118,32 @@ Return ONLY valid raw JSON:
 async function processPost(post, availableCategoriesSet, newCategoriesSet) {
     try {
         const caption = post.caption || '';
+        const hasExistingTags = Array.isArray(post.tags) && post.tags.length > 0;
+        const isCategoryDefault = !post.category || post.category === 'Default';
 
-        const hasExistingTags =
-            Array.isArray(post.tags) && post.tags.length > 0;
+        let tags = Array.isArray(post.tags) ? [...post.tags] : [];
 
-        const isCategoryDefault =
-            !post.category || post.category === 'Default';
-
-        let tags = Array.isArray(post.tags)
-            ? [...post.tags]
-            : [];
-
-        /**
-         * Extract hashtags
-         */
+        // Extract hashtags
         if (!hasExistingTags && caption) {
             const hashtagRegex = /#(\w+)/g;
-
             let match;
-
             while ((match = hashtagRegex.exec(caption)) !== null) {
                 tags.push(match[1].toLowerCase());
             }
-
             tags = [...new Set(tags)];
         }
 
-        /**
-         * Skip fully enriched posts
-         */
+        // Check if both properties already exist
         if (!isCategoryDefault && hasExistingTags) {
             return null;
         }
 
-        /**
-         * Try FAST local classification first
-         */
-        let classificationResult =
-            classifyWithKeywords(caption, tags);
+        // Try fast local classification
+        let classificationResult = classifyWithKeywords(caption, tags);
 
-        /**
-         * Fallback to Ollama
-         */
+        // Fallback to AI
         if (!classificationResult) {
-            classificationResult = await classifyWithOllama(
+            classificationResult = await classifyWithAI(
                 caption,
                 tags,
                 [...availableCategoriesSet]
@@ -238,18 +157,14 @@ async function processPost(post, availableCategoriesSet, newCategoriesSet) {
         let newCategory = post.category;
         let enrichedTags = tags;
 
-        /**
-         * Update category only if default
-         */
+        // Update category only if default
         if (
             isCategoryDefault &&
             classificationResult.category &&
             classificationResult.category !== 'Default'
         ) {
             newCategory = classificationResult.category;
-
             const lowerCategory = newCategory.toLowerCase();
-
             const matchedCategory = [...availableCategoriesSet].find(
                 c => c.toLowerCase() === lowerCategory
             );
@@ -262,22 +177,13 @@ async function processPost(post, availableCategoriesSet, newCategoriesSet) {
             }
         }
 
-        /**
-         * Update tags only if empty
-         */
-        if (
-            !hasExistingTags &&
-            classificationResult.tags?.length
-        ) {
+        // Update tags only if empty
+        if (!hasExistingTags && classificationResult.tags?.length) {
             enrichedTags = classificationResult.tags;
         }
 
-        const categoryChanged =
-            newCategory !== post.category;
-
-        const tagsChanged =
-            JSON.stringify(enrichedTags) !==
-            JSON.stringify(post.tags || []);
+        const categoryChanged = newCategory !== post.category;
+        const tagsChanged = JSON.stringify(enrichedTags) !== JSON.stringify(post.tags || []);
 
         if (!categoryChanged && !tagsChanged) {
             return null;
@@ -290,247 +196,115 @@ async function processPost(post, availableCategoriesSet, newCategoriesSet) {
             oldCategory: post.category
         };
     } catch (err) {
-        console.error(
-            `❌ Failed processing post ${post._id}:`,
-            err.message
-        );
-
+        console.error(`❌ Failed processing post ${post._id}:`, err.message);
         return null;
     }
 }
 
 async function run() {
     console.log('📦 Connecting to MongoDB...');
-
     await mongoose.connect(MONGO_URI);
-
     console.log('✅ Connected to MongoDB');
-
-    /**
-     * Check Ollama
-     */
-    try {
-        await axios.get(
-            'http://localhost:11434/api/tags',
-            {
-                timeout: 3000
-            }
-        );
-
-        console.log(
-            `✅ Ollama connected using "${OLLAMA_MODEL}"`
-        );
-    } catch (err) {
-        console.error(
-            '❌ Ollama server not running on localhost:11434'
-        );
-
-        process.exit(1);
-    }
 
     const processAll = process.argv.includes('--all');
 
-    /**
-     * Load categories
-     */
-    const dbCategories = await Category.find()
-        .select('category')
-        .lean();
-
-    const availableCategoriesSet = new Set(
-        dbCategories.map(c => c.category)
-    );
-
+    const dbCategories = await Category.find().select('category').lean();
+    const availableCategoriesSet = new Set(dbCategories.map(c => c.category));
     const newCategoriesSet = new Set();
 
-    console.log(
-        `📊 Loaded ${availableCategoriesSet.size} categories`
-    );
+    console.log(`📊 Loaded ${availableCategoriesSet.size} categories`);
 
-    /**
-     * Query
-     */
-    const query = processAll
-        ? { deletedAt: null }
-        : {
-            deletedAt: null,
-            category: 'Default'
-        };
-
+    const query = processAll ? { deletedAt: null } : { deletedAt: null, category: 'Default' };
     console.log('🔍 Query:', query);
 
-    /**
-     * STREAMING CURSOR
-     */
-    const cursor = Post.find(query)
-        .select('_id caption category tags')
-        .lean()
-        .cursor();
-
+    const cursor = Post.find(query).select('_id caption category tags').lean().cursor();
     const limit = pLimit(CONCURRENCY);
 
     let processed = 0;
     let updated = 0;
     let skipped = 0;
-
     let batch = [];
 
     const postBulkOps = [];
     const vectorBulkOps = [];
 
-    console.log(
-        `🚀 Starting optimized classification with concurrency ${CONCURRENCY}`
-    );
+    console.log(`🚀 Starting optimized classification with concurrency ${CONCURRENCY}`);
 
     async function flushBulk() {
         if (!postBulkOps.length) return;
 
         try {
             await Post.bulkWrite(postBulkOps);
-
-            await PostVector.bulkWrite(vectorBulkOps, {
-                ordered: false
-            });
-
-            console.log(
-                `✅ Bulk updated ${postBulkOps.length} posts`
-            );
-
+            console.log(`✅ Bulk updated ${postBulkOps.length} posts`);
             postBulkOps.length = 0;
             vectorBulkOps.length = 0;
         } catch (err) {
-            console.error(
-                '❌ Bulk write failed:',
-                err.message
-            );
+            console.error('❌ Bulk write failed:', err.message);
         }
     }
 
-    for await (const post of cursor) {
+    let doc;
+    while ((doc = await cursor.next())) {
+        processed++;
+        const postDoc = doc;
+
         batch.push(
             limit(async () => {
-                processed++;
-
-                console.log(
-                    `🔍 Processing ${processed}: ${post._id}`
-                );
-
-                const result = await processPost(
-                    post,
-                    availableCategoriesSet,
-                    newCategoriesSet
-                );
-
-                if (!result) {
-                    skipped++;
-                    return;
-                }
-
-                updated++;
-
-                postBulkOps.push({
-                    updateOne: {
-                        filter: {
-                            _id: result.postId
-                        },
-                        update: {
-                            $set: {
-                                category: result.category,
-                                tags: result.tags
+                const res = await processPost(postDoc, availableCategoriesSet, newCategoriesSet);
+                if (res) {
+                    updated++;
+                    postBulkOps.push({
+                        updateOne: {
+                            filter: { _id: res.postId },
+                            update: {
+                                $set: {
+                                    category: res.category,
+                                    tags: res.tags
+                                }
                             }
                         }
-                    }
-                });
-
-                vectorBulkOps.push({
-                    updateOne: {
-                        filter: {
-                            postId: result.postId
-                        },
-                        update: {
-                            $set: {
-                                category: result.category,
-                                tags: result.tags
-                            }
-                        },
-                        upsert: false
-                    }
-                });
-
-                console.log(
-                    `✅ ${result.postId} | ${result.oldCategory} ➜ ${result.category}`
-                );
-
-                /**
-                 * Flush batch
-                 */
-                if (postBulkOps.length >= BATCH_SIZE) {
-                    await flushBulk();
+                    });
+                } else {
+                    skipped++;
                 }
             })
         );
 
-        /**
-         * Prevent giant memory buildup
-         */
-        if (batch.length >= 500) {
+        if (batch.length >= BATCH_SIZE) {
             await Promise.all(batch);
             batch = [];
+            await flushBulk();
+            console.log(`Processed ${processed} documents...`);
         }
     }
 
-    /**
-     * Final remaining tasks
-     */
-    if (batch.length) {
+    if (batch.length > 0) {
         await Promise.all(batch);
+        await flushBulk();
     }
 
-    /**
-     * Final DB flush
-     */
-    await flushBulk();
-
-    /**
-     * Save newly discovered categories
-     */
+    // Bulk create new categories
     if (newCategoriesSet.size > 0) {
-        const categoryDocs = [...newCategoriesSet].map(
-            category => ({
-                category
-            })
-        );
-
         try {
-            await Category.insertMany(categoryDocs, {
-                ordered: false
-            });
-
-            console.log(
-                `✨ Added ${categoryDocs.length} new categories`
+            await Category.insertMany(
+                [...newCategoriesSet].map(c => ({ category: c })),
+                { ordered: false }
             );
-        } catch (err) {
-            console.warn(
-                '⚠️ Some categories may already exist'
-            );
-        }
+            console.log(`✨ Registered ${newCategoriesSet.size} new categories in database.`);
+        } catch {}
     }
 
-    console.log('\n================================================');
-    console.log('🏁 PIPELINE COMPLETED');
-    console.log(`📊 Processed: ${processed}`);
-    console.log(`✅ Updated: ${updated}`);
-    console.log(`⏭️ Skipped: ${skipped}`);
-    console.log(
-        `✨ New Categories: ${newCategoriesSet.size}`
-    );
-    console.log('================================================');
+    console.log('\n======================================');
+    console.log('✅ RECATEGORIZATION COMPLETED');
+    console.log(`📊 Total Processed: ${processed}`);
+    console.log(`✅ Total Updated:   ${updated}`);
+    console.log(`⏭️ Total Skipped:   ${skipped}`);
+    console.log('======================================');
 
-    process.exit(0);
+    await mongoose.disconnect();
 }
 
 run().catch(err => {
     console.error('🔥 Fatal Error:', err);
-
     process.exit(1);
 });

@@ -371,3 +371,12 @@
         align-items: flex-end;
     }
   }
+
+  /* Short Bounce Animation for Active Reactions */
+  @keyframes bounce-short {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  .animate-bounce-short {
+    animation: bounce-short 0.8s ease-in-out;
+  }

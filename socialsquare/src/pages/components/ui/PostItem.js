@@ -93,13 +93,13 @@ const AiDwellPopup = ({ post, forceShowToken }) => {
 
     useEffect(() => {
         let hideTimer;
-        if (visible && !isLoading) {
+        if (visible && !isLoading && screenType !== 'desktop') {
             hideTimer = setTimeout(() => {
                 setVisible(false);
             }, 5000);
         }
         return () => clearTimeout(hideTimer);
-    }, [visible, isLoading]);
+    }, [visible, isLoading, screenType]);
 
     useEffect(() => {
         let showTimer;
@@ -854,12 +854,43 @@ export const PostItem = React.memo(({
                                     </button>
                                 )}
                             </div>
+                            {post.goalId && (
+                                <div 
+                                    onClick={() => {
+                                        if (post.user?._id) {
+                                            onProfileClick(post.user._id);
+                                            sessionStorage.setItem('profileActiveTab', 'goals');
+                                        }
+                                    }}
+                                    className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-[10px] font-black px-2.5 py-1 rounded-full border border-emerald-500/20 cursor-pointer mt-1 self-start transition-all"
+                                >
+                                    🎯 Tracking Goal: {post.goalId.title} ({post.goalId.progress}%)
+                                </div>
+                            )}
                             {post.isAnonymous ? "" : post.location?.name && (
                                 <div className="flex items-center gap-1 mt-1">
                                     <i className="pi pi-map-marker text-[9px] text-gray-400"></i>
                                     <span className="text-[10px] text-gray-400 font-medium">{post.location.name}</span>
                                 </div>
                             )}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                {post.readingTime > 0 && (
+                                    <span className="inline-flex items-center gap-1 bg-indigo-500/5 text-[#808bf5] text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/10 select-none">
+                                        📖 {post.readingTime} min read
+                                    </span>
+                                )}
+                                {post.depthScore && (
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border select-none ${
+                                        post.depthScore === 'quick_take' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                        post.depthScore === 'deep_dive' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
+                                        'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                                    }`}>
+                                        {post.depthScore === 'quick_take' ? '⚡ Quick Take' :
+                                         post.depthScore === 'deep_dive' ? '🧠 Deep Dive' :
+                                         '📚 Long Read'}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 pl-2">
@@ -877,6 +908,23 @@ export const PostItem = React.memo(({
                         />
                     </div>
                 </div>
+
+                {post.isFeedbackRequest && (
+                    <div className="mx-4 my-2.5 p-3 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-[#6366f1]/20 flex items-center justify-center text-[#6366f1] shrink-0">
+                                <i className="pi pi-comments text-sm"></i>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black uppercase tracking-wider text-[var(--text-main)]">Critique Requested</span>
+                                <span className="text-[9px] text-[var(--text-sub)]">The author is asking for constructive critiques instead of likes.</span>
+                            </div>
+                        </div>
+                        <span className="bg-[#6366f1] text-white text-[9px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm shrink-0">
+                            {post.feedbackCategory || 'General'}
+                        </span>
+                    </div>
+                )}
 
                 {/* Before / After Post Format */}
                 {post.isBeforeAfter && post.beforeAfter && (
@@ -935,39 +983,78 @@ export const PostItem = React.memo(({
                     <div className="text-[var(--text-main)] w-full p-3">
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-4">
-                                <div
-                                    className="relative flex items-center gap-2 cursor-pointer"
-                                    onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
-                                    onMouseLeave={() => setPickerPostId(null)}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <div onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }} className="cursor-pointer">
-                                            <Like id={`like-${post._id}`} isliked={isLikedByMe} />
-                                        </div>
-                                        <span
-                                            className="cursor-pointer hover:text-[#808bf5] transition-colors font-bold"
-                                            onClick={(e) => { e.stopPropagation(); onLikesClick(post.likes || []); }}
+                                {!post.isFeedbackRequest ? (() => {
+                                    const myReaction = post.reactions?.find(r => r.userId === user?._id || r.userId?.toString() === user?._id?.toString());
+                                    const reactionGroups = (post.reactions || []).reduce((acc, r) => {
+                                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                        return acc;
+                                    }, {});
+
+                                    return (
+                                        <div
+                                            className="relative flex items-center gap-2 cursor-pointer"
+                                            onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
+                                            onMouseLeave={() => setPickerPostId(null)}
                                         >
-                                            {likesCount.toLocaleString()}
-                                        </span>
-                                    </div>
+                                            <div 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    if (myReaction) {
+                                                        handleReact(post, myReaction.emoji);
+                                                    } else {
+                                                        handleReact(post, '💡');
+                                                    }
+                                                }} 
+                                                className="cursor-pointer flex items-center justify-center w-7 h-7 text-[var(--text-main)] hover:text-[#808bf5] transition-all"
+                                                title={myReaction ? `Reacted with ${myReaction.emoji}` : "React to post"}
+                                            >
+                                                {myReaction ? (
+                                                    <span className="text-base select-none leading-none animate-bounce-short">{myReaction.emoji}</span>
+                                                ) : (
+                                                    <i className="pi pi-star text-[1.2rem] opacity-75 hover:opacity-100 hover:scale-110 transition-transform"></i>
+                                                )}
+                                            </div>
 
-                                    {pickerPostId === post._id && (
-                                        <ReactionPicker
-                                            onSelect={(emoji) => handleReact(post, emoji)}
-                                            onClose={() => setPickerPostId(null)}
-                                        />
-                                    )}
+                                            {pickerPostId === post._id && (
+                                                <ReactionPicker
+                                                    onSelect={(emoji) => handleReact(post, emoji)}
+                                                    onClose={() => setPickerPostId(null)}
+                                                />
+                                            )}
 
-                                    {post.reactions?.length > 0 && (
-                                        <div className="flex gap-2 -space-x-1 ml-1 items-center bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
-                                            {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
-                                                <span key={i} className="text-[10px] leading-none">{emoji}</span>
-                                            ))}
-                                            <span className="text-[10px] text-[var(--text-sub)] ml-1 font-bold">{post.reactions.length}</span>
+                                            {/* Mobile tap trigger label */}
+                                            {window.matchMedia('(pointer: coarse)').matches && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setPickerPostId(p => p === post._id ? null : post._id); }}
+                                                    className="bg-transparent border-0 cursor-pointer p-0 text-[10px] font-black text-[var(--text-sub)] hover:text-[#808bf5] mr-2"
+                                                >
+                                                    React
+                                                </button>
+                                            )}
+
+                                            {/* Reaction breakdown pills */}
+                                            {Object.keys(reactionGroups).length > 0 && (
+                                                <div className="flex gap-1.5 flex-wrap items-center">
+                                                     {Object.entries(reactionGroups).map(([emoji, count]) => (
+                                                         <span 
+                                                             key={emoji} 
+                                                             onClick={(e) => { e.stopPropagation(); handleReact(post, emoji); }}
+                                                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border transition-all cursor-pointer hover:scale-105 active:scale-95 ${myReaction?.emoji === emoji ? 'bg-indigo-500/10 border-indigo-500/30 text-[#808bf5]' : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)]'}`}
+                                                         >
+                                                             <span>{emoji}</span>
+                                                             <span>{count}</span>
+                                                         </span>
+                                                     ))}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
+                                    );
+                                })() : (
+                                    <div className="flex items-center gap-1.5 text-[#6366f1] bg-[#6366f1]/10 px-2.5 py-1 rounded-full border border-[#6366f1]/20 select-none">
+                                        <i className="pi pi-comments text-xs"></i>
+                                        <span className="text-[9px] font-extrabold uppercase tracking-wider">Critique Mode</span>
+                                    </div>
+                                )}
                                 <button aria-label={visiblePostId === post._id ? "Close comments" : "Open comments"} onClick={(e) => { e.stopPropagation(); setVisibleCommentId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] gap-2">
                                     <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i> {post.comments?.length || 0}
                                 </button>
@@ -1032,7 +1119,7 @@ export const PostItem = React.memo(({
                     </div>
                 )}
 
-                {visiblePostId === post._id && <Comment postId={post._id} setVisible={() => setVisibleCommentId(null)} onProfileClick={onProfileClick} />}
+                {visiblePostId === post._id && <Comment postId={post._id} post={post} setVisible={() => setVisibleCommentId(null)} onProfileClick={onProfileClick} />}
             </article>
 
             <SaveCollectionModal

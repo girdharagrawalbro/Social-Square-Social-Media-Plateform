@@ -153,6 +153,10 @@ router.get("/posts", verifyToken, async (req, res) => {
             deletedAt: null
         };
 
+        if (req.query.depth && ['quick_take', 'deep_dive', 'long_read'].includes(req.query.depth)) {
+            candidatesQuery.depthScore = req.query.depth;
+        }
+
         if (cursor) {
             const decoded = decodeCursor(cursor);
             if (decoded) {

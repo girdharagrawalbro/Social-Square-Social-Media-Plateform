@@ -107,16 +107,34 @@ router.get('/analytics', requireAdmin, async (req, res) => {
 
             // Aggregation pipelines — both use indexes on createdAt / created_at
             Post.aggregate([
-                { $match: { createdAt: { $gte: last7 } } },
+                { $match: { createdAt: { $gte: last7, $lte: now } } },
                 { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
                 { $sort: { _id: 1 } },
             ]),
             User.aggregate([
-                { $match: { created_at: { $gte: last7 } } },
+                { $match: { created_at: { $gte: last7, $lte: now } } },
                 { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$created_at' } }, count: { $sum: 1 } } },
                 { $sort: { _id: 1 } },
             ]),
         ]);
+
+        // Helper to fill in missing days for the last 7 days (UTC based to match MongoDB default)
+        const fillLast7Days = (arr) => {
+            const map = new Map(arr.map(item => [item._id, item.count]));
+            const filled = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(now.getTime() - i * 86400000);
+                const dateStr = d.toISOString().split('T')[0];
+                filled.push({
+                    _id: dateStr,
+                    count: map.get(dateStr) || 0
+                });
+            }
+            return filled;
+        };
+
+        const filledPostsPerDay = fillLast7Days(postsPerDay);
+        const filledUsersPerDay = fillLast7Days(usersPerDay);
 
         // Category breakdown
         const categoryBreakdown = await Post.aggregate([
@@ -130,7 +148,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
 
         const [currentEng, prevEng] = await Promise.all([
             Post.aggregate([
-                { $match: { createdAt: { $gte: last7Days } } },
+                { $match: { createdAt: { $gte: last7Days, $lte: now } } },
                 { $group: { _id: null, likes: { $sum: { $size: { $ifNull: ['$likes', []] } } }, comments: { $sum: { $size: { $ifNull: ['$comments', []] } } }, count: { $sum: 1 } } }
             ]),
             Post.aggregate([
@@ -177,7 +195,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
                 engagementRate: currRate.toFixed(2),
                 engagementDelta: engDelta
             },
-            charts: { postsPerDay, usersPerDay, categoryBreakdown, cohorts },
+            charts: { postsPerDay: filledPostsPerDay, usersPerDay: filledUsersPerDay, categoryBreakdown, cohorts },
             topPosts, recentUsers,
         };
 
