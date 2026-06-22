@@ -8,6 +8,8 @@ const GroupSchema = new mongoose.Schema({
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   admins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   isPrivate: { type: Boolean, default: false },
+  isAccountabilityCircle: { type: Boolean, default: false },
+  maxMembers: { type: Number, default: 10 },
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
 }, { timestamps: true });
 

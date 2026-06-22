@@ -17,6 +17,7 @@ export const authKeys = {
     analytics: (userId) => ['users', 'analytics', userId],
     groups: ['groups'],
     groupDetail: (groupId) => ['groups', groupId],
+    groupCheckIns: (groupId) => ['groups', groupId, 'checkins'],
 };
 
 // ─── OWN PROFILE (/me — Race-condition-free) ──────────────────────────────────
@@ -557,6 +558,50 @@ export function useLeaveGroup() {
         onSuccess: (_, { groupId }) => {
             qc.invalidateQueries({ queryKey: authKeys.groups });
             qc.invalidateQueries({ queryKey: authKeys.groupDetail(groupId) });
+        },
+    });
+}
+
+// ─── ACCOUNTABILITY CIRCLE CHECK-INS ──────────────────────────────────────────
+export function useGroupCheckIns(groupId) {
+    const initialized = useAuthStore(s => s.initialized);
+    return useQuery({
+        queryKey: authKeys.groupCheckIns(groupId),
+        queryFn: async () => {
+            const res = await api.get(`${BASE}/api/group/${groupId}/checkins`);
+            return res.data;
+        },
+        enabled: initialized && !!groupId,
+        staleTime: 1000 * 30, // 30 seconds
+    });
+}
+
+export function useSubmitCheckIn() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ groupId, wipText }) => api.post(`${BASE}/api/group/${groupId}/checkin`, { wipText }),
+        onSuccess: (_, { groupId }) => {
+            qc.invalidateQueries({ queryKey: authKeys.groupCheckIns(groupId) });
+        },
+    });
+}
+
+export function useToggleCheckInStatus() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ groupId, checkInId, status }) => api.put(`${BASE}/api/group/${groupId}/checkin/${checkInId}/status`, { status }),
+        onSuccess: (_, { groupId }) => {
+            qc.invalidateQueries({ queryKey: authKeys.groupCheckIns(groupId) });
+        },
+    });
+}
+
+export function useAddCheckInFeedback() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ groupId, checkInId, text }) => api.post(`${BASE}/api/group/${groupId}/checkin/${checkInId}/feedback`, { text }),
+        onSuccess: (_, { groupId }) => {
+            qc.invalidateQueries({ queryKey: authKeys.groupCheckIns(groupId) });
         },
     });
 }
