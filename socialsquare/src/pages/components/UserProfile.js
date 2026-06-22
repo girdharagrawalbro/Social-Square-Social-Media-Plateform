@@ -72,6 +72,14 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
             <div className="grid grid-cols-3 gap-2">
                 {posts.map((post, idx) => {
                     const imgs = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
+                    let previewSrc = imgs[0] || post.videoThumbnail || (post.video ? getMediaThumbnail(post.video, 'video') : null);
+                    if (!previewSrc && post.isBeforeAfter) {
+                        if (post.beforeAfter?.type === 'code') {
+                            previewSrc = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=500&auto=format&fit=crop&q=60";
+                        } else if (post.beforeAfter?.type === 'text') {
+                            previewSrc = "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=500&auto=format&fit=crop&q=60";
+                        }
+                    }
                     return (
                         <div
                             key={post._id}
@@ -80,10 +88,10 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
                             className={`relative rounded-lg overflow-hidden bg-[var(--surface-2)] cursor-pointer hover:opacity-90 transition group ${isBlur ? 'blur-lg' : ''}`}
                             style={{ aspectRatio: '1' }}
                         >
-                            {imgs[0] || post.video
+                            {previewSrc
                                 ? (
                                     <ProgressiveImage
-                                        src={imgs[0] || post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
+                                        src={previewSrc}
                                         alt=""
                                         className={isBlur ? 'blur-lg' : ''}
                                         objectFit="cover"
@@ -603,6 +611,11 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                 </span>
                             )}
                         </div>
+                        {userDetails?.streak?.count > 0 && (
+                            <div className="flex gap-1.5 items-center mt-1 bg-orange-500/10 text-orange-500 border border-orange-500/20 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                                <span>🔥 {userDetails.streak.count} day streak</span>
+                            </div>
+                        )}
                         {userDetails?.bio && (
                             <p className="text-sm text-[var(--text-main)] m-0 max-w-[260px] leading-6">{userDetails.bio}</p>
                         )}

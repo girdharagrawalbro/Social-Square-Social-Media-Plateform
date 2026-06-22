@@ -174,7 +174,7 @@ router.post("/create", verifyToken, [
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
             isAiGenerated, groupId, poll, videoThumbnail, mentionIds, visibility,
-            isBeforeAfter, beforeAfter
+            isBeforeAfter, beforeAfter, isFeedbackRequest, feedbackCategory, goalId
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
 
@@ -243,6 +243,9 @@ router.post("/create", verifyToken, [
             visibility: visibility || 'public',
             isBeforeAfter: !!isBeforeAfter,
             beforeAfter: beforeAfter || null,
+            isFeedbackRequest: !!isFeedbackRequest,
+            feedbackCategory: feedbackCategory || null,
+            goalId: goalId || null,
             // 🛡️ Store real authorId (select: false) to enforce private user follower checks
             authorId: loggedUserId
         });
@@ -663,6 +666,10 @@ router.get("/", async (req, res) => {
             $or: [{ unlocksAt: null }, { unlocksAt: { $lte: new Date() } }],
         };
 
+        if (req.query.depth && ['quick_take', 'deep_dive', 'long_read'].includes(req.query.depth)) {
+            query.depthScore = req.query.depth;
+        }
+
         if (userId) {
             query.$and = [
                 {
@@ -696,7 +703,7 @@ router.get("/", async (req, res) => {
         const candidateMultiplier = 4; // Fetch 4x more candidates to allow robust diversification
         const fetchLimit = (recentLimit * candidateMultiplier) + 1;
 
-        const recentPosts = await Post.find(query).sort({ createdAt: -1 }).limit(fetchLimit).populate('mentions', 'username fullname').lean().maxTimeMS(5000);
+        const recentPosts = await Post.find(query).sort({ createdAt: -1 }).limit(fetchLimit).populate('mentions', 'username fullname').populate('goalId', 'title progress').lean().maxTimeMS(5000);
         const hasMore = recentPosts.length > (recentLimit * candidateMultiplier);
 
         // Fetch old unseen pics (20% of feed)
@@ -1022,7 +1029,7 @@ router.get("/user/:userId", [
             }
         }
 
-        const posts = await Post.find(query).sort({ createdAt: -1 }).limit(limit + 1).populate('mentions', 'username fullname').lean();
+        const posts = await Post.find(query).sort({ createdAt: -1 }).limit(limit + 1).populate('mentions', 'username fullname').populate('goalId', 'title progress').lean();
         const hasMore = posts.length > limit;
         const result = hasMore ? posts.slice(0, limit) : posts;
         const sanitized = result.map(p => sanitizeAnonymousPost(p, viewerId));
@@ -1160,7 +1167,7 @@ router.get("/saved/:userId", verifyToken, [
 
         const user = await User.findById(userId).select('savedPosts');
         if (!user) return res.status(404).json({ message: 'User not found.' });
-        const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).populate('mentions', 'username fullname').lean();
+        const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).populate('mentions', 'username fullname').populate('goalId', 'title progress').lean();
         const sanitized = posts.map(p => sanitizeAnonymousPost(p, req.userId));
         res.status(200).json(sanitized);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
@@ -1614,18 +1621,25 @@ router.get('/comments', softVerifyToken, [
     }
 });
 
-// ─── ADD COMMENT (PROTECTED + FILTERED) ───────────────────────────────────────
 router.post('/comments/add', verifyToken, [
     body('postId').isMongoId().withMessage('Invalid post ID'),
-    body('content').notEmpty().trim().escape().isLength({ max: 2000 }),
+    body('content').optional().trim().escape().isLength({ max: 4000 }),
     body('parentId').optional().isMongoId(),
+    body('feedbackDetails').optional().isObject(),
     validate
 ], contentFilter, async (req, res) => {
     try {
-        const { content, postId, user, parentId } = req.body;
-        if (!content || !postId || !user) return res.status(400).json({ error: 'Invalid data' });
+        const { content, postId, user, parentId, feedbackDetails } = req.body;
+        if ((!content && !feedbackDetails) || !postId || !user) return res.status(400).json({ error: 'Invalid data' });
 
-        const newComment = new Comment({ postId, content, user, parentId: parentId || null });
+        const commentContent = content || `Rating: ${feedbackDetails.rating}/5\nStrengths: ${feedbackDetails.strengths}\nSuggestions: ${feedbackDetails.improvements}`;
+        const newComment = new Comment({
+            postId,
+            content: commentContent,
+            user,
+            parentId: parentId || null,
+            feedbackDetails: feedbackDetails || null
+        });
         await newComment.save();
 
         if (parentId) {

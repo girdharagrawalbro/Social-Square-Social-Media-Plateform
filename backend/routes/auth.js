@@ -62,6 +62,106 @@ async function evictLRUSession(userId, userEmail, userName) {
     }
 }
 
+// ─── STREAK & CONTRIBUTIONS HELPERS ──────────────────────────────────────────
+async function getUserContributions(userId) {
+    const oneYearAgo = new Date();
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+    
+    // Find all posts by this user in the last year
+    const posts = await Post.find({
+        'user._id': userId,
+        deletedAt: null,
+        createdAt: { $gte: oneYearAgo }
+    }, 'createdAt').lean();
+
+    // Aggregate posts by YYYY-MM-DD
+    const contributions = {};
+    posts.forEach(post => {
+        if (post.createdAt) {
+            const dateStr = new Date(post.createdAt).toISOString().split('T')[0];
+            contributions[dateStr] = (contributions[dateStr] || 0) + 1;
+        }
+    });
+
+    return contributions;
+}
+
+function getActiveStreak(streak) {
+    if (!streak || !streak.lastPostDate || !streak.count) {
+        return { count: 0, lastPostDate: null };
+    }
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const lastPost = new Date(streak.lastPostDate);
+    const lastPostTime = new Date(lastPost.getFullYear(), lastPost.getMonth(), lastPost.getDate()).getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    if (lastPostTime === today || lastPostTime === today - oneDayMs) {
+        return streak;
+    } else {
+        return { count: 0, lastPostDate: streak.lastPostDate };
+    }
+}
+
+function calculateConsistencySummary(contributions) {
+    const dates = Object.keys(contributions).sort((a, b) => new Date(b) - new Date(a));
+    if (dates.length === 0) return "Ready to start a new streak";
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    let dailyStreak = 0;
+    const hasPostedToday = contributions[todayStr] > 0;
+    const hasPostedYesterday = contributions[yesterdayStr] > 0;
+
+    if (hasPostedToday || hasPostedYesterday) {
+        let currentDate = hasPostedToday ? new Date(now) : new Date(yesterday);
+        while (true) {
+            const checkStr = currentDate.toISOString().split('T')[0];
+            if (contributions[checkStr] > 0) {
+                dailyStreak++;
+                currentDate.setDate(currentDate.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+    }
+
+    // Weekly consistency check
+    let weeklyStreak = 0;
+    let weekIndex = 0;
+    while (true) {
+        let postedInWeek = false;
+        for (let i = 0; i < 7; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - (weekIndex * 7 + i));
+            const dStr = d.toISOString().split('T')[0];
+            if (contributions[dStr] > 0) {
+                postedInWeek = true;
+                break;
+            }
+        }
+        if (postedInWeek) {
+            weeklyStreak++;
+            weekIndex++;
+        } else {
+            break;
+        }
+    }
+
+    if (dailyStreak > 0) {
+        return `posted ${dailyStreak} day${dailyStreak > 1 ? 's' : ''} straight`;
+    } else if (weeklyStreak > 0) {
+        return `shared work ${weeklyStreak} week${weeklyStreak > 1 ? 's' : ''} in a row`;
+    } else {
+        return "Ready to start a new streak";
+    }
+}
+
+
 // ─── PURGE STALE SESSIONS CRON (daily at 03:00) ───────────────────────────────
 // Deletes sessions that are revoked OR expired for more than 7 days.
 // This prevents DB bloat since isRevoked only flips a flag.
@@ -993,8 +1093,15 @@ router.get('/me', verifyToken, async (req, res) => {
 
         const postCount = await Post.countDocuments({ 'user._id': userId, deletedAt: null });
 
+        const contributions = await getUserContributions(userId);
+        const activeStreak = getActiveStreak(user.streak);
+        const consistencySummary = calculateConsistencySummary(contributions);
+
         return res.status(200).json({
             ...user,
+            streak: activeStreak,
+            contributions,
+            consistencySummary,
             postCount,
             isOwner: true, // Explicit flag so frontend never needs to infer ownership
         });
@@ -1075,8 +1182,15 @@ router.get('/other-user/view/:id', verifyToken, [
         const isBlockedByMe = (loggedUser?.blockedUsers || []).some(id => id.toString() === targetId.toString());
         const isBlockingMe = (targetUser.blockedUsers || []).some(id => id.toString() === loggedUserId.toString());
 
+        const contributions = await getUserContributions(targetId);
+        const activeStreak = getActiveStreak(targetUser.streak);
+        const consistencySummary = calculateConsistencySummary(contributions);
+
         return res.status(200).json({
             ...targetUser,
+            streak: activeStreak,
+            contributions,
+            consistencySummary,
             followers: canSeeDetails ? targetUser.followers : [],
             following: canSeeDetails ? targetUser.following : [],
             followerCount: targetUser.followersCount || 0,
@@ -1131,6 +1245,10 @@ router.get('/public/profile/:identifier', softVerifyToken, [
             if (isFollowing || isOwner) canSeeCount = true;
         }
 
+        const contributions = await getUserContributions(user._id);
+        const activeStreak = getActiveStreak(user.streak);
+        const consistencySummary = calculateConsistencySummary(contributions);
+
         return res.status(200).json({
             _id: user._id,
             fullname: user.fullname,
@@ -1142,7 +1260,9 @@ router.get('/public/profile/:identifier', softVerifyToken, [
             followingCount: user.followingCount || 0,
             postCount: canSeeCount ? postCount : "Private",
             level: user.level || 1,
-            streak: user.streak || { count: 0 },
+            streak: activeStreak,
+            contributions,
+            consistencySummary,
             xp: user.xp || 0,
             profileViews: user.profileViews || 0
         });

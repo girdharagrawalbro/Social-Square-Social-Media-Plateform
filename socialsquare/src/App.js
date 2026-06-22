@@ -289,6 +289,11 @@ function AppInit() {
                     : 'liked your post';
             }
 
+            if (type === 'reaction') {
+                actionText = `reacted ${message?.emoji || '💡'} to your post`;
+                icon = message?.emoji || '💡';
+            }
+
             if (type === 'comment') {
 
 
@@ -847,6 +852,8 @@ function App() {
                                     <Route path="/knowledge" element={<MainLayout><KnowledgeDashboard /></MainLayout>} />
                                     <Route path="/knowledge/wiki" element={<MainLayout><WikiListPage /></MainLayout>} />
                                     <Route path="/knowledge/wiki/:slug" element={<MainLayout><WikiPage /></MainLayout>} />
+                                    <Route path="/contact" element={<MainLayout><Contact /></MainLayout>} />
+                                    <Route path="/help" element={<MainLayout><Help /></MainLayout>} />
                                     <Route path="*" element={<Navigate to={`/${user.username}`} replace />} />
                                 </>
                             ) : (

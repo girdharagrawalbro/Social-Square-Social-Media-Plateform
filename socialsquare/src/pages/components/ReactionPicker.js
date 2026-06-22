@@ -1,6 +1,11 @@
 import React, { useEffect } from 'react';
 
-const EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '🔥', '🙌', '💯'];
+const REACTIONS = [
+    { emoji: '💡', label: 'Learned' },
+    { emoji: '🤝', label: 'Respect' },
+    { emoji: '🚀', label: 'Try this' },
+    { emoji: '🔖', label: 'Saved' }
+];
 
 const ReactionPicker = ({ onSelect, onClose }) => {
     useEffect(() => {
@@ -17,22 +22,23 @@ const ReactionPicker = ({ onSelect, onClose }) => {
         <div 
             role="dialog"
             aria-label="Reaction picker"
-            className="absolute bottom-full mb-[-8px]  left-0 z-[100] bg-[var(--surface-1)] border border-[var(--border-color)] rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex gap-1 p-1.5 items-center animate-in fade-in slide-in-from-bottom-2 duration-300 backdrop-blur-md bg-opacity-90"
+            className="absolute bottom-full mb-2 left-0 z-[100] bg-[var(--surface-1)] border border-[var(--border-color)] rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex gap-1 p-1.5 items-center animate-in fade-in slide-in-from-bottom-2 duration-200 backdrop-blur-md bg-opacity-95"
             onMouseLeave={onClose}
         >
-            {EMOJIS.map(emoji => (
+            {REACTIONS.map(({ emoji, label }) => (
                 <button
                     key={emoji}
-                    aria-label={`React with ${emoji}`}
+                    aria-label={`React with ${label}`}
                     onClick={(e) => { 
                         e.stopPropagation();
                         onSelect(emoji); 
                         if (onClose) onClose(); 
                     }}
-                    className="w-9 h-9 flex items-center justify-center text-xl hover:scale-135 transition-transform cursor-pointer border-0 bg-transparent rounded-full hover:bg-[var(--surface-2)] active:scale-95"
-                    title={emoji}
+                    className="flex flex-col items-center justify-center p-1.5 rounded-xl hover:bg-[var(--surface-2)] active:scale-95 transition-all border-0 bg-transparent cursor-pointer group"
+                    title={label}
                 >
-                    {emoji}
+                    <span className="text-xl group-hover:scale-125 transition-transform">{emoji}</span>
+                    <span className="text-[9px] font-bold text-[var(--text-sub)] mt-0.5">{label}</span>
                 </button>
             ))}
         </div>

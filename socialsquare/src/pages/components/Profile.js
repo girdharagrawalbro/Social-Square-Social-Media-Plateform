@@ -20,6 +20,9 @@ import PostCard from './ui/PostCard';
 import PostDetail from './PostDetail';
 import CreatorAnalytics from './CreatorAnalytics';
 import SkeletonProfile from './ui/SkeletonProfile';
+import ContributionGraph from './ui/ContributionGraph';
+import GoalWall from './GoalWall';
+import Graveyard from './Graveyard';
 
 /**
  * Profile Component - FLEXIBLE PROFILE VIEW
@@ -40,7 +43,14 @@ const Profile = ({ userId }) => {
     const [activeSessionsVisible, setActiveSessionsVisible] = useState(false);
     const [showFollowersList, setShowFollowersList] = useState(false);
     const [showFollowingList, setShowFollowingList] = useState(false);
-    const [activeTab, setActiveTab] = useState('posts');
+    const [activeTab, setActiveTab] = useState(() => {
+        const cached = sessionStorage.getItem('profileActiveTab');
+        if (cached) {
+            sessionStorage.removeItem('profileActiveTab');
+            return cached;
+        }
+        return 'posts';
+    });
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [postDetail, setPostDetail] = useState(null);
     const navigate = useNavigate();
@@ -395,6 +405,8 @@ const Profile = ({ userId }) => {
         ? [
             { key: 'posts', icon: 'pi pi-table', label: 'Posts' },
             { key: 'reels', icon: 'pi pi-video', label: 'Reels' },
+            { key: 'goals', icon: 'pi pi-target', label: 'Roadmap' },
+            { key: 'graveyard', icon: '🪦', label: 'Graveyard' },
             { key: 'saved', icon: 'pi pi-bookmark', label: 'Saved' },
             {
                 key: 'collabs',
@@ -407,6 +419,8 @@ const Profile = ({ userId }) => {
         : [
             { key: 'posts', icon: 'pi pi-table', label: 'Posts' },
             { key: 'reels', icon: 'pi pi-video', label: 'Reels' },
+            { key: 'goals', icon: 'pi pi-target', label: 'Roadmap' },
+            { key: 'graveyard', icon: '🪦', label: 'Graveyard' },
         ];
 
     return (
@@ -493,25 +507,32 @@ const Profile = ({ userId }) => {
 
                         {/* Level/Streak/XP */}
                         {!isPrivateAndNotFollowing && !isBlockedByMe && (
-                            <div className="flex gap-3 justify-center mb-3">
-                                <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                    <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
-                                    <span className="text-lg font-black text-[#808bf5]">{displayUser?.level || 1}</span>
+                            <div className="flex flex-col items-center mb-3">
+                                <div className="flex gap-3 justify-center w-full">
+                                    <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                        <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Level</span>
+                                        <span className="text-lg font-black text-[#808bf5]">{displayUser?.level || 1}</span>
+                                    </div>
+                                    <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                        <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
+                                        <span className="text-lg font-black text-orange-500 flex items-center gap-1">{displayUser?.streak?.count || 0} <span className='text-sm'>🔥</span></span>
+                                    </div>
+                                    <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
+                                        <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
+                                        <span className="text-lg font-black text-green-500">{(displayUser?.xp || 0).toLocaleString()}</span>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                    <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">Streak</span>
-                                    <span className="text-lg font-black text-orange-500 flex items-center gap-1">{displayUser?.streak?.count || 0} <span className='text-sm'>🔥</span></span>
-                                </div>
-                                <div className="flex flex-col items-center bg-[var(--surface-2)] px-3 py-1.5 rounded-xl border border-[var(--border-color)] min-w-[70px]">
-                                    <span className="text-[9px] uppercase font-bold text-[var(--text-sub)] tracking-wider">XP</span>
-                                    <span className="text-lg font-black text-green-500">{(displayUser?.xp || 0).toLocaleString()}</span>
-                                </div>
+                                {displayUser?.consistencySummary && (
+                                    <div className="mt-2.5 text-xs font-semibold text-[var(--text-sub)] bg-indigo-500/10 text-[#808bf5] px-3.5 py-1 rounded-full border border-indigo-500/20 flex items-center gap-1.5">
+                                        ⚡ {displayUser.consistencySummary}
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {/* Stats tiles */}
                         {!isBlockedByMe && (
-                            <div className="grid grid-cols-4 gap-1 sm:gap-3 mb-4 px-2">
+                            <div className="grid grid-cols-4 gap-1 sm:gap-3 px-2 mb-3">
                                 <div
                                     className={`rounded-xl bg-[var(--surface-2)] border border-[var(--border-color)] py-2 sm:py-3 text-center transition-all px-1 sm:px-4 cursor-pointer ${isOwner || isFollowing ? 'cursor-pointer hover:bg-[var(--surface-1)] active:scale-95' : 'opacity-60 cursor-pointer'}`}
                                     onClick={() => {
@@ -570,7 +591,7 @@ const Profile = ({ userId }) => {
                             ) : isOwner ? (
                                 <></>
                             ) : !isBlockedByMe && (
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 gap-3 px-2">
                                     <button
                                         onClick={isFollowing ? handleUnfollow : isRequested ? handleCancelRequest : handleFollow}
                                         disabled={followMutation.isPending || unfollowMutation.isPending || cancelRequestMutation.isPending}
@@ -591,6 +612,13 @@ const Profile = ({ userId }) => {
                             )}
                         </div>
 
+                        {/* Consistency Graph */}
+                        {!isPrivateAndNotFollowing && !isBlockedByMe && (
+                            <div className="px-2 mb-2">
+                                <ContributionGraph contributions={displayUser?.contributions} />
+                            </div>
+                        )}
+                        
                         {/* OTHER PROFILE - Mute/Block Options */}
                         {!isOwner && !isLoggedOut && (
                             <div className="py-2 border-t border-b border-[var(--border-color)] flex divide-x divide-[var(--border-color)] my-2">
@@ -622,6 +650,8 @@ const Profile = ({ userId }) => {
                             </div>
                         )}
 
+
+
                         {/* Tabs */}
                         {!isPrivateAndNotFollowing && !isBlockedByMe && (
                             <div className="flex relative items-center bg-[var(--surface-1)] border-t border-[var(--border-color)]" ref={tabContainerRef}>
@@ -648,7 +678,11 @@ const Profile = ({ userId }) => {
                                         title={tab.label}
                                     >
                                         <div className="relative">
-                                            <i className={`${tab.icon} text-lg`}></i>
+                                            {tab.icon.startsWith('pi ') ? (
+                                                <i className={`${tab.icon} text-lg`}></i>
+                                            ) : (
+                                                <span className="text-lg leading-none select-none">{tab.icon}</span>
+                                            )}
                                             {tab.badge && (
                                                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] px-1 rounded-full font-bold">
                                                     {tab.badge}
@@ -693,6 +727,12 @@ const Profile = ({ userId }) => {
                     ) : activeTab === 'collabs' ? (
                         // Collabs tab — full width, no grid
                         <CollabManager mode="all" />
+                    ) : activeTab === 'graveyard' ? (
+                        // Idea Graveyard Tab
+                        <Graveyard userId={profileId} isOwner={isOwner} />
+                    ) : activeTab === 'goals' ? (
+                        // Goals / Roadmap Tab
+                        <GoalWall userId={profileId} isOwner={isOwner} />
                     ) : activeTab === 'analytics' ? (
                         // Analytics tab
                         <div className="px-2">

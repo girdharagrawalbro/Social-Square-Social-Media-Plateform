@@ -18,6 +18,11 @@ const commentSchema = new mongoose.Schema(
         isInsightful: { type: Boolean, default: false },
         quality: { type: String, enum: ['high', 'normal', 'low'], default: 'normal' },
         topic: { type: String, default: 'General' },
+        feedbackDetails: {
+            strengths: { type: String, default: null },
+            improvements: { type: String, default: null },
+            rating: { type: Number, min: 1, max: 5, default: null }
+        },
 
         // ─── MODERATION FIELDS ────────────────────────────────────────────────────
         isVisible: { type: Boolean, default: true, index: true },

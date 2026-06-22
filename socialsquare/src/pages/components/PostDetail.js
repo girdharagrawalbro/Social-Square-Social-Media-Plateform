@@ -472,6 +472,22 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                             {/* Author & Caption */}
                             <div className="px-4 py-3 border-b border-[var(--border-color)] shrink md:shrink-0 max-h-[26vh] overflow-y-auto md:max-h-none md:overflow-visible">
+                                {post.isFeedbackRequest && (
+                                    <div className="mb-3 p-3 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between gap-3 animate-in fade-in duration-200">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-full bg-[#6366f1]/20 flex items-center justify-center text-[#6366f1] shrink-0">
+                                                <i className="pi pi-comments text-xs animate-bounce"></i>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-main)]">Critique Requested</span>
+                                                <span className="text-[8px] text-[var(--text-sub)]">The author seeks structured reviews. Likes are disabled.</span>
+                                            </div>
+                                        </div>
+                                        <span className="bg-[#6366f1] text-white text-[8px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm shrink-0">
+                                            {post.feedbackCategory || 'General'}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
                                         {post.isAnonymous ? (
@@ -517,6 +533,24 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             </div>
 
                                             <span className="text-[var(--text-sub)] text-[10px]">{formatDate(post.createdAt || post.updatedAt)}</span>
+                                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                                {post.readingTime > 0 && (
+                                                    <span className="inline-flex items-center gap-1 bg-indigo-500/5 text-[#808bf5] text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/10 select-none">
+                                                        📖 {post.readingTime} min read
+                                                    </span>
+                                                )}
+                                                {post.depthScore && (
+                                                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border select-none ${
+                                                        post.depthScore === 'quick_take' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                                        post.depthScore === 'deep_dive' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
+                                                        'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                                                    }`}>
+                                                        {post.depthScore === 'quick_take' ? '⚡ Quick Take' :
+                                                         post.depthScore === 'deep_dive' ? '🧠 Deep Dive' :
+                                                         '📚 Long Read'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <PostMenu
@@ -569,7 +603,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                             {/* Comments Section */}
                             <div className="flex-1 min-h-0">
-                                <Comment postId={post._id} onProfileClick={handleProfileClick} />
+                                <Comment postId={post._id} post={post} onProfileClick={handleProfileClick} />
                             </div>
 
 
@@ -583,34 +617,73 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     <i className="pi pi-eye text-lg text-[var(--text-sub)]"></i>
                                     <span className="text-[10px] font-bold text-[var(--text-sub)]">{post.views || 0}</span>
                                 </div>
-                                <div
-                                    className="flex flex-col items-center gap-1 group cursor-pointer relative"
-                                    role="button"
-                                    tabIndex="0"
-                                    aria-label="Like post"
-                                    onClick={handleLikeToggle}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLikeToggle(); } }}
-                                    onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerVisible(true)}
-                                    onMouseLeave={() => setPickerVisible(false)}
-                                >
-                                    <Like id={`pd-like-${post._id}`} isliked={isLiked} loading={likeMutation.isPending} />
-                                    <div className="flex items-center gap-1">
-                                        <span
-                                            className="text-[10px] font-bold text-[var(--text-sub)] cursor-pointer hover:text-[#808bf5] transition-colors"
-                                            onClick={(e) => { e.stopPropagation(); setLikesIds(postLikes); setLikesVisible(true); }}
+                                {!post.isFeedbackRequest ? (() => {
+                                    const myReaction = post.reactions?.find(r => r.userId === loggeduser?._id || r.userId?.toString() === loggeduser?._id?.toString());
+                                    const reactionGroups = (post.reactions || []).reduce((acc, r) => {
+                                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                        return acc;
+                                    }, {});
+
+                                    return (
+                                        <div
+                                            className="flex items-center gap-2 relative"
+                                            onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerVisible(true)}
+                                            onMouseLeave={() => setPickerVisible(false)}
                                         >
-                                            {postLikes?.length || 0}
-                                        </span>
-                                        {post.reactions?.length > 0 && (
-                                            <div className="flex -space-x-1 items-center bg-[var(--surface-2)] px-1 rounded-full border border-[var(--border-color)]">
-                                                {[...new Set(post.reactions.map(r => r.emoji))].slice(0, 3).map((emoji, i) => (
-                                                    <span key={i} className="text-[8px] leading-none">{emoji}</span>
-                                                ))}
+                                            <div 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    if (myReaction) {
+                                                        handleReact(myReaction.emoji);
+                                                    } else {
+                                                        handleReact('💡');
+                                                    }
+                                                }} 
+                                                className="cursor-pointer flex flex-col items-center justify-center w-7 h-7 text-[var(--text-main)] hover:text-[#808bf5] transition-all"
+                                                title={myReaction ? `Reacted with ${myReaction.emoji}` : "React to post"}
+                                            >
+                                                {myReaction ? (
+                                                    <span className="text-base select-none leading-none animate-bounce-short">{myReaction.emoji}</span>
+                                                ) : (
+                                                    <i className="pi pi-star text-[1.2rem] opacity-75 hover:opacity-100 hover:scale-110 transition-transform"></i>
+                                                )}
                                             </div>
-                                        )}
+
+                                            {pickerVisible && <ReactionPicker onSelect={handleReact} onClose={() => setPickerVisible(false)} />}
+
+                                            {/* Mobile tap trigger label */}
+                                            {window.matchMedia('(pointer: coarse)').matches && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setPickerVisible(p => !p); }}
+                                                    className="bg-transparent border-0 cursor-pointer p-0 text-[10px] font-black text-[var(--text-sub)] hover:text-[#808bf5] mr-2"
+                                                >
+                                                    React
+                                                </button>
+                                            )}
+
+                                            {/* Reaction breakdown pills */}
+                                            {Object.keys(reactionGroups).length > 0 && (
+                                                <div className="flex gap-1.5 flex-wrap items-center">
+                                                     {Object.entries(reactionGroups).map(([emoji, count]) => (
+                                                         <span 
+                                                             key={emoji} 
+                                                             onClick={(e) => { e.stopPropagation(); handleReact(emoji); }}
+                                                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border transition-all cursor-pointer hover:scale-105 active:scale-95 ${myReaction?.emoji === emoji ? 'bg-indigo-500/10 border-indigo-500/30 text-[#808bf5]' : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)]'}`}
+                                                         >
+                                                             <span>{emoji}</span>
+                                                             <span>{count}</span>
+                                                         </span>
+                                                     ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })() : (
+                                    <div className="flex flex-col items-center gap-1 text-[#6366f1] select-none">
+                                        <i className="pi pi-comments text-lg"></i>
+                                        <span className="text-[9px] font-extrabold uppercase tracking-wider">Critique</span>
                                     </div>
-                                    {pickerVisible && <ReactionPicker onSelect={handleReact} onClose={() => setPickerVisible(false)} />}
-                                </div>
+                                )}
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer"
                                     role="button"

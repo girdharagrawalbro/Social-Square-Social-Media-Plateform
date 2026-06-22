@@ -1,50 +1,18 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const mongoose = require('mongoose');
-const axios = require('axios');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const { PostVector, CommentVector } = require('../models/Recommendation');
 const { getEmbedding } = require('../utils/embeddings');
+const { generateText } = require('../utils/gemini');
 
-const MONGO_URI = "mongodb+srv://girdharagrawalbro:7909905038@cluster0.czsb19m.mongodb.net/socialsquare?retryWrites=true&w=majority&appName=Cluster0";
-const OLLAMA_URL = 'http://localhost:11434/api/generate';
-const OLLAMA_MODEL = 'qwen2.5:3b'; // Must be a generative model, NOT all-minilm
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://girdharagrawalbro:7909905038@cluster0.czsb19m.mongodb.net/socialsquare?retryWrites=true&w=majority&appName=Cluster0";
 const CONCURRENCY = Number(process.env.CLASSIFY_CONCURRENCY || 2);
-const BATCH_SIZE = 100;
 
-if (!MONGO_URI) {
-    console.error('❌ MONGO_URI missing in .env');
-    process.exit(1);
-}
-
-// Ensure Ollama is running
-async function checkOllama() {
-    try {
-        await axios.get('http://localhost:11434/');
-        console.log(`✅ Ollama is running (Using model: ${OLLAMA_MODEL})`);
-        return true;
-    } catch {
-        console.error('❌ Ollama is not running on http://localhost:11434');
-        return false;
-    }
-}
-
-// Helper: Call Ollama
-async function generateFromOllama(prompt, system = '') {
-    try {
-        const res = await axios.post(OLLAMA_URL, {
-            model: OLLAMA_MODEL,
-            prompt,
-            system,
-            stream: false,
-            options: { temperature: 0.1 }
-        }, { timeout: 30000 });
-        return res.data.response.trim();
-    } catch (err) {
-        console.error(`[Ollama Error]`, err.message);
-        return null;
-    }
+// Helper: Call NVIDIA Chat API
+async function generateFromNvidia(prompt) {
+    return generateText(prompt, { maxTokens: 256, temperature: 0.1 });
 }
 
 function cleanAndParseJson(text) {
@@ -72,7 +40,7 @@ async function processPost(post) {
 Text: ${post.caption}
 Tags: ${post.tags?.join(', ') || 'None'}
 Output only the summary text, nothing else.`;
-        const summary = await generateFromOllama(prompt, 'You are an expert content summarizer for a social media platform.');
+        const summary = await generateFromNvidia(prompt);
         if (summary && summary.length > 5) {
             post.aiSummary = summary;
             await post.save();
@@ -122,7 +90,7 @@ Respond in JSON format with exact keys:
 }
 Only output valid JSON.`;
 
-        const response = await generateFromOllama(prompt);
+        const response = await generateFromNvidia(prompt);
         const parsed = cleanAndParseJson(response);
         if (parsed) {
             comment.topic = parsed.topic || 'General';
@@ -164,11 +132,6 @@ Only output valid JSON.`;
 // ─── RUNNER ───────────────────────────────────────────────────────────────────
 
 async function main() {
-    if (!(await checkOllama())) {
-        console.log('Please start Ollama before running this script.');
-        process.exit(1);
-    }
-
     await mongoose.connect(MONGO_URI);
     console.log('✅ Connected to MongoDB');
 

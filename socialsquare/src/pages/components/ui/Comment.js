@@ -146,21 +146,47 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                             {comment.topic && comment.topic !== 'General' && depth === 0 && <span className="text-[10px] text-[var(--text-sub)]">#{comment.topic}</span>}
                         </div>
                         
-                        {comment.quality === 'low' && !showLowQuality ? (
-                            <div className="py-1">
-                                <button onClick={() => setShowLowQuality(true)} className="text-xs text-[var(--text-sub)] hover:text-[#808bf5] border-0 bg-transparent p-0 cursor-pointer flex items-center gap-1">
-                                    <i className="pi pi-chevron-down text-[10px]"></i> Show low-quality reply
-                                </button>
+                        {comment.feedbackDetails && comment.feedbackDetails.rating ? (
+                            <div className="flex flex-col gap-2 py-1 select-text">
+                                <div className="flex items-center gap-1">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <i
+                                            key={star}
+                                            className={`pi pi-star-fill text-[11px] ${star <= comment.feedbackDetails.rating ? 'text-amber-500' : 'text-[var(--text-sub)]/30'}`}
+                                        ></i>
+                                    ))}
+                                    <span className="text-[10px] text-[var(--text-sub)] font-bold ml-1">({comment.feedbackDetails.rating}/5)</span>
+                                </div>
+                                {comment.feedbackDetails.strengths && (
+                                    <div className="text-xs bg-[var(--surface-3)] p-2 rounded-xl border border-[var(--border-color)]/40">
+                                        <span className="font-extrabold text-[10px] text-green-500 uppercase tracking-wider block mb-1">💪 Strengths</span>
+                                        <p className="m-0 text-[var(--text-main)] leading-relaxed">{renderTextWithMentions(comment.feedbackDetails.strengths, onProfileClick)}</p>
+                                    </div>
+                                )}
+                                {comment.feedbackDetails.improvements && (
+                                    <div className="text-xs bg-[var(--surface-3)] p-2 rounded-xl border border-[var(--border-color)]/40">
+                                        <span className="font-extrabold text-[10px] text-indigo-500 uppercase tracking-wider block mb-1">🛠️ Suggestions</span>
+                                        <p className="m-0 text-[var(--text-main)] leading-relaxed">{renderTextWithMentions(comment.feedbackDetails.improvements, onProfileClick)}</p>
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <>
-                                <p className="m-0 text-sm text-[var(--text-main)]">{renderTextWithMentions(comment.content, onProfileClick)}</p>
-                                {comment.quality === 'low' && showLowQuality && (
-                                    <button onClick={() => setShowLowQuality(false)} className="text-[10px] text-[var(--text-sub)] hover:text-[#808bf5] border-0 bg-transparent p-0 cursor-pointer mt-1">
-                                        Hide
+                            comment.quality === 'low' && !showLowQuality ? (
+                                <div className="py-1">
+                                    <button onClick={() => setShowLowQuality(true)} className="text-xs text-[var(--text-sub)] hover:text-[#808bf5] border-0 bg-transparent p-0 cursor-pointer flex items-center gap-1">
+                                        <i className="pi pi-chevron-down text-[10px]"></i> Show low-quality reply
                                     </button>
-                                )}
-                            </>
+                                </div>
+                            ) : (
+                                <>
+                                    <p className="m-0 text-sm text-[var(--text-main)]">{renderTextWithMentions(comment.content, onProfileClick)}</p>
+                                    {comment.quality === 'low' && showLowQuality && (
+                                        <button onClick={() => setShowLowQuality(false)} className="text-[10px] text-[var(--text-sub)] hover:text-[#808bf5] border-0 bg-transparent p-0 cursor-pointer mt-1">
+                                            Hide
+                                        </button>
+                                    )}
+                                </>
+                            )
                         )}
                         <HeartBurst visible={heartVisible} />
                     </div>
@@ -235,7 +261,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
     );
 };
 
-const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
+const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
     const user = useAuthStore(s => s.user);
     const loggeduser = user;
     const [formData, setFormData] = useState({ content: '' });
@@ -243,6 +269,11 @@ const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
     const [selectedTopic, setSelectedTopic] = useState('All');
     const [cursorPosition, setCursorPosition] = useState(0);
     const inputRef = useRef(null);
+
+    // Feedback request fields state
+    const [strengths, setStrengths] = useState('');
+    const [improvements, setImprovements] = useState('');
+    const [rating, setRating] = useState(5);
 
     const { data: fetchedComments, isLoading: commentsLoading } = useComments(postId);
     const createCommentMutation = useCreateComment();
@@ -270,15 +301,30 @@ const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!loggeduser?._id) return;
-        if (!formData.content.trim()) return;
-        const payload = {
-            postId, content: formData.content,
-            user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }
-        };
-        setFormData({ content: '' });
+        
+        let payload;
+        if (post?.isFeedbackRequest) {
+            if (!strengths.trim() || !improvements.trim()) return;
+            payload = {
+                postId,
+                user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture },
+                feedbackDetails: { strengths, improvements, rating }
+            };
+        } else {
+            if (!formData.content.trim()) return;
+            payload = {
+                postId, content: formData.content,
+                user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }
+            };
+        }
+        
         createCommentMutation.mutate(payload, {
             onSuccess: (res) => {
                 setLocalComments(prev => [...(prev ?? comments ?? []), { ...res.data, repliesList: [] }]);
+                setFormData({ content: '' });
+                setStrengths('');
+                setImprovements('');
+                setRating(5);
             },
             onError: console.error,
         });
@@ -362,39 +408,88 @@ const Comment = ({ postId, setVisible, onProfileClick, isOwnPost }) => {
             </div>
 
             {/* Fixed Input Section at Bottom */}
-            <div className="relative sticky bottom-0 p-3 flex gap-2 items-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10">
-                <MentionSuggestions 
-                    text={formData.content} 
-                    cursorPosition={cursorPosition} 
-                    onSelect={(val) => {
-                        setFormData({ content: val });
-                        if (inputRef.current) {
-                            inputRef.current.focus();
-                        }
-                    }} 
-                />
-                <img src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
-                <form onSubmit={handleSubmit} className="flex w-full gap-2">
-                    <input 
-                        ref={inputRef}
-                        type="text" 
-                        placeholder="Write a comment..." 
-                        className="flex-1 text-sm border border-[var(--border-color)] rounded-full px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5]"
-                        name="content" 
-                        value={formData.content} 
-                        onChange={e => {
-                            setFormData({ content: e.target.value });
-                            setCursorPosition(e.target.selectionStart);
+            {post?.isFeedbackRequest ? (
+                <div className="relative sticky bottom-0 p-3 flex flex-col gap-2.5 bg-[var(--surface-1)] border-t border-[var(--border-color)] z-10">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#6366f1] flex items-center gap-1.5">
+                            <i className="pi pi-comments animate-bounce"></i>
+                            Structured Critique ({post.feedbackCategory || 'General'})
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-[var(--text-sub)] font-bold mr-1">Rating:</span>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setRating(star)}
+                                    className="bg-transparent border-none p-0 cursor-pointer outline-none"
+                                >
+                                    <i className={`pi ${star <= rating ? 'pi-star-fill text-amber-500' : 'pi-star text-gray-300'} text-xs hover:scale-110 transition-transform`}></i>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+                        <div className="flex flex-col md:flex-row gap-2">
+                            <textarea
+                                placeholder="What are the strengths? (💪)"
+                                value={strengths}
+                                onChange={e => setStrengths(e.target.value)}
+                                rows={2}
+                                className="flex-1 text-xs border border-[var(--border-color)] rounded-xl px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5] resize-none"
+                                required
+                            />
+                            <textarea
+                                placeholder="What needs improvement? (🛠️)"
+                                value={improvements}
+                                onChange={e => setImprovements(e.target.value)}
+                                rows={2}
+                                className="flex-1 text-xs border border-[var(--border-color)] rounded-xl px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5] resize-none"
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end">
+                            <button type="submit" className="bg-[#808bf5] hover:bg-[#6b7ae6] text-white text-[11px] font-extrabold border-0 rounded-xl px-4 py-2 cursor-pointer transition flex items-center gap-1">
+                                <i className="pi pi-send"></i> Submit Critique
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            ) : (
+                <div className="relative sticky bottom-0 p-3 flex gap-2 items-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10">
+                    <MentionSuggestions 
+                        text={formData.content} 
+                        cursorPosition={cursorPosition} 
+                        onSelect={(val) => {
+                            setFormData({ content: val });
+                            if (inputRef.current) {
+                                inputRef.current.focus();
+                            }
                         }} 
-                        onKeyUp={e => setCursorPosition(e.target.selectionStart)}
-                        onSelect={e => setCursorPosition(e.target.selectionStart)}
-                        onClick={e => setCursorPosition(e.target.selectionStart)}
                     />
-                    <button type="submit" className="bg-[#808bf5] hover:bg-[#6b7ae6] text-white border-0 rounded-full px-4 py-2 cursor-pointer transition">
-                        <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
-                    </button>
-                </form>
-            </div>
+                    <img src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
+                    <form onSubmit={handleSubmit} className="flex w-full gap-2">
+                        <input 
+                            ref={inputRef}
+                            type="text" 
+                            placeholder="Write a comment..." 
+                            className="flex-1 text-sm border border-[var(--border-color)] rounded-full px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5]"
+                            name="content" 
+                            value={formData.content} 
+                            onChange={e => {
+                                setFormData({ content: e.target.value });
+                                setCursorPosition(e.target.selectionStart);
+                            }} 
+                            onKeyUp={e => setCursorPosition(e.target.selectionStart)}
+                            onSelect={e => setCursorPosition(e.target.selectionStart)}
+                            onClick={e => setCursorPosition(e.target.selectionStart)}
+                        />
+                        <button type="submit" className="bg-[#808bf5] hover:bg-[#6b7ae6] text-white border-0 rounded-full px-4 py-2 cursor-pointer transition">
+                            <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
+                        </button>
+                    </form>
+                </div>
+            )}
         </div>
     );
 };

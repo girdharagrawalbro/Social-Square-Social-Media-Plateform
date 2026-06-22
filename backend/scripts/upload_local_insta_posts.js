@@ -41,7 +41,7 @@ const { updateGamification } = require('../lib/gamification');
 const { checkContent } = require('../middleware/contentFilter');
 
 const CLOUDINARY_URL =
-    'http://localhost:5001/api/cloudinary/upload-base64';
+    (process.env.CLOUDINARY_API_BASE_URL || 'https://cloudinary-service-mdl5.onrender.com/api/cloudinary').replace(/\/+$/, '') + '/upload-base64';
 
 const OLLAMA_URL =
     'http://localhost:11434/api/generate';
@@ -104,7 +104,8 @@ function localClassify(caption = '', tags = []) {
                 return {
                     mood: 'Energetic',
                     category,
-                    tags: [...new Set([...tags, word])]
+                    tags: [...new Set([...tags, word])],
+                    aiSummary: null
                 };
             }
         }
@@ -123,44 +124,33 @@ async function analyzePostAI(
     availableCategories
 ) {
     try {
-        const prompt = `
-Caption: ${caption}
+        const { generateText } = require('../utils/gemini');
+        const prompt = `Analyze this social media post and return ONLY a raw JSON object with keys: "mood", "category", "tags", "aiSummary".
 
+Caption: ${caption}
 Tags: ${tags.join(', ')}
 
-Categories:
+Available Categories (try to match one of these if possible, otherwise suggest a new one):
 ${availableCategories.slice(0, 40).join(', ')}
 
-Return ONLY raw JSON:
-
+Your response MUST be ONLY valid JSON matching this schema:
 {
-  "mood":"Happy",
-  "category":"Travel",
-  "tags":["beach","vacation"]
+  "mood": "happy|sad|excited|angry|calm|romantic|funny|inspirational|nostalgic|neutral",
+  "category": "category name",
+  "tags": ["tag1", "tag2"],
+  "aiSummary": "1-2 sentence preview summary of the post caption."
 }
-`;
+Do not write anything else.`;
 
-        const response = await axios.post(
-            OLLAMA_URL,
-            {
-                model: OLLAMA_MODEL,
-                prompt,
-                stream: false
-            },
-            {
-                timeout: AI_TIMEOUT
-            }
-        );
-
-        const result = cleanAndParseJson(
-            response.data.response
-        );
+        const responseText = await generateText(prompt, { maxTokens: 512, temperature: 0.1 });
+        const result = cleanAndParseJson(responseText);
 
         if (!result) {
             return {
                 mood: 'Neutral',
                 category: 'Default',
-                tags
+                tags,
+                aiSummary: null
             };
         }
 
@@ -195,7 +185,8 @@ Return ONLY raw JSON:
         return {
             mood,
             category,
-            tags: [...new Set([...tags, ...aiTags])]
+            tags: [...new Set([...tags, ...aiTags])],
+            aiSummary: result.aiSummary || null
         };
     } catch (err) {
         console.warn(
@@ -206,14 +197,16 @@ Return ONLY raw JSON:
         return {
             mood: 'Neutral',
             category: 'Default',
-            tags
+            tags,
+            aiSummary: null
         };
     }
 }
 
 async function uploadToCloudinary(
     base64Data,
-    mimeType
+    mimeType,
+    folder
 ) {
     try {
         const resourceType =
@@ -225,7 +218,8 @@ async function uploadToCloudinary(
             CLOUDINARY_URL,
             {
                 file: `data:${mimeType};base64,${base64Data}`,
-                resourceType
+                resourceType,
+                folder
             },
             {
                 timeout: 600000,
@@ -253,7 +247,8 @@ async function processPost({
     user,
     availableCategoriesSet,
     newCategoriesSet,
-    uploadLimit
+    uploadLimit,
+    postDate
 }) {
     try {
         const shortcode = postMeta.shortcode;
@@ -261,6 +256,34 @@ async function processPost({
         const isVideo = postMeta.is_video;
 
         console.log(`🔍 ${shortcode}`);
+
+        const cleanCaption = caption.length > 500 ? caption.slice(0, 497) + '...' : caption;
+
+        // Check if post already exists by caption and user
+        const existing = await Post.findOne({
+            'user._id': user._id,
+            caption: cleanCaption
+        });
+
+        if (existing) {
+            console.log(`⏭️ Post already exists (by caption): ${shortcode}`);
+            if (!existing.aiSummary && cleanCaption.length > 10) {
+                console.log(`📝 Backfilling AI Summary for existing post: ${shortcode}`);
+                const tags = [];
+                const hashtagRegex = /#(\w+)/g;
+                let match;
+                while ((match = hashtagRegex.exec(cleanCaption)) !== null) {
+                    tags.push(match[1].toLowerCase());
+                }
+                const aiResult = await analyzePostAI(cleanCaption, tags, [...availableCategoriesSet]);
+                if (aiResult && aiResult.aiSummary) {
+                    existing.aiSummary = aiResult.aiSummary;
+                    await existing.save();
+                    console.log(`✅ Backfilled AI Summary: "${aiResult.aiSummary}"`);
+                }
+            }
+            return null;
+        }
 
         /**
          * Find media files
@@ -304,7 +327,8 @@ async function processPost({
                         const url =
                             await uploadToCloudinary(
                                 base64,
-                                'video/mp4'
+                                'video/mp4',
+                                `SocialSquare/${user._id}-${user.username}/posts`
                             );
 
                         return {
@@ -317,7 +341,8 @@ async function processPost({
                         const url =
                             await uploadToCloudinary(
                                 base64,
-                                'image/jpeg'
+                                'image/jpeg',
+                                `SocialSquare/${user._id}-${user.username}/posts`
                             );
 
                         return {
@@ -473,10 +498,8 @@ async function processPost({
                     ? violation.word
                     : null,
 
-            createdAt: new Date(
-                postMeta.date_utc ||
-                Date.now()
-            )
+            createdAt: postDate,
+            aiSummary: aiResult.aiSummary || null
         };
     } catch (err) {
         console.error(
@@ -489,11 +512,14 @@ async function processPost({
 }
 
 async function run() {
-    const folderArg = process.argv[2];
+    const args = process.argv.slice(2);
+    const folderArg = args.find(a => !a.startsWith('--'));
+    const startDateArg = args.find(a => a.startsWith('--start-date='))?.split('=')[1];
+    const spaceDays = Number(args.find(a => a.startsWith('--space-days='))?.split('=')[1] || 1);
 
     if (!folderArg) {
         console.error(
-            'Usage: node upload_local_insta_posts.js <folder>'
+            'Usage: node upload_local_insta_posts.js <folder> [--start-date=YYYY-MM-DD|now] [--space-days=N]'
         );
 
         process.exit(1);
@@ -629,7 +655,8 @@ async function run() {
             const profileUrl =
                 await uploadToCloudinary(
                     profileBase64,
-                    'image/jpeg'
+                    'image/jpeg',
+                    `SocialSquare/${user._id}-${user.username}/profile`
                 );
 
             if (profileUrl) {
@@ -681,20 +708,34 @@ async function run() {
         /**
          * Process posts
          */
+        let baseDate = null;
+        if (startDateArg) {
+            baseDate = startDateArg === 'now' ? new Date() : new Date(startDateArg);
+        }
+
         const postResults =
             await Promise.all(
                 metaData.posts.map(
-                    postMeta =>
-                        limit(() =>
+                    (postMeta, idx) => {
+                        let postDate;
+                        if (baseDate) {
+                            postDate = new Date(baseDate.getTime() + idx * spaceDays * 24 * 60 * 60 * 1000);
+                        } else {
+                            postDate = new Date(postMeta.date_utc || Date.now());
+                        }
+
+                        return limit(() =>
                             processPost({
                                 postMeta,
                                 postsDir,
                                 user,
                                 availableCategoriesSet,
                                 newCategoriesSet,
-                                uploadLimit
+                                uploadLimit,
+                                postDate
                             })
-                        )
+                        );
+                    }
                 )
             );
 

@@ -84,6 +84,7 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
         if (n.type === 'collab_invite') return 'invited you to collaborate';
         if (n.type === 'message') return n.message?.content || 'sent you a message';
         if (n.type === 'like') return n.url?.includes('stories') ? 'liked your story' : 'liked your post';
+        if (n.type === 'reaction') return `reacted ${n.message?.emoji || '💡'} to your post`;
         if (n.type === 'comment') return 'commented on your post';
         if (n.type === 'follow') return 'started following you';
         if (n.type === 'follow_request') return 'sent you a follow request';
