@@ -41,13 +41,14 @@ const MoodFeedToggle = ({ onMoodSelect, activeMood, onClear }) => {
                             <button
                                 key={mood.key}
                                 onClick={() => isActive ? onClear() : onMoodSelect(mood.key)}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border-0 cursor-pointer transition-all duration-300 whitespace-nowrap active:scale-90 flex-shrink-0 shadow-sm ${isActive
-                                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-xl shadow-indigo-500/30 scale-[1.05] z-10'
-                                    : 'bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-1)] border border-[var(--border-color)] hover:border-indigo-500/30'
-                                    }`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black border transition-all cursor-pointer whitespace-nowrap active:scale-95 flex-shrink-0 ${
+                                    isActive
+                                        ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
+                                        : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
+                                }`}
                             >
-                                <span className={`text-base transition-transform duration-300 ${isActive ? 'scale-125' : 'group-hover:scale-110'}`}>{mood.emoji}</span>
-                                <span className={`text-[11px] font-bold tracking-tight ${isActive ? 'text-white' : 'text-[var(--text-sub)]'}`}>{mood.label}</span>
+                                <span className="text-xs">{mood.emoji}</span>
+                                <span>{mood.label}</span>
                             </button>
                         );
                     })}

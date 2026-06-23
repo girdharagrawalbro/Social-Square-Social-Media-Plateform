@@ -3,7 +3,6 @@ import { useInView } from 'react-intersection-observer';
 import toast from 'react-hot-toast';
 
 import Comment from './Comment';
-import Like from './Like';
 import PostMenu from './PostMenu';
 import { ImageCarousel } from "./ImageCarosel";
 import { HeartBurst } from "./HeartBurst";
@@ -988,7 +987,10 @@ export const PostItem = React.memo(({
                                         onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }}
                                         className="flex items-center gap-1 cursor-pointer"
                                     >
-                                        <Like id={post._id} isliked={isLikedByMe} />
+                                        <i 
+                                            className={`pi ${isLikedByMe ? 'pi-heart-fill' : 'pi-heart'}`} 
+                                            style={{ fontSize: '1.2rem', color: isLikedByMe ? '#ef4444' : 'currentColor' }}
+                                        ></i>
                                         {likesCount > 0 && (
                                             <span 
                                                 onClick={(e) => { e.stopPropagation(); onLikesClick && onLikesClick(post.likes); }}
@@ -1000,9 +1002,11 @@ export const PostItem = React.memo(({
                                     </div>
                                 )}
                                 {!post.isFeedbackRequest ? (() => {
-                                    const myReaction = post.reactions?.find(r => r.userId === user?._id || r.userId?.toString() === user?._id?.toString());
+                                    const myReaction = post.reactions?.find(r => r.emoji !== '❤️' && (r.userId === user?._id || r.userId?.toString() === user?._id?.toString()));
                                     const reactionGroups = (post.reactions || []).reduce((acc, r) => {
-                                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                        if (r.emoji !== '❤️') {
+                                            acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                        }
                                         return acc;
                                     }, {});
 
