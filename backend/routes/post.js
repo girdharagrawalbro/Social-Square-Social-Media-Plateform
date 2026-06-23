@@ -24,6 +24,7 @@ const verifyToken = require('../middleware/Verifytoken');
 const softVerifyToken = require('../middleware/softVerifyToken');
 const contentFilter = require('../middleware/contentFilter');
 const { publishEvent } = require("../services/recommendationPublisher");
+const notificationUtils = require('../lib/notification.js');
 const { updateGamification } = require('../lib/gamification');
 const jwt = require('jsonwebtoken');
 const { hashValue } = require('../utils/authSecurity');
@@ -289,10 +290,9 @@ router.post("/create", verifyToken, [
 
         // Dispatch direct mention notifications
         if (Array.isArray(mentionIds) && mentionIds.length > 0) {
-            const notificationUtils = require('../lib/notification.js');
             mentionIds.forEach(async (mId) => {
                 if (mId.toString() === loggedUserId.toString()) return;
-                
+
                 // Real-time socket emit
                 if (_io) {
                     _io.to(mId.toString()).emit('newMention', { postId: newPost._id, senderName: userDetails.fullname });
@@ -401,9 +401,9 @@ router.post("/collaborate/decline", verifyToken, [
             const cId = c.userId || c._id;
             return cId && cId.toString() === userId.toString();
         });
-        if (idx !== -1) { 
-            post.collaborators[idx].status = 'declined'; 
-            await post.save(); 
+        if (idx !== -1) {
+            post.collaborators[idx].status = 'declined';
+            await post.save();
         } else {
             return res.status(403).json({ message: "Not a collaborator." });
         }
@@ -641,7 +641,7 @@ router.get("/", async (req, res) => {
                 // Exclude blockers + muted/blocked from feed results (but NOT self)
                 excludedUserIds = [...new Set([...excludedUserIds, ...blockerIds])];
             }
-            
+
             // Find users who have this user in their closeFriends list
             const cfUsers = await User.find({ closeFriends: userId }).select('_id');
             const closeFriendOfIds = cfUsers.map(u => u._id.toString());
@@ -1183,7 +1183,7 @@ router.get("/collections/all", verifyToken, async (req, res) => {
             .select('name posts coverImage createdAt')
             .sort({ createdAt: -1 })
             .lean();
-        
+
         const formatted = collections.map(c => ({
             _id: c._id,
             name: c.name,
@@ -1216,7 +1216,7 @@ router.post("/collections/create", verifyToken, [
             if (post) {
                 posts.push(postId);
                 coverImage = post.image_urls?.[0] || post.image_url || post.videoThumbnail || null;
-                
+
                 await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
             }
         }

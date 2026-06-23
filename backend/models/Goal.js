@@ -18,6 +18,19 @@ const GoalSchema = new mongoose.Schema({
   cheers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 
+// Pre-save hook to automatically compute progress
+GoalSchema.pre('save', function (next) {
+  if (this.status === 'completed') {
+    this.progress = 100;
+  } else if (!this.milestones || this.milestones.length === 0) {
+    this.progress = 0;
+  } else {
+    const completed = this.milestones.filter(m => m.isCompleted).length;
+    this.progress = Math.round((completed / this.milestones.length) * 100);
+  }
+  next();
+});
+
 // Index for fetching a user's goals quickly
 GoalSchema.index({ user: 1, createdAt: -1 });
 

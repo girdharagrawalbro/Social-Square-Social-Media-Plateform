@@ -89,7 +89,7 @@ const PostCard = ({ post, onClick, isBlur = false }) => {
                 )}
                 {post.goalId && (
                     <div className="bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-md" title={`Linked to goal: ${post.goalId.title || 'Goal'}`}>
-                        <i className="pi pi-target text-[9px]"></i>
+                        <i className="pi pi-flag text-[9px]"></i>
                         <span>GOAL</span>
                     </div>
                 )}

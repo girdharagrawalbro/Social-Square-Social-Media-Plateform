@@ -60,7 +60,7 @@ router.put('/:goalId', verifyToken, async (req, res) => {
     const goal = await Goal.findById(req.params.goalId);
     if (!goal) return res.status(404).json({ error: 'Goal not found.' });
 
-    if (goal.user.toString() !== req.userId) {
+    if (goal.user.toString() !== req.userId.toString()) {
       return res.status(433).json({ error: 'Unauthorized to update this goal.' });
     }
 
@@ -87,7 +87,7 @@ router.post('/:goalId/milestone', verifyToken, async (req, res) => {
     const goal = await Goal.findById(req.params.goalId);
     if (!goal) return res.status(404).json({ error: 'Goal not found.' });
 
-    if (goal.user.toString() !== req.userId) {
+    if (goal.user.toString() !== req.userId.toString()) {
       return res.status(433).json({ error: 'Unauthorized.' });
     }
 
@@ -108,7 +108,7 @@ router.put('/:goalId/milestone/:milestoneId', verifyToken, async (req, res) => {
     const goal = await Goal.findById(req.params.goalId);
     if (!goal) return res.status(404).json({ error: 'Goal not found.' });
 
-    if (goal.user.toString() !== req.userId) {
+    if (goal.user.toString() !== req.userId.toString()) {
       return res.status(433).json({ error: 'Unauthorized.' });
     }
 
@@ -133,7 +133,7 @@ router.delete('/:goalId/milestone/:milestoneId', verifyToken, async (req, res) =
     const goal = await Goal.findById(req.params.goalId);
     if (!goal) return res.status(404).json({ error: 'Goal not found.' });
 
-    if (goal.user.toString() !== req.userId) {
+    if (goal.user.toString() !== req.userId.toString()) {
       return res.status(433).json({ error: 'Unauthorized.' });
     }
 
@@ -199,7 +199,7 @@ router.delete('/:goalId', verifyToken, async (req, res) => {
     const goal = await Goal.findById(req.params.goalId);
     if (!goal) return res.status(404).json({ error: 'Goal not found.' });
 
-    if (goal.user.toString() !== req.userId) {
+    if (goal.user.toString() !== req.userId.toString()) {
       return res.status(433).json({ error: 'Unauthorized to delete this goal.' });
     }
 

@@ -16,6 +16,15 @@ const GoalWall = ({ userId, isOwner }) => {
     const [postDetailVisible, setPostDetailVisible] = useState(false);
     const [selectedPost, setSelectedPost] = useState(null);
 
+    // Edit Goal State
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [selectedGoal, setSelectedGoal] = useState(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editTargetDate, setEditTargetDate] = useState('');
+    const [editStatus, setEditStatus] = useState('');
+    const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
+
     // Fetch goals and user posts to associate posts with goals
     useEffect(() => {
         const fetchGoals = async () => {
@@ -127,6 +136,60 @@ const GoalWall = ({ userId, isOwner }) => {
         }
     };
 
+    // Edit Goal handlers
+    const openEditModal = (goal) => {
+        setSelectedGoal(goal);
+        setEditTitle(goal.title);
+        setEditDescription(goal.description || '');
+        setEditTargetDate(goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : '');
+        setEditStatus(goal.status || 'active');
+        setNewMilestoneTitle('');
+        setShowEditModal(true);
+    };
+
+    const handleUpdateGoal = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await api.put(`/api/goal/${selectedGoal._id}`, {
+                title: editTitle,
+                description: editDescription,
+                targetDate: editTargetDate,
+                status: editStatus
+            });
+            setGoals(goals.map(g => g._id === selectedGoal._id ? { ...g, ...res.data } : g));
+            setShowEditModal(false);
+            toast.success("Goal updated!");
+        } catch (err) {
+            toast.error("Failed to update goal.");
+        }
+    };
+
+    const handleAddMilestone = async () => {
+        if (!newMilestoneTitle.trim()) return;
+        try {
+            const res = await api.post(`/api/goal/${selectedGoal._id}/milestone`, {
+                title: newMilestoneTitle.trim()
+            });
+            setGoals(goals.map(g => g._id === selectedGoal._id ? res.data : g));
+            setSelectedGoal(res.data);
+            setNewMilestoneTitle('');
+            toast.success("Milestone added!");
+        } catch (err) {
+            toast.error("Failed to add milestone.");
+        }
+    };
+
+    const handleDeleteMilestone = async (milestoneId) => {
+        try {
+            const res = await api.delete(`/api/goal/${selectedGoal._id}/milestone/${milestoneId}`);
+            setGoals(goals.map(g => g._id === selectedGoal._id ? res.data : g));
+            setSelectedGoal(res.data);
+            toast.success("Milestone deleted!");
+        } catch (err) {
+            toast.error("Failed to delete milestone.");
+        }
+    };
+
     const handleOpenPostDetail = (post) => {
         setSelectedPost(post);
         setPostDetailVisible(true);
@@ -141,7 +204,7 @@ const GoalWall = ({ userId, isOwner }) => {
     }
 
     return (
-        <div className="w-full max-w-2xl mx-auto px-4 py-3 flex flex-col gap-6">
+        <div className="w-full max-w-2xl mx-auto p-2 flex flex-col gap-3 mb-14 md:mb-0">
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-black tracking-wide text-[var(--text-main)] m-0">🏁 Public Roadmap</h3>
                 {isOwner && (
@@ -156,16 +219,16 @@ const GoalWall = ({ userId, isOwner }) => {
 
             {goals.length === 0 ? (
                 <div className="text-center py-12 bg-[var(--surface-2)] rounded-3xl border border-dashed border-[var(--border-color)]">
-                    <i className="pi pi-target text-4xl text-[var(--text-sub)] opacity-20 mb-3 block"></i>
+                    <i className="pi pi-flag text-4xl text-[var(--text-sub)] opacity-20 mb-3 block"></i>
                     <p className="text-sm font-semibold text-[var(--text-sub)] m-0">No goals posted yet.</p>
                     {isOwner && <p className="text-xs text-[var(--text-sub)] opacity-60 mt-1">Add your first goal to share your journey!</p>}
                 </div>
             ) : (
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-2">
                     {goals.map(goal => {
                         const goalPosts = posts.filter(p => p.goalId?._id === goal._id || p.goalId === goal._id);
                         return (
-                            <div key={goal._id} className="bg-[var(--surface-2)] rounded-3xl p-5 border border-[var(--border-color)] shadow-sm relative overflow-hidden flex flex-col gap-4">
+                            <div key={goal._id} className="bg-[var(--surface-2)] rounded-xl p-3 border border-[var(--border-color)] shadow-sm relative overflow-hidden flex flex-col gap-3">
                                 {/* Header */}
                                 <div className="flex justify-between items-start">
                                     <div className="min-w-0 flex-1 pr-4">
@@ -180,15 +243,24 @@ const GoalWall = ({ userId, isOwner }) => {
                                         <h4 className="text-base font-black text-[var(--text-main)] m-0 leading-snug">{goal.title}</h4>
                                         {goal.description && <p className="text-xs text-[var(--text-sub)] mt-1.5 mb-0 leading-relaxed">{goal.description}</p>}
                                     </div>
-                                    
+
                                     {isOwner && (
-                                        <button
-                                            onClick={() => handleDeleteGoal(goal._id)}
-                                            className="w-7 h-7 rounded-full border-0 bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center cursor-pointer transition"
-                                            title="Delete Goal"
-                                        >
-                                            <i className="pi pi-trash text-xs"></i>
-                                        </button>
+                                        <div className="flex gap-1.5">
+                                            <button
+                                                onClick={() => openEditModal(goal)}
+                                                className="w-7 h-7 rounded-full border-0 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 flex items-center justify-center cursor-pointer transition"
+                                                title="Edit Goal"
+                                            >
+                                                <i className="pi pi-pencil text-xs"></i>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteGoal(goal._id)}
+                                                className="w-7 h-7 rounded-full border-0 bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center cursor-pointer transition"
+                                                title="Delete Goal"
+                                            >
+                                                <i className="pi pi-trash text-xs"></i>
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
 
@@ -199,8 +271,8 @@ const GoalWall = ({ userId, isOwner }) => {
                                         <span>{goal.progress}%</span>
                                     </div>
                                     <div className="w-full bg-[var(--surface-1)] rounded-full h-2 overflow-hidden border border-[var(--border-color)]">
-                                        <div 
-                                            className="h-full bg-gradient-to-r from-[#808bf5] to-[#6366f1] transition-all duration-500" 
+                                        <div
+                                            className="h-full bg-gradient-to-r from-[#808bf5] to-[#6366f1] transition-all duration-500"
                                             style={{ width: `${goal.progress}%` }}
                                         />
                                     </div>
@@ -364,6 +436,112 @@ const GoalWall = ({ userId, isOwner }) => {
                                 className="w-full py-2.5 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold border-0 rounded-xl cursor-pointer transition shadow-md"
                             >
                                 Publish Goal to Roadmap
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {/* Edit Goal Dialog/Modal */}
+            {showEditModal && selectedGoal && (
+                <div style={{ zIndex: 100 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-[var(--surface-1)] rounded-3xl border border-[var(--border-color)] w-full max-w-md p-6 flex flex-col gap-4 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center">
+                            <h4 className="text-base font-black text-[var(--text-main)] m-0">🔧 Edit Roadmap Goal</h4>
+                            <button
+                                onClick={() => setShowEditModal(false)}
+                                className="w-8 h-8 rounded-full border-0 bg-[var(--surface-2)] text-[var(--text-sub)] hover:bg-[var(--surface-3)] flex items-center justify-center cursor-pointer"
+                            >
+                                <i className="pi pi-times"></i>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleUpdateGoal} className="flex flex-col gap-3.5">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Goal Title *</label>
+                                <input
+                                    type="text"
+                                    value={editTitle}
+                                    onChange={e => setEditTitle(e.target.value)}
+                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-indigo-500 font-medium"
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Description</label>
+                                <textarea
+                                    value={editDescription}
+                                    onChange={e => setEditDescription(e.target.value)}
+                                    rows={3}
+                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-main)] outline-none focus:border-indigo-500 resize-none font-medium"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Target Date *</label>
+                                <input
+                                    type="date"
+                                    value={editTargetDate}
+                                    onChange={e => setEditTargetDate(e.target.value)}
+                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-indigo-500 font-medium"
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Status</label>
+                                <select
+                                    value={editStatus}
+                                    onChange={e => setEditStatus(e.target.value)}
+                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-indigo-500 cursor-pointer font-bold"
+                                >
+                                    <option value="active">🚀 Active</option>
+                                    <option value="completed">✅ Completed</option>
+                                    <option value="failed">❌ Failed</option>
+                                </select>
+                            </div>
+
+                            <div className="flex flex-col gap-2 border-t border-[var(--border-color)]/60 pt-3">
+                                <label className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Manage Milestones</label>
+                                
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Add milestone title..."
+                                        value={newMilestoneTitle}
+                                        onChange={e => setNewMilestoneTitle(e.target.value)}
+                                        className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-indigo-500 font-medium"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAddMilestone}
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white border-0 rounded-xl text-xs font-bold cursor-pointer transition shadow-md"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-1 mt-2">
+                                    {selectedGoal.milestones?.map(m => (
+                                        <div key={m._id} className="flex justify-between items-center bg-[var(--surface-2)] p-2 rounded-xl border border-[var(--border-color)]/30">
+                                            <span className="text-xs text-[var(--text-main)] truncate max-w-[200px] font-medium">{m.title}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteMilestone(m._id)}
+                                                className="w-6 h-6 rounded-full border-0 bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center cursor-pointer transition"
+                                                title="Delete Milestone"
+                                            >
+                                                <i className="pi pi-trash text-[10px]"></i>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full py-2.5 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold border-0 rounded-xl cursor-pointer transition shadow-md"
+                            >
+                                Save Changes
                             </button>
                         </form>
                     </div>
