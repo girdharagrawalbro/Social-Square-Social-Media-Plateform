@@ -470,7 +470,7 @@ export const BeforeAfterView = ({ post, beforeAfter, onImageDoubleClick, onImage
                     </div>
 
                     {/* After Image (clipped on top/right) */}
-                    <div 
+                    <div
                         className="absolute inset-0 w-full h-full"
                         style={{
                             clipPath: `polygon(${sliderPos}% 0, 100% 0, 100% 100%, ${sliderPos}% 100%)`
@@ -854,7 +854,7 @@ export const PostItem = React.memo(({
                                 )}
                             </div>
                             {post.goalId && (
-                                <div 
+                                <div
                                     onClick={() => {
                                         if (post.user?._id) {
                                             onProfileClick(post.user._id);
@@ -879,14 +879,13 @@ export const PostItem = React.memo(({
                                     </span>
                                 )}
                                 {post.depthScore && (
-                                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border select-none ${
-                                        post.depthScore === 'quick_take' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border select-none ${post.depthScore === 'quick_take' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
                                         post.depthScore === 'deep_dive' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
-                                        'bg-purple-500/10 text-purple-600 border-purple-500/20'
-                                    }`}>
+                                            'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                                        }`}>
                                         {post.depthScore === 'quick_take' ? '⚡ Quick Take' :
-                                         post.depthScore === 'deep_dive' ? '🧠 Deep Dive' :
-                                         '📚 Long Read'}
+                                            post.depthScore === 'deep_dive' ? '🧠 Deep Dive' :
+                                                '📚 Long Read'}
                                     </span>
                                 )}
                             </div>
@@ -983,16 +982,16 @@ export const PostItem = React.memo(({
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-4">
                                 {!post.isFeedbackRequest && (
-                                    <div 
+                                    <div
                                         onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }}
                                         className="flex items-center gap-1 cursor-pointer"
                                     >
-                                        <i 
-                                            className={`pi ${isLikedByMe ? 'pi-heart-fill' : 'pi-heart'}`} 
+                                        <i
+                                            className={`pi ${isLikedByMe ? 'pi-heart-fill' : 'pi-heart'}`}
                                             style={{ fontSize: '1.2rem', color: isLikedByMe ? '#ef4444' : 'currentColor' }}
                                         ></i>
                                         {likesCount > 0 && (
-                                            <span 
+                                            <span
                                                 onClick={(e) => { e.stopPropagation(); onLikesClick && onLikesClick(post.likes); }}
                                                 className="text-xs font-bold hover:underline"
                                             >
@@ -1016,16 +1015,16 @@ export const PostItem = React.memo(({
                                             onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerPostId(post._id)}
                                             onMouseLeave={() => setPickerPostId(null)}
                                         >
-                                            <div 
-                                                onClick={(e) => { 
-                                                    e.stopPropagation(); 
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     if (myReaction) {
                                                         handleReact(post, myReaction.emoji);
                                                     } else {
                                                         handleReact(post, '💡');
                                                     }
-                                                }} 
-                                                className="cursor-pointer flex items-center justify-center w-7 h-7 text-[var(--text-main)] hover:text-[#808bf5] transition-all"
+                                                }}
+                                                className="cursor-pointer flex items-center justify-center w-7 h-7 text-[va1r(--text-main)] hover:text-[#808bf5] transition-all"
                                                 title={myReaction ? `Reacted with ${myReaction.emoji}` : "React to post"}
                                             >
                                                 {myReaction ? (
@@ -1044,7 +1043,7 @@ export const PostItem = React.memo(({
 
                                             {/* Mobile tap trigger label */}
                                             {window.matchMedia('(pointer: coarse)').matches && (
-                                                <button 
+                                                <button
                                                     onClick={(e) => { e.stopPropagation(); setPickerPostId(p => p === post._id ? null : post._id); }}
                                                     className="bg-transparent border-0 cursor-pointer p-0 text-[10px] font-black text-[var(--text-sub)] hover:text-[#808bf5] mr-2"
                                                 >
@@ -1055,16 +1054,16 @@ export const PostItem = React.memo(({
                                             {/* Reaction breakdown pills */}
                                             {Object.keys(reactionGroups).length > 0 && (
                                                 <div className="flex gap-1.5 flex-wrap items-center">
-                                                     {Object.entries(reactionGroups).map(([emoji, count]) => (
-                                                         <span 
-                                                             key={emoji} 
-                                                             onClick={(e) => { e.stopPropagation(); handleReact(post, emoji); }}
-                                                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border transition-all cursor-pointer hover:scale-105 active:scale-95 ${myReaction?.emoji === emoji ? 'bg-indigo-500/10 border-indigo-500/30 text-[#808bf5]' : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)]'}`}
-                                                         >
-                                                             <span>{emoji}</span>
-                                                             <span>{count}</span>
-                                                         </span>
-                                                     ))}
+                                                    {Object.entries(reactionGroups).map(([emoji, count]) => (
+                                                        <span
+                                                            key={emoji}
+                                                            onClick={(e) => { e.stopPropagation(); handleReact(post, emoji); }}
+                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border transition-all cursor-pointer hover:scale-105 active:scale-95 ${myReaction?.emoji === emoji ? 'bg-indigo-500/10 border-indigo-500/30 text-[#808bf5]' : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)]'}`}
+                                                        >
+                                                            <span>{emoji}</span>
+                                                            <span>{count}</span>
+                                                        </span>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>

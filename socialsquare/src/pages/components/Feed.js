@@ -512,7 +512,6 @@ const Feed = ({ activeMood = null }) => {
 
     // ── Loading guard ────────────────────────────────────────────────────────
     const isLoading = feedQuery.isLoading && displayPosts.length === 0;
-    console.log("displayPosts" + displayPosts)
     // ─────────────────────────────────────────────────────────────────────────
     return (
         <>
@@ -529,9 +528,9 @@ const Feed = ({ activeMood = null }) => {
                 }
             `}</style>
 
-            <div className={`feed-container max-w-md mx-auto ${isDark ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'} min-h-screen pb-20`}>
+            <div className={`feed-container mt-[-26px] max-w-md mx-auto ${isDark ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'} min-h-screen pb-20`}>
                 {/* Energy Filter Bar */}
-                <div className="sticky top-0 z-30 bg-[var(--app-bg)]/80 backdrop-blur-md border-b border-[var(--border-color)] px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none">
+                <div className="sticky top-0 z-30 bg-[var(--app-bg)]/80 backdrop-blur-md  px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none">
                     {[
                         { id: 'all', label: 'All Content' },
                         { id: 'quick_take', label: '⚡ Quick Takes' },
@@ -541,11 +540,10 @@ const Feed = ({ activeMood = null }) => {
                         <button
                             key={tab.id}
                             onClick={() => setSelectedDepth(tab.id)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black border transition-all cursor-pointer whitespace-nowrap ${
-                                selectedDepth === tab.id
-                                    ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
-                                    : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
-                            }`}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black border transition-all cursor-pointer whitespace-nowrap ${selectedDepth === tab.id
+                                ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
+                                : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
+                                }`}
                         >
                             <span>{tab.label}</span>
                         </button>
