@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useInView } from 'react-intersection-observer';
 import toast from 'react-hot-toast';
 
-import Like from "./Like";
 import Comment from './Comment';
 import PostMenu from './PostMenu';
 import { ImageCarousel } from "./ImageCarosel";
