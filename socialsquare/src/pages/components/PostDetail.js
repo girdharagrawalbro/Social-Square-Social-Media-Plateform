@@ -9,7 +9,6 @@ import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 // import axios from 'axios';
 import Comment from './ui/Comment';
-import Like from './ui/Like';
 import SharePostDialog from './ui/SharePostDialog';
 import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
@@ -617,14 +616,19 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         onClick={(e) => { e.stopPropagation(); handleLikeToggle(); }}
                                         className="flex flex-col items-center gap-1 cursor-pointer"
                                     >
-                                        <Like id={post._id} isliked={isLiked} />
+                                        <i 
+                                            className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} 
+                                            style={{ fontSize: '1.2rem', color: isLiked ? '#ef4444' : 'currentColor' }}
+                                        ></i>
                                         <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
                                     </div>
                                 )}
                                 {!post.isFeedbackRequest ? (() => {
-                                    const myReaction = post.reactions?.find(r => r.userId === loggeduser?._id || r.userId?.toString() === loggeduser?._id?.toString());
+                                    const myReaction = post.reactions?.find(r => r.emoji !== '❤️' && (r.userId === loggeduser?._id || r.userId?.toString() === loggeduser?._id?.toString()));
                                     const reactionGroups = (post.reactions || []).reduce((acc, r) => {
-                                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                        if (r.emoji !== '❤️') {
+                                            acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                        }
                                         return acc;
                                     }, {});
 
