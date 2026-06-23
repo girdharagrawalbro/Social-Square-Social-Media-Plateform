@@ -3,6 +3,7 @@ import { useInView } from 'react-intersection-observer';
 import toast from 'react-hot-toast';
 
 import Comment from './Comment';
+import Like from './Like';
 import PostMenu from './PostMenu';
 import { ImageCarousel } from "./ImageCarosel";
 import { HeartBurst } from "./HeartBurst";
@@ -982,6 +983,22 @@ export const PostItem = React.memo(({
                     <div className="text-[var(--text-main)] w-full p-3">
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-4">
+                                {!post.isFeedbackRequest && (
+                                    <div 
+                                        onClick={(e) => { e.stopPropagation(); onLikeToggle(post); }}
+                                        className="flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <Like id={post._id} isliked={isLikedByMe} />
+                                        {likesCount > 0 && (
+                                            <span 
+                                                onClick={(e) => { e.stopPropagation(); onLikesClick && onLikesClick(post.likes); }}
+                                                className="text-xs font-bold hover:underline"
+                                            >
+                                                {likesCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                                 {!post.isFeedbackRequest ? (() => {
                                     const myReaction = post.reactions?.find(r => r.userId === user?._id || r.userId?.toString() === user?._id?.toString());
                                     const reactionGroups = (post.reactions || []).reduce((acc, r) => {

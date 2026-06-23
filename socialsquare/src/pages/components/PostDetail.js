@@ -9,6 +9,7 @@ import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 // import axios from 'axios';
 import Comment from './ui/Comment';
+import Like from './ui/Like';
 import SharePostDialog from './ui/SharePostDialog';
 import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
@@ -137,6 +138,17 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const handleReact = (emoji) => {
         reactMutation.mutate({ postId: post._id, emoji });
         setPickerVisible(false);
+    };
+
+    const handleLikeToggle = () => {
+        if (likeMutation.isPending) return;
+        if (isLiked) {
+            setPostLikes(prev => prev.filter(id => id?.toString() !== loggeduser?._id?.toString()));
+            likeMutation.mutate({ postId: post._id, isLiked: true });
+        } else {
+            setPostLikes(prev => [...prev, loggeduser._id]);
+            likeMutation.mutate({ postId: post._id, isLiked: false });
+        }
     };
 
     const handleImageDoubleClick = () => {
@@ -600,6 +612,15 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     <i className="pi pi-eye text-lg text-[var(--text-sub)]"></i>
                                     <span className="text-[10px] font-bold text-[var(--text-sub)]">{post.views || 0}</span>
                                 </div>
+                                {!post.isFeedbackRequest && (
+                                    <div 
+                                        onClick={(e) => { e.stopPropagation(); handleLikeToggle(); }}
+                                        className="flex flex-col items-center gap-1 cursor-pointer"
+                                    >
+                                        <Like id={post._id} isliked={isLiked} />
+                                        <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
+                                    </div>
+                                )}
                                 {!post.isFeedbackRequest ? (() => {
                                     const myReaction = post.reactions?.find(r => r.userId === loggeduser?._id || r.userId?.toString() === loggeduser?._id?.toString());
                                     const reactionGroups = (post.reactions || []).reduce((acc, r) => {
