@@ -405,8 +405,8 @@ const Profile = ({ userId }) => {
         ? [
             { key: 'posts', icon: 'pi pi-table', label: 'Posts' },
             { key: 'reels', icon: 'pi pi-video', label: 'Reels' },
-            { key: 'goals', icon: 'pi pi-target', label: 'Roadmap' },
-            { key: 'graveyard', icon: '🪦', label: 'Graveyard' },
+            { key: 'goals', icon: 'pi pi-flag', label: 'Roadmap' },
+            { key: 'graveyard', icon: 'pi pi-history', label: 'Graveyard' },
             { key: 'saved', icon: 'pi pi-bookmark', label: 'Saved' },
             {
                 key: 'collabs',
@@ -419,8 +419,8 @@ const Profile = ({ userId }) => {
         : [
             { key: 'posts', icon: 'pi pi-table', label: 'Posts' },
             { key: 'reels', icon: 'pi pi-video', label: 'Reels' },
-            { key: 'goals', icon: 'pi pi-target', label: 'Roadmap' },
-            { key: 'graveyard', icon: '🪦', label: 'Graveyard' },
+            { key: 'goals', icon: 'pi pi-flag', label: 'Roadmap' },
+            { key: 'graveyard', icon: 'pi pi-history', label: 'Graveyard' },
         ];
 
     return (

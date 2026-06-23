@@ -6,7 +6,7 @@ import { api } from '../../store/zustand/useAuthStore';
 const Graveyard = ({ userId, isOwner }) => {
     const [ideas, setIdeas] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Form / Modal State
     const [dialogVisible, setDialogVisible] = useState(false);
     const [editingIdea, setEditingIdea] = useState(null);
@@ -100,21 +100,21 @@ const Graveyard = ({ userId, isOwner }) => {
     };
 
     return (
-        <div className="px-4 py-6 w-full max-w-3xl mx-auto">
+        <div className="p-2 w-full max-w-3xl mx-auto">
             {/* Header section */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-3">
                 <div>
-                    <h2 className="m-0 text-2xl font-black text-[var(--text-main)] flex items-center gap-2 font-outfit">
-                        <span>🪦</span> Idea Graveyard
+                    <h2 className="m-0 text-2xl font-black text-[var(--text-main)] flex items-center gap-2.5 font-outfit">
+                        <i className="pi pi-history text-rose-500 text-xl"></i> Idea Graveyard
                     </h2>
                     <p className="m-0 text-sm text-[var(--text-sub)] mt-1.5 leading-relaxed">
-                        Honoring the projects we killed, the pivots we made, and the lessons we carried forward.
+                    Honoring the kills, the pivots, and the lessons carried forward.
                     </p>
                 </div>
                 {isOwner && (
                     <button
                         onClick={openCreateDialog}
-                        className="px-5 py-2.5 bg-gradient-to-r from-red-500/20 via-rose-500/20 to-red-500/20 hover:from-red-500/30 hover:to-rose-500/30 text-rose-500 border border-rose-500/30 rounded-2xl text-xs font-black uppercase tracking-wider cursor-pointer transition-all active:scale-[0.98] flex items-center gap-1.5 shadow-md shadow-rose-500/5 select-none"
+                        className="px-3 py-2.5 bg-gradient-to-r from-red-500/20 via-rose-500/20 to-red-500/20 hover:from-red-500/30 hover:to-rose-500/30 text-rose-500 border border-rose-500/30 rounded-2xl text-xs font-black uppercase tracking-wider cursor-pointer transition-all active:scale-[0.98] flex items-center gap-1.5 shadow-md shadow-rose-500/5 select-none sm:mt-1"
                     >
                         <span>💀</span> Log Failure
                     </button>
@@ -140,7 +140,7 @@ const Graveyard = ({ userId, isOwner }) => {
                     {ideas.map((idea) => (
                         <div
                             key={idea._id}
-                            className="relative overflow-hidden bg-[var(--surface-2)] border border-[var(--border-color)] p-6 rounded-3xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
+                            className="relative overflow-hidden bg-[var(--surface-2)] border border-[var(--border-color)] p-3 rounded-3xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
                         >
                             {/* Tags list */}
                             {idea.tags && idea.tags.length > 0 && (
@@ -159,7 +159,7 @@ const Graveyard = ({ userId, isOwner }) => {
                                     {idea.title}
                                 </h3>
                                 {isOwner && (
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center gap-1">
                                         <button
                                             aria-label="Edit idea"
                                             onClick={() => openEditDialog(idea)}
@@ -184,11 +184,11 @@ const Graveyard = ({ userId, isOwner }) => {
                             </p>
 
                             {/* Details layout */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                                 {/* Killed Reason */}
                                 <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-2xl flex flex-col gap-1.5">
-                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1">
-                                        🪦 Why it Died
+                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1.5">
+                                        <i className="pi pi-times-circle"></i> Why it Died
                                     </span>
                                     <p className="m-0 text-xs text-[var(--text-main)] leading-relaxed font-semibold whitespace-pre-wrap">
                                         {idea.killedReason}
@@ -214,25 +214,14 @@ const Graveyard = ({ userId, isOwner }) => {
 
             {/* Create/Edit Dialog */}
             <Dialog
-                header={false}
+                header={`${editingIdea ? '🔧 Update Log' : '💀 Log Dead Idea'}`}
                 visible={dialogVisible}
                 style={{ width: '95vw', maxWidth: '480px', borderRadius: '28px' }}
                 onHide={() => setDialogVisible(false)}
-                closable={false}
+                closable={true}
                 modal
             >
-                <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
-                    <div className="flex justify-between items-center mb-1">
-                        <h3 className="m-0 text-xl font-black text-[var(--text-main)] font-outfit">
-                            {editingIdea ? '🔧 Update Log' : '💀 Log Dead Idea'}
-                        </h3>
-                        <button
-                            type="button"
-                            onClick={() => setDialogVisible(false)}
-                            className="bg-[var(--surface-3)] border-0 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-[var(--surface-2)] text-[var(--text-sub)] transition"
-                        >✕</button>
-                    </div>
-
+                <form onSubmit={handleSubmit} className="p-3 flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-black uppercase tracking-wider text-[var(--text-sub)]">Idea Title *</label>
                         <input
@@ -240,7 +229,7 @@ const Graveyard = ({ userId, isOwner }) => {
                             value={title}
                             onChange={e => setTitle(e.target.value)}
                             placeholder="e.g., AI Wardrobe Stylist"
-                            className="w-full border-2 border-[var(--border-color)] rounded-2xl px-4 py-2.5 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium"
+                            className="w-full border-2 border-[var(--border-color)] rounded-2xl py-2 px-3 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium"
                             required
                         />
                     </div>
@@ -252,7 +241,7 @@ const Graveyard = ({ userId, isOwner }) => {
                             onChange={e => setDescription(e.target.value)}
                             rows={3}
                             placeholder="What was the idea and how did it work?"
-                            className="w-full border-2 border-[var(--border-color)] rounded-2xl p-4 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium resize-none"
+                            className="w-full border-2 border-[var(--border-color)] rounded-2xl py-2 px-2.5 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium resize-none"
                             required
                         />
                     </div>
@@ -264,7 +253,7 @@ const Graveyard = ({ userId, isOwner }) => {
                             onChange={e => setKilledReason(e.target.value)}
                             rows={3}
                             placeholder="e.g., High server API costs, no clear target market, lost interest..."
-                            className="w-full border-2 border-[var(--border-color)] rounded-2xl p-4 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium resize-none"
+                            className="w-full border-2 border-[var(--border-color)] rounded-2xl py-2 px-2.5 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium resize-none"
                             required
                         />
                     </div>
@@ -276,7 +265,7 @@ const Graveyard = ({ userId, isOwner }) => {
                             onChange={e => setLessonsLearned(e.target.value)}
                             rows={2.5}
                             placeholder="What key takeaways are you bringing to the next project?"
-                            className="w-full border-2 border-[var(--border-color)] rounded-2xl p-4 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium resize-none"
+                            className="w-full border-2 border-[var(--border-color)] rounded-2xl py-2 px-2.5 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium resize-none"
                         />
                     </div>
 
@@ -287,19 +276,19 @@ const Graveyard = ({ userId, isOwner }) => {
                             value={tagInput}
                             onChange={e => setTagInput(e.target.value)}
                             placeholder="AI, SaaS, Mobile"
-                            className="w-full border-2 border-[var(--border-color)] rounded-2xl px-4 py-2.5 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium"
+                            className="w-full border-2 border-[var(--border-color)] rounded-2xl py-2 px-2.5 text-sm bg-[var(--surface-1)] text-[var(--text-main)] focus:border-indigo-400 outline-none transition font-medium"
                         />
                     </div>
 
-                    <div className="flex gap-3 mt-4">
+                    <div className="flex gap-2">
                         <button
                             type="button"
                             onClick={() => setDialogVisible(false)}
-                            className="flex-1 py-3 border-2 border-[var(--border-color)] rounded-2xl bg-transparent cursor-pointer text-sm font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition"
+                            className="flex-1 py-2 border-2 border-[var(--border-color)] rounded-2xl bg-transparent cursor-pointer text-sm font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition"
                         >Cancel</button>
                         <button
                             type="submit"
-                            className="flex-1 py-3 bg-rose-500 text-white border-0 rounded-2xl cursor-pointer text-sm font-bold shadow-lg shadow-rose-200 dark:shadow-none hover:opacity-90 transition"
+                            className="flex-1 py-2 bg-rose-500 text-white border-0 rounded-2xl cursor-pointer text-sm font-bold shadow-lg shadow-rose-200 dark:shadow-none hover:opacity-90 transition"
                         >
                             {editingIdea ? 'Save Changes' : 'Bury Idea'}
                         </button>

@@ -1567,7 +1567,7 @@ const NewPost = ({ visible, onHide }) => {
                             {userGoals.length > 0 && (
                                 <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
                                     <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                        <i className="pi pi-target text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
+                                        <i className="pi pi-flag text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
                                         Link to Active Goal
                                     </span>
                                     <select
