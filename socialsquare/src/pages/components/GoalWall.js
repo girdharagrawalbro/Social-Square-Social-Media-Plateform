@@ -440,6 +440,7 @@ const GoalWall = ({ userId, isOwner }) => {
                         </form>
                     </div>
                 </div>
+            )}
             {/* Edit Goal Dialog/Modal */}
             {showEditModal && selectedGoal && (
                 <div style={{ zIndex: 100 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
