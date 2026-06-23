@@ -18,30 +18,30 @@ const GoalWall = ({ userId, isOwner }) => {
 
     // Fetch goals and user posts to associate posts with goals
     useEffect(() => {
+        const fetchGoals = async () => {
+            try {
+                const res = await api.get(`/api/goal/user/${userId}`);
+                setGoals(res.data || []);
+            } catch (err) {
+                console.error(err);
+                toast.error("Failed to load roadmap.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const fetchUserPosts = async () => {
+            try {
+                const res = await api.get(`/api/post/user/${userId}`);
+                setPosts(res.data.posts || []);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
         fetchGoals();
         fetchUserPosts();
     }, [userId]);
-
-    const fetchGoals = async () => {
-        try {
-            const res = await api.get(`/api/goal/user/${userId}`);
-            setGoals(res.data || []);
-        } catch (err) {
-            console.error(err);
-            toast.error("Failed to load roadmap.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchUserPosts = async () => {
-        try {
-            const res = await api.get(`/api/post/user/${userId}`);
-            setPosts(res.data.posts || []);
-        } catch (err) {
-            console.error(err);
-        }
-    };
 
     const handleAddMilestoneInput = () => {
         setNewMilestones([...newMilestones, '']);

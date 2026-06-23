@@ -10,10 +10,8 @@ import toast from 'react-hot-toast';
 // import axios from 'axios';
 import Comment from './ui/Comment';
 import SharePostDialog from './ui/SharePostDialog';
-import Like from './ui/Like';
 import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
-import FollowFollowingList from './FollowFollowingList';
 import PostMenu from './ui/PostMenu';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { BeforeAfterView } from './ui/PostItem';
@@ -60,8 +58,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [postLikes, setPostLikes] = useState(post?.likes || []);
     const [profileVisible, setProfileVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
-    const [likesVisible, setLikesVisible] = useState(false);
-    const [likesIds, setLikesIds] = useState([]);
     const reactMutation = useReactPost();
     const [pickerVisible, setPickerVisible] = useState(false);
     const { setSharingPostToStory, isMuted, setIsMuted } = usePostStore();
@@ -137,19 +133,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
             <button onClick={() => navigate('/')} className="px-8 py-3 bg-[#808bf5] text-white rounded-xl border-0 font-bold cursor-pointer shadow-lg shadow-indigo-500/20">Go home</button>
         </div>
     );
-
-    const handleLikeToggle = () => {
-        // ✅ Prevent clicking while request is in progress
-        if (likeMutation.isPending) return;
-
-        // Optimistic update
-        if (isLiked) {
-            setPostLikes(prev => prev.filter(id => id?.toString() !== loggeduser?._id?.toString()));
-        } else {
-            setPostLikes(prev => [...prev, loggeduser._id]);
-        }
-        likeMutation.mutate({ postId: post._id, isLiked });
-    };
 
     const handleReact = (emoji) => {
         reactMutation.mutate({ postId: post._id, emoji });
@@ -745,16 +728,6 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                 <Suspense fallback={<div className="p-4 text-center text-[var(--text-sub)]">Loading Profile...</div>}>
                     <UserProfile id={selectedProfileId} />
                 </Suspense>
-            </Dialog>
-
-            <Dialog
-                header="Liked By"
-                visible={likesVisible}
-                style={{ width: '95vw', maxWidth: '450px' }}
-                onHide={() => setLikesVisible(false)}
-                contentClassName="custom-scrollbar"
-            >
-                <FollowFollowingList ids={likesIds} />
             </Dialog>
 
 
