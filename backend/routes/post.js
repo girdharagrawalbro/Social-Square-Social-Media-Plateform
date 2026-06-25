@@ -2143,18 +2143,26 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
             }
         }
 
-        // 5. Ranking & Randomization
+        // 5. Ranking & Randomization (P2 — video-aware scoring)
         let ranked = filteredCandidates;
         try {
-            const { UserInterest, PostVector } = require("../models/Recommendation");
+            const { UserInterest, PostVector, VideoStats } = require("../models/Recommendation");
             const interest = viewerIdStr ? await UserInterest.findOne({ userId: viewerIdStr }).lean() : null;
             const postVecs = await PostVector.find({ postId: { $in: filteredCandidates.map(c => c._id) } }).lean();
             const vecMap = new Map(postVecs.map(v => [v.postId.toString(), v.vector]));
 
+            // Fetch video watch-through rates from VideoStats (P9)
+            const videoStatsDocs = await VideoStats.find({ postId: { $in: filteredCandidates.map(c => c._id) } }).lean();
+            const videoStatsMap = new Map(videoStatsDocs.map(s => [s.postId.toString(), s]));
+
             const userVec = interest?.interestVector;
             const userMag = userVec ? Math.sqrt(userVec.reduce((sum, val) => sum + val * val, 0)) : 0;
+            const dislikedCats = new Set(interest?.dislikedCategories || []);
 
             ranked = filteredCandidates.map(post => {
+                const isVideo = !!post.video;
+
+                // Cosine similarity between user interest vector and post embedding
                 let similarity = 0;
                 const postVec = vecMap.get(post._id.toString());
                 if (postVec && userMag) {
@@ -2163,15 +2171,47 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
                     similarity = postMag ? dotProduct / (userMag * postMag) : 0;
                 }
 
-                const hoursOld = (Date.now() - new Date(post.createdAt)) / (1000 * 60 * 60);
-                const recency = Math.exp(-hoursOld / 48); // 2-day half-life
-                const popularity = Math.min(1, (post.likes?.length || 0) / 100);
+                const hoursOld = Math.max(0.1, (Date.now() - new Date(post.createdAt)) / (1000 * 60 * 60));
 
-                // Final Score = Similarity + Recency + Popularity + Random Jitter
-                const jitter = Math.random() * 0.15;
-                const finalScore = (0.4 * similarity) + (0.3 * recency) + (0.2 * popularity) + jitter;
+                // Reels use a longer 72h half-life — a great reel stays relevant longer
+                const recencyHalfLife = isVideo ? 72 : 48;
+                const recency = Math.exp(-hoursOld / recencyHalfLife);
 
-                return { ...post, _score: finalScore };
+                const likesCount = post.likes?.length || 0;
+                const popularity = Math.min(1, likesCount / 100);
+
+                // Viral velocity: likes per hour since posting (normalized)
+                const viralVelocity = Math.min(1, (likesCount / hoursOld) / 10);
+
+                // P9: Watch-through rate from VideoStats
+                const vsDoc = isVideo ? videoStatsMap.get(post._id.toString()) : null;
+                const watchThroughRate = vsDoc ? Math.min(1, vsDoc.watchThroughRate || 0) : 0;
+
+                // P8: Disliked category penalty
+                const categoryPenalty = dislikedCats.has(post.category) ? 0.4 : 1.0;
+
+                // Separate weight sets for video (reels) vs image posts
+                let score;
+                if (isVideo) {
+                    score = (
+                        0.28 * similarity +
+                        0.18 * recency +
+                        0.15 * popularity +
+                        0.22 * viralVelocity +
+                        0.12 * watchThroughRate +
+                        0.05 * Math.random()
+                    );
+                } else {
+                    score = (
+                        0.40 * similarity +
+                        0.25 * recency +
+                        0.20 * popularity +
+                        0.10 * viralVelocity +
+                        0.05 * Math.random()
+                    );
+                }
+
+                return { ...post, _score: score * categoryPenalty };
             });
 
             ranked.sort((a, b) => b._score - a._score);

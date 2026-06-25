@@ -86,6 +86,39 @@ function limitConsecutiveUserPosts(posts, maxConsecutive = 2) {
     return result;
 }
 
+// ─── P3: DIVERSITY INJECTION ──────────────────────────────────────────────────
+// Prevents the feed from being dominated by one category or one user.
+// Fills to `limit` by relaxing caps if needed.
+function diversifyResults(rankedPosts, limit = 20, maxPerCategory = 4, maxPerUser = 2) {
+    const result = [];
+    const categoryCounts = {};
+    const userCounts = {};
+
+    for (const post of rankedPosts) {
+        if (result.length >= limit) break;
+        const cat = post.category || 'uncategorized';
+        const uid = post.user?._id?.toString() || post.isAnonymous ? 'anon' : 'unknown';
+
+        if ((categoryCounts[cat] || 0) >= maxPerCategory) continue;
+        if ((userCounts[uid] || 0) >= maxPerUser) continue;
+
+        result.push(post);
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        userCounts[uid]     = (userCounts[uid]     || 0) + 1;
+    }
+
+    // If diversity caps left us short, fill from remaining ranked posts
+    if (result.length < limit) {
+        const resultIds = new Set(result.map(p => p._id.toString()));
+        for (const post of rankedPosts) {
+            if (result.length >= limit) break;
+            if (!resultIds.has(post._id.toString())) result.push(post);
+        }
+    }
+
+    return result;
+}
+
 // ─── RECOMMENDED POSTS ────────────────────────────────────────────────────────
 router.get("/posts", verifyToken, async (req, res) => {
     const _tag = '[REC /posts]';
@@ -187,8 +220,23 @@ router.get("/posts", verifyToken, async (req, res) => {
         const nextCursor = (hasMore && lastFetchedPost) ? encodeCursor(lastFetchedPost.createdAt, lastFetchedPost._id) : null;
 
         if (!interest || !interest.interestVector || !interest.interestVector.length) {
-            console.log(`${_tag} [4] Returning top ${Math.min(candidates.length, 20)} posts (no interest vector — chronological)`);
-            return res.json({ items: candidates.slice(0, 20), nextCursor, hasMore, isColdStart: true });
+            // ── P4: Cold Start — trending + diverse instead of raw chronological ──
+            console.log(`${_tag} [4] Cold start detected — building trending+diverse cold feed...`);
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const trendingCold = await Post.find({
+                "user._id": { $nin: restrictedObjectIds },
+                isAnonymous: { $ne: true },
+                isVisible:   { $ne: false },
+                deletedAt:   null,
+                createdAt:   { $gte: sevenDaysAgo }
+            })
+            .sort({ score: -1, views: -1 })
+            .limit(60)
+            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions')
+            .lean();
+
+            const coldResult = diversifyResults(trendingCold, 20, 3, 1);
+            return res.json({ items: coldResult, nextCursor, hasMore, isColdStart: true });
         }
 
         // ── Step 5: Fetch post vectors ────────────────────────────────────────
@@ -200,11 +248,19 @@ router.get("/posts", verifyToken, async (req, res) => {
         const vecMap = new Map(postVecs.map(v => [v.postId.toString(), v.vector]));
         console.log(`${_tag} [5] ✅ Got ${postVecs.length} vectors`);
 
-        // ── Step 6: Rank by cosine similarity + recency + popularity ──────────
+        // ── Step 6: Rank — cosine similarity + recency + popularity + P7b + P8 ─
         console.log(`${_tag} [6] Ranking candidates...`);
         const rankStart = Date.now();
         const userVec = interest.interestVector;
         const userMag = Math.sqrt(userVec.reduce((sum, val) => sum + val * val, 0));
+
+        // P8: Build disliked category set for penalty
+        const dislikedCats = new Set(interest.dislikedCategories || []);
+
+        // P7b: Build user active-hours set for time-of-day bonus
+        const userActiveHours = new Set(interest.activeHours || []);
+        const currentHour = new Date().getHours();
+        const isUserActiveNow = userActiveHours.size === 0 || userActiveHours.has(currentHour);
 
         const ranked = candidates.map(post => {
             const postVec = vecMap.get(post._id.toString());
@@ -214,19 +270,45 @@ router.get("/posts", verifyToken, async (req, res) => {
                 const postMag = Math.sqrt(postVec.reduce((sum, val) => sum + val * val, 0));
                 similarity = postMag ? dotProduct / (userMag * postMag) : 0;
             }
-            const hoursOld = (Date.now() - new Date(post.createdAt)) / (1000 * 60 * 60);
-            const recency = Math.exp(-hoursOld / 24);
+
+            const hoursOld = Math.max(0.1, (Date.now() - new Date(post.createdAt)) / (1000 * 60 * 60));
+            // P2: Extend recency half-life to 36h (was 24h) — good posts shouldn't die overnight
+            const recency = Math.exp(-hoursOld / 36);
             const popularity = Math.min(1, (post.likes?.length || 0) / 50);
-            const score = (0.5 * similarity) + (0.3 * recency) + (0.2 * popularity);
-            return { ...post, score }; // Embed score directly
+
+            // P8: Disliked category penalty — reduce score by 60% for explicitly disliked categories
+            const categoryPenalty = dislikedCats.has(post.category) ? 0.4 : 1.0;
+
+            // P7b: Time-of-day bonus — boost posts published during user's active hours
+            const postPublishHour = new Date(post.createdAt).getHours();
+            const timeBonus = userActiveHours.size > 0 && userActiveHours.has(postPublishHour) ? 1.08 : 1.0;
+
+            const rawScore = (0.50 * similarity) + (0.30 * recency) + (0.20 * popularity);
+            const score = rawScore * categoryPenalty * timeBonus;
+            return { ...post, score };
         });
         ranked.sort((a, b) => b.score - a.score);
         console.log(`${_tag} [6] ✅ Ranked ${ranked.length} posts in ${Date.now() - rankStart}ms`);
 
-        const result = limitConsecutiveUserPosts(ranked.slice(0, 30), 2);
+        // P3: Diversity injection — cap per-category and per-user
+        const result = diversifyResults(ranked, 20, 4, 2);
+
         const elapsed = Date.now() - _t0;
         console.log(`${_tag} ✅ SUCCESS — returning ${result.length} posts in ${elapsed}ms`);
         res.json({ items: result, nextCursor, hasMore });
+
+        // ── P6: Mark served posts as seen (Bloom Filter, fire-and-forget) ───────
+        if (userId && result.length > 0 && redis.status !== 'disabled') {
+            setImmediate(async () => {
+                try {
+                    const RedisBloomFilter = require("../lib/bloomFilter");
+                    const seenFilter = new RedisBloomFilter(`bf:seen:${userId}`);
+                    for (const p of result) {
+                        await seenFilter.add(p._id.toString());
+                    }
+                } catch (_) { /* non-critical */ }
+            });
+        }
 
     } catch (err) {
         const elapsed = Date.now() - _t0;
@@ -588,11 +670,12 @@ router.post("/activity", verifyToken, [
     body('postId').isMongoId().withMessage('Invalid post ID'),
     body('action').notEmpty().trim().escape(),
     body('duration').optional().isNumeric(),
+    body('videoLength').optional().isNumeric(),
     validate
 ], async (req, res) => {
     try {
         const userId = req.userId;
-        const { postId, action, duration } = req.body;
+        const { postId, action, duration, videoLength } = req.body;
         const { publishEvent } = require("../services/recommendationPublisher");
 
         const post = await Post.findById(postId).select('category tags').lean();
@@ -603,6 +686,7 @@ router.post("/activity", verifyToken, [
             postId,
             action,
             duration,
+            videoLength: videoLength || 0,
             category: post.category || "",
             tags: post.tags || [],
             timestamp: Date.now() / 1000,
@@ -621,6 +705,7 @@ router.post("/batch-activity", verifyToken, [
     body('activities.*.postId').isMongoId().withMessage('Invalid post ID in array'),
     body('activities.*.action').notEmpty().trim().escape(),
     body('activities.*.duration').optional().isNumeric(),
+    body('activities.*.videoLength').optional().isNumeric(),
     validate
 ], async (req, res) => {
     try {
@@ -643,6 +728,7 @@ router.post("/batch-activity", verifyToken, [
                     postId: act.postId,
                     action: act.action,
                     duration: act.duration,
+                    videoLength: act.videoLength || 0,
                     category: post.category || "",
                     tags: post.tags || [],
                     timestamp: act.timestamp || Date.now() / 1000,
@@ -672,16 +758,26 @@ router.get("/memory", verifyToken, async (req, res) => {
                 top_categories: [],
                 liked_tags: [],
                 recent_searches: [],
-                behavior_vector: []
+                behavior_vector: [],
+                disliked_categories: [],
+                avg_dwell_sec: 0,
+                preferred_content: 'mixed',
+                video_completion_rate: 0
             });
         }
 
         res.json({
             userId,
-            top_categories: interest.topCategories,
-            liked_tags: interest.likedTags,
-            recent_searches: interest.recentSearches,
-            behavior_vector: interest.interestVector
+            top_categories:       interest.topCategories,
+            liked_tags:           interest.likedTags,
+            recent_searches:      interest.recentSearches,
+            behavior_vector:      interest.interestVector,
+            disliked_categories:  interest.dislikedCategories  || [],
+            avg_dwell_sec:        interest.avgDwellTimeSec     || 0,
+            preferred_content:    interest.preferredContentType || 'mixed',
+            video_completion_rate: interest.videoCompletionRate || 0,
+            active_hours:         interest.activeHours          || [],
+            total_interactions:   interest.totalInteractions    || 0
         });
     } catch (err) {
         console.error('[Recommendation /memory]', err);
