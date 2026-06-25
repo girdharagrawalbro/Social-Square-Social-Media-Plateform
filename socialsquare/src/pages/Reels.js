@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useInView } from 'react-intersection-observer';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/zustand/useAuthStore';
 import usePostStore from '../store/zustand/usePostStore';
@@ -114,6 +115,14 @@ const Reels = () => {
     const [sharePost, setSharePost] = useState(null);
     const [commentPost, setCommentPost] = useState(null);
     const itemRefs = useRef([]);
+
+    const { ref: loaderRef, inView } = useInView({ threshold: 0.1 });
+
+    useEffect(() => {
+        if (inView && feedQuery.hasNextPage && !feedQuery.isFetchingNextPage) {
+            feedQuery.fetchNextPage();
+        }
+    }, [inView, feedQuery.hasNextPage, feedQuery.isFetchingNextPage, feedQuery]);
 
     const videoPosts = useMemo(() => {
         const posts = feedQuery.data?.pages?.flatMap(page => page.posts || []) || [];
@@ -259,18 +268,11 @@ const Reels = () => {
                         );
                     })}
 
-                    {feedQuery.hasNextPage && (
-                        <div className="h-24 flex items-center justify-center bg-black">
-                            <button
-                                type="button"
-                                onClick={() => feedQuery.fetchNextPage()}
-                                disabled={feedQuery.isFetchingNextPage}
-                                className="border border-white/15 bg-white/10 text-white rounded-full px-5 py-2 text-sm font-bold cursor-pointer disabled:opacity-60"
-                            >
-                                {feedQuery.isFetchingNextPage ? 'Loading...' : 'Load more reels'}
-                            </button>
-                        </div>
-                    )}
+                    <div ref={loaderRef} className="h-14 flex items-center justify-center bg-black">
+                        {feedQuery.isFetchingNextPage && (
+                            <span className="text-white/60 text-sm font-bold">Loading...</span>
+                        )}
+                    </div>
                 </div>
 
                 {sharePost && (
