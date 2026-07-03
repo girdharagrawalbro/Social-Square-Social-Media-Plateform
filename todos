@@ -1,0 +1,131 @@
+add braod cast chahenll for 
+comment 
+profile updte , need check 
+save 
+reaction etc 
+
+
+add socket for 
+
+new story / story delete
+like 
+comments
+follow / unfollow 
+profile updates 
+privacy changes 
+block/unblock
+live stream start and end 
+Device login, logout 
+mantion , tag notification 
+
+chek for existing implemetation do only for whihc doesnt have in same methond 
+
+
+post , story draft system 
+
+add indexdb for 
+
+feed promary posts 
+own posts , profile image 
+conversation profile images , rececnt search,
+offiline chat message 
+chat ,media 
+reels 
+explore 
+settings 
+    other requrited things 
+
+encypted feed post (image posts, chat media )
+
+have to add drive fallback upload from backend only not from frontedn 
+
+
+have to save the non send msg on index db and retry sending it 
+ on refresh 
+
+ for media show coxx button as whatsapp does 
+ 
+
+
+{
+    "success": true,
+    "url": "https://res.cloudinary.com/dcmrsdydh/raw/upload/v1783074699/SocialSquare/67762436cae23569711a1841-girdharagrawal/chat/rx2qfpukvrtvyjlwrcuw",
+    "publicId": "SocialSquare/67762436cae23569711a1841-girdharagrawal/chat/rx2qfpukvrtvyjlwrcuw"
+}
+
+http://localhost:3000/api/conversation/messages/create
+
+{
+    "success": false,
+    "errors": [
+        {
+            "type": "field",
+            "value": "{\"ciphertext\":\"RDErXqlJIojvj59oucYg4tPrpbB2zhvqXKrcwdZVFR4WhXfv2oG1m0Fst4H0ssw/NZA6MHayPaly5TbdCpuuNsKtjnzlboOXe8eckhuSP678spdtIOBTlsI6iDs1PFMNGMq59Vsj5GoIbbWNQn/yYsp3NsPNyhtWLR0AImJpnzHFgvEQuwsromhfNn7YFsNTS4xEcBYT2zEf4Q==\",\"iv\":\"9iyd8DawHiJSVFpL\"}",
+            "msg": "Invalid value",
+            "path": "mediaUrl",
+            "location": "body"
+        }
+    ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

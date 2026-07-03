@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGroupCheckIns, useSubmitCheckIn, useToggleCheckInStatus, useAddCheckInFeedback } from '../../hooks/queries/useAuthQueries';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import toast from 'react-hot-toast';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const AccountabilityDashboard = ({ group, onClose }) => {
     const user = useAuthStore(s => s.user);
@@ -56,7 +57,7 @@ const AccountabilityDashboard = ({ group, onClose }) => {
     const handleSubmitWip = async () => {
         if (!wipText.trim()) return toast.error('Commitment cannot be empty');
         if (wipText.length < 5) return toast.error('Please make your weekly commitment a bit more descriptive (at least 5 characters)');
-        
+
         try {
             await submitWip.mutateAsync({ groupId: group._id, wipText });
             toast.success('Weekly commitment posted!');
@@ -198,7 +199,7 @@ const AccountabilityDashboard = ({ group, onClose }) => {
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <img
-                                                src={ci.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                                src={ci.user?.profile_picture || USER_DEFAULT_IMAGE}
                                                 alt={ci.user?.fullname || 'User'}
                                                 className="w-9 h-9 rounded-full object-cover border border-[var(--border-color)]"
                                             />
@@ -243,7 +244,7 @@ const AccountabilityDashboard = ({ group, onClose }) => {
                                                     <div key={fb._id} className="bg-[var(--surface-1)] border border-[var(--border-color)]/40 rounded-2xl p-3 flex flex-col gap-1.5">
                                                         <div className="flex items-center gap-2">
                                                             <img
-                                                                src={fb.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                                                src={fb.user?.profile_picture || USER_DEFAULT_IMAGE}
                                                                 alt=""
                                                                 className="w-5 h-5 rounded-full object-cover"
                                                             />

@@ -60,7 +60,7 @@ const PostSchema = new mongoose.Schema(
     // Analytics
     views: { type: Number, default: 0 },
     shares: { type: Number, default: 0 },
-    
+
     // AI Pre-computed Summary for 3s Dwell Feature
     aiSummary: { type: String, default: null },
 
@@ -144,9 +144,11 @@ PostSchema.pre('save', function (next) {
 
   this.readingTime = isTextOnly ? Math.ceil(wordCount / 200) : 0;
 
-  if (wordCount < 50) {
+  if (wordCount < 20) {
+    this.depthScore = null; // or undefined, or don't set it
+  } else if (wordCount < 50) {
     this.depthScore = 'quick_take';
-  } else if (wordCount >= 50 && wordCount <= 200) {
+  } else if (wordCount < 80) {
     this.depthScore = 'deep_dive';
   } else {
     this.depthScore = 'long_read';

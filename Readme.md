@@ -187,3 +187,52 @@ TanStack Query handles the **server source of truth**, providing automatic cachi
 
 Built with ❤️ by Girdhar Agrawal & Team.
 
+
+
+broadcast api channel for 
+
+Theme toggle 
+Logout 
+Profile update
+notifcation 
+mark read message 
+Draft sync 
+story composer 
+delete and post creation 
+follow / unfollow 
+own like count 
+block user
+session expire
+token refresh 
+uploding progress
+cache invalidation
+
+
+
+post , story draft system 
+add indexdb for 
+
+feed promary posts 
+own posts , profile image 
+conversation profile images , rececnt search,
+offiline chat message 
+chat ,media 
+reels 
+explore 
+settings 
+    other requrited things 
+
+
+    
+add socket for 
+
+new story / story delete
+like 
+comments
+follow / unfollow 
+profile updates 
+privacy changes 
+block/unblock
+live stream start and end 
+Device login, logout 
+mantion , tag notification 

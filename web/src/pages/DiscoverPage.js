@@ -10,6 +10,7 @@ import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import UserProfile from './components/UserProfile';
 import SkeletonUsers from './components/ui/SkeletonUsers';
+import { USER_DEFAULT_IMAGE } from '../utils/constantMediaVariable';
 
 const UsersPage = () => {
     const { isDark } = useDarkMode();
@@ -199,7 +200,7 @@ const UsersPage = () => {
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                                 <div className="relative flex-shrink-0">
                                     <div className="w-12 h-12 rounded-full overflow-hidden shadow-sm ring-2 ring-white dark:ring-gray-800">
-                                        <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt={u.fullname} className="w-full h-full object-cover" />
+                                        <img src={u.profile_picture || USER_DEFAULT_IMAGE} alt={u.fullname} className="w-full h-full object-cover" />
                                     </div>
                                     {userIsOnline && (
                                         <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 shadow-sm" />
@@ -252,9 +253,9 @@ const UsersPage = () => {
                 {isFetchingNextPage && (
                     <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-[#808bf5]"></div>
                 )}
-                {!hasNextPage && filteredUsers.length > 0 && (
+                {/* {!hasNextPage && filteredUsers.length > 0 && (
                     <p className="text-gray-500 text-sm italic">You've explored all suggestions!</p>
-                )}
+                )} */}
             </div>
 
             {filteredUsers.length === 0 && (

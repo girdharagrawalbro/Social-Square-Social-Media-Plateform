@@ -14,23 +14,23 @@ const MOODS = [
 const MoodFeedToggle = ({ onMoodSelect, activeMood, onClear }) => {
     return (
         <div className="flex flex-col gap-2.5 mb-6 animate-in fade-in slide-in-from-top-3 duration-500">
-            <div className="flex items-center justify-between px-1">
-                {/* <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 rotate-3">
-                        <i className="pi pi-sparkles text-[10px]"></i>
+            {/* <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 rotate-3">
+                            <i className="pi pi-sparkles text-[10px]"></i>
+                        </div>
+                        <span className="text-[13px] font-black text-[var(--text-main)] tracking-tight">VIBE CHECK</span>
                     </div>
-                    <span className="text-[13px] font-black text-[var(--text-main)] tracking-tight">VIBE CHECK</span>
+                    {activeMood && (
+                        <button
+                            onClick={onClear}
+                            className="text-[9px] font-black text-indigo-500 bg-indigo-500/10 px-3 py-1.5 rounded-full border-0 cursor-pointer hover:bg-indigo-500/20 transition-all active:scale-95 flex items-center gap-1.5"
+                        >
+                            <i className="pi pi-refresh text-[8px]"></i>
+                            RESET
+                        </button>
+                    )}
                 </div> */}
-                {activeMood && (
-                    <button
-                        onClick={onClear}
-                        className="text-[9px] font-black text-indigo-500 bg-indigo-500/10 px-3 py-1.5 rounded-full border-0 cursor-pointer hover:bg-indigo-500/20 transition-all active:scale-95 flex items-center gap-1.5"
-                    >
-                        <i className="pi pi-refresh text-[8px]"></i>
-                        RESET
-                    </button>
-                )}
-            </div>
 
             <div className="relative group">
                 {/* Horizontal scroll container with fade effect */}
@@ -41,11 +41,10 @@ const MoodFeedToggle = ({ onMoodSelect, activeMood, onClear }) => {
                             <button
                                 key={mood.key}
                                 onClick={() => isActive ? onClear() : onMoodSelect(mood.key)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black border transition-all cursor-pointer whitespace-nowrap active:scale-95 flex-shrink-0 ${
-                                    isActive
-                                        ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
-                                        : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
-                                }`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black border transition-all cursor-pointer whitespace-nowrap active:scale-95 flex-shrink-0 ${isActive
+                                    ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
+                                    : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
+                                    }`}
                             >
                                 <span className="text-xs">{mood.emoji}</span>
                                 <span>{mood.label}</span>

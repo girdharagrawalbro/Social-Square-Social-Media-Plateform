@@ -11,8 +11,9 @@ import toast from "react-hot-toast";
 import ImageCropper from './ui/ImageCropper';
 import { urlToFile } from "../../utils/nativeUtils";
 import { encryptFile, generateSymmetricKey, exportSymmetricKey } from "../../utils/cryptoUtils";
+import { appChannel } from "../../utils/broadcast";
 
-import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
+import { uploadMedia, uploadVideo, generateVideoThumbnail, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 import { useSystemFlags } from "../../hooks/queries/useMiscQueries";
 
 
@@ -170,6 +171,12 @@ const NewPost = ({ visible, onHide }) => {
             };
             try {
                 await dbService.setDraft(`draft_${loggeduser._id}`, draft);
+                appChannel.postMessage({
+                    type: "DRAFT_SYNC",
+                    draftId: `draft_${loggeduser._id}`,
+                    content: draft.formData?.caption || '',
+                    updatedAt: Date.now()
+                });
             } catch (e) {
                 console.error("Failed to save post draft:", e);
             }
@@ -577,7 +584,7 @@ const NewPost = ({ visible, onHide }) => {
         const validFiles = files.filter(f => {
             const typeErr = validateImageType(f);
             if (typeErr) { toast.error(typeErr); return false; }
-            // Show size warning but still proceed — uploadToCloudinary falls back to Drive
+            // Show size warning but still proceed — uploadMedia falls back to Drive
             const sizeWarn = validateImageFile(f);
             if (sizeWarn) toast.error(sizeWarn);
             return true; // allow through regardless of size
@@ -781,7 +788,7 @@ const NewPost = ({ visible, onHide }) => {
         await Promise.all(pending.map(async (img) => {
             const idx = uploaded.findIndex(i => i.id === img.id);
             try {
-                const result = await uploadToCloudinary(img.file, (p) => setImages(prev => prev.map(i => i.id === img.id ? { ...i, progress: p } : i)), { folder: 'posts' });
+                const result = await uploadMedia(img.file, (p) => setImages(prev => prev.map(i => i.id === img.id ? { ...i, progress: p } : i)), { folder: 'posts' });
                 const url = typeof result === 'string' ? result : result?.url;
                 uploaded[idx] = { ...uploaded[idx], url, uploaded: true, progress: 100 };
             } catch {
@@ -803,7 +810,7 @@ const NewPost = ({ visible, onHide }) => {
                 options.start_offset = video.trimRange[0];
                 options.end_offset = video.trimRange[1];
             }
-            const result = await uploadVideoToCloudinary(video.file, (p) => setVideo(v => v && v.id === video.id ? { ...v, progress: p } : v), options);
+            const result = await uploadVideo(video.file, (p) => setVideo(v => v && v.id === video.id ? { ...v, progress: p } : v), options);
             const url = typeof result === 'string' ? result : result?.url;
             const thumbnailUrl = result?.thumbnailUrl || null;
             setVideo(v => v ? { ...v, uploaded: true, url, progress: 100 } : v);
@@ -881,7 +888,7 @@ const NewPost = ({ visible, onHide }) => {
                     const { ciphertext: beforeCt, iv: beforeIv } = await encryptFile(beforeImageToUpload.file, beforeKey);
                     const beforeEncryptedBlob = new Blob([beforeCt], { type: 'application/octet-stream' });
                     const beforeFileEnc = new File([beforeEncryptedBlob], beforeImageToUpload.file.name || 'before.jpg', { type: 'application/octet-stream' });
-                    const beforeRes = await uploadToCloudinary(beforeFileEnc, null, { folder: folderPath });
+                    const beforeRes = await uploadMedia(beforeFileEnc, null, { folder: folderPath, resourceType: 'raw' });
                     beforeUrl = typeof beforeRes === 'string' ? beforeRes : beforeRes?.url;
                     beforeImageKey = await exportSymmetricKey(beforeKey);
                     beforeImageIv = beforeIv;
@@ -891,7 +898,7 @@ const NewPost = ({ visible, onHide }) => {
                     const { ciphertext: afterCt, iv: afterIv } = await encryptFile(afterImageToUpload.file, afterKey);
                     const afterEncryptedBlob = new Blob([afterCt], { type: 'application/octet-stream' });
                     const afterFileEnc = new File([afterEncryptedBlob], afterImageToUpload.file.name || 'after.jpg', { type: 'application/octet-stream' });
-                    const afterRes = await uploadToCloudinary(afterFileEnc, null, { folder: folderPath });
+                    const afterRes = await uploadMedia(afterFileEnc, null, { folder: folderPath, resourceType: 'raw' });
                     afterUrl = typeof afterRes === 'string' ? afterRes : afterRes?.url;
                     afterImageKey = await exportSymmetricKey(afterKey);
                     afterImageIv = afterIv;
@@ -911,7 +918,7 @@ const NewPost = ({ visible, onHide }) => {
                             const encryptedBlob = new Blob([ciphertext], { type: 'application/octet-stream' });
                             const fileEnc = new File([encryptedBlob], img.file.name || 'image.jpg', { type: 'application/octet-stream' });
 
-                            const result = await uploadToCloudinary(fileEnc, null, { folder: folderPath });
+                            const result = await uploadMedia(fileEnc, null, { folder: folderPath, resourceType: 'raw' });
                             const url = typeof result === 'string' ? result : result?.url;
                             const keyJWK = await exportSymmetricKey(imgKey);
                             uploaded[idx] = { ...uploaded[idx], url, uploaded: true, key: keyJWK, iv };
@@ -932,7 +939,7 @@ const NewPost = ({ visible, onHide }) => {
                     const encryptedBlob = new Blob([ciphertext], { type: 'application/octet-stream' });
                     const voiceFile = new File([encryptedBlob], 'voice.webm', { type: 'application/octet-stream' });
 
-                    const result = await uploadVideoToCloudinary(voiceFile, null, { folder: folderPath });
+                    const result = await uploadVideo(voiceFile, null, { folder: folderPath, resourceType: 'raw' });
                     voiceNoteUrl = typeof result === 'string' ? result : result?.url;
                     voiceNoteDuration = recDuration;
                     voiceNoteKey = await exportSymmetricKey(voiceKey);
@@ -941,19 +948,27 @@ const NewPost = ({ visible, onHide }) => {
 
                 let videoUrl = null, videoDuration = null, videoThumbnail = null, videoKey = null, videoIv = null;
                 if (videoToUpload) {
+                    // Generate thumbnail from the ORIGINAL file before encryption.
+                    // After encryption the file is binary and can't be decoded as video.
+                    let thumbnailUrl = null;
+                    try {
+                        const thumbFile = await generateVideoThumbnail(videoToUpload.file);
+                        const thumbResult = await uploadMedia(thumbFile, null, { folder: folderPath });
+                        thumbnailUrl = thumbResult?.url || null;
+                    } catch (thumbErr) {
+                        console.warn('[Video] Thumbnail generation/upload failed (non-critical):', thumbErr.message);
+                    }
+
                     const vidKey = await generateSymmetricKey();
                     const { ciphertext, iv } = await encryptFile(videoToUpload.file, vidKey);
                     const encryptedBlob = new Blob([ciphertext], { type: 'application/octet-stream' });
                     const videoFile = new File([encryptedBlob], videoToUpload.file.name || 'video.mp4', { type: 'application/octet-stream' });
 
-                    const options = { folder: folderPath };
-                    if (videoToUpload.trimRange) {
-                        options.start_offset = videoToUpload.trimRange[0];
-                        options.end_offset = videoToUpload.trimRange[1];
-                    }
-                    const result = await uploadVideoToCloudinary(videoFile, null, options);
+                    // Upload as 'raw' — the file is encrypted binary, not a playable video.
+                    const options = { folder: folderPath, resourceType: 'raw' };
+                    const result = await uploadMedia(videoFile, null, options);
                     videoUrl = typeof result === 'string' ? result : result?.url;
-                    videoThumbnail = result?.thumbnailUrl || null;
+                    videoThumbnail = thumbnailUrl;
                     videoDuration = videoToUpload.trimRange ? (videoToUpload.trimRange[1] - videoToUpload.trimRange[0]) : videoToUpload.duration;
                     videoKey = await exportSymmetricKey(vidKey);
                     videoIv = iv;
@@ -1009,6 +1024,12 @@ const NewPost = ({ visible, onHide }) => {
                     addSocketPost(response.data);
                     dbService.removeDraft(`draft_${loggeduser._id}`);
                     toast.success("Post shared successfully!", { id: uploadToast });
+
+                    // Broadcast post creation so feeds on other pages/tabs/components update
+                    appChannel.postMessage({
+                        type: "POST_CREATED",
+                        post: response.data
+                    });
 
                     if (response.data.isFirstPost) {
                         import('../../utils/confettiUtils').then(({ fireSleekBalloons }) => {
@@ -1373,7 +1394,7 @@ const NewPost = ({ visible, onHide }) => {
                                     <div className="flex flex-col gap-4">
                                         <div className="flex gap-4">
                                             {/* Before image upload */}
-                                            <div 
+                                            <div
                                                 onClick={() => beforeInputRef.current?.click()}
                                                 style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', background: 'var(--surface-2)', aspectRatio: '1/1', position: 'relative', cursor: 'pointer' }}
                                                 className="flex-1 flex flex-col items-center justify-center text-center p-2 overflow-hidden hover:brightness-110 transition"
@@ -1381,7 +1402,7 @@ const NewPost = ({ visible, onHide }) => {
                                                 {beforeImage ? (
                                                     <>
                                                         <img src={beforeImage.preview} alt="Before preview" className="w-full h-full object-cover absolute inset-0" />
-                                                        <button 
+                                                        <button
                                                             onClick={(e) => { e.stopPropagation(); setBeforeImage(null); }}
                                                             className="absolute top-1 right-1 bg-black/75 hover:bg-red-500 text-white border-0 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer text-[10px]"
                                                         >
@@ -1394,7 +1415,7 @@ const NewPost = ({ visible, onHide }) => {
                                             </div>
 
                                             {/* After image upload */}
-                                            <div 
+                                            <div
                                                 onClick={() => afterInputRef.current?.click()}
                                                 style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', background: 'var(--surface-2)', aspectRatio: '1/1', position: 'relative', cursor: 'pointer' }}
                                                 className="flex-1 flex flex-col items-center justify-center text-center p-2 overflow-hidden hover:brightness-110 transition"
@@ -1402,7 +1423,7 @@ const NewPost = ({ visible, onHide }) => {
                                                 {afterImage ? (
                                                     <>
                                                         <img src={afterImage.preview} alt="After preview" className="w-full h-full object-cover absolute inset-0" />
-                                                        <button 
+                                                        <button
                                                             onClick={(e) => { e.stopPropagation(); setAfterImage(null); }}
                                                             className="absolute top-1 right-1 bg-black/75 hover:bg-red-500 text-white border-0 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer text-[10px]"
                                                         >
@@ -1417,17 +1438,17 @@ const NewPost = ({ visible, onHide }) => {
 
                                         {/* Labels */}
                                         <div className="flex gap-4">
-                                            <input 
-                                                type="text" 
-                                                placeholder="Before Label" 
-                                                value={beforeLabel} 
+                                            <input
+                                                type="text"
+                                                placeholder="Before Label"
+                                                value={beforeLabel}
                                                 onChange={e => setBeforeLabel(e.target.value)}
                                                 className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
                                             />
-                                            <input 
-                                                type="text" 
-                                                placeholder="After Label" 
-                                                value={afterLabel} 
+                                            <input
+                                                type="text"
+                                                placeholder="After Label"
+                                                value={afterLabel}
                                                 onChange={e => setAfterLabel(e.target.value)}
                                                 className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
                                             />
@@ -1440,8 +1461,8 @@ const NewPost = ({ visible, onHide }) => {
                                     <div className="flex flex-col gap-3">
                                         <div className="flex flex-col gap-2">
                                             <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Old Code (Before)</span>
-                                            <textarea 
-                                                rows={4} 
+                                            <textarea
+                                                rows={4}
                                                 placeholder="Paste old/original code snippet here..."
                                                 value={beforeText}
                                                 onChange={e => setBeforeText(e.target.value)}
@@ -1451,8 +1472,8 @@ const NewPost = ({ visible, onHide }) => {
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">New Code (After)</span>
-                                            <textarea 
-                                                rows={4} 
+                                            <textarea
+                                                rows={4}
                                                 placeholder="Paste refactored/new code snippet here..."
                                                 value={afterText}
                                                 onChange={e => setAfterText(e.target.value)}
@@ -1462,17 +1483,17 @@ const NewPost = ({ visible, onHide }) => {
                                         </div>
                                         {/* Labels */}
                                         <div className="flex gap-4">
-                                            <input 
-                                                type="text" 
-                                                placeholder="Before Label" 
-                                                value={beforeLabel} 
+                                            <input
+                                                type="text"
+                                                placeholder="Before Label"
+                                                value={beforeLabel}
                                                 onChange={e => setBeforeLabel(e.target.value)}
                                                 className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
                                             />
-                                            <input 
-                                                type="text" 
-                                                placeholder="After Label" 
-                                                value={afterLabel} 
+                                            <input
+                                                type="text"
+                                                placeholder="After Label"
+                                                value={afterLabel}
                                                 onChange={e => setAfterLabel(e.target.value)}
                                                 className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
                                             />
@@ -1485,8 +1506,8 @@ const NewPost = ({ visible, onHide }) => {
                                     <div className="flex flex-col gap-3">
                                         <div className="flex flex-col gap-2">
                                             <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Rough Draft / Version 1</span>
-                                            <textarea 
-                                                rows={4} 
+                                            <textarea
+                                                rows={4}
                                                 placeholder="Write old copy or original text here..."
                                                 value={beforeText}
                                                 onChange={e => setBeforeText(e.target.value)}
@@ -1495,8 +1516,8 @@ const NewPost = ({ visible, onHide }) => {
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Final Draft / Version 2</span>
-                                            <textarea 
-                                                rows={4} 
+                                            <textarea
+                                                rows={4}
                                                 placeholder="Write updated copy or polished text here..."
                                                 value={afterText}
                                                 onChange={e => setAfterText(e.target.value)}
@@ -1505,24 +1526,24 @@ const NewPost = ({ visible, onHide }) => {
                                         </div>
                                         {/* Labels */}
                                         <div className="flex gap-4">
-                                            <input 
-                                                type="text" 
-                                                placeholder="Before Label" 
-                                                value={beforeLabel} 
+                                            <input
+                                                type="text"
+                                                placeholder="Before Label"
+                                                value={beforeLabel}
                                                 onChange={e => setBeforeLabel(e.target.value)}
                                                 className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
                                             />
-                                            <input 
-                                                type="text" 
-                                                placeholder="After Label" 
-                                                value={afterLabel} 
+                                            <input
+                                                type="text"
+                                                placeholder="After Label"
+                                                value={afterLabel}
                                                 onChange={e => setAfterLabel(e.target.value)}
                                                 className="flex-1 bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none"
                                             />
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 <input ref={beforeInputRef} type="file" accept="image/*" onChange={(e) => handleBeforeAfterFileSelect(e, 'before')} hidden />
                                 <input ref={afterInputRef} type="file" accept="image/*" onChange={(e) => handleBeforeAfterFileSelect(e, 'after')} hidden />
                             </div>
@@ -1672,15 +1693,15 @@ const NewPost = ({ visible, onHide }) => {
                         </div>
 
                         <div className="flex flex-col gap-1 relative">
-                            <MentionSuggestions 
-                                text={formData.caption} 
-                                cursorPosition={cursorPosition} 
+                            <MentionSuggestions
+                                text={formData.caption}
+                                cursorPosition={cursorPosition}
                                 onSelect={(val) => {
                                     setFormData(prev => ({ ...prev, caption: val }));
                                     if (captionRef.current) {
                                         captionRef.current.focus();
                                     }
-                                }} 
+                                }}
                             />
                             <textarea
                                 ref={captionRef}
@@ -1907,7 +1928,7 @@ const NewPost = ({ visible, onHide }) => {
                                         )}
                                     </div>
                                 )}
-                             </div>
+                            </div>
 
                             <div className="border-b border-[var(--border-color)]/50">
                                 <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">

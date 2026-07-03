@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { USER_DEFAULT_IMAGE } = require('../utils/constantMediaVariable.js');
+
 
 const UserSchema = new mongoose.Schema({
   fullname: { type: String, required: true },
@@ -7,7 +9,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: false },
   profile_picture: {
     type: String,
-    default: "https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg",
+    default: USER_DEFAULT_IMAGE,
   },
   bio: { type: String, default: null },
   aiProfileSummary: { type: String, default: null },

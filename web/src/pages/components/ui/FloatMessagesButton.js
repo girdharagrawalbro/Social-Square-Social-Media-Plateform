@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import useAuthStore from '../../../store/zustand/useAuthStore';
 import { useConversations } from '../../../hooks/queries/useConversationQueries';
+import { USER_DEFAULT_IMAGE } from '../../../utils/constantMediaVariable';
 
 export default function FloatMessagesButton() {
     const user = useAuthStore(s => s.user);
@@ -15,10 +16,10 @@ export default function FloatMessagesButton() {
         return convs
             .map(c => {
                 if (c.isGroup) {
-                    return c.groupAvatar || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+                    return c.groupAvatar || USER_DEFAULT_IMAGE;
                 }
                 const other = c.participants?.find(p => p.userId?.toString() !== user?._id?.toString());
-                return other?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+                return other?.profilePicture || USER_DEFAULT_IMAGE;
             })
             .slice(0, 3);
     }, [convoData, user?._id]);

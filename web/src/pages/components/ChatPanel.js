@@ -8,7 +8,7 @@ import { socket } from '../../socket';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { urlToFile } from "../../utils/nativeUtils";
-import { uploadToCloudinary, uploadVideoToCloudinary } from '../../utils/cloudinary';
+import { uploadMedia, uploadVideo } from '../../utils/cloudinary';
 import { uploadToDrive, getFileIcon, formatFileSize } from '../../utils/drive';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 
@@ -22,6 +22,7 @@ import { Image } from 'primereact/image';
 import ProgressiveImage from './ui/ProgressiveImage';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import usePostStore from '../../store/zustand/usePostStore';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
@@ -256,9 +257,9 @@ const DecryptedImage = ({ url, fileKey, iv, alt, style }) => {
                     const cryptoKey = await importSymmetricKey(fileKey);
                     const decryptedBuffer = await decryptFile(arrayBuffer, iv, cryptoKey);
                     const blob = new Blob([decryptedBuffer], { type: 'image/jpeg' });
-                    
+
                     await dbService.setMedia(url, blob);
-                    
+
                     localBlobUrl = URL.createObjectURL(blob);
                     decryptionCache.set(url, localBlobUrl);
                     if (active) {
@@ -336,9 +337,9 @@ const DecryptedAudio = ({ url, fileKey, iv, duration }) => {
                     const cryptoKey = await importSymmetricKey(fileKey);
                     const decryptedBuffer = await decryptFile(arrayBuffer, iv, cryptoKey);
                     const blob = new Blob([decryptedBuffer], { type: 'audio/mp3' });
-                    
+
                     await dbService.setMedia(url, blob);
-                    
+
                     localBlobUrl = URL.createObjectURL(blob);
                     decryptionCache.set(url, localBlobUrl);
                     if (active) {
@@ -522,7 +523,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
 
     const senderObj = message.sender && typeof message.sender === 'object' ? message.sender : null;
     const senderNameStr = message.senderName || senderObj?.fullname || 'Someone';
-    const senderAvatarStr = senderObj?.profile_picture || senderObj?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+    const senderAvatarStr = senderObj?.profile_picture || senderObj?.profilePicture || USER_DEFAULT_IMAGE;
 
     return (
         <div id={`msg-${message._id}`} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '6px', position: 'relative', gap: '8px' }}>
@@ -715,7 +716,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                                         </div>
                                                         {message.storyReply.authorName && (
                                                             <div className="absolute top-3 left-3 flex items-center gap-2 z-10 px-2 py-1.5 bg-black/30 backdrop-blur-md rounded-full border border-white/10">
-                                                                <img src={message.storyReply.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-5 h-5 rounded-full object-cover border border-white/20" alt="" />
+                                                                <img src={message.storyReply.authorProfilePicture || USER_DEFAULT_IMAGE} className="w-5 h-5 rounded-full object-cover border border-white/20" alt="" />
                                                                 <span className="text-[10px] font-bold text-white truncate max-w-[80px]">{message.storyReply.authorUsername || message.storyReply.authorName}</span>
                                                             </div>
                                                         )}
@@ -759,7 +760,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                             {message.sharedPost ? (
                                                 <>
                                                     <div className="flex items-center gap-2 p-3 border-b border-white/5">
-                                                        <img src={message.sharedPost.authorProfilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-8 h-8 rounded-full object-cover border border-white/10" alt="" />
+                                                        <img src={message.sharedPost.authorProfilePicture || USER_DEFAULT_IMAGE} className="w-8 h-8 rounded-full object-cover border border-white/10" alt="" />
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-1">
                                                                 <span className="text-[12px] font-bold truncate opacity-90">{message.sharedPost.authorName}</span>
@@ -1487,16 +1488,16 @@ const ChatPanel = ({
                             if (existing && existing.uploadedUrl && !isE2eeActive) {
                                 mediaUrl = existing.uploadedUrl;
                             } else {
-                                const r = await uploadToCloudinary(fileToUpload, onProgress, { folder: 'chat' });
+                                const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat' });
                                 mediaUrl = typeof r === 'string' ? r : r?.url;
                             }
                         } else if (file.type.startsWith('video/')) {
-                            const r = await uploadVideoToCloudinary(fileToUpload, onProgress, { folder: 'chat' });
+                            const r = await uploadVideo(fileToUpload, onProgress, { folder: 'chat' });
                             mediaUrl = typeof r === 'string' ? r : r?.url;
                             thumbnailUrl = r?.thumbnailUrl;
                         } else {
                             if (file.type.startsWith('audio/') && isE2eeActive) {
-                                const r = await uploadToCloudinary(fileToUpload, onProgress, { folder: 'chat', resourceType: 'raw' });
+                                const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', resourceType: 'raw' });
                                 mediaUrl = typeof r === 'string' ? r : r?.url;
                             } else {
                                 const r = await uploadToDrive(fileToUpload, onProgress, { folder: 'chat' });
@@ -1607,7 +1608,7 @@ const ChatPanel = ({
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     setPreviews(prev => [...prev, { id, url: ev.target.result, file, uploading: true, uploadedUrl: null, error: null, isFile: false }]);
-                    uploadToCloudinary(file, null, { folder: 'chat' })
+                    uploadMedia(file, null, { folder: 'chat' })
                         .then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); })
                         .catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
                 };
@@ -1659,7 +1660,7 @@ const ChatPanel = ({
                         isFile: false
                     }]);
 
-                    uploadToCloudinary(file, null, { folder: 'chat' })
+                    uploadMedia(file, null, { folder: 'chat' })
                         .then(r => {
                             const url = typeof r === 'string' ? r : r?.url;
                             setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p));
@@ -1909,7 +1910,7 @@ const ChatPanel = ({
                                                     const reader = new FileReader();
                                                     reader.onload = (ev) => {
                                                         setPreviews(prev => [...prev, { id, url: ev.target.result, file, uploading: true, uploadedUrl: null, error: null }]);
-                                                        uploadToCloudinary(file, null, { folder: 'chat' }).then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); }).catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
+                                                        uploadMedia(file, null, { folder: 'chat' }).then(r => { const url = typeof r === 'string' ? r : r?.url; setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: url } : p)); }).catch(() => setPreviews(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: 'Upload failed' } : p)));
                                                     };
                                                     reader.readAsDataURL(file);
                                                 }
@@ -1964,7 +1965,7 @@ const ChatPanel = ({
                                 {infoMessage.message?.readBy?.length > 0 ? (
                                     infoMessage.message.readBy.map(u => (
                                         <div key={u._id} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/20 dark:bg-gray-900/10 border border-gray-100/50 dark:border-gray-800/10">
-                                            <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                            <img src={u.profile_picture || USER_DEFAULT_IMAGE} className="w-8 h-8 rounded-full object-cover" alt="" />
                                             <div className="flex flex-col min-w-0">
                                                 <span className="font-bold text-xs truncate text-[var(--text-main)]">{u.fullname}</span>
                                                 <span className="text-[10px] text-gray-400">@{u.username}</span>
@@ -1989,7 +1990,7 @@ const ChatPanel = ({
                                         ?.filter(p => p.userId !== infoMessage.message.sender && !infoMessage.message.readBy?.some(u => u._id === p.userId))
                                         .map(p => (
                                             <div key={p.userId} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/20 dark:bg-gray-900/10 border border-gray-100/50 dark:border-gray-800/10">
-                                                <img src={p.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                                <img src={p.profilePicture || USER_DEFAULT_IMAGE} className="w-8 h-8 rounded-full object-cover" alt="" />
                                                 <div className="flex flex-col min-w-0">
                                                     <span className="font-bold text-xs truncate text-[var(--text-main)]">{p.fullname}</span>
                                                 </div>

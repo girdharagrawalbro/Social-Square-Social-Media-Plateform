@@ -5,6 +5,7 @@ import { Dialog } from 'primereact/dialog';
 import toast from 'react-hot-toast';
 import SkeletonCommunities from './ui/SkeletonCommunities';
 import AccountabilityDashboard from './AccountabilityDashboard';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const Groups = () => {
     const user = useAuthStore(s => s.user);
@@ -271,7 +272,7 @@ const Groups = () => {
                                     {selectedGroup.members?.map(m => (
                                         <div key={m._id || m} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[var(--border-color)] px-2.5 py-1 rounded-full text-xs font-medium text-[var(--text-main)]">
                                             <img
-                                                src={m.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                                src={m.profile_picture || USER_DEFAULT_IMAGE}
                                                 alt=""
                                                 className="w-4 h-4 rounded-full object-cover"
                                             />
@@ -290,7 +291,7 @@ const Groups = () => {
 
 const GroupItem = ({ group, onJoin, onLeave, onClick, isMember }) => {
     const isCapped = group.isAccountabilityCircle && group.members?.length >= (group.maxMembers || 10);
-    
+
     return (
         <div
             onClick={isMember ? onClick : undefined}

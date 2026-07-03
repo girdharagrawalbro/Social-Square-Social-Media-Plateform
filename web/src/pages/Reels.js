@@ -7,6 +7,8 @@ import { useFeed, useLikePost } from '../hooks/queries/usePostQueries';
 import SharePostDialog from './components/ui/SharePostDialog';
 import Comment from './components/ui/Comment';
 import Like from './components/ui/Like';
+import { importSymmetricKey, decryptFile } from '../utils/cryptoUtils';
+import dbService from '../utils/indexedDb';
 
 const FALLBACK_REELS = [
     {
@@ -31,21 +33,69 @@ const formatCount = (count = 0) => {
     return count.toString();
 };
 
+const decryptionCache = new Map(); // url -> localBlobUrl
+
 const ReelsVideo = ({ post, active, muted, onToggleMute, onDoubleTap, onOpenComments }) => {
     const videoRef = useRef(null);
     const lastTapRef = useRef(0);
+    const [videoSrc, setVideoSrc] = useState(post.video);
+    const [isDecrypting, setIsDecrypting] = useState(false);
+
+    // Decrypt video if keys are present
+    useEffect(() => {
+        const src = post.video;
+        const fileKey = post.videoKey;
+        const iv = post.videoIv;
+        if (!src) return;
+        if (!fileKey || !iv) {
+            setVideoSrc(src);
+            return;
+        }
+        if (decryptionCache.has(src)) {
+            setVideoSrc(decryptionCache.get(src));
+            return;
+        }
+        let active = true;
+        let localBlobUrl = null;
+        setIsDecrypting(true);
+        const decrypt = async () => {
+            try {
+                const cachedBlob = await dbService.getMedia(src);
+                if (cachedBlob) {
+                    localBlobUrl = URL.createObjectURL(cachedBlob);
+                } else {
+                    const response = await fetch(src);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const cryptoKey = await importSymmetricKey(fileKey);
+                    const decryptedBuffer = await decryptFile(arrayBuffer, iv, cryptoKey);
+                    const blob = new Blob([decryptedBuffer], { type: 'video/mp4' });
+                    await dbService.setMedia(src, blob);
+                    localBlobUrl = URL.createObjectURL(blob);
+                }
+                decryptionCache.set(src, localBlobUrl);
+                if (active) {
+                    setVideoSrc(localBlobUrl);
+                    setIsDecrypting(false);
+                }
+            } catch (err) {
+                console.error('Failed to decrypt reel video:', err);
+                if (active) setIsDecrypting(false);
+            }
+        };
+        decrypt();
+        return () => { active = false; };
+    }, [post.video, post.videoKey, post.videoIv]);
 
     useEffect(() => {
         const video = videoRef.current;
-        if (!video) return;
-
+        if (!video || isDecrypting) return;
         if (active) {
             video.currentTime = video.currentTime || 0;
             video.play().catch(() => { });
         } else {
             video.pause();
         }
-    }, [active]);
+    }, [active, isDecrypting, videoSrc]);
 
     useEffect(() => {
         if (videoRef.current) videoRef.current.muted = muted;
@@ -75,15 +125,26 @@ const ReelsVideo = ({ post, active, muted, onToggleMute, onDoubleTap, onOpenComm
             className="absolute inset-0 border-0 bg-black p-0 cursor-pointer text-left"
             aria-label="Play reel"
         >
-            <video
-                ref={videoRef}
-                src={post.video}
-                className="w-full h-full object-cover"
-                loop
-                muted={muted}
-                playsInline
-                preload="metadata"
-            />
+            {isDecrypting ? (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
+                    <i className="pi pi-spin pi-spinner" style={{ fontSize: '28px', color: '#808bf5' }} />
+                </div>
+            ) : (
+                <video
+                    ref={videoRef}
+                    src={videoSrc}
+                    className="w-full h-full object-contain"
+                    loop
+                    muted={muted}
+                    playsInline
+                    preload="metadata"
+                    onCanPlay={() => {
+                        if (active && videoRef.current?.paused) {
+                            videoRef.current.play().catch(() => {});
+                        }
+                    }}
+                />
+            )}
         </button>
     );
 };
@@ -191,8 +252,8 @@ const Reels = () => {
     }, []);
 
     return (
-        <div className="h-full w-full bg-black text-white overflow-hidden md:flex md:items-center md:justify-center">
-            <div className="relative h-full w-full bg-black overflow-hidden md:max-w-[430px] md:border-x md:border-white/10 md:shadow-[0_0_60px_rgba(0,0,0,0.55)]">
+        <div className="h-full w-full bg-slate-100 dark:bg-black text-white overflow-hidden md:flex md:items-center md:justify-center">
+            <div className="relative h-full w-full overflow-hidden md:max-w-[500px] md:shadow-[0_0_60px_rgba(0,0,0,0.55)]">
                 <div className="h-full overflow-y-auto snap-y snap-mandatory overscroll-contain custom-scrollbar">
                     {videoPosts.map((post, index) => {
                         const liked = isLikedByMe(post);

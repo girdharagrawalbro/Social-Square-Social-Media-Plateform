@@ -4,6 +4,7 @@ import { useComments, useCreateComment, useLikeComment, useDeleteComment, useMar
 import { confirmDialog } from 'primereact/confirmdialog';
 
 import MentionSuggestions from './MentionSuggestions';
+import { USER_DEFAULT_IMAGE } from '../../../utils/constantMediaVariable';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
@@ -23,8 +24,8 @@ const renderTextWithMentions = (text = '', onProfileClick) => {
         if (part.startsWith('@') && part.length > 1) {
             const username = part.slice(1).replace(/[^a-zA-Z0-9_.]/g, '');
             return (
-                <span 
-                    key={index} 
+                <span
+                    key={index}
                     onClick={async (e) => {
                         e.stopPropagation();
                         try {
@@ -66,7 +67,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
     const commentUserName = (typeof comment?.user === 'object' && comment?.user?.fullname) ? comment.user.fullname : 'Unknown';
     const commentUserPicture = (typeof comment?.user === 'object' && comment?.user?.profile_picture)
         ? comment.user.profile_picture
-        : 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+        : USER_DEFAULT_IMAGE;
 
     // ✅ Fix: compare as strings to handle ObjectId vs string mismatch
     const loggedUserId = loggeduser?._id?.toString();
@@ -145,7 +146,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                             {comment.isInsightful && <span className="text-[10px] bg-orange-500/20 text-orange-500 px-2 py-0.5 rounded-full font-bold">🔥 Insightful</span>}
                             {comment.topic && comment.topic !== 'General' && depth === 0 && <span className="text-[10px] text-[var(--text-sub)]">#{comment.topic}</span>}
                         </div>
-                        
+
                         {comment.feedbackDetails && comment.feedbackDetails.rating ? (
                             <div className="flex flex-col gap-2 py-1 select-text">
                                 <div className="flex items-center gap-1">
@@ -220,13 +221,13 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                         )}
                         {isOwnPost && depth === 0 && (
                             <>
-                                <button 
+                                <button
                                     onClick={() => markBestMutation.mutate({ commentId: comment._id, postId })}
                                     className={`text-[10px] font-semibold border-0 bg-transparent cursor-pointer p-0 ${comment.isBestAnswer ? 'text-green-500' : 'text-[var(--text-sub)] hover:text-green-500'}`}
                                 >
                                     {comment.isBestAnswer ? 'Unmark Best' : 'Mark Best'}
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => markInsightfulMutation.mutate({ commentId: comment._id, postId })}
                                     className={`text-[10px] font-semibold border-0 bg-transparent cursor-pointer p-0 ${comment.isInsightful ? 'text-orange-500' : 'text-[var(--text-sub)] hover:text-orange-500'}`}
                                 >
@@ -285,7 +286,7 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
 
     const topics = ['All', ...new Set((displayComments || []).map(c => c.topic).filter(Boolean))];
     const filteredComments = (displayComments || []).filter(c => selectedTopic === 'All' || c.topic === selectedTopic);
-    
+
     // Sort logic: Best answer first, then insightful, then created at
     const sortedComments = [...filteredComments].sort((a, b) => {
         if (a.isBestAnswer && !b.isBestAnswer) return -1;
@@ -301,7 +302,7 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!loggeduser?._id) return;
-        
+
         let payload;
         if (post?.isFeedbackRequest) {
             if (!strengths.trim() || !improvements.trim()) return;
@@ -317,7 +318,7 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
                 user: { _id: loggeduser._id, fullname: loggeduser.fullname, profile_picture: loggeduser.profile_picture }
             };
         }
-        
+
         createCommentMutation.mutate(payload, {
             onSuccess: (res) => {
                 setLocalComments(prev => [...(prev ?? comments ?? []), { ...res.data, repliesList: [] }]);
@@ -457,29 +458,29 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
                 </div>
             ) : (
                 <div className="relative sticky bottom-0 p-3 flex gap-2 items-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10">
-                    <MentionSuggestions 
-                        text={formData.content} 
-                        cursorPosition={cursorPosition} 
+                    <MentionSuggestions
+                        text={formData.content}
+                        cursorPosition={cursorPosition}
                         onSelect={(val) => {
                             setFormData({ content: val });
                             if (inputRef.current) {
                                 inputRef.current.focus();
                             }
-                        }} 
+                        }}
                     />
-                    <img src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
+                    <img src={loggeduser?.profile_picture || USER_DEFAULT_IMAGE} alt="Profile" className="rounded-full object-cover flex-shrink-0" style={{ width: 32, height: 32 }} />
                     <form onSubmit={handleSubmit} className="flex w-full gap-2">
-                        <input 
+                        <input
                             ref={inputRef}
-                            type="text" 
-                            placeholder="Write a comment..." 
+                            type="text"
+                            placeholder="Write a comment..."
                             className="flex-1 text-sm border border-[var(--border-color)] rounded-full px-3 py-2 outline-none bg-[var(--surface-2)] text-[var(--text-main)] focus:border-[#808bf5]"
-                            name="content" 
-                            value={formData.content} 
+                            name="content"
+                            value={formData.content}
                             onChange={e => {
                                 setFormData({ content: e.target.value });
                                 setCursorPosition(e.target.selectionStart);
-                            }} 
+                            }}
                             onKeyUp={e => setCursorPosition(e.target.selectionStart)}
                             onSelect={e => setCursorPosition(e.target.selectionStart)}
                             onClick={e => setCursorPosition(e.target.selectionStart)}

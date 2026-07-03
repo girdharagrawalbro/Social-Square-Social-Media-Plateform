@@ -1,5 +1,6 @@
 import React from 'react'
 import { getMediaThumbnail } from '../../../utils/mediaUtils';
+import ProgressiveImage from './ProgressiveImage';
 
 const PostCard = ({ post, onClick, isBlur = false }) => {
     const isVideo = !!post.video;
@@ -31,10 +32,13 @@ const PostCard = ({ post, onClick, isBlur = false }) => {
             className={`relative aspect-square overflow-hidden bg-[var(--surface-2)] cursor-pointer group transition-all duration-300 ${isBlur ? 'blur-lg pointer-events-none' : ''}`}
         >
             {previewSrc ? (
-                <img
+                <ProgressiveImage
                     src={previewSrc}
                     alt="post"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    objectFit="cover"
+                    fileKey={!isVideo ? post.mediaKeys?.[0]?.key : undefined}
+                    iv={!isVideo ? post.mediaKeys?.[0]?.iv : undefined}
                 />
             ) : (
                 <div className="w-full h-full flex items-center justify-center text-[var(--text-sub)] text-[10px] p-2 text-center opacity-40 italic">

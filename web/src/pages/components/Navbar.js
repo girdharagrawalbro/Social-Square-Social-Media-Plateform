@@ -94,9 +94,9 @@ const Navbar = () => {
           !isLandingPage && <NotificationBell userId={loggeduser?._id} showLabel={false} />
         ) : (
           location.pathname === '/login' ? (
-            <Link to="/signup" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Sign Up</Link>
+            <Link to="/signup" className="bg-[#4f46e5] w-28 text-center text-white px-4 py-1 rounded-full no-underline hover:opacity-90">Sign Up</Link>
           ) : (
-            <Link to="/login" className="bg-[#808bf5] text-white px-4 py-1 rounded no-underline hover:opacity-90">Sign In</Link>
+            <Link to="/login" className="bg-[#4f46e5] w-28 text-center text-white px-4 py-1 rounded-full no-underline hover:opacity-90">Sign In</Link>
           )
         )}
         <Link to="/help" className={`hidden md:flex no-underline items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${isDark ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-[#808bf5]'}`} title="Help Center">
@@ -134,15 +134,7 @@ const Navbar = () => {
 
       <div className="sm:hidden flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
 
-        {/* Mobile Theme Toggle */}
-        <button
-          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          onClick={toggle}
-          className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          <i className={`pi ${isDark ? 'pi-sun' : 'pi-moon'} text-xs sm:text-base`}></i>
-        </button>
+
 
         {isAuthenticated && !isLandingPage ? (
           <>
@@ -184,12 +176,22 @@ const Navbar = () => {
         ) : (
           !isAuthenticated && (
             location.pathname === '/login' ? (
-              <Link to="/signup" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Sign Up</Link>
+              <Link to="/signup" className="bg-[#4f46e5] text-white px-3 py-1 no-underline text-sm hover:opacity-90 rounded-full">Sign Up</Link>
             ) : (
-              <Link to="/login" className="bg-[#808bf5] text-white px-3 py-1 rounded no-underline text-sm hover:opacity-90">Login</Link>
+              <Link to="/login" className="bg-[#4f46e5] text-white px-3 py-1 no-underline text-sm hover:opacity-90 rounded-full">Sign In</Link>
             )
           )
         )}
+
+        {/* Mobile Theme Toggle */}
+        <button
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={toggle}
+          className={`border-0 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'}`}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <i className={`pi ${isDark ? 'pi-sun' : 'pi-moon'} text-xs sm:text-base`}></i>
+        </button>
 
         <button
           onClick={() => setMobileMenuOpen(v => !v)}

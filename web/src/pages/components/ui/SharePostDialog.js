@@ -5,6 +5,7 @@ import { useUserDetails } from '../../../hooks/queries/useAuthQueries';
 import { useConversations, useSendMessage } from '../../../hooks/queries/useConversationQueries';
 import { useSearchUsers } from '../../../hooks/queries/useExploreQueries';
 import { getMediaThumbnail } from '../../../utils/mediaUtils';
+import { USER_DEFAULT_IMAGE } from '../../../utils/constantMediaVariable';
 
 const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -153,7 +154,7 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
                             <div key={u._id} className="flex items-center justify-between p-2 rounded-2xl hover:bg-gray-50 transition">
                                 <div className="flex items-center gap-3">
                                     <img
-                                        src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                        src={u.profile_picture || USER_DEFAULT_IMAGE}
                                         className="w-10 h-10 rounded-full object-cover border border-gray-100"
                                         alt=""
                                     />

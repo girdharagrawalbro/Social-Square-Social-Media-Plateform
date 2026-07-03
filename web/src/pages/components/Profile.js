@@ -9,9 +9,6 @@ import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
 import toast, { Toaster } from 'react-hot-toast';
 import useWindowWidth from '../../hooks/useWindowWidth';
-
-
-
 import EditProfile from './EditProfile';
 import ActiveSessions from './ActiveSessions';
 import FollowFollowingList from './FollowFollowingList';
@@ -23,20 +20,7 @@ import SkeletonProfile from './ui/SkeletonProfile';
 import ContributionGraph from './ui/ContributionGraph';
 import GoalWall from './GoalWall';
 import Graveyard from './Graveyard';
-
-/**
- * Profile Component - FLEXIBLE PROFILE VIEW
- * 
- * ✅ CAN SHOW LOGGED-IN USER'S PROFILE (default, userId not provided):
- *    - Edit Profile, Logout, Security/Sessions, Saved Posts, Collabs Manager
- *    - Followers/Following lists for own profile
- * 
- * ✅ CAN ALSO SHOW OTHER USER'S PROFILE (pass userId prop):
- *    - View-only (no edit/logout)
- *    - Shows Follow/Message buttons
- *    - Shows Posts (no Saved/Collabs tabs for others)
- *    - Used when clicking "View full profile" from UserProfile popup
- */
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const Profile = ({ userId }) => {
     const [editVisible, setEditVisible] = useState(false);
@@ -183,20 +167,12 @@ const Profile = ({ userId }) => {
 
     const getUserIdFromToken = useAuthStore(s => s.getUserIdFromToken);
 
-    // ─── RACE-CONDITION-FREE IDENTITY RESOLUTION ──────────────────────────────
-    // tokenUserId is decoded from the in-memory JWT synchronously — it is set
-    // before Zustand hydrates (see refreshAccessToken → updateAuthToken → setToken).
-    // This means we can safely compare it with the URL userId without any race.
     const tokenUserId = getUserIdFromToken();
     const currentUserId = loggeduser?._id || tokenUserId;
     const profileId = userId || currentUserId;
 
     const isLoggedOut = initialized && !currentUserId;
 
-    // viewingOwnProfile: INITIAL IDENTITY GUESS (Race-condition-free signals)
-    //   1. No userId in URL → own profile route (/profile with no param)
-    //   2. userId === tokenUserId → sync token check (no Zustand lag)
-    //   3. userId === currentUserId → Zustand fallback
     const viewingOwnProfile = !userId ||
         (!!tokenUserId && userId === tokenUserId) ||
         (!!currentUserId && userId === currentUserId);
@@ -490,7 +466,7 @@ const Profile = ({ userId }) => {
                                         {displayUser.mutualFollowers?.slice(0, 3).map((m, idx) => (
                                             <img
                                                 key={m._id}
-                                                src={m.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                                src={m.profile_picture || USER_DEFAULT_IMAGE}
                                                 alt={m.fullname}
                                                 className="w-5 h-5 rounded-full border-2 border-[var(--surface-1)] object-cover"
                                                 style={{ zIndex: 3 - idx }}
@@ -618,7 +594,7 @@ const Profile = ({ userId }) => {
                                 <ContributionGraph contributions={displayUser?.contributions} />
                             </div>
                         )}
-                        
+
                         {/* OTHER PROFILE - Mute/Block Options */}
                         {!isOwner && !isLoggedOut && (
                             <div className="py-2 border-t border-b border-[var(--border-color)] flex divide-x divide-[var(--border-color)] my-2">
@@ -882,7 +858,6 @@ const Profile = ({ userId }) => {
                             {isFetchingNextPage && (
                                 <div className="text-indigo-500 font-bold text-sm flex items-center gap-2">
                                     <i className="pi pi-spin pi-spinner"></i>
-                                    <span>Loading...</span>
                                 </div>
                             )}
                         </div>

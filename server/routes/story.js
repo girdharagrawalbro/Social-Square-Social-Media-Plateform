@@ -312,6 +312,9 @@ router.delete('/:storyId', verifyToken, [
         if (!story) return res.status(404).json({ message: 'Story not found.' });
         if (story.user._id.toString() !== userId.toString()) return res.status(403).json({ message: 'Unauthorized.' });
         await Story.findByIdAndDelete(req.params.storyId);
+        if (_io) {
+            _io.emit('storyDeleted', { storyId: req.params.storyId, userId: story.user._id });
+        }
         res.status(200).json({ message: 'Story deleted.' });
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });

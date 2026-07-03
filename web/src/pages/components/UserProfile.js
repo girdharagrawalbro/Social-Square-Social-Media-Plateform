@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
+import { USER_DEFAULT_IMAGE } from "../../utils/constantMediaVariable";
 
 const PostDetail = lazy(() => import('./PostDetail'));
 
@@ -95,6 +96,8 @@ const PostGrid = ({ userId, maxPosts, isBlur, isCompactPreview }) => {
                                         alt=""
                                         className={isBlur ? 'blur-lg' : ''}
                                         objectFit="cover"
+                                        fileKey={post.mediaKeys?.[0]?.key}
+                                        iv={post.mediaKeys?.[0]?.iv}
                                     />
                                 )
                                 : <div className={`w-full h-full flex items-center justify-center text-xs text-[var(--text-sub)] p-2 text-center ${isBlur ? 'blur-lg' : ''}`}>{post.caption?.slice(0, 30)}</div>
@@ -628,7 +631,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     {userDetails.mutualFollowers.slice(0, 3).map((m, idx) => (
                                         <img
                                             key={m._id}
-                                            src={m.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                            src={m.profile_picture || USER_DEFAULT_IMAGE}
                                             alt={m.fullname}
                                             className="w-6 h-6 rounded-full border-2 border-[var(--surface-1)] object-cover"
                                             style={{ zIndex: 3 - idx }}
@@ -842,7 +845,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     navigate(`/profile/${user._id}`);
                                 }}
                             >
-                                <img src={user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
+                                <img src={user.profile_picture || USER_DEFAULT_IMAGE} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1">
                                         <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>
@@ -880,7 +883,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     navigate(`/profile/${user._id}`);
                                 }}
                             >
-                                <img src={user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
+                                <img src={user.profile_picture || USER_DEFAULT_IMAGE} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1">
                                         <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>

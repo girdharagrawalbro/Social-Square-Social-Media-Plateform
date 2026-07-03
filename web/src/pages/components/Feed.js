@@ -26,6 +26,8 @@ import {
     useBlockUser, useUnblockUser
 } from '../../hooks/queries/useAuthQueries';
 import { PostItem } from "./ui/PostItem";
+import useBroadcast from "../../hooks/useBroadcast";
+import { appChannel } from "../../utils/broadcast";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -351,7 +353,7 @@ const Feed = ({ activeMood = null }) => {
 
     // ── Derived post lists ───────────────────────────────────────────────────
     const serverPosts = useMemo(
-        () => { 
+        () => {
             const fetched = feedQuery.data?.pages?.flatMap(p => p.posts) ?? [];
             return fetched.length > 0 ? fetched : offlinePosts;
         },
@@ -403,9 +405,9 @@ const Feed = ({ activeMood = null }) => {
         setPickerPostId(null);
     }, [reactMutation]);
 
-    const handleFollow = useCallback((targetUserId) => {
-        if (targetUserId) followMutation.mutate({ targetUserId });
-    }, [followMutation]);
+    // const handleFollow = useCallback((targetUserId) => {
+    //     if (targetUserId) followMutation.mutate({ targetUserId });
+    // }, [followMutation]);
 
     const handleLikeToggle = useCallback((post) => {
         if (likeMutation.isPending) return;
@@ -417,7 +419,18 @@ const Feed = ({ activeMood = null }) => {
             ? Array.from(optimisticSet).some(id => id?.toString() === loggedUserId)
             : (post.likes ?? []).some(id => id?.toString() === loggedUserId);
 
-        likeMutation.mutate({ postId: post._id, isLiked: liked, likes: post.likes ?? [] });
+        likeMutation.mutate({ postId: post._id, isLiked: liked, likes: post.likes ?? [] }, {
+            onSuccess: (res) => {
+                const nextLiked = !liked;
+                const nextCount = nextLiked ? (post.likes?.length ?? 0) + 1 : Math.max(0, (post.likes?.length ?? 0) - 1);
+                appChannel.postMessage({
+                    type: "POST_LIKE_COUNT",
+                    postId: post._id,
+                    count: nextCount,
+                    liked: nextLiked
+                });
+            }
+        });
         track(post._id, liked ? 'unlike' : 'like');
     }, [likeMutation, optimisticLikes, user?._id, track]);
 
@@ -429,7 +442,16 @@ const Feed = ({ activeMood = null }) => {
 
         if (!liked) {
             if (navigator.vibrate) navigator.vibrate([10, 30]);
-            likeMutation.mutate({ postId: post._id, isLiked: false, likes: post.likes ?? [] });
+            likeMutation.mutate({ postId: post._id, isLiked: false, likes: post.likes ?? [] }, {
+                onSuccess: () => {
+                    appChannel.postMessage({
+                        type: "POST_LIKE_COUNT",
+                        postId: post._id,
+                        count: (post.likes?.length ?? 0) + 1,
+                        liked: true
+                    });
+                }
+            });
             track(post._id, 'like');
         }
 
@@ -471,7 +493,10 @@ const Feed = ({ activeMood = null }) => {
             acceptClassName: 'p-button-danger',
             accept: () => {
                 deleteMutation.mutate({ postId: post._id }, {
-                    onSuccess: () => toast.success('Post deleted'),
+                    onSuccess: () => {
+                        toast.success('Post deleted');
+                        appChannel.postMessage({ type: 'POST_DELETED', postId: post._id });
+                    },
                 });
             },
         });
@@ -530,10 +555,49 @@ const Feed = ({ activeMood = null }) => {
                 acceptLabel: 'Block',
                 acceptClassName: 'p-button-danger border-0 rounded-xl',
                 rejectClassName: 'p-button-text p-button-secondary rounded-xl',
-                accept: () => blockMutation.mutate({ targetUserId: p.user._id }),
+                accept: () => blockMutation.mutate({ targetUserId: p.user._id }, {
+                    onSuccess: () => {
+                        appChannel.postMessage({ type: 'USER_BLOCK', targetUserId: p.user._id });
+                    }
+                }),
             });
         }
     }, [user?.blockedUsers, blockMutation, unblockMutation]);
+
+    // ── Broadcast Event Observers ──
+    useBroadcast('POST_LIKE_COUNT', useCallback(({ postId, count, liked }) => {
+        if (user?._id) {
+            usePostStore.getState().syncLikeFromSocket(postId, user._id, liked);
+        }
+    }, [user?._id]));
+
+    useBroadcast('POST_CREATED', useCallback(({ post }) => {
+        usePostStore.getState().addSocketPost(post);
+    }, []));
+
+    useBroadcast('POST_DELETED', useCallback(({ postId }) => {
+        usePostStore.getState().removeSocketPost(postId);
+    }, []));
+
+    useBroadcast('USER_BLOCK', useCallback(({ targetUserId }) => {
+        // Remove posts from store for blocked user
+        usePostStore.setState(state => ({
+            socketPosts: state.socketPosts.filter(p => p.user?._id !== targetUserId),
+            socketConfessions: state.socketConfessions.filter(p => p.user?._id !== targetUserId),
+        }));
+    }, []));
+
+    useBroadcast('USER_FOLLOW', useCallback(({ targetUserId, isFollowing }) => {
+        // Re-sync follows if needed
+    }, []));
+
+    const handleFollowClick = useCallback((targetUserId) => {
+        followMutation.mutate({ targetUserId }, {
+            onSuccess: () => {
+                appChannel.postMessage({ type: 'USER_FOLLOW', targetUserId, isFollowing: true });
+            }
+        });
+    }, [followMutation]);
 
     // ── Caption ──────────────────────────────────────────────────────────────
     const renderCaption = useCaption(handleProfileClick);
@@ -621,7 +685,7 @@ const Feed = ({ activeMood = null }) => {
                                     handleDwell={handleDwell}
                                     handleReact={handleReact}
                                     renderCaption={renderCaption}
-                                    onFollow={handleFollow}
+                                    onFollow={handleFollowClick}
                                     onLikesClick={(ids) => { setLikesIds(ids); setLikesVisible(true); }}
                                     onMute={handleMute}
                                     onBlock={handleBlock}

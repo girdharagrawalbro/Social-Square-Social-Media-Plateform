@@ -1,179 +1,72 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const axios = require('../utils/http');
 const verifyToken = require('../middleware/Verifytoken');
 const User = require('../models/User');
 
-let CLOUDINARY_API_BASE_URL = process.env.CLOUDINARY_API_BASE_URL;
+const UPLOAD_API_BASE_URL = process.env.UPLOAD_API_BASE_URL;
 
-const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL;
+const IMAGE_MAX = 20 * 1024 * 1024;
+const VIDEO_MAX = 100 * 1024 * 1024;
+
+// Buffer in memory is fine for images; for 100MB video at scale consider
+// multer.diskStorage + fs stream instead of memoryStorage.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: VIDEO_MAX } });
 
 async function getStandardizedFolder(req) {
     let userFolder = req.userId || 'anonymous';
     if (req.userId) {
         try {
             const user = await User.findById(req.userId).select('username').lean();
-            if (user && user.username) {
-                userFolder = `${req.userId}-${user.username}`;
-            }
+            if (user?.username) userFolder = `${req.userId}-${user.username}`;
         } catch (err) {
             console.error('Error fetching user for folder name:', err);
         }
     }
-    let folderType = req.body.folder || 'misc';
-    // Sanitize to prevent path traversal but allow internal slashes
-    folderType = folderType.replace(/\.\./g, '').replace(/^\/+/, '');
-    if (!folderType) folderType = 'misc';
-    return `SocialSquare/${userFolder}/${folderType}`;
+    let folderType = (req.body.folder || 'misc').replace(/\.\./g, '').replace(/^\/+/, '');
+    return `SocialSquare/${userFolder}/${folderType || 'misc'}`;
 }
 
-/**
- * @route POST /api/media/sign-upload
- * @desc Generate a signature for direct Cloudinary upload (Bypasses proxy bottleneck)
- * @access Private
- */
-router.post('/sign-upload', verifyToken, async (req, res) => {
+router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     try {
-        const timestamp = Math.round(Date.now() / 1000);
-        const folder = await getStandardizedFolder(req);
-
-        // Ask microservice to generate the signature
-        return axios.post(`${CLOUDINARY_API_BASE_URL}/sign`, { timestamp, folder })
-            .then(response => {
-                const data = response.data || {};
-                // Only forward safe fields from the signing microservice to clients.
-                const safe = {
-                    success: data.success === false ? false : true,
-                    signature: data.signature,
-                    timestamp: data.timestamp,
-                    cloudName: data.cloudName,
-                    apiKey: data.apiKey,
-                    folder: data.folder || folder,
-                    message: data.message
-                };
-                return res.json(safe);
-            })
-            .catch(err => {
-                console.error('[Cloudinary Sign Error]:', err.response?.data || err.message);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Signature generation failed',
-                    error: err.response?.data?.message || err.message
-                });
-            });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-/**
- * @route POST /api/media/drive/sign-upload
- * @desc Initiate a resumable upload session for Google Drive
- * @access Private
- */
-router.post('/drive/sign-upload', verifyToken, async (req, res) => {
-    try {
-        // Delegate to Drive microservice to get a resumable session URL
-        // The microservice handles the OAuth/ServiceAccount logic
-        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/initiate-resumable`, {
-            name: req.body.name,
-            mimeType: req.body.mimeType,
-            folder: await getStandardizedFolder(req)
-        });
-
-        const responseData = response.data || {};
-        if (responseData.sessionUrl) {
-            delete responseData.sessionUrl;
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file provided' });
         }
-        res.json(responseData);
-    } catch (error) {
-        console.error('[Drive Sign Error]:', error.message);
-        res.status(500).json({ success: false, message: 'Failed to initiate upload' });
-    }
-});
 
-/**
- * @route POST /api/media/drive/upload
- * @desc Proxy base64/JSON file upload to Drive microservice (eliminates browser CORS issues)
- * @access Private
- */
-router.post('/drive/upload', verifyToken, async (req, res) => {
-    try {
-        const { file, name } = req.body;
-        if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
         const folder = await getStandardizedFolder(req);
+        const resourceType = req.body.resourceType === 'video' ? 'video' : (req.body.resourceType || 'auto');
+        const limit = resourceType === 'video' ? VIDEO_MAX : IMAGE_MAX;
 
-        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
-            file, folder, name
+        if (req.file.size > limit) {
+            return res.status(400).json({ success: false, message: 'size limit exceeded' });
+        }
+
+        const base64File = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+        const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
+            file: base64File,
+            folder,
+            resourceType,
         });
-        res.status(response.status).json(response.data);
+
+        console.log('[Upload] microservice response:', JSON.stringify(response.data, null, 2));
+
+        const payload = {
+            success: response.data.success,
+            url: response.data.data.secure_url,
+            publicId: response.data.data.public_id,
+        };
+
+        return res.status(response.status).json(payload);
     } catch (error) {
-        console.error('[Drive Proxy Upload Error]:', error.message);
-        res.status(error.response?.status || 500).json({ success: false, message: error.message });
-    }
-});
-
-/**
- * @route POST /api/media/drive/upload-url
- * @desc Proxy remote URL upload to Drive microservice
- * @access Private
- */
-router.post('/drive/upload-url', verifyToken, async (req, res) => {
-    try {
-        const { url, name } = req.body;
-        if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
-        const folder = await getStandardizedFolder(req);
-
-        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload-url`, {
-            url, folder, name
+        console.error('[Upload] proxy error:', error.response?.data || error.message);
+        res.status(error.response?.status || 500).json({
+            success: false,
+            message: error.response?.data?.message || 'Something went wrong. Please try again.',
         });
-        res.status(response.status).json({ success: true });
-    } catch (error) {
-        console.error('[Drive Upload-URL Error]:', error.message);
-        res.status(error.response?.status || 500).json({ success: false, message: error.message });
     }
 });
-
-/**
- * @route DELETE /api/media/drive/delete
- * @desc Proxy file deletion to Drive microservice
- * @access Private
- */
-router.delete('/drive/delete', verifyToken, async (req, res) => {
-    try {
-        const { fileId } = req.body;
-        if (!fileId) return res.status(400).json({ success: false, message: 'No fileId provided' });
-
-        const response = await axios.delete(`${GDRIVE_API_BASE_URL}/api/drive/delete`, {
-            data: { fileId }
-        });
-        res.status(response.status).json(response.data);
-    } catch (error) {
-        console.error('[Drive Delete Error]:', error.message);
-        res.status(error.response?.status || 500).json({ success: false, message: error.message });
-    }
-});
-
-/**
- * @route GET /api/media/drive/file/:fileId
- * @desc Proxy metadata retrieval to Drive microservice
- * @access Private
- */
-router.get('/drive/file/:fileId', verifyToken, async (req, res) => {
-    try {
-        const { fileId } = req.params;
-        const response = await axios.get(`${GDRIVE_API_BASE_URL}/api/drive/file/${fileId}`);
-        res.status(response.status).json(response.data);
-    } catch (error) {
-        console.error('[Drive Get-File Error]:', error.message);
-        res.status(error.response?.status || 500).json({ success: false, message: error.message });
-    }
-});
-
-/**
- * LEGACY / INTERNAL PROXY ROUTES
- * Keep these for AI generation or admin tools that run server-side.
- */
 
 router.post('/upload-base64', verifyToken, async (req, res) => {
     try {
@@ -181,7 +74,7 @@ router.post('/upload-base64', verifyToken, async (req, res) => {
         if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
         const folder = await getStandardizedFolder(req);
 
-        const response = await axios.post(`${CLOUDINARY_API_BASE_URL}/upload-base64`, {
+        const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
             file, folder, resourceType, start_offset, end_offset
         });
         res.status(response.status).json(response.data);
@@ -196,7 +89,7 @@ router.post('/upload-url', verifyToken, async (req, res) => {
         if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
         const folder = await getStandardizedFolder(req);
 
-        const response = await axios.post(`${CLOUDINARY_API_BASE_URL}/upload-url`, {
+        const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-url`, {
             url, folder
         });
         res.status(response.status).json(response.data);
