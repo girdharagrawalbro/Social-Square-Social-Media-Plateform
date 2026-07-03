@@ -6,7 +6,7 @@ on:
       - main
       - master
     paths:
-      - 'backend/**'
+      - 'server/**'
       - '.github/workflows/deploy-backend.yml'
 
 jobs:
@@ -33,8 +33,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: ./server
+          file: ./server/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/social-square-backend:latest
