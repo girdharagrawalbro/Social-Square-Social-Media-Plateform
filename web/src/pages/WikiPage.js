@@ -5,6 +5,7 @@ import { api } from '../store/zustand/useAuthStore';
 import useAuthStore from '../store/zustand/useAuthStore';
 import usePostStore from '../store/zustand/usePostStore';
 import toast from 'react-hot-toast';
+import { USER_DEFAULT_IMAGE } from '../utils/constantMediaVariable';
 
 function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -54,7 +55,7 @@ function WikiPostCard({ post, onOpen }) {
                 {/* Author */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <img
-                        src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                        src={post.user?.profile_picture || USER_DEFAULT_IMAGE}
                         alt=""
                         style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                     />

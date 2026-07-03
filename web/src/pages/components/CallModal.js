@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { LiveKitRoom, RoomAudioRenderer, useTracks, useLocalParticipant, useRemoteParticipants } from '@livekit/components-react';
 import { Track, setLogLevel } from 'livekit-client';
 import '@livekit/components-styles';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 setLogLevel('silent');
 
@@ -225,7 +226,7 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', zIndex: 10 }}>
                         <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', padding: '4px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                            <img src={remoteUser?.avatar || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid #090a0f' }} />
+                            <img src={remoteUser?.avatar || USER_DEFAULT_IMAGE} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid #090a0f' }} />
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 800, margin: '0 0 6px' }}>{remoteUser?.fullname}</h2>
@@ -386,7 +387,7 @@ const CallModal = ({
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                     <span style={{ fontSize: '12px', color: '#808bf5', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>Incoming {callType} Call</span>
                     <div style={{ width: 140, height: 140, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', padding: '4px', margin: '20px 0', animation: 'pulseRing 2s infinite' }}>
-                        <img src={remoteUser.avatar || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #000' }} />
+                        <img src={remoteUser.avatar || USER_DEFAULT_IMAGE} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #000' }} />
                     </div>
                     <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: 0 }}>{remoteUser.fullname}</h1>
                     <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', margin: 0 }}>Calling you...</p>
@@ -420,7 +421,7 @@ const CallModal = ({
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                     <span style={{ fontSize: '12px', color: '#808bf5', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>Calling...</span>
                     <div style={{ width: 140, height: 140, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', padding: '4px', margin: '20px 0', animation: 'callingPulse 2.5s infinite' }}>
-                        <img src={remoteUser.avatar || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #000' }} />
+                        <img src={remoteUser.avatar || USER_DEFAULT_IMAGE} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #000' }} />
                     </div>
                     <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: 0 }}>{remoteUser.fullname}</h1>
                     <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', margin: 0 }}>Ringing your phone...</p>

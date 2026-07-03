@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { USER_DEFAULT_IMAGE } from '../../../utils/constantMediaVariable';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
@@ -114,7 +115,7 @@ const MentionSuggestions = ({ text, cursorPosition, onSelect }) => {
                         }`}
                 >
                     <img
-                        src={user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                        src={user.profile_picture || USER_DEFAULT_IMAGE}
                         alt={user.fullname}
                         className="w-7 h-7 rounded-full object-cover border border-[var(--border-color)]"
                     />

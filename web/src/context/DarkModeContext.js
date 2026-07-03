@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
+import { appChannel } from '../utils/broadcast';
 const DarkModeContext = createContext();
 const DARK_MODE_STORAGE_KEY = 'darkMode';
 
@@ -15,6 +15,7 @@ const getInitialDarkMode = () => {
     return false;
 };
 
+
 export function DarkModeProvider({ children }) {
     const [isDark, setIsDark] = useState(getInitialDarkMode);
 
@@ -29,7 +30,30 @@ export function DarkModeProvider({ children }) {
         root.style.colorScheme = isDark ? 'dark' : 'light';
     }, [isDark]);
 
-    const toggle = () => setIsDark(v => !v);
+    useEffect(() => {
+        appChannel.onmessage = (event) => {
+            if (event.data.type === "THEME_CHANGED") {
+                setIsDark(event.data.isDark);
+            }
+        };
+
+        return () => {
+            appChannel.onmessage = null;
+        };
+    }, []);
+
+    const toggle = () => {
+        setIsDark(prev => {
+            const next = !prev;
+
+            appChannel.postMessage({
+                type: 'THEME_CHANGED',
+                isDark: next,
+            });
+
+            return next;
+        });
+    };
 
     return (
         <DarkModeContext.Provider value={{ isDark, toggle }}>

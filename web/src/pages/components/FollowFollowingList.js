@@ -14,6 +14,7 @@ import {
 import { confirmDialog } from 'primereact/confirmdialog';
 import { useInView } from 'react-intersection-observer';
 import UserProfile from './UserProfile';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const FollowFollowingList = ({ userId, ids, isfollowing }) => {
     const user = useAuthStore(s => s.user);
@@ -177,7 +178,7 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
                                 title={`Open ${u.fullname} profile`}
                             >
                                 <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-color)]">
-                                    <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt={u.fullname} className="w-full h-full object-cover" />
+                                    <img src={u.profile_picture || USER_DEFAULT_IMAGE} alt={u.fullname} className="w-full h-full object-cover" />
                                 </div>
                             </button>
                             <button

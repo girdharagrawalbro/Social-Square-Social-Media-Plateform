@@ -5,6 +5,8 @@ import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } fro
 import usePostStore from '../store/zustand/usePostStore';
 import { useNavigate } from 'react-router-dom';
 import CollabManager from './components/CollabManager';
+import { USER_DEFAULT_IMAGE } from '../utils/constantMediaVariable';
+import { MegaphoneIcon, ShieldIcon } from './components/ui/CommanSVG';
 
 const NotificationsPage = () => {
     const user = useAuthStore(s => s.user);
@@ -219,19 +221,14 @@ const NotificationsPage = () => {
                                                             setActiveTab('collabs');
                                                         }
                                                     }}
-                                                    className={`flex items-start gap-4 px-3 py-3 cursor-pointer transition-all duration-300 relative hover:bg-[var(--surface-2)]/60 ${!n.read
+                                                    className={`flex items-center gap-2 md:gap-4 px-3 py-3 cursor-pointer transition-all duration-300 relative hover:bg-[var(--surface-2)]/60 ${!n.read
                                                         ? 'bg-gray-100 hover:bg-gray-200/80 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60 '
                                                         : ''
                                                         }`}
                                                 >
                                                     <div className="relative shrink-0 select-none">
-                                                        <img
-                                                            src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')}
-                                                            alt=""
-                                                            className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
-                                                            onError={(e) => { e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'; }}
-                                                        />
-                                                        {/* Type Badge Overlay */}
+                                                        {n.type === 'system' ? <ShieldIcon width={40} height={40} /> : n.type === 'announcement' ? <MegaphoneIcon width={40} height={40} /> : (<img src={n.sender?.profile_picture || USER_DEFAULT_IMAGE} alt="logo" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokH'; }} />)}
+
                                                         {n.type !== 'system' && n.type !== 'announcement' && (
                                                             <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md ${n.type === 'like' ? 'bg-gradient-to-tr from-rose-500 to-pink-400' :
                                                                 n.type === 'comment' ? 'bg-gradient-to-tr from-purple-600 to-indigo-400' :
@@ -341,15 +338,11 @@ const NotificationsPage = () => {
                                         className="flex items-center gap-4 p-3 border-b border-gray-100 hover:bg-[var(--surface-2)]/60 transition-colors"
                                     >
                                         <div className="relative shrink-0 select-none">
-                                            <img
-                                                src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')}
-                                                alt=""
-                                                className="w-12 h-12 rounded-full object-cover border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform duration-300"
-                                                onClick={() => {
-                                                    const id = n.sender?.id || n.sender?._id;
-                                                    if (id && n.type !== 'system' && n.type !== 'announcement') navigate(`/profile/${id}`);
-                                                }}
-                                            />
+                                            {n.type === 'system' ? <ShieldIcon width={40} height={40} /> : n.type === 'announcement' ? <MegaphoneIcon width={40} height={40} /> : (<img src={n.sender?.profile_picture || USER_DEFAULT_IMAGE} alt="logo" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onClick={() => {
+                                                const id = n.sender?.id || n.sender?._id;
+                                                navigate(`/profile/${id}`);
+                                            }} onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokH'; }} />)}
+
                                             {/* Follow type badge overlay */}
                                             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] text-white border-2 border-[var(--surface-1)] shadow-md bg-gradient-to-tr from-blue-500 to-cyan-400">
                                                 <i className="pi pi-user-plus text-[9px]"></i>

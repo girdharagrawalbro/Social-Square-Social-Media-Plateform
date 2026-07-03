@@ -9,7 +9,7 @@ const NotificationSettings = () => {
 
     const handleToggle = (key, label, isDefaultTrue = true) => {
         const currentVal = settings?.[key];
-        const newVal = isDefaultTrue 
+        const newVal = isDefaultTrue
             ? (currentVal !== false ? false : true)
             : (currentVal ? false : true);
 
@@ -35,7 +35,7 @@ const NotificationSettings = () => {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <div className="w-8 h-8 border-4 border-[#808bf5] border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-[#4f46e5] border-t-transparent rounded-full animate-spin" />
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest animate-pulse">Loading preferences...</span>
             </div>
         );
@@ -44,15 +44,15 @@ const NotificationSettings = () => {
     return (
         <div className="px-4 py-3 max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             <h2 className="text-xl font-black mb-1 text-[var(--text-main)]">Notification Preferences</h2>
-            <p className="text-xs text-[var(--text-sub)] opacity-70 mb-6 uppercase tracking-wider font-bold">Customize how you interact with Social Square</p>
+            <p className="text-xs text-[var(--text-sub)] opacity-70 mb-6 tracking-wider font-bold">Customize how you interact with Social Square</p>
 
             <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm space-y-6">
-                
+
                 {/* 🔔 Global Push */}
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                         <h3 className="m-0 text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
-                            🔔 Push Notifications (Global Pause)
+                            🔔 Push Notifications ( Global )
                         </h3>
                         <p className="mt-1 mb-0 text-xs text-[var(--text-sub)] leading-relaxed">
                             Pause all push alerts. Note: login security alerts and chat notifications will always bypass this pause.
@@ -66,7 +66,18 @@ const NotificationSettings = () => {
                             className="sr-only peer"
                             disabled={updateSettings.isPending}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#808bf5]"></div>
+                        <div className="relative w-11 h-6 rounded-full bg-gray-200
+    peer-checked:bg-[#4f46e5]
+    after:content-['']
+    after:absolute
+    after:top-[2px]
+    after:left-[2px]
+    after:h-5
+    after:w-5
+    after:rounded-full
+    after:bg-white
+    after:transition-all
+    peer-checked:after:translate-x-full"></div>
                     </label>
                 </div>
 
@@ -90,7 +101,18 @@ const NotificationSettings = () => {
                             className="sr-only peer"
                             disabled={updateSettings.isPending}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#808bf5]"></div>
+                        <div className="relative w-11 h-6 rounded-full bg-gray-200
+    peer-checked:bg-[#4f46e5]
+    after:content-['']
+    after:absolute
+    after:top-[2px]
+    after:left-[2px]
+    after:h-5
+    after:w-5
+    after:rounded-full
+    after:bg-white
+    after:transition-all
+    peer-checked:after:translate-x-full"></div>
                     </label>
                 </div>
 
@@ -114,7 +136,18 @@ const NotificationSettings = () => {
                             className="sr-only peer"
                             disabled={updateSettings.isPending}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#808bf5]"></div>
+                        <div className="relative w-11 h-6 rounded-full bg-gray-200
+    peer-checked:bg-[#4f46e5]
+    after:content-['']
+    after:absolute
+    after:top-[2px]
+    after:left-[2px]
+    after:h-5
+    after:w-5
+    after:rounded-full
+    after:bg-white
+    after:transition-all
+    peer-checked:after:translate-x-full"></div>
                     </label>
                 </div>
 
@@ -138,7 +171,18 @@ const NotificationSettings = () => {
                             className="sr-only peer"
                             disabled={updateSettings.isPending}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#808bf5]"></div>
+                        <div className="relative w-11 h-6 rounded-full bg-gray-200
+    peer-checked:bg-[#4f46e5]
+    after:content-['']
+    after:absolute
+    after:top-[2px]
+    after:left-[2px]
+    after:h-5
+    after:w-5
+    after:rounded-full
+    after:bg-white
+    after:transition-all
+    peer-checked:after:translate-x-full"></div>
                     </label>
                 </div>
 
@@ -162,7 +206,18 @@ const NotificationSettings = () => {
                             className="sr-only peer"
                             disabled={updateSettings.isPending}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#808bf5]"></div>
+                        <div className="relative w-11 h-6 rounded-full bg-gray-200
+    peer-checked:bg-[#4f46e5]
+    after:content-['']
+    after:absolute
+    after:top-[2px]
+    after:left-[2px]
+    after:h-5
+    after:w-5
+    after:rounded-full
+    after:bg-white
+    after:transition-all
+    peer-checked:after:translate-x-full"></div>
                     </label>
                 </div>
 

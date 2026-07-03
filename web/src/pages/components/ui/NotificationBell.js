@@ -8,6 +8,8 @@ import useConversationStore from '../../../store/zustand/useConversationStore';
 import { Dialog } from 'primereact/dialog';
 import { useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../../../context/DarkModeContext';
+import { USER_DEFAULT_IMAGE } from '../../../utils/constantMediaVariable';
+import { ShieldIcon, MegaphoneIcon, CameraIcon } from './CommanSVG';
 
 const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = true, active = false }, forwardedRef) => {
     const { isDark } = useDarkMode();
@@ -16,7 +18,7 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
     const localRef = useRef(null);
     const navigate = useNavigate();
 
-    // ✅ Sync with Global Store via hook
+    // Sync with Global Store via hook
     const { data: notifications = [], markRead, loadMore, hasMore, isLoading } = useNotifications(userId);
     const { data: collabInvites = [] } = useCollabInvites(userId);
     const { unreadNotificationsCount: globalUnreadCount } = useConversationStore();
@@ -40,15 +42,6 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    // ✅ Auto-mark as read when opening popup
-    // useEffect(() => {
-    //     if (open && activeTab === 'notifications') {
-    //         const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
-    //         if (unreadIds.length > 0) {
-    //             markRead.mutate(unreadIds);
-    //         }
-    //     }
-    // }, [open, activeTab, notifications, markRead]);
 
     const handleMarkRead = (id) => markRead.mutate([id]);
     const handleMarkAllRead = () => { const ids = notifications.map(n => n._id); if (ids.length) markRead.mutate(ids); };
@@ -100,8 +93,46 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
         return 'sent a notification';
     };
 
-    const totalBadge = globalUnreadCount + pendingCollabCount;
+    const handleNotificationClick = (n) => {
+        handleMarkRead(n._id);
 
+        if (n.type === 'message' && n.sender) {
+            const targetId = n.sender.id || n.sender._id;
+            if (targetId) navigate(`/conversation/${targetId}`);
+            setOpen(false);
+        } else if (n.type === 'like' && n.story) {
+            setStoryDetailUserId(n.sender.id || n.sender._id);
+            setOpen(false);
+        } else if (n.type === 'mention') {
+            if (n.post) {
+                setPostDetailId(n.post);
+            } else if (n.url) {
+                navigate(n.url);
+            }
+            setOpen(false);
+        } else if (n.post) {
+            setPostDetailId(n.post);
+            setOpen(false);
+        } else if (n.type === 'collab_invite') {
+            setActiveTab('collabs');
+        }
+    };
+
+    const handleProfileClick = (e, n) => {
+        e.stopPropagation();
+
+        if (['system', 'announcement', 'livestream'].includes(n.type)) {
+            return;
+        }
+
+        const id = n.sender?.id || n.sender?._id;
+        if (!id) return;
+
+        navigate(`/profile/${id}`);
+        setOpen(false);
+    };
+
+    const totalBadge = globalUnreadCount + pendingCollabCount;
     const activeClass = "bg-gradient-to-tr from-[#808bf5] via-[#6366f1] to-[#4f46e5] text-white font-bold shadow-lg shadow-indigo-500/40 relative overflow-hidden";
     const inactiveClass = `hover:bg-gray-100 dark:hover:bg-neutral-900 ${isDark ? 'bg-transparent text-white' : 'bg-transparent text-gray-800'}`;
 
@@ -185,57 +216,22 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                                         </div>
                                     ) : (
                                         notifications.filter(n => n.type !== 'follow_request' || (n.status === 'pending' || !n.status)).map(n => (
-                                            <div key={n._id} onClick={() => {
-                                                handleMarkRead(n._id);
-                                                if (n.type === 'message' && n.sender) {
-                                                    const targetId = n.sender.id || n.sender._id;
-                                                    if (targetId) navigate(`/conversation/${targetId}`);
-                                                    setOpen(false);
-                                                } else if (n.type === 'like' && n.story) {
-                                                    setStoryDetailUserId(n.sender.id || n.sender._id);
-                                                    setOpen(false);
-                                                } else if (n.type === 'mention') {
-                                                    if (n.post) {
-                                                        setPostDetailId(n.post);
-                                                    } else if (n.url) {
-                                                        navigate(n.url);
-                                                    }
-                                                    setOpen(false);
-                                                } else if (n.post) {
-                                                    setPostDetailId(n.post);
-                                                    setOpen(false);
-                                                } else if (n.type === 'collab_invite') {
-                                                    setActiveTab('collabs');
-                                                }
-                                            }}
-                                                className={`flex items-center gap-3 py-3 px-3 cursor-pointer border-b border-[var(--border-color)] transition-all duration-200 ${!n.read
+                                            <div key={n._id}
+                                                onClick={() => handleNotificationClick(n)}
+
+                                                className={`flex items-center gap-2 md:gap-3 py-3 px-3 cursor-pointer border-b border-[var(--border-color)] transition-all duration-200 ${!n.read
                                                     ? 'bg-gray-100 hover:bg-gray-200/80 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60'
                                                     : 'bg-[var(--surface-1)] hover:bg-[var(--surface-2)]'
                                                     }`}
                                             >
 
-                                                <img
-                                                    src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : n.type === 'livestream' ? 'https://img.icons8.com/fluency/96/camera.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')}
-                                                    alt=""
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const id = n.sender?.id || n.sender?._id;
-                                                        if (id && n.type !== 'system' && n.type !== 'announcement' && n.type !== 'livestream') navigate(`/profile/${id}`);
-                                                        if (!id || (n.type !== 'system' && n.type !== 'announcement' && n.type !== 'livestream')) setOpen(false);
-                                                    }}
-                                                    style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)', cursor: 'pointer' }}
-                                                    onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokH'; }}
-                                                />
+                                                {n.type === 'system' ? <ShieldIcon width={40} height={40} /> : n.type === 'announcement' ? <MegaphoneIcon width={40} height={40} /> : n.type === 'livestream' ? <CameraIcon width={40} height={40} /> :
+                                                    (<img src={n.sender?.profile_picture || USER_DEFAULT_IMAGE} alt="logo" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onClick={(e) => handleProfileClick(e, n)} onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokH'; }} />)}
 
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
                                                         <strong
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const id = n.sender?.id || n.sender?._id;
-                                                                if (id && n.type !== 'system' && n.type !== 'announcement' && n.type !== 'livestream') navigate(`/profile/${id}`);
-                                                                if (!id || (n.type !== 'system' && n.type !== 'announcement' && n.type !== 'livestream')) setOpen(false);
-                                                            }}
+                                                            onClick={(e) => handleProfileClick(e, n)}
                                                             style={{ cursor: 'pointer' }}
                                                             className="hover:text-indigo-600 transition-colors"
                                                         >
@@ -306,7 +302,7 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                                 ) : (
                                     followRequests.map(n => (
                                         <div key={n._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', cursor: 'pointer', background: n.read ? 'var(--surface-1)' : 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onClick={() => { handleMarkRead(n._id); }}>
-                                            <img src={n.type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' : n.type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' : (n.sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} />
+                                            {n.type === 'system' ? <ShieldIcon width={40} height={40} /> : n.type === 'announcement' ? <MegaphoneIcon width={40} height={40} /> : (<img src={n.sender?.profile_picture || USER_DEFAULT_IMAGE} alt="logo" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={(e) => { e.target.src = 'https://th.bing.com/th/id/OIP.S171c9HYsokH'; }} />)}
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)' }}>
                                                     <strong onClick={(e) => { e.stopPropagation(); const id = n.sender?.id || n.sender?._id; if (id) navigate(`/profile/${id}`); }} className="hover:text-indigo-600 transition-colors" style={{ cursor: 'pointer' }}>{n.sender?.fullname}</strong> {getNotificationText(n)}
@@ -339,7 +335,7 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                             </div>
                         )}
 
-                        <div className='absoulte bottom-10 p-2  bg-[--surface-1] flex justsify-center' >
+                        <div className='absoulte sticky bottom-0 p-2  bg-[--surface-1] flex justsify-center' >
                             <button
                                 onClick={() => {
                                     navigate('/notifications');

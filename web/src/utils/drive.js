@@ -34,12 +34,12 @@ async function requestDriveApi(path, method = 'POST', body) {
 function formatResult(data = {}) {
     // Ensure we always have a usable URL
     let url = data.webContentLink || data.webViewLink || null;
-    
+
     // If we have a fileId but no URL, construct a Drive URL
     if (!url && data.fileId && data.fileId !== 'uploaded') {
         url = `https://drive.google.com/file/d/${data.fileId}/view`;
     }
-    
+
     return {
         // Primary CDN-style URL — use this like Cloudinary's secure_url
         url,

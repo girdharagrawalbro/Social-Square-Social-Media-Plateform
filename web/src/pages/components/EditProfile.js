@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { uploadToCloudinary } from '../../utils/cloudinary';
+import { uploadMedia } from '../../utils/cloudinary';
 import { Camera, CameraResultType } from '@capacitor/camera';
 
 import toast from 'react-hot-toast';
 import ImageCropper from './ui/ImageCropper';
+import { appChannel } from '../../utils/broadcast';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const MOODS = [
     { key: null, label: 'None (Default Feed)' },
@@ -83,7 +85,7 @@ const EditProfile = ({ users, closeSidebar }) => {
         setUploadProgress(0);
 
         try {
-            const result = await uploadToCloudinary(croppedFile, (progress) => {
+            const result = await uploadMedia(croppedFile, (progress) => {
                 setUploadProgress(progress);
             });
             const url = typeof result === 'string' ? result : result?.url;
@@ -108,6 +110,10 @@ const EditProfile = ({ users, closeSidebar }) => {
                 toast(result.privacyWarning, { icon: '🔒', duration: 8000 });
             } else {
                 toast.success('Profile updated successfully!');
+                appChannel.postMessage({
+                    type: "PROFILE_UPDATED",
+                    user: result,
+                });
             }
             closeSidebar();
         } else {
@@ -122,7 +128,7 @@ const EditProfile = ({ users, closeSidebar }) => {
             <div className="mb-4 flex flex-col items-center gap-2">
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                     <img
-                        src={preview || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                        src={preview || USER_DEFAULT_IMAGE}
                         alt="Profile"
                         style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #e5e7eb' }}
                     />

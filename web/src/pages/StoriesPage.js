@@ -6,6 +6,7 @@ import usePostStore from '../store/zustand/usePostStore';
 import { StoryViewer, ShareStoryDialog } from './components/Stories';
 import { Dialog } from 'primereact/dialog';
 import { getMediaThumbnail } from '../utils/mediaUtils';
+import { USER_DEFAULT_IMAGE } from '../utils/constantMediaVariable';
 
 const PostDetail = React.lazy(() => import('./components/PostDetail'));
 
@@ -135,7 +136,7 @@ const StoriesPage = () => {
                             />
                             <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
-                                    <img src={prevGroup.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-full h-full object-cover rounded-full" alt="" />
+                                    <img src={prevGroup.user.profile_picture || USER_DEFAULT_IMAGE} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
                                 <span className="text-white text-xs font-semibold drop-shadow-md">{prevGroup.user.username || prevGroup.user.fullname}</span>
                             </div>
@@ -185,7 +186,7 @@ const StoriesPage = () => {
                             />
                             <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center z-20">
                                 <div className="w-12 h-12 rounded-full border-2 border-white/80 p-0.5 mb-2 overflow-hidden shadow-lg">
-                                    <img src={nextGroup.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-full h-full object-cover rounded-full" alt="" />
+                                    <img src={nextGroup.user.profile_picture || USER_DEFAULT_IMAGE} className="w-full h-full object-cover rounded-full" alt="" />
                                 </div>
                                 <span className="text-white text-xs font-semibold drop-shadow-md">{nextGroup.user.username || nextGroup.user.fullname}</span>
                             </div>

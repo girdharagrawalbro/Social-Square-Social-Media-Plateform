@@ -1,27 +1,3 @@
-#!/usr/bin/env python3
-"""
-Instagram Post Downloader  — Cookie Edition
-============================================
-Uses your browser sessionid cookie to download posts from any public profile.
-
-Requirements:
-    pip install curl-cffi
-
-  curl_cffi replaces 'requests' — it impersonates Chrome's TLS/JA3/HTTP2
-  fingerprint so Instagram cannot detect and block the scraper at the
-  network layer (the main reason all API endpoints were failing).
-
-HOW TO GET YOUR SESSION ID:
------------------------------
-1. Open Chrome → instagram.com (stay logged in)
-2. F12 → Application → Cookies → https://www.instagram.com
-3. Find "sessionid" → copy the value
-
-Usage:
-    python instagram_downloader.py
-
-    python instagram_downloader.py --target username --limit 20 --session-id YOUR_VALUE
-"""
 
 import argparse
 import json

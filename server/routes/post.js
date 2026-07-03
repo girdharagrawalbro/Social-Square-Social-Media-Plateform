@@ -33,6 +33,7 @@ const RedisBloomFilter = require('../lib/bloomFilter');
 const postWriteLimiter = require('../middleware/postWriteLimiter'); // Break circular dependency
 const { moderationQueue } = require('../queues/moderationQueue');
 const { body, param, query, validationResult } = require('express-validator');
+const { USER_DEFAULT_IMAGE } = require('../utils/constantMediaVariable.js');
 
 const validate = (req, res, next) => {
     const errors = validationResult(req);
@@ -227,7 +228,7 @@ router.post("/create", verifyToken, [
                 ? {
                     _id: ANONYMOUS_USER_ID,
                     fullname: 'Anonymous',
-                    profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1778490037/logo_eyc3at.jpg'
+                    profile_picture: USER_DEFAULT_IMAGE
                 }
                 : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
             location: location || {}, music: music || {},
@@ -2047,7 +2048,7 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
             user: {
                 _id: null, // never reveal real _id
                 fullname: 'Anonymous',
-                profile_picture: 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg',
+                profile_picture: USER_DEFAULT_IMAGE,
             },
         }));
 

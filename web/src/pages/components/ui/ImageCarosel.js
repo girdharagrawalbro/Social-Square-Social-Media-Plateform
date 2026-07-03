@@ -66,7 +66,7 @@ export const ImageCarousel = ({ images, mediaKeys, onDoubleClick, onTouchEnd }) 
                 <button
                     aria-label="Previous image"
                     onClick={e => { e.stopPropagation(); setCurrent(c => c - 1); }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-[30px] h-[30px] rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-black transition-all active:scale-95 shadow-lg"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-[999] w-[30px] h-[30px] rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-black transition-all active:scale-95 shadow-lg"
                 >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" color="black">
                         <path d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -76,8 +76,8 @@ export const ImageCarousel = ({ images, mediaKeys, onDoubleClick, onTouchEnd }) 
             {images.length > 1 && current < images.length - 1 && (
                 <button
                     aria-label="Next image"
-                    onClick={e => { e.stopPropagation(); setCurrent(c => c + 1); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z10 w-[30px] h-[30px] rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-black transition-all active:scale-95 shadow-lg"
+                    onClick={e => { e.stopPropagation(); console.log("clicked"); setCurrent(c => c + 1); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-[999] w-[30px] h-[30px] rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-black transition-all active:scale-95 shadow-lg"
                 >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" color="black">
                         <path d="M4.5 2L8.5 6L4.5 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -87,14 +87,14 @@ export const ImageCarousel = ({ images, mediaKeys, onDoubleClick, onTouchEnd }) 
 
             {/* ── Counter badge (top-right) ──────────────────────── */}
             {images.length > 1 && (
-                <div className="absolute top-2.5 right-2.5 z-10 bg-black/60 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded-full select-none">
+                <div className="absolute top-2.5 right-2.5 z-[999] bg-black/60 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded-full select-none">
                     {current + 1}/{images.length}
                 </div>
             )}
 
             {/* ── Dot indicators (bottom-center) ────────────────── */}
             {images.length > 1 && (
-                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
+                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-1.5">
                     {images.map((_, idx) => (
                         <button
                             key={idx}

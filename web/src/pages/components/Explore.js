@@ -17,6 +17,7 @@ import PostMenu from './ui/PostMenu';
 import { useMuteUser, useBlockUser } from '../../hooks/queries/useAuthQueries';
 import usePostStore from '../../store/zustand/usePostStore';
 import SkeletonExplore from './ui/SkeletonExplore';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
@@ -474,7 +475,7 @@ const Explore = () => {
             <div className="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2 z-40">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-yellow-500 p-0.5">
-                  <img src={videos[activeIndex]?.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-full h-full rounded-full object-cover border-2 border-black" alt="" />
+                  <img src={videos[activeIndex]?.user?.profile_picture || USER_DEFAULT_IMAGE} className="w-full h-full rounded-full object-cover border-2 border-black" alt="" />
                 </div>
                 <div>
                   <p className="m-0 text-white font-bold text-sm">@{videos[activeIndex]?.user?.username || videos[activeIndex]?.user?.fullname?.toLowerCase().replace(/\s/g, '_') || 'user'}</p>

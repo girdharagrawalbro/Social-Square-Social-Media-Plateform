@@ -20,6 +20,7 @@ import { socket } from './socket';
 import toast, { Toaster } from 'react-hot-toast';
 import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
+import useBroadcast from './hooks/useBroadcast';
 import Conversations from './pages/components/Conversations';
 import useTabTitle from './hooks/useTabTitle';
 import useFeedSocket from './hooks/useFeedSocket';
@@ -47,7 +48,9 @@ import MaintenancePage from './pages/components/MaintenancePage';
 import PleaseVerifyEmail from './pages/PleaseVerifyEmail';
 import EmailVerificationBanner from './pages/components/EmailVerificationBanner';
 import { useSystemFlags } from './hooks/queries/useMiscQueries';
-
+import performLogout from './utils/performLogout';
+import { USER_DEFAULT_IMAGE } from './utils/constantMediaVariable';
+import { MegaphoneIcon, ShieldIcon } from './pages/components/ui/CommanSVG';
 
 // ─── LAZY PAGES ───────────────────────────────────────────────────────────────
 const Home = lazy(() => import('./pages/Home'));
@@ -97,6 +100,78 @@ function AppInit() {
 
     const sessionStartTime = useRef(Date.now());
     const prevUserId = useRef(user?._id);
+
+    // ── LOGOUT: cross-tab logout sync ──
+    useBroadcast('LOGOUT', async () => {
+        await performLogout();
+    });
+
+    // ── SESSION_EXPIRED: 401 from any API call ──
+    useBroadcast('SESSION_EXPIRED', ({ reason }) => {
+        toast.error(reason || 'Your session has expired. Please log in again.', {
+            id: 'session-expired',
+            duration: 5000,
+            icon: '🔒',
+        });
+        performLogout();
+    });
+
+    // ── TOKEN_REFRESHED: update in-memory token silently ──
+    useBroadcast('TOKEN_REFRESHED', ({ token }) => {
+        useAuthStore.getState().updateAuthToken(token);
+    });
+
+    // ── PROFILE_UPDATED: sync user across tabs/components ──
+    useBroadcast('PROFILE_UPDATED', ({ user: updatedUser }) => {
+        if (updatedUser) useAuthStore.getState().setUser(updatedUser);
+    });
+
+    // ── NOTIFICATION_RECEIVED: add to store + show toast ──
+    useBroadcast('NOTIFICATION_RECEIVED', ({ notification }) => {
+        useConversationStore.getState().addNotification(notification);
+        toast(`${notification.senderName || 'Someone'}: ${notification.message?.content || 'New notification'}`, {
+            icon: '🔔',
+            duration: 4000,
+            style: { borderRadius: '16px', background: 'var(--surface-1)', color: 'var(--text-main)', border: '1px solid var(--border-color)' },
+        });
+    });
+
+    // ── NOTIFICATION_MARK_READ: optimistic read state ──
+    useBroadcast('NOTIFICATION_MARK_READ', ({ ids }) => {
+        useConversationStore.getState().markNotificationsRead(ids);
+    });
+
+    // ── MESSAGE_MARK_READ: mark chat messages as read ──
+    useBroadcast('MESSAGE_MARK_READ', ({ chatId, messageIds }) => {
+        const convo = useConversationStore.getState().conversations?.find(c => c._id === chatId);
+        if (convo) useConversationStore.getState().addOrUpdateConversation({ ...convo, unreadCount: 0 });
+    });
+
+    // ── USER_FOLLOW: patch local following list ──
+    useBroadcast('USER_FOLLOW', ({ targetUserId, isFollowing }) => {
+        const state = useAuthStore.getState();
+        if (!state.user) return;
+        const following = state.user.following || [];
+        const updated = isFollowing
+            ? [...following, targetUserId]
+            : following.filter(id => id?.toString() !== targetUserId?.toString());
+        state.setUser({ ...state.user, following: updated });
+    });
+
+    // ── USER_BLOCK: patch blocked users list ──
+    useBroadcast('USER_BLOCK', ({ targetUserId }) => {
+        const state = useAuthStore.getState();
+        if (!state.user) return;
+        const blocked = state.user.blockedUsers || [];
+        if (!blocked.includes(targetUserId)) {
+            state.setUser({ ...state.user, blockedUsers: [...blocked, targetUserId] });
+        }
+    });
+
+    // ── CACHE_INVALIDATE: bust react-query cache for given keys ──
+    useBroadcast('CACHE_INVALIDATE', ({ keys }) => {
+        keys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+    });
 
     useEffect(() => {
         if (user?._id !== prevUserId.current) {
@@ -456,19 +531,8 @@ function AppInit() {
                                 border: '2px solid var(--primary)'
                             }}
                         >
-                            <img
-                                src={
-                                    type === 'system' ? 'https://img.icons8.com/fluency/96/shield.png' :
-                                        type === 'announcement' ? 'https://img.icons8.com/fluency/96/megaphone.png' :
-                                            (sender?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg')
-                                }
-                                alt=""
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover'
-                                }}
-                            />
+                            {type === 'system' ? <ShieldIcon width={40} height={40} /> : type === 'announcement' ? <MegaphoneIcon width={40} height={40} /> : (<img src={sender?.profile_picture || USER_DEFAULT_IMAGE} alt="logo"
+                                style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />)}
                         </div>
 
                         <div
@@ -568,7 +632,7 @@ function AppInit() {
                     >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '2px solid #ff4b2b' }}>
                             <img
-                                src={storyUser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                src={storyUser?.profile_picture || USER_DEFAULT_IMAGE}
                                 alt=""
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
@@ -765,7 +829,7 @@ function App() {
                 if (e.target.classList.contains('rounded-full') || e.target.src.includes('profile')) {
                     if (!e.target.dataset.fallbackApplied) {
                         e.target.dataset.fallbackApplied = 'true';
-                        e.target.src = 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+                        e.target.src = USER_DEFAULT_IMAGE;
                     }
                 }
             }
@@ -962,3 +1026,5 @@ function GlobalOverlays() {
 }
 
 export default App;
+
+

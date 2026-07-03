@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { USER_DEFAULT_IMAGE } = require('./constantMediaVariable');
 
 const HMAC_SECRETS = {
     1: { secret: process.env.PRIVACY_HMAC_SECRET || process.env.JWT_SECRET || 'fallback_secret' },
@@ -86,7 +87,7 @@ function sanitizeAnonymousPost(post, viewerId = null) {
             if (post.user && typeof post.user === 'object') {
                 post.user._id = "anonymous";
                 post.user.fullname = "Anonymous User";
-                post.user.profile_picture = "https://res.cloudinary.com/dcmrsdydh/image/upload/v1778490037/logo_eyc3at.jpg";
+                post.user.profile_picture = USER_DEFAULT_IMAGE;
             } else {
                 post.user = "anonymous";
             }

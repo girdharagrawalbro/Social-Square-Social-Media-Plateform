@@ -8,7 +8,7 @@ import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
-import { uploadToCloudinary, uploadVideoToCloudinary, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
+import { uploadMedia, uploadVideo, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 import { urlToFile } from "../../utils/nativeUtils";
 
 import { socket } from '../../socket';
@@ -21,6 +21,9 @@ import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
 import MentionSuggestions from './ui/MentionSuggestions';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
+import { appChannel } from '../../utils/broadcast';
+import useBroadcast from '../../hooks/useBroadcast';
 
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
@@ -353,7 +356,7 @@ const StoryViewer = ({
                         style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
                         onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}
                     >
-                        <img src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={group.user.profile_picture || USER_DEFAULT_IMAGE} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setIsPaused(true); setSelectedProfileId(group.user._id); setProfileVisible(true); }}>
                         <p style={{ margin: 0, color: '#fff', fontSize: '14px', fontWeight: 600 }}>{group.user.fullname}</p>
@@ -445,7 +448,7 @@ const StoryViewer = ({
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
                             <img
-                                src={story.sharedPostId.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                src={story.sharedPostId.user?.profile_picture || USER_DEFAULT_IMAGE}
                                 style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                                 alt=""
                             />
@@ -500,7 +503,7 @@ const StoryViewer = ({
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px' }}>
                             <img
-                                src={story.sharedStoryId.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                src={story.sharedStoryId.user?.profile_picture || USER_DEFAULT_IMAGE}
                                 style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                                 alt=""
                             />
@@ -1129,7 +1132,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                     ) : filteredUsers.map(u => (
                         <div key={u._id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition">
                             <div className="flex items-center gap-3">
-                                <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
+                                <img src={u.profile_picture || USER_DEFAULT_IMAGE} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt="" />
                                 <div>
                                     <p className="m-0 text-sm font-semibold text-gray-800">{u.fullname}</p>
                                     <p className="m-0 text-[11px] text-gray-400">@{u.username}</p>
@@ -1286,7 +1289,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
             } else {
                 const typeErr = validateImageType(f);
                 if (typeErr) { toast.error(typeErr); return; } // hard block: wrong type
-                // Size warning — still proceed; uploadToCloudinary falls back to Drive
+                // Size warning — still proceed; uploadMedia falls back to Drive
                 const sizeWarn = validateImageFile(f);
                 if (sizeWarn) toast.error(sizeWarn);
                 itemsToCrop.push(f);
@@ -1442,11 +1445,11 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         const folderPath = `stories/${batchId}`;
                         let mediaUrl, thumbnailUrl;
                         if (item.type === 'video') {
-                            const result = await uploadVideoToCloudinary(item.file, null, { folder: folderPath });
+                            const result = await uploadVideo(item.file, null, { folder: folderPath });
                             mediaUrl = typeof result === 'string' ? result : result?.url;
                             thumbnailUrl = result?.thumbnailUrl || null;
                         } else {
-                            const result = await uploadToCloudinary(item.file, null, { folder: folderPath });
+                            const result = await uploadMedia(item.file, null, { folder: folderPath });
                             mediaUrl = typeof result === 'string' ? result : result?.url;
                         }
 
@@ -1540,7 +1543,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         ) : sharedStory ? (
                             <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
-                                    <img src={sharedStory.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                    <img src={sharedStory.user?.profile_picture || USER_DEFAULT_IMAGE} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
                                     <span style={{ fontSize: '11px', fontWeight: 800, color: '#000' }}>{sharedStory.user?.fullname}</span>
                                     <span style={{ fontSize: '9px', color: '#666', marginLeft: 'auto' }}>Story</span>
                                 </div>
@@ -2096,6 +2099,12 @@ const Stories = () => {
         const myId = loggeduser?._id?.toString();
         let groupIndex = -1;
 
+        // Broadcast story creation
+        appChannel.postMessage({
+            type: "STORY_CREATED",
+            story: newStory
+        });
+
         setGroups(prev => {
             const idx = prev.findIndex(g => g.user._id.toString() === myId);
             if (idx !== -1) {
@@ -2119,6 +2128,34 @@ const Stories = () => {
 
         queryClient.invalidateQueries(['story-feed']);
     };
+
+    // ── Broadcast Event Observers ──
+    useBroadcast('STORY_CREATED', (incoming) => {
+        const story = incoming.story;
+        const storyUserId = story.user?._id?.toString() || story.user?.toString();
+        setGroups(prev => {
+            const idx = prev.findIndex(g => g.user._id.toString() === storyUserId);
+            if (idx !== -1) {
+                const updated = [...prev];
+                // Avoid duplicates
+                if (updated[idx].stories.some(s => s._id === story._id)) return prev;
+                updated[idx] = { ...updated[idx], stories: [...updated[idx].stories, story], hasUnviewed: true };
+                return updated;
+            }
+            // Fetch fresh details or append if basic user object is present in story
+            if (story.user) {
+                return [...prev, { user: story.user, stories: [story], hasUnviewed: true }];
+            }
+            return prev;
+        });
+    });
+
+    useBroadcast('STORY_DELETED', ({ storyId }) => {
+        setGroups(prev => prev.map(g => {
+            const remaining = g.stories.filter(s => s._id !== storyId);
+            return { ...g, stories: remaining };
+        }).filter(g => g.stories.length > 0));
+    });
 
     const openViewer = (index) => {
         const group = groups[index];
@@ -2196,7 +2233,7 @@ const Stories = () => {
                             >
                                 <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
                                     <img
-                                        src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                        src={loggeduser?.profile_picture || USER_DEFAULT_IMAGE}
                                         alt=""
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
@@ -2239,7 +2276,7 @@ const Stories = () => {
                                     >
                                         <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }}>
                                             <img
-                                                src={host.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                                src={host.profile_picture || USER_DEFAULT_IMAGE}
                                                 alt=""
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             />
@@ -2270,7 +2307,7 @@ const Stories = () => {
                                 >
                                     <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--surface-1)' }} className={group.user.isOnline ? 'presence-glow' : ''}>
                                         <img
-                                            src={group.user.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                            src={group.user.profile_picture || USER_DEFAULT_IMAGE}
                                             alt=""
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />

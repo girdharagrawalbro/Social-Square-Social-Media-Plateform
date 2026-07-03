@@ -14,7 +14,7 @@ import formatDate from '../../utils/formatDate';
 import { Dialog } from 'primereact/dialog';
 import PostMenu from './ui/PostMenu';
 import ProgressiveImage from './ui/ProgressiveImage';
-import { BeforeAfterView } from './ui/PostItem';
+import { BeforeAfterView, FeedVideo } from './ui/PostItem';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import PostDetailSkeleton from './ui/PostDetailSkeleton';
@@ -23,13 +23,6 @@ import SimilarPostsSkeleton from './ui/SimilarPostsSkeleton';
 
 
 const UserProfile = lazy(() => import('./UserProfile'));
-
-// const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
-
-
-
-// ─── POST DETAIL ─────────────────────────────────────────────────────────────
-
 
 const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const navigate = useNavigate();
@@ -47,7 +40,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     // Use fetchedPost only if available, otherwise fall back to initialPost as a placeholder
     const post = fetchedPost || (initialPost && initialPost._id === activePostId ? initialPost : null);
 
-    
+
     const likeMutation = useLikePost();
     const saveMutation = useSavePost();
     const [currentImage, setCurrentImage] = useState(0);
@@ -60,7 +53,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const reactMutation = useReactPost();
     const [pickerVisible, setPickerVisible] = useState(false);
-    const { setSharingPostToStory, isMuted, setIsMuted } = usePostStore();
+    const { setSharingPostToStory} = usePostStore();
     const lastTap = useRef({});
     const viewedPostIdRef = useRef(null);
     const incrementViewMutation = useIncrementView();
@@ -240,101 +233,94 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                 </div>
                             ) : (
                                 <div className="relative w-full h-full flex items-center justify-center">
-                                {/* VIDEO RENDERER */}
-                                {post?.video ? (
-                                    <div className="relative w-full h-full flex items-center justify-center bg-black">
-                                        <video
-                                            src={post.video}
-                                            poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
-                                            autoPlay
-                                            loop
-                                            muted={isMuted}
-                                            onDoubleClick={handleImageDoubleClick}
-                                            onTouchEnd={handleImageTap}
-                                            className="max-w-full max-h-full object-contain"
-                                            style={{ display: 'block' }}
-                                        />
+                                    {/* VIDEO RENDERER */}
+                                    {post?.video ? (
+                                        <div className="relative w-full h-full flex items-center justify-center bg-black">
+                                            <FeedVideo
+                                                src={post.video}
+                                                poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
+                                                onDoubleClick={handleImageDoubleClick}
+                                                onTouchEnd={handleImageTap}
+                                                isLocked={false}
+                                                fileKey={post.videoKey}
+                                                iv={post.videoIv}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <ProgressiveImage
+                                                src={images[currentImage]}
+                                                alt="Post"
+                                                onDoubleClick={handleImageDoubleClick}
+                                                onTouchEnd={handleImageTap}
+                                                objectFit="contain"
+                                                className="cursor-pointer"
+                                                fileKey={post.mediaKeys?.[currentImage]?.key}
+                                                iv={post.mediaKeys?.[currentImage]?.iv}
+                                            />
+                                            {images.length > 1 && (
+                                                <>
+                                                    {currentImage > 0 && (
+                                                        <button aria-label="Previous image" onClick={() => setCurrentImage(c => c - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)]/10 text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer z-10">
+                                                            <i className="pi pi-chevron-left"></i>
+                                                        </button>
+                                                    )}
+                                                    {currentImage < images.length - 1 && (
+                                                        <button aria-label="Next image" onClick={() => setCurrentImage(c => c + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)]/10 text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer  z-10">
+                                                            <i className="pi pi-chevron-right"></i>
+                                                        </button>
+                                                    )}
+                                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
+                                                        {images.map((_, i) => (
+                                                            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* SHARED HEART ANIMATION */}
+                                    {heartVisible && (
+                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
+                                            <span className="text-8xl">❤️</span>
+                                        </div>
+                                    )}
+
+                                    {/* Tagged/Mentioned Users Overlay on Image - DESKTOP */}
+                                    {showTags && post.mentions && post.mentions.length > 0 && (
+                                        <div className="absolute bottom-14 left-3 z-30 bg-black/85 backdrop-blur-md border border-white/20 p-2.5 rounded-xl flex flex-col gap-1.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+                                            {post.mentions.map((m, idx) => {
+                                                const uid = typeof m === 'object' ? m._id : m;
+                                                const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
+                                                if (!uid) return null;
+                                                return (
+                                                    <span
+                                                        key={uid}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (handleProfileClick) handleProfileClick(uid);
+                                                        }}
+                                                        className="text-xs font-medium text-white hover:text-[#808bf5] cursor-pointer flex items-center gap-1.5 transition-colors"
+                                                    >
+                                                        @{name}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Human Icon Trigger Button - DESKTOP */}
+                                    {post.mentions && post.mentions.length > 0 && (
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                                            className="absolute bottom-4 right-4 z-10 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
-                                            title={isMuted ? "Unmute" : "Mute"}
+                                            onClick={(e) => { e.stopPropagation(); setShowTags(prev => !prev); }}
+                                            className={`absolute bottom-3 left-3 z-30 w-8 h-8 rounded-full border border-white/10 flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-90 ${showTags ? 'bg-[#808bf5] text-white' : 'bg-black/60 hover:bg-black/80 text-white'}`}
+                                            title="Show Tagged Users"
                                         >
-                                            <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '18px' }}></i>
+                                            <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
                                         </button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <ProgressiveImage
-                                            src={images[currentImage]}
-                                            alt="Post"
-                                            onDoubleClick={handleImageDoubleClick}
-                                            onTouchEnd={handleImageTap}
-                                            objectFit="contain"
-                                            className="cursor-pointer"
-                                        />
-                                        {images.length > 1 && (
-                                            <>
-                                                {currentImage > 0 && (
-                                                    <button aria-label="Previous image" onClick={() => setCurrentImage(c => c - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
-                                                        <i className="pi pi-chevron-left"></i>
-                                                    </button>
-                                                )}
-                                                {currentImage < images.length - 1 && (
-                                                    <button aria-label="Next image" onClick={() => setCurrentImage(c => c + 1)} className="absolute right-4 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition border-0 cursor-pointer">
-                                                        <i className="pi pi-chevron-right"></i>
-                                                    </button>
-                                                )}
-                                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/10 backdrop-blur-lg p-1.5 rounded-full">
-                                                    {images.map((_, i) => (
-                                                        <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentImage ? 'w-4 bg-white' : 'bg-white/50'}`} />
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
-                                    </>
-                                )}
-
-                                {/* SHARED HEART ANIMATION */}
-                                {heartVisible && (
-                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[70] pointer-events-none animate-heartBurst">
-                                        <span className="text-8xl">❤️</span>
-                                    </div>
-                                )}
-
-                                {/* Tagged/Mentioned Users Overlay on Image - DESKTOP */}
-                                {showTags && post.mentions && post.mentions.length > 0 && (
-                                    <div className="absolute bottom-14 left-3 z-30 bg-black/85 backdrop-blur-md border border-white/20 p-2.5 rounded-xl flex flex-col gap-1.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-150">
-                                        {post.mentions.map((m, idx) => {
-                                            const uid = typeof m === 'object' ? m._id : m;
-                                            const name = typeof m === 'object' ? (m.username || m.fullname) : 'user';
-                                            if (!uid) return null;
-                                            return (
-                                                <span
-                                                    key={uid}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (handleProfileClick) handleProfileClick(uid);
-                                                    }}
-                                                    className="text-xs font-medium text-white hover:text-[#808bf5] cursor-pointer flex items-center gap-1.5 transition-colors"
-                                                >
-                                                    @{name}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {/* Human Icon Trigger Button - DESKTOP */}
-                                {post.mentions && post.mentions.length > 0 && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setShowTags(prev => !prev); }}
-                                        className={`absolute bottom-3 left-3 z-30 w-8 h-8 rounded-full border border-white/10 flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-90 ${showTags ? 'bg-[#808bf5] text-white' : 'bg-black/60 hover:bg-black/80 text-white'}`}
-                                        title="Show Tagged Users"
-                                    >
-                                        <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
-                                    </button>
-                                )}
-                            </div>
+                                    )}
+                                </div>
                             )}
                         </div>
                     )}
@@ -359,26 +345,17 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                 />
                                             </div>
                                         ) : post?.video ? (
-                                            <>
-                                                <video
+                                            <div className="relative w-full h-full">
+                                                <FeedVideo
                                                     src={post.video}
                                                     poster={post.videoThumbnail || getMediaThumbnail(post.video, 'video')}
-                                                    autoPlay
-                                                    loop
-                                                    muted={isMuted}
                                                     onDoubleClick={handleImageDoubleClick}
                                                     onTouchEnd={handleImageTap}
-                                                    className="w-full h-full object-contain"
-                                                    style={{ display: 'block', background: 'black' }}
+                                                    isLocked={false}
+                                                    fileKey={post.videoKey}
+                                                    iv={post.videoIv}
                                                 />
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                                                    className="absolute bottom-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border-0 cursor-pointer hover:bg-black/60 transition-all shadow-lg"
-                                                    title={isMuted ? "Unmute" : "Mute"}
-                                                >
-                                                    <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '14px' }}></i>
-                                                </button>
-                                            </>
+                                            </div>
                                         ) : (
                                             <>
                                                 <ProgressiveImage
@@ -388,7 +365,8 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                     onTouchEnd={handleImageTap}
                                                     objectFit="contain"
                                                     style={{ background: 'black' }}
-                                                    className="cursor-pointer"
+                                                    fileKey={post.mediaKeys?.[currentImage]?.key}
+                                                    iv={post.mediaKeys?.[currentImage]?.iv}
                                                 />
                                                 {images.length > 1 && (
                                                     <>
@@ -405,7 +383,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                             <button
                                                                 aria-label="Next image"
                                                                 onClick={() => setCurrentImage(c => c + 1)}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer"
+                                                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-[var(--surface-1)]/50 hover:bg-[var(--surface-1)] text-[var(--text-main)] rounded-full w-9 h-9 flex items-center justify-center shadow-md transition border-0 cursor-pointer z-index-999"
                                                             >
                                                                 <i className="pi pi-chevron-right"></i>
                                                             </button>
@@ -534,14 +512,13 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                     </span>
                                                 )}
                                                 {post.depthScore && (
-                                                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border select-none ${
-                                                        post.depthScore === 'quick_take' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
+                                                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border select-none ${post.depthScore === 'quick_take' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
                                                         post.depthScore === 'deep_dive' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
-                                                        'bg-purple-500/10 text-purple-600 border-purple-500/20'
-                                                    }`}>
+                                                            'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                                                        }`}>
                                                         {post.depthScore === 'quick_take' ? '⚡ Quick Take' :
-                                                         post.depthScore === 'deep_dive' ? '🧠 Deep Dive' :
-                                                         '📚 Long Read'}
+                                                            post.depthScore === 'deep_dive' ? '🧠 Deep Dive' :
+                                                                '📚 Long Read'}
                                                     </span>
                                                 )}
                                             </div>
@@ -612,12 +589,12 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     <span className="text-[10px] font-bold text-[var(--text-sub)]">{post.views || 0}</span>
                                 </div>
                                 {!post.isFeedbackRequest && (
-                                    <div 
+                                    <div
                                         onClick={(e) => { e.stopPropagation(); handleLikeToggle(); }}
                                         className="flex flex-col items-center gap-1 cursor-pointer"
                                     >
-                                        <i 
-                                            className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} 
+                                        <i
+                                            className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`}
                                             style={{ fontSize: '1.2rem', color: isLiked ? '#ef4444' : 'currentColor' }}
                                         ></i>
                                         <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
@@ -638,15 +615,15 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             onMouseEnter={() => !window.matchMedia('(pointer: coarse)').matches && setPickerVisible(true)}
                                             onMouseLeave={() => setPickerVisible(false)}
                                         >
-                                            <div 
-                                                onClick={(e) => { 
-                                                    e.stopPropagation(); 
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     if (myReaction) {
                                                         handleReact(myReaction.emoji);
                                                     } else {
                                                         handleReact('💡');
                                                     }
-                                                }} 
+                                                }}
                                                 className="cursor-pointer flex flex-col items-center justify-center w-7 h-7 text-[var(--text-main)] hover:text-[#808bf5] transition-all"
                                                 title={myReaction ? `Reacted with ${myReaction.emoji}` : "React to post"}
                                             >
@@ -661,7 +638,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                                             {/* Mobile tap trigger label */}
                                             {window.matchMedia('(pointer: coarse)').matches && (
-                                                <button 
+                                                <button
                                                     onClick={(e) => { e.stopPropagation(); setPickerVisible(p => !p); }}
                                                     className="bg-transparent border-0 cursor-pointer p-0 text-[10px] font-black text-[var(--text-sub)] hover:text-[#808bf5] mr-2"
                                                 >
@@ -672,16 +649,16 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             {/* Reaction breakdown pills */}
                                             {Object.keys(reactionGroups).length > 0 && (
                                                 <div className="flex gap-1.5 flex-wrap items-center">
-                                                     {Object.entries(reactionGroups).map(([emoji, count]) => (
-                                                         <span 
-                                                             key={emoji} 
-                                                             onClick={(e) => { e.stopPropagation(); handleReact(emoji); }}
-                                                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border transition-all cursor-pointer hover:scale-105 active:scale-95 ${myReaction?.emoji === emoji ? 'bg-indigo-500/10 border-indigo-500/30 text-[#808bf5]' : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)]'}`}
-                                                         >
-                                                             <span>{emoji}</span>
-                                                             <span>{count}</span>
-                                                         </span>
-                                                     ))}
+                                                    {Object.entries(reactionGroups).map(([emoji, count]) => (
+                                                        <span
+                                                            key={emoji}
+                                                            onClick={(e) => { e.stopPropagation(); handleReact(emoji); }}
+                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border transition-all cursor-pointer hover:scale-105 active:scale-95 ${myReaction?.emoji === emoji ? 'bg-indigo-500/10 border-indigo-500/30 text-[#808bf5]' : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)]'}`}
+                                                        >
+                                                            <span>{emoji}</span>
+                                                            <span>{count}</span>
+                                                        </span>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>

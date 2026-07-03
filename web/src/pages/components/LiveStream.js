@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { LiveKitRoom, RoomAudioRenderer, useTracks, useLocalParticipant, useRemoteParticipants } from '@livekit/components-react';
 import { Track, setLogLevel } from 'livekit-client';
 import '@livekit/components-styles';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 // Silence LiveKit SDK's internal logger (signal connecting, publishing track, etc.)
 // These are SDK-internal logs that clutter the browser console in production.
@@ -39,7 +40,7 @@ const ChatBubble = ({ msg }) => {
             }}
         >
             <img
-                src={msg.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                src={msg.user?.profile_picture || USER_DEFAULT_IMAGE}
                 alt=""
                 style={{
                     width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
@@ -79,7 +80,7 @@ const HostPauseOverlay = ({ loggeduser, onResume, onEnd }) => (
                 padding: 3,
             }}>
                 <img
-                    src={loggeduser?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                    src={loggeduser?.profile_picture || USER_DEFAULT_IMAGE}
                     alt=""
                     style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #111' }}
                 />
@@ -151,7 +152,7 @@ const ViewerPauseOverlay = ({ hostInfo }) => (
                 background: 'linear-gradient(135deg,#808bf5,#ec4899)', padding: 3,
             }}>
                 <img
-                    src={hostInfo.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                    src={hostInfo.profile_picture || USER_DEFAULT_IMAGE}
                     alt=""
                     style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #111' }}
                 />
@@ -466,7 +467,7 @@ const LiveStreamInner = ({ streamId, isHost, onClose }) => {
                         </div>
                         {!isHost && hostInfo && (
                             <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
-                                <img src={hostInfo.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" className="w-5 h-5 rounded-full object-cover border border-white/20" />
+                                <img src={hostInfo.profile_picture || USER_DEFAULT_IMAGE} alt="" className="w-5 h-5 rounded-full object-cover border border-white/20" />
                                 <span className="text-white text-xs font-semibold">{hostInfo.fullname}</span>
                             </div>
                         )}

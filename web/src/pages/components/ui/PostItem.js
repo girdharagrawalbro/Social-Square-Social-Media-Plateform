@@ -19,6 +19,7 @@ import usePostStore from '../../../store/zustand/usePostStore';
 import { usePrefetchUserProfile } from '../../../hooks/queries/useAuthQueries';
 import { usePrefetchPost } from '../../../hooks/queries/usePostQueries';
 import { useAcceptCollaboration, useDeclineCollaboration } from '../../../hooks/queries/usePostOperationsQueries';
+import { USER_DEFAULT_IMAGE } from "../../../utils/constantMediaVariable";
 
 const decryptionCache = new Map(); // url -> localBlobUrl
 
@@ -280,7 +281,7 @@ const AiDwellPopup = ({ post, forceShowToken }) => {
 
 
 // ─── FEED VIDEO ───────────────────────────────────────────────────────────────
-const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fileKey, iv }) => {
+export const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fileKey, iv }) => {
     const videoRef = useRef(null);
     const isMuted = usePostStore(s => s.isMuted);
     const setIsMuted = usePostStore(s => s.setIsMuted);
@@ -400,6 +401,14 @@ const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fileKey, 
                     onDoubleClick={onDoubleClick}
                     onTouchEnd={onTouchEnd}
                     className="w-full h-full object-contain cursor-pointer max-h-[800px]"
+                    onCanPlay={() => {
+                        // When the video first mounts after decryption, the useEffect
+                        // fires before videoRef is attached. onCanPlay guarantees we
+                        // attempt play once the element is ready and in view.
+                        if (inView && !isLocked && videoRef.current?.paused) {
+                            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+                        }
+                    }}
                 />
             )}
 
@@ -867,7 +876,7 @@ export const PostItem = React.memo(({
                             ) : (
                                 <div className={`w-10 h-10 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition border ${post.visibility === 'close_friends' ? 'border-2 border-green-500 p-[1px]' : (post.user?.isOnline ? 'presence-glow' : 'border-gray-100')}`}>
                                     <img
-                                        src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                        src={post.user?.profile_picture || USER_DEFAULT_IMAGE}
                                         alt="Profile"
                                         loading="lazy"
                                         className="w-full h-full object-cover rounded-full"

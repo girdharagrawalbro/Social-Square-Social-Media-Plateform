@@ -7,6 +7,7 @@ import { Dialog } from 'primereact/dialog';
 import PostDetail from './components/PostDetail';
 import AuditLogTab from './components/AuditLogTab';
 import EmailTemplatesTab from './components/EmailTemplatesTab';
+import { USER_DEFAULT_IMAGE } from '../utils/constantMediaVariable';
 
 const useAdmin = () => {
     const token = getToken();
@@ -1022,7 +1023,7 @@ const PostsTab = () => {
                             </div>
                             <div className="p-6">
                                 <div className="flex items-center gap-3 mb-4">
-                                    <img src={post.user?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" className="w-7 h-7 rounded object-cover border border-[var(--border-color)] shadow-sm" />
+                                    <img src={post.user?.profile_picture || USER_DEFAULT_IMAGE} alt="" className="w-7 h-7 rounded object-cover border border-[var(--border-color)] shadow-sm" />
                                     <span className="text-[10px] font-black text-[var(--text-sub)] uppercase tracking-widest opacity-70 truncate">{post.user?.fullname || 'System Entity'}</span>
                                 </div>
                                 <p className="text-xs text-[var(--text-main)] font-semibold line-clamp-2 min-h-[36px] leading-relaxed mb-6 opacity-90">{post.caption || '(Meta description only)'}</p>
@@ -1154,7 +1155,7 @@ const ReportsTab = () => {
                         <div className="flex items-start justify-between gap-6">
                             <div className="flex items-center gap-5">
                                 <div className="relative group/reporter">
-                                    <img src={report.reporter?.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} alt="" className="w-14 h-14 rounded object-cover ring-4 ring-[var(--surface-2)] shadow-xl group-hover/reporter:scale-105 transition-transform" />
+                                    <img src={report.reporter?.profile_picture || USER_DEFAULT_IMAGE} alt="" className="w-14 h-14 rounded object-cover ring-4 ring-[var(--surface-2)] shadow-xl group-hover/reporter:scale-105 transition-transform" />
                                     <span className="absolute -bottom-2 -right-2 bg-[var(--surface-1)] p-1.5 rounded shadow-lg text-xs border border-[var(--border-color)]">🚩</span>
                                 </div>
                                 <div>

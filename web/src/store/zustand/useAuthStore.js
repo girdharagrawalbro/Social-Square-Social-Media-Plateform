@@ -4,6 +4,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
+import performLogout from '../../utils/performLogout';
+import { appChannel } from "../../utils/broadcast";
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 const handleRateLimit = err => {
@@ -149,14 +151,16 @@ const useAuthStore = create(
                 }
             },
 
-
-
             logout: async () => {
-                try { await api.post('/api/auth/logout'); } catch { }
-                clearToken();
-                if (Capacitor.isNativePlatform()) await Preferences.remove({ key: 'user_token' });
-                set({ user: null, initialized: true });
-                window.location.href = '/';
+                try {
+                    await api.post("/api/auth/logout");
+                } catch { }
+
+                await performLogout();
+
+                appChannel.postMessage({
+                    type: "LOGOUT",
+                });
             },
 
             // ── Basic Actions (others can be added later) ──

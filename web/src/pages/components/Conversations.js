@@ -17,8 +17,9 @@ import { confirmDialog } from 'primereact/confirmdialog';
 import { useNavigate, useParams } from 'react-router-dom';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useMemo } from 'react';
-import { uploadToCloudinary } from '../../utils/cloudinary';
+import { uploadMedia } from '../../utils/cloudinary';
 import { Image } from 'primereact/image';
+import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const SkeletonConversationItem = () => (
     <div className="flex items-center gap-4 p-3.5 rounded-2xl select-none">
@@ -205,7 +206,7 @@ const Conversations = () => {
         if (!file) return;
         setIsUploadingAvatar(true);
         try {
-            const url = await uploadToCloudinary(file, null, { folder: 'chat' });
+            const url = await uploadMedia(file, null, { folder: 'chat' });
             setGroupAvatar(typeof url === 'string' ? url : url?.url);
             toast.success('Avatar uploaded successfully!');
         } catch (err) {
@@ -562,13 +563,13 @@ const Conversations = () => {
                                     let displayName, displayAvatar, displayId, isOnlineStatus = false;
                                     if (conv.isGroup) {
                                         displayName = conv.groupName;
-                                        displayAvatar = conv.groupAvatar || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+                                        displayAvatar = conv.groupAvatar || USER_DEFAULT_IMAGE;
                                         displayId = toId(conv._id);
                                     } else {
                                         const other = conv.participants?.find(p => toId(p.userId) !== myId);
                                         if (!other) return null;
                                         displayName = other.fullname;
-                                        displayAvatar = other.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg';
+                                        displayAvatar = other.profilePicture || USER_DEFAULT_IMAGE;
                                         displayId = toId(other.userId);
                                         isOnlineStatus = isOnline(displayId);
                                     }
@@ -638,7 +639,7 @@ const Conversations = () => {
                                     </button> */}
 
                                     <div className="relative">
-                                        <img src={selectedParticipant.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
+                                        <img src={selectedParticipant.profilePicture || USER_DEFAULT_IMAGE} className="w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800 group-hover:ring-indigo-200 transition-all font-bold" alt="" />
                                         {!selectedParticipant.isGroup && isOnline(selectedParticipant.userId) && (
                                             <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-950" />
                                         )}
@@ -863,7 +864,7 @@ const Conversations = () => {
                                     setGlobalSearch('');
                                 }}
                             >
-                                <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                                <img src={u.profile_picture || USER_DEFAULT_IMAGE} className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform" alt="" />
                                 <div className="flex flex-col">
                                     <div className="font-bold text-sm text-[var(--text-main)]">{u.fullname}</div>
                                     <div className="text-xs text-gray-400">@{u.username}</div>
@@ -983,7 +984,7 @@ const Conversations = () => {
                                         }
                                     }}
                                 >
-                                    <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-9 h-9 rounded-full object-cover" alt="" />
+                                    <img src={u.profile_picture || USER_DEFAULT_IMAGE} className="w-9 h-9 rounded-full object-cover" alt="" />
                                     <div className="flex flex-col">
                                         <div className="font-bold text-xs text-[var(--text-main)]">{u.fullname}</div>
                                         {u.username && <div className="text-[10px] text-gray-400">@{u.username}</div>}
@@ -1055,8 +1056,8 @@ const Conversations = () => {
                     <div className="flex flex-col items-center gap-3 text-center border-b border-gray-100 dark:border-gray-800 pb-4">
                         <div className="relative group/avatar">
                             <Image
-                                src={selectedParticipant?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
-                                zoomSrc={selectedParticipant?.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'}
+                                src={selectedParticipant?.profilePicture || USER_DEFAULT_IMAGE}
+                                zoomSrc={selectedParticipant?.profilePicture || USER_DEFAULT_IMAGE}
                                 alt="Profile"
                                 className="profile-image-square overflow-hidden shadow-md border-2 border-white dark:border-gray-900"
                                 style={{ '--size': '80px' }}
@@ -1147,7 +1148,7 @@ const Conversations = () => {
 
                                 return (
                                     <div key={p.userId} className="flex items-center gap-3 p-2.5 rounded-2xl bg-gray-50/50 dark:bg-gray-900/35 border border-gray-100/50 dark:border-gray-800/10 relative">
-                                        <img src={p.profilePicture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-9 h-9 rounded-full object-cover cursor-pointer" alt="" onClick={() => handleProfileClick(p.userId)} />
+                                        <img src={p.profilePicture || USER_DEFAULT_IMAGE} className="w-9 h-9 rounded-full object-cover cursor-pointer" alt="" onClick={() => handleProfileClick(p.userId)} />
                                         <div className="flex flex-col min-w-0 cursor-pointer" onClick={() => handleProfileClick(p.userId)}>
                                             <span className="font-bold text-xs truncate text-[var(--text-main)] hover:underline">{p.fullname} {isMe && "(You)"}</span>
                                         </div>
@@ -1323,7 +1324,7 @@ const Conversations = () => {
                                             }
                                         }}
                                     >
-                                        <img src={u.profile_picture || 'https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg'} className="w-9 h-9 rounded-full object-cover" alt="" />
+                                        <img src={u.profile_picture || USER_DEFAULT_IMAGE} className="w-9 h-9 rounded-full object-cover" alt="" />
                                         <div className="flex flex-col">
                                             <div className="font-bold text-xs text-[var(--text-main)]">{u.fullname}</div>
                                             {u.username && <div className="text-[10px] text-gray-400">@{u.username}</div>}

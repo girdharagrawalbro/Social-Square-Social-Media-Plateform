@@ -99,7 +99,7 @@ async function getSimilarPosts(postId) {
             isVisible: { $ne: false },
             deletedAt: null
         }).sort({ createdAt: -1 }).limit(10)
-            .select('_id caption image_urls video videoThumbnail category user createdAt')
+            .select('_id caption image_urls video videoThumbnail category user createdAt mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
             .lean();
 
         return similar;
@@ -118,7 +118,7 @@ async function getPersonalizedTrending(userId) {
             deletedAt: null,
             createdAt: { $gte: sevenDaysAgo }
         }).sort({ score: -1, views: -1 }).limit(10)
-            .select('_id caption image_urls video videoThumbnail category user createdAt score views')
+            .select('_id caption image_urls video videoThumbnail category user createdAt score views mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
             .lean();
     } catch (err) {
         console.error("[RecommendationService] getPersonalizedTrending error:", err.message);
