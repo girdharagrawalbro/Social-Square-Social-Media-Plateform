@@ -1,13 +1,13 @@
 /**
- * Utility to convert a native URI (from Capacitor Camera/Filesystem) 
+ * Utility to convert an object URL, blob URL, or data URI 
  * into a standard Web File object that can be used with existing 
- * web-based upload and processing logic.
+ * upload and processing logic.
  */
 
 /**
- * Converts a URL (including Capacitor webPath) to a File object.
+ * Converts a URL (including blob: or data: URLs) to a File object.
  * 
- * @param {string} url - The URL to convert (blob:..., https:..., or Capacitor URI)
+ * @param {string} url - The URL to convert
  * @param {string} fileName - The name to give the resulting file
  * @param {string} mimeType - The mime type of the file
  * @returns {Promise<File>}

@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Preferences } from '@capacitor/preferences';
-import { Capacitor } from '@capacitor/core';
 import performLogout from '../../utils/performLogout';
 import { appChannel } from "../../utils/broadcast";
 
@@ -60,24 +58,6 @@ const useAuthStore = create(
                 set({ loading: true });
                 initAuthPromise = (async () => {
                     try {
-                        if (Capacitor.isNativePlatform()) {
-                            const { value } = await Preferences.get({ key: 'user_token' });
-                            if (value) {
-                                const parsed = JSON.parse(value);
-                                if (parsed.token && parsed.user && (!parsed.expiresAt || parsed.expiresAt > Date.now())) {
-                                    const payload = JSON.parse(atob(parsed.token.split('.')[1]));
-                                    const isExpired = payload.exp && payload.exp * 1000 < Date.now();
-
-                                    if (!isExpired) {
-                                        get().updateAuthToken(parsed.token);
-                                        set({ user: parsed.user, loading: false });
-                                        set({ initialized: true });
-                                        return;
-                                    }
-                                }
-                                await Preferences.remove({ key: 'user_token' });
-                            }
-                        }
                         // 1. Silent Refresh: Check for existing session via httpOnly cookie
                         // This allows sessions to persist across tab closes/reloads
                         await refreshAccessToken();
@@ -104,9 +84,6 @@ const useAuthStore = create(
                     const { token, user } = res.data;
                     get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
-                    if (Capacitor.isNativePlatform()) {
-                        await Preferences.set({ key: 'user_token', value: JSON.stringify({ token, user, expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) }) });
-                    }
                     return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
@@ -122,9 +99,6 @@ const useAuthStore = create(
                     const { token, user } = res.data;
                     get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
-                    if (Capacitor.isNativePlatform()) {
-                        await Preferences.set({ key: 'user_token', value: JSON.stringify({ token, user, expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) }) });
-                    }
                     return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.error || 'Google login failed';
@@ -140,9 +114,6 @@ const useAuthStore = create(
                     const { token, user } = res.data;
                     get().updateAuthToken(token);
                     set({ user, loading: false, initialized: true });
-                    if (Capacitor.isNativePlatform()) {
-                        await Preferences.set({ key: 'user_token', value: JSON.stringify({ token, user, expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) }) });
-                    }
                     return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.message || 'Signup failed';
@@ -177,7 +148,7 @@ const useAuthStore = create(
                     set({ user: userData, loading: false });
                     const { getQueryClient } = await import('../../queryClient');
                     getQueryClient()?.invalidateQueries({ queryKey: ['user', 'me'] });
-                    return { success: true };
+                    return { success: true, user: userData, privacyWarning: res.data.privacyWarning };
                 } catch (err) {
                     set({ loading: false, error: err.response?.data?.message });
                     return { error: err.response?.data?.message };

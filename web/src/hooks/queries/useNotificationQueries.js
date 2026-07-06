@@ -2,8 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { socket } from '../../socket';
 import { api } from '../../store/zustand/useAuthStore';
-import { Capacitor } from '@capacitor/core';
-import cacheService from '../../utils/CacheService';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
@@ -19,19 +17,7 @@ export function useNotifications(userId) {
     const query = useQuery({
         queryKey: notifKeys.list(userId),
         queryFn: async () => {
-            // ✅ NATIVE CACHE HYDRATION
-            if (Capacitor.isNativePlatform()) {
-                const cached = await cacheService.get(`notifications_${userId}`);
-                if (cached) return cached;
-            }
-
             const res = await api.get(`${BASE}/api/conversation/notifications`);
-            
-            // ✅ UPDATE CACHE
-            if (Capacitor.isNativePlatform() && res.data) {
-                cacheService.set(`notifications_${userId}`, res.data);
-            }
-
             return res.data;
         },
         enabled: !!userId,

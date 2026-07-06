@@ -12,6 +12,7 @@ export default function useFeedSocket() {
     const addSocketPost= usePostStore(s => s.addSocketPost);
     const removeSocketPost = usePostStore(s => s.removeSocketPost);
     const syncLike     = usePostStore(s => s.syncLikeFromSocket);
+    const toggleSaved  = usePostStore(s => s.toggleSaved);
 
     useEffect(() => {
         if (!user?._id) return;
@@ -30,39 +31,52 @@ export default function useFeedSocket() {
         };
 
         // ✅ Comment added → invalidate comments query for that post AND update feed count
-        const onNewComment = ({ postId, comment }) => {
+        const onNewComment = ({ postId, comment, commentsCount }) => {
             qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
             
-            // Also update the feed caches so the comment count increments immediately
-            qc.setQueriesData({ queryKey: postKeys.feed(user._id) }, (old) => {
+            const updateCount = (old) => {
                 if (!old) return old;
                 return {
                     ...old,
                     pages: old.pages.map(page => ({
                         ...page,
                         posts: page.posts.map(p =>
-                            p._id === postId ? { ...p, comments: [...(p.comments || []), comment._id || 'temp'] } : p
+                            p._id === postId ? { 
+                                ...p, 
+                                commentsCount: commentsCount !== undefined ? commentsCount : (p.commentsCount ? p.commentsCount + 1 : 1),
+                                comments: [...(p.comments || []), comment._id || 'temp'] 
+                            } : p
                         ),
                     })),
                 };
-            });
-            qc.setQueriesData({ queryKey: postKeys.userPosts(user._id) }, (old) => {
-                if (!old) return old;
-                return {
-                    ...old,
-                    pages: old.pages.map(page => ({
-                        ...page,
-                        posts: page.posts.map(p =>
-                            p._id === postId ? { ...p, comments: [...(p.comments || []), comment._id || 'temp'] } : p
-                        ),
-                    })),
-                };
-            });
+            };
+            qc.setQueriesData({ queryKey: postKeys.feed(user._id) }, updateCount);
+            qc.setQueriesData({ queryKey: postKeys.userPosts(user._id) }, updateCount);
         };
 
         // ✅ Comment deleted → invalidate
-        const onCommentDeleted = ({ postId }) => {
+        const onCommentDeleted = ({ postId, parentId, commentsCount }) => {
             qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
+
+            if (!parentId) {
+                const updateCount = (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        pages: old.pages.map(page => ({
+                            ...page,
+                            posts: page.posts.map(p =>
+                                p._id === postId ? { 
+                                    ...p, 
+                                    commentsCount: commentsCount !== undefined ? commentsCount : Math.max(0, (p.commentsCount ? p.commentsCount - 1 : 0))
+                                } : p
+                            ),
+                        })),
+                    };
+                };
+                qc.setQueriesData({ queryKey: postKeys.feed(user._id) }, updateCount);
+                qc.setQueriesData({ queryKey: postKeys.userPosts(user._id) }, updateCount);
+            }
         };
 
         // ✅ Post updated → update in all feed caches
@@ -112,6 +126,42 @@ export default function useFeedSocket() {
             qc.invalidateQueries({ queryKey: postKeys.confessions });
         };
 
+        // ✅ Profile updated broadcast
+        const onProfileUpdated = ({ userId: updatedUserId, username, fullname, profile_picture }) => {
+            const updatePostUser = (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        posts: page.posts.map(p => {
+                            const authorId = p.user?._id || p.user;
+                            if (authorId && authorId.toString() === updatedUserId.toString()) {
+                                return {
+                                    ...p,
+                                    user: {
+                                        ...p.user,
+                                        username: username || p.user?.username,
+                                        fullname: fullname || p.user?.fullname,
+                                        profile_picture: profile_picture || p.user?.profile_picture
+                                    }
+                                };
+                            }
+                            return p;
+                        }),
+                    })),
+                };
+            };
+            qc.setQueriesData({ queryKey: postKeys.feed(user._id) }, updatePostUser);
+            qc.setQueriesData({ queryKey: postKeys.userPosts(updatedUserId) }, updatePostUser);
+        };
+
+        // ✅ Post saved/unsaved broadcast (for sync across multiple tabs/devices)
+        const onPostSavedState = ({ postId, saved }) => {
+            toggleSaved(postId, saved);
+            qc.invalidateQueries({ queryKey: postKeys.saved(user._id) });
+        };
+
         socket.on('newFeedPost',           onNewFeedPost);
         socket.on('postLiked',             onPostLiked);
         socket.on('postUnliked',           onPostUnliked);
@@ -122,6 +172,8 @@ export default function useFeedSocket() {
         socket.on('collaborationInvite',   onCollaborationInvite);
         socket.on('collaborationAccepted', onCollaborationAccepted);
         socket.on('newConfessionPost',     onNewConfessionPost);
+        socket.on('profileUpdated',        onProfileUpdated);
+        socket.on('postSavedState',        onPostSavedState);
 
         return () => {
             socket.off('newFeedPost',           onNewFeedPost);
@@ -134,6 +186,8 @@ export default function useFeedSocket() {
             socket.off('collaborationInvite',   onCollaborationInvite);
             socket.off('collaborationAccepted', onCollaborationAccepted);
             socket.off('newConfessionPost',     onNewConfessionPost);
+            socket.off('profileUpdated',        onProfileUpdated);
+            socket.off('postSavedState',        onPostSavedState);
         };
-    }, [user?._id, qc, addSocketPost, removeSocketPost, syncLike]);
+    }, [user?._id, qc, addSocketPost, removeSocketPost, syncLike, toggleSaved]);
 }

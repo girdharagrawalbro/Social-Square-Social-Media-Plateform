@@ -1,15 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import dbService from '../../utils/indexedDb';
-import { Geolocation } from '@capacitor/geolocation';
 import { useGroups } from '../../hooks/queries/useAuthQueries';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Capacitor } from '@capacitor/core';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
 import toast from "react-hot-toast";
 import ImageCropper from './ui/ImageCropper';
-import { urlToFile } from "../../utils/nativeUtils";
 import { encryptFile, generateSymmetricKey, exportSymmetricKey } from "../../utils/cryptoUtils";
 import { appChannel } from "../../utils/broadcast";
 
@@ -322,26 +318,34 @@ const NewPost = ({ visible, onHide }) => {
     };
 
 
-    const handleGetLocation = async () => {
+    const handleGetLocation = () => {
         setLoadingLocation(true);
-        try {
-            const coordinates = await Geolocation.getCurrentPosition();
-            const { latitude: lat, longitude: lng } = coordinates.coords;
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-                const data = await res.json();
-                const name = data.address?.city || data.address?.town || data.address?.village || 'Unknown';
-                setLocation({ name, lat, lng });
-                toast.success(`📍 ${name}`);
-            } catch {
-                setLocation({ name: `${lat.toFixed(3)}, ${lng.toFixed(3)}`, lat, lng });
-            }
-        } catch (err) {
-            toast.error('Could not get location. Please enable location permissions.');
-            console.error('Geolocation error:', err);
-        } finally {
+        if (!navigator.geolocation) {
+            toast.error('Geolocation is not supported by your browser');
             setLoadingLocation(false);
+            return;
         }
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                    const data = await res.json();
+                    const name = data.address?.city || data.address?.town || data.address?.village || 'Unknown';
+                    setLocation({ name, lat, lng });
+                    toast.success(`📍 ${name}`);
+                } catch {
+                    setLocation({ name: `${lat.toFixed(3)}, ${lng.toFixed(3)}`, lat, lng });
+                }
+                setLoadingLocation(false);
+            },
+            (err) => {
+                toast.error('Could not get location. Please enable location permissions.');
+                console.error('Geolocation error:', err);
+                setLoadingLocation(false);
+            }
+        );
     };
 
 
@@ -608,33 +612,7 @@ const NewPost = ({ visible, onHide }) => {
         e.target.value = '';
     };
 
-    const handleNativeCapture = async (source) => {
-        try {
-            const image = await Camera.getPhoto({
-                quality: 90,
-                allowEditing: false,
-                resultType: CameraResultType.Uri,
-                source: source // CameraSource.Camera or CameraSource.Photos
-            });
 
-            if (image.webPath) {
-                const file = await urlToFile(image.webPath, `captured-${Date.now()}.jpg`, 'image/jpeg');
-
-                setImages([]);
-                setCroppingState({
-                    active: true,
-                    imageSrc: image.webPath, // resultType: Uri gives webPath
-                    videoSrc: null,
-                    pendingFiles: [],
-                    isVideo: false,
-                    originalFile: file
-                });
-            }
-        } catch (error) {
-            // User likely cancelled
-            console.log('Native capture cancelled or failed', error);
-        }
-    };
 
     const handleCropComplete = async (result) => {
         let newMediaObj = null;
@@ -1085,32 +1063,13 @@ const NewPost = ({ visible, onHide }) => {
 
             <div className="flex flex-col gap-3 w-full max-w-[400px]">
                 <div className="flex flex-col sm:flex-row gap-3">
-                    {Capacitor.isNativePlatform() ? (
-                        <>
-                            <button
-                                onClick={() => handleNativeCapture(CameraSource.Camera)}
-                                className="flex-1 bg-[#6366f1] text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
-                            >
-                                <i className="pi pi-camera text-sm"></i>
-                                Take Photo
-                            </button>
-                            <button
-                                onClick={() => handleNativeCapture(CameraSource.Photos)}
-                                className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
-                            >
-                                <i className="pi pi-images text-sm"></i>
-                                Gallery
-                            </button>
-                        </>
-                    ) : (
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
-                        >
-                            <i className="pi pi-upload text-sm"></i>
-                            Upload Media
-                        </button>
-                    )}
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 bg-[#6366f1] text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                    >
+                        <i className="pi pi-upload text-sm"></i>
+                        Upload Media
+                    </button>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">

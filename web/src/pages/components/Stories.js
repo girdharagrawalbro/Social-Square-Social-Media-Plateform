@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { debounce } from 'lodash';
 import { useNavigate } from 'react-router-dom';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Capacitor } from '@capacitor/core';
 import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { uploadMedia, uploadVideo, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
-import { urlToFile } from "../../utils/nativeUtils";
 
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -1315,33 +1312,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
         e.target.value = '';
     };
 
-    const handleNativeCapture = async (source) => {
-        try {
-            const image = await Camera.getPhoto({
-                quality: 90,
-                allowEditing: false,
-                resultType: CameraResultType.Uri,
-                source: source
-            });
 
-            if (image.webPath) {
-                const file = await urlToFile(image.webPath, `story-${Date.now()}.jpg`, 'image/jpeg');
-
-                const reader = new FileReader();
-                reader.onload = () => {
-                    setCroppingState({
-                        visible: true,
-                        imageSrc: reader.result,
-                        pendingFiles: [],
-                        currentValidOnes: previews
-                    });
-                };
-                reader.readAsDataURL(file);
-            }
-        } catch (error) {
-            console.log('Native capture cancelled or failed', error);
-        }
-    };
 
     const handleCropComplete = ({ croppedFile }) => {
         const newPreview = { url: URL.createObjectURL(croppedFile), type: 'image', file: croppedFile };
@@ -1562,24 +1533,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         ) : (
                             <div className="flex flex-col items-center gap-4">
                                 <p style={{ fontSize: '32px', margin: 0 }}>📸</p>
-                                {Capacitor.isNativePlatform() ? (
-                                    <div className="flex flex-col gap-3 w-full px-4">
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleNativeCapture(CameraSource.Camera); }}
-                                            className="bg-[#808bf5] text-white py-3 px-6 rounded-xl font-bold border-0 cursor-pointer shadow-lg"
-                                        >
-                                            Take Photo
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleNativeCapture(CameraSource.Photos); }}
-                                            className="bg-[var(--surface-3)] text-[var(--text-main)] py-3 px-6 rounded-xl font-bold border border-[var(--border-color)] cursor-pointer"
-                                        >
-                                            Select from Gallery
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <p style={{ color: 'var(--text-sub)', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p>
-                                )}
+                                <p style={{ color: 'var(--text-sub)', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p>
                             </div>
                         )}
                         {(currentMedia || sharedPost || sharedStory) && text && (

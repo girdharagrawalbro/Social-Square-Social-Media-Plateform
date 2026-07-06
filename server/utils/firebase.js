@@ -34,7 +34,6 @@ const sendPushNotification = async (token, { title, body, data = {} }) => {
             click_action: 'FLUTTER_NOTIFICATION_CLICK', // Legacy support
         },
         token: token,
-        // Capacitor/Mobile specific configurations
         android: {
             priority: 'high',
             notification: {

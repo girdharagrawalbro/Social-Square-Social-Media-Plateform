@@ -89,6 +89,13 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
 
     if (io && shouldEmitSocket) {
       io.to(recipientId.toString()).emit('newNotification', notification);
+      if (type === 'mention') {
+        io.to(recipientId.toString()).emit('newMention', {
+          postId: postId || null,
+          senderName: finalSender.fullname,
+          url: url || null
+        });
+      }
     }
 
     // 2. Send Push Notification via Firebase (Background/Foreground)

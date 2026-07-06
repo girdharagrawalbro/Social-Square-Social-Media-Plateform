@@ -1146,6 +1146,7 @@ router.post("/save", verifyToken, [
         );
 
         if (updatedUser) {
+            if (_io) _io.to(userId.toString()).emit('postSavedState', { postId, saved: false });
             return res.status(200).json({ saved: false });
         } else {
             // Not saved yet, add it
@@ -1165,6 +1166,7 @@ router.post("/save", verifyToken, [
                 });
             }
 
+            if (_io) _io.to(userId.toString()).emit('postSavedState', { postId, saved: true });
             return res.status(200).json({ saved: true });
         }
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
@@ -1751,7 +1753,7 @@ router.post('/comments/add', verifyToken, [
             });
         }
 
-        return res.status(200).json({ ...newComment.toObject(), rewards });
+        return res.status(200).json({ ...newComment.toObject(), rewards, commentsCount });
     } catch (error) { return res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -1859,16 +1861,23 @@ router.delete('/comments/:commentId', verifyToken, [
         await Comment.deleteMany({ parentId: comment._id });
         await Comment.findByIdAndDelete(req.params.commentId);
 
+        let commentsCount = 0;
+        if (!comment.parentId) {
+            const postData = await Post.findById(comment.postId).select('comments').lean();
+            commentsCount = postData?.comments?.length || 0;
+        }
+
         // ✅ Broadcast comment deletion
         if (_io) {
             _io.emit('commentDeleted', {
                 commentId: req.params.commentId,
                 postId: comment.postId,
                 parentId: comment.parentId || null,
+                commentsCount,
             });
         }
 
-        res.status(200).json({ message: 'Comment deleted', commentId: req.params.commentId });
+        res.status(200).json({ message: 'Comment deleted', commentId: req.params.commentId, commentsCount });
     } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
