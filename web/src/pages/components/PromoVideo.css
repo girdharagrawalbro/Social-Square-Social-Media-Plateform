@@ -8,13 +8,17 @@
  ║  s1       0–12%       Hook                                  ║
  ║  s2      11–22%       Landing page                          ║
  ║  s3      21–33%       Vibe Check / Feed                     ║
- ║  s4      32–44%       Stories                               ║
+ ║  s4      32–44%       Stories                                ║
  ║  s5      43–54%       Chat                                  ║
- ║  s6      53–64%       Confessions  ← NEW                    ║
- ║  s7      63–74%       Explore      ← NEW                    ║
- ║  s8      73–84%       AI Tools                              ║
- ║  s9      83–93%       Login                                 ║
- ║  end     91–100%      End card                              ║
+ ║  s6      53–64%       Confessions                            ║
+ ║  s7      63–74%       Explore                                ║
+ ║  s8      73–84%       AI Tools                               ║
+ ║  s9      83–93%       Login                                  ║
+ ║  end     91–100%      End card                               ║
+ ║                                                              ║
+ ║  Every scene now crossfades into the next (~0.7s dissolve)  ║
+ ║  and static screenshots get a slow Ken-Burns zoom so they   ║
+ ║  don't feel like frozen stills.                              ║
  ╚══════════════════════════════════════════════════════════════╝
 */
 
@@ -31,40 +35,27 @@
 }
 
 .pv-device {
-  width: 100%;
-  aspect-ratio: 9 / 19.5;
-  min-height: 520px;
+  width: min(100%, 420px);
+  aspect-ratio: 9 / 16;
   background: linear-gradient(170deg, #1a1a24 0%, #0c0c14 100%);
-  border-radius: 50px;
+  border-radius: 42px;
   padding: 10px;
+  position: relative;
+  overflow: hidden;
+
   box-shadow:
     0 60px 100px -30px rgba(0, 0, 0, .85),
     0 0 0 1px rgba(255, 255, 255, .08) inset,
     0 1px 0 rgba(255, 255, 255, .06) inset;
-  position: relative;
-}
-
-.pv-notch {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 88px;
-  height: 22px;
-  background: #07070a;
-  border-radius: 0 0 14px 14px;
-  z-index: 20;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, .6) inset;
 }
 
 .pv-screen {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 40px;
   overflow: hidden;
+  border-radius: 34px;
   background: #000;
-  isolation: isolate;
 }
 
 /* ── Shared scene ────────────────────────────────────────────── */
@@ -76,12 +67,12 @@
 }
 
 .pv-bg {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center;
+  transform-origin: 50% 50%;
+  will-change: transform;
 }
 
 /* ── Scrims ──────────────────────────────────────────────────── */
@@ -110,40 +101,7 @@
       rgba(0, 0, 0, .88) 0%, rgba(0, 0, 0, .35) 28%, transparent 55%);
 }
 
-/* ── Highlight ring (generic, uses CSS vars) ─────────────────── */
-.hi-ring {
-  position: absolute;
-  z-index: 3;
-  border-radius: 14px;
-  border: 2px solid var(--c, rgba(124, 58, 237, .9));
-  box-shadow:
-    0 0 18px var(--g, rgba(124, 58, 237, .55)),
-    0 0 36px var(--g, rgba(124, 58, 237, .35));
-  pointer-events: none;
-}
-
-/* ── Feature chip ────────────────────────────────────────────── */
-.feat-chip {
-  position: absolute;
-  z-index: 4;
-  padding: 6px 14px;
-  background: rgba(12, 10, 30, .78);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 22px;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
-  letter-spacing: .01em;
-}
-
-.feat-chip.sm {
-  font-size: 11.5px;
-}
-
-/* ── Bottom label ────────────────────────────────────────────── */
+/* ── Bottom label (only overlay – plain, explanatory caption) ─ */
 .bottom-label {
   position: absolute;
   bottom: 14%;
@@ -288,21 +246,6 @@
   padding: 36px 32px;
 }
 
-.logo-mark {
-  width: 56px;
-  height: 56px;
-  background: rgba(255, 255, 255, .15);
-  border: 1px solid rgba(255, 255, 255, .2);
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  font-size: 26px;
-  font-weight: 800;
-  color: #fff;
-  margin: 0 auto 20px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
-}
 
 .s1-headline {
   font-size: clamp(24px, 7vw, 30px);
@@ -320,69 +263,6 @@
   font-weight: 500;
   margin: 0;
   letter-spacing: .01em;
-}
-
-/* ══════════════════════════════════════════════════════════════
-   SCENE 2 – Landing Page
-   ══════════════════════════════════════════════════════════════ */
-.s2-top {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 54px 22px 24px;
-  z-index: 3;
-  text-align: center;
-}
-
-.pill-badge {
-  display: inline-block;
-  padding: 5px 12px;
-  background: rgba(255, 255, 255, .15);
-  border: 1px solid rgba(255, 255, 255, .25);
-  backdrop-filter: blur(10px);
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .95);
-  margin-bottom: 10px;
-}
-
-.s2-title {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -.025em;
-  color: #fff;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, .5);
-  margin: 0 0 6px;
-  line-height: 1.1;
-}
-
-.s2-tag {
-  font-size: 14px;
-  color: rgba(255, 255, 255, .85);
-  font-weight: 600;
-  margin: 0;
-  letter-spacing: .04em;
-}
-
-/* Glow on "Get Started" button – roughly 51–57% from top */
-.s2-btn-glow {
-  position: absolute;
-  top: 51%;
-  left: 9%;
-  width: 45%;
-  height: 44px;
-  border-radius: 12px;
-  z-index: 3;
-  pointer-events: none;
-  border: 2px solid rgba(99, 102, 241, .9);
-  box-shadow:
-    0 0 0 1px rgba(99, 102, 241, .3) inset,
-    0 0 22px rgba(99, 102, 241, .7),
-    0 0 44px rgba(139, 92, 246, .4);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -442,19 +322,11 @@
 
 /*
  ╔══════════════════════════════════════════════════════════════╗
- ║  ANIMATION SYSTEM                                           ║
- ║  Total: 45s loop                                            ║
- ║                                                              ║
- ║  s1   0  –12%   (0   –5.4s)                                ║
- ║  s2  11  –22%   (4.95–9.9s)                                ║
- ║  s3  21  –33%   (9.45–14.85s)                              ║
- ║  s4  32  –44%   (14.4–19.8s)                               ║
- ║  s5  43  –54%   (19.35–24.3s)                              ║
- ║  s6  53  –64%   (23.85–28.8s)                              ║
- ║  s7  63  –74%   (28.35–33.3s)                              ║
- ║  s8  73  –84%   (32.85–37.8s)                              ║
- ║  s9  83  –93%   (37.35–41.85s)                             ║
- ║  end 91  –100%  (40.95–45s)                                ║
+ ║  ANIMATION SYSTEM  ·  Total: 45s loop                        ║
+ ║                                                                ║
+ ║  Each scene fades in, holds, then dissolves into the next    ║
+ ║  over a shared ~1.5% (≈0.7s) overlap window — a real          ║
+ ║  crossfade instead of a hard visibility cut.                  ║
  ╚══════════════════════════════════════════════════════════════╝
 */
 
@@ -477,21 +349,37 @@
   }
 }
 
-/* ── Scene visibility keyframes ─────────────────────────────── */
+/* ── Scene visibility keyframes — smooth crossfade ────────────
+   Each scene: fade in over 1.5%, hold, fade out over 1.5%.
+   Adjacent scenes overlap during that fade window so the
+   outgoing and incoming screenshots genuinely dissolve into
+   one another instead of snapping.
+*/
 
-/* Generic scene fade-slide – parameterised per scene */
 @keyframes sc1 {
-
-  0%,
-  1% {
-    opacity: 1;
-    visibility: visible
+  0% {
+    opacity: 0;
+    visibility: visible;
   }
 
-  12%,
+  1.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  10.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  12% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -500,19 +388,32 @@
   0%,
   10.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  11%,
-  21.9% {
+  11% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  12.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  22%,
+  20.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  22% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -521,19 +422,32 @@
   0%,
   20.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  21%,
-  32.9% {
+  21% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  22.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  33%,
+  31.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  33% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -542,19 +456,32 @@
   0%,
   31.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  32%,
-  43.9% {
+  32% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  33.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  44%,
+  42.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  44% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -563,19 +490,32 @@
   0%,
   42.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  43%,
-  53.9% {
+  43% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  44.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  54%,
+  52.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  54% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -584,19 +524,32 @@
   0%,
   52.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  53%,
-  63.9% {
+  53% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  54.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  64%,
+  62.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  64% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -605,19 +558,32 @@
   0%,
   62.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  63%,
-  73.9% {
+  63% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  64.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  74%,
+  72.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  74% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -626,19 +592,32 @@
   0%,
   72.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  73%,
-  83.9% {
+  73% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  74.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  84%,
+  82.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  84% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -647,19 +626,32 @@
   0%,
   82.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  83%,
-  92.9% {
+  83% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  84.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
   }
 
-  93%,
+  91.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  93% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   100% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 }
 
@@ -668,54 +660,233 @@
   0%,
   90.9% {
     opacity: 0;
-    visibility: hidden
+    visibility: hidden;
   }
 
-  91%,
-  100% {
+  91% {
+    opacity: 0;
+    visibility: visible;
+  }
+
+  92.5% {
     opacity: 1;
-    visibility: visible
+    visibility: visible;
+  }
+
+  98.5% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  100% {
+    opacity: 0;
+    visibility: hidden;
   }
 }
 
 .animate .s1 {
-  animation: sc1 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc1 45s linear infinite;
 }
 
 .animate .s2 {
-  animation: sc2 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc2 45s linear infinite;
 }
 
 .animate .s3 {
-  animation: sc3 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc3 45s linear infinite;
 }
 
 .animate .s4 {
-  animation: sc4 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc4 45s linear infinite;
 }
 
 .animate .s5 {
-  animation: sc5 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc5 45s linear infinite;
 }
 
 .animate .s6 {
-  animation: sc6 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc6 45s linear infinite;
 }
 
 .animate .s7 {
-  animation: sc7 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc7 45s linear infinite;
 }
 
 .animate .s8 {
-  animation: sc8 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc8 45s linear infinite;
 }
 
 .animate .s9 {
-  animation: sc9 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: sc9 45s linear infinite;
 }
 
 .animate .s-end {
-  animation: scEnd 45s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: scEnd 45s linear infinite;
+}
+
+/* ── Ken-Burns zoom on the static screenshots ─────────────────
+   Each background image slowly zooms in for the duration it's
+   on screen, so nothing looks like a frozen slide.
+*/
+
+@keyframes kbS2 {
+
+  0%,
+  11% {
+    transform: scale(1);
+  }
+
+  22% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kbS3 {
+
+  0%,
+  21% {
+    transform: scale(1);
+  }
+
+  33% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kbS4 {
+
+  0%,
+  32% {
+    transform: scale(1);
+  }
+
+  44% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kbS5 {
+
+  0%,
+  43% {
+    transform: scale(1);
+  }
+
+  54% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kbS6 {
+
+  0%,
+  53% {
+    transform: scale(1);
+  }
+
+  64% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kbS7 {
+
+  0%,
+  63% {
+    transform: scale(1);
+  }
+
+  74% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kbS8 {
+
+  0%,
+  73% {
+    transform: scale(1);
+  }
+
+  84% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kbS9 {
+
+  0%,
+  83% {
+    transform: scale(1);
+  }
+
+  93% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+.animate .s2 .pv-bg {
+  animation: kbS2 45s linear infinite;
+}
+
+.animate .s3 .pv-bg {
+  animation: kbS3 45s linear infinite;
+}
+
+.animate .s4 .pv-bg {
+  animation: kbS4 45s linear infinite;
+}
+
+.animate .s5 .pv-bg {
+  animation: kbS5 45s linear infinite;
+}
+
+.animate .s6 .pv-bg {
+  animation: kbS6 45s linear infinite;
+}
+
+.animate .s7 .pv-bg {
+  animation: kbS7 45s linear infinite;
+}
+
+.animate .s8 .pv-bg {
+  animation: kbS8 45s linear infinite;
+}
+
+.animate .s9 .pv-bg {
+  animation: kbS9 45s linear infinite;
 }
 
 /* ── Scene 1 – title entrance ────────────────────────────────── */
@@ -755,112 +926,26 @@
   animation: s1Title 45s .4s infinite;
 }
 
-/* ── Scene 2 – badge + title entrance ───────────────────────── */
-@keyframes s2Badge {
+/* ── Shared bottom-label entrance per scene ───────────────────
+   Caption fades/slides in a beat after the scene arrives and
+   clears out just before the crossfade to the next scene.
+*/
 
-  0%,
-  11% {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  13%,
-  20% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  22%,
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes s2Title {
-
-  0%,
-  11.5% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  13.5%,
-  20% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  22%,
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes s2BtnGlow {
+@keyframes labelS2 {
 
   0%,
   12% {
     opacity: 0;
+    transform: translate(-50%, 12px);
   }
 
-  14%,
+  14.5%,
   20% {
     opacity: 1;
+    transform: translate(-50%, 0);
   }
 
   22%,
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes pulseGlow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 0 1px rgba(99, 102, 241, .3) inset, 0 0 22px rgba(99, 102, 241, .7), 0 0 44px rgba(139, 92, 246, .4);
-  }
-
-  50% {
-    box-shadow: 0 0 0 1px rgba(99, 102, 241, .5) inset, 0 0 32px rgba(99, 102, 241, .9), 0 0 60px rgba(139, 92, 246, .6);
-  }
-}
-
-.animate .s2 .pill-badge {
-  animation: s2Badge 45s infinite;
-}
-
-.animate .s2 .s2-title {
-  animation: s2Title 45s infinite;
-}
-
-.animate .s2 .s2-tag {
-  animation: s2Title 45s .2s infinite;
-}
-
-.animate .s2 .s2-btn-glow {
-  animation: s2BtnGlow 45s infinite, pulseGlow 1.8s ease-in-out infinite;
-}
-
-/* ── Shared chip + label entrance per scene ──────────────────── */
-/* Each scene has its own % window; we use offset-delayed copies  */
-
-/* s3 chips */
-@keyframes chipS3 {
-
-  0%,
-  21% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-
-  23%,
-  31% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  33%,
   100% {
     opacity: 0;
   }
@@ -874,42 +959,13 @@
     transform: translate(-50%, 12px);
   }
 
-  24%,
+  24.5%,
   31% {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
   33%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate .s3 .feat-chip {
-  animation: chipS3 45s infinite;
-}
-
-.animate .s3 .bottom-label {
-  animation: labelS3 45s infinite;
-}
-
-/* s4 chips */
-@keyframes chipS4 {
-
-  0%,
-  32% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-
-  34%,
-  42% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  44%,
   100% {
     opacity: 0;
   }
@@ -923,42 +979,13 @@
     transform: translate(-50%, 12px);
   }
 
-  35%,
+  35.5%,
   42% {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
   44%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate .s4 .feat-chip {
-  animation: chipS4 45s infinite;
-}
-
-.animate .s4 .bottom-label {
-  animation: labelS4 45s infinite;
-}
-
-/* s5 chips */
-@keyframes chipS5 {
-
-  0%,
-  43% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-
-  45%,
-  52% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  54%,
   100% {
     opacity: 0;
   }
@@ -972,42 +999,13 @@
     transform: translate(-50%, 12px);
   }
 
-  46%,
+  46.5%,
   52% {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
   54%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate .s5 .feat-chip {
-  animation: chipS5 45s infinite;
-}
-
-.animate .s5 .bottom-label {
-  animation: labelS5 45s infinite;
-}
-
-/* s6 – Confessions */
-@keyframes chipS6 {
-
-  0%,
-  53% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-
-  55%,
-  62% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  64%,
   100% {
     opacity: 0;
   }
@@ -1021,42 +1019,13 @@
     transform: translate(-50%, 12px);
   }
 
-  56%,
+  56.5%,
   62% {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
   64%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate .s6 .feat-chip {
-  animation: chipS6 45s infinite;
-}
-
-.animate .s6 .bottom-label {
-  animation: labelS6 45s infinite;
-}
-
-/* s7 – Explore */
-@keyframes chipS7 {
-
-  0%,
-  63% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-
-  65%,
-  72% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  74%,
   100% {
     opacity: 0;
   }
@@ -1070,42 +1039,13 @@
     transform: translate(-50%, 12px);
   }
 
-  66%,
+  66.5%,
   72% {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
   74%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate .s7 .feat-chip {
-  animation: chipS7 45s infinite;
-}
-
-.animate .s7 .bottom-label {
-  animation: labelS7 45s infinite;
-}
-
-/* s8 – AI Tools */
-@keyframes chipS8 {
-
-  0%,
-  73% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-
-  75%,
-  82% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  84%,
   100% {
     opacity: 0;
   }
@@ -1119,42 +1059,13 @@
     transform: translate(-50%, 12px);
   }
 
-  76%,
+  76.5%,
   82% {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
   84%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate .s8 .feat-chip {
-  animation: chipS8 45s infinite;
-}
-
-.animate .s8 .bottom-label {
-  animation: labelS8 45s infinite;
-}
-
-/* s9 – Login */
-@keyframes chipS9 {
-
-  0%,
-  83% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-
-  85%,
-  91% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  93%,
   100% {
     opacity: 0;
   }
@@ -1168,7 +1079,7 @@
     transform: translate(-50%, 12px);
   }
 
-  86%,
+  86.5%,
   91% {
     opacity: 1;
     transform: translate(-50%, 0);
@@ -1180,8 +1091,32 @@
   }
 }
 
-.animate .s9 .feat-chip {
-  animation: chipS9 45s infinite;
+.animate .s2 .bottom-label {
+  animation: labelS2 45s infinite;
+}
+
+.animate .s3 .bottom-label {
+  animation: labelS3 45s infinite;
+}
+
+.animate .s4 .bottom-label {
+  animation: labelS4 45s infinite;
+}
+
+.animate .s5 .bottom-label {
+  animation: labelS5 45s infinite;
+}
+
+.animate .s6 .bottom-label {
+  animation: labelS6 45s infinite;
+}
+
+.animate .s7 .bottom-label {
+  animation: labelS7 45s infinite;
+}
+
+.animate .s8 .bottom-label {
+  animation: labelS8 45s infinite;
 }
 
 .animate .s9 .bottom-label {
@@ -1257,29 +1192,6 @@
   animation: prog 45s linear infinite;
 }
 
-/* ── Highlight rings pulse while scene is visible ─────────────── */
-@keyframes ringPulse {
-
-  0%,
-  100% {
-    opacity: .8;
-  }
-
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 26px var(--g), 0 0 52px var(--g);
-  }
-}
-
-.animate .s3 .hi-ring,
-.animate .s4 .hi-ring,
-.animate .s5 .hi-ring,
-.animate .s6 .hi-ring,
-.animate .s7 .hi-ring,
-.animate .s8 .hi-ring {
-  animation: ringPulse 2s ease-in-out infinite;
-}
-
 /* ── Pause ───────────────────────────────────────────────────── */
 .pv-screen.paused .pv-scene,
 .pv-screen.paused .pv-scene *,
@@ -1288,15 +1200,19 @@
   animation-play-state: paused !important;
 }
 
-/* ── Responsive ──────────────────────────────────────────────── */
-@media (max-width: 420px) {
-  .pv-device {
-    width: 100%;
-    border-radius: 44px;
+@media (max-width:768px) {
+
+  .pv-container {
+    padding: 20px 12px;
   }
 
-  .pv-notch {
-    width: 80px;
-    height: 20px;
+  .pv-device {
+    width: min(100%, 360px);
+    aspect-ratio: 9/16;
+    border-radius: 36px;
+  }
+
+  .pv-screen {
+    border-radius: 28px;
   }
 }

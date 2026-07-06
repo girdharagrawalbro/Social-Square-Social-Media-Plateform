@@ -74,7 +74,6 @@ const PromoVideo = () => {
               ))}
             </div>
             <div className="s1-body">
-              <div className="logo-mark">S²</div>
               <h1 className="s1-headline">Tired of<br />the same old<br />social media?</h1>
               <p className="s1-sub">There's a better way to connect.</p>
             </div>
@@ -83,10 +82,8 @@ const PromoVideo = () => {
           {/* ══ S2 · Landing Page ══════════════════════════ */}
           <div className="pv-scene s2">
             <img className="pv-bg" src={scene1Img} alt="" />
-            <div className="scrim-top-strong" />
-            <div className="s2-top">
-              <span className="pill-badge">INTRODUCING</span>
-            </div>
+            <div className="scrim-bottom" />
+            <div className="bottom-label">Meet <strong>Social Square</strong></div>
           </div>
 
           {/* ══ S3 · Vibe Check Feed ═══════════════════════ */}
@@ -100,11 +97,7 @@ const PromoVideo = () => {
           <div className="pv-scene s4">
             <img className="pv-bg" src={scene3Img} alt="" />
             <div className="scrim-bottom" />
-            {/* Stories row sits at ~7–24% from top */}
-            <div className="hi-ring" style={{
-              top: '8%', left: '0%', width: '100%', height: '92px',
-              '--c': 'rgba(167,139,250,.85)', '--g': 'rgba(167,139,250,.5)'
-            }} />
+          
             <div className="bottom-label">Your story,<br />your <strong>moment</strong></div>
           </div>
 
@@ -120,11 +113,7 @@ const PromoVideo = () => {
             <img className="pv-bg" src={scene7Img} alt="" />
             <div className="scrim-top-mild" />
             <div className="scrim-bottom" />
-            {/* Highlight the Anonymous Confessions banner ~15–23% from top */}
-            <div className="hi-ring" style={{
-              top: '16%', left: '1%', width: '98%', height: '56px',
-              '--c': 'rgba(139,92,246,.9)', '--g': 'rgba(139,92,246,.55)'
-            }} />
+           
             <div className="bottom-label">Post freely.<br />All identities <strong>hidden</strong></div>
           </div>
 
@@ -140,11 +129,7 @@ const PromoVideo = () => {
           <div className="pv-scene s8">
             <img className="pv-bg" src={scene5Img} alt="" />
             <div className="scrim-bottom" />
-            {/* AI section is at ~68–85% from top in scene_6 */}
-            <div className="hi-ring" style={{
-              top: '73%', left: '0%', width: '100%', height: '157px',
-              '--c': 'rgba(251,191,36,.85)', '--g': 'rgba(245,158,11,.5)'
-            }} />
+           
             <div className="bottom-label" style={{ top: '18%', height: '90px' }}>Generate captions<br />&amp; images <strong>instantly</strong></div>
           </div>
 
@@ -152,15 +137,13 @@ const PromoVideo = () => {
           <div className="pv-scene s9">
             <img className="pv-bg" src={scene9Img} alt="" />
             <div className="scrim-bottom" />
-            <div className="feat-chip" style={{ top: '12%', left: '50%', transform: 'translateX(-50%)' }}>🔐 1-tap Google Sign-in</div>
-            <div className="bottom-label">Join in <strong>seconds</strong></div>
+            <div className="bottom-label">Join in <strong>seconds</strong><br />with Google Sign-in</div>
           </div>
 
           {/* ══ End Card ══════════════════════════════════ */}
           <div className="pv-scene s-end">
             <div className="s-shimmer" />
             <div className="end-body">
-              <div className="logo-mark">S²</div>
               <h3 className="end-name">Social Square</h3>
               <p className="end-sub">Your vibe. Your community.</p>
               <button

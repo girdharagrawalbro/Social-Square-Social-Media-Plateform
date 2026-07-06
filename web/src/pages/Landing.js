@@ -50,7 +50,7 @@ const Landing = () => {
                                     Sign In
                                 </Link>
                             </div>
-                            <div className="flex items-center justify-center lg:justify-start gap-2 pt-6 text-slate-500 dark:text-neutral-500 text-sm">
+                            <div className="flex items-center justify-center gap-2 pt-6 text-slate-500 dark:text-neutral-500 text-sm">
                                 <i className="pi pi-verified text-indigo-500"></i>
                                 <span>Curated Community. Advanced Privacy. AI Integration.</span>
                             </div>
@@ -62,7 +62,7 @@ const Landing = () => {
                                 <PromoVideo />
                             </div>
                             {/* AI Insight Float */}
-                            <div className="absolute -bottom-6 -left-6 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-3 rounded-2xl max-w-[260px] shadow-lg border border-indigo-50/80 dark:border-neutral-800 hidden sm:block">
+                            <div className="absolute -bottom-6 -left-6 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm p-3 rounded-2xl max-w-[260px] shadow-lg border border-indigo-50/80 dark:border-neutral-800 hidden sm:block">
                                 <div className="flex items-center gap-2 mb-2">
                                     <i className="pi pi-sparkles text-indigo-600 dark:text-indigo-400"></i>
                                     <span className="text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">AI Insight</span>
@@ -180,18 +180,18 @@ const Landing = () => {
                             </div>
                             <div className="lg:w-1/2 order-1 lg:order-2 grid grid-cols-2 gap-4">
                                 <div className="space-y-4 pt-12">
-                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform -rotate-3 hover:rotate-0 transition-transform duration-500 border border-slate-200/60 dark:border-neutral-800">
+                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform -rotate-3 hover:rotate-0 transition-transform duration-500">
                                         <img src={scene7} alt="Minimalist social design art" className="w-full h-full object-contain" />
                                     </div>
-                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform rotate-2 hover:rotate-0 transition-transform duration-500 border border-slate-200/60 dark:border-neutral-800">
+                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform rotate-2 hover:rotate-0 transition-transform duration-500">
                                         <img src={scene5} alt="Sophisticated social space" className="w-full h-full object-contain" />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform rotate-6 hover:rotate-0 transition-transform duration-500 border border-slate-200/60 dark:border-neutral-800">
+                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform rotate-6 hover:rotate-0 transition-transform duration-500">
                                         <img src={scene8} alt="Premium user experience" className="w-full h-full object-contain" />
                                     </div>
-                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform -rotate-2 hover:rotate-0 transition-transform duration-500 border border-slate-200/60 dark:border-neutral-800">
+                                    <div className="aspect-[9/16] rounded-2xl overflow-hidden shadow-lg transform -rotate-2 hover:rotate-0 transition-transform duration-500">
                                         <img src={scene3} alt="Social Square frontier" className="w-full h-full object-contain" />
                                     </div>
                                 </div>
