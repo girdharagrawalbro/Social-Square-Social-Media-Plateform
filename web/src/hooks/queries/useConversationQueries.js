@@ -22,6 +22,11 @@ export function useConversations(userId) {
     return useInfiniteQuery({
         queryKey: convoKeys.list(userId),
         queryFn: async ({ pageParam = null }) => {
+            const cacheKey = `conversations_${userId}`;
+            if (!pageParam) {
+                const cached = await dbService.getCache(cacheKey);
+                if (cached) return cached;
+            }
             const res = await api.get(`${BASE}/api/conversation`, {
                 params: { cursor: pageParam, limit: 20 }
             });
@@ -33,6 +38,10 @@ export function useConversations(userId) {
                     setUnreadCount(conv._id, 1);
                 }
             });
+
+            if (!pageParam && res.data) {
+                await dbService.setCache(cacheKey, res.data);
+            }
 
             return res.data;
         },

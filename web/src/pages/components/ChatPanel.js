@@ -379,7 +379,7 @@ const DecryptedAudio = ({ url, fileKey, iv, duration }) => {
 };
 
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
-const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply }) => {
+const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply, handleCancelUpload, retryPendingMessages }) => {
     const activeParticipant = useConversationStore(s => s.activeParticipant);
 
     let checkmarkStatus = 'sent';
@@ -869,10 +869,36 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                             )}
 
                                             {message.isOptimistic && (
-                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', borderRadius: '12px' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: '12px', zIndex: 10 }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', position: 'relative' }}>
                                                         <i className="pi pi-spin pi-spinner" style={{ color: '#fff', fontSize: '16px' }}></i>
                                                         <span style={{ color: '#fff', fontSize: '10px', fontWeight: 600 }}>{message.uploadProgress || 0}%</span>
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCancelUpload(message._id);
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(255, 255, 255, 0.25)',
+                                                                border: 'none',
+                                                                borderRadius: '50%',
+                                                                width: '20px',
+                                                                height: '20px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                cursor: 'pointer',
+                                                                color: '#fff',
+                                                                fontSize: '10px',
+                                                                marginTop: '2px',
+                                                                transition: 'background 0.2s'
+                                                            }}
+                                                            title="Cancel Upload"
+                                                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.4)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'}
+                                                        >
+                                                            ✕
+                                                        </button>
                                                     </div>
                                                 </div>
                                             )}
@@ -895,7 +921,19 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                             message.isOptimistic ? (
                                 <i className="pi pi-clock" style={{ fontSize: '10px', color: '#9ca3af', opacity: 0.8 }}></i>
                             ) : message.uploadFailed ? (
-                                <i className="pi pi-exclamation-circle" style={{ fontSize: '10px', color: '#ef4444' }}></i>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    <i className="pi pi-exclamation-circle" style={{ fontSize: '10px', color: '#ef4444' }} title="Failed to send. Click retry."></i>
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            retryPendingMessages();
+                                        }}
+                                        style={{ background: 'none', border: 'none', color: '#808bf5', fontSize: '9px', padding: 0, cursor: 'pointer', fontWeight: 600 }}
+                                        title="Retry sending"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
                             ) : (
                                 <IconDoubleCheck status={checkmarkStatus} />
                             )
@@ -1154,6 +1192,104 @@ const ChatPanel = ({
     const markReadRef = useRef(markRead);
     useEffect(() => { markReadRef.current = markRead; }, [markRead]);
 
+    const activeUploadsRef = useRef({});
+
+    const retryPendingMessages = useCallback(async () => {
+        const pending = await dbService.getAllPending();
+        if (!pending || pending.length === 0) return;
+
+        for (const msg of pending) {
+            try {
+                let mediaUrl = msg.mediaUrl;
+                let thumbnailUrl = msg.thumbnailUrl;
+                let fileKeyJWK = msg.fileKey;
+                let fileIv = msg.fileIv;
+
+                if (msg.file) {
+                    const e2eeState = useE2eeStore.getState();
+                    const isE2eeActive = !!e2eeState.privateKey;
+                    const isEncryptable = msg.file.type?.startsWith('image/') || msg.file.type?.startsWith('audio/');
+                    let fileToUpload = msg.file;
+
+                    if (isE2eeActive && isEncryptable) {
+                        const fileKey = await generateSymmetricKey();
+                        const { ciphertext, iv } = await encryptFile(msg.file, fileKey);
+                        fileToUpload = new Blob([ciphertext], { type: 'application/octet-stream' });
+                        fileKeyJWK = await exportSymmetricKey(fileKey);
+                        fileIv = iv;
+                    }
+
+                    if (msg.file.type?.startsWith('image/')) {
+                        const r = await uploadMedia(fileToUpload, null, { folder: 'chat' });
+                        mediaUrl = typeof r === 'string' ? r : r?.url;
+                    } else if (msg.file.type?.startsWith('video/')) {
+                        const r = await uploadVideo(fileToUpload, null, { folder: 'chat' });
+                        mediaUrl = typeof r === 'string' ? r : r?.url;
+                        thumbnailUrl = r?.thumbnailUrl;
+                    } else {
+                        if (msg.file.type?.startsWith('audio/') && isE2eeActive) {
+                            const r = await uploadMedia(fileToUpload, null, { folder: 'chat', resourceType: 'raw' });
+                            mediaUrl = typeof r === 'string' ? r : r?.url;
+                        } else {
+                            const r = await uploadToDrive(fileToUpload, null, { folder: 'chat' });
+                            mediaUrl = r?.url;
+                        }
+                    }
+                }
+
+                const res = await sendMessageMut.mutateAsync({
+                    conversationId: msg.conversationId || conversationIdRef.current || conversationId,
+                    content: msg.content,
+                    recipientId: msg.recipientId,
+                    mediaUrl,
+                    mediaType: msg.mediaType,
+                    mediaName: msg.mediaName,
+                    mediaSize: msg.mediaSize,
+                    thumbnailUrl,
+                    replyTo: msg.replyTo,
+                    fileKey: fileKeyJWK,
+                    fileIv
+                });
+
+                const decryptMessage = useE2eeStore.getState().decryptMessage;
+                const newMsg = await decryptMessage(res.data, msg.recipientId);
+
+                setMessages(prev => prev.map(m => m._id === msg.tempId ? newMsg : m));
+
+                if (msg.recipientId) {
+                    socket.emit('sendMessage', { ...newMsg, recipientId: msg.recipientId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                } else {
+                    socket.emit('sendMessage', { ...newMsg, conversationId: msg.conversationId || conversationIdRef.current || conversationId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                }
+
+                await dbService.removePending(msg.tempId);
+            } catch (err) {
+                console.error("Failed to retry pending message:", err);
+            }
+        }
+    }, [sendMessageMut, user?._id, user?.fullname, conversationId]);
+
+    const handleCancelUpload = (tempId) => {
+        const controller = activeUploadsRef.current[tempId];
+        if (controller) {
+            controller.abort();
+            delete activeUploadsRef.current[tempId];
+        }
+        setMessages(prev => prev.filter(m => m._id !== tempId));
+        dbService.removePending(tempId).catch(() => {});
+    };
+
+    useEffect(() => {
+        window.addEventListener('online', retryPendingMessages);
+        return () => window.removeEventListener('online', retryPendingMessages);
+    }, [retryPendingMessages]);
+
+    useEffect(() => {
+        if (user?._id) {
+            retryPendingMessages();
+        }
+    }, [user?._id, retryPendingMessages, conversationId, participantId]);
+
     const activeIsGroup = activeParticipant?.isGroup;
     const activeConversationId = activeParticipant?.conversationId;
 
@@ -1402,16 +1538,42 @@ const ChatPanel = ({
         }
         try {
             if (currentFiles.length === 0) {
-                const res = await sendMessageMut.mutateAsync({ conversationId, content: currentText, recipientId: activeParticipant?.isGroup ? undefined : participantId, replyTo: currentReplyTo?._id || null });
-                const decryptMessage = useE2eeStore.getState().decryptMessage;
-                const newMsg = await decryptMessage(res.data, participantId);
-                setMessages(prev => [...prev, newMsg]);
-                if (activeParticipant?.isGroup) {
-                    socket.emit('sendMessage', { ...newMsg, conversationId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
-                } else {
-                    socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                try {
+                    const res = await sendMessageMut.mutateAsync({ conversationId, content: currentText, recipientId: activeParticipant?.isGroup ? undefined : participantId, replyTo: currentReplyTo?._id || null });
+                    const decryptMessage = useE2eeStore.getState().decryptMessage;
+                    const newMsg = await decryptMessage(res.data, participantId);
+                    setMessages(prev => [...prev, newMsg]);
+                    if (activeParticipant?.isGroup) {
+                        socket.emit('sendMessage', { ...newMsg, conversationId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                    } else {
+                        socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
+                    }
+                    if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
+                } catch (err) {
+                    console.error('Failed to send text message:', err);
+                    const tempId = `temp-${Math.random().toString(36).substr(2, 9)}`;
+                    const failedMsg = {
+                        _id: tempId,
+                        conversationId: conversationIdRef.current || conversationId,
+                        content: currentText,
+                        sender: user._id,
+                        senderId: user._id,
+                        senderName: user.fullname,
+                        createdAt: new Date().toISOString(),
+                        uploadFailed: true,
+                        replyTo: currentReplyTo
+                    };
+                    setMessages(prev => [...prev, failedMsg]);
+                    
+                    // Save to IndexedDB pending messages
+                    await dbService.setPending(tempId, {
+                        conversationId: conversationIdRef.current || conversationId,
+                        content: currentText,
+                        recipientId: activeParticipant?.isGroup ? undefined : participantId,
+                        replyTo: currentReplyTo?._id || null,
+                        tempId
+                    });
                 }
-                if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
                 setUploading(false);
                 return;
             }
@@ -1462,11 +1624,15 @@ const ChatPanel = ({
                         setMessages(prev => prev.map(m => m._id === tempId ? { ...m, uploadProgress: percent } : m));
                     };
 
+                    const controller = new AbortController();
+                    activeUploadsRef.current[tempId] = controller;
+
+                    let thumbnailUrl = null;
+                    let fileToUpload = file;
+                    let fileKeyJWK = null;
+                    let fileIv = null;
+
                     try {
-                        let thumbnailUrl = null;
-                        let fileToUpload = file;
-                        let fileKeyJWK = null;
-                        let fileIv = null;
 
                         const e2eeState = useE2eeStore.getState();
                         const isE2eeActive = !!e2eeState.privateKey;
@@ -1485,22 +1651,24 @@ const ChatPanel = ({
                             if (existing && existing.uploadedUrl && !isE2eeActive) {
                                 mediaUrl = existing.uploadedUrl;
                             } else {
-                                const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat' });
+                                const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', signal: controller.signal });
                                 mediaUrl = typeof r === 'string' ? r : r?.url;
                             }
                         } else if (file.type.startsWith('video/')) {
-                            const r = await uploadVideo(fileToUpload, onProgress, { folder: 'chat' });
+                            const r = await uploadVideo(fileToUpload, onProgress, { folder: 'chat', signal: controller.signal });
                             mediaUrl = typeof r === 'string' ? r : r?.url;
                             thumbnailUrl = r?.thumbnailUrl;
                         } else {
                             if (file.type.startsWith('audio/') && isE2eeActive) {
-                                const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', resourceType: 'raw' });
+                                const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', resourceType: 'raw', signal: controller.signal });
                                 mediaUrl = typeof r === 'string' ? r : r?.url;
                             } else {
-                                const r = await uploadToDrive(fileToUpload, onProgress, { folder: 'chat' });
+                                const r = await uploadToDrive(fileToUpload, onProgress, { folder: 'chat', signal: controller.signal });
                                 mediaUrl = r?.url;
                             }
                         }
+
+                        if (controller.signal.aborted) return;
 
                         const res = await sendMessageMut.mutateAsync({
                             conversationId: conversationIdRef.current || conversationId,
@@ -1525,9 +1693,31 @@ const ChatPanel = ({
                             socket.emit('sendMessage', { ...newMsg, recipientId: participantId, senderName: user.fullname, sender: user._id, senderId: user._id, socketId: socket.id });
                         }
                         if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
+                        delete activeUploadsRef.current[tempId];
                     } catch (err) {
+                        if (controller.signal.aborted) {
+                            console.log('Upload aborted:', file.name);
+                            return;
+                        }
                         console.error('Upload failed for file', file.name, err);
                         setMessages(prev => prev.map(m => m._id === tempId ? { ...m, uploadFailed: true, isOptimistic: false } : m));
+
+                        // Save to IndexedDB pending messages for retry
+                        await dbService.setPending(tempId, {
+                            conversationId: conversationIdRef.current || conversationId,
+                            content: i === 0 ? currentText : '',
+                            recipientId: activeParticipant?.isGroup ? undefined : participantId,
+                            mediaUrl,
+                            mediaType,
+                            mediaName: file.name,
+                            mediaSize: file.size,
+                            thumbnailUrl,
+                            replyTo: i === 0 && currentReplyTo?._id ? currentReplyTo._id : null,
+                            fileKey: fileKeyJWK,
+                            fileIv,
+                            tempId,
+                            file // Save the raw File object to upload it later!
+                        });
                     }
                 }
             })();
@@ -1721,6 +1911,8 @@ const ChatPanel = ({
                                             isSelected={selectedMessageId === message._id}
                                             onSelect={(msgId = message._id) => setSelectedMessageId(msgId)}
                                             onReply={msg => setReplyTo(msg)}
+                                            handleCancelUpload={handleCancelUpload}
+                                            retryPendingMessages={retryPendingMessages}
                                         />
                                     )}
                                 </React.Fragment>

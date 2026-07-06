@@ -11,6 +11,8 @@ async function uploadViaBackend(file, onProgress, options = {}) {
 
     const { data } = await api.post('/api/media/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        cancelToken: options.cancelToken,
+        signal: options.signal,
         onUploadProgress: (event) => {
             if (onProgress && event.total) {
                 onProgress(Math.round((event.loaded / event.total) * 100));

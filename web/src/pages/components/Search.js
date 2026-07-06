@@ -9,6 +9,7 @@ import SkeletonSearch from './ui/SkeletonSearch';
 import usePostStore from '../../store/zustand/usePostStore';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
+import dbService from "../../utils/indexedDb";
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
@@ -22,14 +23,23 @@ const Search = ({ onClose, desc = true }) => {
     const [isVisible, setVisible] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const { data: flags } = useSystemFlags();
-    const [recentSearches, setRecentSearches] = useState(() => {
-        try {
-            const saved = JSON.parse(localStorage.getItem(RECENT_KEY)) || [];
-            // Migration/Cleanup: Ensure we don't have nulls or malformed data
-            return saved.filter(Boolean);
-        }
-        catch { return []; }
-    });
+    const [recentSearches, setRecentSearches] = useState([]);
+
+    useEffect(() => {
+        dbService.getCache(RECENT_KEY).then(saved => {
+            if (saved) {
+                setRecentSearches(saved.filter(Boolean));
+            } else {
+                try {
+                    const localSaved = JSON.parse(localStorage.getItem(RECENT_KEY)) || [];
+                    if (localSaved.length) {
+                        setRecentSearches(localSaved.filter(Boolean));
+                        dbService.setCache(RECENT_KEY, localSaved.filter(Boolean)).catch(() => {});
+                    }
+                } catch {}
+            }
+        }).catch(() => {});
+    }, []);
     const containerRef = useRef(null);
     const user = useAuthStore(s => s.user);
     const { data: catData = [] } = useCategories();
@@ -143,11 +153,13 @@ const Search = ({ onClose, desc = true }) => {
         })].slice(0, MAX_RECENT);
 
         setRecentSearches(updated);
+        dbService.setCache(RECENT_KEY, updated).catch(() => {});
         localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
     };
 
     const clearRecentSearches = () => {
         setRecentSearches([]);
+        dbService.removeCache(RECENT_KEY).catch(() => {});
         localStorage.removeItem(RECENT_KEY);
     };
 
