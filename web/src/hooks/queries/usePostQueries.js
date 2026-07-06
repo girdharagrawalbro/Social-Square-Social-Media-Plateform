@@ -83,10 +83,18 @@ export function useUserPosts(userId) {
     return useInfiniteQuery({
         queryKey: postKeys.userPosts(userId),
         queryFn: async ({ pageParam = null }) => {
+            const cacheKey = `user_posts_${userId}`;
+            if (!pageParam) {
+                const cached = await dbService.getCache(cacheKey);
+                if (cached) return cached;
+            }
             const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
             const res = await api.get(`${BASE}/api/post/user/${userId}?${params}`);
 
+            if (!pageParam && res.data) {
+                await dbService.setCache(cacheKey, res.data);
+            }
             return res.data;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,

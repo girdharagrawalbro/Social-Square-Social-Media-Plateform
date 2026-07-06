@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
+import dbService from '../../utils/indexedDb';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
@@ -28,7 +29,19 @@ export function useOwnProfile(enabled = true) {
     return useQuery({
         queryKey: authKeys.ownProfile,
         queryFn: async () => {
+            const cacheKey = 'own_profile';
+            const cached = await dbService.getCache(cacheKey);
+            if (cached) {
+                // Background update
+                api.get(`${BASE}/api/auth/me`).then(res => {
+                    if (res.data) dbService.setCache(cacheKey, res.data);
+                }).catch(() => {});
+                return cached;
+            }
             const res = await api.get(`${BASE}/api/auth/me`);
+            if (res.data) {
+                await dbService.setCache(cacheKey, res.data);
+            }
             return res.data;
         },
         enabled: initialized && !!user && !!enabled,

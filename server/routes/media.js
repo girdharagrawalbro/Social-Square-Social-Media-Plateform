@@ -98,4 +98,57 @@ router.post('/upload-url', verifyToken, async (req, res) => {
     }
 });
 
+const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL || 'https://gdrive-lr06.onrender.com';
+
+// ─── GOOGLE DRIVE FALLBACK API ────────────────────────────────────────────────
+router.post('/drive/upload', verifyToken, async (req, res) => {
+    try {
+        const { file, name, folder } = req.body;
+        if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
+
+        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
+            file, name, folder
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('[Drive Upload Proxy Error]:', error.response?.data || error.message);
+        res.status(error.response?.status || 500).json({
+            success: false,
+            message: error.response?.data?.message || error.message
+        });
+    }
+});
+
+router.post('/drive/upload-url', verifyToken, async (req, res) => {
+    try {
+        const { url, folder, name } = req.body;
+        if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
+
+        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload-url`, {
+            url, folder, name
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('[Drive Upload URL Proxy Error]:', error.response?.data || error.message);
+        res.status(error.response?.status || 500).json({
+            success: false,
+            message: error.response?.data?.message || error.message
+        });
+    }
+});
+
+router.get('/drive/file/:fileId', verifyToken, async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const response = await axios.get(`${GDRIVE_API_BASE_URL}/api/drive/file/${fileId}`);
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('[Drive Get File Proxy Error]:', error.response?.data || error.message);
+        res.status(error.response?.status || 500).json({
+            success: false,
+            message: error.response?.data?.message || error.message
+        });
+    }
+});
+
 module.exports = router;
