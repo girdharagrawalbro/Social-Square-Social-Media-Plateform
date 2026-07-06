@@ -44,21 +44,72 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
 
         const base64File = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
-        const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
-            file: base64File,
-            folder,
-            resourceType,
-        });
+        // If generic non-media file, route directly to Google Drive
+        const isGenericFile = !req.file.mimetype.startsWith('image/') && 
+                              !req.file.mimetype.startsWith('video/') && 
+                              !req.file.mimetype.startsWith('audio/');
 
-        console.log('[Upload] microservice response:', JSON.stringify(response.data, null, 2));
+        if (isGenericFile) {
+            try {
+                const driveResponse = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
+                    file: base64File,
+                    name: req.file.originalname,
+                    folder
+                });
 
-        const payload = {
-            success: response.data.success,
-            url: response.data.data.secure_url,
-            publicId: response.data.data.public_id,
-        };
+                if (driveResponse.data && driveResponse.data.success) {
+                    const fileData = driveResponse.data.data;
+                    return res.status(200).json({
+                        success: true,
+                        url: fileData.webContentLink || fileData.webViewLink || `https://drive.google.com/file/d/${fileData.fileId}/view`,
+                        fileId: fileData.fileId,
+                        source: 'drive'
+                    });
+                }
+            } catch (driveErr) {
+                console.error('[Drive Direct Upload] Failed:', driveErr.message);
+            }
+        }
 
-        return res.status(response.status).json(payload);
+        // Otherwise, attempt Cloudinary upload
+        try {
+            const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
+                file: base64File,
+                folder,
+                resourceType,
+            });
+
+            console.log('[Upload] Cloudinary microservice response:', JSON.stringify(response.data, null, 2));
+
+            const payload = {
+                success: response.data.success,
+                url: response.data.data.secure_url,
+                publicId: response.data.data.public_id,
+            };
+
+            return res.status(response.status).json(payload);
+        } catch (cloudinaryError) {
+            console.warn('[Cloudinary Upload Failed] Falling back to Google Drive:', cloudinaryError.message);
+            
+            // Fallback to Google Drive
+            const driveResponse = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
+                file: base64File,
+                name: req.file.originalname,
+                folder
+            });
+
+            if (driveResponse.data && driveResponse.data.success) {
+                const fileData = driveResponse.data.data;
+                return res.status(200).json({
+                    success: true,
+                    url: fileData.webContentLink || fileData.webViewLink || `https://drive.google.com/file/d/${fileData.fileId}/view`,
+                    fileId: fileData.fileId,
+                    source: 'drive'
+                });
+            }
+            
+            throw cloudinaryError; // Re-throw if both failed
+        }
     } catch (error) {
         console.error('[Upload] proxy error:', error.response?.data || error.message);
         res.status(error.response?.status || 500).json({
