@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { uploadMedia } from '../../utils/cloudinary';
-import { Camera, CameraResultType } from '@capacitor/camera';
 
 import toast from 'react-hot-toast';
 import ImageCropper from './ui/ImageCropper';
@@ -52,25 +51,16 @@ const EditProfile = ({ users, closeSidebar }) => {
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : finalValue }));
     };
 
-    const handleFileSelect = async () => {
-        try {
-            const image = await Camera.getPhoto({
-                quality: 90,
-                allowEditing: true,
-                resultType: CameraResultType.Uri
-            });
+    const handleFileSelect = () => {
+        fileInputRef.current?.click();
+    };
 
-            if (image.webPath) {
-                // Show cropper
-                setImageToCrop(image.webPath);
-                setCropperVisible(true);
-            }
-        } catch (err) {
-            console.error('Camera error:', err);
-            // Don't show toast on cancel
-            if (err.message !== 'User cancelled photos app') {
-                toast.error('Failed to get photo');
-            }
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            setImageToCrop(url);
+            setCropperVisible(true);
         }
     };
 
@@ -110,11 +100,11 @@ const EditProfile = ({ users, closeSidebar }) => {
                 toast(result.privacyWarning, { icon: '🔒', duration: 8000 });
             } else {
                 toast.success('Profile updated successfully!');
-                appChannel.postMessage({
-                    type: "PROFILE_UPDATED",
-                    user: result,
-                });
             }
+            appChannel.postMessage({
+                type: "PROFILE_UPDATED",
+                user: result.user,
+            });
             closeSidebar();
         } else {
             toast.error(result.message || 'Failed to update profile');
@@ -126,6 +116,13 @@ const EditProfile = ({ users, closeSidebar }) => {
 
             {/* Profile Picture Upload */}
             <div className="mb-4 flex flex-col items-center gap-2">
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                />
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                     <img
                         src={preview || USER_DEFAULT_IMAGE}

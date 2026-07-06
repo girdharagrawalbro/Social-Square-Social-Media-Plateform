@@ -22,6 +22,8 @@ const { admin } = require('../utils/firebase');
 
 
 const router = express.Router();
+let _io;
+function setIo(io) { _io = io; }
 const { body, param, query, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
@@ -442,6 +444,16 @@ router.post('/login', authRateLimiter, [
             message: { content: `New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
+        if (_io) {
+            _io.to(user._id.toString()).emit('deviceLogin', {
+                device,
+                ip,
+                location,
+                userAgent: req.headers['user-agent'] || '',
+                time: new Date()
+            });
+        }
+
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -542,6 +554,16 @@ router.post('/verify-otp', authRateLimiter, [
             type: 'system',
             message: { content: `✅ Secure Login: Your account was accessed via ${device} (OTP verified) at IP ${ip}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
+
+        if (_io) {
+            _io.to(user._id.toString()).emit('deviceLogin', {
+                device,
+                ip,
+                location,
+                userAgent: req.headers['user-agent'] || '',
+                time: new Date()
+            });
+        }
 
         setRefreshTokenCookie(res, refreshToken);
 
@@ -756,6 +778,16 @@ router.post('/google', async (req, res) => {
                 .catch(() => { });
         }
 
+        if (_io) {
+            _io.to(user._id.toString()).emit('deviceLogin', {
+                device,
+                ip,
+                location,
+                userAgent: req.headers['user-agent'] || '',
+                time: new Date()
+            });
+        }
+
         setRefreshTokenCookie(res, refreshToken);
 
         // Return user object so frontend can restore session without extra request
@@ -878,6 +910,9 @@ router.post('/logout', verifyToken, async (req, res) => {
         // Also revoke current session
         if (req.sessionId) {
             await LoginSession.findByIdAndUpdate(req.sessionId, { isRevoked: true, accessToken: null, refreshToken: null });
+            if (_io && req.userId) {
+                _io.to(req.userId.toString()).emit('sessionRevoked', { sessionId: req.sessionId });
+            }
         }
         clearRefreshTokenCookie(res);
         return res.status(200).json({ message: 'Logged out successfully' });
@@ -917,6 +952,10 @@ router.delete('/sessions/:sessionId', verifyToken, async (req, res) => {
         );
         if (!session) return res.status(404).json({ error: 'Session not found' });
 
+        if (_io && req.userId) {
+            _io.to(req.userId.toString()).emit('sessionRevoked', { sessionId: req.params.sessionId });
+        }
+
         // ✅ Security Alert: Send email about revoked session
         const user = await User.findById(req.userId).select('email');
         if (user?.email) {
@@ -941,6 +980,10 @@ router.delete('/sessions/all/revoke', verifyToken, async (req, res) => {
             { userId: req.userId, tokenFamily: { $ne: req.family } },
             { isRevoked: true }
         );
+
+        if (_io && req.userId) {
+            _io.to(req.userId.toString()).emit('sessionsRevokedAll', { exceptSessionId: req.sessionId });
+        }
 
         // ✅ Security Alert: Notify user that other sessions were cleared
         const user = await User.findById(req.userId).select('email');
@@ -1327,13 +1370,30 @@ router.put('/update-profile', verifyToken, [
     try {
         const userId = req.userId;
         const { fullname, username, email, profile_picture, bio, preferredMood, isPrivate } = req.body;
+        const currentUser = await User.findById(userId).select('email isEmailVerified');
+        if (!currentUser) return res.status(404).json({ message: 'User not found.' });
 
         if (username) {
             const exists = await User.findOne({ username, _id: { $ne: userId } });
             if (exists) return res.status(400).json({ message: 'Username is already taken.' });
         }
 
-        const updateData = { fullname, username, email, profile_picture, bio, preferredMood };
+        const updateData = { fullname, username, profile_picture, bio, preferredMood };
+
+        if (email && email.toLowerCase() !== currentUser.email?.toLowerCase()) {
+            const emailExists = await User.findOne({ email, _id: { $ne: userId } });
+            if (emailExists) return res.status(400).json({ message: 'Email is already in use.' });
+
+            updateData.email = email;
+            const verificationToken = crypto.randomBytes(32).toString('hex');
+            updateData.emailVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+            updateData.emailVerificationTokenSentAt = Date.now();
+            updateData.isEmailVerified = false;
+
+            const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
+            sendVerificationEmail(email, verificationUrl).catch(err => logger.error('[UPDATE PROFILE] Verification email failed:', err));
+        }
+
         if (typeof isPrivate === 'boolean') {
             const userBefore = await User.findById(userId).select('isPrivate').lean();
             if (userBefore && userBefore.isPrivate !== isPrivate) {
@@ -1365,6 +1425,23 @@ router.put('/update-profile', verifyToken, [
             propagateUserProfileUpdate(userId, { fullname, username, profile_picture }).catch(err => {
                 console.error(`[Propagation Error] for user ${userId}:`, err.message);
             });
+        }
+
+        // ✅ Broadcast profile update to all connected users
+        if (_io) {
+            _io.emit('profileUpdated', {
+                userId,
+                username: updatedUser.username,
+                fullname: updatedUser.fullname,
+                profile_picture: updatedUser.profile_picture,
+                isPrivate: updatedUser.isPrivate
+            });
+            if (updateData.hasOwnProperty('isPrivate')) {
+                _io.emit('privacyChanged', {
+                    userId,
+                    isPrivate: updatedUser.isPrivate
+                });
+            }
         }
 
         res.status(200).json({
@@ -1427,6 +1504,13 @@ router.post('/follow', verifyToken, [
                 type: 'follow_request',
             });
 
+            if (_io) {
+                _io.to(followUserId.toString()).emit('followRequestReceived', {
+                    requesterId: userId,
+                    followRequestsCount: updatedTarget.followRequests?.length || 0
+                });
+            }
+
             return res.status(200).json({
                 _id: followUserId,
                 requested: true,
@@ -1447,6 +1531,18 @@ router.post('/follow', verifyToken, [
             sender: { id: userId, fullname: sender.fullname, profile_picture: sender.profile_picture },
             type: 'follow',
         });
+
+        if (_io) {
+            _io.to(followUserId.toString()).emit('followUpdate', {
+                followerId: userId,
+                isFollowing: true,
+                followerCount: user.followersCount || 0
+            });
+            _io.to(userId.toString()).emit('followUpdate', {
+                targetId: followUserId,
+                isFollowing: true
+            });
+        }
 
         // Trigger welcome message if target is social_square_ai
         if (user && user.username === 'social_square_ai') {
@@ -1492,6 +1588,18 @@ router.post('/unfollow', verifyToken, [
             { $pull: { followers: meId }, $inc: { followersCount: -1 } },
             { new: true }
         ).select(OTHER_USER_EXCLUSIONS);
+
+        if (_io) {
+            _io.to(targetId.toString()).emit('followUpdate', {
+                followerId: meId,
+                isFollowing: false,
+                followerCount: updatedTarget?.followersCount || 0
+            });
+            _io.to(meId.toString()).emit('followUpdate', {
+                targetId: targetId,
+                isFollowing: false
+            });
+        }
 
         res.status(200).json({
             _id: targetId,
@@ -1574,6 +1682,21 @@ router.post('/follow-request/accept', verifyToken, [
             'sender.id': requesterId,
             type: 'follow_request'
         }, { status: 'accepted', read: true });
+
+        if (_io) {
+            const meUser = await User.findById(userId).select('followersCount').lean();
+            _io.to(requesterId.toString()).emit('followUpdate', {
+                followerId: requesterId,
+                targetId: userId,
+                isFollowing: true,
+                followerCount: meUser?.followersCount || 0
+            });
+            _io.to(userId.toString()).emit('followUpdate', {
+                requesterId: requesterId,
+                isFollowing: true,
+                followRequestAccepted: true
+            });
+        }
 
         res.status(200).json({ message: 'Accepted' });
     } catch { res.status(500).json({ message: 'Failed to accept request' }); }
@@ -1963,6 +2086,11 @@ router.post('/block', verifyToken, [
         await redis.del(`restricted_users:excl:${req.userId}`);
         await redis.del(`restricted_users:excl:${targetUserId}`);
 
+        if (_io) {
+            _io.to(targetUserId.toString()).emit('userBlocked', { blockerId: req.userId });
+            _io.to(req.userId.toString()).emit('userBlockedSelf', { blockedId: targetUserId });
+        }
+
         res.status(200).json({ message: 'User blocked' });
     } catch (error) {
         res.status(500).json({ error: "Internal Server Error" });
@@ -1980,6 +2108,11 @@ router.post('/unblock', verifyToken, [
         const redis = require('../lib/redis');
         await redis.del(`restricted_users:excl:${req.userId}`);
         await redis.del(`restricted_users:excl:${targetUserId}`);
+
+        if (_io) {
+            _io.to(targetUserId.toString()).emit('userUnblocked', { blockerId: req.userId });
+            _io.to(req.userId.toString()).emit('userUnblockedSelf', { blockedId: targetUserId });
+        }
 
         res.status(200).json({ message: 'User unblocked' });
     } catch (error) {
@@ -2118,3 +2251,4 @@ router.post('/close-friends/:userId/toggle', verifyToken, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.setIo = setIo;

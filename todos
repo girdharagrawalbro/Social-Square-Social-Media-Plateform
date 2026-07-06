@@ -1,27 +1,5 @@
-add braod cast chahenll for 
-comment 
-profile updte , need check 
-save 
-reaction etc 
 
-
-add socket for 
-
-new story / story delete
-like 
-comments
-follow / unfollow 
-profile updates 
-privacy changes 
-block/unblock
-live stream start and end 
-Device login, logout 
-mantion , tag notification 
-
-chek for existing implemetation do only for whihc doesnt have in same methond 
-
-
-post , story draft system 
+implement post, story draft system 
 
 add indexdb for 
 
@@ -33,7 +11,7 @@ chat ,media
 reels 
 explore 
 settings 
-    other requrited things 
+    also implemet for other requrited things 
 
 encypted feed post (image posts, chat media )
 
@@ -67,65 +45,4 @@ http://localhost:3000/api/conversation/messages/create
         }
     ]
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

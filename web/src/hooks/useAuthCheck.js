@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Preferences } from '@capacitor/preferences';
-import useAuthStore, { setToken } from '../store/zustand/useAuthStore';
-import { Capacitor } from '@capacitor/core';
+import useAuthStore from '../store/zustand/useAuthStore';
 
 export const useAuthCheck = () => {
     const [authState, setAuthState] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
@@ -12,30 +10,7 @@ export const useAuthCheck = () => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                // 1. Try Preferences (Fastest on Native)
-                if (Capacitor.isNativePlatform()) {
-                    const { value } = await Preferences.get({ key: 'user_token' });
-                    if (value) {
-                        try {
-                            const parsed = JSON.parse(value);
-                            // Check if token is expired (default 7 days if not set)
-                            if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-                                await Preferences.remove({ key: 'user_token' });
-                            } else {
-                                if (parsed.token) setToken(parsed.token);
-                                if (parsed.user) setUser(parsed.user);
-                                setAuthState('authenticated');
-                                setInitialized(true);
-                                return;
-                            }
-                        } catch (parseErr) {
-                            console.error('Failed to parse user_token', parseErr);
-                        }
-                    }
-                }
-
-                // 2. Fallback to HttpOnly Cookie / Refresh Logic (Existing behavior)
-                // This ensures we still support web and cookie-based native sessions
+                // 2. HttpOnly Cookie / Refresh Logic
                 const initAuth = useAuthStore.getState().initAuth;
                 await initAuth();
 

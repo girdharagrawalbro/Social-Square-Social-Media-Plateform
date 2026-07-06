@@ -1,7 +1,4 @@
 import './App.css';
-import { Network } from '@capacitor/network';
-import { PushNotifications } from '@capacitor/push-notifications';
-import { Capacitor } from '@capacitor/core';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState, useRef } from 'react';
 import queryClient from './queryClient';
@@ -9,7 +6,6 @@ import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import { ConfirmDialog } from 'primereact/confirmdialog';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 
 import useAuthStore, { api } from './store/zustand/useAuthStore';
@@ -21,6 +17,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
 import useBroadcast from './hooks/useBroadcast';
+import { postKeys } from './hooks/queries/usePostQueries';
 import Conversations from './pages/components/Conversations';
 import useTabTitle from './hooks/useTabTitle';
 import useFeedSocket from './hooks/useFeedSocket';
@@ -123,7 +120,59 @@ function AppInit() {
 
     // ── PROFILE_UPDATED: sync user across tabs/components ──
     useBroadcast('PROFILE_UPDATED', ({ user: updatedUser }) => {
-        if (updatedUser) useAuthStore.getState().setUser(updatedUser);
+        if (updatedUser) {
+            useAuthStore.getState().setUser(updatedUser);
+            const updatePostUser = (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        posts: page.posts.map(p => {
+                            const authorId = p.user?._id || p.user;
+                            if (authorId && authorId.toString() === updatedUser._id?.toString()) {
+                                return {
+                                    ...p,
+                                    user: {
+                                        ...p.user,
+                                        username: updatedUser.username || p.user?.username,
+                                        fullname: updatedUser.fullname || p.user?.fullname,
+                                        profile_picture: updatedUser.profile_picture || p.user?.profile_picture
+                                    }
+                                };
+                            }
+                            return p;
+                        }),
+                    })),
+                };
+            };
+            queryClient.setQueriesData({ queryKey: postKeys.feed(updatedUser._id) }, updatePostUser);
+            queryClient.setQueriesData({ queryKey: postKeys.userPosts(updatedUser._id) }, updatePostUser);
+        }
+    });
+
+    // ── COMMENT_COUNT_SYNC: sync comment counts across tabs ──
+    useBroadcast('COMMENT_COUNT_SYNC', ({ postId, commentsCount }) => {
+        const updateCount = (old) => {
+            if (!old) return old;
+            return {
+                ...old,
+                pages: old.pages.map(page => ({
+                    ...page,
+                    posts: page.posts.map(p =>
+                        p._id === postId ? { ...p, commentsCount } : p
+                    ),
+                })),
+            };
+        };
+        queryClient.setQueriesData({ queryKey: postKeys.feed(user?._id) }, updateCount);
+        queryClient.setQueriesData({ queryKey: postKeys.userPosts(user?._id) }, updateCount);
+    });
+
+    // ── POST_SAVED_STATE: sync save/unsave bookmarks across tabs ──
+    useBroadcast('POST_SAVED_STATE', ({ postId, saved }) => {
+        usePostStore.getState().toggleSaved(postId, saved);
+        queryClient.invalidateQueries({ queryKey: postKeys.saved(user?._id) });
     });
 
     // ── NOTIFICATION_RECEIVED: add to store + show toast ──
@@ -188,13 +237,6 @@ function AppInit() {
     // ✅ On every page load/refresh — silently restore session from httpOnly cookie
     useEffect(() => {
         initAuth();
-        if (Capacitor.isNativePlatform()) {
-            GoogleAuth.initialize({
-                clientId: '438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com',
-                scopes: ['profile', 'email'],
-                grantOfflineAccess: true,
-            });
-        }
     }, [initAuth]);
 
     // ✅ Push Notifications + Initial State Fetch
@@ -208,79 +250,6 @@ function AppInit() {
             console.warn("E2EE local keys load skipped:", err);
         });
 
-        // ─── PUSH NOTIFICATIONS ───────────────────────────────────────────────
-        const setupPushNotifications = async () => {
-            if (!Capacitor.isNativePlatform()) return;
-
-            try {
-                let permStatus = await PushNotifications.checkPermissions();
-
-                if (permStatus.receive === 'prompt') {
-                    permStatus = await PushNotifications.requestPermissions();
-                }
-
-                if (permStatus.receive !== 'granted') {
-                    console.warn('User denied push notification permissions');
-                    return;
-                }
-
-                // ✅ STEP 1 — Attach ALL listeners BEFORE calling register()
-                PushNotifications.addListener('registration', async (token) => {
-                    console.log('✅ FCM Token:', token.value);
-                    try {
-                        // Save FCM token to your backend
-                        await api.post('/api/user/fcm-token', { token: token.value });
-                    } catch (err) {
-                        console.error('Failed to save FCM token to backend:', err);
-                    }
-                });
-
-                PushNotifications.addListener('registrationError', (err) => {
-                    console.error('❌ Push registration error:', err.error);
-                });
-
-                // Fired when app is OPEN and notification arrives
-                PushNotifications.addListener('pushNotificationReceived', (notification) => {
-
-                    showNotification({
-                        title: notification.title || 'New notification',
-                        body: notification.body || 'You have a new notification',
-                    });
-                    toast(notification.title || 'New notification', {
-                        icon: '🔔',
-                        duration: 4000,
-                        position: 'top-center',
-                        style: {
-                            borderRadius: '16px',
-                            background: 'var(--surface-1)',
-                            color: 'var(--text-main)',
-                            border: '1px solid var(--border-color)',
-                        },
-                    });
-                });
-
-                // Fired when user TAPS a notification (app in background/killed)
-                PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-                    const data = action.notification.data;
-                    if (!data) return;
-
-                    if (data.type === 'message' && data.senderId) {
-                        navigate(`/conversation/${data.senderId}`);
-                    } else if (data.postId) {
-                        setPostDetailId(data.postId);
-                    } else if (data.storyUserId) {
-                        setStoryDetailUserId(data.storyUserId);
-                    }
-                });
-
-                // ✅ STEP 2 — Register AFTER all listeners are attached
-                await PushNotifications.register();
-
-            } catch (err) {
-                console.error('Push notification setup failed:', err);
-            }
-        };
-
         // ─── INITIAL DATA FETCH ───────────────────────────────────────────────
         const fetchInitialState = async () => {
             try {
@@ -293,15 +262,7 @@ function AppInit() {
             }
         };
 
-        setupPushNotifications();
         fetchInitialState();
-
-        // ✅ Cleanup push listeners when user logs out or changes
-        return () => {
-            if (Capacitor.isNativePlatform()) {
-                PushNotifications.removeAllListeners();
-            }
-        };
     }, [initialized, user?._id, setNotifications, navigate, setPostDetailId, setStoryDetailUserId]);
 
     // ─── SOCKET EVENTS ────────────────────────────────────────────────────────
@@ -839,23 +800,18 @@ function App() {
     }, []);
 
     useEffect(() => {
-        const initNetwork = async () => {
-            try {
-                const status = await Network.getStatus();
-                setIsOffline(!status.connected);
-            } catch (err) {
-                console.warn('Network status check failed:', err);
-            }
+        const updateOnlineStatus = () => {
+            setIsOffline(!navigator.onLine);
         };
 
-        const handler = Network.addListener('networkStatusChange', status => {
-            setIsOffline(!status.connected);
-        });
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
 
-        initNetwork();
+        updateOnlineStatus();
 
         return () => {
-            handler.then(h => h.remove());
+            window.removeEventListener('online', updateOnlineStatus);
+            window.removeEventListener('offline', updateOnlineStatus);
         };
     }, []);
 

@@ -1,8 +1,7 @@
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
-import { Capacitor } from '@capacitor/core';
-import cacheService from '../../utils/CacheService';
+import { appChannel } from '../../utils/broadcast';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
@@ -29,12 +28,6 @@ export function useFeed(userId, depth = null) {
     return useInfiniteQuery({
         queryKey: postKeys.feed(userId, depth),
         queryFn: async ({ pageParam = null }) => {
-            // ✅ NATIVE CACHE HYDRATION (First Page Only)
-            if (!pageParam && Capacitor.isNativePlatform()) {
-                const cached = await cacheService.get(`feed_${userId}_${depth || 'all'}`);
-                if (cached) return cached;
-            }
-
             try {
                 const params = new URLSearchParams();
                 if (pageParam) params.append('cursor', pageParam);
@@ -49,10 +42,6 @@ export function useFeed(userId, depth = null) {
                     isColdStart: res.data.isColdStart || false,
                     isFallback: res.data.isFallback || false
                 };
-
-                if (!pageParam && Capacitor.isNativePlatform()) {
-                    cacheService.set(`feed_${userId}_${depth || 'all'}`, transformedData);
-                }
 
                 return transformedData;
             } catch (err) {
@@ -81,20 +70,9 @@ export function useUserPosts(userId) {
     return useInfiniteQuery({
         queryKey: postKeys.userPosts(userId),
         queryFn: async ({ pageParam = null }) => {
-            // ✅ NATIVE CACHE HYDRATION
-            if (!pageParam && Capacitor.isNativePlatform()) {
-                const cached = await cacheService.get(`user_posts_${userId}`);
-                if (cached) return cached;
-            }
-
             const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
             const res = await api.get(`${BASE}/api/post/user/${userId}?${params}`);
-
-            // ✅ UPDATE CACHE
-            if (!pageParam && Capacitor.isNativePlatform() && res.data) {
-                cacheService.set(`user_posts_${userId}`, res.data);
-            }
 
             return res.data;
         },
@@ -435,6 +413,11 @@ export function useSavePost() {
                 // Ensure state matches server response
                 toggleSaved(variables.postId, res.data.saved);
                 qc.invalidateQueries({ queryKey: postKeys.saved(user?._id) });
+                appChannel.postMessage({
+                    type: "POST_SAVED_STATE",
+                    postId: variables.postId,
+                    saved: res.data.saved
+                });
             }
         },
         onError: (err, variables) => {
@@ -492,6 +475,15 @@ export function useCreateComment() {
                 qc.setQueryData(postKeys.comments(context.postId), context.previousComments);
             }
         },
+        onSuccess: (res, variables) => {
+            if (res.data?.commentsCount !== undefined) {
+                appChannel.postMessage({
+                    type: "COMMENT_COUNT_SYNC",
+                    postId: variables.postId,
+                    commentsCount: res.data.commentsCount
+                });
+            }
+        },
         onSettled: (data, error, variables) => {
             qc.invalidateQueries({ queryKey: postKeys.comments(variables.postId) });
             qc.invalidateQueries({ queryKey: postKeys.detail(variables.postId) });
@@ -513,7 +505,7 @@ export function useDeleteComment() {
     return useMutation({
         mutationFn: ({ commentId, postId }) =>
             api.delete(`${BASE}/api/post/comments/${commentId}`),
-        onSuccess: (_, variables) => {
+        onSuccess: (res, variables) => {
             if (variables?.postId) {
                 const { postId } = variables;
                 qc.invalidateQueries({ queryKey: postKeys.comments(postId) });
@@ -526,6 +518,14 @@ export function useDeleteComment() {
                 qc.invalidateQueries({ queryKey: postKeys.confessions });
                 qc.invalidateQueries({ queryKey: postKeys.trending });
                 qc.invalidateQueries({ queryKey: postKeys.recommended(user?._id) });
+
+                if (res.data?.commentsCount !== undefined) {
+                    appChannel.postMessage({
+                        type: "COMMENT_COUNT_SYNC",
+                        postId,
+                        commentsCount: res.data.commentsCount
+                    });
+                }
             }
         },
     });

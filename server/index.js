@@ -188,6 +188,7 @@ const postRouter = require('./routes/post.js');
 const storyRouter = require('./routes/story.js');
 const conversationRouter = require('./routes/conversation.js');
 const liveRouter = require('./routes/live.js');
+const authRouter = require('./routes/auth.js');
 
 const notificationUtils = require('./lib/notification.js');
 notificationUtils.setIo(io);
@@ -199,6 +200,7 @@ postRouter.setIo(io);
 storyRouter.setIo(io);
 conversationRouter.setIo(io);
 liveRouter.setIo(io);
+authRouter.setIo(io);
 
 app.get('/ping', (req, res) => res.status(200).json({ status: 'ok', message: 'pong' }));
 
@@ -224,7 +226,7 @@ app.post('/api/user/fcm-token', verifyToken, async (req, res) => {
 });
 
 // ✅ Routes
-app.use('/api/auth', (req, res, next) => require('./routes/auth.js')(req, res, next));
+app.use('/api/auth', authRouter);
 app.use('/api/post', postRouter);
 app.use('/api/goal', require('./routes/goal.js'));
 app.use('/api/idea', require('./routes/idea.js'));
