@@ -6,7 +6,7 @@ import { encryptFile, generateSymmetricKey, exportSymmetricKey, decryptFile, imp
 import dbService from '../../utils/indexedDb';
 import { socket } from '../../socket';
 import { uploadMedia, uploadVideo } from '../../utils/cloudinary';
-import { uploadToDrive, getFileIcon, formatFileSize } from '../../utils/drive';
+import { getFileIcon, formatFileSize } from '../../utils/drive';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 
 import toast from 'react-hot-toast';
@@ -1227,13 +1227,8 @@ const ChatPanel = ({
                         mediaUrl = typeof r === 'string' ? r : r?.url;
                         thumbnailUrl = r?.thumbnailUrl;
                     } else {
-                        if (msg.file.type?.startsWith('audio/') && isE2eeActive) {
-                            const r = await uploadMedia(fileToUpload, null, { folder: 'chat', resourceType: 'raw' });
-                            mediaUrl = typeof r === 'string' ? r : r?.url;
-                        } else {
-                            const r = await uploadToDrive(fileToUpload, null, { folder: 'chat' });
-                            mediaUrl = r?.url;
-                        }
+                        const r = await uploadMedia(fileToUpload, null, { folder: 'chat', resourceType: 'raw' });
+                        mediaUrl = typeof r === 'string' ? r : r?.url;
                     }
                 }
 
@@ -1659,13 +1654,8 @@ const ChatPanel = ({
                             mediaUrl = typeof r === 'string' ? r : r?.url;
                             thumbnailUrl = r?.thumbnailUrl;
                         } else {
-                            if (file.type.startsWith('audio/') && isE2eeActive) {
-                                const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', resourceType: 'raw', signal: controller.signal });
-                                mediaUrl = typeof r === 'string' ? r : r?.url;
-                            } else {
-                                const r = await uploadToDrive(fileToUpload, onProgress, { folder: 'chat', signal: controller.signal });
-                                mediaUrl = r?.url;
-                            }
+                            const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', resourceType: 'raw', signal: controller.signal });
+                            mediaUrl = typeof r === 'string' ? r : r?.url;
                         }
 
                         if (controller.signal.aborted) return;
