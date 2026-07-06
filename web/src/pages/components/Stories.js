@@ -7,6 +7,7 @@ import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { uploadMedia, uploadVideo, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
+import dbService from '../../utils/indexedDb';
 
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
@@ -1180,6 +1181,107 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
     const [textPos, setTextPos] = useState({ x: 50, y: 50 });
     const previewContainerRef = useRef(null);
     const [step, setStep] = useState(1);
+    const [hasDraft, setHasDraft] = useState(false);
+
+    useEffect(() => {
+        if (loggeduser?._id) {
+            dbService.getDraft(`story_draft_${loggeduser._id}`).then(draft => {
+                if (draft) setHasDraft(true);
+            });
+        }
+    }, [loggeduser?._id]);
+
+    useEffect(() => {
+        if (!loggeduser?._id) return;
+        const saveDraft = async () => {
+            if (previews.length === 0 && !text && !hasPoll && !selectedMusic) {
+                // Don't save empty drafts
+                return;
+            }
+            const draft = {
+                previews: previews.map(p => ({ file: p.file, type: p.type, url: p.url })),
+                text,
+                textColor,
+                textPosition,
+                visibility,
+                taggedUsers,
+                hasPoll,
+                pollQuestion,
+                pollOption1,
+                pollOption2,
+                selectedMusic,
+                pollPos,
+                textPos,
+                step
+            };
+            try {
+                await dbService.setDraft(`story_draft_${loggeduser._id}`, draft);
+            } catch (e) {
+                console.error("Failed to save story draft:", e);
+            }
+        };
+        const timer = setTimeout(saveDraft, 1000);
+        return () => clearTimeout(timer);
+    }, [
+        loggeduser?._id,
+        previews,
+        text,
+        textColor,
+        textPosition,
+        visibility,
+        taggedUsers,
+        hasPoll,
+        pollQuestion,
+        pollOption1,
+        pollOption2,
+        selectedMusic,
+        pollPos,
+        textPos,
+        step
+    ]);
+
+    const restoreDraft = async () => {
+        try {
+            const draft = await dbService.getDraft(`story_draft_${loggeduser._id}`);
+            if (draft) {
+                if (draft.previews) {
+                    setPreviews(draft.previews.map(p => ({
+                        ...p,
+                        url: p.file ? URL.createObjectURL(p.file) : p.url
+                    })));
+                } else {
+                    setPreviews([]);
+                }
+                setText(draft.text || '');
+                setTextColor(draft.textColor || '#ffffff');
+                setTextPosition(draft.textPosition || 'center');
+                setVisibility(draft.visibility || 'public');
+                setTaggedUsers(draft.taggedUsers || []);
+                setHasPoll(draft.hasPoll || false);
+                setPollQuestion(draft.pollQuestion || '');
+                setPollOption1(draft.pollOption1 || 'Yes');
+                setPollOption2(draft.pollOption2 || 'No');
+                setSelectedMusic(draft.selectedMusic || null);
+                setPollPos(draft.pollPos || { x: 50, y: 30 });
+                setTextPos(draft.textPos || { x: 50, y: 50 });
+                setStep(draft.step || 1);
+                setHasDraft(false);
+                toast.success("Story draft restored!");
+            }
+        } catch (e) {
+            console.error("Failed to restore story draft:", e);
+        }
+    };
+
+    const discardDraft = async () => {
+        try {
+            await dbService.removeDraft(`story_draft_${loggeduser._id}`);
+            setHasDraft(false);
+            toast.success("Story draft discarded.");
+        } catch (e) {
+            console.error("Failed to discard story draft:", e);
+        }
+    };
 
     const handlePointerDown = (e, type) => {
         e.preventDefault();
@@ -1437,6 +1539,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                     }
                 }
                 toast.success(sharedPostToUpload ? 'Post shared to story!' : `${previewsToUpload.length} stories created!`, { id: uploadToast });
+                await dbService.removeDraft(`story_draft_${loggeduser._id}`);
             } catch (error) {
                 toast.error('Failed to create story', { id: uploadToast });
             }
@@ -1460,6 +1563,21 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
             contentStyle={{ padding: '20px', background: 'var(--surface-1)', borderRadius: '10px', borderTopRightRadius: '0px', borderTopLeftRadius: '0px' }}
         >
             <div className="flex flex-col">
+                {hasDraft && (
+                    <div className="bg-[#808bf5]/10 border border-[#808bf5]/20 px-3 py-2 rounded-xl mb-3 flex items-center justify-between text-xs animate-in slide-in-from-top-2">
+                        <span className="text-[var(--text-main)] font-semibold flex items-center gap-1">
+                            📝 Unsaved draft found
+                        </span>
+                        <div className="flex gap-1.5">
+                            <button onClick={restoreDraft} className="bg-[#808bf5] text-white border-0 px-2.5 py-1.5 rounded-lg font-bold cursor-pointer hover:opacity-95 transition">
+                                Restore
+                            </button>
+                            <button onClick={discardDraft} className="bg-transparent border border-red-500/30 text-red-500 px-2.5 py-1.5 rounded-lg font-bold cursor-pointer hover:bg-red-500/10 transition">
+                                Discard
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
                     <div

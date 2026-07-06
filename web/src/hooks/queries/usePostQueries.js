@@ -2,6 +2,7 @@ import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tansta
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { appChannel } from '../../utils/broadcast';
+import dbService from '../../utils/indexedDb';
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
@@ -28,6 +29,11 @@ export function useFeed(userId, depth = null) {
     return useInfiniteQuery({
         queryKey: postKeys.feed(userId, depth),
         queryFn: async ({ pageParam = null }) => {
+            const cacheKey = `feed_${userId}_${depth || 'all'}`;
+            if (!pageParam) {
+                const cached = await dbService.getCache(cacheKey);
+                if (cached) return cached;
+            }
             try {
                 const params = new URLSearchParams();
                 if (pageParam) params.append('cursor', pageParam);
@@ -43,6 +49,10 @@ export function useFeed(userId, depth = null) {
                     isFallback: res.data.isFallback || false
                 };
 
+                if (!pageParam && transformedData) {
+                    await dbService.setCache(cacheKey, transformedData);
+                }
+
                 return transformedData;
             } catch (err) {
                 // Fallback to basic feed if recommendation service fails
@@ -52,6 +62,9 @@ export function useFeed(userId, depth = null) {
                 if (pageParam) params.append('cursor', pageParam);
                 if (depth) params.append('depth', depth);
                 const res = await api.get(`${BASE}/api/post/?${params}`);
+                if (!pageParam && res.data) {
+                    await dbService.setCache(cacheKey, res.data);
+                }
                 return res.data;
             }
         },

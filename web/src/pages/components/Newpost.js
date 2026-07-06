@@ -215,10 +215,43 @@ const NewPost = ({ visible, onHide }) => {
                 setSelectedGoalId(draft.selectedGoalId || null);
                 setIsBeforeAfter(draft.isBeforeAfter || false);
                 setBeforeAfterType(draft.beforeAfterType || 'image');
-                setImages(draft.images || []);
-                if (draft.video) setVideo(draft.video);
-                if (draft.beforeImage) setBeforeImage(draft.beforeImage);
-                if (draft.afterImage) setAfterImage(draft.afterImage);
+                
+                if (draft.images) {
+                    setImages(draft.images.map(img => ({
+                        ...img,
+                        preview: img.file ? URL.createObjectURL(img.file) : img.preview
+                    })));
+                } else {
+                    setImages([]);
+                }
+                
+                if (draft.video) {
+                    setVideo({
+                        ...draft.video,
+                        preview: draft.video.file ? URL.createObjectURL(draft.video.file) : draft.video.preview
+                    });
+                } else {
+                    setVideo(null);
+                }
+                
+                if (draft.beforeImage) {
+                    setBeforeImage({
+                        ...draft.beforeImage,
+                        preview: draft.beforeImage.file ? URL.createObjectURL(draft.beforeImage.file) : draft.beforeImage.preview
+                    });
+                } else {
+                    setBeforeImage(null);
+                }
+                
+                if (draft.afterImage) {
+                    setAfterImage({
+                        ...draft.afterImage,
+                        preview: draft.afterImage.file ? URL.createObjectURL(draft.afterImage.file) : draft.afterImage.preview
+                    });
+                } else {
+                    setAfterImage(null);
+                }
+                
                 setLocation(draft.location || { name: '', lat: null, lng: null });
                 setIsCollaborative(draft.isCollaborative || false);
                 setCollaborators(draft.collaborators || []);

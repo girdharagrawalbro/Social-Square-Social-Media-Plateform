@@ -2,7 +2,7 @@ const DB_NAME = 'socialsquare-e2ee';
 
 function getDB() {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 2);
+        const request = indexedDB.open(DB_NAME, 3);
         request.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains('keys')) {
@@ -16,6 +16,9 @@ function getDB() {
             }
             if (!db.objectStoreNames.contains('drafts')) {
                 db.createObjectStore('drafts');
+            }
+            if (!db.objectStoreNames.contains('pendingMessages')) {
+                db.createObjectStore('pendingMessages');
             }
         };
         request.onsuccess = (e) => resolve(e.target.result);
@@ -54,6 +57,13 @@ export const dbService = {
     getDraft: (key) => performOp('drafts', 'readonly', s => s.get(key)),
     setDraft: (key, val) => performOp('drafts', 'readwrite', s => s.put(val, key)),
     removeDraft: (key) => performOp('drafts', 'readwrite', s => s.delete(key)),
+
+    // Offline / Pending Messages Store
+    getPending: (key) => performOp('pendingMessages', 'readonly', s => s.get(key)),
+    setPending: (key, val) => performOp('pendingMessages', 'readwrite', s => s.put(val, key)),
+    removePending: (key) => performOp('pendingMessages', 'readwrite', s => s.delete(key)),
+    getAllPending: () => performOp('pendingMessages', 'readonly', s => s.getAll()),
+    clearPending: () => performOp('pendingMessages', 'readwrite', s => s.clear()),
 };
 
 export default dbService;
