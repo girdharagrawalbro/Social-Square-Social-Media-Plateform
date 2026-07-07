@@ -489,6 +489,11 @@ function AppInit() {
                         navigate(`/conversation/${senderId}`);
 
                     }
+                    else if (type === 'system') {
+
+                        navigate('/sessions');
+
+                    }
                     else if (
                         (type === 'like' && story) ||
                         type === 'new_story'
@@ -532,6 +537,11 @@ function AppInit() {
                             if (type === 'message' && senderId) {
 
                                 navigate(`/conversation/${senderId}`);
+
+                            }
+                            else if (type === 'system') {
+
+                                navigate('/sessions');
 
                             }
                             else if (
@@ -739,11 +749,37 @@ function AppInit() {
             });
         };
 
+        const handleSessionRevoked = ({ sessionId }) => {
+            const currentSessionId = useAuthStore.getState().sessionId;
+            if (String(sessionId) === String(currentSessionId)) {
+                toast.error('Your session was revoked from another device.', {
+                    id: 'session-revoked',
+                    duration: 5000,
+                    icon: '🔒',
+                });
+                performLogout();
+            }
+        };
+
+        const handleSessionsRevokedAll = ({ exceptSessionId }) => {
+            const currentSessionId = useAuthStore.getState().sessionId;
+            if (String(exceptSessionId) !== String(currentSessionId)) {
+                toast.error('All other sessions were revoked.', {
+                    id: 'session-revoked-all',
+                    duration: 5000,
+                    icon: '🔒',
+                });
+                performLogout();
+            }
+        };
+
         socket.on('newNotification', handleNewNotification);
         socket.on('newStory', handleNewStory);
         socket.on('collaborationInvite', handleCollabInvite);
         socket.on('incomingCall', handleIncomingCall);
         socket.on('conversationUpdated', handleConversationUpdated);
+        socket.on('sessionRevoked', handleSessionRevoked);
+        socket.on('sessionsRevokedAll', handleSessionsRevokedAll);
 
         return () => {
             clearInterval(heartbeatInterval);
@@ -756,6 +792,8 @@ function AppInit() {
             socket.off('collaborationInvite', handleCollabInvite);
             socket.off('incomingCall', handleIncomingCall);
             socket.off('conversationUpdated', handleConversationUpdated);
+            socket.off('sessionRevoked', handleSessionRevoked);
+            socket.off('sessionsRevokedAll', handleSessionsRevokedAll);
         };
     }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate, setActiveCall, addOrUpdateConversation]);
 

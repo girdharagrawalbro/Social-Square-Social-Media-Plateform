@@ -410,6 +410,7 @@ router.post('/login', authRateLimiter, [
         const device = parseDevice(req.headers['user-agent']);
         const location = await getLocation(ip);
 
+        let sessionToUse = existingSession;
         if (existingSession) {
             existingSession.tokenFamily = family;
             existingSession.accessToken = hashValue(accessToken);
@@ -423,7 +424,7 @@ router.post('/login', authRateLimiter, [
             existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
             await existingSession.save();
         } else {
-            await LoginSession.create({
+            sessionToUse = await LoginSession.create({
                 userId: user._id, tokenFamily: family,
                 accessToken: hashValue(accessToken),
                 refreshToken: hashValue(refreshToken),
@@ -463,7 +464,7 @@ router.post('/login', authRateLimiter, [
             .select(OWN_USER_EXCLUSIONS)
             .lean();
 
-        return res.status(200).json({ token: accessToken, user: sanitizeUser(userResponse) });
+        return res.status(200).json({ token: accessToken, user: sanitizeUser(userResponse), sessionId: sessionToUse._id });
     } catch (error) {
         console.error('Login error:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -522,6 +523,7 @@ router.post('/verify-otp', authRateLimiter, [
         const device = parseDevice(req.headers['user-agent']);
         const location = await getLocation(ip);
 
+        let sessionToUse = existingSession;
         if (existingSession) {
             existingSession.tokenFamily = family;
             existingSession.accessToken = hashValue(accessToken);
@@ -534,7 +536,7 @@ router.post('/verify-otp', authRateLimiter, [
             existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
             await existingSession.save();
         } else {
-            await LoginSession.create({
+            sessionToUse = await LoginSession.create({
                 userId: user._id, tokenFamily: family,
                 accessToken: hashValue(accessToken),
                 refreshToken: hashValue(refreshToken),
@@ -574,7 +576,7 @@ router.post('/verify-otp', authRateLimiter, [
             .select(OWN_USER_EXCLUSIONS)
             .lean();
 
-        return res.status(200).json({ token: accessToken, user: sanitizeUser(userResponse) });
+        return res.status(200).json({ token: accessToken, user: sanitizeUser(userResponse), sessionId: sessionToUse._id });
     } catch (error) {
         console.error('OTP verify error:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -751,6 +753,7 @@ router.post('/google', async (req, res) => {
         const device = parseDevice(req.headers['user-agent']);
         const location = await getLocation(ip);
 
+        let sessionToUse = existingSession;
         if (existingSession) {
             existingSession.tokenFamily = family;
             existingSession.accessToken = hashValue(accessToken);
@@ -764,7 +767,7 @@ router.post('/google', async (req, res) => {
             existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
             await existingSession.save();
         } else {
-            await LoginSession.create({
+            sessionToUse = await LoginSession.create({
                 userId: user._id, tokenFamily: family,
                 accessToken: hashValue(accessToken),
                 refreshToken: hashValue(refreshToken),
@@ -797,7 +800,7 @@ router.post('/google', async (req, res) => {
             .select(OWN_USER_EXCLUSIONS)
             .lean();
 
-        return res.status(200).json({ token: accessToken, user: sanitizeUser(userResponse) });
+        return res.status(200).json({ token: accessToken, user: sanitizeUser(userResponse), sessionId: sessionToUse._id });
     } catch (error) {
         console.error('Google auth error:', error);
         return res.status(401).json({ error: 'Google authentication failed' });
@@ -892,7 +895,7 @@ router.post('/refresh', async (req, res) => {
             .select(OWN_USER_EXCLUSIONS)
             .lean();
 
-        return res.status(200).json({ token: newAccessToken, user: sanitizeUser(user) });
+        return res.status(200).json({ token: newAccessToken, user: sanitizeUser(user), sessionId: session._id });
     } catch (error) {
         console.error('Refresh error:', error);
         return res.status(500).json({ error: 'Internal server error' });
