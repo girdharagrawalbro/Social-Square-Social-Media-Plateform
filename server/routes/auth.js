@@ -386,7 +386,7 @@ router.post('/login', authRateLimiter, [
         }
 
         // ── 2FA CHECK ──
-        if (user.twoFactorEnabled) {
+        if (user.twoFactorEnabled || isActivatingNewSession) {
             const otp = generateOtp();
             user.twoFactorOtp = hashValue(otp);
             user.twoFactorOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
