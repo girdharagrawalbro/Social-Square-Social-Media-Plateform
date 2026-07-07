@@ -385,8 +385,10 @@ router.post('/login', authRateLimiter, [
             await evictLRUSession(user._id, user.email, user.fullname);
         }
 
+        const isNewFingerprint = !existingSession;
+
         // ── 2FA CHECK ──
-        if (user.twoFactorEnabled || isActivatingNewSession) {
+        if (user.twoFactorEnabled || isNewFingerprint) {
             const otp = generateOtp();
             user.twoFactorOtp = hashValue(otp);
             user.twoFactorOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
@@ -508,8 +510,8 @@ router.post('/verify-otp', authRateLimiter, [
             expiresAt: { $gt: new Date() }
         });
 
-        if (isActivatingNewSession && activeSessionsCount >= 3) {
-            return res.status(403).json({ error: 'login session exceeded logout first' });
+        if (isActivatingNewSession && activeSessionsCount >= MAX_SESSIONS) {
+            await evictLRUSession(user._id, user.email, user.fullname);
         }
 
         const isNewDevice = !existingSession;
@@ -737,8 +739,8 @@ router.post('/google', async (req, res) => {
             expiresAt: { $gt: new Date() }
         });
 
-        if (isActivatingNewSession && activeSessionsCount >= 3) {
-            return res.status(403).json({ error: 'login session exceeded logout first' });
+        if (isActivatingNewSession && activeSessionsCount >= MAX_SESSIONS) {
+            await evictLRUSession(user._id, user.email, user.fullname);
         }
 
         const isNewDevice = !existingSession;
