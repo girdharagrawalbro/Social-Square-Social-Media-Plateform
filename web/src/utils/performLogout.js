@@ -5,6 +5,8 @@ async function performLogout() {
 
     useAuthStore.setState({
         user: null,
+        token: null,
+        sessionId: null,
         initialized: true,
     });
 

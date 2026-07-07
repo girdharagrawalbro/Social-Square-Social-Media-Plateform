@@ -29,15 +29,22 @@ const useAuthStore = create(
         (set, get) => ({
             user: null,
             token: null,
+            sessionId: null,
             loading: true,
             initialized: false,
             error: null,
             isMaintenance: false,
 
             setUser: (user) => set({ user }),
-            updateAuthToken: (token) => {
+            updateAuthToken: (token, sessionId) => {
                 setToken(token);
-                set({ token });
+                set(state => {
+                    const updates = { token };
+                    if (sessionId !== undefined) {
+                        updates.sessionId = sessionId;
+                    }
+                    return updates;
+                });
             },
             setInitialized: (initialized) => set({ initialized }),
             clearError: () => set({ error: null }),
@@ -81,8 +88,8 @@ const useAuthStore = create(
                 try {
                     const res = await api.post(`/api/auth/login`, { identifier: email, password, fingerprint });
                     if (res.data.requiresOtp) { set({ loading: false }); return { requiresOtp: true, userId: res.data.userId }; }
-                    const { token, user } = res.data;
-                    get().updateAuthToken(token);
+                    const { token, user, sessionId } = res.data;
+                    get().updateAuthToken(token, sessionId);
                     set({ user, loading: false, initialized: true });
                     return { success: true, user };
                 } catch (err) {
@@ -96,8 +103,8 @@ const useAuthStore = create(
                 set({ loading: true, error: null });
                 try {
                     const res = await api.post(`/api/auth/google`, { credential, fingerprint });
-                    const { token, user } = res.data;
-                    get().updateAuthToken(token);
+                    const { token, user, sessionId } = res.data;
+                    get().updateAuthToken(token, sessionId);
                     set({ user, loading: false, initialized: true });
                     return { success: true, user };
                 } catch (err) {
@@ -111,8 +118,8 @@ const useAuthStore = create(
                 set({ loading: true, error: null });
                 try {
                     const res = await api.post(`/api/auth/add`, { fullname, email, password, fingerprint });
-                    const { token, user } = res.data;
-                    get().updateAuthToken(token);
+                    const { token, user, sessionId } = res.data;
+                    get().updateAuthToken(token, sessionId);
                     set({ user, loading: false, initialized: true });
                     return { success: true, user };
                 } catch (err) {
@@ -174,8 +181,8 @@ export const refreshAccessToken = () => {
             const { getFingerprint } = await import('../../utils/fingerprint');
             const fingerprint = await getFingerprint();
             const res = await api.post(`/api/auth/refresh`, {}, { withCredentials: true, headers: { 'x-fingerprint': fingerprint } });
-            const { token, user } = res.data;
-            useAuthStore.getState().updateAuthToken(token);
+            const { token, user, sessionId } = res.data;
+            useAuthStore.getState().updateAuthToken(token, sessionId);
             if (user) useAuthStore.getState().setUser(user);
             return token;
         } catch (err) {
@@ -256,6 +263,12 @@ api.interceptors.response.use(
                 })
                 .catch(refreshErr => {
                     processQueue(refreshErr, null);
+                    if (useAuthStore.getState().user) {
+                        appChannel.postMessage({
+                            type: "SESSION_EXPIRED",
+                            reason: refreshErr.response?.data?.error || "Your session has expired. Please log in again."
+                        });
+                    }
                     reject(refreshErr);
                 })
                 .finally(() => {
