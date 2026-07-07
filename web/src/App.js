@@ -124,7 +124,7 @@ function AppInit() {
     useBroadcast('PROFILE_UPDATED', ({ user: updatedUser }) => {
         if (updatedUser) {
             useAuthStore.getState().setUser(updatedUser);
-            
+
             // Sync query data caches
             queryClient.setQueryData(authKeys.ownProfile, updatedUser);
             queryClient.setQueryData(authKeys.userProfile(updatedUser._id), updatedUser);
