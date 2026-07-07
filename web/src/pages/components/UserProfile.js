@@ -425,9 +425,6 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
         staleTime: 1000 * 60 * 2
     });
 
-    const followersList = useUserDetails(userDetails?.followers?.length > 0 ? userDetails.followers : null).data || [];
-    const followingList = useUserDetails(userDetails?.following?.length > 0 ? userDetails.following : null).data || [];
-
     // ─── RELATIONSHIP CHECKS ──────────────────────────────────────────────────
 
     const isFollowing = userDetails?.isFollowing ?? loggeduser?.following?.some(f => f?.toString() === id?.toString());
@@ -436,6 +433,9 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const isBlockingMe = userDetails?.isBlockingMe;
     const isMutedByMe = loggeduser?.mutedUsers?.some(m => m?.toString() === id?.toString());
     const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id && !isBlockedByMe;
+
+    const followersList = useUserDetails((!isPrivateAndNotFollowing && userDetails?.followers?.length > 0) ? userDetails.followers : null).data || [];
+    const followingList = useUserDetails((!isPrivateAndNotFollowing && userDetails?.following?.length > 0) ? userDetails.following : null).data || [];
 
     const handleFollow = async () => {
         try {
