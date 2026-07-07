@@ -1,261 +1,96 @@
-# 🌐 Social Square — Production Documentation
+# ✨ Social Square
 
-Social Square is an AI-integrated social ecosystem built with a "Privacy-First" and "Creator-Centric" philosophy. This document provides a deep-dive into every layer of the application.
+Social Square is a privacy-first, AI-powered social media platform focused on creators. It combines real-time communication, encrypted media sharing, AI-assisted content creation, offline support, and a scalable distributed architecture.
 
----
+Unlike traditional social platforms, Social Square is built with advanced modern web capabilities:
+- **State Synchronization**: Synchronizes state across browser tabs instantly using the Broadcast Channel API (themes, logouts, optimistic updates).
+- **Offline-First Messaging**: Provides offline messaging and queuing through IndexedDB; messages seamlessly send when network connectivity is restored.
+- **Zero-Knowledge Privacy**: Supports encrypted media uploads (AES-GCM/RSA-OAEP) to protect user images, videos, and voice notes.
+- **Resilient Infrastructure**: Transparently falls back to a Google Drive microservice if the primary Cloudinary CDN is unavailable.
 
-## 📖 Table of Contents
-1.  [🚀 Standardized API Reference](#1-standardized-api-reference)
-2.  [⚡ Real-Time Socket Architecture](#2-real-time-socket-architecture)
-3.  [🧠 State Management: Zustand (Client State)](#3-state-management-zustand-client-state)
-4.  [🌀 State Management: TanStack Query (Server State)](#4-state-management-tanstack-query-server-state)
-5.  [🛠️ Technology Stack & Security](#5-technology-stack--security)
+## 📊 Project Statistics
 
----
+**Languages**
+- JavaScript, TypeScript
 
-## 1. Standardized API Reference   
+**Frontend**
+- React, Zustand, TanStack Query
 
-All API responses follow the format: `{ "success": true, "data": { ... } }` or `{ "success": false, "message": "..." }`.
+**Backend**
+- Node.js, Express
 
-### 👤 Authentication & Users (`/api/auth`)
+**Database & Caching**
+- MongoDB, Redis, IndexedDB
 
-#### **Login User**
-- **Endpoint:** `POST /api/auth/login`
-- **Payload:**
-  ```json 
-  {
-    "identifier": "johndoe@example.com",
-    "password": "SecurePassword123",
-    "fingerprint": "browser_fingerprint_hash"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "token": "ey...",
-    "user": {
-      "_id": "64a1b2c3d4e5f6a7b8c9d0e1",
-      "username": "johndoe",
-      "fullname": "John Doe",
-      "email": "john@example.com",
-      "profilePicture": "https://...",
-      "followersCount": 120,
-      "followingCount": 85,
-      "isEmailVerified": true
-    }
-  }
-  ```
+**Real-Time & Events**
+- Socket.io, NATS
 
-#### **Search Users**
-- **Endpoint:** `POST /api/auth/search`
-- **Payload:** `{ "query": "john" }`
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "users": [
-      {
-        "_id": "64a1b2c3d4e5f6a7b8c9d0e1",
-        "username": "johndoe",
-        "fullname": "John Doe",
-        "profilePicture": "...",
-        "isFollowing": false
-      }
-    ]
-  }
-  ```
+**Storage & Jobs**
+- Cloudinary, Google Drive (Fallback), BullMQ
 
-### 📝 Post Management (`/api/post`)
+**Security**
+- AES-GCM, RSA-OAEP Encryption
 
-#### **Create Post**
-- **Endpoint:** `POST /api/post/create`
-- **Payload:**
-  ```json
-  {
-    "caption": "Hello World!",
-    "category": "Photography",
-    "imageURLs": ["https://..."],
-    "isAnonymous": false,
-    "isAiGenerated": true,
-    "location": { "name": "New York", "lat": 40.7, "lng": -74.0 }
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "post": {
-      "_id": "64b2c3d4e5f6a7b8c9d0e1f2",
-      "content": "Hello World!",
-      "mediaUrl": "...",
-      "author": { "username": "johndoe", "profilePicture": "..." },
-      "likesCount": 0,
-      "commentsCount": 0,
-      "createdAt": "2023-08-24T12:00:00Z"
-    }
-  }
-  ```
+## 🚀 Features
 
-#### **Fetch Feed (Cursor Pagination)**
-- **Endpoint:** `GET /api/post/feed?limit=10&cursor=timestamp`
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "posts": [...],
-    "nextCursor": "2023-08-24T10:00:00Z",
-    "hasMore": true
-  }
-  ```
+### Core Implemented Features
+*   **Encrypted Feed:** Interactive feed with text and multi-image/video support using client-side AES-GCM encryption.
+*   **Story Composer:** Ephemeral stories with auto-save drafts, visibility options, and sticker coordinates cache.
+*   **Offline Chat panel:** WhatsApp-style upload abort buttons, offline message queuing, and reconnection/reload retries.
+*   **Voice and Video calling:** Low-latency 1-on-1 audio/video calling and multi-follower live streaming powered by **LiveKit SDK**.
+*   **Collaborative Wikis:** Collaborative documentation editing, markdown editor, multi-author wiki posts, and revision history tracking.
+*   **Creator Goal Tracker:** Public creator roadmaps with milestone creation, progress percentage updates, and social cheers.
+*   **Killed Ideas Registry:** A public ledger for creators to share abandoned ideas, reasons for cancellation, and lessons learned.
+*   **Real-time Analytics Pulse:** Dynamic trend discovery dashboard showcasing hot categories, trending hashtags, and rising stars.
+*   **AI Chatbot with Memory:** NVIDIA API chatbot featuring local RAG (contextual steps from `user_flows.json`) and interest profiling.
+*   **AI Moderation & Recommendations:** Automated content safety verification (via `moderationQueue`) and collaborative filtering recommendations.
+*   **Communities & Social:** Community groups, post saves, followers list, real-time block/unblock, and notifications.
+
+### Backend Infrastructure Queues (BullMQ)
+*   `autoPostQueue`: Delayed and scheduled queue for publishing creator content.
+*   `moderationQueue`: Safety verification processor for user posts and confessions.
+*   `digestQueue`: Weekly streaks updates, engagement summaries, and newsletters.
+*   `cleanupQueue`: Automatically removes expired media, temporary logs, and caches.
+*   `emailQueue`: Decoupled background service for transactional OTP and 2FA notifications.
+
+## 🏗️ Architecture & Subsystem Documentation
+
+Deep dives into the technical implementation and design decisions of the system are broken down into specific subsystems:
+
+- [Architecture Overview](docs/Architecture.md)
+- [Authentication](docs/Authentication.md)
+- [Posts & Upload Flow](docs/Posts.md)
+- [Messaging & Offline Chat](docs/Messaging.md)
+- [Stories & Ephemeral Content](docs/Stories.md)
+- [Notifications](docs/Notifications.md)
+- [AI Integrations](docs/AI.md)
+- [Storage Architecture](docs/Storage.md)
+- [Content Security & E2EE](docs/Content-Security.md)
+- [Performance & Caching](docs/Caching.md)
+- [Deployment & Scalability](docs/Deployment.md)
+- [State Management & Sockets](docs/State.md)
+- [Database & Data Stores](docs/Database.md)
+- [API Reference](docs/API.md)
+
+## 🧩 Design Patterns
+
+Social Square implements robust enterprise design patterns:
+- **Repository Pattern**: Abstracts database interactions.
+- **Service Layer**: Encapsulates business logic.
+- **Middleware Pipeline**: Handles auth, rate-limiting, and validation.
+- **Event-Driven Architecture**: Decouples services via NATS and BullMQ.
+- **Optimistic UI**: Provides instant user feedback on the client.
+
+## ⚡ Performance Optimizations
+
+The platform is optimized for a smooth, 60fps experience:
+- **Cursor Pagination**: Used for feeds and chat history.
+- **Virtualized Lists**: Efficient rendering of long feeds and chats.
+- **Image Preloading & Lazy Loading**: Smart resource management.
+- **React Memoization**: Prevents unnecessary renders.
+- **Broadcast Synchronization**: Eliminates redundant network requests across tabs.
+- **Background Refetching & Cache Invalidation**: via TanStack Query.
 
 ---
 
-## 2. Real-Time Socket Architecture
-
-Social Square uses Socket.io with a **Redis Adapter** for cross-instance state synchronization.
-
-### ⬆️ Client -> Server (Emits)
-| Event | Payload | Description |
-|---|---|---|
-| `registerUser` | `userId: string` | Maps `socket.id` to `userId` in Redis. Joins a unique room for private signals. |
-| `typing` | `{ recipientId, senderName }` | Sends a volatile "typing" signal to the recipient's room. |
-| `messageReaction` | `{ messageId, conversationId, emoji, recipientId }` | Dispatches an emoji reaction update to the active chat room. |
-| `readMessage` | `{ messageId, recipientId }` | Signals that a specific message has been viewed. |
-
-### ⬇️ Server -> Client (Listeners)
-| Event | Payload | Description |
-|---|---|---|
-| `userOnline` | `{ userId, socketId }` | Broadcasted when a user connects. Triggers "Green Dot" in UI. |
-| `userTyping` | `{ senderName }` | Received by recipient to show "X is typing..." in the chat panel. |
-| `seenMessage` | `{ messageId }` | Received by the sender to update the double-checkmark status. |
-| `collaborationUpdate`| `{ postId, accepted }` | Real-time update when an invited collaborator accepts/declines. |
-
----
-
-## 3. State Management: Zustand (Client State)
-
-Zustand manages the **ephemeral lifecycle** of the UI. It is optimized with `devtools` middleware for debugging.
-
-### 🔐 `useAuthStore`
-- **State**: `user`, `token`, `initialized`, `loading`.
-- **Key Actions**:
-  - `initAuth()`: Silent restore of session via `refresh` endpoint on page load.
-  - `login(credentials)`: Authenticates and stores JWT in-memory (not localStorage).
-  - `followUser(id)`: Optimistically updates the `following` array for instant feedback.
-
-### 🖼️ `usePostStore`
-- **State**: `postDetailId`, `isMuted`, `optimisticLikes`, `savedPostIds`.
-- **Key Actions**:
-  - `optimisticLike(postId)`: Instantly updates the heart icon while the API call is in flight.
-  - `rollbackLike(postId)`: Reverts the like if the server request fails.
-  - `addSocketPost(post)`: Injects real-time posts directly into the top of the feed list.
-
----
-
-## 4. State Management: TanStack Query (Server State)
-
-TanStack Query handles the **server source of truth**, providing automatic caching and background synchronization.
-
-### 🛸 Key Hooks
-- **`useFeed(userId)`**: Uses `useInfiniteQuery` with a `cursor` based strategy for scroll performance.
-- **`useUserProfile(userId)`**: Caches profile data for 5 minutes (`staleTime: 300000`).
-- **`useCreatePost()`**: Handles complex multipart uploads and invalidates the `feed` cache upon success.
-- **`useNotificationQueries()`**: Periodically refetches notification counts to keep the badge updated.
-
-### ⚡ Caching Strategy
-- **Feed/Posts**: 2 minutes `staleTime` | 10 minutes `gcTime`.
-- **Auth/Profile**: 5 minutes `staleTime` | 30 minutes `gcTime`.
-- **Messages**: 30 seconds `staleTime` (to prioritize fresh conversation threads).
-
----
-
-## 5. Technology Stack & Security
-
-### Architecture
-- **Infrastructure**: Distributed Node.js instances with **NATS** for event distribution.
-- **Caching**: **Redis** used for presence (`online_users` hash) and session fingerprints.
-- **Workers**: **BullMQ** handles background jobs like daily digests and media cleanup.
-
-### Security Implementation
-- **Fingerprinting**: Every login binds the session to a browser fingerprint hash.
-- **Rate Limiting**: `express-rate-limit` enforced on all `/api/auth` write operations.
-- **Session Revocation**: Remote "Logout from all devices" implemented via session hash invalidation in Redis.
-- **2FA**: Email-based OTP mandatory for unrecognized fingerprints/IPs.
-
----
-
-Built with ❤️ by Girdhar Agrawal & Team.
-
-
-
-broadcast api channel for 
-
-Theme toggle 
-Logout 
-Profile update
-notifcation 
-mark read message 
-Draft sync 
-story composer 
-delete and post creation 
-follow / unfollow 
-own like count 
-block user
-session expire
-token refresh 
-uploding progress
-cache invalidation
-
-
-
-post , story draft system 
-add indexdb for 
-
-feed promary posts 
-own posts , profile image 
-conversation profile images , rececnt search,
-offiline chat message 
-chat ,media 
-reels 
-explore 
-settings 
-    other requrited things 
-
-
-    
-add socket for 
-
-new story / story delete
-like 
-comments
-follow / unfollow 
-profile updates 
-privacy changes 
-block/unblock
-live stream start and end 
-Device login, logout 
-mantion , tag notification 
-
-
-
-implement post, story draft system 
-
-
-
-add indexdb for 
-
-feed promary posts 
-own posts , profile image 
-conversation profile images , rececnt search,
-offiline chat message 
-chat ,media 
-reels 
-explore 
-settings 
-    also implemet for other requrited things 
-
-
-encypted feed post (image posts, chat media ), need check first is implemted or not 
-
-have to add drive fallback upload from backend only not from frontedn 
+*Built with ❤️ by Girdhar Agrawal*

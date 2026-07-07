@@ -18,6 +18,7 @@ import { DarkModeProvider } from './context/DarkModeContext';
 import useTokenRefresh from './hooks/useTokenRefresh';
 import useBroadcast from './hooks/useBroadcast';
 import { postKeys } from './hooks/queries/usePostQueries';
+import { authKeys } from './hooks/queries/useAuthQueries';
 import Conversations from './pages/components/Conversations';
 import useTabTitle from './hooks/useTabTitle';
 import useFeedSocket from './hooks/useFeedSocket';
@@ -119,9 +120,15 @@ function AppInit() {
     });
 
     // ── PROFILE_UPDATED: sync user across tabs/components ──
+    // ── PROFILE_UPDATED: sync user across tabs/components ──
     useBroadcast('PROFILE_UPDATED', ({ user: updatedUser }) => {
         if (updatedUser) {
             useAuthStore.getState().setUser(updatedUser);
+            
+            // Sync query data caches
+            queryClient.setQueryData(authKeys.ownProfile, updatedUser);
+            queryClient.setQueryData(authKeys.userProfile(updatedUser._id), updatedUser);
+
             const updatePostUser = (old) => {
                 if (!old) return old;
                 return {
@@ -148,6 +155,40 @@ function AppInit() {
             };
             queryClient.setQueriesData({ queryKey: postKeys.feed(updatedUser._id) }, updatePostUser);
             queryClient.setQueriesData({ queryKey: postKeys.userPosts(updatedUser._id) }, updatePostUser);
+
+            // Sync socket real-time posts in Zustand
+            usePostStore.setState(state => ({
+                socketPosts: state.socketPosts.map(p => {
+                    const authorId = p.user?._id || p.user;
+                    if (authorId && authorId.toString() === updatedUser._id?.toString()) {
+                        return {
+                            ...p,
+                            user: {
+                                ...p.user,
+                                username: updatedUser.username || p.user?.username,
+                                fullname: updatedUser.fullname || p.user?.fullname,
+                                profile_picture: updatedUser.profile_picture || p.user?.profile_picture
+                            }
+                        };
+                    }
+                    return p;
+                }),
+                socketConfessions: state.socketConfessions.map(p => {
+                    const authorId = p.user?._id || p.user;
+                    if (authorId && authorId.toString() === updatedUser._id?.toString()) {
+                        return {
+                            ...p,
+                            user: {
+                                ...p.user,
+                                username: updatedUser.username || p.user?.username,
+                                fullname: updatedUser.fullname || p.user?.fullname,
+                                profile_picture: updatedUser.profile_picture || p.user?.profile_picture
+                            }
+                        };
+                    }
+                    return p;
+                })
+            }));
         }
     });
 
@@ -167,6 +208,36 @@ function AppInit() {
         };
         queryClient.setQueriesData({ queryKey: postKeys.feed(user?._id) }, updateCount);
         queryClient.setQueriesData({ queryKey: postKeys.userPosts(user?._id) }, updateCount);
+
+        // Sync socket real-time posts in Zustand
+        usePostStore.setState(state => ({
+            socketPosts: state.socketPosts.map(p => p._id === postId ? { ...p, commentsCount } : p),
+            socketConfessions: state.socketConfessions.map(p => p._id === postId ? { ...p, commentsCount } : p)
+        }));
+    });
+
+    // ── POST_SHARE_COUNT: sync share counts across tabs ──
+    useBroadcast('POST_SHARE_COUNT', ({ postId, sharesCount }) => {
+        const updateShares = (old) => {
+            if (!old) return old;
+            return {
+                ...old,
+                pages: old.pages.map(page => ({
+                    ...page,
+                    posts: page.posts.map(p =>
+                        p._id === postId ? { ...p, shares: sharesCount } : p
+                    ),
+                })),
+            };
+        };
+        queryClient.setQueriesData({ queryKey: postKeys.feed(user?._id) }, updateShares);
+        queryClient.setQueriesData({ queryKey: postKeys.userPosts(user?._id) }, updateShares);
+
+        // Sync socket real-time posts in Zustand
+        usePostStore.setState(state => ({
+            socketPosts: state.socketPosts.map(p => p._id === postId ? { ...p, shares: sharesCount } : p),
+            socketConfessions: state.socketConfessions.map(p => p._id === postId ? { ...p, shares: sharesCount } : p)
+        }));
     });
 
     // ── POST_SAVED_STATE: sync save/unsave bookmarks across tabs ──
