@@ -51,6 +51,9 @@ async function evictLRUSession(userId, userEmail, userName) {
         .lean();
     if (!lru) return;
     await LoginSession.updateOne({ _id: lru._id }, { isRevoked: true });
+    if (_io) {
+        _io.to(userId.toString()).emit('sessionRevoked', { sessionId: lru._id });
+    }
     try {
         await sendEmail({
             to: userEmail,
@@ -68,7 +71,7 @@ async function evictLRUSession(userId, userEmail, userName) {
 async function getUserContributions(userId) {
     const oneYearAgo = new Date();
     oneYearAgo.setDate(oneYearAgo.getDate() - 365);
-    
+
     // Find all posts by this user in the last year
     const posts = await Post.find({
         'user._id': userId,
@@ -393,7 +396,7 @@ router.post('/login', authRateLimiter, [
             user.twoFactorOtp = hashValue(otp);
             user.twoFactorOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
             await user.save();
-            await sendOtpEmail(user.email, user.fullname, otp);
+            await sendOtpEmail(user.email, otp);
             return res.status(200).json({ requiresOtp: true, userId: user._id });
         }
 
@@ -1046,6 +1049,9 @@ router.post('/reset-password', authRateLimiter, [body('token').notEmpty(), body(
         user.resetPasswordExpires = null;
         await user.save();
         await LoginSession.updateMany({ userId: user._id }, { isRevoked: true });
+        if (_io) {
+            _io.to(user._id.toString()).emit('sessionsRevokedAll', { exceptSessionId: null });
+        }
 
         // Send email alert and system notification
         sendPasswordChangedEmail(user.email, user.fullname).catch(err => console.error('[RESET PASSWORD] Email failed:', err));
@@ -2238,7 +2244,7 @@ router.post('/close-friends/:userId/toggle', verifyToken, async (req, res) => {
     try {
         const { userId } = req.params;
         const loggedUserId = req.userId;
-        
+
         const user = await User.findById(loggedUserId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
