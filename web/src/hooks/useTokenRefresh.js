@@ -1,5 +1,6 @@
-import { refreshAccessToken } from '../store/zustand/useAuthStore';
+import useAuthStore, { refreshAccessToken } from '../store/zustand/useAuthStore';
 import { useRef, useEffect } from 'react';
+import { appChannel } from '../utils/broadcast';
 
 
 // Refresh access token 2 minutes before it expires (token is 15min)
@@ -24,6 +25,12 @@ export default function useTokenRefresh(isActive = true) {
                 // 401/403 means refresh token expired — stop interval
                 if (err.response?.status === 401 || err.response?.status === 403) {
                     clearInterval(intervalRef.current);
+                    if (useAuthStore.getState().user) {
+                        appChannel.postMessage({
+                            type: "SESSION_EXPIRED",
+                            reason: err.response?.data?.error || "Your session has expired. Please log in again."
+                        });
+                    }
                 }
             }
         };
