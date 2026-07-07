@@ -1533,6 +1533,52 @@ router.post("/like", verifyToken, [
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+// ─── SHARE POST (PROTECTED) ───────────────────────────────────────────────────
+router.post("/share", verifyToken, [
+    body('postId').isMongoId().withMessage('Invalid post ID'),
+    validate
+], async (req, res) => {
+    try {
+        const { postId } = req.body;
+        const userId = req.userId;
+        if (!postId) return res.status(400).json({ message: 'PostId required.' });
+
+        const updatedPost = await Post.findByIdAndUpdate(
+            postId,
+            { $inc: { shares: 1 } },
+            { new: true }
+        );
+
+        if (!updatedPost) {
+            return res.status(404).json({ message: 'Post not found.' });
+        }
+
+        const newScore = computeScore(updatedPost);
+        await Post.updateOne({ _id: postId }, { $set: { score: newScore } });
+        updatedPost.score = newScore;
+
+        // Broadcast share count update via Socket.io
+        if (_io) _io.emit('postShared', { postId, sharesCount: updatedPost.shares });
+
+        // Add to Gamification
+        const rewards = await updateGamification(userId, 'share');
+        if (rewards && _io) {
+            _io.to(userId.toString()).emit('levelUpdate', rewards);
+        }
+
+        // Publish to Recommender Queue
+        await publishEvent('post.share', {
+            postId: postId.toString(),
+            userId: userId.toString()
+        }).catch(() => {});
+
+        return res.status(200).json({ success: true, sharesCount: updatedPost.shares });
+    } catch (error) {
+        console.error('[Share Post] Error:', error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 // ─── UNLIKE (PROTECTED) ───────────────────────────────────────────────────────
 router.post("/unlike", verifyToken, [
     body('postId').isMongoId().withMessage('Invalid post ID'),

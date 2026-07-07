@@ -6,6 +6,8 @@ import { useConversations, useSendMessage } from '../../../hooks/queries/useConv
 import { useSearchUsers } from '../../../hooks/queries/useExploreQueries';
 import { getMediaThumbnail } from '../../../utils/mediaUtils';
 import { USER_DEFAULT_IMAGE } from '../../../utils/constantMediaVariable';
+import { api } from '../../../store/zustand/useAuthStore';
+import { appChannel } from '../../../utils/broadcast';
 
 const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -74,6 +76,18 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
             });
 
             toast.success(`Shared with ${targetUser.fullname}`);
+
+            // Increment share count in backend
+            try {
+                const res = await api.post('/api/post/share', { postId: post._id });
+                appChannel.postMessage({
+                    type: 'POST_SHARE_COUNT',
+                    postId: post._id,
+                    sharesCount: res.data.sharesCount
+                });
+            } catch (shareErr) {
+                console.error('Failed to increment share count:', shareErr);
+            }
         } catch (err) {
             console.error('Share failed', err);
             toast.error('Failed to share');
@@ -82,10 +96,21 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
         }
     };
 
-    const copyLink = () => {
+    const copyLink = async () => {
         const url = `${window.location.origin}/post/${post?._id}`;
         navigator.clipboard.writeText(url);
         toast.success('Link copied to clipboard!');
+
+        try {
+            const res = await api.post('/api/post/share', { postId: post?._id });
+            appChannel.postMessage({
+                type: 'POST_SHARE_COUNT',
+                postId: post?._id,
+                sharesCount: res.data.sharesCount
+            });
+        } catch (shareErr) {
+            console.error('Failed to increment share count:', shareErr);
+        }
     };
 
     return (

@@ -71,3 +71,6 @@ service-account.json
 *.p12
 
 /backend/scripts/media.js
+
+testing_guide.md
+./testing_guide.md
