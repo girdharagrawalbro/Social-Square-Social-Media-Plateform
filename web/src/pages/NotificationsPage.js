@@ -214,6 +214,8 @@ const NotificationsPage = () => {
                                                             }
                                                         } else if (n.post) {
                                                             setPostDetailId(n.post);
+                                                        } else if (n.type === 'system') {
+                                                            navigate('/sessions');
                                                         } else if (n.type === 'follow') {
                                                             const id = n.sender.id || n.sender._id;
                                                             if (id) navigate(`/profile/${id}`);
