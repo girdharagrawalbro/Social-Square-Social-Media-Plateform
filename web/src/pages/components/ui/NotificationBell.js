@@ -110,6 +110,9 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                 navigate(n.url);
             }
             setOpen(false);
+        } else if (n.type === 'system') {
+            navigate('/sessions');
+            setOpen(false);
         } else if (n.post) {
             setPostDetailId(n.post);
             setOpen(false);
