@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import performLogout from '../../utils/performLogout';
 import { appChannel } from "../../utils/broadcast";
+import dbService from '../../utils/indexedDb';
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 const handleRateLimit = err => {
@@ -73,6 +74,18 @@ const useAuthStore = create(
                         if (err.response?.status === 503 || err.response?.data?.code === 'MAINTENANCE_MODE') {
                             set({ isMaintenance: true, loading: false, initialized: true });
                             return;
+                        }
+                        const isOffline = !navigator.onLine || err.message === 'Network Error' || err.code === 'ERR_NETWORK';
+                        if (isOffline) {
+                            try {
+                                const cachedUser = await dbService.getCache('own_profile');
+                                if (cachedUser) {
+                                    set({ user: cachedUser, loading: false, error: null, initialized: true });
+                                    return;
+                                }
+                            } catch (cacheErr) {
+                                console.error('Failed to load cached user profile:', cacheErr);
+                            }
                         }
                         clearToken();
                         set({ user: null, loading: false, initialized: true });

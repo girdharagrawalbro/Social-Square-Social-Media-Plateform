@@ -18,7 +18,7 @@ root.render(
     </React.StrictMode >
 );
 
-serviceWorkerRegistration.unregister();
+serviceWorkerRegistration.register();
 
 // Clear existing caches to fix the 404 errors on old JS bundles
 if ('caches' in window) {
