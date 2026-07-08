@@ -5,7 +5,7 @@ import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useCreateConversation } from '../../hooks/queries/useConversationQueries';
-import { useUserDetails, useFollowUser, useUnfollowUser, useCancelFollowRequest, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, authKeys } from '../../hooks/queries/useAuthQueries';
+import { useFollowUser, useUnfollowUser, useCancelFollowRequest, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, authKeys } from '../../hooks/queries/useAuthQueries';
 import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
