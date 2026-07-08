@@ -6,7 +6,7 @@ import ReactionPicker from './ReactionPicker';
 import PollCard from './PollCard';
 import usePostStore from '../../store/zustand/usePostStore';
 import { Helmet } from 'react-helmet-async';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 // import axios from 'axios';
 import Comment from './ui/Comment';
 import SharePostDialog from './ui/SharePostDialog';

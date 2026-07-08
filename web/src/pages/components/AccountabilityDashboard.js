@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGroupCheckIns, useSubmitCheckIn, useToggleCheckInStatus, useAddCheckInFeedback } from '../../hooks/queries/useAuthQueries';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const AccountabilityDashboard = ({ group, onClose }) => {

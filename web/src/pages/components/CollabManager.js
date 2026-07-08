@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useAcceptCollaboration, useDeclineCollaboration } from '../../hooks/queries/usePostOperationsQueries';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const STATUS_STYLE = {

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { socket } from '../socket';
-import toast from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import useAuthStore from '../store/zustand/useAuthStore';
 import usePostStore from '../store/zustand/usePostStore';
 import { postKeys } from './queries/usePostQueries';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useVotePoll } from '../../hooks/queries/usePostQueries';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 
 const PollCard = ({ poll: initialPoll, postId }) => {
     const user = useAuthStore(s => s.user);

@@ -33,6 +33,7 @@ import BottomNav from './pages/components/BottomNav';
 import Navbar from './pages/components/Navbar';
 import { CreateStoryModal } from './pages/components/Stories';
 import Footer from './pages/components/Footer';
+import CustomToastContainer from './pages/components/ui/CustomToastContainer';
 import NotificationBell from './pages/components/ui/NotificationBell';
 import Chatbot from './pages/components/Chatbot';
 import PostDetail from './pages/components/PostDetail';
@@ -334,7 +335,7 @@ function AppInit() {
         };
 
         fetchInitialState();
-    }, [initialized, user?._id, setNotifications, navigate, setPostDetailId, setStoryDetailUserId]);
+    }, [initialized, user?._id, setNotifications]);
 
     // ─── SOCKET EVENTS ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -942,6 +943,7 @@ function App() {
                 toastOptions={{ duration: 3000 }}
                 containerStyle={{ zIndex: 99999 }}
             />
+            <CustomToastContainer />
             {isOffline && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,

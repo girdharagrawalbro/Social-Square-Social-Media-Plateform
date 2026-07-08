@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import { encryptPassword } from '../utils/crypto';
 import { useDarkMode } from '../context/DarkModeContext';
 import Bg from './components/Bg';
@@ -78,7 +78,7 @@ const ResetPassword = () => {
           </button>
         </form>
       </div>
-      <Toaster />
+      
     </Bg>
   );
 };

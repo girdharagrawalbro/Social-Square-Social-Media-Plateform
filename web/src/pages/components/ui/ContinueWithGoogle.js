@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router';
 import useAuthStore from '../../../store/zustand/useAuthStore';
 import { getFingerprint } from '../../../utils/fingerprint';
-import toast from 'react-hot-toast';
+import toast from '../../../utils/toast.js';
 
 const ContinueWithGoogle = () => {
     const googleLogin = useAuthStore(s => s.googleLogin);

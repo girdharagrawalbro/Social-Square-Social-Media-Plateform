@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
-import toast from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import useAuthStore from '../store/zustand/useAuthStore';
 import usePostStore from '../store/zustand/usePostStore';
 import { useFeed, useLikePost } from '../hooks/queries/usePostQueries';

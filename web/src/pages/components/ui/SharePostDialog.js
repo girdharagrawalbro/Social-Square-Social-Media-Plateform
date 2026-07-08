@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Dialog } from 'primereact/dialog';
-import toast from 'react-hot-toast';
+import toast from '../../../utils/toast.js';
 import { useUserDetails } from '../../../hooks/queries/useAuthQueries';
 import { useConversations, useSendMessage } from '../../../hooks/queries/useConversationQueries';
 import { useSearchUsers } from '../../../hooks/queries/useExploreQueries';

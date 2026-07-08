@@ -1,7 +1,7 @@
 import React from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useNotificationSettings } from '../../hooks/queries/useNotificationQueries';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 
 const NotificationSettings = () => {
     const user = useAuthStore(s => s.user);
@@ -222,7 +222,7 @@ const NotificationSettings = () => {
                 </div>
 
             </div>
-            <Toaster position="top-center" />
+            
         </div>
     );
 };

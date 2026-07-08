@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import Bg from './components/Bg';
 import { useDarkMode } from '../context/DarkModeContext';
 
@@ -81,7 +81,7 @@ const Forgot = () => {
                     </form>
                 )}
             </div>
-            <Toaster />
+            
         </Bg>
     );
 };

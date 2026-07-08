@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
 
 import { confirmDialog } from 'primereact/confirmdialog';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { createPortal } from 'react-dom';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';

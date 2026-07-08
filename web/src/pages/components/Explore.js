@@ -3,7 +3,7 @@ import { debounce } from 'lodash';
 import { useInView } from 'react-intersection-observer';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { useExploreReels } from '../../hooks/queries/useExploreQueries';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useAuthStore from '../../store/zustand/useAuthStore';

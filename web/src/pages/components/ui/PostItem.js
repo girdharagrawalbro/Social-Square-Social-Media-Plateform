@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useInView } from 'react-intersection-observer';
-import toast from 'react-hot-toast';
+import toast from '../../../utils/toast.js';
 import { importSymmetricKey, decryptFile } from '../../../utils/cryptoUtils';
 import dbService from '../../../utils/indexedDb';
 

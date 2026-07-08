@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../store/zustand/useAuthStore';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 
 /**
  * SaveAsNoteModal — appears when user clicks "Save as Note" on any post.

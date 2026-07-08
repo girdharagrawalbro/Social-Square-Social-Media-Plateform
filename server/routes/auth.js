@@ -343,7 +343,7 @@ router.post('/login', authRateLimiter, [
             createNotification({
                 recipientId: user._id,
                 type: 'system',
-                message: { content: `⚠️ Security Alert: An incorrect login attempt was made via ${device} at IP ${ip}. If this wasn't you, please secure your account.` }
+                message: { content: `Security Alert: An incorrect login attempt was made via ${device} at IP ${ip}. If this wasn't you, please secure your account.` }
             }).catch(e => logger.error('Failed to send login alert:', e));
 
             if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
@@ -559,7 +559,7 @@ router.post('/verify-otp', authRateLimiter, [
         createNotification({
             recipientId: user._id,
             type: 'system',
-            message: { content: `✅ Secure Login: Your account was accessed via ${device} (OTP verified) at IP ${ip}.` }
+            message: { content: `Secure Login: Your account was accessed via ${device} (OTP verified) at IP ${ip}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
         if (_io) {

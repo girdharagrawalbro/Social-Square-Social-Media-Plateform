@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
-import toast from 'react-hot-toast';
+import toast from '../../../utils/toast.js';
 import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
 import usePostStore from '../../../store/zustand/usePostStore';
 import { useSavePost, useDeletePost, useUpdatePost } from '../../../hooks/queries/usePostQueries';

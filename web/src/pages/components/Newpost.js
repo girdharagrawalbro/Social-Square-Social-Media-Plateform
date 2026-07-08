@@ -4,9 +4,10 @@ import { useGroups } from '../../hooks/queries/useAuthQueries';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import usePostStore from '../../store/zustand/usePostStore';
 import { useCreatePost } from '../../hooks/queries/usePostQueries';
-import toast from "react-hot-toast";
+import toast from '../../utils/toast.js';
 import ImageCropper from './ui/ImageCropper';
 import { encryptFile, generateSymmetricKey, exportSymmetricKey } from "../../utils/cryptoUtils";
+import useToastStore from '../../store/zustand/useToastStore';
 import { appChannel } from "../../utils/broadcast";
 
 import { uploadMedia, uploadVideo, generateVideoThumbnail, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
@@ -131,53 +132,102 @@ const NewPost = ({ visible, onHide }) => {
         originalFile: null,
         replacingId: null
     });
-    const [hasDraft, setHasDraft] = useState(false);
+    const [drafts, setDrafts] = useState([]);
+    const [activeDraftId, setActiveDraftId] = useState(null);
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+    const [showDraftsListModal, setShowDraftsListModal] = useState(false);
 
     useEffect(() => {
         if (visible && loggeduser?._id) {
-            dbService.getDraft(`draft_${loggeduser._id}`).then(draft => {
-                if (draft) {
-                    setHasDraft(true);
+            dbService.getDraft(`drafts_${loggeduser._id}`).then(async (saved) => {
+                let list = Array.isArray(saved) ? saved : [];
+                // Check for legacy single draft
+                const legacy = await dbService.getDraft(`draft_${loggeduser._id}`);
+                if (legacy) {
+                    const newDraft = {
+                        id: 'draft_' + Date.now(),
+                        updatedAt: Date.now(),
+                        ...legacy
+                    };
+                    list = [newDraft, ...list].slice(0, 3);
+                    await dbService.setDraft(`drafts_${loggeduser._id}`, list);
+                    await dbService.removeDraft(`draft_${loggeduser._id}`);
                 }
+                setDrafts(list);
             });
         }
     }, [visible, loggeduser?._id]);
 
+    const saveDraft = async (manual = false) => {
+        if (!loggeduser?._id) return;
+        if (!manual && !activeDraftId) return;
+        
+        const isPostEmpty = images.length === 0 && !video && !formData.caption.trim() && !beforeImage && !afterImage && !beforeText.trim() && !afterText.trim();
+        if (isPostEmpty) return;
+
+        const draftData = {
+            formData,
+            beforeLabel,
+            afterLabel,
+            beforeText,
+            afterText,
+            visibility,
+            isAnonymous,
+            selectedGoalId,
+            isBeforeAfter,
+            beforeAfterType,
+            images: images.map(img => ({ id: img.id, file: img.file, preview: img.preview })),
+            video: video ? { file: video.file, preview: video.preview } : null,
+            beforeImage: beforeImage ? { file: beforeImage.file, preview: beforeImage.preview } : null,
+            afterImage: afterImage ? { file: afterImage.file, preview: afterImage.preview } : null,
+            location,
+            isCollaborative,
+            collaborators
+        };
+
+        try {
+            const saved = await dbService.getDraft(`drafts_${loggeduser._id}`);
+            let list = Array.isArray(saved) ? saved : [];
+
+            let draftId = activeDraftId;
+            if (draftId) {
+                // Update existing draft
+                list = list.map(d => d.id === draftId ? { ...d, updatedAt: Date.now(), ...draftData } : d);
+            } else {
+                // Create new draft
+                draftId = 'draft_' + Date.now();
+                const newDraft = {
+                    id: draftId,
+                    updatedAt: Date.now(),
+                    ...draftData
+                };
+                list = [newDraft, ...list].slice(0, 3);
+                setActiveDraftId(draftId);
+            }
+
+            await dbService.setDraft(`drafts_${loggeduser._id}`, list);
+            setDrafts(list);
+
+            appChannel.postMessage({
+                type: "DRAFT_SYNC",
+                draftId,
+                content: draftData.formData?.caption || '',
+                updatedAt: Date.now()
+            });
+
+            if (manual) {
+                useToastStore.getState().show({ message: "Post saved in draft!", type: "success" });
+            }
+        } catch (e) {
+            console.error("Failed to save draft:", e);
+        }
+    };
+
     useEffect(() => {
         if (!loggeduser?._id || !visible) return;
-        const saveDraft = async () => {
-            const draft = {
-                formData,
-                beforeLabel,
-                afterLabel,
-                beforeText,
-                afterText,
-                visibility,
-                isAnonymous,
-                selectedGoalId,
-                isBeforeAfter,
-                beforeAfterType,
-                images: images.map(img => ({ file: img.file, preview: img.preview })),
-                video: video ? { file: video.file, preview: video.preview } : null,
-                beforeImage: beforeImage ? { file: beforeImage.file, preview: beforeImage.preview } : null,
-                afterImage: afterImage ? { file: afterImage.file, preview: afterImage.preview } : null,
-                location,
-                isCollaborative,
-                collaborators
-            };
-            try {
-                await dbService.setDraft(`draft_${loggeduser._id}`, draft);
-                appChannel.postMessage({
-                    type: "DRAFT_SYNC",
-                    draftId: `draft_${loggeduser._id}`,
-                    content: draft.formData?.caption || '',
-                    updatedAt: Date.now()
-                });
-            } catch (e) {
-                console.error("Failed to save post draft:", e);
-            }
-        };
-        const timer = setTimeout(saveDraft, 1000);
+        const timer = setTimeout(() => {
+            saveDraft(false);
+        }, 1500);
         return () => clearTimeout(timer);
     }, [
         loggeduser?._id,
@@ -198,79 +248,85 @@ const NewPost = ({ visible, onHide }) => {
         afterImage,
         location,
         isCollaborative,
-        collaborators
+        collaborators,
+        activeDraftId
     ]);
 
-    const restoreDraft = async () => {
+    const restoreDraft = async (draft) => {
+        if (!draft) return;
         try {
-            const draft = await dbService.getDraft(`draft_${loggeduser._id}`);
-            if (draft) {
-                setFormData(draft.formData || { caption: "", category: "Default" });
-                setBeforeLabel(draft.beforeLabel || 'Before');
-                setAfterLabel(draft.afterLabel || 'After');
-                setBeforeText(draft.beforeText || '');
-                setAfterText(draft.afterText || '');
-                setVisibility(draft.visibility || 'public');
-                setIsAnonymous(draft.isAnonymous || false);
-                setSelectedGoalId(draft.selectedGoalId || null);
-                setIsBeforeAfter(draft.isBeforeAfter || false);
-                setBeforeAfterType(draft.beforeAfterType || 'image');
-                
-                if (draft.images) {
-                    setImages(draft.images.map(img => ({
-                        ...img,
-                        preview: img.file ? URL.createObjectURL(img.file) : img.preview
-                    })));
-                } else {
-                    setImages([]);
-                }
-                
-                if (draft.video) {
-                    setVideo({
-                        ...draft.video,
-                        preview: draft.video.file ? URL.createObjectURL(draft.video.file) : draft.video.preview
-                    });
-                } else {
-                    setVideo(null);
-                }
-                
-                if (draft.beforeImage) {
-                    setBeforeImage({
-                        ...draft.beforeImage,
-                        preview: draft.beforeImage.file ? URL.createObjectURL(draft.beforeImage.file) : draft.beforeImage.preview
-                    });
-                } else {
-                    setBeforeImage(null);
-                }
-                
-                if (draft.afterImage) {
-                    setAfterImage({
-                        ...draft.afterImage,
-                        preview: draft.afterImage.file ? URL.createObjectURL(draft.afterImage.file) : draft.afterImage.preview
-                    });
-                } else {
-                    setAfterImage(null);
-                }
-                
-                setLocation(draft.location || { name: '', lat: null, lng: null });
-                setIsCollaborative(draft.isCollaborative || false);
-                setCollaborators(draft.collaborators || []);
-                setStep(STEPS.FINALIZE);
-                setHasDraft(false);
-                toast.success("Draft restored!");
+            setFormData(draft.formData || { caption: "", category: "Default" });
+            setBeforeLabel(draft.beforeLabel || 'Before');
+            setAfterLabel(draft.afterLabel || 'After');
+            setBeforeText(draft.beforeText || '');
+            setAfterText(draft.afterText || '');
+            setVisibility(draft.visibility || 'public');
+            setIsAnonymous(draft.isAnonymous || false);
+            setSelectedGoalId(draft.selectedGoalId || null);
+            setIsBeforeAfter(draft.isBeforeAfter || false);
+            setBeforeAfterType(draft.beforeAfterType || 'image');
+            
+            if (draft.images) {
+                setImages(draft.images.map((img, idx) => ({
+                    ...img,
+                    id: img.id || `restored_${idx}_${Date.now()}`,
+                    preview: img.file ? URL.createObjectURL(img.file) : img.preview
+                })));
+            } else {
+                setImages([]);
             }
+            
+            if (draft.video) {
+                setVideo({
+                    ...draft.video,
+                    preview: draft.video.file ? URL.createObjectURL(draft.video.file) : draft.video.preview
+                });
+            } else {
+                setVideo(null);
+            }
+            
+            if (draft.beforeImage) {
+                setBeforeImage({
+                    ...draft.beforeImage,
+                    preview: draft.beforeImage.file ? URL.createObjectURL(draft.beforeImage.file) : draft.beforeImage.preview
+                });
+            } else {
+                setBeforeImage(null);
+            }
+            
+            if (draft.afterImage) {
+                setAfterImage({
+                    ...draft.afterImage,
+                    preview: draft.afterImage.file ? URL.createObjectURL(draft.afterImage.file) : draft.afterImage.preview
+                });
+            } else {
+                setAfterImage(null);
+            }
+            
+            setLocation(draft.location || { name: '', lat: null, lng: null });
+            setIsCollaborative(draft.isCollaborative || false);
+            setCollaborators(draft.collaborators || []);
+            setStep(STEPS.FINALIZE);
+            setActiveDraftId(draft.id);
+            useToastStore.getState().show({ message: "Draft restored!", type: "success" });
         } catch (e) {
             console.error("Failed to restore draft:", e);
         }
     };
 
-    const discardDraft = async () => {
+    const deleteDraft = async (draftId) => {
         try {
-            await dbService.removeDraft(`draft_${loggeduser._id}`);
-            setHasDraft(false);
-            toast.success("Draft discarded.");
+            const saved = await dbService.getDraft(`drafts_${loggeduser._id}`);
+            let list = Array.isArray(saved) ? saved : [];
+            list = list.filter(d => d.id !== draftId);
+            await dbService.setDraft(`drafts_${loggeduser._id}`, list);
+            setDrafts(list);
+            if (activeDraftId === draftId) {
+                setActiveDraftId(null);
+            }
+            useToastStore.getState().show({ message: "Draft deleted.", type: "success" });
         } catch (e) {
-            console.error("Failed to discard draft:", e);
+            console.error("Failed to delete draft:", e);
         }
     };
 
@@ -316,15 +372,13 @@ const NewPost = ({ visible, onHide }) => {
         setIsFeedbackRequest(false);
         setFeedbackCategory('general');
         setSelectedGoalId(null);
+        setActiveDraftId(null);
     };
 
     const handleCloseInternal = (force = false) => {
-        const hasContent = images.length > 0 || video || formData.caption.trim() || aiPrompt.trim();
+        const hasContent = images.length > 0 || video || formData.caption.trim() || beforeImage || afterImage || beforeText.trim() || afterText.trim();
         if (!force && hasContent) {
-            if (window.confirm("Discard post? If you leave now, your changes won't be saved.")) {
-                resetState();
-                onHide();
-            }
+            setShowCloseConfirm(true);
         } else {
             resetState();
             onHide();
@@ -2000,17 +2054,14 @@ const NewPost = ({ visible, onHide }) => {
             >
                 <div className="w-full flex flex-col bg-[var(--surface-1)]">
                     {renderHeader()}
-                    {hasDraft && (
+                    {drafts.length > 0 && (
                         <div className="bg-[#6366f1]/10 border-b border-[#6366f1]/20 px-4 py-3 flex items-center justify-between text-xs animate-in slide-in-from-top-2">
                             <span className="text-[var(--text-main)] font-semibold flex items-center gap-1.5">
-                                📝 You have an unsaved draft. Would you like to restore it?
+                                📝 You have unsaved drafts ({drafts.length}/3).
                             </span>
                             <div className="flex gap-2">
-                                <button onClick={restoreDraft} className="bg-[#6366f1] text-white border-0 px-3 py-1.5 rounded-lg font-bold cursor-pointer hover:bg-[#5356e2] transition-colors">
-                                    Restore
-                                </button>
-                                <button onClick={discardDraft} className="bg-transparent border border-red-500/30 text-red-500 px-3 py-1.5 rounded-lg font-bold cursor-pointer hover:bg-red-500/10 transition-colors">
-                                    Discard
+                                <button onClick={() => setShowDraftsListModal(true)} className="bg-[#6366f1] text-white border-0 px-3 py-1.5 rounded-lg font-bold cursor-pointer hover:bg-[#5356e2] transition-colors">
+                                    View Drafts
                                 </button>
                             </div>
                         </div>
@@ -2019,6 +2070,94 @@ const NewPost = ({ visible, onHide }) => {
                         {step === STEPS.SELECT && renderSelect()}
                         {step === STEPS.AI_PROMPT && renderAiPrompt()}
                         {step === STEPS.FINALIZE && renderFinalize()}
+                    </div>
+                </div>
+            </Dialog>
+
+            <Dialog
+                visible={showDraftsListModal}
+                onHide={() => setShowDraftsListModal(false)}
+                header="Saved Drafts"
+                modal
+                style={{ width: '90vw', maxWidth: '500px' }}
+                contentStyle={{ padding: '20px', background: 'var(--surface-1)' }}
+            >
+                <div className="flex flex-col gap-3">
+                    {drafts.map((d) => (
+                        <div key={d.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-[var(--surface-2)]">
+                            <div className="flex flex-col gap-1 min-w-0 flex-1 mr-2">
+                                <span className="font-semibold text-xs text-[var(--text-main)] truncate">
+                                    {d.formData?.caption || d.beforeText || '(No text content)'}
+                                </span>
+                                <span className="text-[var(--text-sub)] text-[10px]">
+                                    Last saved: {new Date(d.updatedAt).toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                                <button
+                                    onClick={() => {
+                                        restoreDraft(d);
+                                        setShowDraftsListModal(false);
+                                    }}
+                                    className="bg-[#6366f1] text-white border-0 px-2.5 py-1.5 rounded-lg font-bold text-xs cursor-pointer hover:bg-[#5356e2] transition"
+                                >
+                                    Restore
+                                </button>
+                                <button
+                                    onClick={() => deleteDraft(d.id)}
+                                    className="bg-transparent border border-red-500/30 text-red-500 px-2.5 py-1.5 rounded-lg font-bold text-xs cursor-pointer hover:bg-red-500/10 transition"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    {drafts.length === 0 && (
+                        <p className="text-[var(--text-sub)] text-xs text-center">No drafts saved.</p>
+                    )}
+                </div>
+            </Dialog>
+
+            <Dialog
+                visible={showCloseConfirm}
+                onHide={() => setShowCloseConfirm(false)}
+                header="Save as draft?"
+                modal
+                style={{ width: '90vw', maxWidth: '400px' }}
+                contentStyle={{ padding: '20px', background: 'var(--surface-1)' }}
+            >
+                <div className="flex flex-col gap-4">
+                    <p className="text-[var(--text-sub)] text-sm m-0">
+                        You have unsaved changes. Would you like to save this post as a draft to continue editing later, or discard it?
+                    </p>
+                    <div className="flex flex-col gap-2">
+                        <button
+                            onClick={async () => {
+                                await saveDraft(true);
+                                resetState();
+                                onHide();
+                                setShowCloseConfirm(false);
+                            }}
+                            className="w-full bg-[#6366f1] text-white border-0 py-2.5 rounded-lg font-bold cursor-pointer hover:bg-[#5356e2] transition-colors text-sm"
+                        >
+                            Save to Draft
+                        </button>
+                        <button
+                            onClick={() => {
+                                resetState();
+                                onHide();
+                                setShowCloseConfirm(false);
+                            }}
+                            className="w-full bg-transparent border border-red-500/30 text-red-500 py-2.5 rounded-lg font-bold cursor-pointer hover:bg-red-500/10 transition-colors text-sm"
+                        >
+                            Discard Post
+                        </button>
+                        <button
+                            onClick={() => setShowCloseConfirm(false)}
+                            className="w-full bg-transparent border border-gray-300 dark:border-gray-700 text-[var(--text-main)] py-2.5 rounded-lg font-bold cursor-pointer hover:bg-[var(--surface-2)] transition-colors text-sm"
+                        >
+                            Keep Editing
+                        </button>
                     </div>
                 </div>
             </Dialog>

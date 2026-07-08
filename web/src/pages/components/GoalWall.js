@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { api } from '../../store/zustand/useAuthStore';
 import PostCard from './ui/PostCard';
 import PostDetail from './PostDetail';

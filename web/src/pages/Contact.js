@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Bg from './components/Bg';
 import { useDarkMode } from '../context/DarkModeContext';
 import { api } from '../store/zustand/useAuthStore';
-import toast from 'react-hot-toast';
+import toast from '../utils/toast.js';
 
 const Contact = () => {
     const { isDark } = useDarkMode();

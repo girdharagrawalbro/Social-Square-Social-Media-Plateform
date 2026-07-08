@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from 'primereact/dialog';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { api } from '../../store/zustand/useAuthStore';
 
 const Graveyard = ({ userId, isOwner }) => {

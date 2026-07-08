@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../store/zustand/useAuthStore';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import toast from 'react-hot-toast';
+import toast from '../utils/toast.js';
 
 // ─── tiny helpers ─────────────────────────────────────────────────────────────
 const fmt = (n) => n?.toLocaleString() ?? '0';

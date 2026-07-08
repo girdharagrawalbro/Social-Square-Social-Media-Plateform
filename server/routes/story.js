@@ -24,12 +24,12 @@ function setIo(io) { _io = io; }
 router.post('/create', verifyToken, [
     body('mediaUrl').isURL().withMessage('Invalid media URL'),
     body('mediaType').isIn(['image', 'video']).withMessage('Invalid media type'),
-    body('sharedPostId').optional().isMongoId(),
-    body('sharedStoryId').optional().isMongoId(),
-    body('mentionIds').optional().isArray(),
-    body('mentionIds.*').optional().isMongoId(),
-    body('poll').optional().isObject(),
-    body('music').optional().isObject(),
+    body('sharedPostId').optional({ nullable: true }).isMongoId(),
+    body('sharedStoryId').optional({ nullable: true }).isMongoId(),
+    body('mentionIds').optional({ nullable: true }).isArray(),
+    body('mentionIds.*').optional({ nullable: true }).isMongoId(),
+    body('poll').optional({ nullable: true }).isObject(),
+    body('music').optional({ nullable: true }).isObject(),
     validate
 ], async (req, res) => {
     try {

@@ -7,7 +7,7 @@ import SkeletonPost from './ui/SkeletonPost';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import ReportDialog from './ui/ReportDialog';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import UserProfile from './UserProfile';
 import FollowFollowingList from './FollowFollowingList';
 import { useDarkMode } from '../../context/DarkModeContext';

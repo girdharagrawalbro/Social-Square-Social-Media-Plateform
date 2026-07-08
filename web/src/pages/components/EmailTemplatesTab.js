@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getToken, api } from '../../store/zustand/useAuthStore';
 import useEmailTemplateStore from '../../store/zustand/useEmailTemplateStore';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { Dialog } from 'primereact/dialog';
 
 export default function EmailTemplatesTab() {

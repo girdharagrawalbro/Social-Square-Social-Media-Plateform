@@ -9,7 +9,7 @@ import { uploadMedia, uploadVideo } from '../../utils/cloudinary';
 import { getFileIcon, formatFileSize } from '../../utils/drive';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
 
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { useSendMessage, useEditMessage, useDeleteMessage, useReactToMessage, useMarkMessagesRead } from '../../hooks/queries/useConversationQueries';
 import PostDetail from './PostDetail';
 // import UserProfile from './UserProfile';

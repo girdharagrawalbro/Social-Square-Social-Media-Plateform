@@ -7,7 +7,7 @@ import { useFollowUser, useUnfollowUser, useCollabInvites, useCancelFollowReques
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import EditProfile from './EditProfile';
 import ActiveSessions from './ActiveSessions';
@@ -1069,7 +1069,7 @@ const Profile = ({ userId }) => {
                 </form>
             </Dialog>
 
-            <Toaster />
+            
         </>
     );
 };

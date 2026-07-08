@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { uploadMedia } from '../../utils/cloudinary';
 
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import ImageCropper from './ui/ImageCropper';
 import { appChannel } from '../../utils/broadcast';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';

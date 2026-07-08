@@ -13,7 +13,7 @@ import {
   decryptSymmetricKeyWithRSA,
   decryptText,
 } from '../../utils/cryptoUtils';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import dbService from '../../utils/indexedDb';
 
 const useE2eeStore = create((set, get) => ({

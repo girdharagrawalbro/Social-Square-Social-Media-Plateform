@@ -3,7 +3,7 @@ import { socket } from '../../socket';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import useE2eeStore from '../../store/zustand/useE2eeStore';
 import { decryptText } from '../../utils/cryptoUtils';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import useConversationStore from '../../store/zustand/useConversationStore';
 import { useConversations, useSearchConversations, useClearChat, useDeleteChat, convoKeys } from '../../hooks/queries/useConversationQueries';
 import { useQueryClient } from '@tanstack/react-query';

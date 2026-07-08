@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { socket } from '../../socket';
 import { api } from '../../store/zustand/useAuthStore';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { LiveKitRoom, RoomAudioRenderer, useTracks, useLocalParticipant, useRemoteParticipants } from '@livekit/components-react';
 import { Track, setLogLevel } from 'livekit-client';
 import '@livekit/components-styles';

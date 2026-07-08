@@ -7,7 +7,7 @@ import SkeletonCommunities from './ui/SkeletonCommunities';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import ReportDialog from './ui/ReportDialog';
 import { confirmDialog } from 'primereact/confirmdialog';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLikePost, useSavePost, useReactPost } from '../../hooks/queries/usePostQueries';
 import { useFollowUser } from '../../hooks/queries/useAuthQueries';

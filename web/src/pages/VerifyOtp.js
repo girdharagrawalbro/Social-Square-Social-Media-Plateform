@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import { getFingerprint } from '../utils/fingerprint';
 import useAuthStore, { setToken } from '../store/zustand/useAuthStore';
 
@@ -133,7 +133,7 @@ const VerifyOtp = () => {
           </div>
         </div>
       </div>
-      <Toaster />
+      
     </>
   );
 };

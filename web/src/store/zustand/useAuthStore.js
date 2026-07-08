@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import axios from 'axios';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import performLogout from '../../utils/performLogout';
 import { appChannel } from "../../utils/broadcast";
 import dbService from '../../utils/indexedDb';

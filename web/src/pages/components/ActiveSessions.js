@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import toast from "react-hot-toast";
+import toast from '../../utils/toast.js';
 import { confirmDialog } from "primereact/confirmdialog";
 import { api } from "../../store/zustand/useAuthStore";
 import SkeletonSessions from "./ui/SkeletonSessions";
@@ -137,7 +137,7 @@ const ActiveSessions = () => {
           </h3>
           <p className="text-xs text-gray-500 mt-1 m-0">
             {twoFaEnabled
-              ? "✅ Enabled — OTP sent to your email on every login"
+              ? "Enabled — OTP sent to your email on every login"
               : "Add an extra layer of security to your account"}
           </p>
         </div>

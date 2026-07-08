@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useGroups, useCreateGroup, useJoinGroup, useLeaveGroup } from '../../hooks/queries/useAuthQueries';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { Dialog } from 'primereact/dialog';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import SkeletonCommunities from './ui/SkeletonCommunities';
 import AccountabilityDashboard from './AccountabilityDashboard';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';

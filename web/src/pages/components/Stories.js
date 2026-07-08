@@ -8,11 +8,12 @@ import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { uploadMedia, uploadVideo, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 import dbService from '../../utils/indexedDb';
+import useToastStore from '../../store/zustand/useToastStore';
 
 import { socket } from '../../socket';
 import usePostStore from '../../store/zustand/usePostStore';
 import LiveStream from './LiveStream';
-import toast from 'react-hot-toast';
+import toast from '../../utils/toast.js';
 import ImageCropper from './ui/ImageCropper';
 import ProgressiveImage from './ui/ProgressiveImage';
 import { getMediaThumbnail } from '../../utils/mediaUtils';
@@ -1181,46 +1182,88 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
     const [textPos, setTextPos] = useState({ x: 50, y: 50 });
     const previewContainerRef = useRef(null);
     const [step, setStep] = useState(1);
-    const [hasDraft, setHasDraft] = useState(false);
+    const [drafts, setDrafts] = useState([]);
+    const [activeDraftId, setActiveDraftId] = useState(null);
+    const [showDraftsListModal, setShowDraftsListModal] = useState(false);
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
     useEffect(() => {
         if (loggeduser?._id) {
-            dbService.getDraft(`story_draft_${loggeduser._id}`).then(draft => {
-                if (draft) setHasDraft(true);
+            dbService.getDraft(`story_drafts_${loggeduser._id}`).then(async (saved) => {
+                let list = Array.isArray(saved) ? saved : [];
+                // Check for legacy single draft
+                const legacy = await dbService.getDraft(`story_draft_${loggeduser._id}`);
+                if (legacy) {
+                    const newDraft = {
+                        id: 'story_draft_' + Date.now(),
+                        updatedAt: Date.now(),
+                        ...legacy
+                    };
+                    list = [newDraft, ...list].slice(0, 3);
+                    await dbService.setDraft(`story_drafts_${loggeduser._id}`, list);
+                    await dbService.removeDraft(`story_draft_${loggeduser._id}`);
+                }
+                setDrafts(list);
             });
         }
     }, [loggeduser?._id]);
 
+    const saveDraft = async (manual = false) => {
+        if (!loggeduser?._id) return;
+        if (!manual && !activeDraftId) return;
+        if (previews.length === 0 && !text && !hasPoll && !selectedMusic) {
+            // Don't save empty drafts
+            return;
+        }
+
+        const draftData = {
+            previews: previews.map(p => ({ file: p.file, type: p.type, url: p.url })),
+            text,
+            textColor,
+            textPosition,
+            visibility,
+            taggedUsers,
+            hasPoll,
+            pollQuestion,
+            pollOption1,
+            pollOption2,
+            selectedMusic,
+            pollPos,
+            textPos,
+            step
+        };
+
+        try {
+            const saved = await dbService.getDraft(`story_drafts_${loggeduser._id}`);
+            let list = Array.isArray(saved) ? saved : [];
+
+            let draftId = activeDraftId;
+            if (draftId) {
+                list = list.map(d => d.id === draftId ? { ...d, updatedAt: Date.now(), ...draftData } : d);
+            } else {
+                draftId = 'story_draft_' + Date.now();
+                const newDraft = {
+                    id: draftId,
+                    updatedAt: Date.now(),
+                    ...draftData
+                };
+                list = [newDraft, ...list].slice(0, 3);
+                setActiveDraftId(draftId);
+            }
+
+            await dbService.setDraft(`story_drafts_${loggeduser._id}`, list);
+            setDrafts(list);
+            if (manual) {
+                useToastStore.getState().show({ message: "Story saved in draft!", type: "success" });
+            }
+        } catch (e) {
+            console.error("Failed to save story draft:", e);
+        }
+    };
+
     useEffect(() => {
         if (!loggeduser?._id) return;
-        const saveDraft = async () => {
-            if (previews.length === 0 && !text && !hasPoll && !selectedMusic) {
-                // Don't save empty drafts
-                return;
-            }
-            const draft = {
-                previews: previews.map(p => ({ file: p.file, type: p.type, url: p.url })),
-                text,
-                textColor,
-                textPosition,
-                visibility,
-                taggedUsers,
-                hasPoll,
-                pollQuestion,
-                pollOption1,
-                pollOption2,
-                selectedMusic,
-                pollPos,
-                textPos,
-                step
-            };
-            try {
-                await dbService.setDraft(`story_draft_${loggeduser._id}`, draft);
-            } catch (e) {
-                console.error("Failed to save story draft:", e);
-            }
-        };
-        const timer = setTimeout(saveDraft, 1000);
+        const timer = setTimeout(saveDraft, 1500);
         return () => clearTimeout(timer);
     }, [
         loggeduser?._id,
@@ -1237,49 +1280,53 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
         selectedMusic,
         pollPos,
         textPos,
-        step
+        step,
+        activeDraftId
     ]);
 
-    const restoreDraft = async () => {
+    const restoreDraft = async (draft) => {
+        if (!draft) return;
         try {
-            const draft = await dbService.getDraft(`story_draft_${loggeduser._id}`);
-            if (draft) {
-                if (draft.previews) {
-                    setPreviews(draft.previews.map(p => ({
-                        ...p,
-                        url: p.file ? URL.createObjectURL(p.file) : p.url
-                    })));
-                } else {
-                    setPreviews([]);
-                }
-                setText(draft.text || '');
-                setTextColor(draft.textColor || '#ffffff');
-                setTextPosition(draft.textPosition || 'center');
-                setVisibility(draft.visibility || 'public');
-                setTaggedUsers(draft.taggedUsers || []);
-                setHasPoll(draft.hasPoll || false);
-                setPollQuestion(draft.pollQuestion || '');
-                setPollOption1(draft.pollOption1 || 'Yes');
-                setPollOption2(draft.pollOption2 || 'No');
-                setSelectedMusic(draft.selectedMusic || null);
-                setPollPos(draft.pollPos || { x: 50, y: 30 });
-                setTextPos(draft.textPos || { x: 50, y: 50 });
-                setStep(draft.step || 1);
-                setHasDraft(false);
-                toast.success("Story draft restored!");
+            if (draft.previews) {
+                setPreviews(draft.previews.map(p => ({
+                    ...p,
+                    url: p.file ? URL.createObjectURL(p.file) : p.url
+                })));
+            } else {
+                setPreviews([]);
             }
+            setText(draft.text || '');
+            setTextColor(draft.textColor || '#ffffff');
+            setTextPosition(draft.textPosition || 'center');
+            setVisibility(draft.visibility || 'public');
+            setTaggedUsers(draft.taggedUsers || []);
+            setHasPoll(draft.hasPoll || false);
+            setPollQuestion(draft.pollQuestion || '');
+            setPollOption1(draft.pollOption1 || 'Yes');
+            setPollOption2(draft.pollOption2 || 'No');
+            setSelectedMusic(draft.selectedMusic || null);
+            setPollPos(draft.pollPos || { x: 50, y: 30 });
+            setTextPos(draft.textPos || { x: 50, y: 50 });
+            setStep(draft.step || 1);
+            setActiveDraftId(draft.id);
+            useToastStore.getState().show({ message: "Story draft restored!", type: "success" });
         } catch (e) {
             console.error("Failed to restore story draft:", e);
         }
     };
-
-    const discardDraft = async () => {
+    const deleteDraft = async (draftId) => {
         try {
-            await dbService.removeDraft(`story_draft_${loggeduser._id}`);
-            setHasDraft(false);
-            toast.success("Story draft discarded.");
+            const saved = await dbService.getDraft(`story_drafts_${loggeduser._id}`);
+            let list = Array.isArray(saved) ? saved : [];
+            list = list.filter(d => d.id !== draftId);
+            await dbService.setDraft(`story_drafts_${loggeduser._id}`, list);
+            setDrafts(list);
+            if (activeDraftId === draftId) {
+                setActiveDraftId(null);
+            }
+            useToastStore.getState().show({ message: "Story draft deleted.", type: "success" });
         } catch (e) {
-            console.error("Failed to discard story draft:", e);
+            console.error("Failed to delete story draft:", e);
         }
     };
 
@@ -1539,488 +1586,351 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                     }
                 }
                 toast.success(sharedPostToUpload ? 'Post shared to story!' : `${previewsToUpload.length} stories created!`, { id: uploadToast });
-                await dbService.removeDraft(`story_draft_${loggeduser._id}`);
+                if (activeDraftId) {
+                    await deleteDraft(activeDraftId);
+                }
             } catch (error) {
                 toast.error('Failed to create story', { id: uploadToast });
             }
         })();
     };
 
+    const handleCancel = () => {
+        const hasContent = previews.length > 0 || text || hasPoll || selectedMusic;
+        if (hasContent) {
+            setShowCloseConfirm(true);
+        } else {
+            onClose();
+        }
+    };
+
     const currentMedia = previews[currentIndex];
 
     return (
-        <Dialog
-            visible={true}
-            onHide={onClose}
-            showHeader={true}
-            header={step === 1 ? `Create Story ${previews.length > 0 ? `(${previews.length})` : ''}` : "Story Settings"}
-            style={{ width: '95vw', maxWidth: '400px' }}
-            modal
-            appendTo={document.body}
-            baseZIndex={10000}
-            draggable={false}
-            resizable={false}
-            contentStyle={{ padding: '20px', background: 'var(--surface-1)', borderRadius: '10px', borderTopRightRadius: '0px', borderTopLeftRadius: '0px' }}
-        >
-            <div className="flex flex-col">
-                {hasDraft && (
-                    <div className="bg-[#808bf5]/10 border border-[#808bf5]/20 px-3 py-2 rounded-xl mb-3 flex items-center justify-between text-xs animate-in slide-in-from-top-2">
-                        <span className="text-[var(--text-main)] font-semibold flex items-center gap-1">
-                            📝 Unsaved draft found
-                        </span>
-                        <div className="flex gap-1.5">
-                            <button onClick={restoreDraft} className="bg-[#808bf5] text-white border-0 px-2.5 py-1.5 rounded-lg font-bold cursor-pointer hover:opacity-95 transition">
-                                Restore
-                            </button>
-                            <button onClick={discardDraft} className="bg-transparent border border-red-500/30 text-red-500 px-2.5 py-1.5 rounded-lg font-bold cursor-pointer hover:bg-red-500/10 transition">
-                                Discard
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                <div style={{ position: 'relative', marginBottom: '16px' }}>
-                    <div
-                        ref={previewContainerRef}
-                        onClick={() => {
-                            const hasContent = previews.length > 0 || sharedPost || sharedStory;
-                            if (hasContent) {
-                                textInputRef.current?.focus();
-                            } else {
-                                fileInputRef.current?.click();
-                            }
-                        }}
-                        style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}
-                    >
-                        {!sharedPost && !sharedStory && previews.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                                style={{
-                                    position: 'absolute',
-                                    top: '4px',
-                                    right: '4px',
-                                    background: '#808bf5',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '20px',
-                                    padding: '6px 12px',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    zIndex: 50,
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                                }}
-                            >
-                                <i className="pi pi-plus" style={{ fontSize: '9px' }}></i>
-                                Add
-                            </button>
-                        )}
-                        {sharedPost ? (
-                            <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
-                                    <img src={sharedPost.user?.profile_picture} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                    <span style={{ fontSize: '11px', fontWeight: 800 }}>{sharedPost.user?.fullname}</span>
-                                </div>
-                                {(sharedPost.image_urls?.[0] || sharedPost.image_url) && (
-                                    <img src={sharedPost.image_urls?.[0] || sharedPost.image_url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '1/1', objectFit: 'cover' }} alt="" />
-                                )}
-                            </div>
-                        ) : sharedStory ? (
-                            <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
-                                    <img src={sharedStory.user?.profile_picture || USER_DEFAULT_IMAGE} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#000' }}>{sharedStory.user?.fullname}</span>
-                                    <span style={{ fontSize: '9px', color: '#666', marginLeft: 'auto' }}>Story</span>
-                                </div>
-                                {sharedStory.media?.url && (
-                                    sharedStory.media.type === 'video' ? (
-                                        <video src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} muted playsInline autoPlay loop />
-                                    ) : (
-                                        <img src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} alt="" />
-                                    )
-                                )}
-                            </div>
-                        ) : currentMedia ? (
-                            currentMedia.type === 'video'
-                                ? <video src={currentMedia.url} style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'contain' }} controls />
-                                : <img src={currentMedia.url} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'contain' }} />
-                        ) : (
-                            <div className="flex flex-col items-center gap-4">
-                                <p style={{ fontSize: '32px', margin: 0 }}>📸</p>
-                                <p style={{ color: 'var(--text-sub)', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p>
-                            </div>
-                        )}
-                        {(currentMedia || sharedPost || sharedStory) && text && (
-                            <div
-                                onPointerDown={(e) => handlePointerDown(e, 'text')}
-                                style={{
-                                    position: 'absolute',
-                                    top: `${textPos.y}%`,
-                                    left: `${textPos.x}%`,
-                                    transform: 'translate(-50%, -50%)',
-                                    color: textColor,
-                                    fontSize: '18px',
-                                    fontWeight: 700,
-                                    textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                                    pointerEvents: 'auto',
-                                    cursor: 'move',
-                                    userSelect: 'none',
-                                    touchAction: 'none',
-                                    width: '90%',
-                                    textAlign: 'center',
-                                    zIndex: 10
-                                }}
-                            >
-                                {text}
-                            </div>
-                        )}
-                        {hasPoll && (
-                            <div
-                                onPointerDown={(e) => handlePointerDown(e, 'poll')}
-                                style={{
-                                    position: 'absolute',
-                                    top: `${pollPos.y}%`,
-                                    left: `${pollPos.x}%`,
-                                    transform: 'translate(-50%, -50%)',
-                                    background: 'rgba(255,255,255,0.95)',
-                                    backdropFilter: 'blur(10px)',
-                                    borderRadius: '14px',
-                                    padding: '8px',
-                                    width: '60%',
-                                    zIndex: 12,
-                                    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-                                    pointerEvents: 'auto',
-                                    cursor: 'move',
-                                    userSelect: 'none',
-                                    touchAction: 'none',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '8px',
-                                    border: '1px solid rgba(255,255,255,0.3)'
-                                }}
-                            >
-                                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000', textAlign: 'center', wordBreak: 'break-word', textShadow: 'none' }}>
-                                    {pollQuestion || "Ask a question..."}
-                                </div>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                    <div style={{ flex: 1, padding: '4px', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: '#808bf5', textAlign: 'center' }}>
-                                        {pollOption1 || "Yes"}
-                                    </div>
-                                    <div style={{ flex: 1, padding: '4px', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: '#808bf5', textAlign: 'center' }}>
-                                        {pollOption2 || "No"}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        {selectedMusic && (
-                            <div style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)', borderRadius: '20px', padding: '6px 12px', zIndex: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%' }}>
-                                <span style={{ fontSize: '10px' }}>🎵</span>
-                                <div style={{ fontSize: '9px', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {selectedMusic.title} • {selectedMusic.artist}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    {previews.length > 1 && (
-                        <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', marginTop: '8px', paddingBottom: '4px' }}>
-                            {previews.map((p, i) => (
-                                <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-                                    {p.type === 'video' ? (
-                                        <video
-                                            src={p.url}
-                                            onClick={() => setCurrentIndex(i)}
-                                            style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
-                                        />
-                                    ) : (
-                                        <img
-                                            src={p.url}
-                                            onClick={() => setCurrentIndex(i)}
-                                            style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
-                                            alt=""
-                                        />
-                                    )}
-                                    <button onClick={(e) => { e.stopPropagation(); removePreview(i); }} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
-
-                {step === 1 && (
-                    <>
-                        <div style={{ position: 'relative' }}>
-                            <MentionSuggestions
-                                text={text}
-                                cursorPosition={cursorPosition}
-                                onSelect={(val) => {
-                                    setText(val);
-                                    if (textInputRef.current) {
-                                        textInputRef.current.focus();
-                                    }
-                                }}
-                            />
-                            <input
-                                ref={textInputRef}
-                                type="text"
-                                placeholder="Add text overlay (optional)"
-                                value={text}
-                                onChange={e => {
-                                    setText(e.target.value);
-                                    setCursorPosition(e.target.selectionStart);
-                                }}
-                                onKeyUp={e => setCursorPosition(e.target.selectionStart)}
-                                onSelect={e => setCursorPosition(e.target.selectionStart)}
-                                onClick={e => setCursorPosition(e.target.selectionStart)}
-                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px', background: 'transparent', color: 'var(--text-main)' }}
-                            />
-                        </div>
-                        {text && (
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                                {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'].map(color => (
-                                    <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid var(--primary)' : '2px solid var(--border-color)', cursor: 'pointer' }} />
-                                ))}
-                                <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', color: 'var(--text-main)', outline: 'none' }}>
-                                    <option value="top" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Top</option>
-                                    <option value="center" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Center</option>
-                                    <option value="bottom" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Bottom</option>
-                                </select>
-                            </div>
-                        )}
-
-                        <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                                        📊 Poll Sticker
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setHasPoll(!hasPoll)}
-                                        style={{ background: hasPoll ? '#ef4444' : '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-                                    >
-                                        {hasPoll ? 'Remove' : 'Add Poll'}
-                                    </button>
-                                </div>
-                                {hasPoll && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                                        <input
-                                            type="text"
-                                            placeholder="Ask a question..."
-                                            value={pollQuestion}
-                                            onChange={(e) => setPollQuestion(e.target.value)}
-                                            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
-                                        />
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <input
-                                                type="text"
-                                                placeholder="Yes"
-                                                value={pollOption1}
-                                                onChange={(e) => setPollOption1(e.target.value)}
-                                                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="No"
-                                                value={pollOption2}
-                                                onChange={(e) => setPollOption2(e.target.value)}
-                                                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px' }}>
-                                <div className='flex gap-1 items-center'>
-                                    <select
-                                        value={selectedMusic ? selectedMusic.title : ''}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            const found = AUDIO_PRESETS.find(a => a.title === val);
-                                            setSelectedMusic(found || null);
-                                        }}
-                                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}
-                                    >
-                                        <option value="">🎵 Background Music</option>
-                                        {AUDIO_PRESETS.map((track) => (
-                                            <option key={track.title} value={track.title}>
-                                                {track.title} (by {track.artist})
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                    {selectedMusic && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedMusic(null)}
-                                            style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', padding: '7px 8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-                                        >
-                                            Remove
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => setStep(2)}
-                            disabled={previews.length === 0 && !sharedPost && !sharedStory}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                background: 'var(--primary)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                fontWeight: 600,
-                                fontSize: '14px',
-                                opacity: (previews.length === 0 && !sharedPost && !sharedStory) ? 0.6 : 1
-                            }}
-                        >
-                            Next
-                        </button>
-
-                        {/* Ephemeral Stream action (Go Live) inside Story popup */}
-                        {!sharedPost && !sharedStory && previews.length === 0 && (
-                            <div className='mt-2'>
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const { api } = await import('../../store/zustand/useAuthStore');
-                                            const res = await api.post('/api/live/start', { title: `${loggeduser?.fullname}'s Live Stream` });
-                                            const stream = res.data;
-                                            const { setLiveStream } = require('../../store/zustand/usePostStore').default.getState();
-                                            setLiveStream(stream._id, true);
-                                            toast.success('Live stream started successfully!');
-                                            onClose();
-                                        } catch (err) {
-                                            console.error('Failed to start stream:', err);
-                                            toast.error(err.response?.data?.error || 'Could not start live stream');
-                                        }
-                                    }}
-                                    className="bg-gradient-to-tr from-rose-500 to-red-600 text-white font-bold cursor-pointer"
-                                    style={{
-                                        width: '100%', padding: '10px', border: 'none', borderRadius: '10px',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                        boxShadow: '0 4px 14px rgba(244,63,94,0.3)', fontSize: '14px'
-                                    }}
-                                >
-                                    <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
-                                    Go Live
+        <>
+            <Dialog
+                visible={true}
+                onHide={handleCancel}
+                showHeader={true}
+                header={step === 1 ? `Create Story ${previews.length > 0 ? `(${previews.length})` : ''}` : "Story Settings"}
+                style={{ width: '95vw', maxWidth: '400px' }}
+                modal
+                dismissableMask={true}
+                appendTo={document.body}
+                baseZIndex={10000}
+                draggable={false}
+                resizable={false}
+                contentStyle={{ padding: '10px', paddingTop: '0px', background: 'var(--surface-1)', borderRadius: '10px', borderTopRightRadius: '0px', borderTopLeftRadius: '0px' }}
+            >
+                <div className="flex flex-col">
+                    {drafts.length > 0 && (
+                        <div className="bg-[#808bf5]/10 border border-[#808bf5]/20 px-3 py-2 rounded-xl mb-3 flex items-center justify-between text-xs animate-in slide-in-from-top-2">
+                            <span className="text-[var(--text-main)] font-semibold flex items-center gap-1">
+                                📝 Unsaved drafts ({drafts.length}/3)
+                            </span>
+                            <div className="flex gap-1.5">
+                                <button onClick={() => setShowDraftsListModal(true)} className="bg-[#808bf5] text-white border-0 px-2.5 py-1.5 rounded-lg font-bold cursor-pointer hover:opacity-95 transition">
+                                    View Drafts
                                 </button>
                             </div>
-                        )}
-                    </>
-                )}
+                        </div>
+                    )}
 
-                {step === 2 && (
-                    <>
-                        <div style={{ marginBottom: '12px' }}>
-                            <button
-                                type="button"
-                                onClick={() => setOpenTagPanel(v => !v)}
-                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', background: 'var(--surface-2)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <i className="pi pi-user-plus" style={{ fontSize: '12px' }}></i>
-                                    {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag People"}
-                                </span>
-                                <i className={`pi pi-chevron-${openTagPanel ? 'up' : 'down'}`} style={{ marginLeft: 'auto', fontSize: '10px' }}></i>
-                            </button>
-                            {openTagPanel && (
-                                <div style={{ marginTop: '8px', padding: '10px', background: 'var(--surface-2)', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <div style={{ position: 'relative' }}>
-                                        <i className="pi pi-search" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', fontSize: '11px' }}></i>
-                                        <input
-                                            type="text"
-                                            placeholder="Search users to tag..."
-                                            value={tagSearchTerm}
-                                            onChange={(e) => handleSearchTags(e.target.value)}
-                                            style={{ width: '100%', padding: '6px 12px 6px 28px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box', outline: 'none' }}
-                                        />
-                                        {isSearchingTags && <i className="pi pi-spin pi-spinner" style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: '#808bf5' }}></i>}
+                    <div style={{ position: 'relative', marginBottom: '16px' }}>
+                        <div
+                            ref={previewContainerRef}
+                            onClick={() => {
+                                const hasContent = previews.length > 0 || sharedPost || sharedStory;
+                                if (hasContent) {
+                                    textInputRef.current?.focus();
+                                } else {
+                                    fileInputRef.current?.click();
+                                }
+                            }}
+                            style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '10px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-2)', minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}
+                        >
+                            {!sharedPost && !sharedStory && previews.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '4px',
+                                        right: '4px',
+                                        background: '#808bf5',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '20px',
+                                        padding: '6px 12px',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        zIndex: 50,
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                                    }}
+                                >
+                                    <i className="pi pi-plus" style={{ fontSize: '9px' }}></i>
+                                    Add
+                                </button>
+                            )}
+                            {sharedPost ? (
+                                <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
+                                        <img src={sharedPost.user?.profile_picture} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                        <span style={{ fontSize: '11px', fontWeight: 800 }}>{sharedPost.user?.fullname}</span>
                                     </div>
-                                    {tagSearchResults.length > 0 && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto', background: 'var(--surface-1)', borderRadius: '6px', border: '1px solid var(--border-color)', padding: '4px' }}>
-                                            {tagSearchResults.map(user => (
-                                                <div
-                                                    key={user._id}
-                                                    onClick={() => addTagUser(user)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
-                                                    className="hover:bg-white/5"
-                                                >
-                                                    <img src={user.profile_picture} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-main)' }}>{user.fullname}</span>
-                                                        <span style={{ fontSize: '9px', color: 'var(--text-sub)' }}>@{user.username}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    {(sharedPost.image_urls?.[0] || sharedPost.image_url) && (
+                                        <img src={sharedPost.image_urls?.[0] || sharedPost.image_url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '1/1', objectFit: 'cover' }} alt="" />
                                     )}
-                                    {taggedUsers.length > 0 && (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
-                                            {taggedUsers.map(user => (
-                                                <div key={user._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--surface-1)', border: '1px solid rgba(128, 139, 245, 0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>
-                                                    <span>@{user.username}</span>
-                                                    <button onClick={() => removeTagUser(user._id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, fontSize: '9px', display: 'flex', alignItems: 'center' }}>✕</button>
-                                                </div>
-                                            ))}
-                                        </div>
+                                </div>
+                            ) : sharedStory ? (
+                                <div style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.95)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
+                                        <img src={sharedStory.user?.profile_picture || USER_DEFAULT_IMAGE} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#000' }}>{sharedStory.user?.fullname}</span>
+                                        <span style={{ fontSize: '9px', color: '#666', marginLeft: 'auto' }}>Story</span>
+                                    </div>
+                                    {sharedStory.media?.url && (
+                                        sharedStory.media.type === 'video' ? (
+                                            <video src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} muted playsInline autoPlay loop />
+                                        ) : (
+                                            <img src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} alt="" />
+                                        )
                                     )}
+                                </div>
+                            ) : currentMedia ? (
+                                currentMedia.type === 'video'
+                                    ? <video src={currentMedia.url} style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'contain' }} controls />
+                                    : <img src={currentMedia.url} alt="" style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'contain' }} />
+                            ) : (
+                                <div className="flex flex-col items-center gap-4">
+                                    <p style={{ fontSize: '32px', margin: 0 }}>📸</p>
+                                    <p style={{ color: 'var(--text-sub)', fontSize: '13px', margin: '8px 0 0' }}>Tap to add photo or video</p>
+                                </div>
+                            )}
+                            {(currentMedia || sharedPost || sharedStory) && text && (
+                                <div
+                                    onPointerDown={(e) => handlePointerDown(e, 'text')}
+                                    style={{
+                                        position: 'absolute',
+                                        top: `${textPos.y}%`,
+                                        left: `${textPos.x}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        color: textColor,
+                                        fontSize: '18px',
+                                        fontWeight: 700,
+                                        textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                                        pointerEvents: 'auto',
+                                        cursor: 'move',
+                                        userSelect: 'none',
+                                        touchAction: 'none',
+                                        width: '90%',
+                                        textAlign: 'center',
+                                        zIndex: 10
+                                    }}
+                                >
+                                    {text}
+                                </div>
+                            )}
+                            {hasPoll && (
+                                <div
+                                    onPointerDown={(e) => handlePointerDown(e, 'poll')}
+                                    style={{
+                                        position: 'absolute',
+                                        top: `${pollPos.y}%`,
+                                        left: `${pollPos.x}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        background: 'rgba(255,255,255,0.95)',
+                                        backdropFilter: 'blur(10px)',
+                                        borderRadius: '14px',
+                                        padding: '8px',
+                                        width: '60%',
+                                        zIndex: 12,
+                                        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                                        pointerEvents: 'auto',
+                                        cursor: 'move',
+                                        userSelect: 'none',
+                                        touchAction: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px',
+                                        border: '1px solid rgba(255,255,255,0.3)'
+                                    }}
+                                >
+                                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000', textAlign: 'center', wordBreak: 'break-word', textShadow: 'none' }}>
+                                        {pollQuestion || "Ask a question..."}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <div style={{ flex: 1, padding: '4px', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: '#808bf5', textAlign: 'center' }}>
+                                            {pollOption1 || "Yes"}
+                                        </div>
+                                        <div style={{ flex: 1, padding: '4px', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: '#808bf5', textAlign: 'center' }}>
+                                            {pollOption2 || "No"}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {selectedMusic && (
+                                <div style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)', borderRadius: '20px', padding: '6px 12px', zIndex: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%' }}>
+                                    <span style={{ fontSize: '10px' }}>🎵</span>
+                                    <div style={{ fontSize: '9px', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {selectedMusic.title} • {selectedMusic.artist}
+                                    </div>
                                 </div>
                             )}
                         </div>
-
-                        <div style={{ marginBottom: '12px' }}>
-                            <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <i className="pi pi-eye" style={{ fontSize: '12px' }}></i>
-                                    Visibility
-                                </span>
-                                <select
-                                    value={visibility}
-                                    onChange={(e) => setVisibility(e.target.value)}
-                                    style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
-                                >
-                                    <option value="public" style={{ background: 'var(--surface-1)' }}>🌐 Public</option>
-                                    <option value="followers" style={{ background: 'var(--surface-1)' }}>👥 Followers Only</option>
-                                    <option value="close_friends" style={{ background: 'var(--surface-1)' }}>🟢 Close Friends</option>
-                                </select>
+                        {previews.length > 1 && (
+                            <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', marginTop: '8px', paddingBottom: '4px' }}>
+                                {previews.map((p, i) => (
+                                    <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                                        {p.type === 'video' ? (
+                                            <video
+                                                src={p.url}
+                                                onClick={() => setCurrentIndex(i)}
+                                                style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                                            />
+                                        ) : (
+                                            <img
+                                                src={p.url}
+                                                onClick={() => setCurrentIndex(i)}
+                                                style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', border: i === currentIndex ? '2px solid var(--primary)' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                                                alt=""
+                                            />
+                                        )}
+                                        <button onClick={(e) => { e.stopPropagation(); removePreview(i); }} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
+                        )}
+                    </div>
 
-                        <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                    <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
+
+                    {step === 1 && (
+                        <>
+                            <div style={{ position: 'relative' }}>
+                                <MentionSuggestions
+                                    text={text}
+                                    cursorPosition={cursorPosition}
+                                    onSelect={(val) => {
+                                        setText(val);
+                                        if (textInputRef.current) {
+                                            textInputRef.current.focus();
+                                        }
+                                    }}
+                                />
+                                <input
+                                    ref={textInputRef}
+                                    type="text"
+                                    placeholder="Add text overlay (optional)"
+                                    value={text}
+                                    onChange={e => {
+                                        setText(e.target.value);
+                                        setCursorPosition(e.target.selectionStart);
+                                    }}
+                                    onKeyUp={e => setCursorPosition(e.target.selectionStart)}
+                                    onSelect={e => setCursorPosition(e.target.selectionStart)}
+                                    onClick={e => setCursorPosition(e.target.selectionStart)}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', boxSizing: 'border-box', marginBottom: '12px', background: 'transparent', color: 'var(--text-main)' }}
+                                />
+                            </div>
+                            {text && (
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                                    {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'].map(color => (
+                                        <button key={color} onClick={() => setTextColor(color)} style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: textColor === color ? '3px solid var(--primary)' : '2px solid var(--border-color)', cursor: 'pointer' }} />
+                                    ))}
+                                    <select value={textPosition} onChange={e => setTextPosition(e.target.value)} style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'transparent', color: 'var(--text-main)', outline: 'none' }}>
+                                        <option value="top" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Top</option>
+                                        <option value="center" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Center</option>
+                                        <option value="bottom" style={{ background: 'var(--surface-1)', color: 'var(--text-main)' }}>Bottom</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
+                                            📊 Poll Sticker
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setHasPoll(!hasPoll)}
+                                            style={{ background: hasPoll ? '#ef4444' : '#808bf5', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                                        >
+                                            {hasPoll ? 'Remove' : 'Add Poll'}
+                                        </button>
+                                    </div>
+                                    {hasPoll && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Ask a question..."
+                                                value={pollQuestion}
+                                                onChange={(e) => setPollQuestion(e.target.value)}
+                                                style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
+                                            />
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Yes"
+                                                    value={pollOption1}
+                                                    onChange={(e) => setPollOption1(e.target.value)}
+                                                    style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="No"
+                                                    value={pollOption2}
+                                                    onChange={(e) => setPollOption2(e.target.value)}
+                                                    style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box' }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px' }}>
+                                    <div className='flex gap-1 items-center'>
+                                        <select
+                                            value={selectedMusic ? selectedMusic.title : ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                const found = AUDIO_PRESETS.find(a => a.title === val);
+                                                setSelectedMusic(found || null);
+                                            }}
+                                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}
+                                        >
+                                            <option value="">🎵 Background Music</option>
+                                            {AUDIO_PRESETS.map((track) => (
+                                                <option key={track.title} value={track.title}>
+                                                    {track.title} (by {track.artist})
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        {selectedMusic && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedMusic(null)}
+                                                style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', padding: '7px 8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             <button
                                 type="button"
-                                onClick={() => setStep(1)}
+                                onClick={() => setStep(2)}
+                                disabled={previews.length === 0 && !sharedPost && !sharedStory}
                                 style={{
-                                    flex: 1,
-                                    padding: '10px',
-                                    background: 'var(--surface-3)',
-                                    color: 'var(--text-main)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '10px',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '14px'
-                                }}
-                            >
-                                Back
-                            </button>
-                            <button
-                                onClick={handleSubmit}
-                                disabled={uploading || (previews.length === 0 && !sharedPost && !sharedStory)}
-                                style={{
-                                    flex: 2,
+                                    width: '100%',
                                     padding: '10px',
                                     background: 'var(--primary)',
                                     color: '#fff',
@@ -2029,25 +1939,264 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                                     cursor: 'pointer',
                                     fontWeight: 600,
                                     fontSize: '14px',
-                                    opacity: (uploading || (previews.length === 0 && !sharedPost && !sharedStory)) ? 0.6 : 1
+                                    opacity: (previews.length === 0 && !sharedPost && !sharedStory) ? 0.6 : 1
                                 }}
                             >
-                                {uploading ? 'Uploading...' : (sharedPost || sharedStory) ? 'Share to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
+                                Next
                             </button>
-                        </div>
-                    </>
+
+                            {/* Ephemeral Stream action (Go Live) inside Story popup */}
+                            {!sharedPost && !sharedStory && previews.length === 0 && (
+                                <div className='mt-2'>
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                const { api } = await import('../../store/zustand/useAuthStore');
+                                                const res = await api.post('/api/live/start', { title: `${loggeduser?.fullname}'s Live Stream` });
+                                                const stream = res.data;
+                                                const { setLiveStream } = require('../../store/zustand/usePostStore').default.getState();
+                                                setLiveStream(stream._id, true);
+                                                toast.success('Live stream started successfully!');
+                                                onClose();
+                                            } catch (err) {
+                                                console.error('Failed to start stream:', err);
+                                                toast.error(err.response?.data?.error || 'Could not start live stream');
+                                            }
+                                        }}
+                                        className="bg-gradient-to-tr from-rose-500 to-red-600 text-white font-bold cursor-pointer"
+                                        style={{
+                                            width: '100%', padding: '10px', border: 'none', borderRadius: '10px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                            boxShadow: '0 4px 14px rgba(244,63,94,0.3)', fontSize: '14px'
+                                        }}
+                                    >
+                                        <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
+                                        Go Live
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {step === 2 && (
+                        <>
+                            <div style={{ marginBottom: '12px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setOpenTagPanel(v => !v)}
+                                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px', background: 'var(--surface-2)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <i className="pi pi-user-plus" style={{ fontSize: '12px' }}></i>
+                                        {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag People"}
+                                    </span>
+                                    <i className={`pi pi-chevron-${openTagPanel ? 'up' : 'down'}`} style={{ marginLeft: 'auto', fontSize: '10px' }}></i>
+                                </button>
+                                {openTagPanel && (
+                                    <div style={{ marginTop: '8px', padding: '10px', background: 'var(--surface-2)', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ position: 'relative' }}>
+                                            <i className="pi pi-search" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', fontSize: '11px' }}></i>
+                                            <input
+                                                type="text"
+                                                placeholder="Search users to tag..."
+                                                value={tagSearchTerm}
+                                                onChange={(e) => handleSearchTags(e.target.value)}
+                                                style={{ width: '100%', padding: '6px 12px 6px 28px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', boxSizing: 'border-box', outline: 'none' }}
+                                            />
+                                            {isSearchingTags && <i className="pi pi-spin pi-spinner" style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: '#808bf5' }}></i>}
+                                        </div>
+                                        {tagSearchResults.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto', background: 'var(--surface-1)', borderRadius: '6px', border: '1px solid var(--border-color)', padding: '4px' }}>
+                                                {tagSearchResults.map(user => (
+                                                    <div
+                                                        key={user._id}
+                                                        onClick={() => addTagUser(user)}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
+                                                        className="hover:bg-white/5"
+                                                    >
+                                                        <img src={user.profile_picture} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-main)' }}>{user.fullname}</span>
+                                                            <span style={{ fontSize: '9px', color: 'var(--text-sub)' }}>@{user.username}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {taggedUsers.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+                                                {taggedUsers.map(user => (
+                                                    <div key={user._id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--surface-1)', border: '1px solid rgba(128, 139, 245, 0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>
+                                                        <span>@{user.username}</span>
+                                                        <button onClick={() => removeTagUser(user._id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, fontSize: '9px', display: 'flex', alignItems: 'center' }}>✕</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ marginBottom: '12px' }}>
+                                <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <i className="pi pi-eye" style={{ fontSize: '12px' }}></i>
+                                        Visibility
+                                    </span>
+                                    <select
+                                        value={visibility}
+                                        onChange={(e) => setVisibility(e.target.value)}
+                                        style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
+                                    >
+                                        <option value="public" style={{ background: 'var(--surface-1)' }}>🌐 Public</option>
+                                        <option value="followers" style={{ background: 'var(--surface-1)' }}>👥 Followers Only</option>
+                                        <option value="close_friends" style={{ background: 'var(--surface-1)' }}>🟢 Close Friends</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(1)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px',
+                                        background: 'var(--surface-3)',
+                                        color: 'var(--text-main)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={uploading || (previews.length === 0 && !sharedPost && !sharedStory)}
+                                    style={{
+                                        flex: 2,
+                                        padding: '10px',
+                                        background: 'var(--primary)',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        fontSize: '14px',
+                                        opacity: (uploading || (previews.length === 0 && !sharedPost && !sharedStory)) ? 0.6 : 1
+                                    }}
+                                >
+                                    {uploading ? 'Uploading...' : (sharedPost || sharedStory) ? 'Share to Story' : `Share ${previews.length > 1 ? previews.length + ' Stories' : 'Story'}`}
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+                {croppingState.visible && (
+                    <ImageCropper
+                        image={croppingState.imageSrc}
+                        visible={croppingState.visible}
+                        initialAspect={9 / 16}
+                        onCropComplete={handleCropComplete}
+                        onCancel={() => setCroppingState({ visible: false, imageSrc: null, pendingFiles: [] })}
+                    />
                 )}
-            </div>
-            {croppingState.visible && (
-                <ImageCropper
-                    image={croppingState.imageSrc}
-                    visible={croppingState.visible}
-                    initialAspect={9 / 16}
-                    onCropComplete={handleCropComplete}
-                    onCancel={() => setCroppingState({ visible: false, imageSrc: null, pendingFiles: [] })}
-                />
-            )}
-        </Dialog>
+            </Dialog>
+
+            <Dialog
+                visible={showDraftsListModal}
+                onHide={() => setShowDraftsListModal(false)}
+                header="Saved Story Drafts"
+                modal
+                style={{ width: '90vw', maxWidth: '500px' }}
+                contentStyle={{ padding: '10px', paddingTop: '0px', background: 'var(--surface-1)' }}
+                appendTo={document.body}
+            >
+                <div className="flex flex-col gap-3">
+                    {drafts.map((d) => (
+                        <div key={d.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-[var(--surface-2)]">
+                            <div className="flex flex-col gap-1 min-w-0 flex-1 mr-2">
+                                <span className="font-semibold text-xs text-[var(--text-main)] truncate">
+                                    {d.text || `Story draft with ${d.previews?.length || 0} media item(s)`}
+                                </span>
+                                <span className="text-[var(--text-sub)] text-[10px]">
+                                    Last saved: {new Date(d.updatedAt).toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                                <button
+                                    onClick={() => {
+                                        restoreDraft(d);
+                                        setShowDraftsListModal(false);
+                                    }}
+                                    className="bg-[#808bf5] text-white border-0 px-2.5 py-1.5 rounded-lg font-bold text-xs cursor-pointer hover:opacity-95 transition"
+                                >
+                                    Restore
+                                </button>
+                                <button
+                                    onClick={() => deleteDraft(d.id)}
+                                    className="bg-transparent border border-red-500/30 text-red-500 px-2.5 py-1.5 rounded-lg font-bold text-xs cursor-pointer hover:bg-red-500/10 transition"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    {drafts.length === 0 && (
+                        <p className="text-[var(--text-sub)] text-xs text-center">No drafts saved.</p>
+                    )}
+                </div>
+            </Dialog>
+
+            <Dialog
+                visible={showCloseConfirm}
+                onHide={() => setShowCloseConfirm(false)}
+                header="Save as draft?"
+                modal
+                style={{ width: '90vw', maxWidth: '400px' }}
+                contentStyle={{ padding: '20px', background: 'var(--surface-1)' }}
+                appendTo={document.body}
+            >
+                <div className="flex flex-col gap-4">
+                    <p className="text-[var(--text-sub)] text-sm m-0">
+                        You have unsaved changes. Would you like to save this story as a draft to continue editing later, or discard it?
+                    </p>
+                    <div className="flex flex-col gap-2">
+                        <button
+                            onClick={async () => {
+                                await saveDraft(true);
+                                onClose();
+                                setShowCloseConfirm(false);
+                            }}
+                            className="w-full bg-[#808bf5] text-white border-0 py-2.5 rounded-lg font-bold cursor-pointer hover:opacity-95 transition-colors text-sm"
+                        >
+                            Save to Draft
+                        </button>
+                        <button
+                            onClick={async () => {
+                                if (activeDraftId) {
+                                    await deleteDraft(activeDraftId);
+                                }
+                                onClose();
+                                setShowCloseConfirm(false);
+                            }}
+                            className="w-full bg-transparent border border-red-500/30 text-red-500 py-2.5 rounded-lg font-bold cursor-pointer hover:bg-red-500/10 transition-colors text-sm"
+                        >
+                            Discard Story
+                        </button>
+                        <button
+                            onClick={() => setShowCloseConfirm(false)}
+                            className="w-full bg-transparent border border-gray-300 dark:border-gray-700 text-[var(--text-main)] py-2.5 rounded-lg font-bold cursor-pointer hover:bg-[var(--surface-2)] transition-colors text-sm"
+                        >
+                            Keep Editing
+                        </button>
+                    </div>
+                </div>
+            </Dialog>
+        </>
     );
 };
 
@@ -2114,7 +2263,7 @@ const Stories = () => {
             socket.off('liveStreamStarted', handleLiveStarted);
             socket.off('liveStreamEnded', handleLiveEnded);
         };
-    }, [initialized, loggeduser]);
+    }, [initialized, loggeduser?._id]);
 
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {

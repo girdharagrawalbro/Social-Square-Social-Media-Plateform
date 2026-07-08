@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Toaster, toast } from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import useAuthStore from '../store/zustand/useAuthStore';
 
 const VerifyEmail = () => {
@@ -147,7 +147,7 @@ const VerifyEmail = () => {
                     </>
                 )}
             </div>
-            <Toaster position="top-center" />
+            
         </div>
     );
 };

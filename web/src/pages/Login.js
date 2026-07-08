@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Bg from './components/Bg';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import { encryptPassword } from '../utils/crypto';
 import { getFingerprint } from '../utils/fingerprint';
 import useAuthStore from '../store/zustand/useAuthStore';
@@ -124,7 +124,7 @@ const Login = () => {
 
                 </div>
             </Bg>
-            <Toaster />
+            
         </>
     );
 };

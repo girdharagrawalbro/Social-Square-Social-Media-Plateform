@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { api } from '../store/zustand/useAuthStore';
 import useAuthStore from '../store/zustand/useAuthStore';
 import usePostStore from '../store/zustand/usePostStore';
-import toast from 'react-hot-toast';
+import toast from '../utils/toast.js';
 import { USER_DEFAULT_IMAGE } from '../utils/constantMediaVariable';
 
 function timeAgo(dateStr) {

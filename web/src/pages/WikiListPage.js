@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { api } from '../store/zustand/useAuthStore';
-import toast from 'react-hot-toast';
+import toast from '../utils/toast.js';
 
 
 
