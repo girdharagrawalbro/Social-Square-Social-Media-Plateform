@@ -1246,12 +1246,26 @@ const ChatPanel = ({
 
     const activeUploadsRef = useRef({});
 
+    // Use a ref so sendMessageMut doesn't recreate this callback every render
+    const sendMessageMutRef = useRef(null);
+    sendMessageMutRef.current = sendMessageMut;
+
     const retryPendingMessages = useCallback(async (specificTempId = null) => {
         let pending = await dbService.getAllPending();
         if (!pending || pending.length === 0) return;
-        if (specificTempId) {
-            pending = pending.filter(msg => msg.tempId === specificTempId);
-        }
+        // Only retry messages for the current conversation/recipient
+        pending = pending.filter(msg => {
+            if (specificTempId) return msg.tempId === specificTempId;
+            // Filter to current context
+            if (participantId && msg.recipientId) {
+                return String(msg.recipientId) === String(participantId);
+            }
+            if (conversationIdRef.current && msg.conversationId) {
+                return String(msg.conversationId) === String(conversationIdRef.current);
+            }
+            return false;
+        });
+        if (!pending.length) return;
 
         for (const msg of pending) {
             setMessages(prev => prev.map(m => m._id === msg.tempId ? { ...m, isOptimistic: true, uploadFailed: false, uploadProgress: 10 } : m));
@@ -1295,7 +1309,7 @@ const ChatPanel = ({
                     }
                 }
 
-                const res = await sendMessageMut.mutateAsync({
+                const res = await sendMessageMutRef.current.mutateAsync({
                     conversationId: msg.conversationId || conversationIdRef.current || conversationId,
                     content: msg.content,
                     recipientId: msg.recipientId,
@@ -1327,7 +1341,8 @@ const ChatPanel = ({
                 setMessages(prev => prev.map(m => m._id === msg.tempId ? { ...m, uploadFailed: true, isOptimistic: false } : m));
             }
         }
-    }, [sendMessageMut, user?._id, user?.fullname, conversationId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [participantId, conversationId]);
 
     const handleCancelUpload = (tempId) => {
         const controller = activeUploadsRef.current[tempId];
@@ -1348,11 +1363,8 @@ const ChatPanel = ({
         return () => window.removeEventListener('online', retryPendingMessages);
     }, [retryPendingMessages]);
 
-    useEffect(() => {
-        if (user?._id) {
-            retryPendingMessages();
-        }
-    }, [user?._id, retryPendingMessages, conversationId, participantId]);
+    // Only retry pending messages when device comes back online — not on every conversation switch
+    // (Pending messages are shown from IndexedDB in fetchMessages already)
 
     const activeIsGroup = activeParticipant?.isGroup;
     const activeConversationId = activeParticipant?.conversationId;
