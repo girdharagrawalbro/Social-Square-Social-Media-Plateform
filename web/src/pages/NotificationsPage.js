@@ -3,6 +3,7 @@ import useAuthStore from '../store/zustand/useAuthStore';
 import { useNotifications } from '../hooks/useNotifications';
 import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } from '../hooks/queries/useAuthQueries';
 import usePostStore from '../store/zustand/usePostStore';
+import useConversationStore from '../store/zustand/useConversationStore';
 import { useNavigate } from 'react-router-dom';
 import CollabManager from './components/CollabManager';
 import { USER_DEFAULT_IMAGE } from '../utils/constantMediaVariable';
@@ -16,16 +17,9 @@ const NotificationsPage = () => {
     const { data: collabInvites = [] } = useCollabInvites(user?._id);
 
     const { setPostDetailId, setStoryDetailUserId } = usePostStore();
+    const { unreadNotificationsCount } = useConversationStore();
     const acceptMutation = useAcceptFollowRequest();
     const declineMutation = useDeclineFollowRequest();
-
-    // ✅ Auto-mark all as read when opening page
-    //   useEffect(() => {
-    //     const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
-    //     if (unreadIds.length > 0) {
-    //         markRead.mutate(unreadIds);
-    //     }
-    // }, [notifications, markRead]);
 
     const handleMarkRead = (id) => markRead.mutate([id]);
 
@@ -105,12 +99,28 @@ const NotificationsPage = () => {
         return notifications.filter(n => n.type === 'follow_request');
     }, [notifications]);
 
+    const handleMarkAllRead = () => {
+        const unreadIds = notifications.filter(n => !n.read).map(n => n._id);
+        if (unreadIds.length > 0) {
+            markRead.mutate(unreadIds);
+        }
+    };
+
     return (
         <div className="flex justify-center min-h-[calc(100vh-64px)] bg-[var(--app-bg)] w-full">
             <div className="w-full max-w-2xl bg-[var(--surface-1)] ">
                 <div className="sticky top-0 z-20 bg-[var(--surface-1)]/90 backdrop-blur-md border-b border-[var(--border-color)]">
-                    <div className="px-3 pt-3 pb-2">
+                    <div className="px-3 pt-3 pb-2 flex items-center justify-between">
                         <h2 className="text-xl font-bold m-0 text-[var(--text-main)]">Notifications</h2>
+                        {activeTab === 'notifications' && (unreadNotificationsCount > 0 || notifications.some(n => !n.read)) && (
+                            <button
+                                onClick={handleMarkAllRead}
+                                className="bg-transparent border-0 text-[#808bf5] hover:text-[#6a75e0] font-bold text-xs cursor-pointer flex items-center gap-1.5 transition-colors p-1"
+                            >
+                                <i className="pi pi-check-circle text-sm"></i>
+                                Mark all as read
+                            </button>
+                        )}
                     </div>
                     {/* Tabs */}
                     <div className="flex w-full px-2">

@@ -164,7 +164,7 @@ const ActiveSessions = () => {
           <button
             onClick={revokeAllSessions}
             disabled={revokingAll}
-            className="text-red-500 bg-transparent border-0 text-xs font-semibold cursor-pointer hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-danger text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {revokingAll ? "Revoking..." : "Logout from other devices"}
           </button>

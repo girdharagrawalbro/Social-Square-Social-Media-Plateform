@@ -23,38 +23,39 @@ const CustomToast = ({ toast }) => {
     };
 
     const getIcon = () => {
+        const svgStyle = { width: '20px', height: '20px', display: 'block' };
         switch (toast.type) {
             case 'success':
                 return (
-                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={svgStyle}>
                         <circle cx="12" cy="12" r="10" fill="#22c55e" stroke="none" />
                         <path d="M8 12l3 3 5-6" stroke="white" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 );
             case 'error':
                 return (
-                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={svgStyle}>
                         <circle cx="12" cy="12" r="10" fill="#ef4444" stroke="none" />
                         <path d="M15 9l-6 6M9 9l6 6" stroke="white" strokeLinecap="round" />
                     </svg>
                 );
             case 'warning':
                 return (
-                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={svgStyle}>
                         <path d="M12 2L1 21h22L12 2z" fill="#f59e0b" stroke="none" />
                         <path d="M12 9v5M12 17h.01" stroke="white" strokeLinecap="round" />
                     </svg>
                 );
             case 'confirm':
                 return (
-                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={svgStyle}>
                         <circle cx="12" cy="12" r="10" fill="#3b82f6" stroke="none" />
                         <path d="M12 16v-4M12 8h.01" stroke="white" strokeLinecap="round" />
                     </svg>
                 );
             default:
                 return (
-                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={svgStyle}>
                         <circle cx="12" cy="12" r="10" fill="#6366f1" stroke="none" />
                         <path d="M12 16v-4M12 8h.01" stroke="white" strokeLinecap="round" />
                     </svg>
@@ -86,7 +87,7 @@ const CustomToast = ({ toast }) => {
             }}
             className="custom-toast-item"
         >
-            <span style={{ fontSize: '14px', flexShrink: 0 }}>{getIcon()}</span>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{getIcon()}</span>
             <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', lineHeight: 1.4 }}>
                 {toast.message}
             </div>

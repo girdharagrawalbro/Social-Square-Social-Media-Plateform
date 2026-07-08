@@ -206,8 +206,8 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                             <div className="flex flex-col h-full">
                                 {globalUnreadCount > 0 && (
                                     <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', background: 'var(--surface-1)' }}>
-                                        <button onClick={handleMarkAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#808bf5', fontWeight: 600 }}>
-                                            Mark all as read
+                                        <button onClick={handleMarkAllRead} className="bg-transparent border-0 text-[#808bf5] hover:text-[#6a75e0] font-bold text-xs cursor-pointer flex items-center gap-1.5 transition-colors p-1">
+                                            <i className="pi pi-check-circle text-sm"></i> Mark all as read
                                         </button>
                                     </div>
                                 )}
@@ -222,7 +222,7 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                                             <div key={n._id}
                                                 onClick={() => handleNotificationClick(n)}
 
-                                                className={`flex items-center gap-2 md:gap-3 py-3 px-3 cursor-pointer border-b border-[var(--border-color)] transition-all duration-200 ${!n.read
+                                                className={`flex items-center gap-2 md:gap-3 py-3 px-2 cursor-pointer border-b border-[var(--border-color)] transition-all duration-200 ${!n.read
                                                     ? 'bg-gray-100 hover:bg-gray-200/80 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/60'
                                                     : 'bg-[var(--surface-1)] hover:bg-[var(--surface-2)]'
                                                     }`}
@@ -239,7 +239,8 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                                                             className="hover:text-indigo-600 transition-colors"
                                                         >
                                                             {n.type === 'system' ? 'Security Alert' : n.type === 'announcement' ? 'System Announcement' : n.type === 'livestream' ? 'Live Stream' : n.sender?.fullname}
-                                                        </strong> {getNotificationText(n)}
+                                                        </strong> <br />
+                                                        {getNotificationText(n)}
                                                     </p>
                                                     <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-sub)' }}>{formatTime(n.createdAt)}</p>
                                                     {n.type === 'follow_request' && (
@@ -267,14 +268,16 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                                                         </div>
                                                     )}
                                                 </div>
-                                                {n.thumbnail && (
-                                                    <img
-                                                        src={n.thumbnail}
-                                                        alt=""
-                                                        style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }}
-                                                        onError={(e) => { e.target.style.display = 'none'; }}
-                                                    />
-                                                )}
+                                                {
+                                                    n.thumbnail && (
+                                                        <img
+                                                            src={n.thumbnail}
+                                                            alt=""
+                                                            style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }}
+                                                            onError={(e) => { e.target.style.display = 'none'; }}
+                                                        />
+                                                    )
+                                                }
                                                 {!n.read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
                                             </div>
                                         ))
@@ -351,8 +354,9 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                         </div>
                     </div>
                 </Dialog>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 });
 
