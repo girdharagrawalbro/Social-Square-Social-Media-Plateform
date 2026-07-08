@@ -9,6 +9,7 @@ import { useUserDetails, useFollowUser, useUnfollowUser, useCancelFollowRequest,
 import { useUserPosts } from '../../hooks/queries/usePostQueries';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChatPanel from './ChatPanel';
+import FollowFollowingList from './FollowFollowingList';
 
 import { confirmDialog } from 'primereact/confirmdialog';
 import toast from '../../utils/toast.js';
@@ -434,8 +435,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
     const isMutedByMe = loggeduser?.mutedUsers?.some(m => m?.toString() === id?.toString());
     const isPrivateAndNotFollowing = userDetails?.isPrivate && !isFollowing && loggeduser?._id !== id && !isBlockedByMe;
 
-    const followersList = useUserDetails((!isPrivateAndNotFollowing && userDetails?.followers?.length > 0) ? userDetails.followers : null).data || [];
-    const followingList = useUserDetails((!isPrivateAndNotFollowing && userDetails?.following?.length > 0) ? userDetails.following : null).data || [];
+
 
     const handleFollow = async () => {
         try {
@@ -727,7 +727,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                                     }
                                 }}
                             >
-                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followerCount ?? userDetails?.followers?.length ?? 0)}</h6>
+                                <h6 className="m-0 font-extrabold text-base leading-5">{formatCount(userDetails?.followerCount ?? userDetails?.followersCount ?? userDetails?.followers?.length ?? 0)}</h6>
                                 <span className="text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                             </div>
                             <div
@@ -829,35 +829,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                 style={{ width: '95vw', maxWidth: '420px' }}
                 className="rounded-3xl"
             >
-                <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {followersList.length === 0 ? (
-                        <div className="text-center py-10 opacity-60">
-                            <i className="pi pi-users text-4xl mb-3 block"></i>
-                            <p className="m-0 text-sm">No followers yet</p>
-                        </div>
-                    ) : (
-                        followersList.map(user => (
-                            <div
-                                key={user._id}
-                                className="flex items-center gap-3 p-3 hover:bg-[var(--surface-2)] rounded-2xl cursor-pointer transition-colors group"
-                                onClick={() => {
-                                    setFollowersVisible(false);
-                                    navigate(`/profile/${user._id}`);
-                                }}
-                            >
-                                <img src={user.profile_picture || USER_DEFAULT_IMAGE} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1">
-                                        <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>
-                                        {user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '12px' }}></i>}
-                                    </div>
-                                    <p className="m-0 text-[11px] text-[#808bf5] font-medium">@{user.username || 'user'}</p>
-                                </div>
-                                <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                            </div>
-                        ))
-                    )}
-                </div>
+                {followersVisible && <FollowFollowingList userId={id} isfollowing={false} />}
             </Dialog>
 
             <Dialog
@@ -867,35 +839,7 @@ const UserProfile = ({ id, onClose, maxPosts }) => {
                 style={{ width: '95vw', maxWidth: '420px' }}
                 className="rounded-3xl"
             >
-                <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {followingList.length === 0 ? (
-                        <div className="text-center py-10 opacity-60">
-                            <i className="pi pi-user-plus text-4xl mb-3 block"></i>
-                            <p className="m-0 text-sm">Not following anyone yet</p>
-                        </div>
-                    ) : (
-                        followingList.map(user => (
-                            <div
-                                key={user._id}
-                                className="flex items-center gap-3 p-3 hover:bg-[var(--surface-2)] rounded-2xl cursor-pointer transition-colors group"
-                                onClick={() => {
-                                    setFollowingVisible(false);
-                                    navigate(`/profile/${user._id}`);
-                                }}
-                            >
-                                <img src={user.profile_picture || USER_DEFAULT_IMAGE} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-[var(--border-color)] group-hover:scale-105 transition-transform" />
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1">
-                                        <p className="m-0 text-sm font-bold text-[var(--text-main)] truncate">{user.fullname}</p>
-                                        {user.isVerified && <i className="pi pi-check-circle text-blue-500" style={{ fontSize: '12px' }}></i>}
-                                    </div>
-                                    <p className="m-0 text-[11px] text-[#808bf5] font-medium">@{user.username || 'user'}</p>
-                                </div>
-                                <i className="pi pi-chevron-right text-[10px] text-[var(--text-sub)] opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                            </div>
-                        ))
-                    )}
-                </div>
+                {followingVisible && <FollowFollowingList userId={id} isfollowing={true} />}
             </Dialog>
         </>
     );

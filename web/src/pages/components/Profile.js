@@ -3,7 +3,7 @@ import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useUserPosts, useSavedPosts, usePublicUserPosts } from '../../hooks/queries/usePostQueries';
-import { useFollowUser, useUnfollowUser, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, useOwnProfile, useOtherUserProfile } from '../../hooks/queries/useAuthQueries';
+import { useFollowUser, useUnfollowUser, useCollabInvites, useCancelFollowRequest, usePublicUserProfile, useMuteUser, useUnmuteUser, useBlockUser, useUnblockUser, useOwnProfile, useOtherUserProfile, useUserContributions } from '../../hooks/queries/useAuthQueries';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { Dialog } from 'primereact/dialog';
 import { Image } from 'primereact/image';
@@ -232,6 +232,9 @@ const Profile = ({ userId }) => {
     const profileLoading = isLoggedOut ? publicProfileLoading
         : viewingOwnProfile ? ownProfileLoading
             : otherProfileLoading;
+
+    // Fetch profile contributions list asynchronously
+    const { data: contributionsData } = useUserContributions(profileId);
 
     // ─── THE CONCLUSIVE OWNERSHIP FLAG ────────────────────────────────────────
     // Final safety net: if profile data arrives and matches currentUserId, it's definitely own profile
@@ -522,7 +525,7 @@ const Profile = ({ userId }) => {
                                         }
                                     }}
                                 >
-                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followerCount ?? displayUser?.followers?.length ?? 0)}</h6>
+                                    <h6 className="m-0 font-extrabold text-sm sm:text-base leading-5 text-[var(--text-main)] text-center">{formatCount(displayUser?.followerCount ?? displayUser?.followersCount ?? displayUser?.followers?.length ?? 0)}</h6>
                                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider text-[var(--text-sub)] font-semibold text-center block">Followers</span>
                                 </div>
                                 <div
@@ -591,7 +594,7 @@ const Profile = ({ userId }) => {
                         {/* Consistency Graph */}
                         {!isPrivateAndNotFollowing && !isBlockedByMe && (
                             <div className="px-2 mb-2">
-                                <ContributionGraph contributions={displayUser?.contributions} />
+                                <ContributionGraph contributions={contributionsData?.contributions} />
                             </div>
                         )}
 

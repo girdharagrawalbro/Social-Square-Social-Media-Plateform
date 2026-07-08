@@ -933,6 +933,9 @@ router.get("/", async (req, res) => {
             if (po.user && po.user._id) {
                 const uid = po.user._id.toString();
                 po.user.isOnline = presenceMap[uid] || false;
+                if (userId) {
+                    po.user.isFollowing = followingIds.includes(uid);
+                }
             }
             return po;
         });
@@ -1170,6 +1173,16 @@ router.post("/save", verifyToken, [
             return res.status(200).json({ saved: true });
         }
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+router.get("/saved-ids", verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select('savedPosts').lean();
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+        return res.status(200).json(user.savedPosts || []);
+    } catch (e) {
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 router.get("/saved/:userId", verifyToken, [

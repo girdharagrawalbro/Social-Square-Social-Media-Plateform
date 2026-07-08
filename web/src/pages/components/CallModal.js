@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { socket } from '../../socket';
 import { api } from '../../store/zustand/useAuthStore';
 import toast from '../../utils/toast.js';
-import { LiveKitRoom, RoomAudioRenderer, useTracks, useLocalParticipant, useRemoteParticipants } from '@livekit/components-react';
+import { LiveKitRoom, RoomAudioRenderer, useTracks, useLocalParticipant, useRemoteParticipants, VideoTrack } from '@livekit/components-react';
 import { Track, setLogLevel } from 'livekit-client';
 import '@livekit/components-styles';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
@@ -124,8 +124,6 @@ const callSynth = new CallSynth();
 const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) => {
     const { localParticipant } = useLocalParticipant();
     const remoteParticipants = useRemoteParticipants();
-    const localVideoRef = useRef(null);
-    const remoteVideoRef = useRef(null);
 
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(callType === 'voice');
@@ -141,30 +139,7 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
     );
 
     const activeLocalTrackRef = localTracks.find(t => t.participant?.isLocal);
-    const activeLocalTrack = activeLocalTrackRef?.publication?.track ?? null;
-
     const activeRemoteTrackRef = remoteTracks.find(t => !t.participant?.isLocal);
-    const activeRemoteTrack = activeRemoteTrackRef?.publication?.track ?? null;
-
-    // Attach local track
-    useEffect(() => {
-        const videoEl = localVideoRef.current;
-        if (!activeLocalTrack || !videoEl || isVideoOff) return;
-        activeLocalTrack.attach(videoEl);
-        return () => {
-            try { activeLocalTrack.detach(videoEl); } catch (e) { }
-        };
-    }, [activeLocalTrack, isVideoOff]);
-
-    // Attach remote track
-    useEffect(() => {
-        const videoEl = remoteVideoRef.current;
-        if (!activeRemoteTrack || !videoEl) return;
-        activeRemoteTrack.attach(videoEl);
-        return () => {
-            try { activeRemoteTrack.detach(videoEl); } catch (e) { }
-        };
-    }, [activeRemoteTrack]);
 
     // Publish local media
     useEffect(() => {
@@ -221,8 +196,8 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
 
             {/* Background Stream View */}
             <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {callType === 'video' && isConnected && activeRemoteTrack ? (
-                    <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {callType === 'video' && isConnected && activeRemoteTrackRef ? (
+                    <VideoTrack trackRef={activeRemoteTrackRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', zIndex: 10 }}>
                         <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', padding: '4px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
@@ -239,9 +214,9 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
             </div>
 
             {/* Local Video Thumbnail Overlay (for Video Calls) */}
-            {callType === 'video' && !isVideoOff && (
+            {callType === 'video' && !isVideoOff && activeLocalTrackRef && (
                 <div style={{ position: 'absolute', top: '24px', right: '24px', width: '100px', height: '150px', borderRadius: '16px', border: '2px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', background: '#111', zIndex: 50 }}>
-                    <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <VideoTrack trackRef={activeLocalTrackRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
             )}
 

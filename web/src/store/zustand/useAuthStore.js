@@ -37,6 +37,26 @@ const useAuthStore = create(
             isMaintenance: false,
 
             setUser: (user) => set({ user }),
+            fetchAndSetRelationships: async () => {
+                if (!getToken() || !get().user) return;
+                try {
+                    const [relRes, savedRes] = await Promise.all([
+                        api.get('/api/auth/relationship-ids'),
+                        api.get('/api/post/saved-ids')
+                    ]);
+                    const { following, followers } = relRes.data;
+                    set(state => ({
+                        user: state.user ? { ...state.user, following, followers } : null
+                    }));
+                    const postStoreModule = await import('./usePostStore');
+                    const usePostStore = postStoreModule.default;
+                    if (usePostStore) {
+                        usePostStore.getState().initSavedIds(savedRes.data || []);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch relationships and saved post IDs:', err);
+                }
+            },
             updateAuthToken: (token, sessionId) => {
                 setToken(token);
                 set(state => {
@@ -104,6 +124,7 @@ const useAuthStore = create(
                     const { token, user, sessionId } = res.data;
                     get().updateAuthToken(token, sessionId);
                     set({ user, loading: false, initialized: true });
+                    get().fetchAndSetRelationships();
                     return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
@@ -119,6 +140,7 @@ const useAuthStore = create(
                     const { token, user, sessionId } = res.data;
                     get().updateAuthToken(token, sessionId);
                     set({ user, loading: false, initialized: true });
+                    get().fetchAndSetRelationships();
                     return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.error || 'Google login failed';
@@ -134,6 +156,7 @@ const useAuthStore = create(
                     const { token, user, sessionId } = res.data;
                     get().updateAuthToken(token, sessionId);
                     set({ user, loading: false, initialized: true });
+                    get().fetchAndSetRelationships();
                     return { success: true, user };
                 } catch (err) {
                     const msg = err.response?.data?.message || 'Signup failed';
@@ -196,7 +219,10 @@ export const refreshAccessToken = () => {
             const res = await api.post(`/api/auth/refresh`, {}, { withCredentials: true, headers: { 'x-fingerprint': fingerprint } });
             const { token, user, sessionId } = res.data;
             useAuthStore.getState().updateAuthToken(token, sessionId);
-            if (user) useAuthStore.getState().setUser(user);
+            if (user) {
+                useAuthStore.getState().setUser(user);
+                useAuthStore.getState().fetchAndSetRelationships();
+            }
             return token;
         } catch (err) {
             if (inMemoryToken) return inMemoryToken;

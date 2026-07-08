@@ -215,6 +215,19 @@ export function usePublicUserProfile(userId) {
     });
 }
 
+export function useUserContributions(userId) {
+    const initialized = useAuthStore(s => s.initialized);
+    return useQuery({
+        queryKey: ['user', 'contributions', userId],
+        queryFn: async () => {
+            const res = await api.get(`${BASE}/api/auth/users/${userId}/contributions`);
+            return res.data;
+        },
+        enabled: initialized && !!userId,
+        staleTime: 1000 * 60 * 5,
+    });
+}
+
 // ─── FETCH FOLLOWERS INFINITE ─────────────────────────────────────────────────
 export function useInfiniteFollowers(userId, limit = 10, options = {}) {
     const initialized = useAuthStore(s => s.initialized);

@@ -203,7 +203,7 @@ startSessionCleanupJob();
 
 // ✅ Privacy: Standard exclusions for user responses
 // For the logged-in user (OWN), we exclude security tokens but keep email/settings
-const OWN_USER_EXCLUSIONS = '-password -twoFactorOtp -twoFactorOtpExpires -resetPasswordToken -resetPasswordExpires -emailVerificationToken -emailVerificationTokenSentAt -loginSessions -__v';
+const OWN_USER_EXCLUSIONS = '-password -twoFactorOtp -twoFactorOtpExpires -resetPasswordToken -resetPasswordExpires -emailVerificationToken -emailVerificationTokenSentAt -loginSessions -__v -followers -following -savedPosts';
 
 // For other users (OTHER), we exclude almost everything personal/sensitive
 const OTHER_USER_EXCLUSIONS = '-password -email -loginSessions -notificationSettings -resetPasswordToken -resetPasswordExpires -twoFactorOtp -twoFactorOtpExpires -failedLoginAttempts -lockoutUntil -googleId -githubId -emailVerificationToken -emailVerificationTokenSentAt -dismissedUsers -__v -twoFactorEnabled -authProvider -isAdmin -isVerified -creatorTier -isBanned -banReason -bannedAt -isEmailVerified -hasSeenWelcome -savedPosts -followers -following -followRequests -closeFriends';
@@ -1147,20 +1147,54 @@ router.get('/me', verifyToken, async (req, res) => {
 
         const postCount = await Post.countDocuments({ 'user._id': userId, deletedAt: null });
 
-        const contributions = await getUserContributions(userId);
         const activeStreak = getActiveStreak(user.streak);
-        const consistencySummary = calculateConsistencySummary(contributions);
 
         return res.status(200).json({
             ...user,
             streak: activeStreak,
-            contributions,
-            consistencySummary,
             postCount,
             isOwner: true, // Explicit flag so frontend never needs to infer ownership
         });
     } catch (error) {
         logger.error('[ME] Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+router.get('/relationship-ids', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select('following followers').lean();
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+        return res.status(200).json({
+            following: user.following || [],
+            followers: user.followers || []
+        });
+    } catch (error) {
+        logger.error('[RELATIONSHIP_IDS] Error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+router.get('/users/:userId/contributions', verifyToken, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const targetUser = await User.findById(userId).select('streak').lean();
+        if (!targetUser) return res.status(404).json({ message: 'User not found.' });
+
+        const contributions = await getUserContributions(userId);
+        const activeStreak = getActiveStreak(targetUser.streak);
+        const consistencySummary = calculateConsistencySummary(contributions);
+
+        return res.status(200).json({
+            contributions,
+            streak: activeStreak,
+            consistencySummary
+        });
+    } catch (error) {
+        logger.error('[CONTRIBUTIONS] Error:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 });
@@ -1193,7 +1227,7 @@ router.get('/other-user/view/:id', verifyToken, [
         }
 
         const targetUser = await User.findById(targetId)
-            .select('fullname username profile_picture bio isPrivate followers following level streak xp profileViews isOnline followRequests blockedUsers postsCount followersCount followingCount aiProfileSummary')
+            .select('fullname username profile_picture bio isPrivate level streak xp profileViews isOnline followRequests blockedUsers postsCount followersCount followingCount aiProfileSummary')
             .lean();
 
         if (!targetUser) return res.status(404).json({ message: 'User not found.' });
@@ -1236,15 +1270,11 @@ router.get('/other-user/view/:id', verifyToken, [
         const isBlockedByMe = (loggedUser?.blockedUsers || []).some(id => id.toString() === targetId.toString());
         const isBlockingMe = (targetUser.blockedUsers || []).some(id => id.toString() === loggedUserId.toString());
 
-        const contributions = await getUserContributions(targetId);
         const activeStreak = getActiveStreak(targetUser.streak);
-        const consistencySummary = calculateConsistencySummary(contributions);
 
         return res.status(200).json({
             ...targetUser,
             streak: activeStreak,
-            contributions,
-            consistencySummary,
             followers: canSeeDetails ? targetUser.followers : [],
             following: canSeeDetails ? targetUser.following : [],
             followerCount: targetUser.followersCount || 0,
@@ -1974,6 +2004,15 @@ router.all("/search", [
             return acc;
         }, {});
 
+        // Fetch requester's following list to compute isFollowing
+        let requesterFollowing = [];
+        if (requesterId) {
+            const reqUser = await User.findById(requesterId).select('following').lean();
+            if (reqUser && reqUser.following) {
+                requesterFollowing = reqUser.following.map(id => id.toString());
+            }
+        }
+
         const usersWithCounts = userResults.map(u => {
             const isOwner = requesterId && requesterId.toString() === u._id.toString();
             const isFollower = requesterId && (u.followers || []).some(id => id.toString() === requesterId.toString());
@@ -1990,7 +2029,8 @@ router.all("/search", [
                 followingCount: u.followingCount || 0,
                 postCount: canSeeCount ? (u.postsCount || 0) : "Private", // Fix Risk 1
                 isPrivate: u.isPrivate,
-                hasPendingRequest: (u.followRequests || []).some(r => (r.userId || r).toString() === requesterId?.toString())
+                hasPendingRequest: (u.followRequests || []).some(r => (r.userId || r).toString() === requesterId?.toString()),
+                isFollowing: requesterFollowing.includes(u._id.toString())
             };
         });
 

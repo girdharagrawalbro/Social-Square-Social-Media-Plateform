@@ -1,10 +1,11 @@
-import { Navigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../../store/zustand/useAuthStore';
 import { getFingerprint } from '../../../utils/fingerprint';
 import toast from '../../../utils/toast.js';
 
 const ContinueWithGoogle = () => {
     const googleLogin = useAuthStore(s => s.googleLogin);
+    const navigate = useNavigate();
     return (
         <button
             onClick={async () => {
@@ -21,7 +22,7 @@ const ContinueWithGoogle = () => {
 
                     if (loginResult?.success) {
                         toast.success('Google login successful!');
-                        Navigate(`/${loginResult.user.username}`);
+                        navigate(`/${loginResult.user.username}`);
                     } else {
                         toast.error(loginResult?.error || 'Google login failed');
                     }
