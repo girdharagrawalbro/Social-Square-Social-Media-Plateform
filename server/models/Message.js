@@ -26,6 +26,7 @@ const MessageSchema = new mongoose.Schema({
     editedAt: { type: Date, default: null },
     originalContent: { type: String, default: null },
     deletedAt: { type: Date, default: null }, // soft delete
+    deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
     isDelivered: { type: Boolean, default: false },
     deliveredTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

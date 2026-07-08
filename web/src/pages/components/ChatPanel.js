@@ -379,7 +379,7 @@ const DecryptedAudio = ({ url, fileKey, iv, duration }) => {
 };
 
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
-const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply, handleCancelUpload, retryPendingMessages }) => {
+const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply, handleCancelUpload, retryPendingMessages, onPlayVideo, onRemovePending }) => {
     const activeParticipant = useConversationStore(s => s.activeParticipant);
 
     let checkmarkStatus = 'sent';
@@ -843,7 +843,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                                         alt=""
                                                         preview
                                                         loading="lazy"
-                                                        style={{ display: 'block', maxWidth: '100%' }}
+                                                        style={{ display: 'block', maxWidth: '100%', borderRadius: '12px' }}
                                                         imageStyle={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', display: 'block', opacity: message.isOptimistic ? 0.6 : 1 }}
                                                     />
                                                 )
@@ -860,7 +860,19 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                                     <VoiceNotePlayer url={message.media.url} duration={message.media.size} />
                                                 )
                                             )}
-                                            {message.media.type === 'video' && <video src={message.media.url} poster={message.media.thumbnailUrl || getMediaThumbnail(message.media.url, 'video')} controls style={{ maxWidth: '200px', borderRadius: '12px', opacity: message.isOptimistic ? 0.6 : 1 }} />}
+                                            {message.media.type === 'video' && (
+                                                <div 
+                                                    onClick={() => !message.isOptimistic && !message.uploadFailed && onPlayVideo(message.media.url)}
+                                                    style={{ position: 'relative', cursor: (message.isOptimistic || message.uploadFailed) ? 'default' : 'pointer', maxWidth: '200px' }}
+                                                >
+                                                    <video src={message.media.url} poster={message.media.thumbnailUrl || getMediaThumbnail(message.media.url, 'video')} style={{ width: '100%', borderRadius: '12px', opacity: (message.isOptimistic || message.uploadFailed) ? 0.6 : 1, display: 'block' }} />
+                                                    {!message.isOptimistic && !message.uploadFailed && (
+                                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.15)', borderRadius: '12px' }}>
+                                                            <i className="pi pi-play" style={{ color: '#fff', fontSize: '24px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}></i>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                             {message.media.type === 'file' && (
                                                 // eslint-disable-next-line jsx-a11y/anchor-is-valid
                                                 <a href={message.isOptimistic ? '#' : message.media.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isOwn ? '#fff' : '#808bf5', textDecoration: 'none', fontSize: '13px', opacity: message.isOptimistic ? 0.6 : 1 }}>
@@ -868,37 +880,67 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                                 </a>
                                             )}
 
-                                            {message.isOptimistic && (
-                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: '12px', zIndex: 10 }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', position: 'relative' }}>
-                                                        <i className="pi pi-spin pi-spinner" style={{ color: '#fff', fontSize: '16px' }}></i>
-                                                        <span style={{ color: '#fff', fontSize: '10px', fontWeight: 600 }}>{message.uploadProgress || 0}%</span>
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleCancelUpload(message._id);
-                                                            }}
-                                                            style={{
-                                                                background: 'rgba(255, 255, 255, 0.25)',
-                                                                border: 'none',
-                                                                borderRadius: '50%',
-                                                                width: '20px',
-                                                                height: '20px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                cursor: 'pointer',
-                                                                color: '#fff',
-                                                                fontSize: '10px',
-                                                                marginTop: '2px',
-                                                                transition: 'background 0.2s'
-                                                            }}
-                                                            title="Cancel Upload"
-                                                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.4)'}
-                                                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'}
-                                                        >
-                                                            ✕
-                                                        </button>
+                                            {(message.isOptimistic || message.uploadFailed) && (
+                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', borderRadius: '12px', zIndex: 10 }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                                                        {message.isOptimistic ? (
+                                                            <>
+                                                                <i className="pi pi-spin pi-spinner" style={{ color: '#fff', fontSize: '16px' }}></i>
+                                                                <span style={{ color: '#fff', fontSize: '10px', fontWeight: 600 }}>{message.uploadProgress || 0}%</span>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleCancelUpload(message._id);
+                                                                    }}
+                                                                    style={{
+                                                                        background: 'rgba(255, 255, 255, 0.25)',
+                                                                        border: 'none',
+                                                                        borderRadius: '50%',
+                                                                        width: '28px',
+                                                                        height: '28px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        cursor: 'pointer',
+                                                                        color: '#fff',
+                                                                        fontSize: '12px',
+                                                                        marginTop: '2px',
+                                                                        transition: 'background 0.2s'
+                                                                    }}
+                                                                    title="Cancel Upload"
+                                                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.4)'}
+                                                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'}
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    retryPendingMessages(message._id);
+                                                                }}
+                                                                style={{
+                                                                    background: 'rgba(255, 255, 255, 0.25)',
+                                                                    border: 'none',
+                                                                    borderRadius: '50%',
+                                                                    width: '28px',
+                                                                    height: '28px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer',
+                                                                    color: '#fff',
+                                                                    fontSize: '12px',
+                                                                    transition: 'background 0.2s'
+                                                                }}
+                                                                title="Retry Send"
+                                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.4)'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'}
+                                                            >
+                                                                <i className="pi pi-refresh"></i>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -923,7 +965,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                             ) : message.uploadFailed ? (
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                     <i className="pi pi-exclamation-circle" style={{ fontSize: '10px', color: '#ef4444' }} title="Failed to send. Click retry."></i>
-                                    <button 
+                                    <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             retryPendingMessages();
@@ -1002,7 +1044,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                 </ToolbarBtn>
                             )}
 
-                            {isOwn && (
+                            {isOwn ? (
                                 <>
                                     <div style={{ width: '0.5px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }} />
                                     <ToolbarBtn title="Info" onClick={(e) => { e.stopPropagation(); onShowInfo && onShowInfo(message._id); onSelect(null); }}>
@@ -1011,7 +1053,14 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                     <ToolbarBtn title="Edit" onClick={(e) => { e.stopPropagation(); setEditing(true); onSelect(null); }}>
                                         <IconEdit />
                                     </ToolbarBtn>
-                                    <ToolbarBtn title="Delete" danger onClick={(e) => { e.stopPropagation(); onDelete(message._id); onSelect(null); }}>
+                                    <ToolbarBtn title="Delete" danger onClick={(e) => { e.stopPropagation(); onDelete(message); onSelect(null); }}>
+                                        <IconTrash />
+                                    </ToolbarBtn>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ width: '0.5px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }} />
+                                    <ToolbarBtn title="Delete" danger onClick={(e) => { e.stopPropagation(); onDelete(message); onSelect(null); }}>
                                         <IconTrash />
                                     </ToolbarBtn>
                                 </>
@@ -1105,6 +1154,9 @@ const ChatPanel = ({
     const [selectedMessageId, setSelectedMessageId] = useState(null);
     const [replyTo, setReplyTo] = useState(null);
     const [privacyError, setPrivacyError] = useState(null);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [messageToDelete, setMessageToDelete] = useState(null);
+    const [fullscreenVideoUrl, setFullscreenVideoUrl] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previews, setPreviews] = useState([]);
 
@@ -1194,11 +1246,15 @@ const ChatPanel = ({
 
     const activeUploadsRef = useRef({});
 
-    const retryPendingMessages = useCallback(async () => {
-        const pending = await dbService.getAllPending();
+    const retryPendingMessages = useCallback(async (specificTempId = null) => {
+        let pending = await dbService.getAllPending();
         if (!pending || pending.length === 0) return;
+        if (specificTempId) {
+            pending = pending.filter(msg => msg.tempId === specificTempId);
+        }
 
         for (const msg of pending) {
+            setMessages(prev => prev.map(m => m._id === msg.tempId ? { ...m, isOptimistic: true, uploadFailed: false, uploadProgress: 10 } : m));
             try {
                 let mediaUrl = msg.mediaUrl;
                 let thumbnailUrl = msg.thumbnailUrl;
@@ -1219,15 +1275,22 @@ const ChatPanel = ({
                         fileIv = iv;
                     }
 
+                    const controller = new AbortController();
+                    activeUploadsRef.current[msg.tempId] = controller;
+
+                    const onProgress = (percent) => {
+                        setMessages(prev => prev.map(m => m._id === msg.tempId ? { ...m, uploadProgress: percent } : m));
+                    };
+
                     if (msg.file.type?.startsWith('image/')) {
-                        const r = await uploadMedia(fileToUpload, null, { folder: 'chat' });
+                        const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', signal: controller.signal });
                         mediaUrl = typeof r === 'string' ? r : r?.url;
                     } else if (msg.file.type?.startsWith('video/')) {
-                        const r = await uploadVideo(fileToUpload, null, { folder: 'chat' });
+                        const r = await uploadVideo(fileToUpload, onProgress, { folder: 'chat', signal: controller.signal });
                         mediaUrl = typeof r === 'string' ? r : r?.url;
                         thumbnailUrl = r?.thumbnailUrl;
                     } else {
-                        const r = await uploadMedia(fileToUpload, null, { folder: 'chat', resourceType: 'raw' });
+                        const r = await uploadMedia(fileToUpload, onProgress, { folder: 'chat', resourceType: 'raw', signal: controller.signal });
                         mediaUrl = typeof r === 'string' ? r : r?.url;
                     }
                 }
@@ -1258,8 +1321,10 @@ const ChatPanel = ({
                 }
 
                 await dbService.removePending(msg.tempId);
+                delete activeUploadsRef.current[msg.tempId];
             } catch (err) {
                 console.error("Failed to retry pending message:", err);
+                setMessages(prev => prev.map(m => m._id === msg.tempId ? { ...m, uploadFailed: true, isOptimistic: false } : m));
             }
         }
     }, [sendMessageMut, user?._id, user?.fullname, conversationId]);
@@ -1270,6 +1335,10 @@ const ChatPanel = ({
             controller.abort();
             delete activeUploadsRef.current[tempId];
         }
+        setMessages(prev => prev.map(m => m._id === tempId ? { ...m, uploadFailed: true, isOptimistic: false } : m));
+    };
+
+    const onRemovePending = (tempId) => {
         setMessages(prev => prev.filter(m => m._id !== tempId));
         dbService.removePending(tempId).catch(() => {});
     };
@@ -1312,7 +1381,36 @@ const ChatPanel = ({
             const fetchedMessages = await Promise.all(rawMessages.map(msg => decryptMessage(msg, participantId)));
             const fetchedConversationId = res.data.conversation?._id || null;
             const fetchedHasMore = res.data.hasMore || false;
-            setMessages(fetchedMessages);
+            // Load pending messages from IndexedDB for this conversation
+            const pending = await dbService.getAllPending();
+            const conversationPending = pending.filter(msg => {
+                if (activeParticipant?.isGroup) {
+                    return String(msg.conversationId) === String(fetchedConversationId || activeConversationId);
+                } else {
+                    return String(msg.recipientId) === String(participantId);
+                }
+            });
+
+            const formattedPending = conversationPending.map(msg => ({
+                _id: msg.tempId,
+                conversationId: msg.conversationId || fetchedConversationId || activeConversationId,
+                content: msg.content,
+                sender: user?._id,
+                senderId: user?._id,
+                senderName: user?.fullname,
+                createdAt: msg.createdAt || new Date().toISOString(),
+                uploadFailed: true,
+                isOptimistic: false,
+                media: msg.mediaType ? {
+                    type: msg.mediaType,
+                    url: msg.mediaUrl || (msg.file ? URL.createObjectURL(msg.file) : null),
+                    name: msg.mediaName,
+                    size: msg.mediaSize
+                } : null,
+                replyTo: msg.replyTo
+            }));
+
+            setMessages([...fetchedMessages, ...formattedPending]);
             setConversationId(fetchedConversationId);
             setHasMore(fetchedHasMore);
             conversationIdRef.current = fetchedConversationId;
@@ -1381,7 +1479,7 @@ const ChatPanel = ({
             if (err.response?.status === 403) setPrivacyError(err.response.data.error || 'This account is private');
         }
         setLoading(false);
-    }, [user?._id, participantId, activeIsGroup, activeConversationId, refreshKey]);
+    }, [user?._id, user?.fullname, participantId, activeIsGroup, activeConversationId, refreshKey, activeParticipant?.isGroup]);
 
     const fetchMoreMessages = useCallback(async () => {
         if (loadingMore || !hasMore || !messages.length || (!participantId && !activeIsGroup)) return;
@@ -1475,7 +1573,13 @@ const ChatPanel = ({
             }));
         };
         const handleEdited = ({ messageId, content }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content, edited: true } : m));
-        const handleDeleted = ({ messageId }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
+        const handleDeleted = ({ messageId, mode }) => {
+            if (mode === 'me') {
+                setMessages(prev => prev.filter(m => String(m._id) !== String(messageId)));
+            } else {
+                setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
+            }
+        };
         const handleReaction = ({ messageId, reactions }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, reactions } : m));
         const handleTyping = ({ senderName, conversationId }) => {
             if (activeParticipant?.isGroup) {
@@ -1559,7 +1663,7 @@ const ChatPanel = ({
                         replyTo: currentReplyTo
                     };
                     setMessages(prev => [...prev, failedMsg]);
-                    
+
                     // Save to IndexedDB pending messages
                     await dbService.setPending(tempId, {
                         conversationId: conversationIdRef.current || conversationId,
@@ -1658,7 +1762,9 @@ const ChatPanel = ({
                             mediaUrl = typeof r === 'string' ? r : r?.url;
                         }
 
-                        if (controller.signal.aborted) return;
+                        if (controller.signal.aborted) {
+                            throw new Error('Upload aborted');
+                        }
 
                         const res = await sendMessageMut.mutateAsync({
                             conversationId: conversationIdRef.current || conversationId,
@@ -1685,11 +1791,7 @@ const ChatPanel = ({
                         if (!conversationId && newMsg.conversationId) { setConversationId(newMsg.conversationId); conversationIdRef.current = newMsg.conversationId; }
                         delete activeUploadsRef.current[tempId];
                     } catch (err) {
-                        if (controller.signal.aborted) {
-                            console.log('Upload aborted:', file.name);
-                            return;
-                        }
-                        console.error('Upload failed for file', file.name, err);
+                        console.error('Upload failed or aborted for file', file.name, err);
                         setMessages(prev => prev.map(m => m._id === tempId ? { ...m, uploadFailed: true, isOptimistic: false } : m));
 
                         // Save to IndexedDB pending messages for retry
@@ -1755,23 +1857,24 @@ const ChatPanel = ({
         }
     };
 
-    const handleDelete = async (messageId) => {
-        confirmDialog({
-            message: 'Are you sure you want to delete this message?',
-            header: 'Delete Message',
-            icon: 'pi pi-exclamation-triangle',
-            acceptClassName: 'p-button-danger',
-            accept: async () => {
-                setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
-                try {
-                    await deleteMessageMut.mutateAsync({ messageId, conversationId: conversationIdRef.current });
-                    socket.emit('messageDeleted', { messageId, conversationId: conversationIdRef.current, recipientId: participantId });
-                } catch {
-                    setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, deletedAt: null, content: m.content } : m));
-                    toast.error('Delete failed');
+    const handleDelete = (msg) => {
+        const isPending = msg.uploadFailed || msg.isOptimistic;
+        if (isPending) {
+            confirmDialog({
+                message: 'Remove this unsent message?',
+                header: 'Delete Message',
+                icon: 'pi pi-exclamation-triangle',
+                acceptClassName: 'p-button-danger',
+                accept: async () => {
+                    setMessages(prev => prev.filter(m => m._id !== msg._id));
+                    await dbService.removePending(msg._id).catch(() => { });
+                    toast.success('Removed message');
                 }
-            }
-        });
+            });
+            return;
+        }
+        setMessageToDelete(msg);
+        setDeleteModalVisible(true);
     };
 
     const handleFileSelect = (e) => {
@@ -1903,6 +2006,8 @@ const ChatPanel = ({
                                             onReply={msg => setReplyTo(msg)}
                                             handleCancelUpload={handleCancelUpload}
                                             retryPendingMessages={retryPendingMessages}
+                                            onPlayVideo={(url) => setFullscreenVideoUrl(url)}
+                                            onRemovePending={onRemovePending}
                                         />
                                     )}
                                 </React.Fragment>
@@ -2068,6 +2173,97 @@ const ChatPanel = ({
                     </div>
                 )}
             </div>
+
+            {/* Custom Delete Message Dialog */}
+            <Dialog
+                header="Delete Message"
+                visible={deleteModalVisible}
+                onHide={() => { setDeleteModalVisible(false); setMessageToDelete(null); }}
+                style={{ width: '90vw', maxWidth: '380px', borderRadius: '16px' }}
+                closable={true}
+            >
+                <div style={{ padding: '8px 0' }}>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-main)' }}>
+                        Are you sure you want to delete this message?
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <button
+                            onClick={async () => {
+                                const msg = messageToDelete;
+                                setDeleteModalVisible(false);
+                                setMessageToDelete(null);
+                                setMessages(prev => prev.filter(m => m._id !== msg._id));
+                                try {
+                                    await deleteMessageMut.mutateAsync({ messageId: msg._id, conversationId: conversationIdRef.current, mode: 'me' });
+                                    socket.emit('messageDeleted', { messageId: msg._id, conversationId: conversationIdRef.current, mode: 'me', recipientId: participantId });
+                                } catch {
+                                    toast.error('Delete failed');
+                                    fetchMessages();
+                                }
+                            }}
+                            className="p-button p-component p-button-secondary"
+                            style={{ padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, border: '1px solid var(--border-color)', background: 'var(--surface-3)', color: 'var(--text-main)' }}
+                        >
+                            Delete for Me
+                        </button>
+                        {(messageToDelete && (messageToDelete.sender?._id?.toString() === user?._id?.toString() || messageToDelete.sender?.toString() === user?._id?.toString() || messageToDelete.senderId === user?._id)) && (
+                            <button
+                                onClick={async () => {
+                                    const msg = messageToDelete;
+                                    setDeleteModalVisible(false);
+                                    setMessageToDelete(null);
+                                    setMessages(prev => prev.map(m => String(m._id) === String(msg._id) ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
+                                    try {
+                                        await deleteMessageMut.mutateAsync({ messageId: msg._id, conversationId: conversationIdRef.current, mode: 'everyone' });
+                                        socket.emit('messageDeleted', { messageId: msg._id, conversationId: conversationIdRef.current, mode: 'everyone', recipientId: participantId });
+                                    } catch {
+                                        setMessages(prev => prev.map(m => String(m._id) === String(msg._id) ? { ...m, deletedAt: null, content: m.content } : m));
+                                        toast.error('Delete failed');
+                                    }
+                                }}
+                                className="p-button p-component p-button-danger"
+                                style={{ padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, border: 'none', background: '#ef4444', color: '#fff' }}
+                            >
+                                Delete for Everyone
+                            </button>
+                        )}
+                        <button
+                            onClick={() => { setDeleteModalVisible(false); setMessageToDelete(null); }}
+                            className="p-button p-component p-button-text"
+                            style={{ padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 500, border: 'none', background: 'transparent', color: 'var(--text-sub)' }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </Dialog>
+
+            {/* Fullscreen Video Dialog */}
+            {fullscreenVideoUrl && (
+                <Dialog
+                    visible={!!fullscreenVideoUrl}
+                    onHide={() => setFullscreenVideoUrl(null)}
+                    showHeader={false}
+                    style={{ width: '95vw', maxWidth: '800px', background: 'black', border: 'none' }}
+                    contentStyle={{ padding: 0, background: 'black', position: 'relative', borderRadius: '12px', overflow: 'hidden' }}
+                    baseZIndex={30000}
+                    dismissableMask
+                    blockScroll
+                >
+                    <button 
+                        onClick={() => setFullscreenVideoUrl(null)} 
+                        style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 30005, background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                        ✕
+                    </button>
+                    <video 
+                        src={fullscreenVideoUrl} 
+                        controls 
+                        autoPlay 
+                        style={{ width: '100%', maxHeight: '85vh', display: 'block' }} 
+                    />
+                </Dialog>
+            )}
 
             {/* Seen Info Dialog */}
             <Dialog

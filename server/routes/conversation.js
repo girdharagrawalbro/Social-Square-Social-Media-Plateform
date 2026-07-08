@@ -623,13 +623,19 @@ router.post('/messages', verifyToken, [
         const cached = await getCache(cacheKey);
         if (cached) return res.json(cached);
 
-        const query = { conversationId: conversation._id };
+        const query = {
+            conversationId: conversation._id,
+            deletedFor: { $ne: req.userId }
+        };
         if (before) query.createdAt = { $lt: new Date(before) };
 
         let customLimit = parseInt(limit);
         if (targetDate) {
-            const countQuery = { conversationId: conversation._id };
-            countQuery.createdAt = { $gte: new Date(targetDate) };
+            const countQuery = {
+                conversationId: conversation._id,
+                deletedFor: { $ne: req.userId },
+                createdAt: { $gte: new Date(targetDate) }
+            };
             if (before) countQuery.createdAt.$lt = new Date(before);
 
             const count = await Message.countDocuments(countQuery);
@@ -686,6 +692,7 @@ router.get('/messages/search', verifyToken, [
 
         const messages = await Message.find({
             conversationId, deletedAt: null,
+            deletedFor: { $ne: req.userId },
             $text: { $search: q },
         })
             .sort({ score: { $meta: 'textScore' } })
@@ -895,32 +902,63 @@ router.delete('/messages/:messageId', verifyToken, [
 ], async (req, res) => {
     try {
         const userId = req.userId;
-        const message = await Message.findOne({ _id: req.params.messageId, sender: userId });
+        const mode = req.query.mode || req.body.mode || 'everyone';
+
+        const message = await Message.findById(req.params.messageId);
         if (!message) return res.status(404).json({ error: 'Not found' });
 
-        message.deletedAt = new Date();
-        await message.save();
+        const conv = await Conversation.findById(message.conversationId);
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+        const isParticipant = conv.participants.some(p => p.userId.toString() === userId.toString());
+        if (!isParticipant) return res.status(403).json({ error: 'Forbidden' });
 
         let updatedConv = null;
-        const conv = await Conversation.findById(message.conversationId);
-        if (conv && conv.lastMessage && conv.lastMessage.id?.toString() === message._id.toString()) {
-            updatedConv = await Conversation.findByIdAndUpdate(message.conversationId, {
-                'lastMessage.message': '🚫 Message deleted'
-            }, { new: true }).lean();
+        if (mode === 'me') {
+            if (!message.deletedFor) message.deletedFor = [];
+            if (!message.deletedFor.includes(userId)) {
+                message.deletedFor.push(userId);
+            }
+            await message.save();
+
+            // Clear cache for this specific user
+            await delCache(`convs:${userId}`, `msgs:${message.conversationId}*`);
+
+            if (_io) {
+                _io.to(userId).emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId, mode: 'me' });
+            }
+        } else {
+            // Delete for everyone
+            if (message.sender.toString() !== userId.toString()) {
+                return res.status(403).json({ error: 'Unauthorized to delete for everyone' });
+            }
+
+            message.deletedAt = new Date();
+            await message.save();
+
+            if (conv && conv.lastMessage && conv.lastMessage.id?.toString() === message._id.toString()) {
+                updatedConv = await Conversation.findByIdAndUpdate(message.conversationId, {
+                    'lastMessage.message': '🚫 Message deleted'
+                }, { new: true }).lean();
+            }
+
+            // Clear cache for all participants
+            const participants = conv.participants.map(p => p.userId.toString());
+            await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
+
+            if (_io) {
+                participants.forEach(p => {
+                    _io.to(p).emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId, mode: 'everyone' });
+                    if (updatedConv) _io.to(p).emit('conversationUpdated', updatedConv);
+                });
+            }
         }
 
-        // Robust cache clearing
-        const participants = conv.participants.map(p => p.userId.toString());
-        await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
-
-        if (_io) {
-            participants.forEach(p => {
-                _io.to(p).emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId });
-                if (updatedConv) _io.to(p).emit('conversationUpdated', updatedConv);
-            });
-        }
         res.json({ message: 'Deleted' });
-    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (err) {
+        console.error('[Conversation] Delete error:', err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 // ─── MARK MESSAGES READ (PROTECTED) ───────────────────────────────────────────

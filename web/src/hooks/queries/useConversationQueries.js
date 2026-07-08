@@ -180,7 +180,7 @@ export function useSendMessage() {
         onSuccess: (res, { conversationId }) => {
             // Optimistically add to Zustand socket messages
             addSocketMessage(conversationId, res.data);
-            
+
             // Optimistically update conversation list lastMessage
             const message = res.data;
             const userConvoKey = convoKeys.list(user?._id);
@@ -225,10 +225,12 @@ export function useDeleteMessage() {
     const qc = useQueryClient();
     const deleteSocketMessage = useConversationStore(s => s.deleteSocketMessage);
     return useMutation({
-        mutationFn: ({ messageId, conversationId }) =>
-            api.delete(`${BASE}/api/conversation/messages/${messageId}`),
-        onSuccess: (_, { messageId, conversationId }) => {
-            deleteSocketMessage(conversationId, messageId);
+        mutationFn: ({ messageId, conversationId, mode = 'everyone' }) =>
+            api.delete(`${BASE}/api/conversation/messages/${messageId}`, { params: { mode } }),
+        onSuccess: (_, { messageId, conversationId, mode }) => {
+            if (mode === 'me') {
+                deleteSocketMessage(conversationId, messageId);
+            }
             qc.invalidateQueries({ queryKey: convoKeys.messages(conversationId) });
         },
     });

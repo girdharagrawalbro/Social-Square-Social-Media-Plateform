@@ -36,6 +36,7 @@ const SkeletonConversationItem = () => (
 
 const MessagePreview = ({ messageText, conversationId, recipientId }) => {
     const [decryptedText, setDecryptedText] = useState('🔑 Encrypted');
+    const privateKey = useE2eeStore(s => s.privateKey);
 
     const unescapeHtml = (str) => {
         if (!str) return str;
@@ -72,7 +73,7 @@ const MessagePreview = ({ messageText, conversationId, recipientId }) => {
         };
         decrypt();
         return () => { active = false; };
-    }, [messageText, conversationId, recipientId]);
+    }, [messageText, conversationId, recipientId, privateKey]);
 
     return <span>{decryptedText}</span>;
 };

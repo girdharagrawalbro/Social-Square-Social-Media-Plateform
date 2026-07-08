@@ -1265,6 +1265,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
         if (!loggeduser?._id) return;
         const timer = setTimeout(saveDraft, 1500);
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         loggeduser?._id,
         previews,
@@ -2263,7 +2264,7 @@ const Stories = () => {
             socket.off('liveStreamStarted', handleLiveStarted);
             socket.off('liveStreamEnded', handleLiveEnded);
         };
-    }, [initialized, loggeduser?._id]);
+    }, [initialized, loggeduser?._id, loggeduser?.following]);
 
     useEffect(() => {
         window.onViewStory = (userId, storyId) => {
