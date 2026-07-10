@@ -1,47 +1,83 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, useColorScheme, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  useColorScheme,
+  Dimensions,
+  Image,
+} from 'react-native';
 import useAuthStore from '../store/zustand/useAuthStore';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen({ navigation }: any) {
   const isDark = useColorScheme() === 'dark';
-  const { initAuth, user } = useAuthStore();
+  const { initAuth } = useAuthStore();
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Small artificial delay for premium branding splash screen feel
-      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       await initAuth();
+
       const updatedUser = useAuthStore.getState().user;
-      if (updatedUser) {
-        navigation.replace('SocialSquare');
-      } else {
-        navigation.replace('Login');
-      }
+
+      navigation.replace(updatedUser ? 'SocialSquare' : 'Login');
     };
+
     checkAuth();
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#0a0a0a' : '#ffffff' }]}>
-      {/* Dynamic Background Graphics */}
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: isDark ? '#0A0A0A' : '#FFFFFF',
+        },
+      ]}>
+      {/* Background */}
       <View style={styles.backgroundGraphics}>
-        {/* Angled Purple Background */}
-        <View style={styles.angledGradient} />
-
-        {/* Floating Shapes */}
-        <View style={styles.floatingShapeRight} />
-        <View style={styles.floatingShapeLeft} />
+        <View style={styles.topBackground} />
+        <View style={styles.floatingRight} />
+        <View style={styles.floatingLeft} />
       </View>
 
       {/* Content */}
       <View style={styles.content}>
-        <Text style={styles.logoText}>Social Square</Text>
-        <Text style={[styles.tagline, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+        <Image
+          source={require('../assets/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+
+        <Text
+          style={[
+            styles.title,
+            {
+              color: isDark ? '#FFFFFF' : '#111827',
+            },
+          ]}>
+          Social Square
+        </Text>
+
+        <Text
+          style={[
+            styles.subtitle,
+            {
+              color: isDark ? '#9CA3AF' : '#6B7280',
+            },
+          ]}>
           Your social universe, squared.
         </Text>
-        <ActivityIndicator size="large" color="#808bf5" style={styles.loader} />
+
+        <ActivityIndicator
+          size="large"
+          color="#808BF5"
+          style={styles.loader}
+        />
       </View>
     </View>
   );
@@ -50,64 +86,73 @@ export default function SplashScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
+
   backgroundGraphics: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
-  angledGradient: {
+
+  topBackground: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: height * 0.55,
-    backgroundColor: '#808bf5',
-    // Mock the clipPath polygon look
-    borderBottomLeftRadius: width * 0.15,
-    borderBottomRightRadius: width * 0.15,
+    height: height * 0.52,
+    backgroundColor: '#808BF5',
+    borderBottomLeftRadius: 60,
+    borderBottomRightRadius: 60,
   },
-  floatingShapeRight: {
+
+  floatingRight: {
     position: 'absolute',
-    top: height * 0.28,
-    right: '5%',
-    width: 120,
-    height: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    transform: [{ rotate: '-12deg' }],
-    borderRadius: 4,
+    top: height * 0.22,
+    right: -20,
+    width: 140,
+    height: 32,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 30,
+    transform: [{ rotate: '-15deg' }],
   },
-  floatingShapeLeft: {
+
+  floatingLeft: {
     position: 'absolute',
-    bottom: height * 0.25,
-    left: '8%',
-    width: 100,
-    height: 25,
-    backgroundColor: 'rgba(128, 139, 245, 0.2)',
-    transform: [{ rotate: '-12deg' }],
-    borderRadius: 4,
+    bottom: height * 0.18,
+    left: -20,
+    width: 110,
+    height: 28,
+    backgroundColor: 'rgba(128,139,245,0.15)',
+    borderRadius: 30,
+    transform: [{ rotate: '-15deg' }],
   },
+
   content: {
     alignItems: 'center',
-    zIndex: 10,
+    paddingHorizontal: 24,
   },
-  logoText: {
-    fontSize: 48,
-    fontFamily: 'Pacifico-Regular', // Fallback to system sans if not loaded
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 6,
-    marginBottom: 8,
+
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 24,
   },
-  tagline: {
+
+  title: {
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+
+  subtitle: {
+    marginTop: 10,
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 40,
+    fontWeight: '500',
+    textAlign: 'center',
   },
+
   loader: {
-    marginTop: 20,
+    marginTop: 50,
   },
 });
