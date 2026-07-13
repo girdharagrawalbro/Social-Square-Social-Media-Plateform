@@ -1356,7 +1356,12 @@ router.post("/react", verifyToken, [
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: 'Post not found.' });
 
-        const existingIdx = (post.reactions || []).findIndex(r => r.userId?.toString() === userId);
+        // Deduplicate reactions array by user ID to resolve race conditions
+        post.reactions = (post.reactions || []).filter((r, index, self) => 
+            r.userId && self.findIndex(o => o.userId?.toString() === r.userId?.toString()) === index
+        );
+
+        const existingIdx = post.reactions.findIndex(r => r.userId?.toString() === userId);
 
         if (existingIdx !== -1) {
             if (post.reactions[existingIdx].emoji === emoji) {

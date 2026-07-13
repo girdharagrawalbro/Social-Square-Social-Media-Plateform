@@ -106,6 +106,7 @@ const NewPost = ({ visible, onHide }) => {
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [usedAiForThisPost, setUsedAiForThisPost] = useState(false);
     const [aiLimits, setAiLimits] = useState({ text: 2, image: 2 });
+    const [suggestedCaptions, setSuggestedCaptions] = useState([]);
 
     // Polls
     const [pollOptions, setPollOptions] = useState(['', '']);
@@ -161,7 +162,7 @@ const NewPost = ({ visible, onHide }) => {
     const saveDraft = async (manual = false) => {
         if (!loggeduser?._id) return;
         if (!manual && !activeDraftId) return;
-        
+
         const isPostEmpty = images.length === 0 && !video && !formData.caption.trim() && !beforeImage && !afterImage && !beforeText.trim() && !afterText.trim();
         if (isPostEmpty) return;
 
@@ -266,7 +267,7 @@ const NewPost = ({ visible, onHide }) => {
             setSelectedGoalId(draft.selectedGoalId || null);
             setIsBeforeAfter(draft.isBeforeAfter || false);
             setBeforeAfterType(draft.beforeAfterType || 'image');
-            
+
             if (draft.images) {
                 setImages(draft.images.map((img, idx) => ({
                     ...img,
@@ -276,7 +277,7 @@ const NewPost = ({ visible, onHide }) => {
             } else {
                 setImages([]);
             }
-            
+
             if (draft.video) {
                 setVideo({
                     ...draft.video,
@@ -285,7 +286,7 @@ const NewPost = ({ visible, onHide }) => {
             } else {
                 setVideo(null);
             }
-            
+
             if (draft.beforeImage) {
                 setBeforeImage({
                     ...draft.beforeImage,
@@ -294,7 +295,7 @@ const NewPost = ({ visible, onHide }) => {
             } else {
                 setBeforeImage(null);
             }
-            
+
             if (draft.afterImage) {
                 setAfterImage({
                     ...draft.afterImage,
@@ -303,7 +304,7 @@ const NewPost = ({ visible, onHide }) => {
             } else {
                 setAfterImage(null);
             }
-            
+
             setLocation(draft.location || { name: '', lat: null, lng: null });
             setIsCollaborative(draft.isCollaborative || false);
             setCollaborators(draft.collaborators || []);
@@ -356,6 +357,7 @@ const NewPost = ({ visible, onHide }) => {
         setTagSearchResults([]);
         setIsSearchingTags(false);
         setAiPrompt("");
+        setSuggestedCaptions([]);
         setPollOptions(['', '']);
         setVisibility('public');
         setIsAnonymous(false);
@@ -454,7 +456,40 @@ const NewPost = ({ visible, onHide }) => {
     }, [openFeaturePanel]);
 
     const generateAiText = async () => {
-        if (!aiPrompt.trim()) { toast.error('Enter a prompt first'); return; }
+        if (!aiPrompt.trim()) {
+            if (images.length > 0) {
+                setIsGeneratingAi(true);
+                const toastId = toast.loading("Analyzing image to generate captions...");
+                try {
+                    let targetUrl = images[activeImageIndex]?.url;
+                    if (!targetUrl) {
+                        // Upload image first
+                        const uploadRes = await uploadMedia(images[activeImageIndex].file, null, { folder: 'ai-temp' });
+                        targetUrl = uploadRes.url;
+                        setImages(prev => prev.map((img, i) => i === activeImageIndex ? { ...img, url: targetUrl, uploaded: true } : img));
+                    }
+
+                    const res = await api.post(`/api/ai/caption`, { imageUrl: targetUrl });
+                    if (res.data?.captions && res.data.captions.length > 0) {
+                        setSuggestedCaptions(res.data.captions);
+                        // Populate first caption as default
+                        setFormData(p => ({ ...p, caption: res.data.captions[0] }));
+                        setUsedAiForThisPost(true);
+                        toast.success("✨ Image-based captions generated!", { id: toastId });
+                    } else {
+                        toast.error("Failed to analyze image content", { id: toastId });
+                    }
+                } catch (err) {
+                    toast.error(err.response?.data?.error || err.message || 'Failed to analyze image', { id: toastId });
+                } finally {
+                    setIsGeneratingAi(false);
+                }
+            } else {
+                toast.error('Enter an AI prompt or upload an image first');
+            }
+            return;
+        }
+
         setIsGeneratingAi(true);
         try {
             const res = await api.post(`/api/ai/generate-text`, { prompt: aiPrompt });
@@ -1140,8 +1175,8 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     const renderSelect = () => (
-        <div className="flex flex-col items-center justify-center p-8 sm:p-12 min-h-[500px] text-center gap-6">
-            <div className="text-6xl text-[var(--text-sub)] opacity-40">
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 min-h-[500px] text-center gap-8">
+            <div className="text-5xl text-[var(--text-sub)] opacity-30">
                 <i className="pi pi-images"></i>
             </div>
             <div className="flex flex-col gap-2">
@@ -1149,21 +1184,19 @@ const NewPost = ({ visible, onHide }) => {
                 <p className="text-xs text-[var(--text-sub)]">Share photos and videos with your friends</p>
             </div>
 
-            <div className="flex flex-col gap-3 w-full max-w-[400px]">
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex-1 bg-[#6366f1] text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
-                    >
-                        <i className="pi pi-upload text-sm"></i>
-                        Upload Media
-                    </button>
-                </div>
+            <div className="flex flex-col gap-3 w-full max-w-md ">
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 bg-[#4F46E5] text-white h-14 p-4 text-base rounded-xl font-semibold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/15 active:scale-[0.98] transition-all duration-200"
+                >
+                    <i className="pi pi-upload text-sm"></i>
+                    Upload Media
+                </button>
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-4">
                     <button
                         onClick={() => setStep(STEPS.FINALIZE)}
-                        className="flex-1 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-bold hover:bg-[var(--surface-3)] transition flex items-center justify-center gap-2 border border-[var(--border-color)]"
+                        className="flex-1 h-14 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-semibold hover:bg-[var(--surface-3)] hover:border-indigo-400  transition flex items-center justify-center gap-2 border border-[var(--border-color)] transition-all duration-200"
                     >
                         <i className="pi pi-pencil text-sm"></i>
                         Text Post
@@ -1171,27 +1204,25 @@ const NewPost = ({ visible, onHide }) => {
                     {flags?.ai_features !== false && (
                         <button
                             onClick={() => setStep(STEPS.AI_PROMPT)}
-                            className="flex-1 bg-gradient-to-tr from-indigo-500 to-purple-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                            className="flex-1 h-14 bg-gradient-to-tr from-[#6366F1] to-[#8B5CF6] text-white px-4 py-3 rounded-xl font-semibold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/15 transition-all duration-200"
                         >
                             <i className="pi pi-sparkles text-sm"></i>
-                            AI Magic Post
+                            AI Create
                         </button>
                     )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                        onClick={() => {
-                            setIsBeforeAfter(true);
-                            setBeforeAfterType('image');
-                            setStep(STEPS.FINALIZE);
-                        }}
-                        className="flex-1 bg-gradient-to-tr from-rose-500 to-orange-500 text-white px-4 py-3 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
-                    >
-                        <i className="pi pi-arrows-h text-sm"></i>
-                        Before / After Post
-                    </button>
-                </div>
+                <button
+                    onClick={() => {
+                        setIsBeforeAfter(true);
+                        setBeforeAfterType('image');
+                        setStep(STEPS.FINALIZE);
+                    }}
+                    className="flex-1 h-14 bg-gradient-to-tr from-[#F97316] to-[#FB923C] text-white px-4 py-3 rounded-xl font-semibold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 transition-all duration-200"
+                >
+                    <i className="pi pi-arrows-h text-sm"></i>
+                    Before / After Post
+                </button>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileSelect} hidden />
         </div>
@@ -1200,7 +1231,7 @@ const NewPost = ({ visible, onHide }) => {
     const renderAiPrompt = () => (
         <div className="flex flex-col items-center p-0 h-full bg-[var(--surface-1)] overflow-y-auto custom-scrollbar">
             <div className="w-full flex flex-col bg-[var(--surface-1)] min-h-full">
-                <div className="p-4 flex flex-col gap-4">
+                <div className="p-4 flex flex-col gap-3">
                     {/* User Header */}
                     <div className="flex items-center gap-3">
                         <img src={loggeduser?.profile_picture} className="w-9 h-9 rounded-full object-cover border border-[var(--border-color)]" alt="" />
@@ -1263,65 +1294,163 @@ const NewPost = ({ visible, onHide }) => {
                                     className="w-full bg-transparent text-[var(--text-main)] text-xs resize-none outline-none border-none leading-relaxed min-h-[60px]"
                                     placeholder="Reviewing AI caption..."
                                 />
+                                {suggestedCaptions.length > 0 && (
+                                    <div className="mt-3 pt-2 border-t border-[var(--border-color)]/30 flex flex-col gap-2">
+                                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Alternative Caption Options</span>
+                                        <div className="flex flex-col gap-1.5">
+                                            {suggestedCaptions.map((caption, i) => (
+                                                <div
+                                                    key={i}
+                                                    onClick={() => setFormData(prev => ({ ...prev, caption }))}
+                                                    className={`p-2 rounded-lg text-xs cursor-pointer transition-all border ${formData.caption === caption ? 'bg-indigo-500/10 border-indigo-500 text-[var(--text-main)] font-medium shadow-sm' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)]'}`}
+                                                >
+                                                    {caption}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                         <EmojiSelector onSelect={(emoji) => setAiPrompt(prev => prev + emoji)} />
                     </div>
 
                     {/* Post Settings */}
-                    <div className="flex flex-col gap-0 border-t border-[var(--border-color)]">
-                        {/* Community Picker */}
-                        <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
-                            <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                <i className="pi pi-globe text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                Share to Community
-                            </span>
-                            <select
-                                value={selectedGroupId || ""}
-                                onChange={(e) => setSelectedGroupId(e.target.value || null)}
-                                className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1] max-w-[180px] truncate"
+                    <div className="flex flex-col gap-0 mt-2">
+                        {/* Horizontal Feature Icons Bar */}
+                        <div className="flex flex-wrap gap-1 justify-between items-center py-2 px-1 border-t border-b border-[var(--border-color)] bg-[var(--surface-2)]/30 rounded-xl my-2">
+                            {/* Community Icon */}
+                            <button
+                                type="button"
+                                title="Share to Community"
+                                onClick={() => togglePanel('community')}
+                                className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'community' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
                             >
-                                <option value="">🌍 General Feed</option>
-                                {groups && groups.map(g => (
-                                    <option key={g._id} value={g._id}>👥 {g.name}</option>
-                                ))}
-                            </select>
+                                <i className="pi pi-globe text-base mb-1"></i>
+                                <span className="text-[10px] font-semibold truncate max-w-full">
+                                    {selectedGroupId ? "Group" : "Community"}
+                                </span>
+                            </button>
+
+                            {/* Visibility Icon */}
+                            <button
+                                type="button"
+                                title="Visibility"
+                                onClick={() => togglePanel('visibility')}
+                                className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'visibility' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                            >
+                                <i className="pi pi-eye text-base mb-1"></i>
+                                <span className="text-[10px] font-semibold truncate max-w-full">
+                                    {visibility === 'public' ? 'Public' : visibility === 'followers' ? 'Followers' : 'Friends'}
+                                </span>
+                            </button>
+
+                            {/* Location Icon */}
+                            <button
+                                type="button"
+                                title="Add Location"
+                                onClick={() => togglePanel('location')}
+                                className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'location' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                            >
+                                <i className="pi pi-map-marker text-base mb-1"></i>
+                                <span className="text-[10px] font-semibold truncate max-w-full text-center">
+                                    {location.name ? "Location" : "Location"}
+                                </span>
+                            </button>
+
+                            {/* Collaborators Icon */}
+                            <button
+                                type="button"
+                                title="Add Collaborators"
+                                onClick={() => togglePanel('collab')}
+                                className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'collab' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                            >
+                                <i className="pi pi-users text-base mb-1"></i>
+                                <span className="text-[10px] font-semibold truncate max-w-full">
+                                    {collaborators.length > 0 ? `Collab (${collaborators.length})` : "Collab"}
+                                </span>
+                            </button>
+
+                            {/* Advanced Settings Icon */}
+                            <button
+                                type="button"
+                                title="Advanced Settings"
+                                onClick={() => togglePanel('advanced')}
+                                className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'advanced' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                            >
+                                <i className="pi pi-cog text-base mb-1"></i>
+                                <span className="text-[10px] font-semibold truncate max-w-full">
+                                    Settings
+                                </span>
+                            </button>
                         </div>
 
-                        {/* Visibility Picker */}
-                        <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
-                            <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                <i className="pi pi-eye text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                Visibility
-                            </span>
-                            <select
-                                value={visibility}
-                                onChange={(e) => setVisibility(e.target.value)}
-                                className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
-                            >
-                                <option value="public">🌐 Public</option>
-                                <option value="followers">👥 Followers Only</option>
-                                <option value="close_friends">🟢 Close Friends</option>
-                            </select>
-                        </div>
+                        {/* Community Panel Detail */}
+                        {openFeaturePanel === 'community' && (
+                            <div className="py-3 px-2 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+                                <span className="text-xs font-bold text-[var(--text-main)]">Share to Community</span>
+                                <select
+                                    value={selectedGroupId || ""}
+                                    onChange={(e) => setSelectedGroupId(e.target.value || null)}
+                                    className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
+                                >
+                                    <option value="">🌍 General Feed</option>
+                                    {groups && groups.map(g => (
+                                        <option key={g._id} value={g._id}>👥 {g.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
-                        <button onClick={handleGetLocation} className="flex items-center justify-between  py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
-                            <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                {location.name || "Add Location"}
-                            </span>
-                            <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
-                        </button>
+                        {/* Visibility Panel Detail */}
+                        {openFeaturePanel === 'visibility' && (
+                            <div className="py-3 px-2 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+                                <span className="text-xs font-bold text-[var(--text-main)]">Post Visibility</span>
+                                <select
+                                    value={visibility}
+                                    onChange={(e) => setVisibility(e.target.value)}
+                                    className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
+                                >
+                                    <option value="public">🌐 Public</option>
+                                    <option value="followers">👥 Followers Only</option>
+                                    <option value="close_friends">🟢 Close Friends</option>
+                                </select>
+                            </div>
+                        )}
 
-                        <button onClick={() => togglePanel('collab')} className="flex items-center justify-between  py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
-                            <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                <i className="pi pi-users text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                {collaborators.length > 0 ? `${collaborators.length} Collaborators` : "Add Collaborators"}
-                            </span>
-                            <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
-                        </button>
+                        {/* Location Panel Detail */}
+                        {openFeaturePanel === 'location' && (
+                            <div className="py-3 px-2 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-[var(--text-main)]">Add Location</span>
+                                    {location.name && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setLocation({ name: '', lat: null, lng: null })}
+                                            className="text-[10px] text-red-500 hover:underline"
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-[var(--text-main)] flex-1 truncate bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg px-2.5 py-1.5 min-h-[32px] flex items-center">
+                                        {location.name ? `📍 ${location.name}` : "No location selected"}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleGetLocation}
+                                        className="bg-[#6366f1] text-white text-xs font-bold rounded-lg px-3 py-1.5 hover:brightness-110 transition active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer"
+                                    >
+                                        <i className="pi pi-map-marker"></i> Get Current
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Collaborators Detail */}
                         {openFeaturePanel === 'collab' && (
-                            <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2">
+                            <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2 rounded-xl my-1">
                                 <div className="relative">
                                     <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
                                     <input
@@ -1338,7 +1467,7 @@ const NewPost = ({ visible, onHide }) => {
                                             <div key={user._id} className="flex items-center gap-1.5 bg-[var(--surface-1)] border border-[#6366f1]/30 pl-1 pr-2 py-1 rounded-full">
                                                 <img src={user.profile_picture} className="w-5 h-5 rounded-full object-cover" alt="" />
                                                 <span className="text-[10px] font-medium text-[var(--text-main)]">{user.username}</span>
-                                                <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500">
+                                                <button onClick={() => removeCollaborator(user._id)} className="hover:text-red-500 border-0 bg-transparent cursor-pointer">
                                                     <i className="pi pi-times text-[8px]"></i>
                                                 </button>
                                             </div>
@@ -1348,33 +1477,28 @@ const NewPost = ({ visible, onHide }) => {
                             </div>
                         )}
 
-                        <div className="border-b border-[var(--border-color)]/50">
-                            <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full  py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
-                                <span className="text-sm text-[var(--text-main)] font-medium">Advanced Settings</span>
-                                <i className={`pi pi-chevron-${openFeaturePanel === 'advanced' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
-                            </button>
-                            {openFeaturePanel === 'advanced' && (
-                                <div className="p-4 bg-[var(--surface-2)]/50 flex flex-col gap-4 animate-in slide-in-from-top-2">
-                                    {flags?.anonymous_posts !== false && (
-                                        <label className="flex items-center justify-between cursor-pointer group">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
-                                                <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
-                                            </div>
-                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1]" />
-                                        </label>
-                                    )}
-                                    <div className="flex pt-1 flex-col gap-2">
-                                        <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
-                                        <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
-                                            <option value="">Never</option>
-                                            <option value="24">24 Hours</option>
-                                            <option value="168">7 Days</option>
-                                        </select>
-                                    </div>
+                        {/* Advanced Detail */}
+                        {openFeaturePanel === 'advanced' && (
+                            <div className="p-3 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-4 animate-in slide-in-from-top-2 my-1">
+                                {flags?.anonymous_posts !== false && (
+                                    <label className="flex items-center justify-between cursor-pointer group">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
+                                            <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
+                                        </div>
+                                        <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
+                                    </label>
+                                )}
+                                <div className="flex pt-1 flex-col gap-2">
+                                    <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
+                                    <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
+                                        <option value="">Never</option>
+                                        <option value="24">24 Hours</option>
+                                        <option value="168">7 Days</option>
+                                    </select>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
 
 
@@ -1730,7 +1854,7 @@ const NewPost = ({ visible, onHide }) => {
 
                 {/* Right: metadata & controls */}
                 <div className={`w-full ${hasMedia ? 'md:w-[40%] border-l' : 'md:w-[500px]'} flex flex-col bg-[var(--surface-1)] border-[var(--border-color)] overflow-y-auto custom-scrollbar flex-1`}>
-                    <div className="p-4 flex flex-col gap-4">
+                    <div className="p-3 flex flex-col gap-3">
                         <div className="flex items-center gap-3">
                             <img src={loggeduser?.profile_picture} className="w-9 h-9 rounded-full object-cover border border-[var(--border-color)]" alt="" />
                             <div className="flex flex-col">
@@ -1763,7 +1887,7 @@ const NewPost = ({ visible, onHide }) => {
                                 onClick={e => setCursorPosition(e.target.selectionStart)}
                                 name="caption"
                                 rows={3}
-                                className="w-full bg-transparent text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2"
+                                className="w-full border rounded-xl bg-transparent text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2"
                             />
                             <div className="flex justify-end px-2">
                                 <span className="text-[10px] text-[var(--text-sub)] font-medium">{formData.caption.length}/2,200</span>
@@ -1771,36 +1895,156 @@ const NewPost = ({ visible, onHide }) => {
                             <EmojiSelector onSelect={handleEmojiSelect} />
                         </div>
 
-                        <div className="flex flex-col gap-0 border-t border-[var(--border-color)] mt-2">
-                            {/* Community Picker */}
-                            <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
-                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                    <i className="pi pi-globe text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                    Share to Community
-                                </span>
-                                <select
-                                    value={selectedGroupId || ""}
-                                    onChange={(e) => setSelectedGroupId(e.target.value || null)}
-                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1] max-w-[180px] truncate"
+                        <div className="flex flex-col gap-0">
+                            {/* Horizontal Feature Icons Bar */}
+                            <div className="flex flex-wrap gap-1 justify-between items-center py-2 px-1 bg-[var(--surface-2)]/30">
+                                {/* Community Icon */}
+                                <button
+                                    type="button"
+                                    title="Share to Community"
+                                    onClick={() => togglePanel('community')}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'community' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
                                 >
-                                    <option value="">🌍 General Feed</option>
-                                    {groups && groups.map(g => (
-                                        <option key={g._id} value={g._id}>👥 {g.name}</option>
-                                    ))}
-                                </select>
+                                    <i className="pi pi-globe text-base mb-1"></i>
+                                    <span className="text-[10px] font-semibold truncate max-w-full">
+                                        {selectedGroupId ? "Group" : "Community"}
+                                    </span>
+                                </button>
+
+                                {/* Goal Icon */}
+                                {userGoals.length > 0 && (
+                                    <button
+                                        type="button"
+                                        title="Link to Active Goal"
+                                        onClick={() => togglePanel('goal')}
+                                        className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'goal' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                                    >
+                                        <i className="pi pi-flag text-base mb-1"></i>
+                                        <span className="text-[10px] font-semibold truncate max-w-full">
+                                            Goal
+                                        </span>
+                                    </button>
+                                )}
+
+                                {/* Visibility Icon */}
+                                <button
+                                    type="button"
+                                    title="Visibility"
+                                    onClick={() => togglePanel('visibility')}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'visibility' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                                >
+                                    <i className="pi pi-eye text-base mb-1"></i>
+                                    <span className="text-[10px] font-semibold truncate max-w-full">
+                                        {visibility === 'public' ? 'Public' : visibility === 'followers' ? 'Followers' : 'Friends'}
+                                    </span>
+                                </button>
+
+                                {/* Location Icon */}
+                                <button
+                                    type="button"
+                                    title="Add Location"
+                                    onClick={() => togglePanel('location')}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'location' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                                >
+                                    <i className="pi pi-map-marker text-base mb-1"></i>
+                                    <span className="text-[10px] font-semibold truncate max-w-full text-center">
+                                        {location.name ? "Location" : "Location"}
+                                    </span>
+                                </button>
+
+                                {/* Collaborators Icon */}
+                                <button
+                                    type="button"
+                                    title="Add Collaborators"
+                                    onClick={() => togglePanel('collab')}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'collab' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                                >
+                                    <i className="pi pi-users text-base mb-1"></i>
+                                    <span className="text-[10px] font-semibold truncate max-w-full">
+                                        {collaborators.length > 0 ? `Collab (${collaborators.length})` : "Collab"}
+                                    </span>
+                                </button>
+
+                                {/* Tag People Icon */}
+                                <button
+                                    type="button"
+                                    title="Tag People"
+                                    onClick={() => togglePanel('tag')}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'tag' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                                >
+                                    <i className="pi pi-user-plus text-base mb-1"></i>
+                                    <span className="text-[10px] font-semibold truncate max-w-full">
+                                        {taggedUsers.length > 0 ? `Tag (${taggedUsers.length})` : "Tag"}
+                                    </span>
+                                </button>
+
+                                {/* Feedback Settings Icon */}
+                                <button
+                                    type="button"
+                                    title="Feedback Settings"
+                                    onClick={() => togglePanel('feedback')}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'feedback' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                                >
+                                    <i className="pi pi-comments text-base mb-1"></i>
+                                    <span className="text-[10px] font-semibold truncate max-w-full">
+                                        {isFeedbackRequest ? "Feedback" : "Feedback"}
+                                    </span>
+                                </button>
+
+                                {/* Advanced Settings Icon */}
+                                <button
+                                    type="button"
+                                    title="Advanced Settings"
+                                    onClick={() => togglePanel('advanced')}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'advanced' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)] hover:text-[var(--text-main)]'}`}
+                                >
+                                    <i className="pi pi-cog text-base mb-1"></i>
+                                    <span className="text-[10px] font-semibold truncate max-w-full">
+                                        Settings
+                                    </span>
+                                </button>
+
+                                {/* AI Magic Tools Icon */}
+                                {flags?.ai_features !== false && (
+                                    <button
+                                        type="button"
+                                        title="AI Magic Tools"
+                                        onClick={() => togglePanel('ai')}
+                                        className={`flex-1 min-w-[70px] flex flex-col gap-1 items-center justify-center p-2 rounded-xl transition-all cursor-pointer border ${openFeaturePanel === 'ai' ? 'bg-[#6366f1]/10 border-[#6366f1] text-[#6366f1]' : 'border-transparent text-[#6366f1]/80 hover:bg-[var(--surface-2)] hover:text-[#6366f1]'}`}
+                                    >
+                                        <i className="pi pi-sparkles text-sm"></i>
+                                        <span className="text-[12px] font-bold truncate max-w-full">
+                                            AI Magic
+                                        </span>
+                                    </button>
+                                )}
                             </div>
 
-                            {/* Goal Picker */}
-                            {userGoals.length > 0 && (
-                                <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
-                                    <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                        <i className="pi pi-flag text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                        Link to Active Goal
-                                    </span>
+                            {/* Community Panel Detail */}
+                            {openFeaturePanel === 'community' && (
+                                <div className="py-2 px-2 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+                                    <span className="text-xs font-bold text-[var(--text-main)]">Share to Community</span>
+                                    <select
+                                        value={selectedGroupId || ""}
+                                        onChange={(e) => setSelectedGroupId(e.target.value || null)}
+                                        className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
+                                    >
+                                        <option value="">🌍 General Feed</option>
+                                        {groups && groups.map(g => (
+                                            <option key={g._id} value={g._id}>👥 {g.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Goal Panel Detail */}
+                            {openFeaturePanel === 'goal' && userGoals.length > 0 && (
+                                <div className="py-3 px-2 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+                                    <span className="text-xs font-bold text-[var(--text-main)]">Link to Active Goal</span>
                                     <select
                                         value={selectedGoalId || ""}
                                         onChange={(e) => setSelectedGoalId(e.target.value || null)}
-                                        className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1] max-w-[180px] truncate"
+                                        className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
                                     >
                                         <option value="">🎯 None</option>
                                         {userGoals.map(g => (
@@ -1810,45 +2054,60 @@ const NewPost = ({ visible, onHide }) => {
                                 </div>
                             )}
 
-                            {/* Visibility Picker */}
-                            <div className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group relative">
-                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                    <i className="pi pi-eye text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                    Visibility
-                                </span>
-                                <select
-                                    value={visibility}
-                                    onChange={(e) => setVisibility(e.target.value)}
-                                    className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
-                                >
-                                    <option value="public">🌐 Public</option>
-                                    <option value="followers">👥 Followers Only</option>
-                                    <option value="close_friends">🟢 Close Friends</option>
-                                </select>
-                            </div>
+                            {/* Visibility Panel Detail */}
+                            {openFeaturePanel === 'visibility' && (
+                                <div className="py-3 px-2 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+                                    <span className="text-xs font-bold text-[var(--text-main)]">Post Visibility</span>
+                                    <select
+                                        value={visibility}
+                                        onChange={(e) => setVisibility(e.target.value)}
+                                        className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-main)] outline-none cursor-pointer focus:border-[#6366f1]"
+                                    >
+                                        <option value="public">🌐 Public</option>
+                                        <option value="followers">👥 Followers Only</option>
+                                        <option value="close_friends">🟢 Close Friends</option>
+                                    </select>
+                                </div>
+                            )}
 
-                            <button onClick={handleGetLocation} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
-                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                    <i className="pi pi-map-marker text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                    {location.name || "Add Location"}
-                                </span>
-                                <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
-                            </button>
+                            {/* Location Panel Detail */}
+                            {openFeaturePanel === 'location' && (
+                                <div className="py-3 px-2 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-[var(--text-main)]">Add Location</span>
+                                        {location.name && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setLocation({ name: '', lat: null, lng: null })}
+                                                className="text-[10px] text-red-500 hover:underline"
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-[var(--text-main)] flex-1 truncate bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg px-2.5 py-1.5 min-h-[32px] flex items-center">
+                                            {location.name ? `${location.name}` : "No location selected"}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleGetLocation}
+                                            className="bg-[#6366f1] text-white text-xs font-bold rounded-lg px-3 py-1.5 hover:brightness-110 transition active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer"
+                                        >
+                                            <i className="pi pi-map-marker"></i> Current
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
-                            <button onClick={() => togglePanel('collab')} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
-                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                    <i className="pi pi-users text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                    {collaborators.length > 0 ? `${collaborators.length} Collaborators` : "Add Collaborators"}
-                                </span>
-                                <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
-                            </button>
+                            {/* Collaborators Detail */}
                             {openFeaturePanel === 'collab' && (
-                                <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2">
+                                <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2 rounded-xl my-1">
                                     <div className="relative">
                                         <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
                                         <input
                                             type="text"
-                                            placeholder="Search users..."
+                                            placeholder="Search users to collab..."
                                             value={searchTerm}
                                             onChange={(e) => handleSearchUsers(e.target.value)}
                                             className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl py-2 pl-8 pr-3 text-[11px] text-[var(--text-main)] outline-none focus:border-[#6366f1]"
@@ -1890,15 +2149,9 @@ const NewPost = ({ visible, onHide }) => {
                                 </div>
                             )}
 
-                            <button onClick={() => togglePanel('tag')} className="flex items-center justify-between py-3 px-1 border-b border-[var(--border-color)]/50 hover:bg-[var(--surface-2)] transition-colors group">
-                                <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                    <i className="pi pi-user-plus text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                    {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged People` : "Tag People"}
-                                </span>
-                                <i className="pi pi-chevron-right text-[10px] opacity-30 group-hover:opacity-100"></i>
-                            </button>
+                            {/* Tag People Detail */}
                             {openFeaturePanel === 'tag' && (
-                                <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2">
+                                <div className="py-2 px-1 bg-[var(--surface-2)]/50 flex flex-col gap-1 animate-in slide-in-from-top-2 rounded-xl my-1">
                                     <div className="relative">
                                         <i className="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-sub)] text-[10px]"></i>
                                         <input
@@ -1945,90 +2198,82 @@ const NewPost = ({ visible, onHide }) => {
                                 </div>
                             )}
 
-                            <div className="border-b border-[var(--border-color)]/50">
-                                <button onClick={() => togglePanel('feedback')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
-                                    <span className="text-sm text-[var(--text-main)] font-medium flex items-center gap-2">
-                                        <i className="pi pi-comments text-[var(--text-sub)] group-hover:text-[#6366f1] transition-colors"></i>
-                                        Feedback Request Settings
-                                    </span>
-                                    <i className={`pi pi-chevron-${openFeaturePanel === 'feedback' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
-                                </button>
-                                {openFeaturePanel === 'feedback' && (
-                                    <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2">
-                                        <label className="flex items-center justify-between cursor-pointer group">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-[var(--text-main)]">Request Structured Feedback</span>
-                                                <span className="text-[10px] text-[var(--text-sub)]">Require critiques instead of likes</span>
-                                            </div>
-                                            <input type="checkbox" checked={isFeedbackRequest} onChange={e => setIsFeedbackRequest(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
-                                        </label>
-                                        {isFeedbackRequest && (
-                                            <div className="flex flex-col gap-2 pt-1">
-                                                <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Critique Category</span>
-                                                <select value={feedbackCategory} onChange={e => setFeedbackCategory(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none cursor-pointer">
-                                                    <option value="general">🗣️ General Feedback</option>
-                                                    <option value="design">🎨 Design Review</option>
-                                                    <option value="code">💻 Code Review</option>
-                                                    <option value="writing">📝 Writing Feedback</option>
-                                                </select>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="border-b border-[var(--border-color)]/50">
-                                <button onClick={() => togglePanel('advanced')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group">
-                                    <span className="text-sm text-[var(--text-main)] font-medium">Advanced Settings</span>
-                                    <i className={`pi pi-chevron-${openFeaturePanel === 'advanced' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
-                                </button>
-                                {openFeaturePanel === 'advanced' && (
-                                    <div className="p-3 bg-[var(--surface-2)]/50 flex flex-col gap-4 animate-in slide-in-from-top-2">
-                                        {flags?.anonymous_posts !== false && (
-                                            <label className="flex items-center justify-between cursor-pointer group">
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
-                                                    <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
-                                                </div>
-                                                <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
-                                            </label>
-                                        )}
-                                        <div className="flex  pt-1 flex-col gap-2">
-                                            <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
-                                            <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
-                                                <option value="">Never</option>
-                                                <option value="24">24 Hours</option>
-                                                <option value="168">7 Days</option>
+                            {/* Feedback Detail */}
+                            {openFeaturePanel === 'feedback' && (
+                                <div className="p-3 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-3 animate-in slide-in-from-top-2 my-1">
+                                    <label className="flex items-center justify-between cursor-pointer group">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-[var(--text-main)]">Request Structured Feedback</span>
+                                            <span className="text-[10px] text-[var(--text-sub)]">Require critiques instead of likes</span>
+                                        </div>
+                                        <input type="checkbox" checked={isFeedbackRequest} onChange={e => setIsFeedbackRequest(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
+                                    </label>
+                                    {isFeedbackRequest && (
+                                        <div className="flex flex-col gap-2 pt-1">
+                                            <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Critique Category</span>
+                                            <select value={feedbackCategory} onChange={e => setFeedbackCategory(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none cursor-pointer">
+                                                <option value="general">🗣️ General Feedback</option>
+                                                <option value="design">🎨 Design Review</option>
+                                                <option value="code">💻 Code Review</option>
+                                                <option value="writing">📝 Writing Feedback</option>
                                             </select>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
 
-                            {flags?.ai_features !== false && (
-                                <div>
-                                    <button onClick={() => togglePanel('ai')} className="flex items-center justify-between w-full py-3 px-1 hover:bg-[var(--surface-2)] transition-colors group text-[#6366f1]">
-                                        <span className="text-sm font-bold flex items-center gap-2">
-                                            <span className="animate-pulse">✨</span> AI Magic Tools
-                                        </span>
-                                        <i className={`pi pi-chevron-${openFeaturePanel === 'ai' ? 'up' : 'down'} text-[10px] opacity-30 group-hover:opacity-100`}></i>
-                                    </button>
-                                    {openFeaturePanel === 'ai' && (
-                                        <div className=" flex flex-col gap-3 m-1 animate-in zoom-in-95">
-                                            <div className="flex justify-between items-center px-1">
-                                                <span className="text-[9px] font-bold text-[var(--text-sub)] uppercase">Remaining: {aiLimits.text} Text / {aiLimits.image} Image</span>
-                                                {isGeneratingAi && <i className="pi pi-spin pi-spinner text-[10px] text-[#6366f1]"></i>}
+                            {/* Advanced Detail */}
+                            {openFeaturePanel === 'advanced' && (
+                                <div className="p-3 bg-[var(--surface-2)]/50 rounded-xl flex flex-col gap-4 animate-in slide-in-from-top-2 my-1">
+                                    {flags?.anonymous_posts !== false && (
+                                        <label className="flex items-center justify-between cursor-pointer group">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-[var(--text-main)]">Post Anonymously</span>
+                                                <span className="text-[10px] text-[var(--text-sub)]">Hide your identity</span>
                                             </div>
-                                            <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
-                                            <div className="flex gap-2">
-                                                <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
-                                                    {isGeneratingAi ? <i className="pi pi-spin pi-spinner mr-1"></i> : null}
-                                                    Generate Text
-                                                </button>
-                                                <button onClick={generateAiImage} disabled={isGeneratingAi} className="flex-1 py-2 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50">
-                                                    Generate Image
-                                                </button>
-                                            </div>
+                                            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="w-4 h-4 rounded border-[var(--border-color)] text-[#6366f1] accent-[#6366f1] transition-all" />
+                                        </label>
+                                    )}
+                                    <div className="flex pt-1 flex-col gap-2">
+                                        <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider opacity-60">Auto-delete</span>
+                                        <select value={expiresIn} onChange={e => setExpiresIn(e.target.value)} className="bg-[var(--surface-1)] border border-[var(--border-color)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none">
+                                            <option value="">Never</option>
+                                            <option value="24">24 Hours</option>
+                                            <option value="168">7 Days</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* AI Detail */}
+                            {openFeaturePanel === 'ai' && flags?.ai_features !== false && (
+                                <div className="flex flex-col gap-3 m-1 animate-in zoom-in-95 bg-[var(--surface-2)]/50 p-3 rounded-xl">
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-[9px] font-bold text-[var(--text-sub)] uppercase">Remaining: {aiLimits.text} Text / {aiLimits.image} Image</span>
+                                        {isGeneratingAi && <i className="pi pi-spin pi-spinner text-[10px] text-[#6366f1]"></i>}
+                                    </div>
+                                    <input type="text" placeholder="Generate content..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl p-2.5 text-xs text-[var(--text-main)] outline-none focus:border-[#6366f1] shadow-inner" />
+                                    <div className="flex gap-2">
+                                        <button onClick={generateAiText} disabled={isGeneratingAi} className="flex-1 py-2 bg-[#6366f1] text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50 cursor-pointer">
+                                            {isGeneratingAi ? <i className="pi pi-spin pi-spinner mr-1"></i> : null}
+                                            Generate Text
+                                        </button>
+                                        <button onClick={generateAiImage} disabled={isGeneratingAi} className="flex-1 py-2 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50 cursor-pointer">
+                                            Generate Image
+                                        </button>
+                                    </div>
+                                    {suggestedCaptions.length > 0 && (
+                                        <div className="flex flex-col gap-2 p-2 bg-[var(--surface-1)] border border-[var(--border-color)] rounded-xl mt-1 max-h-48 overflow-y-auto custom-scrollbar shadow-inner">
+                                            <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider px-1">AI Suggested Captions</span>
+                                            {suggestedCaptions.map((caption, i) => (
+                                                <div
+                                                    key={i}
+                                                    onClick={() => setFormData(prev => ({ ...prev, caption }))}
+                                                    className={`p-2 rounded-lg text-xs cursor-pointer transition-all border ${formData.caption === caption ? 'bg-indigo-500/10 border-indigo-500 text-[var(--text-main)] font-medium shadow-sm' : 'border-transparent text-[var(--text-sub)] hover:bg-[var(--surface-2)]'}`}
+                                                >
+                                                    {caption}
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>

@@ -18,7 +18,7 @@ export default function SplashScreen({ navigation }: any) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise<void>(resolve => setTimeout(resolve, 2000));
 
       await initAuth();
 
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
 
   backgroundGraphics: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
 

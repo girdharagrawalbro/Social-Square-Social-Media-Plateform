@@ -65,7 +65,7 @@ const Signup = () => {
           console.error("E2EE initialization failed:", e2eeErr);
         }
 
-        toast.success("Signup successful! Redirecting...");
+        toast.success("Signup successful...");
         navigate(`/${result.user.username}`);
       } else { toast.error(result.message || result.error || "Something went wrong!"); }
     } catch { toast.error("Network error! Please try again."); }

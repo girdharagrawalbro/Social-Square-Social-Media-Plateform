@@ -76,20 +76,6 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
           <p className="m-0 text-white font-bold text-sm truncate mt-1">{vid.caption}</p>
         </div>
       </div>
-
-      {/* Play Indicator for Inactive */}
-      {!isPlaying && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-            <i className="pi pi-play text-white text-xl ml-1"></i>
-          </div>
-        </div>
-      )}
-
-      {/* Status Dot */}
-      <div className="absolute top-4 right-4">
-        <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-white/20'}`}></div>
-      </div>
     </div>
   );
 });
@@ -143,10 +129,12 @@ const Explore = () => {
   const [visible, setVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [isReelPlaying, setIsReelPlaying] = useState(true);
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [heartVisible, setHeartVisible] = useState(false);
   const [expandedCaptions, setExpandedCaptions] = useState(new Set());
   const lastTap = useRef(0);
+  const modalVideoRef = useRef(null);
 
   const toggleCaption = (postId) => {
     setExpandedCaptions(prev => {
@@ -273,6 +261,28 @@ const Explore = () => {
     lastTap.current = now;
   };
 
+  const handleVideoClick = (e) => {
+    e.stopPropagation();
+    if (!modalVideoRef.current) return;
+    if (modalVideoRef.current.paused) {
+      modalVideoRef.current.play().then(() => {
+        setIsReelPlaying(true);
+      }).catch(() => { });
+    } else {
+      modalVideoRef.current.pause();
+      setIsReelPlaying(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible) {
+      setIsReelPlaying(true);
+      if (modalVideoRef.current) {
+        modalVideoRef.current.play().catch(() => { });
+      }
+    }
+  }, [activeIndex, visible]);
+
   if (!initialized || loading || !loggeduser) {
     return (
       <div className="max-w-4xl mx-auto p-2">
@@ -283,7 +293,7 @@ const Explore = () => {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div className="sticky top-0 z-20 px-4 py-2 bg-[var(--surface-1)]/80 backdrop-blur-lg border-b border-[var(--border-color)] mb-2">
+      <div className="sticky top-0 z-20 px-4 py-2 bg-[var(--surface-1)]/80 backdrop-blur-lg mb-2">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <h2 className="m-0 text-2xl font-black text-[var(--text-main)]">
             Explore
@@ -342,31 +352,24 @@ const Explore = () => {
       <Dialog
         visible={visible}
         onHide={() => setVisible(false)}
-        style={{ width: '100vw', maxWidth: '500px', height: '100vh', margin: 0, padding: 0 }}
+        style={{ width: '465px', maxWidth: '465px', margin: 0, padding: 0 }}
         modal
+        dismissableMask={true}
         showHeader={false}
         className="explore-reels-dialog"
       >
         <div className="w-full h-full bg-black relative flex flex-col items-center justify-center overflow-hidden">
-          {/* Close button */}
+          {/* Close button (topright) */}
           <button
             onClick={() => setVisible(false)}
-            className="absolute top-6 left-6 z-50 text-white bg-white/20 hover:bg-white/40 w-10 h-10 rounded-full border-0 cursor-pointer flex items-center justify-center backdrop-blur-md"
-          >
-            <i className="pi pi-arrow-left"></i>
-          </button>
-
-          {/* Mute toggle */}
-          <button
-            onClick={() => setMuted(!muted)}
             className="absolute top-6 right-6 z-50 text-white bg-white/20 hover:bg-white/40 w-10 h-10 rounded-full border-0 cursor-pointer flex items-center justify-center backdrop-blur-md"
           >
-            <i className={`pi ${muted ? 'pi-volume-off' : 'pi-volume-up'}`}></i>
+            <i className="pi pi-times"></i>
           </button>
-
           {/* Reels Container */}
-          <div className="w-full h-full flex items-center justify-center relative">
+          <div className="w-full h-full flex items-center justify-center relative" onClick={handleVideoClick}>
             <video
+              ref={modalVideoRef}
               src={videos[activeIndex]?.video}
               autoPlay
               loop
@@ -376,6 +379,17 @@ const Explore = () => {
               onTouchEnd={handleTap}
               className="h-full w-auto max-w-full object-contain cursor-pointer"
             />
+
+            {/* Play/Pause Overlay Indicator */}
+            {!isReelPlaying && (
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none z-30"
+              >
+                <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white">
+                  <i className="pi pi-play text-3xl ml-1"></i>
+                </div>
+              </div>
+            )}
 
             {/* Floating Reactions Layer */}
             {floatingReactions.map(r => (
@@ -388,8 +402,8 @@ const Explore = () => {
               </span>
             ))}
 
-            {/* Overlay Actions */}
-            <div className="absolute bottom-10 right-4 flex flex-col gap-6 items-center text-white z-40">
+            {/* Overlay Actions - Shifted slightly up to avoid audio button overlapping */}
+            <div className="absolute bottom-24 right-4 flex flex-col gap-6 items-center text-white z-40" onClick={(e) => e.stopPropagation()}>
               {/* Like */}
               <div className="flex flex-col items-center gap-1">
                 <button
@@ -409,7 +423,6 @@ const Explore = () => {
                 >
                   <i className="pi pi-comment"></i>
                 </button>
-                <span className="text-[10px] font-bold">Comments</span>
               </div>
 
               {/* Save */}
@@ -420,7 +433,6 @@ const Explore = () => {
                 >
                   <i className={`pi ${isSavedByMe ? 'pi-bookmark-fill text-[#808bf5]' : 'pi-bookmark text-white'}`}></i>
                 </button>
-                <span className="text-[10px] font-bold">{isSavedByMe ? 'Saved' : 'Save'}</span>
               </div>
 
               {/* Share */}
@@ -431,48 +443,58 @@ const Explore = () => {
                 >
                   <i className="pi pi-share-alt"></i>
                 </button>
-                <span className="text-[10px] font-bold">Share</span>
               </div>
 
               {/* More Menu */}
               <div className="flex flex-col items-center gap-1">
-                <PostMenu
-                  post={activePost}
-                  user={loggeduser}
-                  isSaved={isSavedByMe}
-                  onMute={() => {
-                    const targetUser = activePost.user;
-                    confirmDialog({
-                      message: `Are you sure you want to mute ${targetUser.fullname}? Their posts will be hidden from your feed.`,
-                      header: 'Mute User',
-                      icon: 'pi pi-volume-off',
-                      acceptLabel: 'Mute',
-                      acceptClassName: 'p-button-warning border-0 rounded-xl',
-                      rejectClassName: 'p-button-text p-button-secondary rounded-xl',
-                      accept: () => muteMut.mutate({ targetUserId: targetUser._id }),
-                    });
-                  }}
-                  onBlock={() => {
-                    const targetUser = activePost.user;
-                    confirmDialog({
-                      message: `Are you sure you want to block ${targetUser.fullname}? They won't be able to see your profile or posts, and you won't see theirs.`,
-                      header: 'Block Confirmation',
-                      icon: 'pi pi-ban',
-                      acceptLabel: 'Block',
-                      acceptClassName: 'p-button-danger border-0 rounded-xl',
-                      rejectClassName: 'p-button-text p-button-secondary rounded-xl',
-                      accept: () => blockMut.mutate({ targetUserId: targetUser._id }),
-                    });
-                  }}
-                  buttonClassName="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
-                  iconClassName="pi pi-ellipsis-v"
-                />
-                <span className="text-[10px] font-bold">More</span>
+                {activePost && (
+                  <PostMenu
+                    post={activePost}
+                    user={loggeduser}
+                    isSaved={isSavedByMe}
+                    onMute={() => {
+                      const targetUser = activePost.user;
+                      confirmDialog({
+                        message: `Are you sure you want to mute ${targetUser.fullname}? Their posts will be hidden from your feed.`,
+                        header: 'Mute User',
+                        icon: 'pi pi-volume-off',
+                        acceptLabel: 'Mute',
+                        acceptClassName: 'p-button-warning border-0 rounded-xl',
+                        rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                        accept: () => muteMut.mutate({ targetUserId: targetUser._id }),
+                      });
+                    }}
+                    onBlock={() => {
+                      const targetUser = activePost.user;
+                      confirmDialog({
+                        message: `Are you sure you want to block ${targetUser.fullname}? They won't be able to see your profile or posts, and you won't see theirs.`,
+                        header: 'Block Confirmation',
+                        icon: 'pi pi-ban',
+                        acceptLabel: 'Block',
+                        acceptClassName: 'p-button-danger border-0 rounded-xl',
+                        rejectClassName: 'p-button-text p-button-secondary rounded-xl',
+                        accept: () => blockMut.mutate({ targetUserId: targetUser._id }),
+                      });
+                    }}
+                    buttonClassName="bg-transparent border-0 text-white text-1xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
+                    iconClassName="pi pi-ellipsis-v"
+                  />
+                )}
+              </div>
+
+              {/* Audio/Mute toggle */}
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  className="bg-transparent border-0 text-white text-3xl p-0 cursor-pointer hover:scale-110 active:scale-90 transition-all"
+                  onClick={() => setMuted(!muted)}
+                >
+                  <i className={`pi ${muted ? 'pi-volume-off' : 'pi-volume-up'}`}></i>
+                </button>
               </div>
             </div>
 
             {/* Bottom Details */}
-            <div className="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2 z-40">
+            <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2 z-40">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-yellow-500 p-0.5">
                   <img src={videos[activeIndex]?.user?.profile_picture || USER_DEFAULT_IMAGE} className="w-full h-full rounded-full object-cover border-2 border-black" alt="" />
@@ -511,16 +533,18 @@ const Explore = () => {
               </div>
             </div>
 
-            {/* Navigation Buttons for PC */}
+            {/* Navigation Buttons for PC - Smaller and at Left-2/Right-2 */}
             <button
-              onClick={() => setActiveIndex(prev => (prev > 0 ? prev - 1 : videos.length - 1))}
-              className="hidden md:flex absolute top-45 left-10 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
+              onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev > 0 ? prev - 1 : videos.length - 1)); }}
+              className="hidden md:flex fixed top-1/2 left-[calc(50vw-290px)] -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg transition"
+              style={{ zIndex: 3100 }}
             >
               <i className="pi pi-chevron-left"></i>
             </button>
             <button
-              onClick={() => setActiveIndex(prev => (prev < videos.length - 1 ? prev + 1 : 0))}
-              className="hidden md:flex absolute top-45 right-10 -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg z-50 transition"
+              onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev < videos.length - 1 ? prev + 1 : 0)); }}
+              className="hidden md:flex fixed top-1/2 right-[calc(50vw-290px)] -translate-y-1/2 bg-white/10 hover:bg-white/20 w-12 h-12 rounded-full border-0 cursor-pointer items-center justify-center text-white text-xl backdrop-blur-lg transition"
+              style={{ zIndex: 3100 }}
             >
               <i className="pi pi-chevron-right"></i>
             </button>
@@ -576,43 +600,49 @@ const Explore = () => {
                 animation: reelHeartBurst 0.8s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
             }
         `}</style>
-      </Dialog>
+      </Dialog >
 
       {/* Social Dialogs */}
-      {activePost && (
-        <>
-          <Dialog
-            header="Comments"
-            visible={isCommentVisible}
-            onHide={() => setCommentVisible(false)}
-            position={window.innerWidth < 768 ? "bottom" : "center"}
-            style={{ width: '100vw', maxWidth: '500px', margin: '0' }}
-            contentStyle={{ height: window.innerWidth < 768 ? '60vh' : '80vh', padding: '0' }}
-            draggable={false}
-            resizable={false}
-            showHeader={true}
-            className={window.innerWidth < 768 ? "comment-dialog-bottom" : "comment-dialog-center"}
-          >
-            <Comment
-              postId={activePost._id}
-              setVisible={setCommentVisible}
-              onProfileClick={(userId) => {
-                setCommentVisible(false);
-                setVisible(false);
-                navigate(`/profile/${userId}`);
-              }}
+      {
+        activePost && (
+          <>
+            <Dialog
+              header="Comments"
+              visible={isCommentVisible}
+              onHide={() => setCommentVisible(false)}
+              position={window.innerWidth < 768 ? "bottom" : "center"}
+              style={{ width: '100vw', maxWidth: '500px', margin: '0' }}
+              contentStyle={{ height: window.innerWidth < 768 ? '60vh' : '80vh', padding: '0' }}
+              draggable={false}
+              resizable={false}
+              showHeader={true}
+              className={window.innerWidth < 768 ? "comment-dialog-bottom" : "comment-dialog-center"}
+              appendTo={document.body}
+              baseZIndex={3000}
+            >
+              <Comment
+                postId={activePost._id}
+                setVisible={setCommentVisible}
+                onProfileClick={(userId) => {
+                  setCommentVisible(false);
+                  setVisible(false);
+                  navigate(`/profile/${userId}`);
+                }}
+              />
+            </Dialog>
+            <SharePostDialog
+              visible={isShareVisible}
+              onHide={() => setShareVisible(false)}
+              post={activePost}
+              user={loggeduser}
+              onShareToStory={(post) => setSharingPostToStory(post)}
+              appendTo={document.body}
+              baseZIndex={3000}
             />
-          </Dialog>
-          <SharePostDialog
-            visible={isShareVisible}
-            onHide={() => setShareVisible(false)}
-            post={activePost}
-            user={loggeduser}
-            onShareToStory={(post) => setSharingPostToStory(post)}
-          />
-        </>
-      )}
-    </div>
+          </>
+        )
+      }
+    </div >
   );
 };
 

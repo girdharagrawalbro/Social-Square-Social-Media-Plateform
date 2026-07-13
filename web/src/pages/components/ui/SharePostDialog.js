@@ -9,7 +9,7 @@ import { USER_DEFAULT_IMAGE } from '../../../utils/constantMediaVariable';
 import { api } from '../../../store/zustand/useAuthStore';
 import { appChannel } from '../../../utils/broadcast';
 
-const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
+const SharePostDialog = ({ visible, onHide, post, user, onShareToStory, appendTo, baseZIndex }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sendingUsers, setSendingUsers] = useState([]);
 
@@ -122,6 +122,8 @@ const SharePostDialog = ({ visible, onHide, post, user, onShareToStory }) => {
             breakpoints={{ '640px': '100vw' }}
             draggable={false}
             className="share-dialog"
+            appendTo={appendTo}
+            baseZIndex={baseZIndex}
         >
             <div className="flex flex-col gap-4 pt-0 pr-2 pb-2 pl-2">
                 {/* Search Bar */}

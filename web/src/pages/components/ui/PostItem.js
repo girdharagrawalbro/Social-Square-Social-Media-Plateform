@@ -406,7 +406,7 @@ export const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fi
                         // fires before videoRef is attached. onCanPlay guarantees we
                         // attempt play once the element is ready and in view.
                         if (inView && !isLocked && videoRef.current?.paused) {
-                            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+                            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
                         }
                     }}
                 />
@@ -1103,13 +1103,17 @@ export const PostItem = React.memo(({
                                             <div
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (myReaction) {
-                                                        handleReact(post, myReaction.emoji);
+                                                    if (window.matchMedia('(pointer: coarse)').matches) {
+                                                        setPickerPostId(p => p === post._id ? null : post._id);
                                                     } else {
-                                                        handleReact(post, '💡');
+                                                        if (myReaction) {
+                                                            handleReact(post, myReaction.emoji);
+                                                        } else {
+                                                            handleReact(post, '💡');
+                                                        }
                                                     }
                                                 }}
-                                                className="cursor-pointer flex items-center justify-center w-7 h-7 text-[va1r(--text-main)] hover:text-[#808bf5] transition-all"
+                                                className="cursor-pointer flex items-center justify-center w-7 h-7 text-[var(--text-main)] hover:text-[#808bf5] transition-all"
                                                 title={myReaction ? `Reacted with ${myReaction.emoji}` : "React to post"}
                                             >
                                                 {myReaction ? (
@@ -1124,16 +1128,6 @@ export const PostItem = React.memo(({
                                                     onSelect={(emoji) => handleReact(post, emoji)}
                                                     onClose={() => setPickerPostId(null)}
                                                 />
-                                            )}
-
-                                            {/* Mobile tap trigger label */}
-                                            {window.matchMedia('(pointer: coarse)').matches && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setPickerPostId(p => p === post._id ? null : post._id); }}
-                                                    className="bg-transparent border-0 cursor-pointer p-0 text-[10px] font-black text-[var(--text-sub)] hover:text-[#808bf5] mr-2"
-                                                >
-                                                    React
-                                                </button>
                                             )}
 
                                             {/* Reaction breakdown pills */}

@@ -313,7 +313,7 @@ const PostMenu = ({
                 onClick={(e) => { e.stopPropagation(); setVisible(true); }}
                 className={buttonClassName || "bg-[var(--surface-2)] border-0 cursor-pointer p-2 rounded-full text-[var(--text-main)] hover:opacity-80 transition flex items-center justify-center shadow-sm"}
             >
-                <i className={iconClassName || "pi pi-ellipsis-h"} style={{ fontSize: '16px', fontWeight: 'bold' }}></i>
+                <i className={iconClassName || "pi pi-ellipsis-h"} style={{ fontSize: iconClassName ? 'inherit' : '16px', fontWeight: 'bold' }}></i>
             </button>
 
             <Dialog
@@ -326,6 +326,8 @@ const PostMenu = ({
                 modal
                 blockScroll
                 className="post-menu-dialog"
+                appendTo={document.body}
+                baseZIndex={3500}
             >
                 <div className="flex flex-col gap-1 py-1">
                     {actionItems.map((item, idx) => (

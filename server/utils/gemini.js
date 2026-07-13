@@ -33,7 +33,7 @@ async function generateCaptionFromImage(imageUrl) {
             {
                 role: 'user',
                 content: [
-                    { type: 'text', text: 'Generate 3 short, engaging social media captions for this image. Return ONLY a JSON array of strings like: ["caption1", "caption2", "caption3"]. Keep each caption under 100 characters. Be creative and fun.' },
+                    { type: 'text', text: 'Generate 3 short, engaging social media captions for this image, each including 2-3 relevant hashtags at the end. Return ONLY a JSON array of strings like: ["caption1 #tag1 #tag2", "caption2 #tag3", "caption3 #tag4"]. Keep each caption (including hashtags) under 140 characters. Be creative and fun.' },
                     { type: 'image_url', image_url: { url: imageUrl } }
                 ]
             }
@@ -43,11 +43,11 @@ async function generateCaptionFromImage(imageUrl) {
         if (match) return JSON.parse(match[0]);
 
         const lines = reply.split('\n').filter(l => l.trim()).slice(0, 3);
-        return lines.length ? lines : ['✨ Check this out!', '🔥 Loving this!', '💫 Moment captured.'];
+        return lines.length ? lines : ['✨ Check this out! #cool', '🔥 Loving this! #vibes', '💫 Moment captured. #picoftheday'];
 
     } catch (error) {
         console.error('[NVIDIA Caption Error]:', error.message);
-        return ['✨ Check this out!', '🔥 Loving this!', '💫 Moment captured.'];
+        return ['✨ Check this out! #cool', '🔥 Loving this! #vibes', '💫 Moment captured. #picoftheday'];
     }
 }
 

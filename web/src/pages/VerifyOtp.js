@@ -62,7 +62,7 @@ const VerifyOtp = () => {
           setUser(result.user);
         }
         setInitialized(true);
-        toast.success('Verified! Redirecting...');
+        toast.success('Verified...');
         navigate('/');
       } else {
         toast.error(result.error || 'Invalid OTP');

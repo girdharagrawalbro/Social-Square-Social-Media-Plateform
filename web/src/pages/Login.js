@@ -58,7 +58,7 @@ const Login = () => {
                 }
 
                 window.sessionStorage.setItem('just_logged_in', 'true');
-                toast.success('Login successful! Redirecting...');
+                toast.success('Login successful...');
                 setTimeout(() => window.sessionStorage.removeItem('just_logged_in'), 2000);
                 const username = result?.user?.username || useAuthStore.getState().user?.username;
                 if (!username) {

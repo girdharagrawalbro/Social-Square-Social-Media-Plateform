@@ -128,6 +128,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     );
 
     const handleReact = (emoji) => {
+        if (reactMutation.isPending) return;
         reactMutation.mutate({ postId: post._id, emoji });
         setPickerVisible(false);
     };
@@ -320,6 +321,24 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
                                         </button>
                                     )}
+
+                                    {/* AI Insight Overlay - DESKTOP */}
+                                    {post.aiSummary && (
+                                        <div 
+                                            className={`absolute bottom-3 right-3 ${post.mentions && post.mentions.length > 0 ? 'left-14' : 'left-3'} z-30 p-3 bg-black/65 backdrop-blur-md border border-white/10 rounded-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <i className="pi pi-sparkles text-[10px] text-[#808bf5] animate-pulse"></i>
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-[#808bf5]">
+                                                    AI Insight
+                                                </span>
+                                            </div>
+                                            <p className="m-0 text-xs text-white leading-relaxed font-medium">
+                                                {post.aiSummary}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -438,6 +457,24 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                                 <i className="pi pi-user" style={{ fontSize: '12px' }}></i>
                                             </button>
                                         )}
+
+                                        {/* AI Insight Overlay - MOBILE */}
+                                        {post.aiSummary && (
+                                            <div 
+                                                className={`absolute bottom-3 right-3 ${post.mentions && post.mentions.length > 0 ? 'left-14' : 'left-3'} z-30 p-3 bg-black/65 backdrop-blur-md border border-white/10 rounded-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <i className="pi pi-sparkles text-[10px] text-[#808bf5] animate-pulse"></i>
+                                                    <span className="text-[9px] font-black uppercase tracking-wider text-[#808bf5]">
+                                                        AI Insight
+                                                    </span>
+                                                </div>
+                                                <p className="m-0 text-xs text-white leading-relaxed font-medium">
+                                                    {post.aiSummary}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -555,6 +592,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                         </>
                                     )}
                                 </div>
+
                                 {post.isCollaborative && post.collaborators?.filter(c => c.status === 'accepted').map((c, i) => (
                                     <div key={i} className="mt-2 text-sm leading-relaxed">
                                         <span className="font-bold mr-1 cursor-pointer hover:text-[#808bf5] transition" onClick={() => handleProfileClick(c.userId || c._id)}>
@@ -618,10 +656,14 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             <div
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (myReaction) {
-                                                        handleReact(myReaction.emoji);
+                                                    if (window.matchMedia('(pointer: coarse)').matches) {
+                                                        setPickerVisible(prev => !prev);
                                                     } else {
-                                                        handleReact('💡');
+                                                        if (myReaction) {
+                                                            handleReact(myReaction.emoji);
+                                                        } else {
+                                                            handleReact('💡');
+                                                        }
                                                     }
                                                 }}
                                                 className="cursor-pointer flex flex-col items-center justify-center w-7 h-7 text-[var(--text-main)] hover:text-[#808bf5] transition-all"
@@ -636,15 +678,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                                             {pickerVisible && <ReactionPicker onSelect={handleReact} onClose={() => setPickerVisible(false)} />}
 
-                                            {/* Mobile tap trigger label */}
-                                            {window.matchMedia('(pointer: coarse)').matches && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setPickerVisible(p => !p); }}
-                                                    className="bg-transparent border-0 cursor-pointer p-0 text-[10px] font-black text-[var(--text-sub)] hover:text-[#808bf5] mr-2"
-                                                >
-                                                    React
-                                                </button>
-                                            )}
+                                            {/* Mobile tap trigger label removed to avoid clutter */}
 
                                             {/* Reaction breakdown pills */}
                                             {Object.keys(reactionGroups).length > 0 && (
