@@ -2,8 +2,8 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 
 export const BASE_URL = Platform.select({
-  ios: 'https://api.social-square.me',
-  android: 'https://api.social-square.me',
+  ios: __DEV__ ? 'http://localhost:5000' : 'https://api.social-square.me',
+  android: __DEV__ ? 'http://10.0.2.2:5000' : 'https://api.social-square.me',
   default: 'https://api.social-square.me',
 });
 

@@ -16,7 +16,7 @@ const { width } = Dimensions.get('window');
 const navItems = [
   { key: 'feed', icon: 'home', routeName: 'SocialSquare' },
   { key: 'explore', icon: 'compass', routeName: 'Explore' },
-  { key: 'reels', icon: 'play-circle', routeName: 'Reels' },
+  { key: 'reels', icon: 'video', routeName: 'Reels' },
   { key: 'pulse', icon: 'flash', routeName: 'Pulse' },
   { key: 'knowledge', icon: 'book-open', routeName: 'Knowledge' },
   { key: 'messages', icon: 'email', routeName: 'Chat' },

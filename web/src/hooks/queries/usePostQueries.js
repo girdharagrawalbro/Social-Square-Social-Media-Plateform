@@ -370,6 +370,34 @@ export function useReactPost() {
         },
         onSuccess: (res, { postId }) => {
             qc.setQueryData(postKeys.detail(postId), res.data);
+            qc.setQueriesData({ queryKey: ['posts'] }, (oldData) => {
+                if (!oldData) return oldData;
+                
+                // Infinite query data (e.g. feed)
+                if (oldData.pages) {
+                    return {
+                        ...oldData,
+                        pages: oldData.pages.map(page => ({
+                            ...page,
+                            posts: (page.posts || page.items || []).map(p => 
+                                p._id === postId ? { ...p, reactions: res.data.reactions, likes: res.data.likes } : p
+                            )
+                        }))
+                    };
+                }
+                
+                // Array of posts
+                if (Array.isArray(oldData)) {
+                    return oldData.map(p => p._id === postId ? { ...p, reactions: res.data.reactions, likes: res.data.likes } : p);
+                }
+                
+                // Single post object
+                if (oldData._id === postId) {
+                    return { ...oldData, reactions: res.data.reactions, likes: res.data.likes };
+                }
+                
+                return oldData;
+            });
             qc.invalidateQueries({
                 predicate: (query) => {
                     const key = query.queryKey;

@@ -18,6 +18,8 @@ import ReelsScreen from './src/screens/ReelsScreen';
 import PulseScreen from './src/screens/PulseScreen';
 import KnowledgeScreen from './src/screens/KnowledgeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import NewPostScreen from './src/screens/NewPostScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -32,7 +34,7 @@ function App() {
           initialRouteName="Splash"
           screenOptions={{
             headerShown: false,
-            animation: 'slide_from_right',
+            animation: 'fade',
           }}
         >
           <Stack.Screen name="Splash" component={SplashScreen} />
@@ -48,6 +50,8 @@ function App() {
           <Stack.Screen name="Pulse" component={PulseScreen} />
           <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="NewPost" component={NewPostScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

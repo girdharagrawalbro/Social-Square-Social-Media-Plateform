@@ -52,7 +52,7 @@ const Pulse = () => {
                                     <div
                                         key={i}
                                         onClick={() => { handleHaptic(); navigate(`/search?q=${t.tag.slice(1)}`); }}
-                                        className="group flex items-center justify-between p-4 rounded-2xl bg-[var(--surface-2)] border border-transparent hover:border-[#808bf5] hover:bg-[var(--surface-3)] transition-all cursor-pointer"
+                                        className="group flex items-center justify-between px-3 py-2 rounded-2xl bg-[var(--surface-2)] border border-transparent hover:border-[#808bf5] hover:bg-[var(--surface-3)] transition-all cursor-pointer"
                                     >
                                         <div className="flex flex-col">
                                             <span className="font-bold text-lg group-hover:text-[#808bf5] transition">{t.tag}</span>
@@ -74,7 +74,7 @@ const Pulse = () => {
                                     <div
                                         key={i}
                                         onClick={() => { handleHaptic(); navigate(`/profile/${u.user._id}`); }}
-                                        className="group flex items-center gap-4 p-3 rounded-2xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] transition-all cursor-pointer"
+                                        className="group flex items-center gap-4 pr-3 pl-2 py-2 rounded-2xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] transition-all cursor-pointer"
                                     >
                                         <div className="relative">
                                             <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${u.user.isOnline ? 'presence-glow' : 'border-white/10'}`}>
@@ -105,7 +105,7 @@ const Pulse = () => {
                                     <div
                                         key={i}
                                         onClick={() => { handleHaptic(); navigate(`/search?q=${c._id}`); }}
-                                        className="relative p-5 rounded-3xl overflow-hidden group cursor-pointer"
+                                        className="relative px-3 py-2 rounded-2xl overflow-hidden group cursor-pointer"
                                         style={{ background: 'var(--surface-2)' }}
                                     >
                                         <div className="absolute top-0 right-0 w-32 h-32 pulse-gradient opacity-10 blur-3xl group-hover:opacity-30 transition" />

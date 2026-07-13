@@ -288,12 +288,17 @@ export const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fi
     const [isPlaying, setIsPlaying] = useState(true);
     const [showIndicator, setShowIndicator] = useState(null); // 'play' | 'pause' | null
     const indicatorTimer = useRef(null);
-    const { ref, inView } = useInView({ threshold: 0.6 });
+    const { ref, inView } = useInView({ threshold: 0.15 });
 
     const [videoSrc, setVideoSrc] = useState(src);
     const [isDecrypting, setIsDecrypting] = useState(false);
 
     useEffect(() => {
+        if (!inView) {
+            setVideoSrc("");
+            setIsDecrypting(false);
+            return;
+        }
         if (!src) return;
         if (!fileKey || !iv) {
             setVideoSrc(src);
@@ -347,10 +352,10 @@ export const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fi
                 URL.revokeObjectURL(localBlobUrl);
             }
         };
-    }, [src, fileKey, iv]);
+    }, [src, fileKey, iv, inView]);
 
     useEffect(() => {
-        if (!videoRef.current) return;
+        if (!videoRef.current || !inView) return;
         if (inView && !isLocked && !isDecrypting) {
             videoRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
         } else {
@@ -390,7 +395,7 @@ export const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fi
                 <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
                     <i className="pi pi-spin pi-spinner text-[#808bf5]" style={{ fontSize: '24px' }} />
                 </div>
-            ) : (
+            ) : inView && videoSrc ? (
                 <video
                     ref={videoRef}
                     src={videoSrc}
@@ -402,13 +407,17 @@ export const FeedVideo = ({ src, poster, onDoubleClick, onTouchEnd, isLocked, fi
                     onTouchEnd={onTouchEnd}
                     className="w-full h-full object-contain cursor-pointer max-h-[800px]"
                     onCanPlay={() => {
-                        // When the video first mounts after decryption, the useEffect
-                        // fires before videoRef is attached. onCanPlay guarantees we
-                        // attempt play once the element is ready and in view.
                         if (inView && !isLocked && videoRef.current?.paused) {
                             videoRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
                         }
                     }}
+                />
+            ) : (
+                <img
+                    src={poster}
+                    className="w-full h-full object-contain cursor-pointer max-h-[800px]"
+                    style={{ width: '100%', height: 'auto', minHeight: '260px', backgroundColor: '#000' }}
+                    alt="Video thumbnail"
                 />
             )}
 
@@ -1086,7 +1095,11 @@ export const PostItem = React.memo(({
                                     </div>
                                 )}
                                 {!post.isFeedbackRequest ? (() => {
-                                    const myReaction = post.reactions?.find(r => r.emoji !== '❤️' && (r.userId === user?._id || r.userId?.toString() === user?._id?.toString()));
+                                    const myReaction = post.reactions?.find(r => {
+                                        const rUserId = r.userId?._id?.toString() || r.userId?.toString();
+                                        const currentUserId = user?._id?.toString();
+                                        return r.emoji !== '❤️' && rUserId && currentUserId && rUserId === currentUserId;
+                                    });
                                     const reactionGroups = (post.reactions || []).reduce((acc, r) => {
                                         if (r.emoji !== '❤️') {
                                             acc[r.emoji] = (acc[r.emoji] || 0) + 1;

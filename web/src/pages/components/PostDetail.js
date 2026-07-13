@@ -639,7 +639,11 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     </div>
                                 )}
                                 {!post.isFeedbackRequest ? (() => {
-                                    const myReaction = post.reactions?.find(r => r.emoji !== '❤️' && (r.userId === loggeduser?._id || r.userId?.toString() === loggeduser?._id?.toString()));
+                                    const myReaction = post.reactions?.find(r => {
+                                        const rUserId = r.userId?._id?.toString() || r.userId?.toString();
+                                        const currentUserId = loggeduser?._id?.toString();
+                                        return r.emoji !== '❤️' && rUserId && currentUserId && rUserId === currentUserId;
+                                    });
                                     const reactionGroups = (post.reactions || []).reduce((acc, r) => {
                                         if (r.emoji !== '❤️') {
                                             acc[r.emoji] = (acc[r.emoji] || 0) + 1;

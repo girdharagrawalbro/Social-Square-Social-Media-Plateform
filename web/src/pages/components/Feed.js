@@ -400,6 +400,7 @@ const Feed = ({ activeMood = null }) => {
 
     // ── Handlers ─────────────────────────────────────────────────────────────
     const handleReact = useCallback((post, emoji) => {
+        if (reactMutation.isPending) return;
         if (navigator.vibrate) navigator.vibrate(15);
         reactMutation.mutate({ postId: post._id, emoji });
         setPickerPostId(null);

@@ -20,6 +20,7 @@ import BottomNav from './components/BottomNav';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText } from '../lib/cryptoUtils';
 import { api } from '../lib/api';
+import { ChatSkeleton } from './components/SkeletonLoader';
 
 interface Participant {
   _id: string;
@@ -253,8 +254,12 @@ export default function ChatScreen() {
       <AppHeader title="Messages" />
 
       {loading ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#808bf5" />
+        <View style={{ flex: 1 }}>
+          <ChatSkeleton />
+          <ChatSkeleton />
+          <ChatSkeleton />
+          <ChatSkeleton />
+          <ChatSkeleton />
         </View>
       ) : (
         <FlatList
