@@ -24,24 +24,9 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     ca-certificates \
-    curl \
-    bash
+    curl
 
-    
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; \
-    elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; \
-    else echo "Unsupported architecture: $ARCH" && exit 1; fi && \
-    curl -fsSL https://api.github.com/repos/Infisical/cli/releases/latest \
-    | grep browser_download_url \
-    | grep "linux_${ARCH}.tar.gz" \
-    | cut -d '"' -f 4 \
-    | xargs curl -L -o /tmp/infisical.tar.gz && \
-    tar -xzf /tmp/infisical.tar.gz -C /usr/local/bin && \
-    chmod +x /usr/local/bin/infisical && \
-    rm /tmp/infisical.tar.gz && \
-    infisical --version
-    
+
 # Copy node_modules from builder
 COPY --from=builder /app/node_modules ./node_modules
 
@@ -54,6 +39,15 @@ RUN mkdir -p logs && chmod 755 logs
 # Set production environment
 ENV NODE_ENV=production
 
+# Infisical SDK credentials — supply at runtime via -e or docker-compose
+# Never bake real values into the image
+ENV INFISICAL_CLIENT_ID="" \
+    INFISICAL_CLIENT_SECRET="" \
+    INFISICAL_PROJECT_ID="" \
+    INFISICAL_ENV="prod" \
+    INFISICAL_PATH="/" \
+    INFISICAL_SITE_URL="https://app.infisical.com"
+
 # Expose port
 EXPOSE 5000
 
@@ -61,5 +55,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:5000/api', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Start application with memory constraints
-CMD ["infisical", "run", "--", "npm", "start"]
+# Start application (Infisical SDK loads secrets at boot via server.js)
+CMD ["node", "--max-old-space-size=400", "--expose-gc", "server.js"]
