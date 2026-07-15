@@ -2,11 +2,11 @@
 
 require('dotenv').config(); // Bootstrap INFISICAL_* vars from a local .env if present
 
-const { InfisicalSDK } = require('@infisical/sdk');
+const { InfisicalClient } = require('@infisical/sdk');
 
 async function loadSecrets() {
-  const clientId = process.env.INFISICAL_CLIENT_ID;
-  const clientSecret = process.env.INFISICAL_CLIENT_SECRET;
+  const clientId = process.env.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID;
+  const clientSecret = process.env.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET;
   const projectId = process.env.INFISICAL_PROJECT_ID;
 
   // ── Fallback: no SDK creds → rely on dotenv only (local dev) ──────────
@@ -17,35 +17,29 @@ async function loadSecrets() {
     return;
   }
 
-  const infisical = new InfisicalSDK({
+  const infisical = new InfisicalClient({
     siteUrl: process.env.INFISICAL_SITE_URL || 'https://app.infisical.com',
     cacheTtl: 300, // cache secrets for 5 min
+    auth: {
+      universalAuth: {
+        clientId,
+        clientSecret,
+      },
+    },
   });
 
-  // ── Authenticate ────────────────────────────────────────────────────────
-  await infisical.auth().universalAuth.login({ clientId, clientSecret });
-
-  // ── Fetch secrets ───────────────────────────────────────────────────────
-  const { secrets } = await infisical.secrets().listSecrets({
+  // ── Fetch secrets & Inject into process.env ────────────────────────────────
+  const secrets = await infisical.listSecrets({
     projectId,
     environment: process.env.INFISICAL_ENV || 'prod',
     path: process.env.INFISICAL_PATH || '/',
-    viewSecretValue: true,
     includeImports: true,
+    attachToProcessEnv: true,
   });
 
-  // ── Inject into process.env (existing values win — don't override) ──────
-  let injected = 0;
-  for (const secret of secrets) {
-    if (!(secret.secretKey in process.env)) {
-      process.env[secret.secretKey] = secret.secretValue;
-      injected++;
-    }
-  }
-
   console.log(
-    `[infisical] ✓ ${injected} secret(s) injected from Infisical` +
-      ` (env: ${process.env.INFISICAL_ENV || 'prod'}, path: ${process.env.INFISICAL_PATH || '/'})`
+    `[infisical] ✓ ${secrets.length} secret(s) injected from Infisical` +
+    ` (env: ${process.env.INFISICAL_ENV || 'prod'}, path: ${process.env.INFISICAL_PATH || '/'})`
   );
 }
 

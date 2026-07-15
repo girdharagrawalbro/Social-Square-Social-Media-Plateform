@@ -41,8 +41,8 @@ ENV NODE_ENV=production
 
 # Infisical SDK credentials — supply at runtime via -e or docker-compose
 # Never bake real values into the image
-ENV INFISICAL_CLIENT_ID="" \
-    INFISICAL_CLIENT_SECRET="" \
+ENV INFISICAL_UNIVERSAL_AUTH_CLIENT_ID="" \
+    INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET="" \
     INFISICAL_PROJECT_ID="" \
     INFISICAL_ENV="prod" \
     INFISICAL_PATH="/" \
