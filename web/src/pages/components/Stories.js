@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
-import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
+import { ConfirmDialog } from 'primereact/confirmdialog';
 import { uploadMedia, uploadVideo, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 import dbService from '../../utils/indexedDb';
 import useToastStore from '../../store/zustand/useToastStore';
