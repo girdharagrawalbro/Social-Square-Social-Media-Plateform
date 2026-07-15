@@ -138,7 +138,12 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
       });
       if (res.data.requiresOtp) {
         set({ loading: false });
-        return { requiresOtp: true, userId: res.data.userId };
+        return {
+          requiresOtp: true,
+          userId: res.data.userId,
+          otpExpireTime: res.data.otpExpireTime,
+          resendDuration: res.data.resendDuration,
+        };
       }
       const { token, user, sessionId } = res.data;
       await get().updateAuthToken(token, sessionId);

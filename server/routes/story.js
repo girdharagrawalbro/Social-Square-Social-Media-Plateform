@@ -65,22 +65,26 @@ router.post('/create', verifyToken, [
         if (Array.isArray(mentionIds) && mentionIds.length > 0) {
             mentionIds.forEach(async (mId) => {
                 if (mId.toString() === userId.toString()) return;
-                
-                // Real-time socket emit
-                if (_io) {
-                    _io.to(mId.toString()).emit('newMention', { storyId: story._id, senderName: user.fullname });
-                }
+                try {
+                    // Real-time socket emit
+                    if (_io) {
+                        _io.to(mId.toString()).emit('newMention', { storyId: story._id, senderName: user.fullname });
+                    }
 
-                // Persistent notification
-                await notificationUtils.createNotification({
-                    recipientId: mId,
-                    sender: { id: user._id, fullname: user.fullname, profile_picture: user.profile_picture },
-                    type: 'mention',
-                    postId: null,
-                    thumbnail: story.media?.url,
-                    url: `/stories?user=${userId}`,
-                    message: { content: 'tagged you in a story' }
-                });
+                    // Persistent notification
+                    const notif = await notificationUtils.createNotification({
+                        recipientId: mId,
+                        sender: { id: user._id, fullname: user.fullname, profile_picture: user.profile_picture },
+                        type: 'mention',
+                        postId: null,
+                        thumbnail: story.media?.url,
+                        url: `/stories?user=${userId}`,
+                        message: { content: 'tagged you in a story' }
+                    });
+                    console.log('[Story Mention Notification Success]: Created Notification ID:', notif?._id);
+                } catch (err) {
+                    console.error('[Story Mention Notification Failure Error]:', err);
+                }
             });
         }
 

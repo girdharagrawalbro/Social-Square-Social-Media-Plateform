@@ -527,6 +527,82 @@ const StoryViewer = ({
                             ) : (
                                 <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #808bf5, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
                             )}
+
+                            {/* Original story text overlay inside reshared story */}
+                            {story.sharedStoryId.text?.content && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: story.sharedStoryId.text.y !== undefined ? `${story.sharedStoryId.text.y}%` : (story.sharedStoryId.text.position === 'top' ? '25%' : story.sharedStoryId.text.position === 'bottom' ? '70%' : '50%'),
+                                    left: story.sharedStoryId.text.x !== undefined ? `${story.sharedStoryId.text.x}%` : '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    color: story.sharedStoryId.text.color || '#fff',
+                                    fontSize: '9px',
+                                    fontWeight: 800,
+                                    textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+                                    textAlign: 'center',
+                                    padding: '2px 6px',
+                                    borderRadius: '6px',
+                                    maxWidth: '85%',
+                                    zIndex: 15,
+                                    pointerEvents: 'none'
+                                }}>
+                                    {story.sharedStoryId.text.content}
+                                </div>
+                            )}
+
+                            {/* Original story poll sticker inside reshared story */}
+                            {story.sharedStoryId.poll && story.sharedStoryId.poll.question && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: story.sharedStoryId.poll.y !== undefined ? `${story.sharedStoryId.poll.y}%` : '30%',
+                                    left: story.sharedStoryId.poll.x !== undefined ? `${story.sharedStoryId.poll.x}%` : '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    background: 'rgba(255, 255, 255, 0.9)',
+                                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                                    borderRadius: '10px',
+                                    padding: '6px 8px',
+                                    width: '140px',
+                                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                                    zIndex: 10,
+                                    pointerEvents: 'none',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px'
+                                }}>
+                                    <div style={{
+                                        fontSize: '8px',
+                                        fontWeight: 800,
+                                        color: '#333',
+                                        textAlign: 'center',
+                                        wordBreak: 'break-word',
+                                        marginBottom: '2px'
+                                    }}>
+                                        {story.sharedStoryId.poll.question}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        {story.sharedStoryId.poll.options?.map((opt, idx) => (
+                                            <div
+                                                key={idx}
+                                                style={{
+                                                    flex: 1,
+                                                    height: '18px',
+                                                    background: '#fff',
+                                                    borderRadius: '6px',
+                                                    fontSize: '7px',
+                                                    fontWeight: 700,
+                                                    color: '#808bf5',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    border: '1px solid rgba(0,0,0,0.05)'
+                                                }}
+                                            >
+                                                {opt.text}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -1120,7 +1196,7 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
                     onClick={handleCopyLink}
                     className="w-full py-2.5 bg-gray-100 border-0 rounded-xl cursor-pointer text-gray-700 font-semibold text-xs hover:bg-gray-200 transition"
                 >
-                    🔗 Copy Story Link
+                    🔗 Copy Link
                 </button>
 
                 <div className="max-h-[350px] overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-1">
@@ -1207,6 +1283,12 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
             });
         }
     }, [loggeduser?._id]);
+
+    useEffect(() => {
+        if (sharedStory?.music) {
+            setSelectedMusic(sharedStory.music);
+        }
+    }, [sharedStory]);
 
     const saveDraft = async (manual = false) => {
         if (!loggeduser?._id) return;
@@ -1586,7 +1668,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         onCreated(res.data);
                     }
                 }
-                toast.success(sharedPostToUpload ? 'Post shared to story!' : `${previewsToUpload.length} stories created!`, { id: uploadToast });
+                toast.success(sharedPostToUpload ? 'Post shared to story!' : `Story created!`, { id: uploadToast });
                 if (activeDraftId) {
                     await deleteDraft(activeDraftId);
                 }
@@ -1695,11 +1777,89 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                                         <span style={{ fontSize: '9px', color: '#666', marginLeft: 'auto' }}>Story</span>
                                     </div>
                                     {sharedStory.media?.url && (
-                                        sharedStory.media.type === 'video' ? (
-                                            <video src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} muted playsInline autoPlay loop />
-                                        ) : (
-                                            <img src={sharedStory.media.url} style={{ width: '100%', borderRadius: '10px', aspectRatio: '9/16', objectFit: 'cover' }} alt="" />
-                                        )
+                                        <div style={{ position: 'relative', width: '100%', borderRadius: '10px', aspectRatio: '9/16', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                            {sharedStory.media.type === 'video' ? (
+                                                <video src={sharedStory.media.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline autoPlay loop />
+                                            ) : (
+                                                <img src={sharedStory.media.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                            )}
+
+                                            {/* Original story text caption overlay inside reshared story preview */}
+                                            {sharedStory.text?.content && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: sharedStory.text.y !== undefined ? `${sharedStory.text.y}%` : (sharedStory.text.position === 'top' ? '25%' : sharedStory.text.position === 'bottom' ? '70%' : '50%'),
+                                                    left: sharedStory.text.x !== undefined ? `${sharedStory.text.x}%` : '50%',
+                                                    transform: 'translate(-50%, -50%)',
+                                                    color: sharedStory.text.color || '#fff',
+                                                    fontSize: '9px',
+                                                    fontWeight: 800,
+                                                    textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+                                                    textAlign: 'center',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '6px',
+                                                    maxWidth: '85%',
+                                                    zIndex: 15,
+                                                    pointerEvents: 'none'
+                                                }}>
+                                                    {sharedStory.text.content}
+                                                </div>
+                                            )}
+
+                                            {/* Original story poll sticker inside reshared story preview */}
+                                            {sharedStory.poll && sharedStory.poll.question && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: sharedStory.poll.y !== undefined ? `${sharedStory.poll.y}%` : '30%',
+                                                    left: sharedStory.poll.x !== undefined ? `${sharedStory.poll.x}%` : '50%',
+                                                    transform: 'translate(-50%, -50%)',
+                                                    background: 'rgba(255, 255, 255, 0.9)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                                                    borderRadius: '10px',
+                                                    padding: '6px 8px',
+                                                    width: '140px',
+                                                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                                                    zIndex: 10,
+                                                    pointerEvents: 'none',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '4px'
+                                                }}>
+                                                    <div style={{
+                                                        fontSize: '8px',
+                                                        fontWeight: 800,
+                                                        color: '#333',
+                                                        textAlign: 'center',
+                                                        wordBreak: 'break-word',
+                                                        marginBottom: '2px'
+                                                    }}>
+                                                        {sharedStory.poll.question}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                        {sharedStory.poll.options?.map((opt, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    height: '18px',
+                                                                    background: '#fff',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '7px',
+                                                                    fontWeight: 700,
+                                                                    color: '#808bf5',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    border: '1px solid rgba(0,0,0,0.05)'
+                                                                }}
+                                                            >
+                                                                {opt.text}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             ) : currentMedia ? (
@@ -1903,7 +2063,8 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                                                 const found = AUDIO_PRESETS.find(a => a.title === val);
                                                 setSelectedMusic(found || null);
                                             }}
-                                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer' }}
+                                            disabled={!!sharedStory?.music}
+                                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', outline: 'none', cursor: 'pointer', opacity: sharedStory?.music ? 0.6 : 1 }}
                                         >
                                             <option value="">🎵 Background Music</option>
                                             {AUDIO_PRESETS.map((track) => (

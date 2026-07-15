@@ -47,6 +47,11 @@ const Login = () => {
             const result = await login({ email: formData.identifier.trim(), password: encryptedPassword, fingerprint });
 
             if (result?.requiresOtp) {
+                const duration = result.resendDuration || 60;
+                localStorage.setItem('otpResendUntil', (Date.now() + duration * 1000).toString());
+                if (result.otpExpireTime) {
+                    localStorage.setItem('otpExpiresAt', result.otpExpireTime);
+                }
                 navigate('/verify-otp', { state: { userId: result.userId } });
             } else if (result?.success) {
                 // Initialize E2EE

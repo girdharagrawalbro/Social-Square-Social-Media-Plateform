@@ -394,10 +394,15 @@ router.post('/login', authRateLimiter, [
         if (user.twoFactorEnabled || isNewFingerprint) {
             const otp = generateOtp();
             user.twoFactorOtp = hashValue(otp);
-            user.twoFactorOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+            user.twoFactorOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
             await user.save();
             await sendOtpEmail(user.email, otp);
-            return res.status(200).json({ requiresOtp: true, userId: user._id });
+            return res.status(200).json({
+                requiresOtp: true,
+                userId: user._id,
+                otpExpireTime: user.twoFactorOtpExpires.toISOString(),
+                resendDuration: 60
+            });
         }
 
         // Safety fix for corrupted preferredMood (empty string)
@@ -471,6 +476,38 @@ router.post('/login', authRateLimiter, [
     } catch (error) {
         console.error('Login error:', error);
         return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ─── RESEND OTP ───────────────────────────────────────────────────────────────
+router.post('/resend-otp', authRateLimiter, [
+    body('userId').notEmpty().withMessage('User ID is required.'),
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+        const { userId } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const otp = generateOtp();
+        user.twoFactorOtp = hashValue(otp);
+        // Expiration remains 10 mins from now
+        user.twoFactorOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        await user.save();
+
+        await sendOtpEmail(user.email, otp);
+
+        return res.status(200).json({
+            success: true,
+            message: 'OTP code has been resent successfully.',
+            otpExpireTime: user.twoFactorOtpExpires.toISOString(),
+            resendDuration: 60,
+        });
+    } catch (error) {
+        console.error('OTP resend error:', error);
+        return res.status(500).json({ error: 'Failed to resend code.' });
     }
 });
 

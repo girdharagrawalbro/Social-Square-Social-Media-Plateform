@@ -17,7 +17,7 @@ const setIo = (socketIoInstance) => {
  * @param {Object} [params.message] - { id, content }
  * @param {String} [params.url] - Optional link
  */
-const createNotification = async ({ recipientId, sender, type, postId, message, url }) => {
+const createNotification = async ({ recipientId, sender, type, postId, message, url, thumbnail }) => {
   try {
     // 🛡️ Null Guard: Ensure required identity fields exist (allow system and announcement notifications without a sender)
     if (!recipientId || ((type !== 'system' && type !== 'announcement') && (!sender || !sender.id))) {
@@ -71,6 +71,7 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
       post: postId || null,
       message: message || null,
       url: url || null,
+      thumbnail: thumbnail || null,
     });
 
     // 1. Emit real-time notification via Socket.io (Foreground)
