@@ -1,49 +1,58 @@
+# ----------------------------
 # Build stage
+# ----------------------------
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies needed for compiling C++ native modules (like sharp/node-gyp)
+# Build dependencies
 RUN apk add --no-cache python3 make g++ gcc
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (ignoring optional sharp platform prebuild lookup timeouts if any, or letting node-gyp build it)
 ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+
+# Install production dependencies
 RUN npm ci --omit=dev
 
-# Final stage
+
+# ----------------------------
+# Runtime stage
+# ----------------------------
 FROM node:22-alpine
 
 WORKDIR /app
 
-# Install runtime dependencies (FFmpeg for media processing)
+# Runtime dependencies
 RUN apk add --no-cache \
     ffmpeg \
     python3 \
     py3-pip \
     ca-certificates \
-    && rm -rf /var/cache/apk/*
+    curl \
+    bash
 
-# Copy node_modules from builder
+# Install Infisical CLI
+RUN curl -1sLf https://artifacts-cli.infisical.com/setup.alpine.sh | sh \
+    && apk add --no-cache infisical
+
+# Copy node_modules
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy application code
+# Copy application
 COPY . .
 
 # Create logs directory
 RUN mkdir -p logs && chmod 755 logs
 
-# Set production environment
 ENV NODE_ENV=production
 
-# Expose port
 EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:5000/api', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+    CMD node -e "require('http').get('http://localhost:5000/api', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
-# Start application with memory constraints
-CMD ["node", "--max-old-space-size=400", "--expose-gc", "index.js"]
+# Start through Infisical
+CMD ["infisical", "run", "--", "node", "--max-old-space-size=400", "--expose-gc", "index.js"]

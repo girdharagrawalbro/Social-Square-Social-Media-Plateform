@@ -6,6 +6,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import { ConfirmDialog } from 'primereact/confirmdialog';
+import dbService from './utils/indexedDb';
 
 
 import useAuthStore, { api } from './store/zustand/useAuthStore';
@@ -733,20 +734,47 @@ function AppInit() {
 
             // Sync React Query cache
             queryClient.setQueryData(['conversations', user?._id], (old) => {
-                if (!old || !old.pages) return { pages: [{ conversations: [updatedConv] }], pageParams: [null] };
+                if (!old || !old.pages) {
+                    const initialData = { pages: [{ conversations: [updatedConv] }], pageParams: [null] };
+                    dbService.setCache(`conversations_${user?._id}`, { conversations: [updatedConv], nextCursor: null })
+                        .catch(err => console.error("Failed to sync IndexedDB cache:", err));
+                    return initialData;
+                }
                 let found = false;
-                const newPages = old.pages.map(page => {
+                const newPages = old.pages.map((page, idx) => {
                     const exists = (page.conversations || []).find(c => String(c._id) === String(updatedConv._id));
                     if (exists) {
                         found = true;
-                        return { ...page, conversations: page.conversations.map(c => String(c._id) === String(updatedConv._id) ? updatedConv : c) };
+                        // Move the conversation to the very top of the first page!
+                        const filtered = page.conversations.filter(c => String(c._id) !== String(updatedConv._id));
+                        if (idx === 0) {
+                            return { ...page, conversations: [updatedConv, ...filtered] };
+                        } else {
+                            // If it was in a later page, remove it from this page (it will be prepended to page 0)
+                            return { ...page, conversations: filtered };
+                        }
                     }
                     return page;
                 });
-                if (!found) {
+                
+                if (found) {
+                    // Prepend it to the first page if it was found and removed from a later page
+                    const alreadyInFirstPage = old.pages[0].conversations.some(c => String(c._id) === String(updatedConv._id));
+                    if (!alreadyInFirstPage) {
+                        newPages[0].conversations = [updatedConv, ...(newPages[0].conversations || [])];
+                    }
+                } else {
+                    // If not found in any page, prepend to first page
                     newPages[0].conversations = [updatedConv, ...(newPages[0].conversations || [])];
                 }
-                return { ...old, pages: newPages };
+
+                const updatedData = { ...old, pages: newPages };
+                const allConvs = newPages.flatMap(p => p.conversations || []);
+                const nextCursor = old.pages[old.pages.length - 1]?.nextCursor || null;
+                dbService.setCache(`conversations_${user?._id}`, { conversations: allConvs, nextCursor })
+                    .catch(err => console.error("Failed to sync IndexedDB cache:", err));
+
+                return updatedData;
             });
         };
 

@@ -19,31 +19,44 @@ export const convoKeys = {
 // ─── CONVERSATIONS LIST (Infinite Scroll) ─────────────────────────────────────
 export function useConversations(userId) {
     const setUnreadCount = useConversationStore(s => s.setUnreadCount);
+    const queryClient = useQueryClient();
     return useInfiniteQuery({
         queryKey: convoKeys.list(userId),
         queryFn: async ({ pageParam = null }) => {
             const cacheKey = `conversations_${userId}`;
+
+            const fetchPromise = api.get(`${BASE}/api/conversation`, {
+                params: { cursor: pageParam, limit: 20 }
+            }).then(async (res) => {
+                const data = res.data.conversations || [];
+                data.forEach(conv => {
+                    if (!conv.lastMessage?.isRead && conv.lastMessageBy !== userId) {
+                        setUnreadCount(conv._id, 1);
+                    }
+                });
+                if (!pageParam && res.data) {
+                    await dbService.setCache(cacheKey, res.data);
+                }
+                return res.data;
+            });
+
             if (!pageParam) {
                 const cached = await dbService.getCache(cacheKey);
-                if (cached) return cached;
-            }
-            const res = await api.get(`${BASE}/api/conversation`, {
-                params: { cursor: pageParam, limit: 20 }
-            });
-            const data = res.data.conversations || [];
-
-            // Sync unread counts into Zustand
-            data.forEach(conv => {
-                if (!conv.lastMessage?.isRead && conv.lastMessageBy !== userId) {
-                    setUnreadCount(conv._id, 1);
+                if (cached) {
+                    fetchPromise.then(freshData => {
+                        queryClient.setQueryData(convoKeys.list(userId), (old) => {
+                            if (!old) return { pages: [freshData], pageParams: [null] };
+                            return {
+                                ...old,
+                                pages: old.pages.map((page, idx) => idx === 0 ? freshData : page)
+                            };
+                        });
+                    }).catch(err => console.error("Background fetch failed:", err));
+                    return cached;
                 }
-            });
-
-            if (!pageParam && res.data) {
-                await dbService.setCache(cacheKey, res.data);
             }
 
-            return res.data;
+            return fetchPromise;
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
         enabled: !!userId,
@@ -70,34 +83,34 @@ export function useSearchConversations(userId, query) {
 export function useMessages(participantIds) {
     const myId = useAuthStore.getState().user?._id;
     const recipientId = participantIds?.find(id => id !== myId);
+    const queryClient = useQueryClient();
     return useQuery({
         queryKey: convoKeys.messages(participantIds?.sort().join('-')),
         queryFn: async () => {
             const cacheKey = `messages_${participantIds?.sort().join('-')}`;
 
-            // ✅ CACHE HYDRATION (IndexedDB)
+            const fetchPromise = api.post(`${BASE}/api/conversation/messages`, { recipientId }).then(async (res) => {
+                if (res.data && Array.isArray(res.data.messages)) {
+                    const decryptMessage = useE2eeStore.getState().decryptMessage;
+                    res.data.messages = await Promise.all(
+                        res.data.messages.map(msg => decryptMessage(msg, recipientId))
+                    );
+                }
+                if (res.data) {
+                    await dbService.setCache(cacheKey, res.data);
+                }
+                return res.data;
+            });
+
             const cached = await dbService.getCache(cacheKey);
             if (cached) {
-                // Return cached data immediately, then fetch fresh in background
-                // React Query handles background updating automatically since staleTime is used
+                fetchPromise.then(freshData => {
+                    queryClient.setQueryData(convoKeys.messages(participantIds?.sort().join('-')), freshData);
+                }).catch(err => console.error("Background messages fetch failed:", err));
                 return cached;
             }
 
-            const res = await api.post(`${BASE}/api/conversation/messages`, { recipientId });
-
-            if (res.data && Array.isArray(res.data.messages)) {
-                const decryptMessage = useE2eeStore.getState().decryptMessage;
-                res.data.messages = await Promise.all(
-                    res.data.messages.map(msg => decryptMessage(msg, recipientId))
-                );
-            }
-
-            // ✅ UPDATE CACHE
-            if (res.data) {
-                await dbService.setCache(cacheKey, res.data);
-            }
-
-            return res.data; // { messages, conversation }
+            return fetchPromise;
         },
         enabled: !!participantIds && participantIds.length === 2,
         staleTime: 1000 * 60 * 5, // 5 minutes (Socket.io handles real-time sync)

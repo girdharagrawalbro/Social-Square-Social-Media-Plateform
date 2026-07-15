@@ -9,6 +9,7 @@ import { useConversations, useSearchConversations, useClearChat, useDeleteChat, 
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import { useUserProfile } from '../../hooks/queries/useAuthQueries';
+import dbService from '../../utils/indexedDb';
 import ChatPanel from './ChatPanel';
 // import CallModal from './CallModal';
 import formatDate from '../../utils/formatDate';
@@ -331,12 +332,12 @@ const Conversations = () => {
             // Optimistically update query cache for instant feedback
             queryClient.setQueryData(convoKeys.list(toId(user?._id)), (old) => {
                 if (!old || !old.pages) return old;
-                return {
-                    ...old,
-                    pages: old.pages.map(page => ({
-                        ...page,
-                        conversations: page.conversations.map(c => toId(c._id) === toId(conversationId) ? {
-                            ...c,
+                let updatedConv = null;
+                const newPages = old.pages.map((page, idx) => {
+                    const exists = (page.conversations || []).find(c => toId(c._id) === toId(conversationId));
+                    if (exists) {
+                        updatedConv = {
+                            ...exists,
                             lastMessage: {
                                 id: message._id,
                                 message: message.content || (message.media ? `📎 ${message.media.type || 'file'}` : 'New message'),
@@ -345,9 +346,31 @@ const Conversations = () => {
                             },
                             lastMessageAt: message.createdAt || new Date().toISOString(),
                             lastMessageBy: message.senderId || message.sender
-                        } : c)
-                    }))
-                };
+                        };
+                        const filtered = page.conversations.filter(c => toId(c._id) !== toId(conversationId));
+                        if (idx === 0) {
+                            return { ...page, conversations: [updatedConv, ...filtered] };
+                        } else {
+                            return { ...page, conversations: filtered };
+                        }
+                    }
+                    return page;
+                });
+
+                if (updatedConv) {
+                    const alreadyInFirstPage = old.pages[0].conversations.some(c => toId(c._id) === toId(conversationId));
+                    if (!alreadyInFirstPage) {
+                        newPages[0].conversations = [updatedConv, ...(newPages[0].conversations || [])];
+                    }
+                }
+
+                const updatedData = { ...old, pages: newPages };
+                const allConvs = newPages.flatMap(p => p.conversations || []);
+                const nextCursor = old.pages[old.pages.length - 1]?.nextCursor || null;
+                dbService.setCache(`conversations_${user?._id}`, { conversations: allConvs, nextCursor })
+                    .catch(err => console.error("Failed to sync IndexedDB cache:", err));
+
+                return updatedData;
             });
 
             // If it's an incoming message, increment unread

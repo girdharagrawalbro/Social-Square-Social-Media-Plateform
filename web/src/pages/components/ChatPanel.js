@@ -473,7 +473,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
     const sharedLinkData = extractSharedLinkData(message.content || '');
     const isSharedPost = !!sharedLinkData.postId || !!message.sharedPost?.postId;
     const isSharedProfile = !!sharedLinkData.profileId;
-    const isSharedStoryLink = !!sharedLinkData.storyUserId || !!message.storyReply?.storyId;
+    const isSharedStoryLink = !!sharedLinkData.storyUserId;
     const hasSharedLinkCard = isSharedPost || isSharedProfile || isSharedStoryLink;
 
     const reactions = message.reactions ? Object.entries(message.reactions) : [];

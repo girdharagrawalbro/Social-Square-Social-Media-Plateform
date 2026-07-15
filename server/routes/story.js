@@ -386,20 +386,28 @@ router.post('/reply/:storyId', verifyToken, [
                 storyId: story._id,
                 mediaUrl: story.media?.url,
                 mediaType: story.media?.type || 'image',
-            }
+            },
+            isEncrypted: req.body.isEncrypted || false
         });
 
         // Update conversation
-        await Conversation.findByIdAndUpdate(conversation._id, {
-            lastMessage: textContent,
-            lastMessageAt: new Date()
-        });
+        const updatedConv = await Conversation.findByIdAndUpdate(conversation._id, {
+            lastMessage: {
+                id: message._id,
+                message: textContent,
+                isRead: false,
+                isReply: false
+            },
+            lastMessageAt: new Date(),
+            lastMessageBy: userId
+        }, { new: true }).lean();
 
         // 3. Emit real-time message if possible
         if (_io) {
-            _io.to(story.user._id.toString()).emit('receiveMessage', {
-                ...message.toObject(),
-                senderName: sender.fullname
+            const msgObj = { ...message.toObject(), senderName: sender.fullname };
+            conversation.participants.forEach(p => {
+                _io.to(p.userId.toString()).emit('receiveMessage', msgObj);
+                _io.to(p.userId.toString()).emit('conversationUpdated', updatedConv);
             });
         }
 

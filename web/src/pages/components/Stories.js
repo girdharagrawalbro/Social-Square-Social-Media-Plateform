@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import { useStoryFeed, useUserDetails } from '../../hooks/queries/useAuthQueries';
 import { Dialog } from 'primereact/dialog';
-import { confirmDialog } from 'primereact/confirmdialog';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { uploadMedia, uploadVideo, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 import dbService from '../../utils/indexedDb';
 import useToastStore from '../../store/zustand/useToastStore';
@@ -88,6 +88,7 @@ const StoryViewer = ({
     const [viewersVisible, setViewersVisible] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const [profileVisible, setProfileVisible] = useState(false);
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
     useEffect(() => {
         if (story) {
@@ -303,15 +304,7 @@ const StoryViewer = ({
     const handleDelete = (e) => {
         e.stopPropagation();
         setIsPaused(true);
-        confirmDialog({
-            message: 'Are you sure you want to delete this story?',
-            header: 'Delete Confirmation',
-            icon: 'pi pi-exclamation-triangle',
-            accept: confirmDelete,
-            reject: () => setIsPaused(false),
-            onHide: () => setIsPaused(false),
-            baseZIndex: 1000000
-        });
+        setDeleteConfirmVisible(true);
     };
 
     const confirmDelete = async () => {
@@ -961,11 +954,34 @@ const StoryViewer = ({
                             if (!reply.trim() || !story?._id) return;
                             try {
                                 const { api } = await import('../../store/zustand/useAuthStore');
-                                await api.post(`/api/story/reply/${story._id}`, { content: reply });
+                                
+                                const recipientId = group.user._id.toString();
+                                const convRes = await api.post('/api/conversation/create', { recipientId });
+                                const conversationId = convRes.data?._id;
+                                
+                                let finalContent = reply;
+                                let isEncrypted = false;
+                                
+                                const useE2eeStore = (await import('../../store/zustand/useE2eeStore')).default;
+                                const e2eeState = useE2eeStore.getState();
+                                if (e2eeState.privateKey && conversationId) {
+                                    const aesKey = await e2eeState.getConversationKey(conversationId, recipientId);
+                                    if (aesKey) {
+                                        const { encryptText } = await import('../../utils/cryptoUtils');
+                                        const encrypted = await encryptText(reply, aesKey);
+                                        finalContent = JSON.stringify(encrypted);
+                                        isEncrypted = true;
+                                    }
+                                }
+                                
+                                await api.post(`/api/story/reply/${story._id}`, { content: finalContent, isEncrypted });
                                 toast.success('Reply sent!');
                                 e.target.reply.value = '';
                                 setIsPaused(false);
-                            } catch { toast.error('Failed to send reply'); }
+                            } catch (err) { 
+                                console.error(err);
+                                toast.error('Failed to send reply'); 
+                            }
                         }}
                         style={{ flex: 1, display: 'flex' }}
                     >
@@ -1100,6 +1116,22 @@ const StoryViewer = ({
                     sharedStory={story}
                 />
             )}
+            <ConfirmDialog
+                visible={deleteConfirmVisible}
+                onHide={() => { setDeleteConfirmVisible(false); setIsPaused(false); }}
+                message="Are you sure you want to delete this story?"
+                header="Delete Confirmation"
+                icon="pi pi-exclamation-triangle"
+                accept={() => {
+                    setDeleteConfirmVisible(false);
+                    confirmDelete();
+                }}
+                reject={() => {
+                    setDeleteConfirmVisible(false);
+                    setIsPaused(false);
+                }}
+                baseZIndex={1100000}
+            />
         </div>
     );
 };
