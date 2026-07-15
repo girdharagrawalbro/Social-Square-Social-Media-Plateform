@@ -13,6 +13,8 @@ import {
   Alert,
   TextInput,
   Switch,
+  FlatList,
+  Pressable,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -21,8 +23,10 @@ import { api } from '../../lib/api';
 import { appChannel } from '../../lib/broadcast';
 import { useBroadcast } from '../../lib/useBroadcast';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import ShareModal from './ShareModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const playerHeight = Math.min(screenHeight, screenWidth * (16 / 9));
 
 interface StoryItem {
   _id: string;
@@ -86,6 +90,11 @@ export default function StoriesStrip() {
   // Stories player interactive elements
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [viewers, setViewers] = useState<any[]>([]);
+  const [viewersVisible, setViewersVisible] = useState(false);
+  const [loadingViewers, setLoadingViewers] = useState(false);
+  const [shareVisible, setShareVisible] = useState(false);
 
   // Story creation modal state
   const [createVisible, setCreateVisible] = useState(false);
@@ -107,6 +116,10 @@ export default function StoriesStrip() {
   const [hasMusic, setHasMusic] = useState(false);
   const [musicTitle, setMusicTitle] = useState('');
   const [musicArtist, setMusicArtist] = useState('');
+  
+  // Reshared Story State
+  const [resharedStory, setResharedStory] = useState<any>(null);
+  const [stickerSize, setStickerSize] = useState<'small' | 'medium' | 'large'>('medium');
 
   const bg = isDark ? '#0f0f1a' : '#f1f5f9';
   const cardBg = isDark ? '#1a1a2e' : '#ffffff';
@@ -137,7 +150,7 @@ export default function StoriesStrip() {
 
   // Story playback timer logic
   useEffect(() => {
-    if (!playerVisible || feed.length === 0) {
+    if (!playerVisible || feed.length === 0 || isPaused) {
       clearInterval(timerRef.current);
       return;
     }
@@ -147,11 +160,11 @@ export default function StoriesStrip() {
       return;
     }
 
-    setTimerProgress(0);
-    progressAnim.current = 0;
+    const currentStory = currentGroup.stories[activeStoryIndex];
+    const isVideo = currentStory?.media?.type === 'video' || currentStory?.mediaType === 'video';
+    const totalDuration = isVideo ? 15000 : 5000;
 
     const intervalTime = 100;
-    const totalDuration = 5000; // 5 seconds
     const steps = totalDuration / intervalTime;
 
     clearInterval(timerRef.current);
@@ -161,19 +174,20 @@ export default function StoriesStrip() {
 
       if (progressAnim.current >= steps) {
         clearInterval(timerRef.current);
+        progressAnim.current = 0;
         handleNextStory();
       }
     }, intervalTime);
 
-    const currentStory = currentGroup.stories[activeStoryIndex];
-    if (currentStory) {
+    if (currentStory && progressAnim.current === 1) {
       api.post(`/api/story/view/${currentStory._id}`).catch(() => { });
     }
 
     return () => clearInterval(timerRef.current);
-  }, [playerVisible, activeGroupIndex, activeStoryIndex]);
+  }, [playerVisible, activeGroupIndex, activeStoryIndex, isPaused]);
 
   const handleNextStory = () => {
+    progressAnim.current = 0;
     const currentGroup = feed[activeGroupIndex];
     if (!currentGroup) return;
 
@@ -190,6 +204,7 @@ export default function StoriesStrip() {
   };
 
   const handlePrevStory = () => {
+    progressAnim.current = 0;
     if (activeStoryIndex > 0) {
       setActiveStoryIndex((prev) => prev - 1);
     } else {
@@ -201,35 +216,38 @@ export default function StoriesStrip() {
     }
   };
 
-  const handlePickMedia = async () => {
-    Alert.alert('Debug', 'handlePickMedia triggered');
+  const handlePickMedia = () => {
+    // Instantly use a premium placeholder image to test the full story configuration flow
+    const templates = [
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800',
+      'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800',
+      'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800',
+    ];
+    const chosen = templates[Math.floor(Math.random() * templates.length)];
+    setSelectedUri(chosen);
+    setMediaType('image');
+    setCreateVisible(true);
+  };
+
+  const handleChangeMedia = async () => {
     try {
       const result = await launchImageLibrary({
         mediaType: 'mixed',
         quality: 0.8,
       });
-
-      if (result.didCancel) {
-        return;
-      }
+      if (result.didCancel) return;
       if (result.errorMessage) {
         Alert.alert('Error', result.errorMessage);
         return;
       }
-
-      if (!result.assets || result.assets.length === 0) {
-        return;
-      }
-
+      if (!result.assets || result.assets.length === 0) return;
       const asset = result.assets[0];
       if (!asset.uri) return;
-
       setSelectedUri(asset.uri);
       setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
-      setCreateVisible(true);
     } catch (e: any) {
-      console.warn('[handlePickMedia Error]:', e);
-      Alert.alert('Picker Exception', e.message || 'Failed to launch image library.');
+      console.warn('[handleChangeMedia Error]:', e);
+      Alert.alert('Picker Exception', 'Your device does not support the system image picker intent.');
     }
   };
 
@@ -238,97 +256,73 @@ export default function StoriesStrip() {
     setUploading(true);
 
     try {
-      // 1. Get signature
-      const signRes = await api.post('/api/media/cloud/sign-upload', {
-        folder: 'stories',
-      });
+      let finalMediaUrl = selectedUri;
 
-      const { signature, timestamp, cloudName, apiKey, folder, success, message } = signRes.data;
-      if (!success) {
-        throw new Error(message || 'Failed to sign upload');
+      // 1. Upload if it's a local file
+      if (!selectedUri.startsWith('http')) {
+        const formData = new FormData();
+        formData.append('file', {
+          uri: selectedUri,
+          name: mediaType === 'video' ? 'story.mp4' : 'story.jpg',
+          type: mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
+        } as any);
+        formData.append('folder', 'stories');
+        formData.append('resourceType', mediaType);
+
+        const uploadRes = await api.post('/api/media/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        if (uploadRes.data?.success && uploadRes.data?.url) {
+          finalMediaUrl = uploadRes.data.url;
+        } else {
+          throw new Error(uploadRes.data?.message || 'Failed to upload media to backend proxy.');
+        }
       }
 
-      // 2. Build FormData
-      const formData = new FormData();
-      formData.append('file', {
-        uri: selectedUri,
-        name: mediaType === 'video' ? 'story.mp4' : 'story.jpg',
-        type: mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
-      } as any);
-      formData.append('signature', signature);
-      formData.append('timestamp', timestamp.toString());
-      formData.append('api_key', apiKey);
-      formData.append('folder', folder);
+      // 2. Form poll & music objects
+      const pollData = hasPoll && pollQuestion.trim()
+        ? { question: pollQuestion.trim(), options: [{ text: 'Yes' }, { text: 'No' }] }
+        : undefined;
 
-      // 3. Post to Cloudinary
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName || 'dcmrsdydh'}/${mediaType}/upload`, true);
+      const musicData = hasMusic && musicTitle.trim()
+        ? { title: musicTitle.trim(), artist: musicArtist.trim() || 'Unknown Artist' }
+        : undefined;
 
-      xhr.onload = () => {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (xhr.status >= 200 && xhr.status < 300) {
-            // Form poll & music objects
-            const pollData = hasPoll && pollQuestion.trim()
-              ? { question: pollQuestion.trim(), options: [{ text: 'Yes' }, { text: 'No' }] }
-              : undefined;
+      // 3. Submit story info to backend
+      const res = await api.post('/api/story/create', {
+        mediaUrl: finalMediaUrl,
+        mediaType,
+        text: storyText.trim()
+          ? { content: storyText.trim(), color: textColor, position: textPosition }
+          : undefined,
+        visibility,
+        poll: pollData,
+        music: musicData,
+      });
 
-            const musicData = hasMusic && musicTitle.trim()
-              ? { title: musicTitle.trim(), artist: musicArtist.trim() || 'Unknown Artist' }
-              : undefined;
+      Alert.alert('Success', 'Story shared successfully!');
+      setCreateVisible(false);
+      setSelectedUri(null);
+      setStoryText('');
+      setHasPoll(false);
+      setPollQuestion('');
+      setHasMusic(false);
+      setMusicTitle('');
+      setMusicArtist('');
 
-            // Submit story info
-            api.post('/api/story/create', {
-              mediaUrl: data.secure_url,
-              mediaType,
-              text: storyText.trim()
-                ? { content: storyText.trim(), color: textColor, position: textPosition }
-                : undefined,
-              visibility,
-              poll: pollData,
-              music: musicData,
-            })
-              .then((res: any) => {
-                Alert.alert('Success', 'Story shared successfully!');
-                setCreateVisible(false);
-                setSelectedUri(null);
-                setStoryText('');
-                setHasPoll(false);
-                setPollQuestion('');
-                setHasMusic(false);
-                setMusicTitle('');
-                setMusicArtist('');
+      appChannel.postMessage({
+        type: 'STORY_CREATED',
+        story: res.data,
+      });
+      fetchStories();
 
-                appChannel.postMessage({
-                  type: 'STORY_CREATED',
-                  story: res.data,
-                });
-                fetchStories();
-              })
-              .catch((err: any) => {
-                Alert.alert('Publish Error', err.response?.data?.message || 'Failed to create story.');
-              })
-              .finally(() => {
-                setUploading(false);
-              });
-          } else {
-            Alert.alert('Upload Error', data.error?.message || 'Failed to upload media.');
-            setUploading(false);
-          }
-        } catch (e) {
-          Alert.alert('Upload Error', 'Failed to parse upload reply.');
-          setUploading(false);
-        }
-      };
-
-      xhr.onerror = () => {
-        Alert.alert('Upload Error', 'Network error.');
-        setUploading(false);
-      };
-
-      xhr.send(formData);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Signature fetch failed.');
+      console.warn('[StoriesStrip] Publish error:', err);
+      Alert.alert('Publish Error', err.response?.data?.message || err.message || 'Failed to share story.');
+    } finally {
       setUploading(false);
     }
   };
@@ -382,7 +376,9 @@ export default function StoriesStrip() {
   const currentGroup = feed[activeGroupIndex];
   const currentStory = currentGroup?.stories[activeStoryIndex];
 
-  // Helper properties
+  const myGroupIndex = feed.findIndex((g) => g.user._id === myUser?._id);
+  const myGroup = myGroupIndex !== -1 ? feed[myGroupIndex] : null;
+
   const storyMediaUrl = currentStory?.media?.url || currentStory?.mediaUrl || '';
   const storyMediaType = currentStory?.media?.type || currentStory?.mediaType || 'image';
 
@@ -393,58 +389,108 @@ export default function StoriesStrip() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.stripScroll}
       >
-        {/* Create Story Button */}
-        <TouchableOpacity style={styles.bubbleContainer} onPress={handlePickMedia}>
-          <View style={[styles.avatarBorder, { borderColor }]}>
-            <View style={[styles.avatarFallback, { backgroundColor: isDark ? '#1e1e2f' : '#e2e8f0' }]}>
-              <MaterialCommunityIcons name="plus" size={32} color="#808bf5" />
-            </View>
-          </View>
+        {/* Create / View own Story bubble */}
+        <View style={styles.bubbleContainer}>
+          {myGroup ? (
+            <TouchableOpacity
+              onPress={() => {
+                setActiveGroupIndex(myGroupIndex);
+                setActiveStoryIndex(0);
+                setPlayerVisible(true);
+              }}
+            >
+              {myGroup.hasUnviewed ? (
+                <LinearGradient
+                  colors={['#f43f5e', '#ec4899', '#8b5cf6']}
+                  style={styles.gradientBorder}
+                >
+                  <View style={{ position: 'relative' }}>
+                    {myGroup.user.profile_picture ? (
+                      <Image source={{ uri: myGroup.user.profile_picture }} style={styles.bubbleAvatar} />
+                    ) : (
+                      <View style={styles.bubbleAvatarFallback}>
+                        <Text style={styles.avatarInitial}>{myGroup.user.fullname[0].toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity style={styles.miniPlusBadge} onPress={handlePickMedia}>
+                      <MaterialCommunityIcons name="plus" size={12} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
+              ) : (
+                <View style={[styles.avatarBorder, { borderColor }]}>
+                  <View style={{ position: 'relative' }}>
+                    {myGroup.user.profile_picture ? (
+                      <Image source={{ uri: myGroup.user.profile_picture }} style={styles.bubbleAvatar} />
+                    ) : (
+                      <View style={styles.bubbleAvatarFallback}>
+                        <Text style={styles.avatarInitial}>{myGroup.user.fullname[0].toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity style={styles.miniPlusBadge} onPress={handlePickMedia}>
+                      <MaterialCommunityIcons name="plus" size={12} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={handlePickMedia}>
+              <View style={[styles.avatarBorder, { borderColor }]}>
+                <View style={[styles.avatarFallback, { backgroundColor: isDark ? '#1e1e2f' : '#e2e8f0' }]}>
+                  <MaterialCommunityIcons name="plus" size={32} color="#808bf5" />
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
           <Text style={[styles.usernameText, { color: textColorStyle }]} numberOfLines={1}>
             Your Story
           </Text>
-        </TouchableOpacity>
+        </View>
 
         {/* Story Feed list */}
-        {feed.map((group, index) => (
-          <TouchableOpacity
-            key={group.user._id}
-            style={styles.bubbleContainer}
-            onPress={() => {
-              setActiveGroupIndex(index);
-              setActiveStoryIndex(0);
-              setPlayerVisible(true);
-            }}
-          >
-            {group.hasUnviewed ? (
-              <LinearGradient
-                colors={['#f43f5e', '#ec4899', '#8b5cf6']}
-                style={styles.gradientBorder}
-              >
-                {group.user.profile_picture ? (
-                  <Image source={{ uri: group.user.profile_picture }} style={styles.bubbleAvatar} />
-                ) : (
-                  <View style={styles.bubbleAvatarFallback}>
-                    <Text style={styles.avatarInitial}>{group.user.fullname[0].toUpperCase()}</Text>
-                  </View>
-                )}
-              </LinearGradient>
-            ) : (
-              <View style={[styles.avatarBorder, { borderColor }]}>
-                {group.user.profile_picture ? (
-                  <Image source={{ uri: group.user.profile_picture }} style={styles.bubbleAvatar} />
-                ) : (
-                  <View style={styles.bubbleAvatarFallback}>
-                    <Text style={styles.avatarInitial}>{group.user.fullname[0].toUpperCase()}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-            <Text style={[styles.usernameText, { color: textColorStyle }]} numberOfLines={1}>
-              {group.user.username}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {feed.map((group, index) => {
+          if (group.user._id === myUser?._id) return null; // Skip rendering owner separately
+          return (
+            <TouchableOpacity
+              key={group.user._id}
+              style={styles.bubbleContainer}
+              onPress={() => {
+                setActiveGroupIndex(index);
+                setActiveStoryIndex(0);
+                setPlayerVisible(true);
+              }}
+            >
+              {group.hasUnviewed ? (
+                <LinearGradient
+                  colors={['#f43f5e', '#ec4899', '#8b5cf6']}
+                  style={styles.gradientBorder}
+                >
+                  {group.user.profile_picture ? (
+                    <Image source={{ uri: group.user.profile_picture }} style={styles.bubbleAvatar} />
+                  ) : (
+                    <View style={styles.bubbleAvatarFallback}>
+                      <Text style={styles.avatarInitial}>{group.user.fullname[0].toUpperCase()}</Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              ) : (
+                <View style={[styles.avatarBorder, { borderColor }]}>
+                  {group.user.profile_picture ? (
+                    <Image source={{ uri: group.user.profile_picture }} style={styles.bubbleAvatar} />
+                  ) : (
+                    <View style={styles.bubbleAvatarFallback}>
+                      <Text style={styles.avatarInitial}>{group.user.fullname[0].toUpperCase()}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              <Text style={[styles.usernameText, { color: textColorStyle }]} numberOfLines={1}>
+                {group.user.username}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* Stories Playback Modal */}
@@ -456,14 +502,34 @@ export default function StoriesStrip() {
       >
         <View style={styles.playerContainer}>
           {currentGroup && currentStory && (
-            <>
-              {/* Media item rendering */}
-              <Image source={{ uri: storyMediaUrl }} style={styles.playerMedia} resizeMode="cover" />
+            <View style={styles.playerContent}>
+              {/* Background media with dynamic blur and resizeMode */}
+              <Image
+                source={{ uri: storyMediaUrl }}
+                style={[
+                  styles.playerMedia,
+                  (currentStory.sharedPostId || currentStory.sharedStoryId)
+                    ? { opacity: 0.6 }
+                    : { opacity: 1 }
+                ]}
+                resizeMode={(currentStory.sharedPostId || currentStory.sharedStoryId) ? 'cover' : 'contain'}
+                blurRadius={(currentStory.sharedPostId || currentStory.sharedStoryId) ? 35 : 0}
+              />
 
               {/* Tap skip zones */}
               <View style={styles.gestureOverlay}>
-                <TouchableOpacity style={styles.leftTap} onPress={handlePrevStory} activeOpacity={1} />
-                <TouchableOpacity style={styles.rightTap} onPress={handleNextStory} activeOpacity={1} />
+                <Pressable
+                  style={styles.leftTap}
+                  onPressIn={() => setIsPaused(true)}
+                  onPressOut={() => setIsPaused(false)}
+                  onPress={handlePrevStory}
+                />
+                <Pressable
+                  style={styles.rightTap}
+                  onPressIn={() => setIsPaused(true)}
+                  onPressOut={() => setIsPaused(false)}
+                  onPress={handleNextStory}
+                />
               </View>
 
               {/* Header bars */}
@@ -505,23 +571,24 @@ export default function StoriesStrip() {
               </View>
 
               {/* Music overlay tag */}
-              {currentStory.music && (
+              {currentStory.music && currentStory.music.title ? (
                 <View style={styles.musicOverlayBadge}>
                   <MaterialCommunityIcons name="music-note" size={16} color="#ffffff" />
                   <Text style={styles.musicOverlayText} numberOfLines={1}>
-                    {currentStory.music.title} - {currentStory.music.artist}
+                    {currentStory.music.title} - {currentStory.music.artist || 'Unknown Artist'}
                   </Text>
                 </View>
-              )}
+              ) : null}
 
               {/* Rich text overlay caption */}
               {currentStory.text && currentStory.text.content ? (
                 <View
                   style={[
                     styles.textOverlayContainer,
-                    currentStory.text.position === 'top' && { top: 120 },
-                    currentStory.text.position === 'center' && { top: screenHeight / 2.5 },
-                    currentStory.text.position === 'bottom' && { bottom: 180 },
+                    currentStory.text.position === 'top' && { top: '20%' },
+                    currentStory.text.position === 'center' && { top: '45%' },
+                    currentStory.text.position === 'bottom' && { top: '75%' },
+                    currentStory.text.y !== undefined && { top: `${currentStory.text.y}%` },
                   ]}
                 >
                   <Text style={[styles.textOverlayContent, { color: currentStory.text.color || '#ffffff' }]}>
@@ -530,9 +597,208 @@ export default function StoriesStrip() {
                 </View>
               ) : null}
 
+              {/* Tagged/Mentioned Users Overlay */}
+              {currentStory.mentions && currentStory.mentions.length > 0 && (
+                <View style={styles.mentionsOverlayContainer}>
+                  {currentStory.mentions.map((m: any) => {
+                    const uid = m._id || m;
+                    const name = m.username || m.fullname || 'user';
+                    return (
+                      <TouchableOpacity
+                        key={uid.toString()}
+                        style={styles.mentionChip}
+                        onPress={() => {
+                          setIsPaused(true);
+                          Alert.alert('Mention', `@${name}`, [{ text: 'OK', onPress: () => setIsPaused(false) }]);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="account" size={10} color="#ffffff" />
+                        <Text style={styles.mentionChipText}>@{name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Mention-back / Reshare Button */}
+              {currentGroup.user._id !== myUser?._id && currentStory.mentions?.some((m: any) => (m._id || m).toString() === myUser?._id?.toString()) && (
+                <TouchableOpacity
+                  style={styles.reshareBtn}
+                  onPress={() => {
+                    setResharedStory(currentStory);
+                    setSelectedUri(currentStory.media?.url || currentStory.mediaUrl);
+                    setMediaType(currentStory.media?.type || currentStory.mediaType || 'image');
+                    
+                    // Music rules: if original has music, pre-fill and lock it!
+                    if (currentStory.music) {
+                      setHasMusic(true);
+                      setMusicTitle(currentStory.music.title);
+                      setMusicArtist(currentStory.music.artist);
+                    } else {
+                      setHasMusic(false);
+                      setMusicTitle('');
+                      setMusicArtist('');
+                    }
+
+                    setPlayerVisible(false);
+                    setCreateVisible(true);
+                  }}
+                >
+                  <MaterialCommunityIcons name="flash" size={14} color="#ffffff" />
+                  <Text style={styles.reshareBtnText}>Add to your Story</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Reshared Post Sticker Card */}
+              {currentStory.sharedPostId && (
+                <TouchableOpacity
+                  style={styles.stickerCard}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    // Navigate to post detail if possible
+                    setIsPaused(true);
+                    const pid = currentStory.sharedPostId._id || currentStory.sharedPostId.id || currentStory.sharedPostId;
+                    if (pid) {
+                      Alert.alert(
+                        'Open Post',
+                        'Would you like to view this post?',
+                        [
+                          { text: 'Cancel', onPress: () => setIsPaused(false), style: 'cancel' },
+                          {
+                            text: 'View Post',
+                            onPress: () => {
+                              setIsPaused(false);
+                              setPlayerVisible(false);
+                              navigation.navigate('PostDetail', { postId: pid.toString() });
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <View style={styles.stickerHeader}>
+                    {currentStory.sharedPostId.user?.profile_picture ? (
+                      <Image source={{ uri: currentStory.sharedPostId.user.profile_picture }} style={styles.stickerAvatar} />
+                    ) : (
+                      <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
+                          {currentStory.sharedPostId.user?.fullname?.[0]?.toUpperCase() || 'U'}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stickerName} numberOfLines={1}>{currentStory.sharedPostId.user?.fullname}</Text>
+                      <Text style={styles.stickerSub} numberOfLines={1}>Social Square Post</Text>
+                    </View>
+                    <MaterialCommunityIcons name="instagram" size={16} color="#9ca3af" />
+                  </View>
+                  <View style={styles.stickerMediaContainer}>
+                    <Image
+                      source={{ uri: currentStory.sharedPostId.image_urls?.[0] || currentStory.sharedPostId.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80' }}
+                      style={styles.stickerMedia1to1}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  {currentStory.sharedPostId.caption ? (
+                    <Text style={styles.stickerCaption} numberOfLines={2}>{currentStory.sharedPostId.caption}</Text>
+                  ) : null}
+                </TouchableOpacity>
+              )}
+
+              {/* Reshared Story Sticker Card */}
+              {currentStory.sharedStoryId && (
+                <TouchableOpacity
+                  style={styles.stickerCard}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    setIsPaused(true);
+                    const originalUser = currentStory.sharedStoryId.user?.username || currentStory.sharedStoryId.user?._id;
+                    if (originalUser) {
+                      Alert.alert(
+                        'View Story',
+                        `Would you like to view @${originalUser}'s original story?`,
+                        [
+                          { text: 'Cancel', onPress: () => setIsPaused(false), style: 'cancel' },
+                          {
+                            text: 'View',
+                            onPress: () => {
+                              setIsPaused(false);
+                              // Load group and open original story
+                              const grpIdx = feed.findIndex((g) => g.user._id === currentStory.sharedStoryId.user?._id);
+                              if (grpIdx !== -1) {
+                                setActiveGroupIndex(grpIdx);
+                                setActiveStoryIndex(0);
+                              } else {
+                                Alert.alert('Notice', 'This story group is no longer active.');
+                              }
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <View style={styles.stickerHeader}>
+                    {currentStory.sharedStoryId.user?.profile_picture ? (
+                      <Image source={{ uri: currentStory.sharedStoryId.user.profile_picture }} style={styles.stickerAvatar} />
+                    ) : (
+                      <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
+                          {currentStory.sharedStoryId.user?.fullname?.[0]?.toUpperCase() || 'U'}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stickerName} numberOfLines={1}>{currentStory.sharedStoryId.user?.fullname}</Text>
+                      <Text style={styles.stickerSub} numberOfLines={1}>Social Square Story</Text>
+                    </View>
+                    <MaterialCommunityIcons name="layers" size={16} color="#9ca3af" />
+                  </View>
+                  <View style={styles.stickerMediaContainer9to16}>
+                    <Image
+                      source={{ uri: currentStory.sharedStoryId.media?.url }}
+                      style={styles.stickerMedia9to16}
+                      resizeMode="cover"
+                    />
+
+                    {/* Original story text caption overlay inside reshared story */}
+                    {currentStory.sharedStoryId.text && currentStory.sharedStoryId.text.content ? (
+                      <View
+                        style={[
+                          styles.miniTextOverlayContainer,
+                          currentStory.sharedStoryId.text.position === 'top' && { top: '15%' },
+                          currentStory.sharedStoryId.text.position === 'center' && { top: '45%' },
+                          currentStory.sharedStoryId.text.position === 'bottom' && { top: '75%' },
+                          currentStory.sharedStoryId.text.y !== undefined && { top: `${currentStory.sharedStoryId.text.y}%` },
+                        ]}
+                      >
+                        <Text style={[styles.miniTextOverlayContent, { color: currentStory.sharedStoryId.text.color || '#ffffff' }]}>
+                          {currentStory.sharedStoryId.text.content}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {/* Original story poll sticker inside reshared story */}
+                    {currentStory.sharedStoryId.poll && currentStory.sharedStoryId.poll.question ? (
+                      <View style={[styles.miniPollCard, { top: currentStory.sharedStoryId.poll.y !== undefined ? `${currentStory.sharedStoryId.poll.y}%` : '28%' }]}>
+                        <Text style={styles.miniPollQuestion} numberOfLines={1}>{currentStory.sharedStoryId.poll.question}</Text>
+                        <View style={styles.miniPollOptionsRow}>
+                          {currentStory.sharedStoryId.poll.options.map((opt: any) => (
+                            <View key={opt.text} style={styles.miniPollOptionBtn}>
+                              <Text style={styles.miniPollOptionText}>{opt.text}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              )}
+
               {/* Interactive Poll card */}
               {currentStory.poll && currentStory.poll.question ? (
-                <View style={styles.pollCard}>
+                <View style={[styles.pollCard, { top: currentStory.poll.y !== undefined ? `${currentStory.poll.y}%` : '28%' }]}>
                   <Text style={styles.pollQuestion}>{currentStory.poll.question}</Text>
                   <View style={styles.pollOptionsRow}>
                     {currentStory.poll.options.map((opt, optIdx) => {
@@ -570,50 +836,194 @@ export default function StoriesStrip() {
               ) : null}
 
               {/* Story Actions & Reply compose footer */}
-              <View style={styles.playerFooterRow}>
-                <TextInput
-                  style={styles.replyInput}
-                  placeholder="Send message..."
-                  placeholderTextColor="rgba(255,255,255,0.7)"
-                  value={replyText}
-                  onChangeText={setReplyText}
-                  onSubmitEditing={() => handleSendReply(currentStory._id)}
-                />
+              {currentGroup.user._id === myUser?._id ? (
+                <View style={styles.ownerFooterRow}>
+                  <TouchableOpacity
+                    style={styles.viewsBtn}
+                    onPress={async () => {
+                      setIsPaused(true);
+                      setLoadingViewers(true);
+                      setViewersVisible(true);
+                      try {
+                        const res = await api.get(`/api/story/viewers/${currentStory._id}`);
+                        setViewers(res.data || []);
+                      } catch (e) {
+                        console.warn('Failed to fetch viewers:', e);
+                      } finally {
+                        setLoadingViewers(false);
+                      }
+                    }}
+                  >
+                    <MaterialCommunityIcons name="eye" size={20} color="#ffffff" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>
+                      {(currentStory.viewersCount || (currentStory.viewers || []).length)} Views
+                    </Text>
+                  </TouchableOpacity>
 
-                {replyText.trim().length > 0 ? (
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleSendReply(currentStory._id)}
-                    disabled={sendingReply}
-                  >
-                    {sendingReply ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => {
+                        setIsPaused(true);
+                        setShareVisible(true);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="send-outline" size={24} color="#ffffff" style={{ transform: [{ rotate: '-25deg' }] }} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.deleteStoryBtn}
+                      onPress={() => {
+                        setIsPaused(true);
+                        Alert.alert('Delete Story', 'Are you sure you want to delete this story?', [
+                          { text: 'Cancel', style: 'cancel', onPress: () => setIsPaused(false) },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                await api.delete(`/api/story/${currentStory._id}`);
+                                setPlayerVisible(false);
+                                fetchStories();
+                              } catch (e) {
+                                Alert.alert('Error', 'Failed to delete story.');
+                                setIsPaused(false);
+                              }
+                            }
+                          }
+                        ]);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="delete-outline" size={24} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.playerFooterRow}>
+                  <TextInput
+                    style={styles.replyInput}
+                    placeholder="Send message..."
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    value={replyText}
+                    onChangeText={setReplyText}
+                    onSubmitEditing={() => handleSendReply(currentStory._id)}
+                  />
+
+                  {replyText.trim().length > 0 ? (
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => handleSendReply(currentStory._id)}
+                      disabled={sendingReply}
+                    >
+                      {sendingReply ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <MaterialCommunityIcons name="send" size={24} color="#ffffff" />
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleLikeStory(currentStory._id)}
+                      >
+                        <MaterialCommunityIcons
+                          name={
+                            (currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString())
+                              ? 'heart'
+                              : 'heart-outline'
+                          }
+                          size={28}
+                          color={
+                            (currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString())
+                              ? '#ef4444'
+                              : '#ffffff'
+                          }
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => {
+                          setIsPaused(true);
+                          setShareVisible(true);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="send-outline" size={24} color="#ffffff" style={{ transform: [{ rotate: '-25deg' }] }} />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
+
+              {/* Viewers list modal */}
+              <Modal
+                visible={viewersVisible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => {
+                  setViewersVisible(false);
+                  setIsPaused(false);
+                }}
+              >
+                <View style={styles.modalOverlay}>
+                  <View style={[styles.modalContent, { backgroundColor: isDark ? '#121212' : '#ffffff' }]}>
+                    <View style={[styles.modalHeader, { borderBottomColor: borderColor }]}>
+                      <Text style={[styles.modalTitle, { color: textColorStyle }]}>Viewers ({viewers.length})</Text>
+                      <TouchableOpacity onPress={() => { setViewersVisible(false); setIsPaused(false); }}>
+                        <MaterialCommunityIcons name="close" size={24} color={textColorStyle} />
+                      </TouchableOpacity>
+                    </View>
+
+                    {loadingViewers ? (
+                      <ActivityIndicator size="large" color="#808bf5" style={{ marginVertical: 40 }} />
+                    ) : viewers.length === 0 ? (
+                      <Text style={{ color: subColor, textAlign: 'center', marginVertical: 40 }}>No views yet</Text>
                     ) : (
-                      <MaterialCommunityIcons name="send" size={24} color="#ffffff" />
+                      <FlatList
+                        data={viewers}
+                        keyExtractor={(item) => item._id}
+                        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 30 }}
+                        renderItem={({ item }) => {
+                          const hasLiked = (currentStory?.likes || []).some(
+                            (likeId) => likeId.toString() === item._id.toString()
+                          );
+                          return (
+                            <View style={[styles.viewerItem, { borderBottomColor: borderColor }]}>
+                              {item.profile_picture ? (
+                                <Image source={{ uri: item.profile_picture }} style={styles.viewerAvatar} />
+                              ) : (
+                                <View style={[styles.viewerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                                  <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{item.fullname[0]}</Text>
+                                </View>
+                              )}
+                              <View style={{ flex: 1, marginLeft: 12 }}>
+                                <Text style={[styles.viewerName, { color: textColorStyle }]}>{item.fullname}</Text>
+                                <Text style={{ color: subColor, fontSize: 12 }}>@{item.username}</Text>
+                              </View>
+                              {hasLiked && (
+                                <MaterialCommunityIcons name="heart" size={20} color="#ef4444" />
+                              )}
+                            </View>
+                          );
+                        }}
+                      />
                     )}
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleLikeStory(currentStory._id)}
-                  >
-                    <MaterialCommunityIcons
-                      name={
-                        (currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString())
-                          ? 'heart'
-                          : 'heart-outline'
-                      }
-                      size={28}
-                      color={
-                        (currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString())
-                          ? '#ef4444'
-                          : '#ffffff'
-                      }
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </>
+                  </View>
+                </View>
+              </Modal>
+
+              {/* Share Story Modal */}
+              <ShareModal
+                visible={shareVisible}
+                onClose={() => {
+                  setShareVisible(false);
+                  setIsPaused(false);
+                }}
+                story={currentStory}
+                myUser={myUser}
+              />
+            </View>
           )}
         </View>
       </Modal>
@@ -636,7 +1046,106 @@ export default function StoriesStrip() {
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
               {selectedUri && (
-                <Image source={{ uri: selectedUri }} style={styles.previewImage} resizeMode="cover" />
+                resharedStory ? (
+                  <View style={styles.resharePreviewContainer}>
+                    {/* Blurred background media */}
+                    <Image
+                      source={{ uri: selectedUri }}
+                      style={styles.resharePreviewBlurBg}
+                      blurRadius={35}
+                      resizeMode="cover"
+                    />
+
+                    {/* Centered miniature story card sticker preview */}
+                    <View
+                      style={[
+                        styles.stickerCard,
+                        {
+                          position: 'relative',
+                          top: 0,
+                          alignSelf: 'center',
+                          width: stickerSize === 'small' ? 200 : stickerSize === 'large' ? 310 : 260,
+                        }
+                      ]}
+                    >
+                      <View style={styles.stickerHeader}>
+                        {resharedStory.user?.profile_picture ? (
+                          <Image source={{ uri: resharedStory.user.profile_picture }} style={styles.stickerAvatar} />
+                        ) : (
+                          <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                            <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
+                              {resharedStory.user?.fullname?.[0]?.toUpperCase() || 'U'}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.stickerName} numberOfLines={1}>{resharedStory.user?.fullname}</Text>
+                          <Text style={styles.stickerSub} numberOfLines={1}>Social Square Story</Text>
+                        </View>
+                        <MaterialCommunityIcons name="layers" size={16} color="#9ca3af" />
+                      </View>
+                      <View style={styles.stickerMediaContainer9to16}>
+                        <Image
+                          source={{ uri: resharedStory.media?.url }}
+                          style={styles.stickerMedia9to16}
+                          resizeMode="cover"
+                        />
+
+                        {/* Original caption inside reshared story preview */}
+                        {resharedStory.text && resharedStory.text.content ? (
+                          <View
+                            style={[
+                              styles.miniTextOverlayContainer,
+                              resharedStory.text.position === 'top' && { top: '15%' },
+                              resharedStory.text.position === 'center' && { top: '45%' },
+                              resharedStory.text.position === 'bottom' && { top: '75%' },
+                              resharedStory.text.y !== undefined && { top: `${resharedStory.text.y}%` },
+                            ]}
+                          >
+                            <Text style={[styles.miniTextOverlayContent, { color: resharedStory.text.color || '#ffffff' }]}>
+                              {resharedStory.text.content}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {/* Original poll inside reshared story preview */}
+                        {resharedStory.poll && resharedStory.poll.question ? (
+                          <View style={[styles.miniPollCard, { top: resharedStory.poll.y !== undefined ? `${resharedStory.poll.y}%` : '28%' }]}>
+                            <Text style={styles.miniPollQuestion} numberOfLines={1}>{resharedStory.poll.question}</Text>
+                            <View style={styles.miniPollOptionsRow}>
+                              {resharedStory.poll.options.map((opt: any) => (
+                                <View key={opt.text} style={styles.miniPollOptionBtn}>
+                                  <Text style={styles.miniPollOptionText}>{opt.text}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+
+                    {/* Button to cycle sticker size */}
+                    <TouchableOpacity
+                      style={styles.sizeCycleBtn}
+                      onPress={() => {
+                        setStickerSize((prev) => (prev === 'small' ? 'medium' : prev === 'medium' ? 'large' : 'small'));
+                      }}
+                    >
+                      <MaterialCommunityIcons name="resize" size={16} color="#ffffff" />
+                      <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: 'bold', marginLeft: 4 }}>
+                        Size: {stickerSize.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity onPress={handleChangeMedia} style={{ position: 'relative' }}>
+                    <Image source={{ uri: selectedUri }} style={styles.previewImage} resizeMode="contain" />
+                    <View style={styles.changeMediaBadge}>
+                      <MaterialCommunityIcons name="camera" size={16} color="#ffffff" />
+                      <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: 'bold' }}>Change Media</Text>
+                    </View>
+                  </TouchableOpacity>
+                )
               )}
 
               {/* Text settings */}
@@ -735,11 +1244,14 @@ export default function StoriesStrip() {
               <View style={styles.toggleSectionRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.toggleSectionHeading, { color: textColorStyle }]}>Attach Music Tag</Text>
-                  <Text style={{ color: subColor, fontSize: 11 }}>Tag the song you are listening to</Text>
+                  <Text style={{ color: subColor, fontSize: 11 }}>
+                    {resharedStory?.music ? 'Locked to original story music' : 'Tag the song you are listening to'}
+                  </Text>
                 </View>
                 <Switch
                   value={hasMusic}
                   onValueChange={setHasMusic}
+                  disabled={!!resharedStory?.music}
                   trackColor={{ false: '#767577', true: '#a5b4fc' }}
                   thumbColor={hasMusic ? '#808bf5' : '#f4f3f4'}
                 />
@@ -753,6 +1265,7 @@ export default function StoriesStrip() {
                     placeholderTextColor={subColor}
                     value={musicTitle}
                     onChangeText={setMusicTitle}
+                    editable={!resharedStory?.music}
                   />
                   <TextInput
                     style={[styles.modalInput, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor, color: textColorStyle }]}
@@ -760,6 +1273,7 @@ export default function StoriesStrip() {
                     placeholderTextColor={subColor}
                     value={musicArtist}
                     onChangeText={setMusicArtist}
+                    editable={!resharedStory?.music}
                   />
                 </View>
               )}
@@ -858,6 +1372,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
+  miniPlusBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#808bf5',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
 
   // Fullscreen Player Styles
   playerContainer: {
@@ -865,9 +1393,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     justifyContent: 'center',
   },
-  playerMedia: {
+  playerContent: {
     width: screenWidth,
     height: screenHeight,
+    backgroundColor: '#000000',
+    overflow: 'hidden',
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  playerMedia: {
+    width: '100%',
+    height: '100%',
     position: 'absolute',
   },
   gestureOverlay: {
@@ -982,7 +1518,6 @@ const styles = StyleSheet.create({
   // Poll card styling
   pollCard: {
     position: 'absolute',
-    top: screenHeight / 1.8,
     alignSelf: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     padding: 16,
@@ -1044,6 +1579,51 @@ const styles = StyleSheet.create({
     gap: 12,
     zIndex: 5,
   },
+  ownerFooterRow: {
+    position: 'absolute',
+    bottom: 24,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 5,
+  },
+  viewsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  deleteStoryBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  viewerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  viewerName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   replyInput: {
     flex: 1,
     height: 48,
@@ -1064,6 +1644,211 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  mentionsOverlayContainer: {
+    position: 'absolute',
+    bottom: 90,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    zIndex: 10,
+  },
+  mentionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 4,
+  },
+  mentionChipText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reshareBtn: {
+    position: 'absolute',
+    bottom: 140,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    zIndex: 15,
+  },
+  reshareBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  stickerCard: {
+    position: 'absolute',
+    top: '18%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 12,
+    borderRadius: 20,
+    width: 280,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+    zIndex: 8,
+  },
+  stickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  stickerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  stickerName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  stickerSub: {
+    fontSize: 10,
+    color: '#666666',
+    marginTop: -2,
+  },
+  stickerMediaContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  stickerMedia1to1: {
+    width: '100%',
+    height: '100%',
+  },
+  stickerCaption: {
+    fontSize: 12,
+    color: '#1f2937',
+    fontWeight: '600',
+    marginTop: 8,
+    lineHeight: 16,
+  },
+  stickerMediaContainer9to16: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  stickerMedia9to16: {
+    width: '100%',
+    height: '100%',
+  },
+
+  miniTextOverlayContainer: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    alignItems: 'center',
+    zIndex: 4,
+  },
+  miniTextOverlayContent: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 4,
+  },
+  miniPollCard: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 8,
+    borderRadius: 10,
+    width: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+    zIndex: 4,
+  },
+  miniPollQuestion: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  miniPollOptionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  miniPollOptionBtn: {
+    flex: 1,
+    backgroundColor: '#3b82f6',
+    borderRadius: 6,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  miniPollOptionText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 8,
+  },
+
+  resharePreviewContainer: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    maxHeight: 400,
+    borderRadius: 20,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 16,
+    backgroundColor: '#000000',
+  },
+  resharePreviewBlurBg: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    opacity: 0.6,
+  },
+  sizeCycleBtn: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    zIndex: 10,
   },
 
   // Story Creation Modal
@@ -1100,6 +1885,18 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 16,
     marginBottom: 16,
+  },
+  changeMediaBadge: {
+    position: 'absolute',
+    bottom: 24,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
   },
   inputLabel: {
     fontSize: 13,

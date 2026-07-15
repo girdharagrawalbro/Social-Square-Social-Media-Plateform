@@ -604,39 +604,25 @@ export default function NewPostScreen() {
     try {
       // Upload media if exists (except when it starts with http from AI generation fallback since it is already on Cloudinary!)
       if (selectedUri && mediaType && !selectedUri.startsWith('http')) {
-        const signRes = await api.post('/api/media/cloud/sign-upload', {
-          folder: 'posts',
-        });
-
-        const { signature, timestamp, cloudName, apiKey, folder, success, message } = signRes.data;
-        if (!success) {
-          throw new Error(message || 'Failed to sign upload');
-        }
-
         const formData = new FormData();
         formData.append('file', {
           uri: selectedUri,
           name: mediaType === 'video' ? 'post.mp4' : 'post.jpg',
           type: mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
         } as any);
-        formData.append('signature', signature);
-        formData.append('timestamp', timestamp.toString());
-        formData.append('api_key', apiKey);
-        formData.append('folder', folder);
+        formData.append('folder', 'posts');
+        formData.append('resourceType', mediaType);
 
-        const uploadRes = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName || 'dcmrsdydh'}/${mediaType}/upload`,
-          {
-            method: 'POST',
-            body: formData,
-          }
-        );
+        const uploadRes = await api.post('/api/media/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
 
-        const uploadData = await uploadRes.json();
-        if (uploadData.secure_url) {
-          uploadedMediaUrl = uploadData.secure_url;
+        if (uploadRes.data?.success && uploadRes.data?.url) {
+          uploadedMediaUrl = uploadRes.data.url;
         } else {
-          throw new Error(uploadData.error?.message || 'Failed to upload media to Cloudinary');
+          throw new Error(uploadRes.data?.message || 'Failed to upload media to backend proxy.');
         }
       } else if (selectedUri && selectedUri.startsWith('http')) {
         // If it starts with http, it is already uploaded to Cloudinary by the AI route!

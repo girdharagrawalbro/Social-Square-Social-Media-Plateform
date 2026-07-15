@@ -13,7 +13,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { api } from '../lib/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,6 +26,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(60);
+  const [expiryCountdown, setExpiryCountdown] = useState(600);
   const inputsRef = useRef<Array<TextInput | null>>([]);
   const { verifyOtp, loading } = useAuthStore();
 
@@ -35,12 +38,60 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
     }
   }, [userId]);
 
+  // Load remaining countdown time from AsyncStorage on mount
+  useEffect(() => {
+    const loadCountdown = async () => {
+      try {
+        const resendUntil = await AsyncStorage.getItem('otpResendUntil');
+        if (resendUntil) {
+          const remaining = Math.ceil((parseInt(resendUntil, 10) - Date.now()) / 1000);
+          if (remaining > 0) {
+            setCountdown(remaining);
+          }
+        }
+        const expiresAt = await AsyncStorage.getItem('otpExpiresAt');
+        if (expiresAt) {
+          const remainingExpiry = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000);
+          if (remainingExpiry > 0) {
+            setExpiryCountdown(remainingExpiry);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load OTP countdown:', e);
+      }
+    };
+    loadCountdown();
+  }, []);
+
   // Countdown timer for code resend
   useEffect(() => {
     if (countdown <= 0) return;
-    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    const t = setTimeout(() => {
+      setCountdown((c) => {
+        const nextVal = c - 1;
+        if (nextVal <= 0) {
+          AsyncStorage.removeItem('otpResendUntil').catch(() => {});
+        }
+        return nextVal;
+      });
+    }, 1000);
     return () => clearTimeout(t);
   }, [countdown]);
+
+  // Countdown timer for OTP expiration
+  useEffect(() => {
+    if (expiryCountdown <= 0) return;
+    const t = setTimeout(() => {
+      setExpiryCountdown((c) => {
+        const nextVal = c - 1;
+        if (nextVal <= 0) {
+          AsyncStorage.removeItem('otpExpiresAt').catch(() => {});
+        }
+        return nextVal;
+      });
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [expiryCountdown]);
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d?$/.test(value)) return;
@@ -69,6 +120,9 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 
     const result = await verifyOtp(userId, otpValue);
     if (result?.success) {
+      // Clear OTP resend data on successful verification
+      await AsyncStorage.removeItem('otpResendUntil');
+      await AsyncStorage.removeItem('otpExpiresAt');
       navigation.replace('SocialSquare');
     } else {
       Alert.alert('Verification Failed', result?.error || 'Invalid OTP code');
@@ -77,17 +131,29 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     setResending(true);
-    Alert.alert('Resend Code', 'Please login again to request a new verification code.', [
-      {
-        text: 'OK',
-        onPress: () => {
-          setResending(false);
-          navigation.navigate('Login');
-        },
-      },
-    ]);
+    try {
+      const res = await api.post('/api/auth/resend-otp', { userId });
+      if (res.data?.success) {
+        Alert.alert('Resent', res.data.message || 'OTP code resent successfully.');
+        const duration = res.data.resendDuration || 60;
+        const resendUntil = Date.now() + duration * 1000;
+        await AsyncStorage.setItem('otpResendUntil', resendUntil.toString());
+        if (res.data.otpExpireTime) {
+          await AsyncStorage.setItem('otpExpiresAt', res.data.otpExpireTime);
+          const remainingExpiry = Math.ceil((new Date(res.data.otpExpireTime).getTime() - Date.now()) / 1000);
+          setExpiryCountdown(remainingExpiry > 0 ? remainingExpiry : 600);
+        }
+        setCountdown(duration);
+      } else {
+        Alert.alert('Error', 'Failed to resend code.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.error || 'Network error.');
+    } finally {
+      setResending(false);
+    }
   };
 
   const cardBg = isDark ? '#121212' : '#ffffff';
@@ -112,8 +178,17 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
         <View style={[styles.card, { backgroundColor: cardBg }]}>
           <Text style={styles.logoIcon}>🔐</Text>
           <Text style={[styles.title, { color: textColor }]}>Verify your identity</Text>
-          <Text style={[styles.instructions, { color: subText }]}>
+          <Text style={[styles.instructions, { color: subText, marginBottom: 4 }]}>
             Enter the 6-digit code sent to your email
+          </Text>
+          <Text style={{
+            fontSize: 12,
+            fontWeight: 'bold',
+            textAlign: 'center',
+            marginBottom: 20,
+            color: expiryCountdown <= 60 ? '#ef4444' : '#808bf5',
+          }}>
+            {expiryCountdown > 0 ? `Code expires in ${Math.floor(expiryCountdown / 60).toString().padStart(2, '0')}:${(expiryCountdown % 60).toString().padStart(2, '0')}` : 'Code has expired. Please resend.'}
           </Text>
 
           <View style={styles.otpRow}>

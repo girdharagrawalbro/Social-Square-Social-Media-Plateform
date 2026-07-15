@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import useAuthStore from '../store/zustand/useAuthStore';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }: any) {
@@ -36,6 +38,12 @@ export default function LoginScreen({ navigation }: any) {
 
     const result = await login({ email: identifier.trim(), password });
     if (result?.requiresOtp) {
+      const duration = result.resendDuration || 60;
+      const resendUntil = Date.now() + duration * 1000;
+      await AsyncStorage.setItem('otpResendUntil', resendUntil.toString());
+      if (result.otpExpireTime) {
+        await AsyncStorage.setItem('otpExpiresAt', result.otpExpireTime);
+      }
       navigation.navigate('VerifyOtp', { userId: result.userId });
     } else if (result?.success) {
       navigation.replace('SocialSquare');

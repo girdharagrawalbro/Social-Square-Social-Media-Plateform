@@ -7,9 +7,11 @@ import {
   Dimensions,
   Animated,
   Text,
+  Image,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import useAuthStore from '../../store/zustand/useAuthStore';
 
 const { width } = Dimensions.get('window');
 
@@ -24,6 +26,7 @@ const navItems = [
 ];
 
 export default function BottomNav({ currentTab, navigation }: { currentTab: string; navigation: any }) {
+  const user = useAuthStore((s: any) => s.user);
   const isDark = useColorScheme() === 'dark';
   const itemWidth = width / navItems.length;
   
@@ -74,12 +77,36 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
             onPress={() => handlePress(item.routeName)}
             activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name={isActive ? item.icon : `${item.icon}-outline`}
-              size={isActive ? 24 : 22}
-              color={isActive ? '#ffffff' : inactiveColor}
-              style={isActive ? styles.activeIcon : null}
-            />
+            {item.key === 'profile' ? (
+              user?.profile_picture ? (
+                <Image
+                  source={{ uri: user.profile_picture }}
+                  style={[
+                    styles.profilePicIcon,
+                    isActive && { borderColor: '#ffffff', borderWidth: 2 }
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.profilePicIconPlaceholder,
+                    { backgroundColor: isActive ? '#6366f1' : inactiveColor },
+                    isActive && { borderColor: '#ffffff', borderWidth: 2 }
+                  ]}
+                >
+                  <Text style={styles.profilePicInitial}>
+                    {user?.fullname?.[0]?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
+              )
+            ) : (
+              <MaterialCommunityIcons
+                name={isActive ? item.icon : `${item.icon}-outline`}
+                size={isActive ? 24 : 22}
+                color={isActive ? '#ffffff' : inactiveColor}
+                style={isActive ? styles.activeIcon : null}
+              />
+            )}
           </TouchableOpacity>
         );
       })}
@@ -135,5 +162,23 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.25)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  profilePicIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#9ca3af',
+  },
+  profilePicIconPlaceholder: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profilePicInitial: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
