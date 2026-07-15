@@ -27,10 +27,7 @@ RUN apk add --no-cache \
     curl \
     bash
 
-# Install Infisical CLI
-RUN curl -fsSL https://infisical.com/install.sh | sh && \
-    infisical --version
-
+    
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; \
     elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; \
