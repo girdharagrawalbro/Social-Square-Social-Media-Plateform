@@ -289,7 +289,7 @@ const Search = ({ onClose, desc = true }) => {
 
 
 
-                    {!searchTerm && categories.length > 0 && (
+                    {!searchTerm && Array.isArray(categories) && categories.length > 0 && (
                         <div className="p-2 mt-2 ">
                             <h3 className="text-[10px] font-bold text-[var(--text-sub)] uppercase tracking-widest mb-2">Browse Categories</h3>
                             <div className="flex flex-wrap gap-2">
