@@ -16,7 +16,8 @@ const StorySchema = new mongoose.Schema({
         color: { type: String, default: '#ffffff' },
         position: { type: String, default: 'center' }, // top, center, bottom
         x: { type: Number, default: 50 },
-        y: { type: Number, default: 50 }
+        y: { type: Number, default: 50 },
+        isBaked: { type: Boolean, default: false }
     },
     viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

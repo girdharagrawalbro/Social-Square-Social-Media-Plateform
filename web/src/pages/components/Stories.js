@@ -805,7 +805,7 @@ const StoryViewer = ({
             </div>
 
             {/* Overlay Text */}
-            {story.text?.content && (
+            {story.text?.content && !story.text.isBaked && (
                 <div style={{
                     position: 'absolute',
                     top: story.text.y !== undefined ? `${story.text.y}%` : (story.text.position === 'top' ? '25%' : story.text.position === 'bottom' ? '70%' : '50%'),
@@ -1260,6 +1260,57 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
     );
 };
 
+const bakeTextToImage = (imageFile, textContent, textPos, textColor) => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = URL.createObjectURL(imageFile);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw original image
+            ctx.drawImage(img, 0, 0);
+            
+            // Setup text styling
+            const fontSize = Math.max(20, Math.floor(img.naturalHeight * 0.045));
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Add text shadow for high readability
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 2;
+            
+            // Calculate absolute x and y coordinates from percentage
+            const x = (textPos.x / 100) * img.naturalWidth;
+            const y = (textPos.y / 100) * img.naturalHeight;
+            
+            // Draw text
+            ctx.fillText(textContent, x, y);
+            
+            // Convert to blob and then to File object
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(img.src);
+                if (!blob) {
+                    reject(new Error('Canvas toBlob failed'));
+                    return;
+                }
+                const bakedFile = new File([blob], imageFile.name, { type: imageFile.type });
+                resolve(bakedFile);
+            }, imageFile.type);
+        };
+        img.onerror = (err) => {
+            URL.revokeObjectURL(img.src);
+            reject(err);
+        };
+    });
+};
+
 export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null, sharedStory = null }) => {
     const fileInputRef = useRef(null);
     const textInputRef = useRef(null);
@@ -1684,14 +1735,29 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                             mediaUrl = typeof result === 'string' ? result : result?.url;
                             thumbnailUrl = result?.thumbnailUrl || null;
                         } else {
-                            const result = await uploadMedia(item.file, null, { folder: folderPath });
+                            let fileToUpload = item.file;
+                            if (textToUpload) {
+                                try {
+                                    fileToUpload = await bakeTextToImage(item.file, textToUpload, textPos, textColorToUpload);
+                                } catch (err) {
+                                    console.error("Failed to bake text to image, uploading original image:", err);
+                                }
+                            }
+                            const result = await uploadMedia(fileToUpload, null, { folder: folderPath });
                             mediaUrl = typeof result === 'string' ? result : result?.url;
                         }
 
                         const res = await api.post(`/api/story/create`, {
                             mediaUrl, mediaType: item.type,
                             thumbnailUrl,
-                            text: textToUpload ? { content: textToUpload, color: textColorToUpload, position: textPositionToUpload, x: textPos.x, y: textPos.y } : null,
+                            text: textToUpload ? { 
+                                content: textToUpload, 
+                                color: textColorToUpload, 
+                                position: textPositionToUpload, 
+                                x: textPos.x, 
+                                y: textPos.y,
+                                isBaked: item.type === 'image'
+                            } : null,
                             mentionIds: tags.map(t => t._id),
                             visibility,
                             poll: pollData,
@@ -1817,7 +1883,7 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                                             )}
 
                                             {/* Original story text caption overlay inside reshared story preview */}
-                                            {sharedStory.text?.content && (
+                                            {sharedStory.text?.content && !sharedStory.text.isBaked && (
                                                 <div style={{
                                                     position: 'absolute',
                                                     top: sharedStory.text.y !== undefined ? `${sharedStory.text.y}%` : (sharedStory.text.position === 'top' ? '25%' : sharedStory.text.position === 'bottom' ? '70%' : '50%'),
