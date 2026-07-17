@@ -22,7 +22,8 @@ import useAuthStore from '../store/zustand/useAuthStore';
 import BottomNav from './components/BottomNav';
 
 const VIEWABILITY_CONFIG = {
-  itemVisiblePercentThreshold: 60,
+  itemVisiblePercentThreshold: 40,
+  minimumViewTime: 250,
 };
 
 export default function SocialSquareScreen({ navigation }: any) {
@@ -104,7 +105,7 @@ export default function SocialSquareScreen({ navigation }: any) {
     });
   }, []);
 
-  const bg = isDark ? '#0a0a0a' : '#f3f4f6';
+  const bg = isDark ? '#0a0a0a' : '#ffffff';
   const cardBg = isDark ? '#121212' : '#ffffff';
   const textColor = isDark ? '#ffffff' : '#111827';
   const border = isDark ? '#1f2937' : '#e5e7eb';
@@ -112,7 +113,7 @@ export default function SocialSquareScreen({ navigation }: any) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: border }]}>
+      <View style={[styles.header, { backgroundColor: cardBg }]}>
         <TouchableOpacity onPress={() => navigation.navigate('NewPost')}>
           <MaterialCommunityIcons name="plus" size={26} color={isDark ? '#f3f4f6' : '#1f2937'} />
         </TouchableOpacity>
@@ -171,6 +172,7 @@ export default function SocialSquareScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor:'#ffffff',
   },
   header: {
     height: 56,
@@ -178,12 +180,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
   },
   headerLogo: {
     fontSize: 24,

@@ -25,7 +25,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 1,
     paddingTop: Platform.OS === 'ios' ? 0 : 0, // React navigation handles safe area or AppHeader is inside SafeAreaView
   },
   title: {

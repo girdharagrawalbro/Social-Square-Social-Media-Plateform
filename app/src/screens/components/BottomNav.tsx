@@ -17,11 +17,11 @@ const { width } = Dimensions.get('window');
 
 const navItems = [
   { key: 'feed', icon: 'home', routeName: 'SocialSquare' },
-  { key: 'explore', icon: 'compass', routeName: 'Explore' },
   { key: 'reels', icon: 'video', routeName: 'Reels' },
-  { key: 'pulse', icon: 'flash', routeName: 'Pulse' },
-  { key: 'knowledge', icon: 'book-open', routeName: 'Knowledge' },
+  // { key: 'pulse', icon: 'flash', routeName: 'Pulse' },
+  // { key: 'knowledge', icon: 'book-open', routeName: 'Knowledge' },
   { key: 'messages', icon: 'email', routeName: 'Chat' },
+  { key: 'explore', icon: 'magnify', routeName: 'Explore' },
   { key: 'profile', icon: 'account', routeName: 'Profile' },
 ];
 
@@ -29,10 +29,10 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
   const user = useAuthStore((s: any) => s.user);
   const isDark = useColorScheme() === 'dark';
   const itemWidth = width / navItems.length;
-  
+
   // Find the index of the active item
   const activeIndex = navItems.findIndex((item) => item.key === currentTab);
-  
+
   // Animated value for sliding pill left offset
   const slideAnim = useRef(new Animated.Value(activeIndex * itemWidth + (itemWidth - 42) / 2)).current;
 
@@ -58,7 +58,7 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
   return (
     <View style={[styles.container, { backgroundColor: cardBg, borderTopColor: border }]}>
       {/* Sliding Pill Indicator */}
-      <Animated.View style={[styles.slidePill, { left: slideAnim }]}>
+      <Animated.View style={[{ left: slideAnim }]}>
         <LinearGradient
           colors={['#808bf5', '#6366f1', '#4f46e5']}
           start={{ x: 0, y: 0 }}
@@ -83,7 +83,7 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
                   source={{ uri: user.profile_picture }}
                   style={[
                     styles.profilePicIcon,
-                    isActive && { borderColor: '#ffffff', borderWidth: 2 }
+                    isActive && { borderColor: '#808bf5', borderWidth: 2 }
                   ]}
                 />
               ) : (
@@ -101,9 +101,9 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
               )
             ) : (
               <MaterialCommunityIcons
-                name={isActive ? item.icon : `${item.icon}-outline`}
+                name={item.key === 'explore' ? 'magnify' : (isActive ? item.icon : `${item.icon}-outline`)}
                 size={isActive ? 24 : 22}
-                color={isActive ? '#ffffff' : inactiveColor}
+                color={isActive ? '#1f2937' : inactiveColor}
                 style={isActive ? styles.activeIcon : null}
               />
             )}
@@ -138,20 +138,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
-  },
-  slidePill: {
-    position: 'absolute',
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    top: 9,
-    zIndex: 5,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.38,
-    shadowRadius: 8,
   },
   gradient: {
     width: '100%',

@@ -713,7 +713,12 @@ router.post(['/messages/create', '/send'], verifyToken, [
     body('conversationId').optional().isMongoId(),
     body('recipientId').optional().isMongoId(),
     body('content').optional().trim().escape(),
-    body('mediaUrl').optional().isURL(),
+    body('mediaUrl').optional().custom((val) => {
+        if (typeof val === 'string' && (val.startsWith('{"ciphertext":') || val.startsWith('http://') || val.startsWith('https://'))) {
+            return true;
+        }
+        throw new Error('Invalid media URL');
+    }),
     validate
 ], async (req, res) => {
     try {

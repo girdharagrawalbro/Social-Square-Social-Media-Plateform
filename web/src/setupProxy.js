@@ -9,4 +9,12 @@ module.exports = function (app) {
             secure: false,
         })
     );
+    app.use(
+        createProxyMiddleware({
+            pathFilter: '/uploads',
+            target: 'http://localhost:5000',
+            changeOrigin: true,
+            secure: false,
+        })
+    );
 };

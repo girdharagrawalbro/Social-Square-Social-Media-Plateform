@@ -2049,6 +2049,12 @@ router.post("/:postId/block-author", verifyToken, [
             User.findByIdAndUpdate(targetUserId, { $pull: { followers: req.userId } })
         ]);
 
+        const redis = require('../lib/redis');
+        await Promise.all([
+            redis.del(`restricted_users:excl:${req.userId}`),
+            redis.del(`restricted_users:excl:${targetUserId}`)
+        ]).catch(err => console.error('[Block Author Redis Error]', err));
+
         res.status(200).json({ message: 'User blocked' });
     } catch (e) {
         console.error('[Block Author Error]', e);

@@ -34,6 +34,7 @@ interface Notification {
   read: boolean;
   createdAt: string;
   status?: string; // custom local flag for requests action
+  post?: string; // post ID references
 }
 
 interface CollabInvite {
@@ -308,7 +309,19 @@ export default function NotificationsScreen() {
             const icon = getNotificationIcon(item.type);
             return (
               <TouchableOpacity
-                onPress={() => handleMarkSingleRead(item._id)}
+                onPress={() => {
+                  handleMarkSingleRead(item._id);
+                  if (item.type === 'message' && item.sender) {
+                    navigation.navigate('Chat', {
+                      recipientId: item.sender._id,
+                      recipientName: item.sender.fullname,
+                    });
+                  } else if (item.post) {
+                    navigation.navigate('PostDetail', { postId: item.post });
+                  } else if (item.type === 'follow' && item.sender) {
+                    navigation.navigate('Profile', { userId: item.sender._id });
+                  }
+                }}
                 style={[
                   styles.notificationItem,
                   { backgroundColor: cardBg, borderBottomColor: border },

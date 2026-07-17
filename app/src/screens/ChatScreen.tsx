@@ -49,7 +49,7 @@ interface SearchUser {
 }
 
 const MessagePreview = ({ messageText, conversationId, recipientId, isDark, subColor, unread, styles }: any) => {
-  const [decryptedText, setDecryptedText] = useState('🔑 Encrypted');
+  const [decryptedText, setDecryptedText] = useState('Encrypted');
 
   const unescapeHtml = (str: string | null | undefined): string | null | undefined => {
     if (!str) return str;
@@ -77,11 +77,11 @@ const MessagePreview = ({ messageText, conversationId, recipientId, isDark, subC
         const aesKey = await e2eeState.getConversationKey(conversationId, recipientId);
         if (aesKey && active) {
           const encryptedObj = JSON.parse(unescaped);
-          const text = decryptText(encryptedObj.ciphertext, encryptedObj.iv, aesKey);
+          const text = await decryptText(encryptedObj.ciphertext, encryptedObj.iv, aesKey);
           if (active) setDecryptedText(text);
         }
       } catch (err) {
-        if (active) setDecryptedText('🔑 Encrypted');
+        if (active) setDecryptedText('Encrypted');
       }
     };
     decrypt();
@@ -116,6 +116,23 @@ export default function ChatScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [searching, setSearching] = useState(false);
+
+  // Main Conversation Search state
+  const [mainSearchQuery, setMainSearchQuery] = useState('');
+
+  const resolveMediaUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith('http://localhost:5000')) {
+      return url.replace('http://localhost:5000', BASE_URL);
+    }
+    if (url.startsWith('https://localhost:5000')) {
+      return url.replace('https://localhost:5000', BASE_URL);
+    }
+    if (url.startsWith('/')) {
+      return `${BASE_URL}${url}`;
+    }
+    return url;
+  };
 
   const bg = isDark ? '#0f0f1a' : '#f1f5f9';
   const cardBg = isDark ? '#1a1a2e' : '#ffffff';
@@ -176,6 +193,8 @@ export default function ChatScreen() {
         navigation.navigate('ChatPane', {
           conversationId: res.data._id,
           title: recipientName,
+          recipientId: recipientId,
+          recipientAvatar: '', // since we compose to a new user, we don't have avatar yet, it will fallback
         });
       }
     } catch (e: any) {
@@ -189,11 +208,16 @@ export default function ChatScreen() {
     let displayAvatar = '';
     let recipientId = '';
     if (!item.isGroup) {
-      const other = item.participants.find((p) => p._id !== currentUser?._id);
+      const other = item.participants.find((p: any) => {
+        const id = p.userId?._id || p.userId || p._id;
+        return id && String(id) !== String(currentUser?._id);
+      });
       if (other) {
-        displayTitle = other.fullname;
-        displayAvatar = other.profile_picture || '';
-        recipientId = other._id;
+        displayTitle = other.userId?.fullname || other.fullname || 'User';
+        const avatar = other.userId?.profile_picture || other.userId?.profilePicture || other.profilePicture || other.profile_picture || '';
+        displayAvatar = avatar ? resolveMediaUrl(avatar) : '';
+        const extractedId = other.userId?._id || other.userId || other._id;
+        recipientId = typeof extractedId === 'object' ? extractedId._id || String(extractedId) : String(extractedId);
       }
     }
 
@@ -206,6 +230,8 @@ export default function ChatScreen() {
           navigation.navigate('ChatPane', {
             conversationId: item._id,
             title: displayTitle,
+            recipientId: recipientId,
+            recipientAvatar: displayAvatar,
           })
         }
       >
@@ -219,15 +245,24 @@ export default function ChatScreen() {
         <View style={styles.chatInfo}>
           <View style={styles.chatHeader}>
             <Text style={[styles.name, { color: textColor }]}>{displayTitle}</Text>
-            {item.lastMessage && (
-              <Text style={[styles.time, { color: subColor }]}>
-                {new Date(item.lastMessage.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-              </Text>
-            )}
+            {(() => {
+              const dateStr = item.lastMessageAt || (item.lastMessage && item.lastMessage.createdAt);
+              if (!dateStr) return null;
+              const d = new Date(dateStr);
+              if (isNaN(d.getTime())) return null;
+              return (
+                <Text style={[styles.time, { color: subColor }]}>
+                  {d.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                </Text>
+              );
+            })()}
           </View>
           <View style={styles.messageRow}>
+            {item.lastMessageBy && String(item.lastMessageBy) === String(currentUser?._id) && (
+              <Text style={{ color: '#808bf5', fontWeight: 'bold', marginRight: 4 }}>You:</Text>
+            )}
             <MessagePreview
-              messageText={item.lastMessage?.content}
+              messageText={item.lastMessage?.message || item.lastMessage?.content}
               conversationId={item._id}
               recipientId={recipientId}
               isDark={isDark}
@@ -242,6 +277,17 @@ export default function ChatScreen() {
     );
   };
 
+  const filteredConversations = conversations.filter(item => {
+    if (!mainSearchQuery.trim()) return true;
+    const q = mainSearchQuery.toLowerCase();
+    if (item.groupName && item.groupName.toLowerCase().includes(q)) return true;
+
+    return item.participants.some(p =>
+      p.fullname?.toLowerCase().includes(q) ||
+      p.username?.toLowerCase().includes(q)
+    );
+  });
+
   const unColor = (unread: boolean) => {
     if (unread) {
       return isDark ? '#ffffff' : '#000000';
@@ -251,7 +297,38 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      <AppHeader title="Messages" />
+      {/* Header matching Profile Screen */}
+      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: borderColor }]}>
+        <View style={{ width: 40 }} />
+
+        <Text style={[styles.headerTitle, { color: textColor }]}>
+          Conversations
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => setSearchModalVisible(true)}
+          style={styles.headerRightBtn}
+        >
+          <MaterialCommunityIcons name="plus" size={26} color={textColor} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Main Conversation Search Bar */}
+      <View style={[styles.mainSearchBarContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6', borderWidth: 0 }]}>
+        <MaterialCommunityIcons name="magnify" size={20} color={subColor} style={{ marginLeft: 8 }} />
+        <TextInput
+          style={[styles.mainSearchInput, { color: textColor }]}
+          placeholder="Search people..."
+          placeholderTextColor={subColor}
+          value={mainSearchQuery}
+          onChangeText={setMainSearchQuery}
+        />
+        {mainSearchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setMainSearchQuery('')} style={{ padding: 4, marginRight: 4 }}>
+            <MaterialCommunityIcons name="close-circle" size={18} color={subColor} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {loading ? (
         <View style={{ flex: 1 }}>
@@ -263,7 +340,7 @@ export default function ChatScreen() {
         </View>
       ) : (
         <FlatList
-          data={conversations}
+          data={filteredConversations}
           keyExtractor={(item) => item._id}
           renderItem={renderConversationItem}
           contentContainerStyle={styles.scrollContent}
@@ -535,5 +612,45 @@ const styles = StyleSheet.create({
   },
   searchUsername: {
     fontSize: 12,
+  },
+  mainSearchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginVertical: 10,
+    paddingHorizontal: 8,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  mainSearchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  header: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  headerRightBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

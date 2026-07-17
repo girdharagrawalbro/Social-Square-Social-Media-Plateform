@@ -10,6 +10,7 @@ import {
   Dimensions,
   useColorScheme,
   Modal,
+  PanResponder,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Video from 'react-native-video';
@@ -19,6 +20,9 @@ import { useNavigation } from '@react-navigation/native';
 import { appChannel } from '../../lib/broadcast';
 import { useBroadcast } from '../../lib/useBroadcast';
 import { useIsFocused } from '@react-navigation/native';
+import { BASE_URL } from '../../lib/api';
+import RNFS from 'react-native-fs';
+import { decryptAesGcm, base64ToBytes, bytesToBase64 } from '../../lib/cryptoUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -37,6 +41,9 @@ export interface Post {
   image_urls?: string[];
   video?: string;
   videoThumbnail?: string;
+  // Encryption fields for new posts (AES-GCM)
+  videoKey?: string;  // base64 AES-256 key
+  videoIv?: string;   // base64 12-byte IV
   likes?: string[];
   comments?: any[];
   createdAt?: string;
@@ -76,50 +83,119 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes?.length || 0);
   const [saved, setSaved] = useState(false);
-  const [videoPaused, setVideoPaused] = useState(true);
   const videoRef = useRef(null);
   const isFocused = useIsFocused();
 
-  // Sync pause state with visibility
+  // ── Video playback state ────────────────────────────────────────────────
+  // Only ONE source of truth for "user explicitly paused this video".
+  // Everything else (isVisible, isFocused) is derived, not stored/synced via effects.
+  const [userPaused, setUserPaused] = useState(false);
+
+  // Reset the manual-pause flag once the post scrolls out of view, so it
+  // autoplays again next time it becomes visible (expected feed behaviour).
   useEffect(() => {
-    if (isVisible) {
-      setVideoPaused(false);
-    } else {
-      setVideoPaused(true);
+    if (!isVisible) {
+      setUserPaused(false);
     }
   }, [isVisible]);
 
-  const shouldRenderVideo = isVisible || !videoPaused;
+  // OPTIMIZATION: Only mount the native Video component if the post is actually visible.
+  // Gating this on isVisible prevents having dozens of active video player buffers
+  // in memory at once, which is the primary cause of out-of-memory crashes on feeds.
+  const shouldRenderVideo = !!post.video && isVisible;
+  const isPlaying = isVisible && isFocused && !userPaused;
 
-  // Active players count logging
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
+  const [wasPlayingBeforeScrub, setWasPlayingBeforeScrub] = useState(false);
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds) || seconds === null) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+
+  const currentTimeRef = useRef(videoCurrentTime);
+  currentTimeRef.current = videoCurrentTime;
+
+  const durationRef = useRef(videoDuration);
+  durationRef.current = videoDuration;
+
+  const wasPlayingRef = useRef(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 10;
+      },
+      onPanResponderGrant: (evt, gestureState) => {
+        setIsScrubbing(true);
+        const originallyPlaying = isPlayingRef.current;
+        wasPlayingRef.current = originallyPlaying;
+        setWasPlayingBeforeScrub(originallyPlaying);
+        if (originallyPlaying) {
+          setUserPaused(true);
+        }
+        setScrubTime(currentTimeRef.current);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const duration = durationRef.current;
+        if (duration <= 0) return;
+        const timeShift = (gestureState.dx / screenWidth) * duration;
+        const targetTime = Math.max(0, Math.min(duration, currentTimeRef.current + timeShift));
+        setScrubTime(targetTime);
+        if (videoRef.current) {
+          (videoRef.current as any).seek(targetTime);
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        setIsScrubbing(false);
+        const duration = durationRef.current;
+        if (duration > 0) {
+          const timeShift = (gestureState.dx / screenWidth) * duration;
+          const targetTime = Math.max(0, Math.min(duration, currentTimeRef.current + timeShift));
+          setVideoCurrentTime(targetTime);
+          if (videoRef.current) {
+            (videoRef.current as any).seek(targetTime);
+          }
+        }
+        if (wasPlayingRef.current) {
+          setUserPaused(false);
+        }
+      },
+      onPanResponderTerminate: () => {
+        setIsScrubbing(false);
+        if (wasPlayingRef.current) {
+          setUserPaused(false);
+        }
+      },
+    })
+  ).current;
+
   useEffect(() => {
     if (shouldRenderVideo) {
       activePlayersCount++;
-      console.log(`[Video Mounted] Post ID: ${post._id}. Active players count: ${activePlayersCount}`);
       return () => {
         activePlayersCount--;
-        console.log(`[Video Unmounted] Post ID: ${post._id}. Active players count: ${activePlayersCount}`);
       };
     }
   }, [shouldRenderVideo, post._id]);
 
-  const isActuallyPlaying = shouldRenderVideo && !videoPaused && isFocused && isVisible;
-
   useEffect(() => {
-    if (isActuallyPlaying) {
-      console.log(`[Video Started] Post ID: ${post._id}`);
+    if (isPlaying) {
+      console.log(`[Video Started] Post ID: ${post._id}. Playing URL: ${videoUrl}`);
       return () => {
-        console.log(`[Video Paused] Post ID: ${post._id}`);
+        console.log(`[Video Paused] Post ID: ${post._id}. Paused URL: ${videoUrl}`);
       };
     }
-  }, [isActuallyPlaying, post._id]);
-
-  useEffect(() => {
-    return () => {
-      setVideoPaused(true);
-    };
-  }, []);
-
+  }, [isPlaying, post._id, videoUrl]);
 
   // Double tap to like burst animations
   const [lastTap, setLastTap] = useState(0);
@@ -130,6 +206,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
   const [aiTooltipVisible, setAiTooltipVisible] = useState(false);
   // Hidden when deleted or blocked
   const [hidden, setHidden] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState(1.2);
 
   const user = post.user;
   const isAnon = post.isAnonymous;
@@ -192,6 +270,20 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
     }
   };
 
+  const resolveMediaUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith('http://localhost:5000')) {
+      return url.replace('http://localhost:5000', BASE_URL);
+    }
+    if (url.startsWith('https://localhost:5000')) {
+      return url.replace('https://localhost:5000', BASE_URL);
+    }
+    if (url.startsWith('/')) {
+      return `${BASE_URL}${url}`;
+    }
+    return url;
+  };
+
   const getFirstImage = () => {
     if (post.image_urls && post.image_urls.length > 0) {
       return post.image_urls[0];
@@ -199,10 +291,93 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
     return post.image_url;
   };
 
-  const imageUrl = getFirstImage();
+  const imageUrl = resolveMediaUrl(getFirstImage());
+  const rawVideoUrl = resolveMediaUrl(post.video);
+  const videoThumbnailUrl = resolveMediaUrl(post.videoThumbnail);
+
+  // ── E2E-encrypted video decryption ──────────────────────────────────────────
+  // New posts uploaded with AES-GCM encryption store the key in post.videoKey
+  // and IV in post.videoIv. We need to fetch, decrypt, and write a temp file.
+  const [decryptedVideoPath, setDecryptedVideoPath] = useState<string | null>(null);
+  const [isDecryptingVideo, setIsDecryptingVideo] = useState(false);
+  const isEncryptedVideo = !!(post.video && post.videoKey && post.videoIv);
+
+  useEffect(() => {
+    if (!isEncryptedVideo || !rawVideoUrl || !post.videoKey || !post.videoIv) {
+      setDecryptedVideoPath(null);
+      return;
+    }
+
+    let active = true;
+    // Use post ID as cache key so we only decrypt once
+    const tempPath = `${RNFS.TemporaryDirectoryPath}/ss_video_${post._id}.mp4`;
+
+    const run = async () => {
+      // Check cache first
+      const exists = await RNFS.exists(tempPath);
+      if (exists) {
+        if (active) setDecryptedVideoPath(`file://${tempPath}`);
+        return;
+      }
+
+      setIsDecryptingVideo(true);
+      try {
+        // Download encrypted blob
+        const downloadRes = await RNFS.downloadFile({
+          fromUrl: rawVideoUrl,
+          toFile: tempPath + '.enc',
+        }).promise;
+
+        if (!active) return;
+
+        // Read as base64
+        const encBase64 = await RNFS.readFile(tempPath + '.enc', 'base64');
+        // Decode to bytes
+        const encBytes = base64ToBytes(encBase64);
+        // Decrypt
+        const decBytes = await decryptAesGcm(encBytes, post.videoKey!, post.videoIv!);
+        // Write decrypted mp4
+        const decBase64 = bytesToBase64(decBytes);
+        await RNFS.writeFile(tempPath, decBase64, 'base64');
+        // Cleanup encrypted file
+        await RNFS.unlink(tempPath + '.enc').catch(() => { });
+
+        if (active) setDecryptedVideoPath(`file://${tempPath}`);
+      } catch (err) {
+        console.warn('[Video Decryption Error] Post:', post._id, err);
+        // Fallback: try direct URL (might fail for encrypted content)
+        if (active) setDecryptedVideoPath(rawVideoUrl ?? null);
+      } finally {
+        if (active) setIsDecryptingVideo(false);
+      }
+    };
+
+    run();
+    return () => { active = false; };
+  }, [rawVideoUrl, post.videoKey, post.videoIv, post._id, isEncryptedVideo]);
+
+  // Effective video URL: use decrypted local path if encrypted, otherwise direct URL
+  const videoUrl = isEncryptedVideo ? decryptedVideoPath : rawVideoUrl;
+
+  useEffect(() => {
+    if (imageUrl) {
+      Image.getSize(
+        imageUrl,
+        (width, height) => {
+          if (width && height) {
+            setAspectRatio(width / height);
+          }
+        },
+        (error) => {
+          console.warn('Failed to get image size:', error);
+        }
+      );
+    }
+  }, [imageUrl]);
 
   // If post hidden (deleted or user blocked), render nothing
   if (hidden) return null;
+
 
   return (
     <View style={[styles.postCard, { backgroundColor: cardBg, borderColor: isDark ? '#1e293b' : '#e2e8f0' }]}>
@@ -217,7 +392,15 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
 
       {/* Post Header */}
       <View style={styles.postHeader}>
-        <View style={styles.avatarContainer}>
+        <TouchableOpacity
+          onPress={() => {
+            if (!isAnon && user?._id) {
+              navigation.push('Profile', { userId: user._id });
+            }
+          }}
+          disabled={isAnon}
+          style={styles.avatarContainer}
+        >
           {isAnon ? (
             <LinearGradient
               colors={['#808bf5', '#ec4899']}
@@ -237,15 +420,23 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
               </Text>
             </View>
           )}
-        </View>
-        <View style={styles.postUserInfo}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            if (!isAnon && user?._id) {
+              navigation.push('Profile', { userId: user._id });
+            }
+          }}
+          disabled={isAnon}
+          style={styles.postUserInfo}
+        >
           <Text style={[styles.username, { color: textColor }]}>
             {isAnon ? 'Anonymous' : (user?.fullname || 'Unknown User')}
           </Text>
           <Text style={[styles.postMeta, { color: subColor }]}>
             {timeAgo(post.createdAt || post.updatedAt)}
           </Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Sparkles / AI Badge */}
         {post.aiSummary ? (
@@ -267,31 +458,116 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
         <View style={styles.mediaContainer}>
           {/* Post Video */}
           {post.video ? (
-            <View style={styles.videoWrapper}>
-              {shouldRenderVideo ? (
-                <Video
-                  source={{ uri: post.video }}
-                  style={styles.postVideo}
-                  paused={!isFocused || !isVisible || videoPaused}
-                  resizeMode="cover"
-                  controls={false}
-                  ref={videoRef}
-                  muted={false}
-                />
-              ) : (
-                <Image
-                  source={post.videoThumbnail ? { uri: post.videoThumbnail } : undefined}
-                  style={styles.postVideo}
-                  resizeMode="cover"
-                />
-              )}
-              {videoPaused && (
-                <TouchableOpacity
-                  style={styles.videoPlayOverlay}
-                  onPress={() => setVideoPaused(false)}
+            <View style={[styles.videoWrapper, { aspectRatio }]} {...panResponder.panHandlers}>
+              {/* Decrypting overlay spinner */}
+              {isDecryptingVideo ? (
+                <View style={[styles.videoPlayOverlay, { flexDirection: 'column', gap: 8 }]}>
+                  {videoThumbnailUrl ? (
+                    <Image source={{ uri: videoThumbnailUrl }} style={[StyleSheet.absoluteFillObject]} resizeMode="contain" />
+                  ) : null}
+                  <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 12, alignItems: 'center', gap: 6 }}>
+                    <MaterialCommunityIcons name="lock-open-outline" size={24} color="#808bf5" />
+                    <Text style={{ color: '#ffffff', fontSize: 12 }}>Decrypting video…</Text>
+                  </View>
+                </View>
+              ) : shouldRenderVideo && videoUrl ? (
+                <TouchableWithoutFeedback
+                  onPress={() => {
+                    if (isPlaying) {
+                      setUserPaused(true);
+                    } else {
+                      setUserPaused(false);
+                    }
+                  }}
                 >
-                  <MaterialCommunityIcons name="play-circle" size={54} color="#ffffff" />
-                </TouchableOpacity>
+                  <View style={StyleSheet.absoluteFill}>
+                    <Video
+                      source={{ uri: videoUrl }}
+                      style={styles.postVideo}
+                      paused={!isPlaying}
+                      resizeMode="cover"
+                      controls={false}
+                      ref={videoRef}
+                      muted={true}
+                      repeat={true}
+                      playInBackground={false}
+                      playWhenInactive={false}
+                      onLoad={(data) => {
+                        if (data?.naturalSize?.width && data?.naturalSize?.height) {
+                          setAspectRatio(data.naturalSize.width / data.naturalSize.height);
+                        }
+                        if (data?.duration) {
+                          setVideoDuration(data.duration);
+                        }
+                      }}
+                      onProgress={(data) => {
+                        if (!isScrubbing) {
+                          setVideoCurrentTime(data.currentTime);
+                        }
+                      }}
+                      onError={(e) => console.warn('[Video Error] Post:', post._id, e)}
+                    />
+                  </View>
+                </TouchableWithoutFeedback>
+              ) : null}
+
+              {/* Hide thumbnail/play overlays while decrypting */}
+              {!isDecryptingVideo ? (
+                <>
+                  {!isPlaying && videoThumbnailUrl ? (
+                    <Image
+                      source={{ uri: videoThumbnailUrl }}
+                      style={[styles.postVideo, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}
+                      resizeMode="cover"
+                      pointerEvents="none"
+                    />
+                  ) : null}
+
+                  {/* Play icon when post is off-screen or user hasn't interacted yet */}
+                  {!isPlaying && !userPaused && (
+                    <View style={[styles.videoPlayOverlay, { backgroundColor: 'rgba(0,0,0,0.15)' }]} pointerEvents="none">
+                      <MaterialCommunityIcons name="play-circle-outline" size={52} color="rgba(255,255,255,0.75)" />
+                    </View>
+                  )}
+
+                  {/* Resume button — only when user explicitly tapped to pause */}
+                  {userPaused && !isScrubbing && (
+                    <TouchableOpacity
+                      style={styles.videoPlayOverlay}
+                      onPress={() => setUserPaused(false)}
+                    >
+                      <MaterialCommunityIcons name="play-circle" size={54} color="#ffffff" />
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : null}
+
+              {/* Scrubbing Overlay */}
+              {isScrubbing && (
+                <View style={styles.scrubOverlay} pointerEvents="none">
+                  <MaterialCommunityIcons
+                    name={scrubTime >= videoCurrentTime ? 'fast-forward' : 'rewind'}
+                    size={36}
+                    color="#ffffff"
+                  />
+                  <Text style={styles.scrubText}>
+                    {formatTime(scrubTime)} / {formatTime(videoDuration)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Slim Progress Bar */}
+              {videoDuration > 0 && !isDecryptingVideo && (
+                <View style={styles.progressBarBg} pointerEvents="none">
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${((isScrubbing ? scrubTime : videoCurrentTime) / videoDuration) * 100}%`,
+                      },
+                    ]}
+                  />
+                </View>
               )}
             </View>
           ) : null}
@@ -300,8 +576,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
           {!post.video && imageUrl ? (
             <Image
               source={{ uri: imageUrl }}
-              style={styles.postImage}
-              resizeMode="cover"
+              style={[styles.postImage, { aspectRatio }]}
+              resizeMode="contain"
             />
           ) : null}
 
@@ -330,7 +606,24 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
 
       {/* Post Content */}
       {content ? (
-        <Text style={[styles.postContent, { color: textColor }]}>{content}</Text>
+        <View style={{ marginBottom: 4, paddingLeft: 5, paddingRight: 5 }}>
+          <Text
+            style={[styles.postContent, { color: textColor, marginBottom: 0 }]}
+            numberOfLines={isExpanded ? undefined : 2}
+          >
+            {content}
+          </Text>
+          {content.length > 90 && (
+            <TouchableOpacity
+              onPress={() => setIsExpanded(!isExpanded)}
+              style={{ marginTop: 4, alignSelf: 'flex-start' }}
+            >
+              <Text style={{ color: '#808bf5', fontWeight: '600', fontSize: 13 }}>
+                {isExpanded ? 'Show less' : '...more'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       ) : null}
 
       {/* Mood tag */}
@@ -341,7 +634,6 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
       )}
 
       {/* Footer Actions */}
-      <View style={[styles.divider, { backgroundColor: dividerColor }]} />
       <View style={styles.postFooter}>
         <TouchableOpacity style={styles.footerAction} onPress={toggleLike} activeOpacity={0.7}>
           <MaterialCommunityIcons
@@ -411,17 +703,10 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
 
 const styles = StyleSheet.create({
   postCard: {
-    borderRadius: 16,
-    padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
     position: 'relative',
     overflow: 'hidden',
+    paddingBottom: 2,
   },
   lockedOverlay: {
     position: 'absolute',
@@ -450,7 +735,7 @@ const styles = StyleSheet.create({
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    padding: 6,
   },
   avatarContainer: {
     marginRight: 12,
@@ -509,13 +794,20 @@ const styles = StyleSheet.create({
   mediaContainer: {
     position: 'relative',
     width: '100%',
-    borderRadius: 12,
+    maxHeight: 800,
     overflow: 'hidden',
     marginBottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+
   },
+  // No fixed/min height here on purpose — actual height comes entirely from
+  // the real aspect ratio (set dynamically) combined with maxHeight below,
+  // so width stays 100% and height scales to fit the real media dimensions.
   videoWrapper: {
     width: '100%',
-    height: 220,
+    maxHeight: 800,
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
@@ -535,8 +827,8 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: '100%',
-    height: 220,
-    backgroundColor: '#e2e8f0',
+    maxHeight: 800,        
+    backgroundColor: '#000000',
   },
   heartBurst: {
     position: 'absolute',
@@ -586,8 +878,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(128, 139, 245, 0.12)',
     borderRadius: 20,
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 5,
     marginBottom: 12,
+    marginHorizontal: 5,
   },
   moodText: {
     color: '#808bf5',
@@ -649,5 +942,31 @@ const styles = StyleSheet.create({
   aiSummaryText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  scrubOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  scrubText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  progressBarBg: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    zIndex: 15,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#808bf5',
   },
 });

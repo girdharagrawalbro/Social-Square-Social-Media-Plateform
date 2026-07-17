@@ -12,6 +12,7 @@ import ForgotScreen from './src/screens/ForgotScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import SocialSquareScreen from './src/screens/SocialSquareScreen';
 import ChatScreen from './src/screens/ChatScreen';
+import ChatPaneScreen from './src/screens/ChatPaneScreen';
 import VerifyOtpScreen from './src/screens/VerifyOtpScreen';
 import ExploreScreen from './src/screens/ExploreScreen';
 import ReelsScreen from './src/screens/ReelsScreen';
@@ -20,6 +21,7 @@ import KnowledgeScreen from './src/screens/KnowledgeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import NewPostScreen from './src/screens/NewPostScreen';
+import PostDetailScreen from './src/screens/PostDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -45,6 +47,7 @@ function App() {
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen name="SocialSquare" component={SocialSquareScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="ChatPane" component={ChatPaneScreen} />
           <Stack.Screen name="Explore" component={ExploreScreen} />
           <Stack.Screen name="Reels" component={ReelsScreen} />
           <Stack.Screen name="Pulse" component={PulseScreen} />
@@ -52,6 +55,7 @@ function App() {
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="NewPost" component={NewPostScreen} />
+          <Stack.Screen name="PostDetail" component={PostDetailScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

@@ -1,5 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, useColorScheme } from 'react-native';
+import { View, StyleSheet, Animated, useColorScheme, Dimensions, ScrollView } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const gridCellSize = (width - 48 - 8) / 3; // 48 = horizontal padding, 8 = 2 gaps of 4px
 
 interface SkeletonItemProps {
   style?: any;
@@ -100,6 +103,181 @@ export const ChatSkeleton = () => {
     </View>
   );
 };
+
+export const ProfileSkeleton = () => {
+  const isDark = useColorScheme() === 'dark';
+  const cardBg = isDark ? '#121212' : '#ffffff';
+  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const bg = isDark ? '#0a0a0a' : '#f3f4f6';
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: bg }}
+      scrollEnabled={false}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
+      {/* Profile Card */}
+      <View style={[sk.card, { backgroundColor: cardBg, borderColor: border }]}>
+        {/* Avatar */}
+        <View style={{ alignItems: 'center', marginBottom: 14 }}>
+          <SkeletonItem style={sk.avatar} />
+        </View>
+
+        {/* Full name + username + bio */}
+        <View style={{ alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <SkeletonItem style={sk.fullnameLine} />
+          <SkeletonItem style={sk.usernameLine} />
+          <SkeletonItem style={sk.bioLine} />
+        </View>
+
+        {/* Level / Streak / XP badges */}
+        <View style={sk.badgesRow}>
+          <SkeletonItem style={sk.badge} />
+          <SkeletonItem style={sk.badge} />
+          <SkeletonItem style={sk.badge} />
+        </View>
+
+        {/* Stats grid — 4 tiles */}
+        <View style={sk.statsGrid}>
+          <SkeletonItem style={sk.statTile} />
+          <SkeletonItem style={sk.statTile} />
+          <SkeletonItem style={sk.statTile} />
+          <SkeletonItem style={sk.statTile} />
+        </View>
+
+        {/* Action buttons */}
+        <View style={sk.actionsRow}>
+          <SkeletonItem style={sk.actionBtn} />
+          <SkeletonItem style={sk.actionBtn} />
+          <SkeletonItem style={sk.actionBtnSmall} />
+        </View>
+      </View>
+
+      {/* Consistency Graph Card */}
+      <View style={[sk.card, sk.graphCard, { backgroundColor: cardBg, borderColor: border }]}>
+        {/* Title bar */}
+        <View style={sk.graphHeader}>
+          <SkeletonItem style={sk.graphTitle} />
+          <SkeletonItem style={sk.graphChevron} />
+        </View>
+        {/* Fake graph grid */}
+        <View style={sk.graphGrid}>
+          {Array.from({ length: 16 }).map((_, col) => (
+            <View key={col} style={sk.graphCol}>
+              {Array.from({ length: 7 }).map((_, row) => (
+                <SkeletonItem key={row} style={sk.graphCell} />
+              ))}
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Post Grid */}
+      <View style={[sk.card, sk.gridCard, { backgroundColor: cardBg, borderColor: border }]}>
+        {/* Tabs bar */}
+        <View style={sk.tabsRow}>
+          {[1, 2, 3, 4].map(i => (
+            <SkeletonItem key={i} style={sk.tab} />
+          ))}
+        </View>
+        {/* 3-column grid */}
+        <View style={sk.postGrid}>
+          {Array.from({ length: 9 }).map((_, i) => (
+            <SkeletonItem key={i} style={sk.gridCell} />
+          ))}
+        </View>
+      </View>
+    </ScrollView>
+  );
+};
+
+const sk = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 18,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  fullnameLine: { width: 160, height: 18, borderRadius: 6 },
+  usernameLine:  { width: 100, height: 13, borderRadius: 4 },
+  bioLine:       { width: 230, height: 11, borderRadius: 4 },
+
+  // Gamification badges row
+  badgesRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  badge: { width: 80, height: 56, borderRadius: 14 },
+
+  // Stats 2×2 grid
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  statTile: {
+    width: '47%',
+    height: 64,
+    borderRadius: 14,
+  },
+
+  // Action buttons
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: { flex: 1, height: 42, borderRadius: 12 },
+  actionBtnSmall: { width: 42, height: 42, borderRadius: 12 },
+
+  // Consistency graph card
+  graphCard: { paddingVertical: 14 },
+  graphHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  graphTitle:   { width: 140, height: 12, borderRadius: 4 },
+  graphChevron: { width: 18, height: 18, borderRadius: 4 },
+  graphGrid: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  graphCol:  { flexDirection: 'column', gap: 3 },
+  graphCell: { width: 10, height: 10, borderRadius: 2 },
+
+  // Post grid card
+  gridCard: { paddingBottom: 14 },
+  tabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'transparent',
+    paddingBottom: 10,
+  },
+  tab: { width: 72, height: 32, borderRadius: 8 },
+  postGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  gridCell: {
+    width: gridCellSize,
+    height: gridCellSize,
+    borderRadius: 8,
+  },
+});
 
 const styles = StyleSheet.create({
   // Post Skeleton

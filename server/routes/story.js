@@ -456,5 +456,26 @@ router.post('/vote/:storyId', verifyToken, [
     }
 });
 
+// ─── GET SINGLE STORY (PROTECTED) ─────────────────────────────────────────────
+router.get('/:storyId', verifyToken, [
+    param('storyId').isMongoId().withMessage('Invalid story ID'),
+    validate
+], async (req, res) => {
+    try {
+        const story = await Story.findById(req.params.storyId)
+            .populate('sharedPostId')
+            .populate('sharedStoryId');
+
+        if (!story) {
+            return res.status(404).json({ message: 'Story not found.' });
+        }
+
+        const isExpired = new Date(story.expiresAt) <= new Date();
+        res.status(200).json({ story, isExpired });
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 module.exports = router;
 module.exports.setIo = setIo;
