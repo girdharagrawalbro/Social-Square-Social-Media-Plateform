@@ -18,8 +18,9 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { api } from '../../lib/api';
+import { getCache, setCache, TTL } from '../../lib/cache';
 import { appChannel } from '../../lib/broadcast';
 import { useBroadcast } from '../../lib/useBroadcast';
 import useAuthStore from '../../store/zustand/useAuthStore';
@@ -121,16 +122,38 @@ export default function StoriesStrip() {
   const [resharedStory, setResharedStory] = useState<any>(null);
   const [stickerSize, setStickerSize] = useState<'small' | 'medium' | 'large'>('medium');
 
-  const bg = isDark ? '#0f0f1a' : '#f1f5f9';
-  const cardBg = isDark ? '#1a1a2e' : '#ffffff';
+  const bg = isDark ? '#000000' : '#f1f5f9';
+  const cardBg = isDark ? '#111111' : '#ffffff';
   const textColorStyle = isDark ? '#f1f5f9' : '#0f172a';
   const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1e293b' : '#e2e8f0';
+  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
+
+  const filterExpiredStories = (groupedStories: GroupedStory[]): GroupedStory[] => {
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    return groupedStories
+      .map(group => ({
+        ...group,
+        stories: group.stories.filter(story => {
+          const createdTime = new Date(story.createdAt).getTime();
+          return now - createdTime < ONE_DAY_MS;
+        })
+      }))
+      .filter(group => group.stories.length > 0);
+  };
 
   const fetchStories = async () => {
     try {
+      // Load from cache first so strip renders instantly on app open
+      const cached = await getCache<GroupedStory[]>('stories_feed');
+      if (cached && cached.length > 0) {
+        setFeed(filterExpiredStories(cached));
+      }
       const res = await api.get('/api/story/feed');
-      setFeed(res.data || []);
+      const fresh = res.data || [];
+      const filteredFresh = filterExpiredStories(fresh);
+      setFeed(filteredFresh);
+      await setCache('stories_feed', filteredFresh, TTL.STORIES);
     } catch (e) {
       console.warn('Failed to fetch stories feed:', e);
     }
@@ -216,17 +239,48 @@ export default function StoriesStrip() {
     }
   };
 
+  // Opens camera/gallery choice — the proper way, like Instagram/WhatsApp
   const handlePickMedia = () => {
-    // Instantly use a premium placeholder image to test the full story configuration flow
-    const templates = [
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800',
-      'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800',
-      'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800',
-    ];
-    const chosen = templates[Math.floor(Math.random() * templates.length)];
-    setSelectedUri(chosen);
-    setMediaType('image');
-    setCreateVisible(true);
+    Alert.alert(
+      'Add to Story',
+      'Choose media source',
+      [
+        {
+          text: 'Camera',
+          onPress: () => {
+            launchCamera(
+              { mediaType: 'mixed', quality: 0.9, saveToPhotos: false },
+              (result) => {
+                if (result.didCancel || result.errorCode) return;
+                const asset = result.assets?.[0];
+                if (!asset?.uri) return;
+                setSelectedUri(asset.uri);
+                setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
+                setCreateVisible(true);
+              },
+            );
+          },
+        },
+        {
+          text: 'Gallery',
+          onPress: () => {
+            launchImageLibrary(
+              { mediaType: 'mixed', quality: 0.9 },
+              (result) => {
+                if (result.didCancel || result.errorCode) return;
+                const asset = result.assets?.[0];
+                if (!asset?.uri) return;
+                setSelectedUri(asset.uri);
+                setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
+                setCreateVisible(true);
+              },
+            );
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true },
+    );
   };
 
   const handleChangeMedia = async () => {
@@ -273,6 +327,7 @@ export default function StoriesStrip() {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
+          timeout: 0, // Disable timeout for media uploads
         });
 
         if (uploadRes.data?.success && uploadRes.data?.url) {

@@ -1,5 +1,5 @@
 {
-  "name": "SS",
+  "name": "socialsquare",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@noble/ciphers": "^2.2.0",
+    "@op-engineering/op-sqlite": "^17.1.2",
     "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-native/new-app-screen": "0.86.0",
     "@react-navigation/native": "^7.3.8",
     "@react-navigation/native-stack": "^7.17.10",
@@ -21,7 +23,10 @@
     "react-native": "0.86.0",
     "react-native-fs": "^2.20.0",
     "react-native-image-picker": "^8.2.1",
+    "react-native-keychain": "^10.0.0",
     "react-native-linear-gradient": "^2.8.3",
+    "react-native-mmkv": "^4.3.2",
+    "react-native-nitro-modules": "^0.36.1",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.25.2",
     "react-native-vector-icons": "^10.3.0",

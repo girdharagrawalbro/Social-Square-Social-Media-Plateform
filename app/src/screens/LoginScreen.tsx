@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -24,7 +25,14 @@ export default function LoginScreen({ navigation }: any) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, loading } = useAuthStore();
+  const { login, googleLogin, loading } = useAuthStore();
+
+  React.useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '438982943802-70qgbbglo3ei6ufhubp5hp1asiuv0oov.apps.googleusercontent.com',
+      offlineAccess: true,
+    });
+  }, []);
 
   const handleLogin = async () => {
     if (!identifier.trim()) {
@@ -49,6 +57,36 @@ export default function LoginScreen({ navigation }: any) {
       navigation.replace('SocialSquare');
     } else {
       Alert.alert('Login Failed', result?.error || 'Something went wrong');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken;
+      
+      if (!idToken) {
+        Alert.alert('Google Sign-in Failed', 'No ID Token returned from Google Services.');
+        return;
+      }
+      
+      const result = await googleLogin({ credential: idToken });
+      if (result?.success) {
+        navigation.replace('SocialSquare');
+      } else {
+        Alert.alert('Google Sign-in Failed', result?.error || 'Could not authenticate with Google');
+      }
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        console.log('Google login cancelled by user');
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        console.log('Google login already in progress');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert('Play Services', 'Google Play Services not available or outdated.');
+      } else {
+        Alert.alert('Google Sign-in Error', error.message || 'Could not sign in with Google');
+      }
     }
   };
 
@@ -137,10 +175,10 @@ export default function LoginScreen({ navigation }: any) {
             <View style={[styles.dividerLine, { backgroundColor: inputBorder }]} />
           </View>
 
-          {/* Google Sign In mock */}
+          {/* Google Sign In Button */}
           <TouchableOpacity
             style={[styles.googleBtn, { borderColor: inputBorder }]}
-            onPress={() => Alert.alert('Information', 'Google Sign-in available in production bundle.')}
+            onPress={handleGoogleLogin}
           >
             <Text style={[styles.googleBtnText, { color: textColor }]}>Continue with Google</Text>
           </TouchableOpacity>

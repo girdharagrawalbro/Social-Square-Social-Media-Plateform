@@ -1,4 +1,4 @@
-package com.ss
+package com.socialsquare.app
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

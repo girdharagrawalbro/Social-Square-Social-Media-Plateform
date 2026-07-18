@@ -20,6 +20,7 @@ import BottomNav from './components/BottomNav';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText } from '../lib/cryptoUtils';
 import { api } from '../lib/api';
+import { getCache, setCache, TTL } from '../lib/cache';
 import { ChatSkeleton } from './components/SkeletonLoader';
 
 interface Participant {
@@ -134,21 +135,31 @@ export default function ChatScreen() {
     return url;
   };
 
-  const bg = isDark ? '#0f0f1a' : '#f1f5f9';
-  const cardBg = isDark ? '#1a1a2e' : '#ffffff';
+  const bg = isDark ? '#000000' : '#f1f5f9';
+  const cardBg = isDark ? '#111111' : '#ffffff';
   const textColor = isDark ? '#f1f5f9' : '#0f172a';
   const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1e293b' : '#e2e8f0';
+  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
 
   const fetchConversations = useCallback(async (showLoader = false) => {
-    if (showLoader) setLoading(true);
+    // Load from cache immediately for instant display (like WhatsApp)
+    const cached = await getCache<Conversation[]>('conversations_list');
+    if (cached && cached.length > 0) {
+      setConversations(cached);
+      if (showLoader) setLoading(false); // don't show spinner if we have cache
+    } else if (showLoader) {
+      setLoading(true);
+    }
     try {
       const res = await api.get('/api/conversation');
-      setConversations(res.data?.conversations || res.data || []);
+      const fresh = res.data?.conversations || res.data || [];
+      setConversations(fresh);
+      // Cache the list for next time (profile pics, names, last message)
+      await setCache('conversations_list', fresh, TTL.CONVERSATIONS);
     } catch (e) {
       console.warn('Failed to load conversations:', e);
     } finally {
-      if (showLoader) setLoading(false);
+      setLoading(false);
     }
   }, []);
 

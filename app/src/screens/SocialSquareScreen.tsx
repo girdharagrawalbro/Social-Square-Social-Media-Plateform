@@ -18,6 +18,8 @@ import StoriesStrip from './components/StoriesStrip';
 import { PostItem } from './components/PostItem';
 import { PostSkeleton } from './components/SkeletonLoader';
 import { api } from '../lib/api';
+import { getCache, setCache, invalidateCache, invalidateCacheByPrefix, TTL } from '../lib/cache';
+import { appChannel } from '../lib/broadcast';
 import useAuthStore from '../store/zustand/useAuthStore';
 import BottomNav from './components/BottomNav';
 
@@ -52,6 +54,11 @@ export default function SocialSquareScreen({ navigation }: any) {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const [viewableItems, setViewableItems] = useState<string[]>([]);
 
   const onViewableItemsChanged = useRef(({ viewableItems: visible }: any) => {
@@ -61,41 +68,80 @@ export default function SocialSquareScreen({ navigation }: any) {
   const fetchFeed = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
+      await invalidateCacheByPrefix('feed_page_');
     } else {
-      setLoading(true);
+      // Load page 1 from cache instantly on mount
+      const cached = await getCache<any[]>('feed_page_1');
+      if (cached && cached.length > 0) {
+        setPosts(cached);
+      } else {
+        setLoading(true);
+      }
     }
 
     try {
-      // Fetch posts from recommendation or feed endpoint
       const res = await api.get('/api/recommendation/posts');
       const items = res.data.items || res.data.posts || res.data || [];
+      const cursor = res.data.nextCursor || null;
+      const more = res.data.hasMore !== undefined ? res.data.hasMore : items.length >= 20;
+
       setPosts(items);
+      setNextCursor(cursor);
+      setHasMore(more);
+      setCurrentPage(1);
+      setIsOffline(false);
+
+      // Persist page 1 to cache
+      await setCache('feed_page_1', items, TTL.FEED);
       fetchUnreadCount();
     } catch (e: any) {
       console.warn('Failed to fetch feed:', e);
-      // Fallback with a mock post if network fails or DB empty to ensure great first impression
-      if (posts.length === 0) {
-        setPosts([
-          {
-            _id: 'mock-1',
-            user: {
-              _id: 'user-1',
-              username: 'alex_square',
-              fullname: 'Alex Rivera',
-              profile_picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-            },
-            content: 'Just launched the Social Square mobile app! Welcome to our new decentralized workspace and community. 🚀✨',
-            mediaUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800',
-            mediaType: 'image',
-            likes: [],
-            commentsCount: 3,
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      }
+      setIsOffline(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const fetchMoreFeed = async () => {
+    if (loadingMore || !hasMore || !nextCursor) return;
+    setLoadingMore(true);
+
+    const nextPage = currentPage + 1;
+    const cacheKey = `feed_page_${nextPage}`;
+
+    // Load next page from cache first if available
+    const cached = await getCache<any[]>(cacheKey);
+    if (cached && cached.length > 0) {
+      setPosts((prev) => [...prev, ...cached]);
+      setCurrentPage(nextPage);
+      setLoadingMore(false);
+      return;
+    }
+
+    try {
+      const res = await api.get(`/api/recommendation/posts?cursor=${nextCursor}`);
+      const items = res.data.items || res.data.posts || res.data || [];
+      const cursor = res.data.nextCursor || null;
+      const more = res.data.hasMore !== undefined ? res.data.hasMore : items.length >= 20;
+
+      if (items.length > 0) {
+        setPosts((prev) => [...prev, ...items]);
+        setNextCursor(cursor);
+        setHasMore(more);
+        setCurrentPage(nextPage);
+
+        // Cache page-by-page
+        await setCache(cacheKey, items, TTL.FEED);
+      } else {
+        setHasMore(false);
+      }
+      setIsOffline(false);
+    } catch (e) {
+      console.warn('Failed to fetch more feed:', e);
+      setIsOffline(true);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -103,12 +149,27 @@ export default function SocialSquareScreen({ navigation }: any) {
     InteractionManager.runAfterInteractions(() => {
       fetchFeed();
     });
+
+    // Listen to post creation event
+    const unsub = appChannel.on('POST_CREATED', (data: any) => {
+      if (data?.post) {
+        setPosts((prev) => [data.post, ...prev]);
+        
+        // Update first page cache asynchronously
+        getCache<any[]>('feed_page_1').then((cached) => {
+          const updated = cached ? [data.post, ...cached] : [data.post];
+          setCache('feed_page_1', updated, TTL.FEED);
+        });
+      }
+    });
+
+    return () => unsub();
   }, []);
 
-  const bg = isDark ? '#0a0a0a' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#ffffff';
+  const bg = isDark ? '#000000' : '#f5f5f5';
+  const cardBg = isDark ? '#111111' : '#ffffff';
   const textColor = isDark ? '#ffffff' : '#111827';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const border = isDark ? '#1a1a1a' : '#e5e7eb';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
@@ -155,9 +216,23 @@ export default function SocialSquareScreen({ navigation }: any) {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} colors={['#808bf5']} />
           }
+          onEndReached={fetchMoreFeed}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={loadingMore ? (
+            <ActivityIndicator size="small" color="#808bf5" style={styles.loader} />
+          ) : null}
           ListEmptyComponent={
             <View style={styles.emptyView}>
-              <Text style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>No posts available.</Text>
+              {isOffline ? (
+                <>
+                  <MaterialCommunityIcons name="wifi-off" size={40} color={isDark ? '#4b5563' : '#9ca3af'} />
+                  <Text style={{ color: isDark ? '#6b7280' : '#9ca3af', marginTop: 12, textAlign: 'center' }}>
+                    {"You're offline. Pull down to retry."}
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>No posts available.</Text>
+              )}
             </View>
           }
           contentContainerStyle={styles.listContent}
@@ -172,7 +247,7 @@ export default function SocialSquareScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor:'#ffffff',
+    backgroundColor:'#000000',
   },
   header: {
     height: 56,

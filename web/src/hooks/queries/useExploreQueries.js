@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../store/zustand/useAuthStore';
 import dbService from '../../utils/indexedDb';
 
@@ -14,22 +14,38 @@ export const exploreKeys = {
 
 // ─── EXPLORE REELS (Infinite Scroll) ──────────────────────────────────────────
 export function useExploreReels() {
+    const queryClient = useQueryClient();
     return useInfiniteQuery({
         queryKey: exploreKeys.reels,
         queryFn: async ({ pageParam = null }) => {
             const cacheKey = 'explore_reels';
-            if (!pageParam) {
-                const cached = await dbService.getCache(cacheKey);
-                if (cached) return cached;
-            }
             const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
-            const res = await api.get(`${BASE}/api/post/explore-reels?${params}`);
             
-            if (!pageParam && res.data) {
-                await dbService.setCache(cacheKey, res.data);
+            const fetchPromise = api.get(`${BASE}/api/post/explore-reels?${params}`).then(async (res) => {
+                if (!pageParam && res.data) {
+                    await dbService.setCache(cacheKey, res.data);
+                }
+                return res.data;
+            });
+
+            if (!pageParam) {
+                const cached = await dbService.getCache(cacheKey);
+                if (cached) {
+                    fetchPromise.then(freshData => {
+                        queryClient.setQueryData(exploreKeys.reels, (old) => {
+                            if (!old) return { pages: [freshData], pageParams: [null] };
+                            return {
+                                ...old,
+                                pages: old.pages.map((page, idx) => idx === 0 ? freshData : page)
+                            };
+                        });
+                    }).catch(err => console.error("Background explore reels fetch failed:", err));
+                    return cached;
+                }
             }
-            return res.data;
+
+            return fetchPromise;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         staleTime: 1000 * 60 * 5,
@@ -53,23 +69,27 @@ export function useConfessions() {
 
 // ─── TRENDING POSTS ────────────────────────────────────────────────────────────
 export function useTrending() {
+    const queryClient = useQueryClient();
     return useQuery({
         queryKey: exploreKeys.trending,
         queryFn: async () => {
             const cacheKey = 'trending_posts';
+            const fetchPromise = api.get(`${BASE}/api/post/trending`).then(async (res) => {
+                if (res.data) {
+                    await dbService.setCache(cacheKey, res.data);
+                }
+                return res.data;
+            });
+
             const cached = await dbService.getCache(cacheKey);
             if (cached) {
-                // Background update
-                api.get(`${BASE}/api/post/trending`).then(res => {
-                    if (res.data) dbService.setCache(cacheKey, res.data);
+                fetchPromise.then(freshData => {
+                    queryClient.setQueryData(exploreKeys.trending, freshData);
                 }).catch(() => {});
                 return cached;
             }
-            const res = await api.get(`${BASE}/api/post/trending`);
-            if (res.data) {
-                await dbService.setCache(cacheKey, res.data);
-            }
-            return res.data;
+
+            return fetchPromise;
         },
         staleTime: 1000 * 60 * 10, // trending changes slowly
     });

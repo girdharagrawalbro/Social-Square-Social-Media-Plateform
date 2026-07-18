@@ -212,10 +212,10 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
   const user = post.user;
   const isAnon = post.isAnonymous;
   const content = post.caption || post.content || '';
-  const cardBg = isDark ? '#1a1a2e' : '#ffffff';
+  const cardBg = isDark ? '#111111' : '#ffffff';
   const textColor = isDark ? '#f1f5f9' : '#0f172a';
   const subColor = isDark ? '#64748b' : '#94a3b8';
-  const dividerColor = isDark ? '#1e293b' : '#f1f5f9';
+  const dividerColor = isDark ? '#1a1a1a' : '#f1f5f9';
   const iconColor = isDark ? '#64748b' : '#94a3b8';
 
   const loggedUser = useAuthStore((s: any) => s.user);

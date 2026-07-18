@@ -23,6 +23,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Video from 'react-native-video';
 import BottomNav from './components/BottomNav';
 import { api, BASE_URL } from '../lib/api';
+import { getCache, setCache, TTL } from '../lib/cache';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -97,12 +98,12 @@ export default function ExploreScreen({ navigation }: any) {
   const [muted, setMuted] = useState(true);
 
   // Styling colors
-  const bg = isDark ? '#0a0a0a' : '#ffffff';
-  const headerBg = isDark ? '#121212' : '#ffffff';
+  const bg = isDark ? '#000000' : '#ffffff';
+  const headerBg = isDark ? '#111111' : '#ffffff';
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#f3f4f6';
   const textColor = isDark ? '#ffffff' : '#1f2937';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const cardBg = isDark ? '#111111' : '#ffffff';
+  const border = isDark ? '#1a1a1a' : '#e5e7eb';
   const subTextColor = isDark ? '#9ca3af' : '#6b7280';
 
   // Helper to resolve media URLs
@@ -120,12 +121,19 @@ export default function ExploreScreen({ navigation }: any) {
     return url;
   };
 
-  // Fetch Reels
+  // Fetch Reels — cache-first for instant grid display
   const fetchReels = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
     } else {
-      setLoading(true);
+      // Show cached reels immediately while API loads
+      const cached = await getCache<any[]>('explore_reels');
+      if (cached && cached.length > 0) {
+        setReels(cached);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
     }
 
     try {
@@ -140,6 +148,7 @@ export default function ExploreScreen({ navigation }: any) {
 
       if (isRefresh) {
         setReels(posts);
+        await setCache('explore_reels', posts, TTL.EXPLORE);
       } else {
         setReels((prev) => {
           const combined = [...prev, ...posts];
@@ -147,6 +156,8 @@ export default function ExploreScreen({ navigation }: any) {
           const unique = combined.filter(
             (v, i, a) => a.findIndex((t) => t._id === v._id) === i
           );
+          // cache the full accumulated list
+          setCache('explore_reels', unique, TTL.EXPLORE);
           return unique;
         });
       }
@@ -685,6 +696,7 @@ export default function ExploreScreen({ navigation }: any) {
                 <ReelPlayerItem
                   item={item}
                   isActive={index === activeReelIndex}
+                  isPreload={index === activeReelIndex + 1 || index === activeReelIndex + 2}
                   muted={muted}
                   setMuted={setMuted}
                   onClose={() => setIsReelModalVisible(false)}
@@ -711,7 +723,7 @@ export function ReelPlayerItem({
   onClose,
   loggedUser,
   navigation,
-  hideHeader = false,
+  isPreload = false,
 }: any) {
   const isFocused = useIsFocused();
   const [liked, setLiked] = useState(
@@ -761,17 +773,23 @@ export function ReelPlayerItem({
   return (
     <TouchableWithoutFeedback onPress={handleDoubleTap}>
       <View style={[styles.reelPlayerContainer, { height }]}>
-        {isActive && item.video ? (
+        {(isActive || isPreload) && item.video ? (
           <Video
             source={{ uri: item.video }}
-            style={StyleSheet.absoluteFill}
-            paused={!isPlaying || !isFocused}
+            style={isActive ? StyleSheet.absoluteFill : { width: 0, height: 0, position: 'absolute' }}
+            paused={isActive ? (!isPlaying || !isFocused) : true}
             resizeMode="contain"
             repeat
-            muted={muted}
+            muted={isActive ? muted : true}
             playInBackground={false}
             playWhenInactive={false}
             controls={false}
+            bufferConfig={{
+              minBufferMs: 2000,
+              maxBufferMs: 5000,
+              bufferForPlaybackMs: 1000,
+              bufferForPlaybackAfterRebufferMs: 1500
+            }}
           />
         ) : null}
 

@@ -15,12 +15,15 @@ import {
   TextInput,
   ActivityIndicator,
   Share,
+  RefreshControl,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import useAuthStore from '../store/zustand/useAuthStore';
 import BottomNav from './components/BottomNav';
 import { api, BASE_URL } from '../lib/api';
+import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
+import { appChannel } from '../lib/broadcast';
 import { ProfileSkeleton } from './components/SkeletonLoader';
 
 const { width } = Dimensions.get('window');
@@ -54,6 +57,7 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [posts, setPosts] = useState<any[]>([]);
   const [contributions, setContributions] = useState<any>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -124,7 +128,34 @@ export default function ProfileScreen({ navigation, route }: any) {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const profileId = targetUserId || user?._id;
+    if (profileId) {
+      await invalidateCache(`profile_${profileId}`);
+      await invalidateCache(`profile_posts_${profileId}`);
+    }
+    await fetchProfileInfo();
+    setRefreshing(false);
+  };
+
   const fetchProfileInfo = async () => {
+    const profileId = targetUserId || user?._id;
+    if (!profileId) return;
+
+    // ─── Cache-first: show profile instantly on re-visit ─────────────────────
+    const profileCacheKey = `profile_${profileId}`;
+    const postsCacheKey = `profile_posts_${profileId}`;
+    const cachedProfile = await getCache<any>(profileCacheKey);
+    const cachedPosts = await getCache<any[]>(postsCacheKey);
+    if (cachedProfile) {
+      setProfileData(cachedProfile);
+      setLoading(false);
+    }
+    if (cachedPosts) {
+      setPosts(cachedPosts);
+    }
+
     try {
       let userObj;
       if (isOwner) {
@@ -139,9 +170,12 @@ export default function ProfileScreen({ navigation, route }: any) {
         setIsRequested(profileRes.data.hasPendingRequest || false);
       }
       setProfileData(userObj);
+      await setCache(profileCacheKey, userObj, TTL.PROFILE);
 
       const postsRes = await api.get(`/api/post/user/${userObj._id}?limit=9`);
-      setPosts(postsRes.data.posts || postsRes.data || []);
+      const freshPosts = postsRes.data.posts || postsRes.data || [];
+      setPosts(freshPosts);
+      await setCache(postsCacheKey, freshPosts, TTL.FEED);
       setNextCursor(postsRes.data.nextCursor || null);
       setHasMore(postsRes.data.hasMore || false);
 
@@ -206,6 +240,23 @@ export default function ProfileScreen({ navigation, route }: any) {
     }, [])
   );
 
+  useEffect(() => {
+    const unsub = appChannel.on('POST_CREATED', (data: any) => {
+      if (isOwner && data?.post) {
+        setPosts((prev) => [data.post, ...prev]);
+
+        // Also update local cache for profile posts
+        const postsCacheKey = `profile_posts_${user?._id}`;
+        getCache<any[]>(postsCacheKey).then((cached) => {
+          const updated = cached ? [data.post, ...cached] : [data.post];
+          setCache(postsCacheKey, updated, TTL.FEED);
+        });
+      }
+    });
+
+    return () => unsub();
+  }, [isOwner, user?._id]);
+
   const handleSaveProfile = async () => {
     if (!fullnameInput.trim() || !usernameInput.trim()) {
       Alert.alert('Validation Error', 'Full Name and Username cannot be empty.');
@@ -220,6 +271,9 @@ export default function ProfileScreen({ navigation, route }: any) {
         profile_picture: profilePicInput.trim() || undefined,
       });
       setUser(res.data.user || res.data);
+      // Invalidate profile cache so it reloads fresh after edit
+      await invalidateCache(`profile_${user?._id}`);
+      await invalidateCache(`profile_posts_${user?._id}`);
       Alert.alert('Success', 'Profile updated successfully!');
       setEditVisible(false);
       fetchProfileInfo();
@@ -230,9 +284,9 @@ export default function ProfileScreen({ navigation, route }: any) {
     }
   };
 
-  const bg = isDark ? '#0a0a0a' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const bg = isDark ? '#000000' : '#ffffff';
+  const cardBg = isDark ? '#111111' : '#ffffff';
+  const border = isDark ? '#1a1a1a' : '#e5e7eb';
   const textColor = isDark ? '#ffffff' : '#111827';
   const subText = isDark ? '#9ca3af' : '#6b7280';
   const primaryColor = '#808bf5';
@@ -854,6 +908,14 @@ export default function ProfileScreen({ navigation, route }: any) {
             return null;
           }}
           contentContainerStyle={[styles.scrollContent, { paddingHorizontal: 16 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#808bf5']}
+              tintColor={'#808bf5'}
+            />
+          }
         />
       )}
 

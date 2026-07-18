@@ -25,6 +25,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useRoute, useNavigation, useIsFocused } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { api } from '../lib/api';
+import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
+import { getMessagesFromDB, upsertMessages, markMessagesRead, deleteMessageInDB } from '../lib/db';
 import useAuthStore from '../store/zustand/useAuthStore';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText, encryptText } from '../lib/cryptoUtils';
@@ -370,6 +372,9 @@ export default function ChatPaneScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [olderOffset, setOlderOffset] = useState(0);
+  const [hasOlderMessages, setHasOlderMessages] = useState(true);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [replyTo, setReplyTo] = useState<any>(null);
@@ -385,11 +390,11 @@ export default function ChatPaneScreen() {
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [storyPlayerVisible, setStoryPlayerVisible] = useState(false);
 
-  const bg = isDark ? '#0f0f1a' : '#f1f5f9';
-  const cardBg = isDark ? '#1a1a2e' : '#ffffff';
+  const bg = isDark ? '#000000' : '#f1f5f9';
+  const cardBg = isDark ? '#111111' : '#ffffff';
   const textColor = isDark ? '#f1f5f9' : '#0f172a';
   const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1e293b' : '#e2e8f0';
+  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
 
   const unescapeHtml = (str: string | null | undefined) => {
     if (!str) return str;
@@ -427,28 +432,43 @@ export default function ChatPaneScreen() {
   }, [conversationId, recipientId]);
 
   const fetchMessages = useCallback(async (showLoader = false) => {
-    if (showLoader) setLoading(true);
+    // ── 1. SQLite hot layer: instant render from disk (no network wait) ──────
+    if (showLoader) {
+      const dbMessages = getMessagesFromDB(conversationId, 50, 0);
+      if (dbMessages.length > 0) {
+        const processed = await processMessages(dbMessages);
+        setMessages(processed);
+        setOlderOffset(dbMessages.length);
+        setHasOlderMessages(dbMessages.length >= 50);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+    }
+
+    // ── 2. Server sync: fetch new messages and merge into SQLite + RAM ────────
     try {
-      // Send both IDs — server uses whichever is available
       const payload: any = { limit: 50 };
       if (recipientId) payload.recipientId = recipientId;
       if (conversationId) payload.conversationId = conversationId;
 
       const res = await api.post('/api/conversation/messages', payload);
       const raw = res.data?.messages || (Array.isArray(res.data) ? res.data : []);
+      if (!Array.isArray(raw)) return;
 
-      if (!Array.isArray(raw)) {
-        console.warn('[ChatPane] Unexpected messages format:', res.data);
-        if (showLoader) setLoading(false);
-        return;
-      }
+      // Persist raw (encrypted) messages to SQLite for next open
+      upsertMessages(raw.map(m => ({ ...m, conversationId })));
+      markMessagesRead(conversationId);
 
+      // Decrypt for in-RAM display
       try {
         const processed = await processMessages(raw);
-        setMessages([...processed].reverse());
+        const ordered = [...processed].reverse();
+        setMessages(ordered);
+        setOlderOffset(ordered.length);
+        setHasOlderMessages(ordered.length >= 50);
       } catch (procErr) {
         console.warn('[ChatPane] processMessages error:', procErr);
-        // Fall back: show raw unencrypted messages
         setMessages([...raw].reverse().map(m => ({ ...m, decryptedContent: m.content })));
       }
     } catch (e: any) {
@@ -457,6 +477,27 @@ export default function ChatPaneScreen() {
       if (showLoader) setLoading(false);
     }
   }, [recipientId, conversationId, processMessages]);
+
+  /** Load older messages from SQLite (scroll to top — no network needed) */
+  const loadOlderMessages = useCallback(async () => {
+    if (loadingOlder || !hasOlderMessages) return;
+    setLoadingOlder(true);
+    try {
+      const older = getMessagesFromDB(conversationId, 30, olderOffset);
+      if (older.length === 0) {
+        setHasOlderMessages(false);
+        return;
+      }
+      const processed = await processMessages(older);
+      setMessages(prev => [...processed, ...prev]);
+      setOlderOffset(prev => prev + older.length);
+      setHasOlderMessages(older.length >= 30);
+    } catch (e) {
+      console.warn('[ChatPane] loadOlderMessages error:', e);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [conversationId, olderOffset, hasOlderMessages, loadingOlder, processMessages]);
 
   const fetchOnlineStatus = useCallback(async () => {
     try {
@@ -556,6 +597,7 @@ export default function ChatPaneScreen() {
 
       const uploadRes = await api.post('/api/media/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 0, // Disable timeout for media uploads
       });
 
       if (uploadRes.data?.success && uploadRes.data?.url) {
@@ -763,6 +805,13 @@ export default function ChatPaneScreen() {
           contentContainerStyle={styles.listContent}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
+          onEndReached={loadOlderMessages}
+          onEndReachedThreshold={0.2}
+          ListHeaderComponent={loadingOlder ? (
+            <View style={{ paddingVertical: 12 }}>
+              <ActivityIndicator size="small" color="#808bf5" />
+            </View>
+          ) : null}
           ListEmptyComponent={() => (
             <View style={{ padding: 40, alignItems: 'center' }}>
               {searchQuery ? (

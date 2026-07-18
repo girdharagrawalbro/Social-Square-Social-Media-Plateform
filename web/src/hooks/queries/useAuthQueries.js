@@ -26,23 +26,27 @@ export const authKeys = {
 export function useOwnProfile(enabled = true) {
     const initialized = useAuthStore(s => s.initialized);
     const user = useAuthStore(s => s.user);
+    const queryClient = useQueryClient();
     return useQuery({
         queryKey: authKeys.ownProfile,
         queryFn: async () => {
             const cacheKey = 'own_profile';
+            const fetchPromise = api.get(`${BASE}/api/auth/me`).then(async (res) => {
+                if (res.data) {
+                    await dbService.setCache(cacheKey, res.data);
+                }
+                return res.data;
+            });
+
             const cached = await dbService.getCache(cacheKey);
             if (cached) {
-                // Background update
-                api.get(`${BASE}/api/auth/me`).then(res => {
-                    if (res.data) dbService.setCache(cacheKey, res.data);
+                fetchPromise.then(freshData => {
+                    queryClient.setQueryData(authKeys.ownProfile, freshData);
                 }).catch(() => {});
                 return cached;
             }
-            const res = await api.get(`${BASE}/api/auth/me`);
-            if (res.data) {
-                await dbService.setCache(cacheKey, res.data);
-            }
-            return res.data;
+
+            return fetchPromise;
         },
         enabled: initialized && !!user && !!enabled,
         staleTime: 1000 * 60 * 2,

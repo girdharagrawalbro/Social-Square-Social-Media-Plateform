@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../lib/api';
 import { appChannel } from '../../lib/broadcast';
+import { clearAllCache } from '../../lib/cache';
+import { setSecureToken, getSecureToken, clearSecureToken } from '../../lib/secureStore';
 
 // ─── JWT PAYLOAD UTILS ──────────────────────────────────────────────────────────
 function base64Decode(str: string): string {
@@ -43,6 +45,7 @@ interface AuthState {
   setInitialized: (initialized: boolean) => void;
   initAuth: () => Promise<void>;
   login: (credentials: { email: string; password?: string; fingerprint?: string }) => Promise<any>;
+  googleLogin: (credentials: { credential: string; fingerprint?: string }) => Promise<any>;
   signup: (details: { fullname: string; email: string; password?: string; fingerprint?: string }) => Promise<any>;
   verifyOtp: (userId: string, otpValue: string) => Promise<any>;
   logout: () => Promise<void>;
@@ -67,9 +70,9 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
   updateAuthToken: async (token: string | null, sessionId?: string) => {
     setToken(token);
     if (token) {
-      await AsyncStorage.setItem('auth_token', token);
+      await setSecureToken(token);
     } else {
-      await AsyncStorage.removeItem('auth_token');
+      await clearSecureToken();
     }
     set((state: any) => ({
       token,
@@ -82,7 +85,7 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
     if (get().initialized) return;
     set({ loading: true });
     try {
-      const storedToken = await AsyncStorage.getItem('auth_token');
+      const storedToken = await getSecureToken();
       const storedUserStr = await AsyncStorage.getItem('auth_user');
 
       if (storedToken && storedUserStr) {
@@ -122,7 +125,7 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
       set({ initialized: true, loading: false });
     } catch (err) {
       clearToken();
-      await AsyncStorage.removeItem('auth_token');
+      await clearSecureToken();
       await AsyncStorage.removeItem('auth_user');
       set({ user: null, initialized: true, loading: false });
     }
@@ -152,6 +155,25 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
       return { success: true, user };
     } catch (err: any) {
       const msg = err.response?.data?.error || err.response?.data?.message || 'Login failed';
+      set({ loading: false });
+      return { error: msg };
+    }
+  },
+
+  googleLogin: async ({ credential, fingerprint }: { credential: string; fingerprint?: string }) => {
+    set({ loading: true });
+    try {
+      const res = await api.post('/api/auth/google', {
+        credential,
+        fingerprint: fingerprint || 'mobile-device',
+      });
+      const { token, user, sessionId } = res.data;
+      await get().updateAuthToken(token, sessionId);
+      await get().setUser(user);
+      set({ loading: false, initialized: true });
+      return { success: true, user };
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.response?.data?.message || 'Google login failed';
       set({ loading: false });
       return { error: msg };
     }
@@ -205,8 +227,10 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
       // ignore
     }
     clearToken();
-    await AsyncStorage.removeItem('auth_token');
+    await clearSecureToken();
     await AsyncStorage.removeItem('auth_user');
+    // Clear all app-side cache on logout so next user gets fresh data
+    await clearAllCache();
     set({ user: null, token: null, sessionId: null });
     appChannel.postMessage({ type: 'LOGOUT' });
   },

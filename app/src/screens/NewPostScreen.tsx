@@ -14,11 +14,15 @@ import {
   Switch,
   Modal,
   FlatList,
+  Platform,
+  ToastAndroid,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { api } from '../lib/api';
+import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
+import { appChannel } from '../lib/broadcast';
 import useAuthStore from '../store/zustand/useAuthStore';
 
 interface ModalBodyProps {
@@ -98,6 +102,115 @@ const ModalBody = ({
   bg,
   primaryColor,
 }: ModalBodyProps) => {
+  const loggedUser = useAuthStore((s: any) => s.user);
+
+  // Collab Search States
+  const [collabQuery, setCollabQuery] = useState('');
+  const [collabResults, setCollabResults] = useState<any[]>([]);
+  const [searchingCollab, setSearchingCollab] = useState(false);
+
+  // Tag Search States
+  const [tagQuery, setTagQuery] = useState('');
+  const [tagResults, setTagResults] = useState<any[]>([]);
+  const [searchingTag, setSearchingTag] = useState(false);
+
+  // Location Fetching State
+  const [loadingLocation, setLoadingLocation] = useState(false);
+
+  // Reset search queries when modal changes
+  useEffect(() => {
+    setCollabQuery('');
+    setCollabResults([]);
+    setTagQuery('');
+    setTagResults([]);
+  }, [activeModal]);
+
+  // Collab search effect
+  useEffect(() => {
+    if (collabQuery.length < 2) {
+      setCollabResults([]);
+      return;
+    }
+    const delayDebounce = setTimeout(async () => {
+      setSearchingCollab(true);
+      try {
+        const res = await api.get(`/api/auth/search?query=${collabQuery}`);
+        const users = res.data?.users || [];
+        setCollabResults(users.filter((u: any) => u._id !== loggedUser?._id));
+      } catch (err) {
+        console.warn(err);
+      } finally {
+        setSearchingCollab(false);
+      }
+    }, 400);
+    return () => clearTimeout(delayDebounce);
+  }, [collabQuery, loggedUser?._id]);
+
+  // Tag search effect
+  useEffect(() => {
+    if (tagQuery.length < 2) {
+      setTagResults([]);
+      return;
+    }
+    const delayDebounce = setTimeout(async () => {
+      setSearchingTag(true);
+      try {
+        const res = await api.get(`/api/auth/search?query=${tagQuery}`);
+        const users = res.data?.users || [];
+        setTagResults(users.filter((u: any) => u._id !== loggedUser?._id));
+      } catch (err) {
+        console.warn(err);
+      } finally {
+        setSearchingTag(false);
+      }
+    }, 400);
+    return () => clearTimeout(delayDebounce);
+  }, [tagQuery, loggedUser?._id]);
+
+  const fetchCurrentLocation = async () => {
+    setLoadingLocation(true);
+    // Try IP-based location first
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const data = await res.json();
+      if (data && data.city) {
+        const region = data.region ? `, ${data.region}` : '';
+        setLocationName(`${data.city}${region}`);
+        setLoadingLocation(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('IP location failed, trying HTML5 geolocation...', e);
+    }
+
+    // Fallback to navigator.geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+            const data = await res.json();
+            const name = data.address?.city || data.address?.town || data.address?.village || `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
+            setLocationName(name);
+          } catch (err) {
+            setLocationName(`${latitude.toFixed(3)}, ${longitude.toFixed(3)}`);
+          }
+          setLoadingLocation(false);
+        },
+        (err) => {
+          console.warn('Geolocation error:', err);
+          Alert.alert('Location Error', 'Could not retrieve location. Please type manually.');
+          setLoadingLocation(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    } else {
+      Alert.alert('Location Error', 'Geolocation is not supported. Please type manually.');
+      setLoadingLocation(false);
+    }
+  };
+
   switch (activeModal) {
     case 'community':
       return (
@@ -197,13 +310,35 @@ const ModalBody = ({
       return (
         <View style={styles.modalBody}>
           <Text style={[styles.modalHeading, { color: textColor }]}>Add Location</Text>
-          <TextInput
-            style={[styles.modalInput, { color: textColor, borderColor: border, backgroundColor: bg }]}
-            placeholder="e.g. San Francisco, CA"
-            placeholderTextColor={subText}
-            value={locationName}
-            onChangeText={setLocationName}
-          />
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <TextInput
+              style={[styles.modalInput, { color: textColor, borderColor: border, backgroundColor: bg, flex: 1, marginBottom: 0 }]}
+              placeholder="e.g. San Francisco, CA"
+              placeholderTextColor={subText}
+              value={locationName}
+              onChangeText={setLocationName}
+            />
+            <TouchableOpacity
+              style={{
+                backgroundColor: bg,
+                borderColor: border,
+                borderWidth: 1,
+                borderRadius: 8,
+                width: 48,
+                height: 48,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={fetchCurrentLocation}
+              disabled={loadingLocation}
+            >
+              {loadingLocation ? (
+                <ActivityIndicator size="small" color={primaryColor} />
+              ) : (
+                <MaterialCommunityIcons name="crosshairs-gps" size={24} color={primaryColor} />
+              )}
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             style={[styles.saveBtn, { backgroundColor: primaryColor }]}
             onPress={() => setActiveModal(null)}
@@ -214,11 +349,20 @@ const ModalBody = ({
       );
 
     case 'collab':
+      const collabData = collabQuery.length >= 2 ? collabResults : otherUsers;
       return (
         <View style={styles.modalBody}>
           <Text style={[styles.modalHeading, { color: textColor }]}>Add Collaborators</Text>
+          <TextInput
+            style={[styles.modalInput, { color: textColor, borderColor: border, backgroundColor: bg, marginBottom: 12 }]}
+            placeholder="Search users..."
+            placeholderTextColor={subText}
+            value={collabQuery}
+            onChangeText={setCollabQuery}
+          />
+          {searchingCollab && <ActivityIndicator size="small" color={primaryColor} style={{ marginBottom: 12 }} />}
           <FlatList
-            data={otherUsers}
+            data={collabData}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => {
               const isAdded = collaborators.some((c) => c._id === item._id);
@@ -247,11 +391,20 @@ const ModalBody = ({
       );
 
     case 'tag':
+      const tagData = tagQuery.length >= 2 ? tagResults : otherUsers;
       return (
         <View style={styles.modalBody}>
           <Text style={[styles.modalHeading, { color: textColor }]}>Mention Users</Text>
+          <TextInput
+            style={[styles.modalInput, { color: textColor, borderColor: border, backgroundColor: bg, marginBottom: 12 }]}
+            placeholder="Search users..."
+            placeholderTextColor={subText}
+            value={tagQuery}
+            onChangeText={setTagQuery}
+          />
+          {searchingTag && <ActivityIndicator size="small" color={primaryColor} style={{ marginBottom: 12 }} />}
           <FlatList
-            data={otherUsers}
+            data={tagData}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => {
               const isAdded = taggedUsers.some((t) => t._id === item._id);
@@ -477,9 +630,9 @@ export default function NewPostScreen() {
   const [generatingAi, setGeneratingAi] = useState(false);
   const [aiLimits, setAiLimits] = useState({ textRemaining: 2, imageRemaining: 2 });
 
-  const bg = isDark ? '#0a0a0a' : '#f3f4f6';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const bg = isDark ? '#000000' : '#f3f4f6';
+  const cardBg = isDark ? '#111111' : '#ffffff';
+  const border = isDark ? '#1a1a1a' : '#e5e7eb';
   const textColor = isDark ? '#ffffff' : '#111827';
   const subText = isDark ? '#9ca3af' : '#6b7280';
   const primaryColor = '#808bf5';
@@ -496,24 +649,41 @@ export default function NewPostScreen() {
     }
   };
 
-  // Load auxiliary lists on mount
+  // Load auxiliary lists on mount — cache-first for instant loading
   useEffect(() => {
     const fetchAuxData = async () => {
       setLoadingData(true);
       try {
-        // Groups
-        const groupsRes = await api.get('/api/group/all');
-        setGroups(groupsRes.data || []);
+        // ─── Groups ──────────────────────────────────────────────────────
+        const cachedGroups = await getCache<any[]>('new_post_groups');
+        if (cachedGroups) setGroups(cachedGroups);
 
-        // Goals
+        // ─── Goals ───────────────────────────────────────────────────────
+        const goalCacheKey = `new_post_goals_${user?._id}`;
+        const cachedGoals = await getCache<any[]>(goalCacheKey);
+        if (cachedGoals) setGoals(cachedGoals);
+
+        // ─── Users ───────────────────────────────────────────────────────
+        const cachedUsers = await getCache<any[]>('new_post_users');
+        if (cachedUsers) setOtherUsers(cachedUsers);
+
+        // Background-refresh from API
+        const groupsRes = await api.get('/api/group/all');
+        const freshGroups = groupsRes.data || [];
+        setGroups(freshGroups);
+        await setCache('new_post_groups', freshGroups, TTL.FORM_DATA);
+
         if (user?._id) {
           const goalsRes = await api.get(`/api/goal/user/${user._id}`);
-          setGoals((goalsRes.data || []).filter((g: any) => g.status === 'active'));
+          const freshGoals = (goalsRes.data || []).filter((g: any) => g.status === 'active');
+          setGoals(freshGoals);
+          await setCache(goalCacheKey, freshGoals, TTL.FORM_DATA);
         }
 
-        // Users
         const usersRes = await api.get('/api/auth/other-users');
-        setOtherUsers(usersRes.data || []);
+        const freshUsers = usersRes.data || [];
+        setOtherUsers(freshUsers);
+        await setCache('new_post_users', freshUsers, TTL.FORM_DATA);
       } catch (e) {
         console.warn('Failed to fetch composer details:', e);
       } finally {
@@ -530,21 +700,46 @@ export default function NewPostScreen() {
     }
   }, [activeModal]);
 
-  const handlePickMedia = async () => {
-    const result = await launchImageLibrary({
-      mediaType: 'mixed',
-      quality: 0.8,
-    });
-
-    if (result.didCancel || !result.assets || result.assets.length === 0) {
-      return;
-    }
-
-    const asset = result.assets[0];
-    if (!asset.uri) return;
-
-    setSelectedUri(asset.uri);
-    setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
+  // Camera/Gallery media picker — asks the user which source to use
+  const handlePickMedia = () => {
+    Alert.alert(
+      'Add Media',
+      'Choose a source',
+      [
+        {
+          text: 'Camera',
+          onPress: () => {
+            launchCamera(
+              { mediaType: 'mixed', quality: 0.9, saveToPhotos: false },
+              (result) => {
+                if (result.didCancel || result.errorCode) return;
+                const asset = result.assets?.[0];
+                if (!asset?.uri) return;
+                setSelectedUri(asset.uri);
+                setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
+              },
+            );
+          },
+        },
+        {
+          text: 'Gallery',
+          onPress: () => {
+            launchImageLibrary(
+              { mediaType: 'mixed', quality: 0.8 },
+              (result) => {
+                if (result.didCancel || result.errorCode) return;
+                const asset = result.assets?.[0];
+                if (!asset?.uri) return;
+                setSelectedUri(asset.uri);
+                setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
+              },
+            );
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true },
+    );
   };
 
   const generateAiCaption = async () => {
@@ -598,87 +793,107 @@ export default function NewPostScreen() {
       return;
     }
 
+    const showToast = (message: string) => {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(message, ToastAndroid.SHORT);
+      } else {
+        console.log(message);
+      }
+    };
+
     setUploading(true);
-    let uploadedMediaUrl = '';
+    showToast('Posting...');
 
-    try {
-      // Upload media if exists (except when it starts with http from AI generation fallback since it is already on Cloudinary!)
-      if (selectedUri && mediaType && !selectedUri.startsWith('http')) {
-        const formData = new FormData();
-        formData.append('file', {
-          uri: selectedUri,
-          name: mediaType === 'video' ? 'post.mp4' : 'post.jpg',
-          type: mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
-        } as any);
-        formData.append('folder', 'posts');
-        formData.append('resourceType', mediaType);
+    // Close the screen after 1 second
+    setTimeout(() => {
+      navigation.goBack();
+    }, 1000);
 
-        const uploadRes = await api.post('/api/media/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+    // Run the upload in background
+    (async () => {
+      let uploadedMediaUrl = '';
+      try {
+        if (selectedUri && mediaType && !selectedUri.startsWith('http')) {
+          const formData = new FormData();
+          formData.append('file', {
+            uri: selectedUri,
+            name: mediaType === 'video' ? 'post.mp4' : 'post.jpg',
+            type: mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
+          } as any);
+          formData.append('folder', 'posts');
+          formData.append('resourceType', mediaType);
+
+          const uploadRes = await api.post('/api/media/upload', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+            timeout: 0,
+          });
+
+          if (uploadRes.data?.success && uploadRes.data?.url) {
+            uploadedMediaUrl = uploadRes.data.url;
+          } else {
+            throw new Error(uploadRes.data?.message || 'Failed to upload media to backend proxy.');
+          }
+        } else if (selectedUri && selectedUri.startsWith('http')) {
+          uploadedMediaUrl = selectedUri;
+        }
+
+        let expiresAt: string | undefined;
+        if (expiresInHours) {
+          expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
+        }
+
+        let unlocksAt: string | undefined;
+        if (unlocksInHours) {
+          unlocksAt = new Date(Date.now() + unlocksInHours * 60 * 60 * 1000).toISOString();
+        }
+
+        const payload: any = {
+          category: 'general',
+          caption: caption.trim() || undefined,
+          isAnonymous,
+          visibility,
+          groupId: selectedGroup?._id || undefined,
+          goalId: selectedGoal?._id || undefined,
+          location: locationName ? { name: locationName } : undefined,
+          collaboratorIds: collaborators.map((c) => c._id),
+          mentionIds: taggedUsers.map((t) => t._id),
+          isFeedbackRequest,
+          feedbackCategory: isFeedbackRequest ? feedbackCategory : undefined,
+          expiresAt,
+          unlocksAt,
+        };
+
+        if (uploadedMediaUrl) {
+          if (mediaType === 'video') {
+            payload.videoURL = uploadedMediaUrl;
+          } else {
+            payload.imageURLs = [uploadedMediaUrl];
+          }
+        }
+
+        const createRes = await api.post('/api/post/create', payload);
+
+        // Invalidate caches
+        await invalidateCache('feed_page_1');
+        if (user?._id) {
+          await invalidateCache(`profile_posts_${user._id}`);
+        }
+
+        showToast('Posted successfully!');
+
+        // Broadcast post creation event so home feed inserts it at the top
+        appChannel.postMessage({
+          type: 'POST_CREATED',
+          post: createRes.data?.post || createRes.data,
         });
 
-        if (uploadRes.data?.success && uploadRes.data?.url) {
-          uploadedMediaUrl = uploadRes.data.url;
-        } else {
-          throw new Error(uploadRes.data?.message || 'Failed to upload media to backend proxy.');
-        }
-      } else if (selectedUri && selectedUri.startsWith('http')) {
-        // If it starts with http, it is already uploaded to Cloudinary by the AI route!
-        uploadedMediaUrl = selectedUri;
+      } catch (err: any) {
+        console.warn('[NewPost] Background publish error:', err);
+        showToast('Failed to publish post.');
       }
-
-      let expiresAt: string | undefined;
-      if (expiresInHours) {
-        expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
-      }
-
-      let unlocksAt: string | undefined;
-      if (unlocksInHours) {
-        unlocksAt = new Date(Date.now() + unlocksInHours * 60 * 60 * 1000).toISOString();
-      }
-
-      const payload: any = {
-        category: 'general',
-        caption: caption.trim() || undefined,
-        isAnonymous,
-        visibility,
-        groupId: selectedGroup?._id || undefined,
-        goalId: selectedGoal?._id || undefined,
-        location: locationName ? { name: locationName } : undefined,
-        collaboratorIds: collaborators.map((c) => c._id),
-        mentionIds: taggedUsers.map((t) => t._id),
-        isFeedbackRequest,
-        feedbackCategory: isFeedbackRequest ? feedbackCategory : undefined,
-        expiresAt,
-        unlocksAt,
-      };
-
-      if (uploadedMediaUrl) {
-        if (mediaType === 'video') {
-          payload.videoURL = uploadedMediaUrl;
-        } else {
-          payload.imageURLs = [uploadedMediaUrl];
-        }
-      }
-
-      await api.post('/api/post/create', payload);
-
-      Alert.alert('Success', 'Post shared successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            navigation.goBack();
-          },
-        },
-      ]);
-    } catch (err: any) {
-      console.warn('[NewPost] Publish error:', err);
-      Alert.alert('Error', err.message || 'Failed to publish post.');
-    } finally {
-      setUploading(false);
-    }
+    })();
   };
 
   return (

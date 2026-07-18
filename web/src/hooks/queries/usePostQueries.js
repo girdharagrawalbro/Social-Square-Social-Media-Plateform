@@ -26,47 +26,63 @@ export const postKeys = {
 // ─── FEED (infinite scroll) ───────────────────────────────────────────────────
 export function useFeed(userId, depth = null) {
     const initialized = useAuthStore(s => s.initialized);
+    const queryClient = useQueryClient();
     return useInfiniteQuery({
         queryKey: postKeys.feed(userId, depth),
         queryFn: async ({ pageParam = null }) => {
             const cacheKey = `feed_${userId}_${depth || 'all'}`;
+            
+            const fetchPromise = (async () => {
+                try {
+                    const params = new URLSearchParams();
+                    if (pageParam) params.append('cursor', pageParam);
+                    if (depth) params.append('depth', depth);
+                    const res = await api.get(`${BASE}/api/recommendation/posts?${params}`);
+                    
+                    const transformedData = {
+                        posts: res.data.items || res.data.posts || [],
+                        nextCursor: res.data.nextCursor || null,
+                        hasMore: !!res.data.hasMore,
+                        isColdStart: res.data.isColdStart || false,
+                        isFallback: res.data.isFallback || false
+                    };
+
+                    if (!pageParam && transformedData) {
+                        await dbService.setCache(cacheKey, transformedData);
+                    }
+
+                    return transformedData;
+                } catch (err) {
+                    console.warn('Recommendation feed failed, falling back to basic feed:', err.message);
+                    const params = new URLSearchParams({ limit: '10' });
+                    if (userId) params.append('userId', userId);
+                    if (pageParam) params.append('cursor', pageParam);
+                    if (depth) params.append('depth', depth);
+                    const res = await api.get(`${BASE}/api/post/?${params}`);
+                    if (!pageParam && res.data) {
+                        await dbService.setCache(cacheKey, res.data);
+                    }
+                    return res.data;
+                }
+            })();
+
             if (!pageParam) {
                 const cached = await dbService.getCache(cacheKey);
-                if (cached) return cached;
-            }
-            try {
-                const params = new URLSearchParams();
-                if (pageParam) params.append('cursor', pageParam);
-                if (depth) params.append('depth', depth);
-                const res = await api.get(`${BASE}/api/recommendation/posts?${params}`);
-                
-                // Transform recommendation response to match feed format
-                const transformedData = {
-                    posts: res.data.items || res.data.posts || [],
-                    nextCursor: res.data.nextCursor || null,
-                    hasMore: !!res.data.hasMore,
-                    isColdStart: res.data.isColdStart || false,
-                    isFallback: res.data.isFallback || false
-                };
-
-                if (!pageParam && transformedData) {
-                    await dbService.setCache(cacheKey, transformedData);
+                if (cached) {
+                    fetchPromise.then(freshData => {
+                        queryClient.setQueryData(postKeys.feed(userId, depth), (old) => {
+                            if (!old) return { pages: [freshData], pageParams: [null] };
+                            return {
+                                ...old,
+                                pages: old.pages.map((page, idx) => idx === 0 ? freshData : page)
+                            };
+                        });
+                    }).catch(err => console.error("Background feed fetch failed:", err));
+                    return cached;
                 }
-
-                return transformedData;
-            } catch (err) {
-                // Fallback to basic feed if recommendation service fails
-                console.warn('Recommendation feed failed, falling back to basic feed:', err.message);
-                const params = new URLSearchParams({ limit: '10' });
-                if (userId) params.append('userId', userId);
-                if (pageParam) params.append('cursor', pageParam);
-                if (depth) params.append('depth', depth);
-                const res = await api.get(`${BASE}/api/post/?${params}`);
-                if (!pageParam && res.data) {
-                    await dbService.setCache(cacheKey, res.data);
-                }
-                return res.data;
             }
+
+            return fetchPromise;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         staleTime: 1000 * 60 * 5, 
@@ -80,22 +96,38 @@ export function useFeed(userId, depth = null) {
 // ─── USER POSTS ───────────────────────────────────────────────────────────────
 export function useUserPosts(userId) {
     const initialized = useAuthStore(s => s.initialized);
+    const queryClient = useQueryClient();
     return useInfiniteQuery({
         queryKey: postKeys.userPosts(userId),
         queryFn: async ({ pageParam = null }) => {
             const cacheKey = `user_posts_${userId}`;
-            if (!pageParam) {
-                const cached = await dbService.getCache(cacheKey);
-                if (cached) return cached;
-            }
             const params = new URLSearchParams();
             if (pageParam) params.append('cursor', pageParam);
-            const res = await api.get(`${BASE}/api/post/user/${userId}?${params}`);
+            
+            const fetchPromise = api.get(`${BASE}/api/post/user/${userId}?${params}`).then(async (res) => {
+                if (!pageParam && res.data) {
+                    await dbService.setCache(cacheKey, res.data);
+                }
+                return res.data;
+            });
 
-            if (!pageParam && res.data) {
-                await dbService.setCache(cacheKey, res.data);
+            if (!pageParam) {
+                const cached = await dbService.getCache(cacheKey);
+                if (cached) {
+                    fetchPromise.then(freshData => {
+                        queryClient.setQueryData(postKeys.userPosts(userId), (old) => {
+                            if (!old) return { pages: [freshData], pageParams: [null] };
+                            return {
+                                ...old,
+                                pages: old.pages.map((page, idx) => idx === 0 ? freshData : page)
+                            };
+                        });
+                    }).catch(err => console.error("Background user posts fetch failed:", err));
+                    return cached;
+                }
             }
-            return res.data;
+
+            return fetchPromise;
         },
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         enabled: !!userId && initialized,
@@ -306,7 +338,15 @@ export function useCreatePost() {
     const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: (data) => api.post(`${BASE}/api/post/create`, data),
-        onSuccess: (res) => {
+        onSuccess: async (res) => {
+            if (user?._id) {
+                try {
+                    await dbService.removeCache(`user_posts_${user._id}`);
+                    await dbService.removeCache(`feed_${user._id}_all`);
+                } catch (cacheErr) {
+                    console.warn('Failed to clear post cache:', cacheErr);
+                }
+            }
             qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
                 if (!old?.pages) return old;
                 const newPost = res?.data;
@@ -324,6 +364,7 @@ export function useCreatePost() {
                 };
             });
             qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
+            qc.invalidateQueries({ queryKey: postKeys.feed(user?._id) });
         },
     });
 }

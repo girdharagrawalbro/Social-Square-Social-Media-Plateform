@@ -129,6 +129,7 @@ export default function ReelsScreen({ navigation }: any) {
             <ReelPlayerItem
               item={item}
               isActive={index === activeReelIndex && isFocused}
+              isPreload={index === activeReelIndex + 1 || index === activeReelIndex + 2}
               muted={muted}
               setMuted={setMuted}
               loggedUser={loggedUser}

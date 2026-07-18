@@ -15,6 +15,7 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { api } from '../lib/api';
+import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { NotificationSkeleton } from './components/SkeletonLoader';
 
@@ -64,25 +65,36 @@ export default function NotificationsScreen() {
   const [acceptingCollabId, setAcceptingCollabId] = useState<string | null>(null);
   const [contributionText, setContributionText] = useState('');
 
-  const bg = isDark ? '#0a0a0a' : '#f3f4f6';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const bg = isDark ? '#000000' : '#f3f4f6';
+  const cardBg = isDark ? '#111111' : '#ffffff';
+  const border = isDark ? '#1a1a1a' : '#e5e7eb';
   const textColor = isDark ? '#ffffff' : '#111827';
   const subText = isDark ? '#9ca3af' : '#6b7280';
   const primaryColor = '#808bf5';
 
   const fetchData = async () => {
     if (!user?._id) return;
-    setLoading(true);
+
+    // Load from cache for instant display
+    const cachedNotifs = await getCache<Notification[]>('notifications_list');
+    const cachedCollabs = await getCache<CollabInvite[]>(`collabs_${user._id}`);
+    if (cachedNotifs) setNotifications(cachedNotifs);
+    if (cachedCollabs) setCollabInvites(cachedCollabs);
+
+    if (!cachedNotifs && !cachedCollabs) setLoading(true);
+
     try {
       // 1. Fetch Notifications
       const notifRes = await api.get('/api/conversation/notifications');
       const fetchedNotifications = notifRes.data.notifications || notifRes.data || [];
       setNotifications(fetchedNotifications);
+      await setCache('notifications_list', fetchedNotifications, TTL.NOTIFICATIONS);
 
       // 2. Fetch Collabs
       const collabRes = await api.get(`/api/post/collaborate/invites/${user._id}`);
-      setCollabInvites(Array.isArray(collabRes.data) ? collabRes.data : []);
+      const collabs = Array.isArray(collabRes.data) ? collabRes.data : [];
+      setCollabInvites(collabs);
+      await setCache(`collabs_${user._id}`, collabs, TTL.NOTIFICATIONS);
     } catch (err) {
       console.warn('[Notifications] Failed to load data:', err);
     } finally {
