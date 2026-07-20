@@ -17,24 +17,24 @@ dotenv.config();
 function computeAlpha(action, durationSec = 0) {
   switch (action) {
     case 'not_interested': return -0.15;
-    case 'like':           return 0.25;
-    case 'save':           return 0.30;
-    case 'share':          return 0.28;
-    case 'comment':        return 0.22;
-    case 'interested':     return 0.30;
+    case 'like': return 0.25;
+    case 'save': return 0.30;
+    case 'share': return 0.28;
+    case 'comment': return 0.22;
+    case 'interested': return 0.30;
 
     // P9b — Video watch-time granular alpha
     case 'video_watch':
       if (durationSec >= 30) return 0.25; // Watched most of a reel
       if (durationSec >= 10) return 0.15;
-      if (durationSec >= 3)  return 0.08;
+      if (durationSec >= 3) return 0.08;
       return 0.02; // Quick scroll-past
 
     // P1 — Text/image dwell-time alpha
     case 'view':
       if (durationSec >= 15) return 0.18; // Deep read
-      if (durationSec >= 5)  return 0.10;
-      if (durationSec >= 2)  return 0.05;
+      if (durationSec >= 5) return 0.10;
+      if (durationSec >= 2) return 0.05;
       return 0.01; // Glance
 
     default: return 0.05;
@@ -129,8 +129,8 @@ async function handleUserActivity(data) {
   if (positiveActions.has(action) && tags.length >= 2) {
     try {
       const redis = require('./lib/redis');
-      updateTagCooccurrence(tags, redis).catch(() => {});
-    } catch (_) {}
+      updateTagCooccurrence(tags, redis).catch(() => { });
+    } catch (_) { }
   }
 
   // ── EMA Interest Vector Update ───────────────────────────────────────────
@@ -231,17 +231,17 @@ async function handleUserActivity(data) {
         const freshInterest = await UserInterest.findOne({ userId });
         if (!freshInterest) break;
         // Re-apply all changes to the freshly fetched document
-        freshInterest.interestVector       = interest.interestVector;
-        freshInterest.likedTags            = interest.likedTags;
-        freshInterest.topCategories        = interest.topCategories;
-        freshInterest.dislikedCategories   = interest.dislikedCategories;
-        freshInterest.avgDwellTimeSec      = interest.avgDwellTimeSec;
-        freshInterest.totalInteractions    = interest.totalInteractions;
+        freshInterest.interestVector = interest.interestVector;
+        freshInterest.likedTags = interest.likedTags;
+        freshInterest.topCategories = interest.topCategories;
+        freshInterest.dislikedCategories = interest.dislikedCategories;
+        freshInterest.avgDwellTimeSec = interest.avgDwellTimeSec;
+        freshInterest.totalInteractions = interest.totalInteractions;
         freshInterest.preferredContentType = interest.preferredContentType;
-        freshInterest.activeHours          = interest.activeHours;
-        freshInterest.videoWatchCount      = interest.videoWatchCount;
+        freshInterest.activeHours = interest.activeHours;
+        freshInterest.videoWatchCount = interest.videoWatchCount;
         freshInterest.videoCompletionCount = interest.videoCompletionCount;
-        freshInterest.videoCompletionRate  = interest.videoCompletionRate;
+        freshInterest.videoCompletionRate = interest.videoCompletionRate;
         interest = freshInterest;
       } else {
         throw err;
@@ -254,40 +254,40 @@ async function handleUserActivity(data) {
 // MAIN WORKER INIT — Subscribes to local EventBus events
 // ─────────────────────────────────────────────────────────────────────────────
 async function initWorker() {
-  console.log("⚡ Initializing integrated Recommender Worker...");
-  console.log("✅ AI Model ready (using Gemini API)");
+  console.log("[Worker] Initializing integrated Recommender Worker...");
+  console.log("[Worker] AI Model ready (using Gemini API)");
 
   const eventBus = require('./lib/eventBus');
 
   eventBus.on("post.created", async (data) => {
     try {
       const rid = data.requestId ? ` [${data.requestId}]` : '';
-      console.log(`📝${rid} [Recommender Worker] Processing post.created for ${data.postId || data.id}`);
+      console.log(`${rid} [Recommender Worker] Processing post.created for ${data.postId || data.id}`);
       await handlePostCreated({
-        postId:   data.postId || data.id,
-        caption:  data.caption  || "",
+        postId: data.postId || data.id,
+        caption: data.caption || "",
         category: data.category || "",
-        tags:     data.tags     || []
+        tags: data.tags || []
       });
     } catch (err) {
-      console.error(`❌ [Recommender Worker] Error processing post.created:`, err.message);
+      console.error(`[Recommender Worker] Error processing post.created:`, err.message);
     }
   });
 
   eventBus.on("user.activity.*", async (subject, data) => {
     try {
       const rid = data.requestId ? ` [${data.requestId}]` : '';
-      console.log(`👤${rid} [Recommender Worker] Processing "${subject}" for user ${data.userId}`);
+      console.log(`${rid} [Recommender Worker] Processing "${subject}" for user ${data.userId}`);
       await handleUserActivity(data);
     } catch (err) {
-      console.error(`❌ [Recommender Worker] Error processing activity "${subject}":`, err.message);
+      console.error(`[Recommender Worker] Error processing activity "${subject}":`, err.message);
     }
   });
 
   eventBus.on("comment.created", async (data) => {
     try {
       const { commentId, postId, content, topic } = data;
-      console.log(`💬 [Recommender Worker] Processing comment.created for ${commentId}`);
+      console.log(`[Recommender Worker] Processing comment.created for ${commentId}`);
 
       const vector = await getEmbedding(content);
       if (vector && vector.length > 0) {
@@ -296,14 +296,14 @@ async function initWorker() {
           { postId, vector, topic: topic || 'General', createdAt: new Date() },
           { new: true, upsert: true }
         );
-        console.log(`✅ Comment ${commentId} embedded`);
+        console.log(`Comment ${commentId} embedded`);
       }
     } catch (err) {
-      console.error(`❌ [Recommender Worker] Error processing comment.created:`, err.message);
+      console.error(`[Recommender Worker] Error processing comment.created:`, err.message);
     }
   });
 
-  console.log("🔌 Recommender Worker subscribed to local EventBus");
+  console.log("[Recommender Worker] Recommender Worker subscribed to local EventBus");
 }
 
 module.exports = { initWorker };

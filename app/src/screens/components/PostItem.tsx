@@ -11,6 +11,7 @@ import {
   useColorScheme,
   Modal,
   PanResponder,
+  ScrollView,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Video from 'react-native-video';
@@ -22,6 +23,8 @@ import { useBroadcast } from '../../lib/useBroadcast';
 import { useIsFocused } from '@react-navigation/native';
 import { BASE_URL } from '../../lib/api';
 import RNFS from 'react-native-fs';
+import PostMenu from './PostMenu';
+import BeforeAfterView from './BeforeAfterView';
 import { decryptAesGcm, base64ToBytes, bytesToBase64 } from '../../lib/cryptoUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -62,6 +65,7 @@ interface PostItemProps {
   post: Post;
   isDark: boolean;
   isVisible?: boolean;
+  showBackButton?: boolean;
 }
 
 // ─── Time ago helper ────────────────────────────────────────────────────────────
@@ -78,11 +82,16 @@ function timeAgo(dateStr?: string): string {
 
 let activePlayersCount = 0;
 
-export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostItemProps) => {
+export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackButton = false }: PostItemProps) => {
   const navigation = useNavigation<any>();
+  const loggedUser = useAuthStore((s: any) => s.user);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes?.length || 0);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(
+    loggedUser?.savedPosts?.some((id: any) => id?.toString() === post._id?.toString()) || false
+  );
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const videoRef = useRef(null);
   const isFocused = useIsFocused();
 
@@ -218,7 +227,6 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
   const dividerColor = isDark ? '#1a1a1a' : '#f1f5f9';
   const iconColor = isDark ? '#64748b' : '#94a3b8';
 
-  const loggedUser = useAuthStore((s: any) => s.user);
   const isOwn = !isAnon && user?._id && loggedUser?._id === user._id;
   const isLocked = post.unlocksAt && new Date(post.unlocksAt) > new Date() && !isOwn;
 
@@ -242,6 +250,17 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
       setLiked(incomingLiked);
     }
   }, [post._id]));
+
+  const handleSaveToggle = async () => {
+    const nextSaved = !saved;
+    setSaved(nextSaved);
+    try {
+      await api.post('/api/post/save', { postId: post._id });
+    } catch (e) {
+      setSaved(!nextSaved);
+      console.warn('Failed to toggle save:', e);
+    }
+  };
 
   // ── Broadcast: POST_DELETED — hide this card if it was deleted
   useBroadcast('POST_DELETED', useCallback(({ postId }) => {
@@ -380,7 +399,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
 
 
   return (
-    <View style={[styles.postCard, { backgroundColor: cardBg, borderColor: isDark ? '#1e293b' : '#e2e8f0' }]}>
+    <View style={[styles.postCard, { backgroundColor: 'transparent', borderColor: 'transparent' }]}>
       {/* Collab / Locked Notification overlay banner */}
       {isLocked && (
         <View style={styles.lockedOverlay}>
@@ -392,6 +411,14 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
 
       {/* Post Header */}
       <View style={styles.postHeader}>
+        {showBackButton && (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={{ marginRight: 4, paddingVertical: 4, paddingLeft: 4, paddingRight: 2 }}
+          >
+            <MaterialCommunityIcons name="chevron-left" size={32} color={textColor} />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           onPress={() => {
             if (!isAnon && user?._id) {
@@ -444,11 +471,14 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
             style={styles.sparkleBtn}
             onPress={() => setAiTooltipVisible(true)}
           >
-            <MaterialCommunityIcons name="sparkles" size={20} color="#a855f7" />
+            <MaterialCommunityIcons name="sparkle" size={20} color="#a855f7" />
           </TouchableOpacity>
         ) : null}
 
-        <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => setMenuVisible(true)}
+        >
           <MaterialCommunityIcons name="dots-horizontal" size={22} color={iconColor} />
         </TouchableOpacity>
       </View>
@@ -456,8 +486,13 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
       {/* Unified Media Display with double tap to like detector */}
       <TouchableWithoutFeedback onPress={handleDoubleTap}>
         <View style={styles.mediaContainer}>
+          {/* Before After View */}
+          {post.isBeforeAfter && post.beforeAfter ? (
+            <BeforeAfterView beforeAfter={post.beforeAfter} isDark={isDark} />
+          ) : null}
+
           {/* Post Video */}
-          {post.video ? (
+          {!post.isBeforeAfter && post.video ? (
             <View style={[styles.videoWrapper, { aspectRatio }]} {...panResponder.panHandlers}>
               {/* Decrypting overlay spinner */}
               {isDecryptingVideo ? (
@@ -555,25 +590,51 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
                   </Text>
                 </View>
               )}
-
-              {/* Slim Progress Bar */}
-              {videoDuration > 0 && !isDecryptingVideo && (
-                <View style={styles.progressBarBg} pointerEvents="none">
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${((isScrubbing ? scrubTime : videoCurrentTime) / videoDuration) * 100}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              )}
             </View>
           ) : null}
 
-          {/* Post Image */}
-          {!post.video && imageUrl ? (
+          {/* Post Image Carousel */}
+          {!post.isBeforeAfter && !post.video && post.image_urls && post.image_urls.length > 1 ? (
+            <View style={{ width: '100%', position: 'relative' }}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={(e) => {
+                  const x = e.nativeEvent.contentOffset.x;
+                  const idx = Math.round(x / (screenWidth - 24));
+                  setActiveIndex(idx);
+                }}
+                scrollEventThrottle={16}
+              >
+                {post.image_urls.map((url: string, index: number) => (
+                  <Image
+                    key={index}
+                    source={{ uri: resolveMediaUrl(url) }}
+                    style={{ width: screenWidth - 24, aspectRatio: 1.2, borderRadius: 12 }}
+                    resizeMode="cover"
+                  />
+                ))}
+              </ScrollView>
+              {/* Pagination Dots */}
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+                {post.image_urls.map((_: any, index: number) => (
+                  <View
+                    key={index}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: index === activeIndex ? '#808bf5' : '#64748b',
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Post Single Image */}
+          {!post.isBeforeAfter && !post.video && imageUrl && (!post.image_urls || post.image_urls.length <= 1) ? (
             <Image
               source={{ uri: imageUrl }}
               style={[styles.postImage, { aspectRatio }]}
@@ -655,17 +716,15 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
         >
           <MaterialCommunityIcons name="comment-outline" size={22} color={iconColor} />
           {post.comments && post.comments.length > 0 && (
-            <Text style={[styles.actionCount, { color: subColor }]}>{post.comments.length}</Text>
+            <Text style={[styles.actionCount, { color: subColor }]}>
+              {post.comments.length}
+            </Text>
           )}
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.footerAction} activeOpacity={0.7}>
-          <MaterialCommunityIcons name="share-variant-outline" size={22} color={iconColor} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.footerAction}
-          onPress={() => setSaved(!saved)}
+          onPress={handleSaveToggle}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
@@ -675,7 +734,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
           />
         </TouchableOpacity>
       </View>
-
+ 
       {/* AI Dwell Popup / Tooltip Modal */}
       <Modal
         animationType="fade"
@@ -690,13 +749,24 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false }: PostIte
         >
           <View style={[styles.aiSummaryCard, { backgroundColor: isDark ? '#1a1a2e' : '#ffffff' }]}>
             <View style={styles.aiSummaryHeader}>
-              <MaterialCommunityIcons name="sparkles" size={18} color="#a855f7" />
+              <MaterialCommunityIcons name="sparkle" size={18} color="#a855f7" />
               <Text style={styles.aiSummaryTitle}>AI Summary</Text>
             </View>
             <Text style={[styles.aiSummaryText, { color: textColor }]}>{post.aiSummary}</Text>
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Post Action Menu */}
+      <PostMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        post={post}
+        isSaved={saved}
+        onToggleSave={(nextSaved) => setSaved(nextSaved)}
+        onDeleteSuccess={() => setHidden(true)}
+        onMuteBlockSuccess={() => setHidden(true)}
+      />
     </View>
   );
 });
@@ -827,7 +897,7 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: '100%',
-    maxHeight: 800,        
+    maxHeight: 800,
     backgroundColor: '#000000',
   },
   heartBurst: {

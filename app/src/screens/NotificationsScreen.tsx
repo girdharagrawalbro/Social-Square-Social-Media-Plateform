@@ -310,6 +310,10 @@ export default function NotificationsScreen() {
           <NotificationSkeleton />
           <NotificationSkeleton />
           <NotificationSkeleton />
+          <NotificationSkeleton />
+          <NotificationSkeleton />
+          <NotificationSkeleton />
+          <NotificationSkeleton />
         </View>
       ) : activeTab === 'notifications' ? (
         <FlatList

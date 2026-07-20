@@ -38,19 +38,7 @@ const {
     PostVector
 } = require('../models/Recommendation');
 
-const MONGO_URI =
-    process.env.MONGO_URI;
-
-const OLLAMA_URL = 'http://localhost:11434/api/embeddings';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
-
-if (!MONGO_URI) {
-    console.error(
-        '❌ MONGO_URI missing'
-    );
-
-    process.exit(1);
-}
+const { getEmbedding } = require('../utils/embeddings');
 
 /**
  * TUNE THESE
@@ -75,62 +63,7 @@ function sleep(ms) {
     );
 }
 
-/**
- * Embedding Generator
- * with exponential retry
- */
-async function getEmbedding(
-    text,
-    retries = MAX_RETRIES
-) {
-    let delay = INITIAL_DELAY;
-
-    for (
-        let attempt = 1;
-        attempt <= retries;
-        attempt++
-    ) {
-        try {
-            const response = await axios.post(
-                OLLAMA_URL,
-                {
-                    model: OLLAMA_MODEL,
-                    prompt: text
-                },
-                {
-                    timeout: 30000
-                }
-            );
-
-            if (response.data && response.data.embedding) {
-                return response.data.embedding;
-            }
-
-            throw new Error('Invalid response structure from Ollama embeddings');
-        } catch (err) {
-            const isLast =
-                attempt === retries;
-
-            const jitter =
-                Math.floor(
-                    Math.random() * 1000
-                );
-
-            console.warn(
-                `⚠️ Embedding retry ${attempt}/${retries}:`,
-                err.message
-            );
-
-            if (isLast) {
-                throw err;
-            }
-
-            await sleep(delay + jitter);
-
-            delay *= 2;
-        }
-    }
-}
+// Local getEmbedding helper removed. Now using the centralized getEmbedding import.
 
 /**
  * Process ONE post
@@ -189,6 +122,22 @@ ${(post.tags || []).join(' ')}
 }
 
 async function run() {
+    // If MONGO_URI is missing, try loading secrets from Infisical helper
+    if (!process.env.MONGO_URI) {
+        try {
+            const { loadSecrets } = require('../loadSecrets');
+            await loadSecrets();
+        } catch (err) {
+            console.warn('⚠️ Could not load secrets via Infisical helper:', err.message);
+        }
+    }
+
+    const MONGO_URI = process.env.MONGO_URI;
+    if (!MONGO_URI) {
+        console.error('❌ MONGO_URI missing');
+        process.exit(1);
+    }
+
     console.log(
         '📦 Connecting MongoDB...'
     );
@@ -202,26 +151,23 @@ async function run() {
     );
 
     /**
-     * Verify Ollama
+     * Verify Embedding Generator
      */
     console.log(
-        '🔍 Verifying Ollama connection...'
+        '🔍 Verifying embedding generator...'
     );
 
     try {
-        await axios.get(
-            'http://localhost:11434/api/tags',
-            {
-                timeout: 3000
-            }
-        );
-
+        const testVec = await getEmbedding('test connection');
+        if (!testVec || testVec.length === 0) {
+            throw new Error('Returned empty vector');
+        }
         console.log(
-            `✅ Ollama connected using "${OLLAMA_MODEL}"`
+            `✅ Embedding generator verified successfully (dimensions: ${testVec.length})`
         );
     } catch (err) {
         console.error(
-            '❌ Ollama server not running on localhost:11434'
+            '❌ Embedding generator verification failed:', err.message
         );
 
         process.exit(1);

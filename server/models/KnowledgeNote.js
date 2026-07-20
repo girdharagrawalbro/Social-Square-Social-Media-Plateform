@@ -71,6 +71,6 @@ const KnowledgeNoteSchema = new mongoose.Schema(
 KnowledgeNoteSchema.index({ userId: 1, topic: 1, createdAt: -1 });
 KnowledgeNoteSchema.index({ userId: 1, type: 1, createdAt: -1 });
 KnowledgeNoteSchema.index({ userId: 1, deletedAt: 1, createdAt: -1 });
-KnowledgeNoteSchema.index({ postId: 1 }); // Check if a post is already saved
+KnowledgeNoteSchema.index({ postId: 1 });
 
 module.exports = mongoose.model('KnowledgeNote', KnowledgeNoteSchema);

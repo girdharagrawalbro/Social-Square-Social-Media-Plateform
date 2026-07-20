@@ -76,3 +76,17 @@ All automated flags, hides, and overrides are logged into the `AuditLog` collect
 * **Trigger**: Runs during the background moderation pipeline.
 * **Process**: If a post is visible and has a caption longer than 10 characters, the AI generates a highly condensed 1-2 sentence preview summary (`aiSummary`).
 * **Usage**: Provides quick hover-over previews in the feed UI without requiring users to open full details.
+
+---
+
+## 6. Vector Search & Recommendation Embeddings
+
+To power semantic searches and personalized recommendations, the platform generates 384-dimensional vector embeddings for posts and comments.
+
+* **Trigger**: Automatically runs when a new post or comment is created or updated.
+* **Embeddings Infrastructure**:
+  * **Production Engine**: Google's cloud-based **`gemini-embedding-2`** model. The API is called with `outputDimensionality: 384` to match the index dimensions.
+  * **Development Engine**: Local Ollama (`all-minilm` model).
+  * **In-Process Fallback**: If local Ollama or the Gemini API fails or is not configured, the system falls back to an in-process, offline `@xenova/transformers` model (`Xenova/all-MiniLM-L6-v2`), ensuring 100% uptime with zero external server dependencies.
+* **Storage & Indexing**: Vectors are saved to the `PostVector` and `CommentVector` MongoDB collections.
+* **Search Engine**: Uses MongoDB Atlas `$vectorSearch` via the `vector_index` to perform high-speed cosine similarity search, powering personalized content suggestions and semantic search queries.

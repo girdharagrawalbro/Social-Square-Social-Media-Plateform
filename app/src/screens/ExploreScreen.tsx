@@ -500,7 +500,7 @@ export default function ExploreScreen({ navigation }: any) {
               {aiAnswer && (
                 <View style={{ marginHorizontal: 16, marginBottom: 20, padding: 16, borderRadius: 16, backgroundColor: isDark ? 'rgba(128, 139, 245, 0.15)' : 'rgba(128, 139, 245, 0.08)', borderWidth: 1, borderColor: 'rgba(128, 139, 245, 0.2)' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <MaterialCommunityIcons name="sparkles" size={18} color="#808bf5" />
+                    <MaterialCommunityIcons name="sparkle" size={18} color="#808bf5" />
                     <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', letterSpacing: 1 }}>AI Answer</Text>
                   </View>
                   <Text style={{ fontSize: 14, lineHeight: 22, color: textColor }}>{aiAnswer}</Text>
@@ -536,7 +536,7 @@ export default function ExploreScreen({ navigation }: any) {
                           <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', marginBottom: 2 }}>#{post.category || post.topic || 'AI'}</Text>
                           <Text style={{ fontSize: 13, color: textColor }} numberOfLines={1}>{post.caption || post.content || '(No content)'}</Text>
                         </View>
-                        <MaterialCommunityIcons name="sparkles" size={16} color={subTextColor} style={{ opacity: 0.5 }} />
+                        <MaterialCommunityIcons name="sparkle" size={16} color={subTextColor} style={{ opacity: 0.5 }} />
                       </TouchableOpacity>
                     );
                   })}

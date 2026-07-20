@@ -37,7 +37,7 @@ const connectToMongo = async () => {
 
         if (process.env.NODE_ENV !== 'production') {
             // Log method only — not full query object (saves memory/string allocation)
-            mongoose.set('debug', (col, method) => console.log(`[Mongoose] ${col}.${method}`));
+            // mongoose.set('debug', (col, method) => console.log(`[Mongoose] ${col}.${method}`));
         }
 
     } catch (err) {

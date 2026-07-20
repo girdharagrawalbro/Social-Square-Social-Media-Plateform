@@ -108,6 +108,24 @@ export default function ChatScreen() {
   const navigation = useNavigation<any>();
   const currentUser = useAuthStore((s: any) => s.user);
 
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await api.get('/api/conversation/notifications/unread-count');
+      const count = res.data.count || 0;
+      setUnreadNotificationsCount(count);
+    } catch (e) {
+      console.warn('Failed to fetch unread notifications count:', e);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+    }, [])
+  );
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -308,19 +326,31 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      {/* Header matching Profile Screen */}
+      {/* Customized Header */}
       <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: borderColor }]}>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={() => setSearchModalVisible(true)}
+          style={styles.headerLeftBtn}
+        >
+          <MaterialCommunityIcons name="plus" size={26} color={textColor} />
+        </TouchableOpacity>
 
         <Text style={[styles.headerTitle, { color: textColor }]}>
-          Conversations
+          {currentUser?.username ? `@${currentUser.username}` : 'Conversations'}
         </Text>
 
         <TouchableOpacity
-          onPress={() => setSearchModalVisible(true)}
+          onPress={() => navigation.navigate('Notifications')}
           style={styles.headerRightBtn}
         >
-          <MaterialCommunityIcons name="plus" size={26} color={textColor} />
+          <View style={styles.badgeWrapper}>
+            {unreadNotificationsCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
+              </View>
+            )}
+            <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -343,6 +373,9 @@ export default function ChatScreen() {
 
       {loading ? (
         <View style={{ flex: 1 }}>
+          <ChatSkeleton />
+          <ChatSkeleton />
+          <ChatSkeleton />
           <ChatSkeleton />
           <ChatSkeleton />
           <ChatSkeleton />
@@ -663,5 +696,33 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerLeftBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeWrapper: {
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#ef4444',
+    borderRadius: 7,
+    width: 14,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  bellBadgeText: {
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

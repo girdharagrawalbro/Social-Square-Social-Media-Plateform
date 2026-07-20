@@ -166,8 +166,8 @@ export default function SocialSquareScreen({ navigation }: any) {
     return () => unsub();
   }, []);
 
-  const bg = isDark ? '#000000' : '#f5f5f5';
-  const cardBg = isDark ? '#111111' : '#ffffff';
+  const bg = isDark ? '#000000' : '#ffffff';
+  const cardBg = isDark ? '#000000' : '#ffffff';
   const textColor = isDark ? '#ffffff' : '#111827';
   const border = isDark ? '#1a1a1a' : '#e5e7eb';
 

@@ -55,8 +55,8 @@ export default function PostDetailScreen() {
   // Reply State
   const [replyingToComment, setReplyingToComment] = useState<Comment | null>(null);
 
-  const bg = isDark ? '#0a0a0a' : '#f3f4f6';
-  const cardBg = isDark ? '#121212' : '#ffffff';
+  const bg = isDark ? '#000000' : '#ffffff';
+  const cardBg = isDark ? '#000000' : '#ffffff';
   const border = isDark ? '#1f2937' : '#e5e7eb';
   const textColor = isDark ? '#ffffff' : '#111827';
   const subText = isDark ? '#9ca3af' : '#6b7280';
@@ -193,15 +193,6 @@ export default function PostDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Post Details</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -217,7 +208,7 @@ export default function PostDetailScreen() {
             contentContainerStyle={{ paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
           >
-            {post && <PostItem post={post} isDark={isDark} isVisible={true} />}
+            {post && <PostItem post={post} isDark={isDark} isVisible={true} showBackButton={true} />}
 
             {/* Comments Header */}
             <View style={[styles.sectionHeader, { borderBottomColor: border }]}>

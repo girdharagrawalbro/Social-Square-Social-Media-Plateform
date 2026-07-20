@@ -28,6 +28,8 @@ import { api } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import { getMessagesFromDB, upsertMessages, markMessagesRead, deleteMessageInDB } from '../lib/db';
 import useAuthStore from '../store/zustand/useAuthStore';
+import ZoomableImage from './components/ZoomableImage';
+import { ChatMessageSkeleton } from './components/SkeletonLoader';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText, encryptText } from '../lib/cryptoUtils';
 
@@ -796,7 +798,7 @@ export default function ChatPaneScreen() {
 
       {/* MESSAGE LIST */}
       {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color="#808bf5" /></View>
+        <ChatMessageSkeleton />
       ) : (
         <FlatList
           data={filteredMessages}
@@ -937,7 +939,7 @@ export default function ChatPaneScreen() {
             <MaterialCommunityIcons name="close" size={26} color="#fff" />
           </TouchableOpacity>
           {imageViewerUrl && (
-            <Image source={{ uri: imageViewerUrl }} style={styles.imgViewerImg} resizeMode="contain" />
+            <ZoomableImage uri={imageViewerUrl} />
           )}
         </View>
       </Modal>

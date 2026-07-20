@@ -398,3 +398,40 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
+
+export const ChatMessageSkeleton = () => {
+  const isDark = useColorScheme() === 'dark';
+  const colorRight = isDark ? 'rgba(128, 139, 245, 0.3)' : 'rgba(128, 139, 245, 0.2)';
+
+  return (
+    <ScrollView style={{ flex: 1, padding: 16 }} scrollEnabled={false}>
+      {/* Incoming message */}
+      <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end', gap: 8 }}>
+        <SkeletonItem style={{ width: 28, height: 28, borderRadius: 14 }} />
+        <SkeletonItem style={{ width: 140, height: 40, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 }} />
+      </View>
+
+      {/* Outgoing message */}
+      <View style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
+        <SkeletonItem style={{ width: 200, height: 44, borderTopLeftRadius: 18, borderTopRightRadius: 4, borderBottomRightRadius: 18, borderBottomLeftRadius: 18, backgroundColor: colorRight }} />
+      </View>
+
+      {/* Incoming message */}
+      <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end', gap: 8 }}>
+        <SkeletonItem style={{ width: 28, height: 28, borderRadius: 14 }} />
+        <SkeletonItem style={{ width: 220, height: 56, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 }} />
+      </View>
+
+      {/* Outgoing message */}
+      <View style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
+        <SkeletonItem style={{ width: 100, height: 36, borderTopLeftRadius: 18, borderTopRightRadius: 4, borderBottomRightRadius: 18, borderBottomLeftRadius: 18, backgroundColor: colorRight }} />
+      </View>
+
+      {/* Incoming message */}
+      <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end', gap: 8 }}>
+        <SkeletonItem style={{ width: 28, height: 28, borderRadius: 14 }} />
+        <SkeletonItem style={{ width: 160, height: 40, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 }} />
+      </View>
+    </ScrollView>
+  );
+};

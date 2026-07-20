@@ -16,10 +16,13 @@ import {
   FlatList,
   Platform,
   ToastAndroid,
+  Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Video from 'react-native-video';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import ImageCropperModal from './components/ImageCropperModal';
 import { api } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import { appChannel } from '../lib/broadcast';
@@ -600,9 +603,36 @@ export default function NewPostScreen() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Selected media state
-  const [selectedUri, setSelectedUri] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
+  // Selected media state (supports multiple files & crop settings)
+  const [selectedMedia, setSelectedMedia] = useState<{ uri: string; type: 'image' | 'video'; cropData?: any }[]>([]);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [croppingModalVisible, setCroppingModalVisible] = useState(false);
+  const [croppingItemIndex, setCroppingItemIndex] = useState<number | null>(null);
+
+  const selectedUri = selectedMedia[activeMediaIndex]?.uri || null;
+  const mediaType = selectedMedia[activeMediaIndex]?.type || null;
+
+  const setSelectedUri = (uri: string | null) => {
+    if (uri === null) {
+      setSelectedMedia([]);
+      setActiveMediaIndex(0);
+    } else {
+      setSelectedMedia(prev => [...prev, { uri, type: 'image' }]);
+      setActiveMediaIndex(selectedMedia.length);
+    }
+  };
+
+  const setMediaType = (type: 'image' | 'video' | null) => {
+    if (type !== null && selectedMedia.length > 0) {
+      setSelectedMedia(prev => {
+        const copy = [...prev];
+        if (copy[copy.length - 1]) {
+          copy[copy.length - 1].type = type;
+        }
+        return copy;
+      });
+    }
+  };
 
   // Selected Premium Feature States
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
@@ -742,6 +772,20 @@ export default function NewPostScreen() {
     );
   };
 
+  const handleCropComplete = (croppedUri: string, cropData?: any) => {
+    if (croppingItemIndex !== null) {
+      setSelectedMedia(prev => {
+        const copy = [...prev];
+        if (copy[croppingItemIndex]) {
+          copy[croppingItemIndex].cropData = cropData;
+        }
+        return copy;
+      });
+    }
+    setCroppingModalVisible(false);
+    setCroppingItemIndex(null);
+  };
+
   const generateAiCaption = async () => {
     if (!aiPrompt.trim()) {
       Alert.alert('Required', 'Please enter a topic or prompt for AI.');
@@ -811,32 +855,43 @@ export default function NewPostScreen() {
 
     // Run the upload in background
     (async () => {
-      let uploadedMediaUrl = '';
+      const uploadedUrls: string[] = [];
+      let videoUrlString = '';
       try {
-        if (selectedUri && mediaType && !selectedUri.startsWith('http')) {
-          const formData = new FormData();
-          formData.append('file', {
-            uri: selectedUri,
-            name: mediaType === 'video' ? 'post.mp4' : 'post.jpg',
-            type: mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
-          } as any);
-          formData.append('folder', 'posts');
-          formData.append('resourceType', mediaType);
-
-          const uploadRes = await api.post('/api/media/upload', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-            timeout: 0,
-          });
-
-          if (uploadRes.data?.success && uploadRes.data?.url) {
-            uploadedMediaUrl = uploadRes.data.url;
+        for (const item of selectedMedia) {
+          if (item.uri.startsWith('http')) {
+            if (item.type === 'video') {
+              videoUrlString = item.uri;
+            } else {
+              uploadedUrls.push(item.uri);
+            }
           } else {
-            throw new Error(uploadRes.data?.message || 'Failed to upload media to backend proxy.');
+            const formData = new FormData();
+            formData.append('file', {
+              uri: item.uri,
+              name: item.type === 'video' ? 'post.mp4' : 'post.jpg',
+              type: item.type === 'video' ? 'video/mp4' : 'image/jpeg',
+            } as any);
+            formData.append('folder', 'posts');
+            formData.append('resourceType', item.type);
+
+            const uploadRes = await api.post('/api/media/upload', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+              timeout: 0,
+            });
+
+            if (uploadRes.data?.success && uploadRes.data?.url) {
+              if (item.type === 'video') {
+                videoUrlString = uploadRes.data.url;
+              } else {
+                uploadedUrls.push(uploadRes.data.url);
+              }
+            } else {
+              throw new Error(uploadRes.data?.message || 'Failed to upload media to backend proxy.');
+            }
           }
-        } else if (selectedUri && selectedUri.startsWith('http')) {
-          uploadedMediaUrl = selectedUri;
         }
 
         let expiresAt: string | undefined;
@@ -865,12 +920,11 @@ export default function NewPostScreen() {
           unlocksAt,
         };
 
-        if (uploadedMediaUrl) {
-          if (mediaType === 'video') {
-            payload.videoURL = uploadedMediaUrl;
-          } else {
-            payload.imageURLs = [uploadedMediaUrl];
-          }
+        if (videoUrlString) {
+          payload.videoURL = videoUrlString;
+        }
+        if (uploadedUrls.length > 0) {
+          payload.imageURLs = uploadedUrls;
         }
 
         const createRes = await api.post('/api/post/create', payload);
@@ -926,32 +980,110 @@ export default function NewPostScreen() {
         />
 
         {/* Media Selector */}
-        <TouchableOpacity
-          onPress={handlePickMedia}
-          style={[styles.mediaSelector, { backgroundColor: cardBg, borderColor: border }]}
-        >
-          {selectedUri ? (
-            <View style={styles.previewContainer}>
-              {mediaType === 'video' ? (
-                <View style={[styles.previewImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
-                  <MaterialCommunityIcons name="video" size={48} color="#ffffff" />
-                  <Text style={{ color: '#ffffff', marginTop: 8 }}>Video Selected</Text>
+        {selectedMedia.length > 0 ? (
+          <View style={[styles.carouselContainer, { borderColor: border }]}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={(e) => {
+                const x = e.nativeEvent.contentOffset.x;
+                const idx = Math.round(x / (Dimensions.get('window').width - 24));
+                setActiveMediaIndex(idx);
+              }}
+              scrollEventThrottle={16}
+              style={{ flex: 1 }}
+            >
+              {selectedMedia.map((item, index) => (
+                <View key={index} style={{ width: Dimensions.get('window').width - 24, height: 450, position: 'relative' }}>
+                  {item.type === 'video' ? (
+                    <Video
+                      source={{ uri: item.uri }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="contain"
+                      paused={true}
+                      controls={true}
+                      muted={true}
+                    />
+                  ) : (
+                    <Image
+                      source={{ uri: item.uri }}
+                      style={[
+                        { width: '100%', height: '100%' },
+                        item.cropData && {
+                          transform: [
+                            { scale: item.cropData.scale },
+                            { translateX: item.cropData.x },
+                            { translateY: item.cropData.y },
+                          ],
+                        },
+                      ]}
+                      resizeMode="contain"
+                    />
+                  )}
+
+                  {/* Actions overlay */}
+                  <View style={styles.carouselActionsOverlay}>
+                    {item.type === 'image' && (
+                      <TouchableOpacity
+                        style={styles.actionIconBtn}
+                        onPress={() => {
+                          setCroppingItemIndex(index);
+                          setCroppingModalVisible(true);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="crop" size={20} color="#ffffff" />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.actionIconBtn, { backgroundColor: '#ef4444' }]}
+                      onPress={() => {
+                        setSelectedMedia(prev => prev.filter((_, i) => i !== index));
+                        if (activeMediaIndex >= selectedMedia.length - 1) {
+                          setActiveMediaIndex(Math.max(0, selectedMedia.length - 2));
+                        }
+                      }}
+                    >
+                      <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              ) : (
-                <Image source={{ uri: selectedUri }} style={styles.previewImage} resizeMode="cover" />
-              )}
-              <View style={styles.mediaOverlay}>
-                <MaterialCommunityIcons name="pencil" size={18} color="#ffffff" />
-                <Text style={styles.mediaOverlayText}>Change Media</Text>
+              ))}
+            </ScrollView>
+
+            {/* Pagination & Add more */}
+            <View style={styles.carouselFooter}>
+              <View style={styles.dotsRow}>
+                {selectedMedia.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.dotItem,
+                      { backgroundColor: index === activeMediaIndex ? '#808bf5' : subText },
+                    ]}
+                  />
+                ))}
               </View>
+
+              <TouchableOpacity style={styles.addMoreBtn} onPress={handlePickMedia}>
+                <MaterialCommunityIcons name="plus" size={16} color="#808bf5" />
+                <Text style={styles.addMoreText}>Add Media</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={handlePickMedia}
+            style={[styles.mediaSelector, { backgroundColor: cardBg, borderColor: border }]}
+          >
             <View style={styles.mediaPlaceholder}>
               <MaterialCommunityIcons name="image-multiple-outline" size={32} color={subText} />
-              <Text style={[styles.mediaPlaceholderText, { color: subText }]}>Add photo or video (Optional)</Text>
+              <Text style={[styles.placeholderText, { color: subText }]}>
+                Add Photo / Video
+              </Text>
             </View>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
 
         {/* 3x3 Feature Grid Panel */}
         <Text style={[styles.sectionTitle, { color: textColor }]}>Post Features</Text>
@@ -1052,7 +1184,7 @@ export default function NewPostScreen() {
           style={[styles.aiButton, { borderColor: primaryColor }]}
           onPress={() => setActiveModal('ai')}
         >
-          <MaterialCommunityIcons name="sparkles" size={20} color={primaryColor} />
+          <MaterialCommunityIcons name="sparkle" size={20} color={primaryColor} />
           <Text style={[styles.aiButtonText, { color: primaryColor }]}>AI Magic</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -1117,6 +1249,18 @@ export default function NewPostScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        visible={croppingModalVisible}
+        mediaUri={croppingItemIndex !== null ? selectedMedia[croppingItemIndex]?.uri : null}
+        mediaType={croppingItemIndex !== null ? selectedMedia[croppingItemIndex]?.type : 'image'}
+        onCropComplete={handleCropComplete}
+        onCancel={() => {
+          setCroppingModalVisible(false);
+          setCroppingItemIndex(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -1352,5 +1496,61 @@ const styles = StyleSheet.create({
   visibilityBtnText: {
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  carouselContainer: {
+    width: '100%',
+    height: 500,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  carouselActionsOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    gap: 8,
+    zIndex: 10,
+  },
+  actionIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselFooter: {
+    height: 50,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dotItem: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  addMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(128, 139, 245, 0.1)',
+  },
+  addMoreText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#808bf5',
   },
 });

@@ -62,7 +62,6 @@ const VideoStatsSchema = new mongoose.Schema({
     watchThroughRate:  { type: Number, default: 0 },   // completionCount / totalViews (0-1)
     updatedAt:         { type: Date, default: Date.now }
 });
-VideoStatsSchema.index({ postId: 1 });
 VideoStatsSchema.index({ watchThroughRate: -1 });
 
 const PostVector  = mongoose.model('PostVector',  PostVectorSchema);

@@ -53,7 +53,6 @@ const WikiPageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-WikiPageSchema.index({ slug: 1 });
 WikiPageSchema.index({ isPublished: 1, viewCount: -1 });
 WikiPageSchema.index({ 'topPosts.postId': 1 });
 

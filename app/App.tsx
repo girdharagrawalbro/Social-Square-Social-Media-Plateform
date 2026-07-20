@@ -36,7 +36,8 @@ function App() {
           initialRouteName="Splash"
           screenOptions={{
             headerShown: false,
-            animation: 'fade',
+            animation: 'slide_from_right',
+            gestureEnabled: true,
           }}
         >
           <Stack.Screen name="Splash" component={SplashScreen} />

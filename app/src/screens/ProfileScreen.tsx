@@ -193,7 +193,8 @@ export default function ProfileScreen({ navigation, route }: any) {
     setLoadingMore(true);
     try {
       const postsRes = await api.get(`/api/post/user/${profileData._id}?limit=9&cursor=${nextCursor}`);
-      const newPosts = postsRes.data.posts || [];
+      const newPosts = postsRes.data.posts || postsRes.data || [];
+      console.log('[ProfileScreen] fetchMorePosts loaded:', newPosts.length, 'nextCursor:', postsRes.data.nextCursor, 'hasMore:', postsRes.data.hasMore);
       setPosts((prev) => [...prev, ...newPosts]);
       setNextCursor(postsRes.data.nextCursor || null);
       setHasMore(postsRes.data.hasMore || false);

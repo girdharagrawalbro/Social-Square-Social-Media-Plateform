@@ -41,7 +41,7 @@ api.interceptors.response.use(
   },
   async (err: any) => {
     const originalRequest = err.config;
-    
+
     // Check if refresh itself fails with 401, or if request fails 401 and can't be retried
     if (err.response?.status === 401) {
       if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/me')) {
