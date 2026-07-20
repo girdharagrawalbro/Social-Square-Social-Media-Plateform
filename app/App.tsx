@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // Screens
@@ -10,6 +10,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import ForgotScreen from './src/screens/ForgotScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import MainTabsScreen from './src/screens/MainTabsScreen';
 import SocialSquareScreen from './src/screens/SocialSquareScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import ChatPaneScreen from './src/screens/ChatPaneScreen';
@@ -22,16 +23,50 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import NewPostScreen from './src/screens/NewPostScreen';
 import PostDetailScreen from './src/screens/PostDetailScreen';
+import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
+import ActiveSessionsScreen from './src/screens/ActiveSessionsScreen';
+import CloseFriendsScreen from './src/screens/CloseFriendsScreen';
+import CallScreen from './src/screens/CallScreen';
+import ChatbotScreen from './src/screens/ChatbotScreen';
+import CommunitiesScreen from './src/screens/CommunitiesScreen';
+import WikiDetailScreen from './src/screens/WikiDetailScreen';
+import { getSocket } from './src/lib/socket';
+
+export const navigationRef = createNavigationContainerRef();
 
 const Stack = createNativeStackNavigator();
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleIncomingCall = (data: any) => {
+      console.log('[Socket] Global Incoming Call:', data);
+      if (navigationRef.isReady()) {
+        (navigationRef as any).navigate('Call', {
+          conversationId: data.conversationId,
+          callerId: data.callerId,
+          callerName: data.callerName,
+          callerAvatar: data.callerAvatar,
+          callType: data.type,
+          isIncoming: true,
+        });
+      }
+    };
+
+    socket.on('incomingCall', handleIncomingCall);
+
+    return () => {
+      socket.off('incomingCall', handleIncomingCall);
+    };
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           initialRouteName="Splash"
           screenOptions={{
@@ -46,17 +81,24 @@ function App() {
           <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
           <Stack.Screen name="Forgot" component={ForgotScreen} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-          <Stack.Screen name="SocialSquare" component={SocialSquareScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="SocialSquare" component={MainTabsScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'none' }} />
           <Stack.Screen name="ChatPane" component={ChatPaneScreen} />
-          <Stack.Screen name="Explore" component={ExploreScreen} />
-          <Stack.Screen name="Reels" component={ReelsScreen} />
+          <Stack.Screen name="Explore" component={ExploreScreen} options={{ animation: 'none' }} />
+          <Stack.Screen name="Reels" component={ReelsScreen} options={{ animation: 'none' }} />
           <Stack.Screen name="Pulse" component={PulseScreen} />
           <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'none' }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="NewPost" component={NewPostScreen} />
           <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+          <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
+          <Stack.Screen name="CloseFriends" component={CloseFriendsScreen} />
+          <Stack.Screen name="Call" component={CallScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
+          <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="Communities" component={CommunitiesScreen} />
+          <Stack.Screen name="WikiDetail" component={WikiDetailScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

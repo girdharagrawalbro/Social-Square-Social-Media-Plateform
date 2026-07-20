@@ -21,6 +21,7 @@ import { api } from '../lib/api';
 import { getCache, setCache, invalidateCache, invalidateCacheByPrefix, TTL } from '../lib/cache';
 import { appChannel } from '../lib/broadcast';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { useTabStore } from '../store/zustand/useTabStore';
 import BottomNav from './components/BottomNav';
 
 const VIEWABILITY_CONFIG = {
@@ -29,6 +30,7 @@ const VIEWABILITY_CONFIG = {
 };
 
 export default function SocialSquareScreen({ navigation }: any) {
+  const { currentTab } = useTabStore();
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   const fetchUnreadCount = async () => {
@@ -174,23 +176,33 @@ export default function SocialSquareScreen({ navigation }: any) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: cardBg }]}>
-        <TouchableOpacity onPress={() => navigation.navigate('NewPost')}>
-          <MaterialCommunityIcons name="plus" size={26} color={isDark ? '#f3f4f6' : '#1f2937'} />
-        </TouchableOpacity>
+      <View style={[styles.header, { backgroundColor: cardBg, paddingHorizontal: 12 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('NewPost')}>
+            <MaterialCommunityIcons name="plus" size={26} color={isDark ? '#f3f4f6' : '#1f2937'} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Communities')}>
+            <MaterialCommunityIcons name="account-group-outline" size={25} color={isDark ? '#f3f4f6' : '#1f2937'} />
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.headerLogo}>Social Square</Text>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
-          <View style={styles.chatIconWrapper}>
-            {unreadNotificationsCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
-              </View>
-            )}
-            <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
-          </View>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Chatbot')}>
+            <MaterialCommunityIcons name="robot-outline" size={24} color="#808bf5" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
+            <View style={styles.chatIconWrapper}>
+              {unreadNotificationsCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
+                </View>
+              )}
+              <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading && posts.length === 0 ? (
@@ -207,7 +219,7 @@ export default function SocialSquareScreen({ navigation }: any) {
             <PostItem 
               post={item} 
               isDark={isDark} 
-              isVisible={viewableItems.includes(item._id)} 
+              isVisible={viewableItems.includes(item._id) && currentTab === 'feed'} 
             />
           )}
           onViewableItemsChanged={onViewableItemsChanged}

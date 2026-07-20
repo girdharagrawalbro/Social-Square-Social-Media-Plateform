@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,53 +7,101 @@ import {
   useColorScheme,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomNav from './components/BottomNav';
-
-// Mock Knowledge items
-const categories = [
-  { id: '1', title: 'Getting Started', count: '12 articles', icon: 'rocket-launch-outline' },
-  { id: '2', title: 'Security & Privacy', count: '8 articles', icon: 'shield-lock-outline' },
-  { id: '3', title: 'Community Guidelines', count: '6 articles', icon: 'book-open-outline' },
-  { id: '4', title: 'API & Developers', count: '15 articles', icon: 'code-tags' },
-];
+import { api } from '../lib/api';
 
 export default function KnowledgeScreen({ navigation }: any) {
   const isDark = useColorScheme() === 'dark';
+  const [wikis, setWikis] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const bg = isDark ? '#0a0a0a' : '#f3f4f6';
-  const cardBg = isDark ? '#121212' : '#ffffff';
+  const fetchWikis = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const res = await api.get('/api/knowledge/wiki');
+      if (res.data?.success) {
+        setWikis(res.data.wikis || []);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch wikis:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWikis();
+  }, []);
+
+  const bg = isDark ? '#000000' : '#ffffff';
+  const cardBg = isDark ? '#121212' : '#f9fafb';
   const border = isDark ? '#1f2937' : '#e5e7eb';
   const textColor = isDark ? '#ffffff' : '#111827';
   const subText = isDark ? '#9ca3af' : '#6b7280';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: border }]}>
+      <View style={[styles.header, { backgroundColor: bg, borderBottomColor: border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <MaterialCommunityIcons name="chevron-left" size={28} color={textColor} />
+        </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textColor }]}>Knowledge Center</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>Help Center Categories</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchWikis(true)} colors={['#808bf5']} />
+        }
+      >
+        <Text style={[styles.sectionTitle, { color: textColor }]}>Wiki & Help Articles</Text>
 
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={[styles.categoryCard, { backgroundColor: cardBg, borderColor: border }]}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardInfo}>
-              <MaterialCommunityIcons name={category.icon} size={26} color="#808bf5" style={styles.icon} />
-              <View>
-                <Text style={[styles.categoryTitle, { color: textColor }]}>{category.title}</Text>
-                <Text style={[styles.categoryCount, { color: subText }]}>{category.count}</Text>
+        {loading && wikis.length === 0 ? (
+          <ActivityIndicator color="#808bf5" style={{ marginTop: 40 }} />
+        ) : wikis.length === 0 ? (
+          <View style={styles.emptyView}>
+            <MaterialCommunityIcons name="book-open-outline" size={48} color={subText} />
+            <Text style={[styles.emptyText, { color: subText }]}>No articles available.</Text>
+          </View>
+        ) : (
+          wikis.map((wiki) => (
+            <TouchableOpacity
+              key={wiki.slug}
+              style={[styles.categoryCard, { backgroundColor: cardBg, borderColor: border }]}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('WikiDetail', { slug: wiki.slug })}
+            >
+              <View style={styles.cardInfo}>
+                <View style={styles.iconContainer}>
+                  <MaterialCommunityIcons name="book-open-page-variant" size={24} color="#808bf5" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.categoryTitle, { color: textColor }]}>{wiki.topic}</Text>
+                  <Text style={[styles.categoryCount, { color: subText }]} numberOfLines={1}>
+                    {wiki.description || 'No description provided.'}
+                  </Text>
+                  <Text style={[styles.metaText, { color: subText }]}>
+                    👁️ {wiki.viewCount || 0} views • ✍️ {wiki.contributorCount || 0} contributors
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            <MaterialCommunityIcons name="chevron-right" size={24} color={subText} />
-          </TouchableOpacity>
-        ))}
+              <MaterialCommunityIcons name="chevron-right" size={24} color={subText} />
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
 
       <BottomNav currentTab="knowledge" navigation={navigation} />
@@ -67,21 +115,29 @@ const styles = StyleSheet.create({
   },
   header: {
     height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    paddingHorizontal: 8,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderBottomWidth: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     marginBottom: 16,
     marginTop: 8,
   },
@@ -90,7 +146,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 12,
     elevation: 1,
@@ -98,16 +154,36 @@ const styles = StyleSheet.create({
   cardInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
   },
-  icon: {
-    marginRight: 16,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(128, 139, 245, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   categoryTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 4,
   },
   categoryCount: {
-    fontSize: 12,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  metaText: {
+    fontSize: 10,
+    marginTop: 4,
+  },
+  emptyView: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 13,
+    marginTop: 12,
   },
 });

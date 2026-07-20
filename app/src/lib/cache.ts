@@ -57,10 +57,10 @@ export async function invalidateCache(key: string): Promise<void> {
 /** Remove all cache keys whose name starts with prefix. */
 export async function invalidateCacheByPrefix(prefix: string): Promise<void> {
   try {
-    const allKeys = await AsyncStorage.getAllKeys();
-    const target = allKeys.filter(k => k.startsWith(CACHE_PREFIX + prefix));
+    const allKeys = await (AsyncStorage as any).getAllKeys();
+    const target = allKeys.filter((k: string) => k.startsWith(CACHE_PREFIX + prefix));
     if (target.length > 0) {
-      await AsyncStorage.multiRemove(target);
+      await (AsyncStorage as any).multiRemove(target);
     }
   } catch { }
 }
@@ -68,10 +68,10 @@ export async function invalidateCacheByPrefix(prefix: string): Promise<void> {
 /** Clear ALL app cache (e.g. on logout). */
 export async function clearAllCache(): Promise<void> {
   try {
-    const allKeys = await AsyncStorage.getAllKeys();
-    const target = allKeys.filter(k => k.startsWith(CACHE_PREFIX));
+    const allKeys = await (AsyncStorage as any).getAllKeys();
+    const target = allKeys.filter((k: string) => k.startsWith(CACHE_PREFIX));
     if (target.length > 0) {
-      await AsyncStorage.multiRemove(target);
+      await (AsyncStorage as any).multiRemove(target);
     }
   } catch { }
 }

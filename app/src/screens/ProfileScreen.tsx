@@ -72,6 +72,7 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [bioInput, setBioInput] = useState('');
   const [profilePicInput, setProfilePicInput] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'goals' | 'graveyard' | 'saved' | 'collabs' | 'analytics'>('posts');
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
@@ -572,16 +573,7 @@ export default function ProfileScreen({ navigation, route }: any) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => {
-                Alert.alert(
-                  'Menu',
-                  'What would you like to do?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Logout', onPress: () => { logout(); navigation.navigate('Login'); }, style: 'destructive' }
-                  ]
-                );
-              }}
+              onPress={() => setSettingsVisible(true)}
               style={styles.headerRightBtn}
             >
               <MaterialCommunityIcons name="menu" size={26} color={textColor} />
@@ -596,7 +588,6 @@ export default function ProfileScreen({ navigation, route }: any) {
         <ProfileSkeleton />
       ) : (
         <FlatList
-          data={posts}
           keyExtractor={(item) => item._id}
           numColumns={3}
           ListHeaderComponent={
@@ -985,6 +976,160 @@ export default function ProfileScreen({ navigation, route }: any) {
         </View>
       </Modal>
 
+      {/* Settings Modal */}
+      <Modal
+        visible={settingsVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSettingsVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: border }]}>
+              <Text style={[styles.modalTitle, { color: textColor }]}>Settings</Text>
+              <TouchableOpacity onPress={() => setSettingsVisible(false)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.settingsList}>
+              {/* Notification Settings */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('NotificationSettings');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="bell-ring-outline" size={22} color="#f59e0b" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Notification Settings</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Toggle daily digest emails and preferences</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Active Sessions & Security */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('ActiveSessions');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="key-outline" size={22} color="#f59e0b" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Active Sessions & Security</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Manage logged in devices and 2FA settings</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Close Friends */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('CloseFriends');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="star" size={22} color="#22c55e" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Close Friends</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Manage your close friends list</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Communities & Confessions */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('Communities');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="account-group" size={22} color="#3b82f6" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Communities & Confessions</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Browse group communities and confessions feed</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Knowledge Center */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('Knowledge');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="book-open" size={22} color="#808bf5" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Knowledge Center</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Read help articles and contribute to community wikis</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Social Pulse */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('Pulse');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="flash" size={22} color="#ec4899" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Social Pulse</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>See trending tags and rising stars</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Logout */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderBottomWidth: 0 }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  Alert.alert(
+                    'Logout',
+                    'Are you sure you want to logout?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Logout', onPress: () => { logout(); navigation.navigate('Login'); }, style: 'destructive' }
+                    ]
+                  );
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="logout" size={22} color="#ef4444" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: '#ef4444' }]}>Logout</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Sign out of your account</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {isOwner && <BottomNav currentTab="profile" navigation={navigation} />}
     </SafeAreaView>
   );
@@ -1244,5 +1389,39 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  settingsList: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  settingsIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(128, 139, 245, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  settingsTextWrapper: {
+    flex: 1,
+  },
+  settingsRowTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  settingsRowDesc: {
+    fontSize: 10,
+    marginTop: 2,
+    lineHeight: 14,
   },
 });

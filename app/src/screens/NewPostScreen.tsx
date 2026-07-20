@@ -187,21 +187,22 @@ const ModalBody = ({
     }
 
     // Fallback to navigator.geolocation
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
+    const nav = (globalThis as any).navigator;
+    if (nav && nav.geolocation) {
+      nav.geolocation.getCurrentPosition(
+        async (position: any) => {
           const { latitude, longitude } = position.coords;
           try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
             const data = await res.json();
             const name = data.address?.city || data.address?.town || data.address?.village || `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
             setLocationName(name);
-          } catch (err) {
+          } catch (err: any) {
             setLocationName(`${latitude.toFixed(3)}, ${longitude.toFixed(3)}`);
           }
           setLoadingLocation(false);
         },
-        (err) => {
+        (err: any) => {
           console.warn('Geolocation error:', err);
           Alert.alert('Location Error', 'Could not retrieve location. Please type manually.');
           setLoadingLocation(false);
@@ -543,7 +544,7 @@ const ModalBody = ({
           </Text>
 
           {/* AI Usage Limits Display */}
-          <View style={{ flexDirection: 'row', justifyContent: 'end', gap: "10", marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginBottom: 16 }}>
             <Text style={{ color: subText, fontSize: 12 }}>
               Caption: <Text style={{ color: textColor, fontWeight: 'bold' }}>{aiLimits.textRemaining} / 2</Text>
             </Text>
@@ -1078,7 +1079,7 @@ export default function NewPostScreen() {
           >
             <View style={styles.mediaPlaceholder}>
               <MaterialCommunityIcons name="image-multiple-outline" size={32} color={subText} />
-              <Text style={[styles.placeholderText, { color: subText }]}>
+              <Text style={[styles.mediaPlaceholderText, { color: subText }]}>
                 Add Photo / Video
               </Text>
             </View>
@@ -1159,7 +1160,7 @@ export default function NewPostScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, (expiresInHours || unlocksInHours) && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, !!(expiresInHours || unlocksInHours) && styles.activeGridBtn]}
             onPress={() => setActiveModal('settings')}
           >
             <MaterialCommunityIcons name="cog-outline" size={24} color={(expiresInHours || unlocksInHours) ? '#ffffff' : primaryColor} />
@@ -1184,7 +1185,7 @@ export default function NewPostScreen() {
           style={[styles.aiButton, { borderColor: primaryColor }]}
           onPress={() => setActiveModal('ai')}
         >
-          <MaterialCommunityIcons name="sparkle" size={20} color={primaryColor} />
+          <MaterialCommunityIcons name="creation" size={20} color={primaryColor} />
           <Text style={[styles.aiButtonText, { color: primaryColor }]}>AI Magic</Text>
         </TouchableOpacity>
       </ScrollView>

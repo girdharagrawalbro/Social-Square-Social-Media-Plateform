@@ -15,16 +15,18 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Video from 'react-native-video';
+const VideoComponent = Video as any;
 import LinearGradient from 'react-native-linear-gradient';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useNavigation } from '@react-navigation/native';
 import { appChannel } from '../../lib/broadcast';
 import { useBroadcast } from '../../lib/useBroadcast';
 import { useIsFocused } from '@react-navigation/native';
-import { BASE_URL } from '../../lib/api';
+import { BASE_URL, api } from '../../lib/api';
 import RNFS from 'react-native-fs';
 import PostMenu from './PostMenu';
 import BeforeAfterView from './BeforeAfterView';
+import ShareModal from './ShareModal';
 import { decryptAesGcm, base64ToBytes, bytesToBase64 } from '../../lib/cryptoUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -59,6 +61,10 @@ export interface Post {
     url?: string;
     duration?: number;
   };
+  isBeforeAfter?: boolean;
+  beforeAfter?: any;
+  reactions?: any[];
+  sharesCount?: number;
 }
 
 interface PostItemProps {
@@ -77,7 +83,14 @@ function timeAgo(dateStr?: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   const diffHrs = Math.floor(diffMins / 60);
   if (diffHrs < 24) return `${diffHrs}h ago`;
-  return `${Math.floor(diffHrs / 24)}d ago`;
+  const diffDays = Math.floor(diffHrs / 24);
+  if (diffDays <= 1) return '1d ago';
+
+  const d = new Date(dateStr);
+  const day = d.getDate();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[d.getMonth()];
+  return `${day} ${month}`;
 }
 
 let activePlayersCount = 0;
@@ -85,12 +98,95 @@ let activePlayersCount = 0;
 export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackButton = false }: PostItemProps) => {
   const navigation = useNavigation<any>();
   const loggedUser = useAuthStore((s: any) => s.user);
+
+  const resolveMediaUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith('http://localhost:5000')) {
+      return url.replace('http://localhost:5000', BASE_URL);
+    }
+    if (url.startsWith('https://localhost:5000')) {
+      return url.replace('https://localhost:5000', BASE_URL);
+    }
+    if (url.startsWith('/')) {
+      return `${BASE_URL}${url}`;
+    }
+    return url;
+  };
+
+  const getFirstImage = () => {
+    if (post.image_urls && post.image_urls.length > 0) {
+      return post.image_urls[0];
+    }
+    return post.image_url;
+  };
+
+  const imageUrl = resolveMediaUrl(getFirstImage());
+  const rawVideoUrl = resolveMediaUrl(post.video);
+  const videoThumbnailUrl = resolveMediaUrl(post.videoThumbnail);
+
+  // ── E2E-encrypted video decryption ──────────────────────────────────────────
+  // New posts uploaded with AES-GCM encryption store the key in post.videoKey
+  // and IV in post.videoIv. We need to fetch, decrypt, and write a temp file.
+  const [decryptedVideoPath, setDecryptedVideoPath] = useState<string | null>(null);
+  const [isDecryptingVideo, setIsDecryptingVideo] = useState(false);
+  const isEncryptedVideo = !!(post.video && post.videoKey && post.videoIv);
+
+  useEffect(() => {
+    if (!isEncryptedVideo || !rawVideoUrl || !post.videoKey || !post.videoIv) {
+      setDecryptedVideoPath(null);
+      return;
+    }
+
+    let active = true;
+    const tempPath = `${RNFS.TemporaryDirectoryPath}/ss_video_${post._id}.mp4`;
+
+    const run = async () => {
+      const exists = await RNFS.exists(tempPath);
+      if (exists) {
+        if (active) setDecryptedVideoPath(`file://${tempPath}`);
+        return;
+      }
+
+      setIsDecryptingVideo(true);
+      try {
+        const downloadRes = await RNFS.downloadFile({
+          fromUrl: rawVideoUrl,
+          toFile: tempPath + '.enc',
+        }).promise;
+
+        if (!active) return;
+
+        const encBase64 = await RNFS.readFile(tempPath + '.enc', 'base64');
+        const encBytes = base64ToBytes(encBase64);
+        const decBytes = await decryptAesGcm(encBytes, post.videoKey!, post.videoIv!);
+        const decBase64 = bytesToBase64(decBytes);
+        await RNFS.writeFile(tempPath, decBase64, 'base64');
+        await RNFS.unlink(tempPath + '.enc').catch(() => { });
+
+        if (active) setDecryptedVideoPath(`file://${tempPath}`);
+      } catch (err) {
+        console.warn('[Video Decryption Error] Post:', post._id, err);
+        if (active) setDecryptedVideoPath(rawVideoUrl ?? null);
+      } finally {
+        if (active) setIsDecryptingVideo(false);
+      }
+    };
+
+    run();
+    return () => { active = false; };
+  }, [rawVideoUrl, post.videoKey, post.videoIv, post._id, isEncryptedVideo]);
+
+  // Effective video URL: use decrypted local path if encrypted, otherwise direct URL
+  const videoUrl = isEncryptedVideo ? decryptedVideoPath : rawVideoUrl;
+
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes?.length || 0);
   const [saved, setSaved] = useState(
     loggedUser?.savedPosts?.some((id: any) => id?.toString() === post._id?.toString()) || false
   );
   const [menuVisible, setMenuVisible] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [shareVisible, setShareVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const videoRef = useRef(null);
   const isFocused = useIsFocused();
@@ -230,6 +326,12 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   const isOwn = !isAnon && user?._id && loggedUser?._id === user._id;
   const isLocked = post.unlocksAt && new Date(post.unlocksAt) > new Date() && !isOwn;
 
+  const [reactions, setReactions] = useState<any[]>(post.reactions || []);
+
+  useEffect(() => {
+    setReactions(post.reactions || []);
+  }, [post.reactions]);
+
   // ── Broadcast: POST_LIKE_COUNT — emit when this user likes; sync when another card emits
   const toggleLike = useCallback(() => {
     const nextLiked = !liked;
@@ -248,6 +350,12 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
     if (postId === post._id) {
       setLikeCount(count);
       setLiked(incomingLiked);
+    }
+  }, [post._id]));
+
+  useBroadcast('POST_REACTED', useCallback(({ postId, reactions: incomingReactions }) => {
+    if (postId === post._id) {
+      setReactions(incomingReactions);
     }
   }, [post._id]));
 
@@ -289,94 +397,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
     }
   };
 
-  const resolveMediaUrl = (url?: string) => {
-    if (!url) return undefined;
-    if (url.startsWith('http://localhost:5000')) {
-      return url.replace('http://localhost:5000', BASE_URL);
-    }
-    if (url.startsWith('https://localhost:5000')) {
-      return url.replace('https://localhost:5000', BASE_URL);
-    }
-    if (url.startsWith('/')) {
-      return `${BASE_URL}${url}`;
-    }
-    return url;
-  };
 
-  const getFirstImage = () => {
-    if (post.image_urls && post.image_urls.length > 0) {
-      return post.image_urls[0];
-    }
-    return post.image_url;
-  };
-
-  const imageUrl = resolveMediaUrl(getFirstImage());
-  const rawVideoUrl = resolveMediaUrl(post.video);
-  const videoThumbnailUrl = resolveMediaUrl(post.videoThumbnail);
-
-  // ── E2E-encrypted video decryption ──────────────────────────────────────────
-  // New posts uploaded with AES-GCM encryption store the key in post.videoKey
-  // and IV in post.videoIv. We need to fetch, decrypt, and write a temp file.
-  const [decryptedVideoPath, setDecryptedVideoPath] = useState<string | null>(null);
-  const [isDecryptingVideo, setIsDecryptingVideo] = useState(false);
-  const isEncryptedVideo = !!(post.video && post.videoKey && post.videoIv);
-
-  useEffect(() => {
-    if (!isEncryptedVideo || !rawVideoUrl || !post.videoKey || !post.videoIv) {
-      setDecryptedVideoPath(null);
-      return;
-    }
-
-    let active = true;
-    // Use post ID as cache key so we only decrypt once
-    const tempPath = `${RNFS.TemporaryDirectoryPath}/ss_video_${post._id}.mp4`;
-
-    const run = async () => {
-      // Check cache first
-      const exists = await RNFS.exists(tempPath);
-      if (exists) {
-        if (active) setDecryptedVideoPath(`file://${tempPath}`);
-        return;
-      }
-
-      setIsDecryptingVideo(true);
-      try {
-        // Download encrypted blob
-        const downloadRes = await RNFS.downloadFile({
-          fromUrl: rawVideoUrl,
-          toFile: tempPath + '.enc',
-        }).promise;
-
-        if (!active) return;
-
-        // Read as base64
-        const encBase64 = await RNFS.readFile(tempPath + '.enc', 'base64');
-        // Decode to bytes
-        const encBytes = base64ToBytes(encBase64);
-        // Decrypt
-        const decBytes = await decryptAesGcm(encBytes, post.videoKey!, post.videoIv!);
-        // Write decrypted mp4
-        const decBase64 = bytesToBase64(decBytes);
-        await RNFS.writeFile(tempPath, decBase64, 'base64');
-        // Cleanup encrypted file
-        await RNFS.unlink(tempPath + '.enc').catch(() => { });
-
-        if (active) setDecryptedVideoPath(`file://${tempPath}`);
-      } catch (err) {
-        console.warn('[Video Decryption Error] Post:', post._id, err);
-        // Fallback: try direct URL (might fail for encrypted content)
-        if (active) setDecryptedVideoPath(rawVideoUrl ?? null);
-      } finally {
-        if (active) setIsDecryptingVideo(false);
-      }
-    };
-
-    run();
-    return () => { active = false; };
-  }, [rawVideoUrl, post.videoKey, post.videoIv, post._id, isEncryptedVideo]);
-
-  // Effective video URL: use decrypted local path if encrypted, otherwise direct URL
-  const videoUrl = isEncryptedVideo ? decryptedVideoPath : rawVideoUrl;
 
   useEffect(() => {
     if (imageUrl) {
@@ -471,7 +492,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
             style={styles.sparkleBtn}
             onPress={() => setAiTooltipVisible(true)}
           >
-            <MaterialCommunityIcons name="sparkle" size={20} color="#a855f7" />
+            <MaterialCommunityIcons name="creation" size={20} color="#a855f7" />
           </TouchableOpacity>
         ) : null}
 
@@ -498,7 +519,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
               {isDecryptingVideo ? (
                 <View style={[styles.videoPlayOverlay, { flexDirection: 'column', gap: 8 }]}>
                   {videoThumbnailUrl ? (
-                    <Image source={{ uri: videoThumbnailUrl }} style={[StyleSheet.absoluteFillObject]} resizeMode="contain" />
+                    <Image source={{ uri: videoThumbnailUrl }} style={[StyleSheet.absoluteFill]} resizeMode="contain" />
                   ) : null}
                   <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 12, alignItems: 'center', gap: 6 }}>
                     <MaterialCommunityIcons name="lock-open-outline" size={24} color="#808bf5" />
@@ -516,7 +537,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                   }}
                 >
                   <View style={StyleSheet.absoluteFill}>
-                    <Video
+                    <VideoComponent
                       source={{ uri: videoUrl }}
                       style={styles.postVideo}
                       paused={!isPlaying}
@@ -527,7 +548,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                       repeat={true}
                       playInBackground={false}
                       playWhenInactive={false}
-                      onLoad={(data) => {
+                      onLoad={(data: any) => {
                         if (data?.naturalSize?.width && data?.naturalSize?.height) {
                           setAspectRatio(data.naturalSize.width / data.naturalSize.height);
                         }
@@ -535,12 +556,12 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                           setVideoDuration(data.duration);
                         }
                       }}
-                      onProgress={(data) => {
+                      onProgress={(data: any) => {
                         if (!isScrubbing) {
                           setVideoCurrentTime(data.currentTime);
                         }
                       }}
-                      onError={(e) => console.warn('[Video Error] Post:', post._id, e)}
+                      onError={(e: any) => console.warn('[Video Error] Post:', post._id, e)}
                     />
                   </View>
                 </TouchableWithoutFeedback>
@@ -554,7 +575,6 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                       source={{ uri: videoThumbnailUrl }}
                       style={[styles.postVideo, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}
                       resizeMode="cover"
-                      pointerEvents="none"
                     />
                   ) : null}
 
@@ -694,6 +714,50 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
         </View>
       )}
 
+      {/* Reaction breakdown pills */}
+      {reactions && reactions.length > 0 && (
+        <View style={styles.reactionsBreakdown}>
+          {(() => {
+            const reactionGroups = (reactions || []).reduce((acc: any, r: any) => {
+              if (r.emoji !== '❤️') {
+                acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+              }
+              return acc;
+            }, {});
+
+            const myReaction = reactions.find((r: any) => {
+              const rUserId = r.userId?._id?.toString() || r.userId?.toString();
+              const currentUserId = loggedUser?._id?.toString();
+              return r.emoji !== '❤️' && rUserId && currentUserId && rUserId === currentUserId;
+            });
+
+            return Object.entries(reactionGroups).map(([emoji, count]: any) => {
+              const isMine = myReaction?.emoji === emoji;
+              return (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={async () => {
+                    try {
+                      const res = await api.post('/api/post/react', { postId: post._id, emoji });
+                      appChannel.postMessage({ type: 'POST_REACTED', postId: post._id, reactions: res.data.reactions || [] });
+                    } catch (err) {
+                      console.warn('Failed to react:', err);
+                    }
+                  }}
+                  style={[
+                    styles.reactionPill,
+                    isMine && { backgroundColor: 'rgba(128, 139, 245, 0.15)', borderColor: 'rgba(128, 139, 245, 0.3)' }
+                  ]}
+                >
+                  <Text style={styles.reactionPillEmoji}>{emoji}</Text>
+                  <Text style={[styles.reactionPillCount, { color: isMine ? '#808bf5' : subColor }]}>{count}</Text>
+                </TouchableOpacity>
+              );
+            });
+          })()}
+        </View>
+      )}
+
       {/* Footer Actions */}
       <View style={styles.postFooter}>
         <TouchableOpacity style={styles.footerAction} onPress={toggleLike} activeOpacity={0.7}>
@@ -709,6 +773,26 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           )}
         </TouchableOpacity>
 
+        {/* Reaction Action */}
+        <TouchableOpacity
+          style={styles.footerAction}
+          onPress={() => setPickerVisible(true)}
+          activeOpacity={0.7}
+        >
+          {(() => {
+            const myReaction = reactions?.find((r: any) => {
+              const rUserId = r.userId?._id?.toString() || r.userId?.toString();
+              const currentUserId = loggedUser?._id?.toString();
+              return r.emoji !== '❤️' && rUserId && currentUserId && rUserId === currentUserId;
+            });
+            return myReaction ? (
+              <Text style={{ fontSize: 18 }}>{myReaction.emoji}</Text>
+            ) : (
+              <MaterialCommunityIcons name="star-outline" size={22} color={iconColor} />
+            );
+          })()}
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.footerAction}
           activeOpacity={0.7}
@@ -720,6 +804,15 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
               {post.comments.length}
             </Text>
           )}
+        </TouchableOpacity>
+
+        {/* Share Action */}
+        <TouchableOpacity
+          style={styles.footerAction}
+          onPress={() => setShareVisible(true)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="send-outline" size={22} color={iconColor} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -734,6 +827,55 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           />
         </TouchableOpacity>
       </View>
+
+      {/* Share Modal Dialog */}
+      <ShareModal
+        visible={shareVisible}
+        onClose={() => setShareVisible(false)}
+        post={post}
+        myUser={loggedUser}
+      />
+
+      {/* Reaction Picker overlay Modal */}
+      <Modal
+        visible={pickerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setPickerVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.pickerContainer, { backgroundColor: cardBg, borderColor: dividerColor }]}>
+                {[
+                  { emoji: '💡', label: 'Learned' },
+                  { emoji: '🤝', label: 'Respect' },
+                  { emoji: '🚀', label: 'Tried' },
+                  { emoji: '🔖', label: 'Saved' }
+                ].map((reaction) => (
+                  <TouchableOpacity
+                    key={reaction.emoji}
+                    onPress={async () => {
+                      setPickerVisible(false);
+                      try {
+                        const res = await api.post('/api/post/react', { postId: post._id, emoji: reaction.emoji });
+                        appChannel.postMessage({ type: 'POST_REACTED', postId: post._id, reactions: res.data.reactions || [] });
+                      } catch (err) {
+                        console.warn('Failed to react:', err);
+                      }
+                    }}
+                    style={styles.pickerOption}
+                  >
+                    <Text style={{ fontSize: 24, marginBottom: 4 }}>{reaction.emoji}</Text>
+                    <Text style={{ fontSize: 10, color: subColor, fontWeight: 'bold' }}>{reaction.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
  
       {/* AI Dwell Popup / Tooltip Modal */}
       <Modal
@@ -749,7 +891,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
         >
           <View style={[styles.aiSummaryCard, { backgroundColor: isDark ? '#1a1a2e' : '#ffffff' }]}>
             <View style={styles.aiSummaryHeader}>
-              <MaterialCommunityIcons name="sparkle" size={18} color="#a855f7" />
+              <MaterialCommunityIcons name="creation" size={18} color="#a855f7" />
               <Text style={styles.aiSummaryTitle}>AI Summary</Text>
             </View>
             <Text style={[styles.aiSummaryText, { color: textColor }]}>{post.aiSummary}</Text>
@@ -1014,7 +1156,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   scrubOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1038,5 +1184,50 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: '#808bf5',
+  },
+  reactionsBreakdown: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  reactionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 4,
+  },
+  reactionPillEmoji: {
+    fontSize: 12,
+  },
+  reactionPillCount: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    width: screenWidth - 48,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  pickerOption: {
+    alignItems: 'center',
+    padding: 8,
+    flex: 1,
   },
 });

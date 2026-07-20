@@ -8,3 +8,10 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# WebRTC rules
+-keep class org.webrtc.** { *; }
+-dontwarn org.webrtc.**
+-keep class com.oney.WebRTCModule.** { *; }
+-keepclasseswithmembernames,includedescriptorclasses class livekit.org.webrtc.** { native <methods>; }
+-keepclasseswithmembers,includedescriptorclasses class * { @livekit.**.CalledByNative <methods>; }

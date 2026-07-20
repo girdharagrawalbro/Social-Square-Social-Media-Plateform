@@ -62,8 +62,16 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
   setUser: async (user: any) => {
     if (user) {
       await AsyncStorage.setItem('auth_user', JSON.stringify(user));
+      try {
+        const { connectSocket } = require('../../lib/socket');
+        connectSocket(user._id);
+      } catch (e) {}
     } else {
       await AsyncStorage.removeItem('auth_user');
+      try {
+        const { disconnectSocket } = require('../../lib/socket');
+        disconnectSocket();
+      } catch (e) {}
     }
     set({ user });
   },
@@ -92,6 +100,10 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
         const storedUser = JSON.parse(storedUserStr);
         setToken(storedToken);
         set({ user: storedUser, token: storedToken, initialized: true, loading: false });
+        try {
+          const { connectSocket } = require('../../lib/socket');
+          connectSocket(storedUser._id);
+        } catch (e) {}
 
         // Verify session silently in background
         api.get('/api/auth/me')
@@ -223,9 +235,11 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
   logout: async () => {
     try {
       await api.post('/api/auth/logout');
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
+    try {
+      const { disconnectSocket } = require('../../lib/socket');
+      disconnectSocket();
+    } catch (e) {}
     clearToken();
     await clearSecureToken();
     await AsyncStorage.removeItem('auth_user');

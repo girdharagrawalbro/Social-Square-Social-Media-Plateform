@@ -21,10 +21,12 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Video from 'react-native-video';
+const VideoComponent = Video as any;
 import BottomNav from './components/BottomNav';
 import { api, BASE_URL } from '../lib/api';
 import { getCache, setCache, TTL } from '../lib/cache';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { useTabStore } from '../store/zustand/useTabStore';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -70,6 +72,8 @@ function SkeletonSearch() {
 
 export default function ExploreScreen({ navigation }: any) {
   const isDark = useColorScheme() === 'dark';
+  const isFocused = useIsFocused();
+  const { currentTab } = useTabStore();
   const loggedUser = useAuthStore((s: any) => s.user);
 
   // States
@@ -315,7 +319,7 @@ export default function ExploreScreen({ navigation }: any) {
         activeOpacity={0.8}
       >
         {thumbUrl ? (
-          <Image source={{ uri: thumbUrl }} style={styles.gridImage} resizeMode="fill" />
+          <Image source={{ uri: thumbUrl }} style={styles.gridImage} resizeMode="cover" />
         ) : (
           <View style={[styles.gridImage, styles.placeholderGridBg]}>
             <MaterialCommunityIcons name="video" size={30} color="#808bf5" />
@@ -500,7 +504,7 @@ export default function ExploreScreen({ navigation }: any) {
               {aiAnswer && (
                 <View style={{ marginHorizontal: 16, marginBottom: 20, padding: 16, borderRadius: 16, backgroundColor: isDark ? 'rgba(128, 139, 245, 0.15)' : 'rgba(128, 139, 245, 0.08)', borderWidth: 1, borderColor: 'rgba(128, 139, 245, 0.2)' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <MaterialCommunityIcons name="sparkle" size={18} color="#808bf5" />
+                    <MaterialCommunityIcons name="creation" size={18} color="#808bf5" />
                     <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', letterSpacing: 1 }}>AI Answer</Text>
                   </View>
                   <Text style={{ fontSize: 14, lineHeight: 22, color: textColor }}>{aiAnswer}</Text>
@@ -536,7 +540,7 @@ export default function ExploreScreen({ navigation }: any) {
                           <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', marginBottom: 2 }}>#{post.category || post.topic || 'AI'}</Text>
                           <Text style={{ fontSize: 13, color: textColor }} numberOfLines={1}>{post.caption || post.content || '(No content)'}</Text>
                         </View>
-                        <MaterialCommunityIcons name="sparkle" size={16} color={subTextColor} style={{ opacity: 0.5 }} />
+                        <MaterialCommunityIcons name="creation" size={16} color={subTextColor} style={{ opacity: 0.5 }} />
                       </TouchableOpacity>
                     );
                   })}
@@ -679,7 +683,6 @@ export default function ExploreScreen({ navigation }: any) {
             <FlatList
               data={reels}
               pagingEnabled
-              vertical
               showsVerticalScrollIndicator={false}
               keyExtractor={(item) => item._id}
               initialScrollIndex={selectedReelIndex}
@@ -695,7 +698,7 @@ export default function ExploreScreen({ navigation }: any) {
               renderItem={({ item, index }) => (
                 <ReelPlayerItem
                   item={item}
-                  isActive={index === activeReelIndex}
+                  isActive={index === activeReelIndex && isFocused && currentTab === 'explore'}
                   isPreload={index === activeReelIndex + 1 || index === activeReelIndex + 2}
                   muted={muted}
                   setMuted={setMuted}
@@ -724,6 +727,7 @@ export function ReelPlayerItem({
   loggedUser,
   navigation,
   isPreload = false,
+  hideHeader = false,
 }: any) {
   const isFocused = useIsFocused();
   const [liked, setLiked] = useState(
@@ -739,7 +743,7 @@ export function ReelPlayerItem({
   const handleLikeToggle = async () => {
     const nextLiked = !liked;
     setLiked(nextLiked);
-    setLikeCount((prev) => (nextLiked ? prev + 1 : prev - 1));
+    setLikeCount((prev: number) => (nextLiked ? prev + 1 : prev - 1));
 
     try {
       await api.post(`/api/post/${nextLiked ? 'like' : 'unlike'}`, {
@@ -749,7 +753,7 @@ export function ReelPlayerItem({
       console.warn('Failed to like post:', e);
       // rollback
       setLiked(!nextLiked);
-      setLikeCount((prev) => (nextLiked ? prev - 1 : prev + 1));
+      setLikeCount((prev: number) => (nextLiked ? prev - 1 : prev + 1));
     }
   };
 
@@ -774,7 +778,7 @@ export function ReelPlayerItem({
     <TouchableWithoutFeedback onPress={handleDoubleTap}>
       <View style={[styles.reelPlayerContainer, { height }]}>
         {(isActive || isPreload) && item.video ? (
-          <Video
+          <VideoComponent
             source={{ uri: item.video }}
             style={isActive ? StyleSheet.absoluteFill : { width: 0, height: 0, position: 'absolute' }}
             paused={isActive ? (!isPlaying || !isFocused) : true}

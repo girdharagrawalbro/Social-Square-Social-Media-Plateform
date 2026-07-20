@@ -83,7 +83,7 @@ export function getMessagesFromDB(conversationId: string, limit = 50, offset = 0
        LIMIT ? OFFSET ?`,
       [conversationId, limit, offset]
     );
-    const rows = result.rows?._array || [];
+    const rows = (result as any).rows?._array || [];
     // Reverse so oldest is first (chat display order)
     return rows.reverse().map(parseMessageRow);
   } catch (e) {
@@ -100,7 +100,7 @@ export function upsertMessages(messages: any[]): void {
   if (!messages.length) return;
   try {
     const db = getDB();
-    db.transaction((tx) => {
+    db.transaction(async (tx) => {
       for (const msg of messages) {
         tx.execute(
           `INSERT OR REPLACE INTO messages
@@ -209,7 +209,7 @@ export function getDrafts(): any[] {
     const result = getDB().execute(
       `SELECT * FROM draft_posts ORDER BY savedAt DESC`
     );
-    return result.rows?._array || [];
+    return (result as any).rows?._array || [];
   } catch (e) {
     console.warn('[DB] getDrafts error:', e);
     return [];

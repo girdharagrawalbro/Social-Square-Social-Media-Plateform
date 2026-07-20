@@ -617,7 +617,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                             background: (isSharedPost || (message.storyReply && message.storyReply.isShare)) ? 'none' : (isOwn ? 'linear-gradient(135deg, #808bf5 0%, #6366f1 100%)' : 'var(--surface-2)'),
                             color: isOwn ? '#fff' : 'var(--text-main)',
                             borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                            padding: (isSharedPost || (message.storyReply && message.storyReply.isShare)) ? '0' : '10px 14px',
+                            padding: (isSharedPost || (message.storyReply && message.storyReply.isShare)) ? '0' : (message.media?.url ? '5px' : '10px 14px'),
                             fontSize: '14px', lineHeight: 1.5,
                             boxShadow: isSelected && !(isSharedPost || (message.storyReply && message.storyReply.isShare)) ? '0 4px 15px rgba(128,139,245,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
                             border: isSelected ? '1px solid rgba(255,255,255,0.3)' : 'none'

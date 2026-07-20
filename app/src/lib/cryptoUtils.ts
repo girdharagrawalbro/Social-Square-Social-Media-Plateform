@@ -2,6 +2,7 @@
  * Crypto utilities for React Native.
  * Uses @noble/ciphers for AES-GCM decryption (pure JS, no native modules).
  */
+// @ts-ignore
 import { gcm } from '@noble/ciphers/aes';
 
 /**
@@ -9,7 +10,7 @@ import { gcm } from '@noble/ciphers/aes';
  */
 export function base64ToBytes(base64: string): Uint8Array {
   // React Native's global atob works in Hermes
-  const binary = atob(base64);
+  const binary = (globalThis as any).atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
@@ -25,7 +26,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  return btoa(binary);
+  return (globalThis as any).btoa(binary);
 }
 
 /**

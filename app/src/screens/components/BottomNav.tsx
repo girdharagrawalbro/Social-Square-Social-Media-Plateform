@@ -12,6 +12,7 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import { useTabStore } from '../../store/zustand/useTabStore';
 
 const { width } = Dimensions.get('window');
 
@@ -27,11 +28,14 @@ const navItems = [
 
 export default function BottomNav({ currentTab, navigation }: { currentTab: string; navigation: any }) {
   const user = useAuthStore((s: any) => s.user);
+  const { currentTab: storeTab, setTab } = useTabStore();
+  const activeTab = storeTab || currentTab;
+
   const isDark = useColorScheme() === 'dark';
   const itemWidth = width / navItems.length;
 
   // Find the index of the active item
-  const activeIndex = navItems.findIndex((item) => item.key === currentTab);
+  const activeIndex = navItems.findIndex((item) => item.key === activeTab);
 
   // Animated value for sliding pill left offset
   const slideAnim = useRef(new Animated.Value(activeIndex * itemWidth + (itemWidth - 42) / 2)).current;
@@ -45,14 +49,15 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
         stiffness: 120,
       }).start();
     }
-  }, [currentTab, activeIndex]);
+  }, [activeTab, activeIndex]);
 
   const cardBg = isDark ? 'rgba(10, 10, 10, 0.95)' : 'rgba(255, 255, 255, 0.95)';
   const border = isDark ? '#1f2937' : '#e5e7eb';
   const inactiveColor = isDark ? '#9ca3af' : '#6b7280';
 
-  const handlePress = (routeName: string) => {
-    navigation.navigate(routeName);
+  const handlePress = (key: string, routeName: string) => {
+    setTab(key);
+    navigation.navigate('SocialSquare');
   };
 
   return (
@@ -69,12 +74,12 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
 
       {/* Nav Buttons */}
       {navItems.map((item) => {
-        const isActive = item.key === currentTab;
+        const isActive = item.key === activeTab;
         return (
           <TouchableOpacity
             key={item.key}
             style={styles.navButton}
-            onPress={() => handlePress(item.routeName)}
+            onPress={() => handlePress(item.key, item.routeName)}
             activeOpacity={0.8}
           >
             {item.key === 'profile' ? (

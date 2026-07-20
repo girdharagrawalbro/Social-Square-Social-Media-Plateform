@@ -24,6 +24,8 @@ import { getCache, setCache, TTL } from '../../lib/cache';
 import { appChannel } from '../../lib/broadcast';
 import { useBroadcast } from '../../lib/useBroadcast';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import { useLiveStore } from '../../store/zustand/useLiveStore';
+import { useNavigation } from '@react-navigation/native';
 import ShareModal from './ShareModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -42,6 +44,7 @@ interface StoryItem {
     content?: string;
     color?: string;
     position?: 'top' | 'center' | 'bottom';
+    y?: number;
   };
   visibility?: 'public' | 'followers' | 'close_friends';
   createdAt: string;
@@ -51,6 +54,7 @@ interface StoryItem {
       text: string;
       votes: string[];
     }[];
+    y?: number;
   };
   music?: {
     title: string;
@@ -58,6 +62,10 @@ interface StoryItem {
   };
   likes?: string[];
   viewers?: string[];
+  sharedPostId?: any;
+  sharedStoryId?: any;
+  mentions?: any[];
+  viewersCount?: number;
 }
 
 interface GroupedStory {
@@ -77,8 +85,34 @@ const COLOR_OPTIONS = ['#ffffff', '#facc15', '#60a5fa', '#f87171', '#4ade80', '#
 export default function StoriesStrip() {
   const isDark = useColorScheme() === 'dark';
   const myUser = useAuthStore((s: any) => s.user);
+  const { setLiveStream } = useLiveStore();
+  const navigation = useNavigation<any>();
   const [feed, setFeed] = useState<GroupedStory[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeStreams, setActiveStreams] = useState<any[]>([]);
+
+  const fetchActiveStreams = async () => {
+    try {
+      const res = await api.get('/api/live/active');
+      setActiveStreams(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.warn('Failed to fetch active streams:', err);
+    }
+  };
+
+  const handleGoLive = async () => {
+    try {
+      const res = await api.post('/api/live/start', { title: `${myUser?.fullname}'s Live Stream` });
+      const stream = res.data;
+      if (stream?._id) {
+        setLiveStream(stream._id, true);
+        Alert.alert('Success', 'Live stream started successfully!');
+      }
+    } catch (err: any) {
+      console.warn('Failed to start live stream:', err);
+      Alert.alert('Error', err.response?.data?.error || 'Could not start live stream');
+    }
+  };
 
   // Stories player modal state
   const [playerVisible, setPlayerVisible] = useState(false);
@@ -161,6 +195,9 @@ export default function StoriesStrip() {
 
   useEffect(() => {
     fetchStories();
+    fetchActiveStreams();
+    const interval = setInterval(fetchActiveStreams, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   useBroadcast('STORY_CREATED', React.useCallback(() => {
@@ -276,6 +313,10 @@ export default function StoriesStrip() {
               },
             );
           },
+        },
+        {
+          text: 'Go Live 🔴',
+          onPress: handleGoLive,
         },
         { text: 'Cancel', style: 'cancel' },
       ],
@@ -503,6 +544,38 @@ export default function StoriesStrip() {
           </Text>
         </View>
 
+        {/* Active Followings Live Streams */}
+        {activeStreams.map((stream) => {
+          const host = stream.host;
+          if (!host) return null;
+          return (
+            <TouchableOpacity
+              key={stream._id}
+              style={styles.bubbleContainer}
+              onPress={() => setLiveStream(stream._id, false)}
+            >
+              <LinearGradient
+                colors={['#ef4444', '#f43f5e']}
+                style={[styles.gradientBorder, { shadowColor: '#ef4444', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 6 }]}
+              >
+                {host.profile_picture ? (
+                  <Image source={{ uri: host.profile_picture }} style={styles.bubbleAvatar} />
+                ) : (
+                  <View style={styles.bubbleAvatarFallback}>
+                    <Text style={styles.avatarInitial}>{host.fullname[0].toUpperCase()}</Text>
+                  </View>
+                )}
+              </LinearGradient>
+              <View style={styles.liveBadge}>
+                <Text style={styles.liveBadgeText}>LIVE</Text>
+              </View>
+              <Text style={[styles.usernameText, { color: textColorStyle }]} numberOfLines={1}>
+                {host.fullname.split(' ')[0]}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+
         {/* Story Feed list */}
         {feed.map((group, index) => {
           if (group.user._id === myUser?._id) return null; // Skip rendering owner separately
@@ -681,8 +754,8 @@ export default function StoriesStrip() {
                   style={styles.reshareBtn}
                   onPress={() => {
                     setResharedStory(currentStory);
-                    setSelectedUri(currentStory.media?.url || currentStory.mediaUrl);
-                    setMediaType(currentStory.media?.type || currentStory.mediaType || 'image');
+                    setSelectedUri(currentStory.media?.url || currentStory.mediaUrl || null);
+                    setMediaType((currentStory.media?.type || currentStory.mediaType || 'image') as 'image' | 'video');
                     
                     // Music rules: if original has music, pre-fill and lock it!
                     if (currentStory.music) {
@@ -1220,7 +1293,7 @@ export default function StoriesStrip() {
                     {COLOR_OPTIONS.map((c) => (
                       <TouchableOpacity
                         key={c}
-                        style={[styles.colorBubble, { backgroundColor: c }, textColor === c && { borderWidth: 2, borderColor: primaryColor }]}
+                        style={[styles.colorBubble, { backgroundColor: c }, textColor === c && { borderWidth: 2, borderColor: '#808bf5' }]}
                         onPress={() => setTextColor(c)}
                       />
                     ))}
@@ -2056,5 +2129,22 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  liveBadge: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#000000',
+  },
+  liveBadgeText: {
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });

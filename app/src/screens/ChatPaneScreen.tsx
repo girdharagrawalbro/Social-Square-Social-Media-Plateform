@@ -180,6 +180,7 @@ function SwipeableBubble({
               backgroundColor: (isSharedPost || isSharedProfile) ? 'transparent' : isMe ? '#808bf5' : incomingBg,
               borderTopRightRadius: isMe ? 4 : 18,
               borderTopLeftRadius: isMe ? 18 : 4,
+              padding: (item.storyReply || item.media?.url || item.mediaUrl || item.decryptedMediaUrl) ? 5 : undefined,
             }]}>
 
               {isDeleted ? (
@@ -763,11 +764,37 @@ export default function ChatPaneScreen() {
 
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.actionBtn}
-            onPress={() => Alert.alert('Voice Call', 'Coming soon!')}>
+            onPress={() => {
+              if (!conversationId || !recipientId) {
+                Alert.alert('Error', 'Cannot start a call without an active conversation.');
+                return;
+              }
+              navigation.navigate('Call', {
+                conversationId,
+                recipientId,
+                recipientName: title,
+                recipientAvatar,
+                callType: 'voice',
+                isIncoming: false,
+              });
+            }}>
             <MaterialCommunityIcons name="phone-outline" size={20} color={textColor} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn}
-            onPress={() => Alert.alert('Video Call', 'Coming soon!')}>
+            onPress={() => {
+              if (!conversationId || !recipientId) {
+                Alert.alert('Error', 'Cannot start a call without an active conversation.');
+                return;
+              }
+              navigation.navigate('Call', {
+                conversationId,
+                recipientId,
+                recipientName: title,
+                recipientAvatar,
+                callType: 'video',
+                isIncoming: false,
+              });
+            }}>
             <MaterialCommunityIcons name="video-outline" size={22} color={textColor} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn}

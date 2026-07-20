@@ -16,6 +16,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useIsFocused } from '@react-navigation/native';
 import { api } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { useTabStore } from '../store/zustand/useTabStore';
 import BottomNav from './components/BottomNav';
 import { ReelPlayerItem } from './ExploreScreen';
 
@@ -23,6 +24,7 @@ const { height } = Dimensions.get('window');
 
 export default function ReelsScreen({ navigation }: any) {
   const isFocused = useIsFocused();
+  const { currentTab } = useTabStore();
   const loggedUser = useAuthStore((s: any) => s.user);
 
   const [reels, setReels] = useState<any[]>([]);
@@ -74,10 +76,10 @@ export default function ReelsScreen({ navigation }: any) {
   };
 
   useEffect(() => {
-    if (isFocused) {
+    if (isFocused && currentTab === 'reels') {
       fetchReels(true);
     }
-  }, [isFocused]);
+  }, [isFocused, currentTab]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,7 +106,6 @@ export default function ReelsScreen({ navigation }: any) {
         <FlatList
           data={reels}
           pagingEnabled
-          vertical
           showsVerticalScrollIndicator={false}
           keyExtractor={(item) => item._id}
           onMomentumScrollEnd={(e) => {
@@ -128,7 +129,7 @@ export default function ReelsScreen({ navigation }: any) {
           renderItem={({ item, index }) => (
             <ReelPlayerItem
               item={item}
-              isActive={index === activeReelIndex && isFocused}
+              isActive={index === activeReelIndex && isFocused && currentTab === 'reels'}
               isPreload={index === activeReelIndex + 1 || index === activeReelIndex + 2}
               muted={muted}
               setMuted={setMuted}

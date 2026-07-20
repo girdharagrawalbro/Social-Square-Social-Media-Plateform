@@ -100,14 +100,16 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
           isShare: true,
         };
       } else if (post) {
+        const firstImage = post.image_urls?.[0] || post.image_url;
         payload.sharedPost = {
           postId: post._id,
-          mediaUrl: post.media?.url || post.mediaUrl,
-          mediaType: post.media?.type || post.mediaType,
-          caption: post.caption,
           authorName: post.user?.fullname || 'Someone',
-          authorUsername: post.user?.username || 'user',
+          authorUsername: post.user?.username || post.user?.fullname?.toLowerCase().replace(/\s/g, '_') || 'user',
           authorProfilePicture: post.user?.profile_picture,
+          caption: post.caption,
+          mediaUrl: firstImage || post.video,
+          mediaType: post.video ? 'video' : 'image',
+          thumbnailUrl: post.videoThumbnail,
         };
       }
 
@@ -139,7 +141,7 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
         <View style={[styles.content, { backgroundColor: cardBg }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: borderColor }]}>
-            <Text style={[styles.title, { color: textColor }]}>Share Story</Text>
+            <Text style={[styles.title, { color: textColor }]}>{post ? 'Share Post' : 'Share Story'}</Text>
             <TouchableOpacity onPress={onClose}>
               <MaterialCommunityIcons name="close" size={24} color={textColor} />
             </TouchableOpacity>

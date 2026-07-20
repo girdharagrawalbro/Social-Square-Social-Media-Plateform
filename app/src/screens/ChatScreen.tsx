@@ -19,7 +19,7 @@ import useAuthStore from '../store/zustand/useAuthStore';
 import BottomNav from './components/BottomNav';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText } from '../lib/cryptoUtils';
-import { api } from '../lib/api';
+import { api, BASE_URL } from '../lib/api';
 import { getCache, setCache, TTL } from '../lib/cache';
 import { ChatSkeleton } from './components/SkeletonLoader';
 
@@ -28,6 +28,14 @@ interface Participant {
   fullname: string;
   username: string;
   profile_picture?: string;
+  profilePicture?: string;
+  userId?: {
+    _id: string;
+    fullname?: string;
+    username?: string;
+    profile_picture?: string;
+    profilePicture?: string;
+  } | string;
 }
 
 interface Conversation {
@@ -36,9 +44,12 @@ interface Conversation {
   groupName?: string;
   participants: Participant[];
   lastMessage?: {
-    content: string;
-    createdAt: string;
+    content?: string;
+    message?: string;
+    createdAt?: string;
   };
+  lastMessageAt?: string;
+  lastMessageBy?: string;
   unreadCount?: number;
 }
 
@@ -237,14 +248,14 @@ export default function ChatScreen() {
     let displayAvatar = '';
     let recipientId = '';
     if (!item.isGroup) {
-      const other = item.participants.find((p: any) => {
+      const other: any = item.participants.find((p: any) => {
         const id = p.userId?._id || p.userId || p._id;
         return id && String(id) !== String(currentUser?._id);
       });
       if (other) {
         displayTitle = other.userId?.fullname || other.fullname || 'User';
         const avatar = other.userId?.profile_picture || other.userId?.profilePicture || other.profilePicture || other.profile_picture || '';
-        displayAvatar = avatar ? resolveMediaUrl(avatar) : '';
+        displayAvatar = avatar ? (resolveMediaUrl(avatar) || '') : '';
         const extractedId = other.userId?._id || other.userId || other._id;
         recipientId = typeof extractedId === 'object' ? extractedId._id || String(extractedId) : String(extractedId);
       }
