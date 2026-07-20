@@ -3,8 +3,7 @@ name: Deploy Backend to Azure Container Apps
 on:
   push:
     branches:
-      - main
-      - master
+      - production
     paths:
       - 'server/**'
       - '.github/workflows/deploy-backend.yml'
