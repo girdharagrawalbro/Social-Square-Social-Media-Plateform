@@ -1,0 +1,16 @@
+ F [Drive Direct Upload] Failed: Request failed with status code 503
+2026-07-21T13:23:52.8274038Z stderr F [Cloudinary Upload Failed] Falling back to Google Drive: Request failed with status code 503
+2026-07-21T13:23:53.1075705Z stderr F [Upload] error: <!DOCTYPE html>
+2026-07-21T13:23:53.1076179Z stderr F <html lang="en">
+2026-07-21T13:23:53.1076378Z stderr F <head>
+2026-07-21T13:23:53.1076406Z stderr F     <meta charset="UTF-8">
+2026-07-21T13:23:53.1076429Z stderr F     <meta name="viewport" content="width=device-width, initial-scale=1" />
+2026-07-21T13:23:53.1076451Z stderr F     <title>Service Suspended</title>
+2026-07-21T13:23:53.1076474Z stderr F </head>
+2026-07-21T13:23:53.1076496Z stderr F <body>
+2026-07-21T13:23:53.1076519Z stderr F This service has been suspended.
+2026-07-21T13:23:53.1076538Z stderr F </body>
+2026-07-21T13:23:53.1076558Z stderr F </html>
+2026-07-21T13:23:53.1076581Z stderr F 
+2026-07-21T13:23:53.1082307Z stdout F POST /api/media/upload 503 65 - 1355.624 ms
+2026-07-21T13:25:21.08919  No logs since last 60 seconds
