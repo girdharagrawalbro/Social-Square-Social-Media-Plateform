@@ -229,6 +229,7 @@ export function useEditMessage() {
             api.patch(`${BASE}/api/conversation/messages/${messageId}`, { content }),
         onSuccess: (res, { conversationId, messageId }) => {
             updateMessageStatus(conversationId, messageId, { content: res.data.content, edited: true });
+            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
             qc.invalidateQueries({ queryKey: convoKeys.messages(conversationId) });
         },
     });
@@ -244,6 +245,7 @@ export function useDeleteMessage() {
             if (mode === 'me') {
                 deleteSocketMessage(conversationId, messageId);
             }
+            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
             qc.invalidateQueries({ queryKey: convoKeys.messages(conversationId) });
         },
     });
@@ -257,6 +259,7 @@ export function useReactToMessage() {
                 emoji
             }),
         onSuccess: (_, { conversationId }) => {
+            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
             qc.invalidateQueries({ queryKey: convoKeys.messages(conversationId) });
         },
     });
@@ -264,11 +267,13 @@ export function useReactToMessage() {
 
 export function useMarkMessagesRead() {
     const clearUnread = useConversationStore(s => s.clearUnread);
+    const user = useAuthStore(s => s.user);
     return useMutation({
         mutationFn: ({ unreadMessageIds, lastMessage }) =>
             api.post(`${BASE}/api/conversation/messages/mark-read`, { unreadMessageIds, lastMessage }),
         onSuccess: (_, { conversationId }) => {
             if (conversationId) clearUnread(conversationId);
+            if (user?._id) dbService.removeCache(`conversations_${user._id}`).catch(() => {});
         },
     });
 }
@@ -283,6 +288,8 @@ export function useClearChat() {
         onMutate: async (conversationId) => {
             clearSocketMessages(conversationId);
             clearConversationHistory(conversationId);
+            if (user?._id) dbService.removeCache(`conversations_${user._id}`).catch(() => {});
+            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
             const queryKey = convoKeys.list(user?._id);
             await qc.cancelQueries({ queryKey });
             const prev = qc.getQueryData(queryKey);
@@ -316,6 +323,8 @@ export function useDeleteChat() {
         onMutate: async (conversationId) => {
             clearSocketMessages(conversationId);
             removeConversation(conversationId);
+            if (user?._id) dbService.removeCache(`conversations_${user._id}`).catch(() => {});
+            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
             const queryKey = convoKeys.list(user?._id);
             await qc.cancelQueries({ queryKey });
             const prev = qc.getQueryData(queryKey);

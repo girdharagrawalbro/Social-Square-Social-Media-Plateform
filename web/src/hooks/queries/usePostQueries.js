@@ -363,6 +363,7 @@ export function useCreatePost() {
                     ],
                 };
             });
+            clearFeedIndexedDbCache(user?._id);
             qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
             qc.invalidateQueries({ queryKey: postKeys.feed(user?._id) });
         },
@@ -645,6 +646,22 @@ export function useMarkInsightful() {
     });
 }
 
+async function clearFeedIndexedDbCache(userId) {
+    if (!userId) return;
+    try {
+        await Promise.all([
+            dbService.removeCache(`feed_${userId}_all`),
+            dbService.removeCache(`feed_${userId}_quick_take`),
+            dbService.removeCache(`feed_${userId}_deep_dive`),
+            dbService.removeCache(`feed_${userId}_long_read`),
+            dbService.removeCache(`feed_${userId}_null`),
+            dbService.removeCache(`user_posts_${userId}`),
+        ]);
+    } catch (e) {
+        console.warn('Failed to clear feed IndexedDB cache:', e.message);
+    }
+}
+
 export function useDeletePost() {
     const qc = useQueryClient();
     const user = useAuthStore(s => s.user);
@@ -654,12 +671,14 @@ export function useDeletePost() {
         onSuccess: (_, variables) => {
             if (variables?.postId) {
                 const { postId } = variables;
+                clearFeedIndexedDbCache(user?._id);
                 // Remove from all feed caches
                 qc.setQueriesData({ queryKey: postKeys.feed(user?._id) }, (old) => {
                     if (!old) return old;
-                    return { ...old, pages: old.pages.map(page => ({ ...page, posts: page.posts.filter(p => p._id !== postId) })) };
+                    return { ...old, pages: old.pages.map(page => ({ ...page, posts: (page.posts || []).filter(p => p._id !== postId) })) };
                 });
                 qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
+                qc.invalidateQueries({ queryKey: postKeys.feed(user?._id) });
             }
         },
     });
@@ -672,8 +691,10 @@ export function useUpdatePost() {
         mutationFn: ({ postId, caption, category }) =>
             api.put(`${BASE}/api/post/update/${postId}`, { caption, category }),
         onSuccess: (res) => {
+            clearFeedIndexedDbCache(user?._id);
             qc.setQueryData(postKeys.detail(res.data._id), res.data);
             qc.invalidateQueries({ queryKey: postKeys.feed(user?._id) });
+            qc.invalidateQueries({ queryKey: postKeys.userPosts(user?._id) });
         },
     });
 }

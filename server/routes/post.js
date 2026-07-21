@@ -368,9 +368,10 @@ router.post("/create", verifyToken, [
             _io.to(loggedUserId.toString()).emit('levelUpdate', rewards);
         }
 
-        // Detect if this is the user's first post
-        const postCount = await Post.countDocuments({ 'user._id': loggedUserId });
-        const isFirstPost = postCount === 1;
+        // ✅ Invalidate Redis fallback cache
+        if (redis.status !== 'disabled') {
+            redis.del('cache:fallback_posts').catch(() => {});
+        }
 
         res.status(201).json({ ...newPost.toObject(), rewards, isFirstPost });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
@@ -571,6 +572,11 @@ router.delete("/delete/:postId", verifyToken, [
         const decrementUserId = (post.isAnonymous && isOwner) ? userId : post.authorId;
         if (decrementUserId && !post.isAnonymous) {
             await User.findByIdAndUpdate(decrementUserId, { $inc: { postsCount: -1 } });
+        }
+
+        // ✅ Invalidate Redis fallback cache
+        if (redis.status !== 'disabled') {
+            redis.del('cache:fallback_posts').catch(() => {});
         }
 
         // ✅ Notify all users to remove post from feed
