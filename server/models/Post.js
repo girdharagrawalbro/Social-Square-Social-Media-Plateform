@@ -175,13 +175,15 @@ PostSchema.index({ createdAt: -1 });
 PostSchema.index({ score: -1, createdAt: -1 });
 PostSchema.index({ category: 1 });
 PostSchema.index({ 'user._id': 1 });
+PostSchema.index({ user: 1 });
 PostSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, sparse: true });
 
 // Optimal Compound Indexes
 PostSchema.index({ 'user._id': 1, createdAt: -1 });   // User posts feed
+PostSchema.index({ user: 1, createdAt: -1 });         // Legacy User object reference feed
 PostSchema.index({ category: 1, createdAt: -1 });      // Category filtering
 PostSchema.index({ isAnonymous: 1, score: -1 });       // Confessions feed
-PostSchema.index({ deletedAt: 1, isVisible: 1, createdAt: -1 }); // Main feed
+PostSchema.index({ deletedAt: 1, isVisible: 1, isAnonymous: 1, createdAt: -1 }); // Recommendation feed candidate filtering
 PostSchema.index({ groupId: 1, createdAt: -1 });       // Group posts
 
 module.exports = mongoose.model('Post', PostSchema);

@@ -2334,15 +2334,25 @@ router.post('/close-friends/:userId/toggle', verifyToken, async (req, res) => {
         const user = await User.findById(loggedUserId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const isCloseFriend = user.closeFriends?.includes(userId);
+        const isCloseFriend = (user.closeFriends || []).some(id => id.toString() === userId.toString());
+        let updatedUser;
         if (isCloseFriend) {
-            await User.findByIdAndUpdate(loggedUserId, { $pull: { closeFriends: userId } });
-            res.status(200).json({ isCloseFriend: false });
+            updatedUser = await User.findByIdAndUpdate(
+                loggedUserId,
+                { $pull: { closeFriends: userId } },
+                { new: true }
+            ).select('-password');
+            res.status(200).json({ isCloseFriend: false, closeFriends: updatedUser.closeFriends });
         } else {
-            await User.findByIdAndUpdate(loggedUserId, { $addToSet: { closeFriends: userId } });
-            res.status(200).json({ isCloseFriend: true });
+            updatedUser = await User.findByIdAndUpdate(
+                loggedUserId,
+                { $addToSet: { closeFriends: userId } },
+                { new: true }
+            ).select('-password');
+            res.status(200).json({ isCloseFriend: true, closeFriends: updatedUser.closeFriends });
         }
     } catch (error) {
+        console.error('[Close Friends Toggle Error]:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });

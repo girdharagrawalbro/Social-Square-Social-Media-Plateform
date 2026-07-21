@@ -876,7 +876,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
         </TouchableWithoutFeedback>
       </Modal>
 
- 
+
       {/* AI Dwell Popup / Tooltip Modal */}
       <Modal
         animationType="fade"

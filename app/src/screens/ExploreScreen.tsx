@@ -394,6 +394,38 @@ export default function ExploreScreen({ navigation }: any) {
             </TouchableOpacity>
           )}
         </View>
+
+        {!isSearchActive && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 10 }}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Pulse')}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : '#fce7f3',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <MaterialCommunityIcons name="flash" size={20} color="#ec4899" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Knowledge')}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: isDark ? 'rgba(128, 139, 245, 0.15)' : '#f0f2fe',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <MaterialCommunityIcons name="book-open-variant" size={20} color="#808bf5" />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Main Content Area */}

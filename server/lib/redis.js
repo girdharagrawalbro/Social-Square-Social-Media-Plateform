@@ -149,14 +149,19 @@ if (isDisabled) {
 } else {
     redis = new IORedis(redisUrl, {
         maxRetriesPerRequest: null,
+        enableReadyCheck: true,
+        keepAlive: 10000,
         retryStrategy: (times) => {
-            const MAX_ATTEMPTS = 5;
-            if (times > MAX_ATTEMPTS) {
-                console.error('[Redis] Max retry attempts reached. Connection failed.');
-                return null;
-            }
-            return Math.min(times * 50, 2000);
+            const delay = Math.min(times * 100, 3000);
+            return delay;
         },
+        reconnectOnError: (err) => {
+            const targetError = 'READONLY';
+            if (err.message.includes(targetError)) {
+                return true;
+            }
+            return 1;
+        }
     });
 
     // Intercept all outgoing commands for logging

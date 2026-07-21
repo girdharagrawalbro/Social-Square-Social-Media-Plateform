@@ -149,9 +149,11 @@ export default function LoginScreen({ navigation }: any) {
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                <Text style={{ color: '#808bf5', fontWeight: 'bold' }}>
-                  {showPassword ? 'Hide' : 'Show'}
-                </Text>
+                <MaterialCommunityIcons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={isDark ? '#9ca3af' : '#6b7280'}
+                />
               </TouchableOpacity>
             </View>
 
