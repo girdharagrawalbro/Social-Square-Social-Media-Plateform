@@ -4,6 +4,12 @@ const router = express.Router();
 const axios = require('../utils/http');
 const verifyToken = require('../middleware/Verifytoken');
 const User = require('../models/User');
+const driveService = require('../services/drive.service');
+const {
+    uploadBase64,
+    uploadFromUrl,
+    generateSignature
+} = require('../services/cloudinary.service');
 
 const UPLOAD_API_BASE_URL = process.env.UPLOAD_API_BASE_URL;
 const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL;
@@ -29,11 +35,89 @@ async function getStandardizedFolder(req) {
     return `SocialSquare/${userFolder}/${folderType || 'misc'}`;
 }
 
-const {
-    uploadBase64,
-    uploadFromUrl,
-    generateSignature
-} = require('../services/cloudinary.service');
+// Helper to extract a human-readable error string, sanitizing HTML status pages (e.g., 503 "Service Suspended")
+function getCleanErrorMessage(error) {
+    if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+            if (error.response.data.includes('This service has been suspended')) {
+                return `External upload microservice suspended (HTTP ${error.response.status || 503})`;
+            }
+            if (error.response.data.includes('<html') || error.response.data.includes('<!DOCTYPE')) {
+                return `External upload microservice returned HTTP ${error.response.status || 500} error page`;
+            }
+            return error.response.data;
+        }
+        if (error.response.data.message) {
+            return error.response.data.message;
+        }
+    }
+    return error.message || 'Upload failed';
+}
+
+// Priority #1: Local server Google Drive service. Priority #2: External microservice.
+async function performDriveUpload(fileData, fileName, folder) {
+    // 1. Try local server in-process driveService FIRST
+    try {
+        return await driveService.uploadBase64(fileData, { name: fileName, folder });
+    } catch (inProcessErr) {
+        console.warn('[In-Process Google Drive Upload Failed]:', inProcessErr.message);
+        
+        // 2. Fall back to external microservice if configured
+        if (GDRIVE_API_BASE_URL) {
+            console.warn('Falling back to Google Drive microservice...');
+            try {
+                const driveResponse = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
+                    file: fileData,
+                    name: fileName,
+                    folder
+                });
+                if (driveResponse.data && driveResponse.data.success) {
+                    return driveResponse.data.data;
+                }
+                throw new Error(driveResponse.data?.message || 'Drive microservice upload failed');
+            } catch (microserviceErr) {
+                const cleanMsg = getCleanErrorMessage(microserviceErr);
+                console.error('[Drive Microservice Upload Failed]:', cleanMsg);
+                throw new Error(cleanMsg);
+            }
+        }
+        
+        throw inProcessErr;
+    }
+}
+
+// Priority #1: Local server Cloudinary service. Priority #2: External microservice.
+async function performCloudinaryUpload(fileData, folder, resourceType) {
+    // 1. Try local server in-process Cloudinary upload FIRST
+    try {
+        return await uploadBase64(fileData, { folder, resource_type: resourceType });
+    } catch (inProcessErr) {
+        console.warn('[In-Process Cloudinary Upload Failed]:', inProcessErr.message);
+
+        // 2. Fall back to external microservice if configured
+        if (UPLOAD_API_BASE_URL) {
+            console.warn('Falling back to Cloudinary upload microservice...');
+            try {
+                const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
+                    file: fileData,
+                    folder,
+                    resourceType,
+                });
+                if (response.data && response.data.data) {
+                    return response.data.data;
+                }
+                if (response.data && response.data.public_id) {
+                    return response.data;
+                }
+            } catch (microserviceErr) {
+                const cleanMsg = getCleanErrorMessage(microserviceErr);
+                console.warn(`[Cloudinary Microservice Failed: ${cleanMsg}]`);
+            }
+        }
+
+        throw inProcessErr;
+    }
+}
 
 router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     try {
@@ -58,39 +142,25 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
 
         if (isGenericFile) {
             try {
-                const driveResponse = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
-                    file: base64File,
-                    name: req.file.originalname,
-                    folder
+                const fileData = await performDriveUpload(base64File, req.file.originalname, folder);
+                return res.status(200).json({
+                    success: true,
+                    url: fileData.webContentLink || fileData.webViewLink || `https://drive.google.com/file/d/${fileData.fileId}/view`,
+                    fileId: fileData.fileId,
+                    source: 'drive'
                 });
-
-                if (driveResponse.data && driveResponse.data.success) {
-                    const fileData = driveResponse.data.data;
-                    return res.status(200).json({
-                        success: true,
-                        url: fileData.webContentLink || fileData.webViewLink || `https://drive.google.com/file/d/${fileData.fileId}/view`,
-                        fileId: fileData.fileId,
-                        source: 'drive'
-                    });
-                }
             } catch (driveErr) {
                 console.error('[Drive Direct Upload] Failed:', driveErr.message);
+                return res.status(500).json({
+                    success: false,
+                    message: `Generic file upload failed: ${driveErr.message}`
+                });
             }
         }
 
-        // Direct in-process Cloudinary Upload (or microservice fallback if UPLOAD_API_BASE_URL is set)
+        // Direct Cloudinary Upload (local server first, microservice second)
         try {
-            let resultData;
-            if (UPLOAD_API_BASE_URL) {
-                const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
-                    file: base64File,
-                    folder,
-                    resourceType,
-                });
-                resultData = response.data.data;
-            } else {
-                resultData = await uploadBase64(base64File, { folder, resource_type: resourceType });
-            }
+            const resultData = await performCloudinaryUpload(base64File, folder, resourceType);
 
             console.log('[Upload] Cloudinary success:', resultData.public_id);
 
@@ -103,30 +173,25 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
         } catch (cloudinaryError) {
             console.warn('[Cloudinary Upload Failed] Falling back to Google Drive:', cloudinaryError.message);
 
-            // Fallback to Google Drive
-            const driveResponse = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
-                file: base64File,
-                name: req.file.originalname,
-                folder
-            });
-
-            if (driveResponse.data && driveResponse.data.success) {
-                const fileData = driveResponse.data.data;
+            try {
+                const fileData = await performDriveUpload(base64File, req.file.originalname, folder);
                 return res.status(200).json({
                     success: true,
                     url: fileData.webContentLink || fileData.webViewLink || `https://drive.google.com/file/d/${fileData.fileId}/view`,
                     fileId: fileData.fileId,
                     source: 'drive'
                 });
+            } catch (driveErr) {
+                console.error('[Google Drive Fallback Failed]:', driveErr.message);
+                throw new Error(`Upload failed on all services. Cloudinary: ${cloudinaryError.message} | Drive: ${driveErr.message}`);
             }
-
-            throw cloudinaryError; // Re-throw if both failed
         }
     } catch (error) {
-        console.error('[Upload] error:', error.response?.data || error.message);
+        const cleanMessage = getCleanErrorMessage(error);
+        console.error('[Upload] error:', cleanMessage);
         res.status(error.response?.status || 500).json({
             success: false,
-            message: error.response?.data?.message || error.message || 'Something went wrong. Please try again.',
+            message: cleanMessage,
         });
     }
 });
@@ -138,18 +203,26 @@ router.post('/upload-base64', verifyToken, async (req, res) => {
         const folder = await getStandardizedFolder(req);
 
         let data;
-        if (UPLOAD_API_BASE_URL) {
-            const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
-                file, folder, resourceType, start_offset, end_offset
-            });
-            data = response.data;
-        } else {
+        // Priority #1: Local server in-process Cloudinary
+        try {
             const result = await uploadBase64(file, { folder, resource_type: resourceType || 'auto', start_offset, end_offset });
             data = { success: true, data: result };
+        } catch (inProcessErr) {
+            console.warn('[In-process upload-base64 failed]:', inProcessErr.message);
+            if (UPLOAD_API_BASE_URL) {
+                console.warn('Falling back to upload microservice for base64...');
+                const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
+                    file, folder, resourceType, start_offset, end_offset
+                });
+                data = response.data;
+            } else {
+                throw inProcessErr;
+            }
         }
         res.status(200).json(data);
     } catch (error) {
-        res.status(error.response?.status || 500).json({ success: false, message: error.message });
+        const cleanMessage = getCleanErrorMessage(error);
+        res.status(error.response?.status || 500).json({ success: false, message: cleanMessage });
     }
 });
 
@@ -160,18 +233,26 @@ router.post('/upload-url', verifyToken, async (req, res) => {
         const folder = await getStandardizedFolder(req);
 
         let data;
-        if (UPLOAD_API_BASE_URL) {
-            const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-url`, {
-                url, folder, resourceType
-            });
-            data = response.data;
-        } else {
+        // Priority #1: Local server in-process Cloudinary
+        try {
             const result = await uploadFromUrl(url, { folder, resource_type: resourceType || 'image' });
             data = { success: true, data: result };
+        } catch (inProcessErr) {
+            console.warn('[In-process upload-url failed]:', inProcessErr.message);
+            if (UPLOAD_API_BASE_URL) {
+                console.warn('Falling back to upload microservice for URL...');
+                const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-url`, {
+                    url, folder, resourceType
+                });
+                data = response.data;
+            } else {
+                throw inProcessErr;
+            }
         }
         res.status(200).json(data);
     } catch (error) {
-        res.status(error.response?.status || 500).json({ success: false, message: error.message });
+        const cleanMessage = getCleanErrorMessage(error);
+        res.status(error.response?.status || 500).json({ success: false, message: cleanMessage });
     }
 });
 
@@ -185,12 +266,10 @@ router.post('/sign', verifyToken, async (req, res) => {
         const result = generateSignature(timestamp, folder || userFolder);
         res.status(200).json(result);
     } catch (error) {
-        console.error('Signature Generation Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Signature Generation Error:', getCleanErrorMessage(error));
+        res.status(500).json({ success: false, message: getCleanErrorMessage(error) });
     }
 });
-
-const driveService = require('../services/drive.service');
 
 // ─── GOOGLE DRIVE API ─────────────────────────────────────────────────────────
 router.post('/drive/upload', verifyToken, async (req, res) => {
@@ -198,20 +277,14 @@ router.post('/drive/upload', verifyToken, async (req, res) => {
         const { file, name, folder } = req.body;
         if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
 
-        let data;
-        if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID && (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_REFRESH_TOKEN)) {
-            const fileData = await driveService.uploadBase64(file, { folder, name });
-            data = { success: true, data: fileData };
-        } else {
-            const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, { file, name, folder });
-            data = response.data;
-        }
-        res.status(200).json(data);
+        const fileData = await performDriveUpload(file, name, folder);
+        res.status(200).json({ success: true, data: fileData });
     } catch (error) {
-        console.error('[Drive Upload Error]:', error.response?.data || error.message);
+        const cleanMessage = getCleanErrorMessage(error);
+        console.error('[Drive Upload Error]:', cleanMessage);
         res.status(error.response?.status || 500).json({
             success: false,
-            message: error.response?.data?.message || error.message
+            message: cleanMessage
         });
     }
 });
@@ -222,19 +295,27 @@ router.post('/drive/upload-url', verifyToken, async (req, res) => {
         if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
 
         let data;
-        if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID && (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_REFRESH_TOKEN)) {
+        // Priority #1: Local server in-process Drive
+        try {
             const fileData = await driveService.uploadFromUrl(url, { folder, name });
             data = { success: true, data: fileData };
-        } else {
-            const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload-url`, { url, folder, name });
-            data = response.data;
+        } catch (inProcessErr) {
+            console.warn('[In-process Drive uploadFromUrl failed]:', inProcessErr.message);
+            if (GDRIVE_API_BASE_URL) {
+                console.warn('Falling back to Drive microservice for upload-url...');
+                const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload-url`, { url, folder, name });
+                data = response.data;
+            } else {
+                throw inProcessErr;
+            }
         }
         res.status(200).json(data);
     } catch (error) {
-        console.error('[Drive Upload URL Error]:', error.response?.data || error.message);
+        const cleanMessage = getCleanErrorMessage(error);
+        console.error('[Drive Upload URL Error]:', cleanMessage);
         res.status(error.response?.status || 500).json({
             success: false,
-            message: error.response?.data?.message || error.message
+            message: cleanMessage
         });
     }
 });
@@ -243,19 +324,27 @@ router.get('/drive/file/:fileId', verifyToken, async (req, res) => {
     try {
         const { fileId } = req.params;
         let data;
-        if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID && (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_REFRESH_TOKEN)) {
+        // Priority #1: Local server in-process Drive
+        try {
             const fileData = await driveService.getFile(fileId);
             data = { success: true, data: fileData };
-        } else {
-            const response = await axios.get(`${GDRIVE_API_BASE_URL}/api/drive/file/${fileId}`);
-            data = response.data;
+        } catch (inProcessErr) {
+            console.warn('[In-process Drive getFile failed]:', inProcessErr.message);
+            if (GDRIVE_API_BASE_URL) {
+                console.warn('Falling back to Drive microservice for getFile...');
+                const response = await axios.get(`${GDRIVE_API_BASE_URL}/api/drive/file/${fileId}`);
+                data = response.data;
+            } else {
+                throw inProcessErr;
+            }
         }
         res.status(200).json(data);
     } catch (error) {
-        console.error('[Drive Get File Error]:', error.response?.data || error.message);
+        const cleanMessage = getCleanErrorMessage(error);
+        console.error('[Drive Get File Error]:', cleanMessage);
         res.status(error.response?.status || 500).json({
             success: false,
-            message: error.response?.data?.message || error.message
+            message: cleanMessage
         });
     }
 });
