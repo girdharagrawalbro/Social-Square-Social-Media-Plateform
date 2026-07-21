@@ -126,7 +126,15 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
         }
 
         const folder = await getStandardizedFolder(req);
-        const resourceType = req.body.resourceType === 'video' ? 'video' : (req.body.resourceType || 'auto');
+
+        let resourceType = req.body.resourceType;
+        if (!resourceType) {
+            if (req.file.mimetype.startsWith('video/')) resourceType = 'video';
+            else if (req.file.mimetype.startsWith('image/')) resourceType = 'image';
+            else if (req.file.mimetype.startsWith('audio/')) resourceType = 'video';
+            else resourceType = 'raw';
+        }
+
         const limit = resourceType === 'video' ? VIDEO_MAX : IMAGE_MAX;
 
         if (req.file.size > limit) {
@@ -135,44 +143,22 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
 
         const base64File = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
-        // If generic non-media file, route directly to Google Drive
-        const isGenericFile = !req.file.mimetype.startsWith('image/') &&
-            !req.file.mimetype.startsWith('video/') &&
-            !req.file.mimetype.startsWith('audio/');
-
-        if (isGenericFile) {
-            try {
-                const fileData = await performDriveUpload(base64File, req.file.originalname, folder);
-                return res.status(200).json({
-                    success: true,
-                    url: fileData.webContentLink || fileData.webViewLink || `https://drive.google.com/file/d/${fileData.fileId}/view`,
-                    fileId: fileData.fileId,
-                    source: 'drive'
-                });
-            } catch (driveErr) {
-                console.error('[Drive Direct Upload] Failed:', driveErr.message);
-                return res.status(500).json({
-                    success: false,
-                    message: `Generic file upload failed: ${driveErr.message}`
-                });
-            }
-        }
-
-        // Direct Cloudinary Upload (local server first, microservice second)
+        // 1. Try Cloudinary Upload FIRST (local server direct Cloudinary upload first, microservice second)
         try {
             const resultData = await performCloudinaryUpload(base64File, folder, resourceType);
 
-            console.log('[Upload] Cloudinary success:', resultData.public_id);
+            console.log('[Upload] Cloudinary success:', resultData.public_id || resultData.url);
 
             return res.status(200).json({
                 success: true,
-                url: resultData.secure_url,
+                url: resultData.secure_url || resultData.url,
                 publicId: resultData.public_id,
                 data: resultData
             });
         } catch (cloudinaryError) {
             console.warn('[Cloudinary Upload Failed] Falling back to Google Drive:', cloudinaryError.message);
 
+            // 2. Fall back to Google Drive (local server direct Drive upload first, microservice second)
             try {
                 const fileData = await performDriveUpload(base64File, req.file.originalname, folder);
                 return res.status(200).json({

@@ -38,6 +38,12 @@ async function uploadBase64(fileData, options = {}) {
                 uploadOptions.resource_type = 'video';
             } else if (mimeType.startsWith('image/')) {
                 uploadOptions.resource_type = 'image';
+            } else if (mimeType.startsWith('audio/')) {
+                uploadOptions.resource_type = 'video';
+            } else if (options.resource_type) {
+                uploadOptions.resource_type = options.resource_type;
+            } else {
+                uploadOptions.resource_type = 'auto';
             }
             
             const buffer = Buffer.from(base64Content, 'base64');

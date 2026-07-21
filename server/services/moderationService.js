@@ -113,6 +113,12 @@ async function classifyToxicity(text) {
 async function checkImageNudity(imageUrl) {
     if (!imageUrl) return { isSafe: true, reason: null, action: 'none' };
     
+    // Encrypted files and raw binary payloads cannot be parsed by external image moderation APIs
+    if (imageUrl.includes('/raw/upload/')) {
+        console.log('[Moderation Image]: Skipping Sightengine for raw/encrypted media payload.');
+        return { isSafe: true, reason: null, action: 'none' };
+    }
+
     const apiUser = process.env.SIGHTENGINE_API_USER;
     const apiSecret = process.env.SIGHTENGINE_API_SECRET;
     

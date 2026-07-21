@@ -2,8 +2,12 @@
 // Uses OAuth2 client for Google Drive API operations in Social Square backend
 // ──────────────────────────────────────────────────────────────────────────────
 
+let _auth = null;
+let _drive = null;
+
 function getAuth() {
     if (_auth) return _auth;
+
     const { google } = require('googleapis');
 
     const oauth2Client = new google.auth.OAuth2(
@@ -21,6 +25,8 @@ function getAuth() {
 
 function getDrive() {
     if (_drive) return _drive;
+
+    const { google } = require('googleapis');
     _drive = google.drive({ version: 'v3', auth: getAuth() });
     return _drive;
 }

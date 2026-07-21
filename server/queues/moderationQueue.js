@@ -31,7 +31,13 @@ const processModerationJob = async (jobData) => {
         }
         const uniqueImages = [...new Set(images)];
 
+        const isEncryptedPost = (content.mediaKeys && content.mediaKeys.length > 0) || content.videoKey || content.voiceNoteKey;
+
         for (const imageUrl of uniqueImages) {
+            if (isEncryptedPost || imageUrl.includes('/raw/upload/')) {
+                console.log(`[ModerationWorker] Skipping image moderation for encrypted/raw file: ${imageUrl}`);
+                continue;
+            }
             console.log(`[ModerationWorker] Moderating image: ${imageUrl}`);
             const imgMod = await checkImageNudity(imageUrl);
             

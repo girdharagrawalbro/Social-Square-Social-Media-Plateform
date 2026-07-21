@@ -179,10 +179,41 @@ router.get("/posts", verifyToken, async (req, res) => {
         const restrictedObjectIds = privateUserIds
             .map(id => { try { return new mongoose.Types.ObjectId(id); } catch { return null; } })
             .filter(Boolean);
-        if (selfObjectId) restrictedObjectIds.push(selfObjectId);
+        // Note: Do NOT push selfObjectId to restrictedObjectIds so logged-in user's own posts are included in their feed
 
         const baseUserExclusion = {
             $nin: restrictedObjectIds
+        };
+
+        // Helper to ensure user's own recent posts (last 24h) appear at top of page 1 feed
+        const ensureUserOwnRecentPostsFirst = async (feedList) => {
+            if (cursor || !userId || !selfObjectId) return feedList;
+            try {
+                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const userOwnPosts = await Post.find({
+                    $or: [
+                        { "user._id": selfObjectId },
+                        { "user": selfObjectId }
+                    ],
+                    isVisible: { $ne: false },
+                    deletedAt: null,
+                    createdAt: { $gte: oneDayAgo }
+                })
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
+                .populate('mentions', 'username fullname')
+                .lean();
+
+                if (!userOwnPosts || userOwnPosts.length === 0) return feedList;
+
+                const existingIds = new Set(feedList.map(p => p._id.toString()));
+                const toAdd = userOwnPosts.filter(p => !existingIds.has(p._id.toString()));
+
+                return [...toAdd, ...feedList];
+            } catch (err) {
+                return feedList;
+            }
         };
 
         const candidatesQuery = {
@@ -257,7 +288,7 @@ router.get("/posts", verifyToken, async (req, res) => {
                 trendingCold = candidates;
             }
 
-            const coldResult = diversifyResults(trendingCold, 20, 3, 1);
+            const coldResult = await ensureUserOwnRecentPostsFirst(diversifyResults(trendingCold, 20, 3, 1));
             return res.json({ items: coldResult, nextCursor, hasMore, isColdStart: true });
         }
 
@@ -313,7 +344,7 @@ router.get("/posts", verifyToken, async (req, res) => {
         console.log(`${_tag} [6] ✅ Ranked ${ranked.length} posts in ${Date.now() - rankStart}ms`);
 
         // P3: Diversity injection — cap per-category and per-user
-        const result = diversifyResults(ranked, 20, 4, 2);
+        const result = await ensureUserOwnRecentPostsFirst(diversifyResults(ranked, 20, 4, 2));
 
         const elapsed = Date.now() - _t0;
         console.log(`${_tag} ✅ SUCCESS — returning ${result.length} posts in ${elapsed}ms`);
