@@ -6,6 +6,7 @@ const verifyToken = require('../middleware/Verifytoken');
 const User = require('../models/User');
 
 const UPLOAD_API_BASE_URL = process.env.UPLOAD_API_BASE_URL;
+const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL;
 
 const IMAGE_MAX = 20 * 1024 * 1024;
 const VIDEO_MAX = 100 * 1024 * 1024;

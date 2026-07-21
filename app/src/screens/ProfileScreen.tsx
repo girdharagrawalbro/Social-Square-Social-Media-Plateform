@@ -68,55 +68,55 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isRequested, setIsRequested] = useState(false);
 
-const MOODS = [
-  { key: null, label: 'None (Default Feed)' },
-  { key: 'happy', emoji: '😊', label: 'Happy' },
-  { key: 'excited', emoji: '🤩', label: 'Excited' },
-  { key: 'funny', emoji: '😂', label: 'Funny' },
-  { key: 'romantic', emoji: '❤️', label: 'Romantic' },
-  { key: 'inspirational', emoji: '💪', label: 'Inspire' },
-  { key: 'calm', emoji: '😌', label: 'Calm' },
-  { key: 'nostalgic', emoji: '🥹', label: 'Nostalgia' },
-  { key: 'sad', emoji: '😢', label: 'Sad' },
-];
+  const MOODS = [
+    { key: null, label: 'None (Default Feed)' },
+    { key: 'happy', emoji: '😊', label: 'Happy' },
+    { key: 'excited', emoji: '🤩', label: 'Excited' },
+    { key: 'funny', emoji: '😂', label: 'Funny' },
+    { key: 'romantic', emoji: '❤️', label: 'Romantic' },
+    { key: 'inspirational', emoji: '💪', label: 'Inspire' },
+    { key: 'calm', emoji: '😌', label: 'Calm' },
+    { key: 'nostalgic', emoji: '🥹', label: 'Nostalgia' },
+    { key: 'sad', emoji: '😢', label: 'Sad' },
+  ];
 
-// ─── MOOD SELECT MODAL COMPONENT ─────────────────────────────────────────────
+  // ─── MOOD SELECT MODAL COMPONENT ─────────────────────────────────────────────
 
-// Edit Profile States
-const [editVisible, setEditVisible] = useState(false);
-const [fullnameInput, setFullnameInput] = useState('');
-const [usernameInput, setUsernameInput] = useState('');
-const [bioInput, setBioInput] = useState('');
-const [profilePicInput, setProfilePicInput] = useState('');
-const [preferredMoodInput, setPreferredMoodInput] = useState<string | null>(null);
-const [isPrivateInput, setIsPrivateInput] = useState(false);
-const [uploadingPic, setUploadingPic] = useState(false);
-const [moodModalVisible, setMoodModalVisible] = useState(false);
-const [savingProfile, setSavingProfile] = useState(false);
-const [settingsVisible, setSettingsVisible] = useState(false);
+  // Edit Profile States
+  const [editVisible, setEditVisible] = useState(false);
+  const [fullnameInput, setFullnameInput] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [bioInput, setBioInput] = useState('');
+  const [profilePicInput, setProfilePicInput] = useState('');
+  const [preferredMoodInput, setPreferredMoodInput] = useState<string | null>(null);
+  const [isPrivateInput, setIsPrivateInput] = useState(false);
+  const [uploadingPic, setUploadingPic] = useState(false);
+  const [moodModalVisible, setMoodModalVisible] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
-const [followsModalVisible, setFollowsModalVisible] = useState(false);
-const [followsType, setFollowsType] = useState<'followers' | 'following'>('followers');
-const [followsList, setFollowsList] = useState<any[]>([]);
-const [loadingFollows, setLoadingFollows] = useState(false);
+  const [followsModalVisible, setFollowsModalVisible] = useState(false);
+  const [followsType, setFollowsType] = useState<'followers' | 'following'>('followers');
+  const [followsList, setFollowsList] = useState<any[]>([]);
+  const [loadingFollows, setLoadingFollows] = useState(false);
 
-const openFollowsModal = async (type: 'followers' | 'following') => {
-  const targetId = targetUserId || user?._id;
-  if (!targetId) return;
-  setFollowsType(type);
-  setFollowsModalVisible(true);
-  setLoadingFollows(true);
-  try {
-    const res = await api.get(`/api/auth/${type}/${targetId}?limit=50`);
-    setFollowsList(res?.data?.users || []);
-  } catch (err: any) {
-    console.warn(`Fetch ${type} error:`, err);
-    Alert.alert('Error', err.response?.data?.message || `Failed to load ${type}`);
-    setFollowsList([]);
-  } finally {
-    setLoadingFollows(false);
-  }
-};
+  const openFollowsModal = async (type: 'followers' | 'following') => {
+    const targetId = targetUserId || user?._id;
+    if (!targetId) return;
+    setFollowsType(type);
+    setFollowsModalVisible(true);
+    setLoadingFollows(true);
+    try {
+      const res = await api.get(`/api/auth/${type}/${targetId}?limit=50`);
+      setFollowsList(res?.data?.users || []);
+    } catch (err: any) {
+      console.warn(`Fetch ${type} error:`, err);
+      Alert.alert('Error', err.response?.data?.message || `Failed to load ${type}`);
+      setFollowsList([]);
+    } finally {
+      setLoadingFollows(false);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'goals' | 'graveyard' | 'saved' | 'collabs' | 'analytics'>('posts');
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
@@ -1024,7 +1024,7 @@ const openFollowsModal = async (type: 'followers' | 'following') => {
               <View style={{ alignItems: 'center', marginVertical: 8 }}>
                 <View style={{ position: 'relative' }}>
                   <Image
-                    source={{ uri: profilePicInput || USER_DEFAULT_IMAGE }}
+                    source={{ uri: profilePicInput || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150' }}
                     style={{ width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: border }}
                   />
                   <TouchableOpacity
@@ -1206,6 +1206,7 @@ const openFollowsModal = async (type: 'followers' | 'following') => {
             </ScrollView>
           </View>
         </View>
+      </Modal>
       {/* Followers / Following List Modal */}
       <Modal
         visible={followsModalVisible}
