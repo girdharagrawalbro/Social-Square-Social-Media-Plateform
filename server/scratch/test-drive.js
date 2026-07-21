@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 async function testDrive() {
-  const GDRIVE_API_BASE_URL = 'https://gdrive-lr06.onrender.com';
+  const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL;
   console.log('Testing GDrive microservice:', GDRIVE_API_BASE_URL);
   try {
     // Attempt to test with a dummy request to upload-url or similar
