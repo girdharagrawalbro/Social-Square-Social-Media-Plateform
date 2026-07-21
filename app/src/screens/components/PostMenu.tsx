@@ -135,16 +135,11 @@ export default function PostMenu({
 
   const handleMute = () => {
     if (post.isAnonymous || !post.user?._id) return;
-    const isMuted = user?.mutedUsers?.some((m: any) => m?.toString() === post.user?._id?.toString());
-
-    if (isMuted) {
-      Alert.alert('Muted', 'You have already muted this user.');
-      return;
-    }
-
     Alert.alert(
-      'Mute User',
-      `Are you sure you want to mute ${post.user.fullname || 'this user'}? Their posts will be hidden from your feed.`,
+      'Mute Author',
+      post.isAnonymous
+        ? `Are you sure you want to mute the author of this confession?`
+        : `Are you sure you want to mute ${post.user?.fullname || 'this user'}? You won't see their posts in your feed.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -153,12 +148,16 @@ export default function PostMenu({
           onPress: async () => {
             setLoadingAction('mute');
             try {
-              await api.post('/api/auth/mute', { targetUserId: post.user._id });
-              Alert.alert('Muted', 'User muted successfully.');
+              if (post.isAnonymous) {
+                await api.post(`/api/post/${post._id}/block-author`);
+              } else if (post.user?._id) {
+                await api.post('/api/auth/mute', { targetUserId: post.user._id });
+              }
+              Alert.alert('Muted', 'Author muted successfully.');
               if (onMuteBlockSuccess) onMuteBlockSuccess();
               onClose();
             } catch (e) {
-              Alert.alert('Error', 'Failed to mute user.');
+              Alert.alert('Error', 'Failed to mute author.');
             } finally {
               setLoadingAction(null);
             }
@@ -169,10 +168,11 @@ export default function PostMenu({
   };
 
   const handleBlock = () => {
-    if (post.isAnonymous || !post.user?._id) return;
     Alert.alert(
-      'Block User',
-      `Are you sure you want to block ${post.user.fullname || 'this user'}? They will not be able to interact with you.`,
+      'Block Author',
+      post.isAnonymous
+        ? `Are you sure you want to block the author of this confession? You won't see each other's content.`
+        : `Are you sure you want to block ${post.user?.fullname || 'this user'}? They will not be able to interact with you.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -181,12 +181,16 @@ export default function PostMenu({
           onPress: async () => {
             setLoadingAction('block');
             try {
-              await api.post('/api/auth/block', { targetUserId: post.user._id });
-              Alert.alert('Blocked', 'User blocked successfully.');
+              if (post.isAnonymous) {
+                await api.post(`/api/post/${post._id}/block-author`);
+              } else if (post.user?._id) {
+                await api.post('/api/auth/block', { targetUserId: post.user._id });
+              }
+              Alert.alert('Blocked', 'Author blocked successfully.');
               if (onMuteBlockSuccess) onMuteBlockSuccess();
               onClose();
             } catch (e) {
-              Alert.alert('Error', 'Failed to block user.');
+              Alert.alert('Error', 'Failed to block author.');
             } finally {
               setLoadingAction(null);
             }
@@ -306,23 +310,23 @@ export default function PostMenu({
                   {loadingAction === 'not_interested' && <ActivityIndicator size="small" color="#f97316" />}
                 </TouchableOpacity>
 
-                {/* Mute User */}
-                {!post.isAnonymous && post.user?._id && (
-                  <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={handleMute}>
-                    <MaterialCommunityIcons name="volume-off" size={22} color={textColor} />
-                    <Text style={[styles.optionText, { color: textColor }]}>Mute User</Text>
-                    {loadingAction === 'mute' && <ActivityIndicator size="small" color={textColor} />}
-                  </TouchableOpacity>
-                )}
+                {/* Mute Author */}
+                <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={handleMute}>
+                  <MaterialCommunityIcons name="volume-off" size={22} color={textColor} />
+                  <Text style={[styles.optionText, { color: textColor }]}>
+                    {post.isAnonymous ? 'Mute Author' : 'Mute User'}
+                  </Text>
+                  {loadingAction === 'mute' && <ActivityIndicator size="small" color={textColor} />}
+                </TouchableOpacity>
 
-                {/* Block User */}
-                {!post.isAnonymous && post.user?._id && (
-                  <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={handleBlock}>
-                    <MaterialCommunityIcons name="ban" size={22} color="#ef4444" />
-                    <Text style={[styles.optionText, { color: '#ef4444' }]}>Block User</Text>
-                    {loadingAction === 'block' && <ActivityIndicator size="small" color="#ef4444" />}
-                  </TouchableOpacity>
-                )}
+                {/* Block Author */}
+                <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={handleBlock}>
+                  <MaterialCommunityIcons name="ban" size={22} color="#ef4444" />
+                  <Text style={[styles.optionText, { color: '#ef4444' }]}>
+                    {post.isAnonymous ? 'Block Author' : 'Block User'}
+                  </Text>
+                  {loadingAction === 'block' && <ActivityIndicator size="small" color="#ef4444" />}
+                </TouchableOpacity>
 
                 {/* Report Post */}
                 <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={handleReport}>

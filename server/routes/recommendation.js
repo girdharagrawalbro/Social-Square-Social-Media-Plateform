@@ -170,6 +170,8 @@ router.get("/posts", verifyToken, async (req, res) => {
 
         // ── Step 4: Fetch candidate posts ─────────────────────────────────────
         console.log(`${_tag} [4] Fetching candidate posts (limit=100)...`);
+        // ── Step 4: Fetch candidate posts ─────────────────────────────────────
+        console.log(`${_tag} [4] Fetching candidate posts (limit=100)...`);
         // FIX: MongoDB ignores $ne when $nin is present on the same field path.
         // Merge userId (as ObjectId) into the $nin array to correctly exclude self + restricted users.
         let selfObjectId;
@@ -179,8 +181,15 @@ router.get("/posts", verifyToken, async (req, res) => {
             .filter(Boolean);
         if (selfObjectId) restrictedObjectIds.push(selfObjectId);
 
+        const baseUserExclusion = {
+            $nin: restrictedObjectIds
+        };
+
         const candidatesQuery = {
-            "user._id": { $nin: restrictedObjectIds },
+            $or: [
+                { "user._id": baseUserExclusion },
+                { "user": baseUserExclusion }
+            ],
             isAnonymous: { $ne: true },
             isVisible: { $ne: false },
             deletedAt: null
@@ -193,9 +202,13 @@ router.get("/posts", verifyToken, async (req, res) => {
         if (cursor) {
             const decoded = decodeCursor(cursor);
             if (decoded) {
-                candidatesQuery.$or = [
-                    { createdAt: { $lt: decoded.date } },
-                    { createdAt: decoded.date, _id: { $lt: decoded.id } }
+                candidatesQuery.$and = [
+                    {
+                        $or: [
+                            { createdAt: { $lt: decoded.date } },
+                            { createdAt: decoded.date, _id: { $lt: decoded.id } }
+                        ]
+                    }
                 ];
             }
         }
@@ -223,8 +236,11 @@ router.get("/posts", verifyToken, async (req, res) => {
             // ── P4: Cold Start — trending + diverse instead of raw chronological ──
             console.log(`${_tag} [4] Cold start detected — building trending+diverse cold feed...`);
             const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            const trendingCold = await Post.find({
-                "user._id": { $nin: restrictedObjectIds },
+            let trendingCold = await Post.find({
+                $or: [
+                    { "user._id": baseUserExclusion },
+                    { "user": baseUserExclusion }
+                ],
                 isAnonymous: { $ne: true },
                 isVisible:   { $ne: false },
                 deletedAt:   null,
@@ -234,6 +250,12 @@ router.get("/posts", verifyToken, async (req, res) => {
             .limit(60)
             .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
             .lean();
+
+            // If no posts in last 7 days, fallback to recent posts regardless of date window
+            if (!trendingCold || trendingCold.length === 0) {
+                console.log(`${_tag} [4] Cold start fallback — no posts in last 7 days, fetching candidates as cold pool...`);
+                trendingCold = candidates;
+            }
 
             const coldResult = diversifyResults(trendingCold, 20, 3, 1);
             return res.json({ items: coldResult, nextCursor, hasMore, isColdStart: true });

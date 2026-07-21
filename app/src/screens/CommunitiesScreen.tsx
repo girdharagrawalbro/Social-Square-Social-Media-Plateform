@@ -275,16 +275,6 @@ export default function CommunitiesScreen() {
         renderItem={({ item }) => (
           <View style={styles.postWrapper}>
             <PostItem post={item} isDark={isDark} isVisible={true} />
-            <View style={[styles.anonOptionsRow, { borderColor: border }]}>
-              <TouchableOpacity onPress={() => handleMute(item)} style={styles.anonActionBtn}>
-                <MaterialCommunityIcons name="volume-off" size={16} color={subText} />
-                <Text style={[styles.anonActionText, { color: subText }]}>Mute Author</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleBlock(item)} style={styles.anonActionBtn}>
-                <MaterialCommunityIcons name="ban" size={16} color="#ef4444" />
-                <Text style={[styles.anonActionText, { color: '#ef4444' }]}>Block Author</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         )}
         refreshing={refreshingConfessions}

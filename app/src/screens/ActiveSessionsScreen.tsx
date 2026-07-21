@@ -10,6 +10,7 @@ import {
   useColorScheme,
   Alert,
   FlatList,
+  RefreshControl,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -210,6 +211,14 @@ export default function ActiveSessionsScreen() {
     );
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchSessions(), fetchUser()]);
+    setRefreshing(false);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       {/* Header */}
@@ -218,7 +227,9 @@ export default function ActiveSessionsScreen() {
           <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textColor }]}>Active Sessions & Security</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={handleRefresh} style={styles.backBtn} disabled={refreshing}>
+          <MaterialCommunityIcons name="refresh" size={22} color={textColor} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -226,6 +237,14 @@ export default function ActiveSessionsScreen() {
         keyExtractor={(item) => item._id}
         renderItem={renderSessionItem}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#808bf5']}
+            tintColor={'#808bf5'}
+          />
+        }
         ListHeaderComponent={
           <>
             {/* 2FA Card */}

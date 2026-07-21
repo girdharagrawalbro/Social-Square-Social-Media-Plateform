@@ -16,7 +16,9 @@ import {
   ActivityIndicator,
   Share,
   RefreshControl,
+  Switch,
 } from 'react-native';
+import { launchImageLibrary } from 'react-native-image-picker';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import useAuthStore from '../store/zustand/useAuthStore';
@@ -25,6 +27,7 @@ import { api, BASE_URL } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import { appChannel } from '../lib/broadcast';
 import { ProfileSkeleton } from './components/SkeletonLoader';
+import toast from '../lib/CustomToast';
 
 const { width } = Dimensions.get('window');
 const gridWidth = (width - 35) / 3;
@@ -65,14 +68,55 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isRequested, setIsRequested] = useState(false);
 
-  // Edit Profile States
-  const [editVisible, setEditVisible] = useState(false);
-  const [fullnameInput, setFullnameInput] = useState('');
-  const [usernameInput, setUsernameInput] = useState('');
-  const [bioInput, setBioInput] = useState('');
-  const [profilePicInput, setProfilePicInput] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [settingsVisible, setSettingsVisible] = useState(false);
+const MOODS = [
+  { key: null, label: 'None (Default Feed)' },
+  { key: 'happy', emoji: '😊', label: 'Happy' },
+  { key: 'excited', emoji: '🤩', label: 'Excited' },
+  { key: 'funny', emoji: '😂', label: 'Funny' },
+  { key: 'romantic', emoji: '❤️', label: 'Romantic' },
+  { key: 'inspirational', emoji: '💪', label: 'Inspire' },
+  { key: 'calm', emoji: '😌', label: 'Calm' },
+  { key: 'nostalgic', emoji: '🥹', label: 'Nostalgia' },
+  { key: 'sad', emoji: '😢', label: 'Sad' },
+];
+
+// ─── MOOD SELECT MODAL COMPONENT ─────────────────────────────────────────────
+
+// Edit Profile States
+const [editVisible, setEditVisible] = useState(false);
+const [fullnameInput, setFullnameInput] = useState('');
+const [usernameInput, setUsernameInput] = useState('');
+const [bioInput, setBioInput] = useState('');
+const [profilePicInput, setProfilePicInput] = useState('');
+const [preferredMoodInput, setPreferredMoodInput] = useState<string | null>(null);
+const [isPrivateInput, setIsPrivateInput] = useState(false);
+const [uploadingPic, setUploadingPic] = useState(false);
+const [moodModalVisible, setMoodModalVisible] = useState(false);
+const [savingProfile, setSavingProfile] = useState(false);
+const [settingsVisible, setSettingsVisible] = useState(false);
+
+const [followsModalVisible, setFollowsModalVisible] = useState(false);
+const [followsType, setFollowsType] = useState<'followers' | 'following'>('followers');
+const [followsList, setFollowsList] = useState<any[]>([]);
+const [loadingFollows, setLoadingFollows] = useState(false);
+
+const openFollowsModal = async (type: 'followers' | 'following') => {
+  const targetId = targetUserId || user?._id;
+  if (!targetId) return;
+  setFollowsType(type);
+  setFollowsModalVisible(true);
+  setLoadingFollows(true);
+  try {
+    const res = await api.get(`/api/auth/${type}/${targetId}?limit=50`);
+    setFollowsList(res?.data?.users || []);
+  } catch (err: any) {
+    console.warn(`Fetch ${type} error:`, err);
+    Alert.alert('Error', err.response?.data?.message || `Failed to load ${type}`);
+    setFollowsList([]);
+  } finally {
+    setLoadingFollows(false);
+  }
+};
 
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'goals' | 'graveyard' | 'saved' | 'collabs' | 'analytics'>('posts');
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
@@ -259,9 +303,53 @@ export default function ProfileScreen({ navigation, route }: any) {
     return () => unsub();
   }, [isOwner, user?._id]);
 
+  const handleSelectProfilePicture = async () => {
+    try {
+      const res = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        selectionLimit: 1,
+      });
+
+      if (res.didCancel || !res.assets || res.assets.length === 0) return;
+
+      const asset = res.assets[0];
+      if (!asset.uri) return;
+
+      setUploadingPic(true);
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: asset.fileName || 'profile.jpg',
+        type: asset.type || 'image/jpeg',
+      } as any);
+      formData.append('folder', 'profiles');
+      formData.append('resourceType', 'image');
+
+      const uploadRes = await api.post('/api/media/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const uploadedUrl = uploadRes.data?.url;
+      if (uploadedUrl) {
+        setProfilePicInput(uploadedUrl);
+      } else {
+        Alert.alert('Upload Error', 'Failed to obtain image URL.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Image selection failed.');
+    } finally {
+      setUploadingPic(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!fullnameInput.trim() || !usernameInput.trim()) {
-      Alert.alert('Validation Error', 'Full Name and Username cannot be empty.');
+      toast.error('Full Name and Username cannot be empty.', 'Validation Error');
+      return;
+    }
+    if (uploadingPic) {
+      toast.info('Profile picture is still uploading.', 'Please Wait');
       return;
     }
     setSavingProfile(true);
@@ -271,16 +359,18 @@ export default function ProfileScreen({ navigation, route }: any) {
         username: usernameInput.trim(),
         bio: bioInput.trim(),
         profile_picture: profilePicInput.trim() || undefined,
+        preferredMood: preferredMoodInput,
+        isPrivate: isPrivateInput,
       });
       setUser(res.data.user || res.data);
       // Invalidate profile cache so it reloads fresh after edit
       await invalidateCache(`profile_${user?._id}`);
       await invalidateCache(`profile_posts_${user?._id}`);
-      Alert.alert('Success', 'Profile updated successfully!');
+      toast.success('Profile updated successfully!');
       setEditVisible(false);
       fetchProfileInfo();
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to update profile.');
+      toast.error(err.response?.data?.message || 'Failed to update profile.');
     } finally {
       setSavingProfile(false);
     }
@@ -329,7 +419,7 @@ export default function ProfileScreen({ navigation, route }: any) {
         { key: 'goals', icon: 'flag', label: 'Roadmap' },
         { key: 'graveyard', icon: 'history', label: 'Graveyard' },
         { key: 'saved', icon: 'bookmark', label: 'Saved' },
-        { key: 'collabs', icon: 'users', label: 'Collabs' },
+        { key: 'collabs', icon: 'account-multiple', label: 'Collabs' },
         { key: 'analytics', icon: 'chart-bar', label: 'Insights' },
       ]
       : [
@@ -637,14 +727,14 @@ export default function ProfileScreen({ navigation, route }: any) {
 
                 {/* Detailed Statistics Cards */}
                 <View style={styles.statsGrid}>
-                  <View style={[styles.statBox]}>
+                  <TouchableOpacity style={[styles.statBox]} onPress={() => openFollowsModal('followers')}>
                     <Text style={[styles.statBoxNum, { color: textColor }]}>{profileData?.followersCount || 0}</Text>
                     <Text style={[styles.statBoxLabel, { color: subText }]}>FOLLOWERS</Text>
-                  </View>
-                  <View style={[styles.statBox]}>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.statBox]} onPress={() => openFollowsModal('following')}>
                     <Text style={[styles.statBoxNum, { color: textColor }]}>{profileData?.followingCount || 0}</Text>
                     <Text style={[styles.statBoxLabel, { color: subText }]}>FOLLOWING</Text>
-                  </View>
+                  </TouchableOpacity>
                   <View style={[styles.statBox]}>
                     <Text style={[styles.statBoxNum, { color: textColor }]}>{posts.length}</Text>
                     <Text style={[styles.statBoxLabel, { color: subText }]}>POSTS</Text>
@@ -708,6 +798,8 @@ export default function ProfileScreen({ navigation, route }: any) {
                         setUsernameInput(profileData?.username || '');
                         setBioInput(profileData?.bio || '');
                         setProfilePicInput(profileData?.profile_picture || '');
+                        setPreferredMoodInput(profileData?.preferredMood ?? null);
+                        setIsPrivateInput(!!profileData?.isPrivate);
                         setEditVisible(true);
                       }}
                       style={{
@@ -927,7 +1019,50 @@ export default function ProfileScreen({ navigation, route }: any) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
+            <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
+              {/* Profile Picture Upload Avatar & Button */}
+              <View style={{ alignItems: 'center', marginVertical: 8 }}>
+                <View style={{ position: 'relative' }}>
+                  <Image
+                    source={{ uri: profilePicInput || USER_DEFAULT_IMAGE }}
+                    style={{ width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: border }}
+                  />
+                  <TouchableOpacity
+                    onPress={handleSelectProfilePicture}
+                    disabled={uploadingPic}
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      backgroundColor: '#808bf5',
+                      borderRadius: 15,
+                      width: 30,
+                      height: 30,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 2,
+                      borderColor: cardBg,
+                    }}
+                  >
+                    {uploadingPic ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <MaterialCommunityIcons name="camera-outline" size={16} color="#ffffff" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleSelectProfilePicture}
+                  disabled={uploadingPic}
+                  style={{ marginTop: 8 }}
+                >
+                  <Text style={{ fontSize: 13, color: '#808bf5', fontWeight: '600' }}>
+                    {uploadingPic ? 'Uploading photo...' : 'Change profile photo'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               <Text style={{ color: subText, fontSize: 12, fontWeight: 'bold' }}>Full Name</Text>
               <TextInput
                 style={[styles.modalInput, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: border, color: textColor }]}
@@ -951,12 +1086,60 @@ export default function ProfileScreen({ navigation, route }: any) {
                 numberOfLines={3}
               />
 
-              <Text style={{ color: subText, fontSize: 12, fontWeight: 'bold' }}>Profile Picture URL</Text>
-              <TextInput
-                style={[styles.modalInput, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: border, color: textColor }]}
-                value={profilePicInput}
-                onChangeText={setProfilePicInput}
-              />
+              {/* Content Preference Select */}
+              <Text style={{ color: subText, fontSize: 12, fontWeight: 'bold', uppercase: true }}>CONTENT PREFERENCE</Text>
+              <TouchableOpacity
+                onPress={() => setMoodModalVisible(true)}
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
+                    borderColor: border,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  },
+                ]}
+              >
+                <Text style={{ color: textColor, fontSize: 14 }}>
+                  {(() => {
+                    const selected = MOODS.find(m => m.key === preferredMoodInput);
+                    return selected ? `${selected.emoji ? selected.emoji + ' ' : ''}${selected.label}` : 'None (Default Feed)';
+                  })()}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color={subText} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 11, color: subText, marginTop: -4 }}>
+                Choosing a mood will automatically blend related posts into your main feed.
+              </Text>
+
+              {/* Private Account Checkbox / Switch */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 14,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: border,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                  marginTop: 6,
+                }}
+              >
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: textColor }}>Private Account</Text>
+                  <Text style={{ fontSize: 11, color: subText, marginTop: 2 }}>
+                    Only people you approve can see your posts and stories.
+                  </Text>
+                </View>
+                <Switch
+                  value={isPrivateInput}
+                  onValueChange={setIsPrivateInput}
+                  trackColor={{ false: border, true: '#808bf5' }}
+                  thumbColor={'#ffffff'}
+                />
+              </View>
             </ScrollView>
 
             <View style={[styles.modalFooter, { borderTopColor: border }]}>
@@ -972,6 +1155,119 @@ export default function ProfileScreen({ navigation, route }: any) {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Mood Picker Modal */}
+      <Modal
+        visible={moodModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setMoodModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: cardBg, maxHeight: '60%' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: border }]}>
+              <Text style={[styles.modalTitle, { color: textColor }]}>Select Content Preference</Text>
+              <TouchableOpacity onPress={() => setMoodModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 10 }}>
+              {MOODS.map((m) => {
+                const isSelected = preferredMoodInput === m.key;
+                return (
+                  <TouchableOpacity
+                    key={m.key || 'none'}
+                    onPress={() => {
+                      setPreferredMoodInput(m.key);
+                      setMoodModalVisible(false);
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      borderRadius: 12,
+                      backgroundColor: isSelected ? (isDark ? 'rgba(128, 139, 245, 0.2)' : '#f0f2fe') : 'transparent',
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: isSelected ? '#808bf5' : textColor, fontWeight: isSelected ? 'bold' : '500' }}>
+                      {m.emoji ? `${m.emoji} ` : ''}{m.label}
+                    </Text>
+                    {isSelected && (
+                      <MaterialCommunityIcons name="check" size={20} color="#808bf5" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      {/* Followers / Following List Modal */}
+      <Modal
+        visible={followsModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setFollowsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: cardBg, maxHeight: '75%' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: border }]}>
+              <Text style={[styles.modalTitle, { color: textColor, textTransform: 'capitalize' }]}>
+                {followsType}
+              </Text>
+              <TouchableOpacity onPress={() => setFollowsModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingFollows ? (
+              <ActivityIndicator size="large" color="#808bf5" style={{ padding: 40 }} />
+            ) : followsList.length === 0 ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <MaterialCommunityIcons name="account-group-outline" size={48} color={subText} />
+                <Text style={{ marginTop: 12, color: subText, fontSize: 14 }}>
+                  No {followsType} found.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={followsList}
+                keyExtractor={(u) => u._id}
+                contentContainerStyle={{ padding: 12 }}
+                renderItem={({ item: u }) => (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setFollowsModalVisible(false);
+                      navigation.push('Profile', { userId: u._id });
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 10,
+                      paddingHorizontal: 8,
+                      borderBottomWidth: 1,
+                      borderBottomColor: border,
+                    }}
+                  >
+                    <Image
+                      source={{ uri: resolveMediaUrl(u.profile_picture) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150' }}
+                      style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: 'bold', color: textColor }}>
+                        {u.fullname || u.username}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: subText }}>@{u.username}</Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+                  </TouchableOpacity>
+                )}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -1043,24 +1339,6 @@ export default function ProfileScreen({ navigation, route }: any) {
                 <View style={styles.settingsTextWrapper}>
                   <Text style={[styles.settingsRowTitle, { color: textColor }]}>Close Friends</Text>
                   <Text style={[styles.settingsRowDesc, { color: subText }]}>Manage your close friends list</Text>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
-              </TouchableOpacity>
-
-              {/* Communities & Confessions */}
-              <TouchableOpacity
-                style={[styles.settingsRow, { borderColor: border }]}
-                onPress={() => {
-                  setSettingsVisible(false);
-                  navigation.navigate('Communities');
-                }}
-              >
-                <View style={styles.settingsIconWrapper}>
-                  <MaterialCommunityIcons name="account-group" size={22} color="#3b82f6" />
-                </View>
-                <View style={styles.settingsTextWrapper}>
-                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Communities & Confessions</Text>
-                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Browse group communities and confessions feed</Text>
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
               </TouchableOpacity>

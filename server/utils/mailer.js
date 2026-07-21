@@ -13,23 +13,16 @@ function shouldRetry(error) {
 async function sendEmailBase({ to, from, subject, html, text }) {
     const payload = {
         to,
-        from: from || `Social Square <${RESEND_FROM_EMAIL}>`,
+        from: from || `Social Square <${RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`,
         subject,
         html,
         text: text || html?.replace(/<[^>]*>/g, ''),
     };
 
-    const requestConfig = {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: MAIL_SERVICE_TIMEOUT_MS,
-    };
-
-    const baseUrl = MAIL_SERVICE_BASE_URL;
-
     async function sendDirectly() {
-        const apiKey = process.env.RESEND_API_KEY;
+        const apiKey = process.env.RESEND_API_KEY || process.env.API;
         if (!apiKey) {
-            throw new Error('No RESEND_API_KEY configured for direct fallback');
+            throw new Error('No RESEND_API_KEY (or API) configured for direct Resend delivery');
         }
         const resendResponse = await axios.post(
             'https://api.resend.com/emails',
@@ -48,12 +41,23 @@ async function sendEmailBase({ to, from, subject, html, text }) {
                 timeout: MAIL_SERVICE_TIMEOUT_MS
             }
         );
-        console.log(`[Mailer] [Direct API Fallback] Delivery SUCCESSFUL to: ${to}. ID: ${resendResponse.data?.id}`);
+        console.log(`[Mailer] [Direct Resend API] Delivery SUCCESSFUL to: ${to}. ID: ${resendResponse.data?.id}`);
         return resendResponse.data;
     }
 
+    // Direct in-process Resend execution preferred
+    if (process.env.RESEND_API_KEY || process.env.API || !MAIL_SERVICE_BASE_URL) {
+        return await sendDirectly();
+    }
+
+    // Optional Microservice Proxy if MAIL_SERVICE_BASE_URL is explicitly set
+    const requestConfig = {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: MAIL_SERVICE_TIMEOUT_MS,
+    };
+
     try {
-        const response = await axios.post(`${baseUrl}/send`, payload, requestConfig);
+        const response = await axios.post(`${MAIL_SERVICE_BASE_URL}/send`, payload, requestConfig);
 
         if (response.data?.success === false) {
             throw new Error(response.data?.message || 'Mail service returned unsuccessful response');
@@ -62,35 +66,8 @@ async function sendEmailBase({ to, from, subject, html, text }) {
         console.log(`[Mailer] [Microservice] Delivery SUCCESSFUL to: ${to}. Subject: "${subject}"`);
         return response.data?.data;
     } catch (error) {
-        if (shouldRetry(error)) {
-            console.warn(`[Mailer] [Microservice] Temporary failure to: ${to}. Retrying... Error: ${error.message}`);
-            try {
-                const retryResponse = await axios.post(`${baseUrl}/send`, payload, requestConfig);
-                if (retryResponse.data?.success === false) {
-                    throw new Error(retryResponse.data?.message || 'Mail service returned unsuccessful response');
-                }
-                console.log(`[Mailer] [Microservice] Delivery SUCCESSFUL after retry to: ${to}. Subject: "${subject}"`);
-                return retryResponse.data?.data;
-            } catch (retryError) {
-                console.warn(`[Mailer] [Microservice] Retry failed. Triggering Direct API Fallback...`);
-                try {
-                    return await sendDirectly();
-                } catch (fallbackError) {
-                    const retryReason = retryError.response?.data?.message || retryError.message;
-                    console.error(`[Mailer] [FAILED] Email send failed completely. Microservice: ${retryReason}. Direct: ${fallbackError.message}`);
-                    throw new Error(`Mail API send failed: ${retryReason} (Direct API fallback: ${fallbackError.message})`);
-                }
-            }
-        }
-
-        console.warn(`[Mailer] [Microservice] Failed. Triggering Direct API Fallback...`);
-        try {
-            return await sendDirectly();
-        } catch (fallbackError) {
-            const reason = error.response?.data?.message || error.message;
-            console.error(`[Mailer] [FAILED] Email send failed completely. Microservice: ${reason}. Direct: ${fallbackError.message}`);
-            throw new Error(`Mail API send failed: ${reason} (Direct API fallback: ${fallbackError.message})`);
-        }
+        console.warn(`[Mailer] [Microservice] Failed (${error.message}). Triggering Direct API Fallback...`);
+        return await sendDirectly();
     }
 }
 

@@ -28,6 +28,12 @@ async function getStandardizedFolder(req) {
     return `SocialSquare/${userFolder}/${folderType || 'misc'}`;
 }
 
+const {
+    uploadBase64,
+    uploadFromUrl,
+    generateSignature
+} = require('../services/cloudinary.service');
+
 router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -71,23 +77,28 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
             }
         }
 
-        // Otherwise, attempt Cloudinary upload
+        // Direct in-process Cloudinary Upload (or microservice fallback if UPLOAD_API_BASE_URL is set)
         try {
-            const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
-                file: base64File,
-                folder,
-                resourceType,
+            let resultData;
+            if (UPLOAD_API_BASE_URL) {
+                const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
+                    file: base64File,
+                    folder,
+                    resourceType,
+                });
+                resultData = response.data.data;
+            } else {
+                resultData = await uploadBase64(base64File, { folder, resource_type: resourceType });
+            }
+
+            console.log('[Upload] Cloudinary success:', resultData.public_id);
+
+            return res.status(200).json({
+                success: true,
+                url: resultData.secure_url,
+                publicId: resultData.public_id,
+                data: resultData
             });
-
-            console.log('[Upload] Cloudinary microservice :', JSON.stringify(response.data.success, null, 2));
-
-            const payload = {
-                success: response.data.success,
-                url: response.data.data.secure_url,
-                publicId: response.data.data.public_id,
-            };
-
-            return res.status(response.status).json(payload);
         } catch (cloudinaryError) {
             console.warn('[Cloudinary Upload Failed] Falling back to Google Drive:', cloudinaryError.message);
 
@@ -111,10 +122,10 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
             throw cloudinaryError; // Re-throw if both failed
         }
     } catch (error) {
-        console.error('[Upload] proxy error:', error.response?.data || error.message);
+        console.error('[Upload] error:', error.response?.data || error.message);
         res.status(error.response?.status || 500).json({
             success: false,
-            message: error.response?.data?.message || 'Something went wrong. Please try again.',
+            message: error.response?.data?.message || error.message || 'Something went wrong. Please try again.',
         });
     }
 });
@@ -125,10 +136,17 @@ router.post('/upload-base64', verifyToken, async (req, res) => {
         if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
         const folder = await getStandardizedFolder(req);
 
-        const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
-            file, folder, resourceType, start_offset, end_offset
-        });
-        res.status(response.status).json(response.data);
+        let data;
+        if (UPLOAD_API_BASE_URL) {
+            const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-base64`, {
+                file, folder, resourceType, start_offset, end_offset
+            });
+            data = response.data;
+        } else {
+            const result = await uploadBase64(file, { folder, resource_type: resourceType || 'auto', start_offset, end_offset });
+            data = { success: true, data: result };
+        }
+        res.status(200).json(data);
     } catch (error) {
         res.status(error.response?.status || 500).json({ success: false, message: error.message });
     }
@@ -136,33 +154,60 @@ router.post('/upload-base64', verifyToken, async (req, res) => {
 
 router.post('/upload-url', verifyToken, async (req, res) => {
     try {
-        const { url } = req.body;
+        const { url, resourceType } = req.body;
         if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
         const folder = await getStandardizedFolder(req);
 
-        const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-url`, {
-            url, folder
-        });
-        res.status(response.status).json(response.data);
+        let data;
+        if (UPLOAD_API_BASE_URL) {
+            const response = await axios.post(`${UPLOAD_API_BASE_URL}/upload-url`, {
+                url, folder, resourceType
+            });
+            data = response.data;
+        } else {
+            const result = await uploadFromUrl(url, { folder, resource_type: resourceType || 'image' });
+            data = { success: true, data: result };
+        }
+        res.status(200).json(data);
     } catch (error) {
         res.status(error.response?.status || 500).json({ success: false, message: error.message });
     }
 });
 
-const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL || 'https://gdrive-lr06.onrender.com';
+router.post('/sign', verifyToken, async (req, res) => {
+    try {
+        const { timestamp, folder } = req.body;
+        if (!timestamp) {
+            return res.status(400).json({ success: false, message: 'Timestamp is required' });
+        }
+        const userFolder = await getStandardizedFolder(req);
+        const result = generateSignature(timestamp, folder || userFolder);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Signature Generation Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 
-// ─── GOOGLE DRIVE FALLBACK API ────────────────────────────────────────────────
+const driveService = require('../services/drive.service');
+
+// ─── GOOGLE DRIVE API ─────────────────────────────────────────────────────────
 router.post('/drive/upload', verifyToken, async (req, res) => {
     try {
         const { file, name, folder } = req.body;
         if (!file) return res.status(400).json({ success: false, message: 'No file provided' });
 
-        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, {
-            file, name, folder
-        });
-        res.status(response.status).json(response.data);
+        let data;
+        if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID && (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_REFRESH_TOKEN)) {
+            const fileData = await driveService.uploadBase64(file, { folder, name });
+            data = { success: true, data: fileData };
+        } else {
+            const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload`, { file, name, folder });
+            data = response.data;
+        }
+        res.status(200).json(data);
     } catch (error) {
-        console.error('[Drive Upload Proxy Error]:', error.response?.data || error.message);
+        console.error('[Drive Upload Error]:', error.response?.data || error.message);
         res.status(error.response?.status || 500).json({
             success: false,
             message: error.response?.data?.message || error.message
@@ -175,12 +220,17 @@ router.post('/drive/upload-url', verifyToken, async (req, res) => {
         const { url, folder, name } = req.body;
         if (!url) return res.status(400).json({ success: false, message: 'No URL provided' });
 
-        const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload-url`, {
-            url, folder, name
-        });
-        res.status(response.status).json(response.data);
+        let data;
+        if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID && (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_REFRESH_TOKEN)) {
+            const fileData = await driveService.uploadFromUrl(url, { folder, name });
+            data = { success: true, data: fileData };
+        } else {
+            const response = await axios.post(`${GDRIVE_API_BASE_URL}/api/drive/upload-url`, { url, folder, name });
+            data = response.data;
+        }
+        res.status(200).json(data);
     } catch (error) {
-        console.error('[Drive Upload URL Proxy Error]:', error.response?.data || error.message);
+        console.error('[Drive Upload URL Error]:', error.response?.data || error.message);
         res.status(error.response?.status || 500).json({
             success: false,
             message: error.response?.data?.message || error.message
@@ -191,10 +241,17 @@ router.post('/drive/upload-url', verifyToken, async (req, res) => {
 router.get('/drive/file/:fileId', verifyToken, async (req, res) => {
     try {
         const { fileId } = req.params;
-        const response = await axios.get(`${GDRIVE_API_BASE_URL}/api/drive/file/${fileId}`);
-        res.status(response.status).json(response.data);
+        let data;
+        if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID && (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_REFRESH_TOKEN)) {
+            const fileData = await driveService.getFile(fileId);
+            data = { success: true, data: fileData };
+        } else {
+            const response = await axios.get(`${GDRIVE_API_BASE_URL}/api/drive/file/${fileId}`);
+            data = response.data;
+        }
+        res.status(200).json(data);
     } catch (error) {
-        console.error('[Drive Get File Proxy Error]:', error.response?.data || error.message);
+        console.error('[Drive Get File Error]:', error.response?.data || error.message);
         res.status(error.response?.status || 500).json({
             success: false,
             message: error.response?.data?.message || error.message

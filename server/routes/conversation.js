@@ -1022,6 +1022,13 @@ router.post('/messages/mark-read', verifyToken, [
 });
 
 // ─── NOTIFICATIONS (PROTECTED) ────────────────────────────────────────────────
+router.get('/notifications/unread-count', verifyToken, async (req, res) => {
+    try {
+        const count = await Notification.countDocuments({ recipient: req.userId, read: false });
+        res.json({ unreadCount: count });
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
 router.get('/notifications', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;

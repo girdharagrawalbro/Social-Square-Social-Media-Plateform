@@ -3,6 +3,8 @@ import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import useAuthStore from './src/store/zustand/useAuthStore';
+import { CustomToastContainer } from './src/lib/CustomToast';
 
 // Screens
 import SplashScreen from './src/screens/SplashScreen';
@@ -56,10 +58,30 @@ function App() {
       }
     };
 
+    const handleSessionRevoked = ({ sessionId }: any) => {
+      const currentSessionId = useAuthStore.getState().sessionId;
+      if (!sessionId || String(sessionId) === String(currentSessionId)) {
+        console.log('[Socket] Active session revoked — logging out');
+        useAuthStore.getState().logout();
+      }
+    };
+
+    const handleSessionsRevokedAll = ({ exceptSessionId }: any) => {
+      const currentSessionId = useAuthStore.getState().sessionId;
+      if (String(exceptSessionId) !== String(currentSessionId)) {
+        console.log('[Socket] Other sessions revoked — logging out');
+        useAuthStore.getState().logout();
+      }
+    };
+
     socket.on('incomingCall', handleIncomingCall);
+    socket.on('sessionRevoked', handleSessionRevoked);
+    socket.on('sessionsRevokedAll', handleSessionsRevokedAll);
 
     return () => {
       socket.off('incomingCall', handleIncomingCall);
+      socket.off('sessionRevoked', handleSessionRevoked);
+      socket.off('sessionsRevokedAll', handleSessionsRevokedAll);
     };
   }, []);
 
@@ -101,6 +123,7 @@ function App() {
           <Stack.Screen name="WikiDetail" component={WikiDetailScreen} />
         </Stack.Navigator>
       </NavigationContainer>
+      <CustomToastContainer />
     </SafeAreaProvider>
   );
 }

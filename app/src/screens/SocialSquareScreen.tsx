@@ -269,9 +269,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerLogo: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#808bf5',
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
   },
   chatIconWrapper: {
     padding: 4,
