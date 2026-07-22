@@ -53,7 +53,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     const [selectedProfileId, setSelectedProfileId] = useState(null);
     const reactMutation = useReactPost();
     const [pickerVisible, setPickerVisible] = useState(false);
-    const { setSharingPostToStory} = usePostStore();
+    const { setSharingPostToStory } = usePostStore();
     const lastTap = useRef({});
     const viewedPostIdRef = useRef(null);
     const incrementViewMutation = useIncrementView();
@@ -145,7 +145,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     };
 
     const handleImageDoubleClick = () => {
-        // ✅ Prevent clicking while request is in progress
+        //  Prevent clicking while request is in progress
         if (likeMutation.isPending) return;
 
         if (!isLiked) {
@@ -186,7 +186,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     return (
         <>
             <Helmet>
-                <title>{post.user?.fullname} on Social Square: "{post.caption?.slice(0, 60)}"</title>
+                <title>{`${post?.user?.fullname || 'Post'} on Social Square: "${post?.caption?.slice(0, 60) || ''}"`}</title>
                 <meta name="description" content={post.caption} />
                 <meta property="og:title" content={`${post.user?.fullname} on Social Square`} />
                 <meta property="og:description" content={post.caption} />
@@ -324,7 +324,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                                     {/* AI Insight Overlay - DESKTOP */}
                                     {post.aiSummary && (
-                                        <div 
+                                        <div
                                             className={`absolute bottom-3 right-3 ${post.mentions && post.mentions.length > 0 ? 'left-14' : 'left-3'} z-30 p-3 bg-black/65 backdrop-blur-md border border-white/10 rounded-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}
                                             onClick={(e) => e.stopPropagation()}
                                         >
@@ -460,7 +460,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
                                         {/* AI Insight Overlay - MOBILE */}
                                         {post.aiSummary && (
-                                            <div 
+                                            <div
                                                 className={`absolute bottom-3 right-3 ${post.mentions && post.mentions.length > 0 ? 'left-14' : 'left-3'} z-30 p-3 bg-black/65 backdrop-blur-md border border-white/10 rounded-2xl animate-in fade-in slide-in-from-bottom-2 duration-300`}
                                                 onClick={(e) => e.stopPropagation()}
                                             >

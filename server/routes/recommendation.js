@@ -104,7 +104,7 @@ function diversifyResults(rankedPosts, limit = 20, maxPerCategory = 4, maxPerUse
 
         result.push(post);
         categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-        userCounts[uid]     = (userCounts[uid]     || 0) + 1;
+        userCounts[uid] = (userCounts[uid] || 0) + 1;
     }
 
     // If diversity caps left us short, fill from remaining ranked posts
@@ -141,12 +141,12 @@ router.get("/posts", verifyToken, async (req, res) => {
             return res.status(404).json({ items: [], message: "User not found" });
         }
         const followingIds = (loggedUser?.following || []).map(id => id.toString());
-        console.log(`${_tag} [1] ✅ User found — following ${followingIds.length} people`);
+        console.log(`${_tag} [1]  User found — following ${followingIds.length} people`);
 
         // ── Step 2: Private user exclusion list (Redis cached) ───────────────
         const { getRestrictedUserIds } = require("../utils/privacy");
         const privateUserIds = await getRestrictedUserIds(userId);
-        console.log(`${_tag} [2] ✅ Restricted users list resolved — ${privateUserIds.length} excluded`);
+        console.log(`${_tag} [2]  Restricted users list resolved — ${privateUserIds.length} excluded`);
 
         // ── Step 3: Load user interest vector ────────────────────────────────
         console.log(`${_tag} [3] Loading UserInterest & PostVector models...`);
@@ -165,7 +165,7 @@ router.get("/posts", verifyToken, async (req, res) => {
         } else if (!interest.interestVector || !interest.interestVector.length) {
             console.warn(`${_tag} [3] ⚠️ UserInterest exists but interestVector is empty — cold start`);
         } else {
-            console.log(`${_tag} [3] ✅ Interest vector found — dim=${interest.interestVector.length}`);
+            console.log(`${_tag} [3]  Interest vector found — dim=${interest.interestVector.length}`);
         }
 
         // ── Step 4: Fetch candidate posts ─────────────────────────────────────
@@ -199,11 +199,11 @@ router.get("/posts", verifyToken, async (req, res) => {
                     deletedAt: null,
                     createdAt: { $gte: oneDayAgo }
                 })
-                .sort({ createdAt: -1 })
-                .limit(5)
-                .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
-                .populate('mentions', 'username fullname')
-                .lean();
+                    .sort({ createdAt: -1 })
+                    .limit(5)
+                    .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
+                    .populate('mentions', 'username fullname')
+                    .lean();
 
                 if (!userOwnPosts || userOwnPosts.length === 0) return feedList;
 
@@ -252,7 +252,7 @@ router.get("/posts", verifyToken, async (req, res) => {
             .lean()
             .maxTimeMS(10000);
 
-        console.log(`${_tag} [4] ✅ Fetched ${candidates.length} candidate posts`);
+        console.log(`${_tag} [4] Fetched ${candidates.length} candidate posts`);
 
         if (candidates.length > 0) {
             // Update fallback cache in background (fire and forget)
@@ -273,14 +273,14 @@ router.get("/posts", verifyToken, async (req, res) => {
                     { "user": baseUserExclusion }
                 ],
                 isAnonymous: { $ne: true },
-                isVisible:   { $ne: false },
-                deletedAt:   null,
-                createdAt:   { $gte: sevenDaysAgo }
+                isVisible: { $ne: false },
+                deletedAt: null,
+                createdAt: { $gte: sevenDaysAgo }
             })
-            .sort({ score: -1, views: -1 })
-            .limit(60)
-            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
-            .lean();
+                .sort({ score: -1, views: -1 })
+                .limit(60)
+                .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
+                .lean();
 
             // If no posts in last 7 days, fallback to recent posts regardless of date window
             if (!trendingCold || trendingCold.length === 0) {
@@ -299,7 +299,7 @@ router.get("/posts", verifyToken, async (req, res) => {
             .lean()
             .maxTimeMS(5000);
         const vecMap = new Map(postVecs.map(v => [v.postId.toString(), v.vector]));
-        console.log(`${_tag} [5] ✅ Got ${postVecs.length} vectors`);
+        console.log(`${_tag} [5]  Got ${postVecs.length} vectors`);
 
         // ── Step 6: Rank — cosine similarity + recency + popularity + P7b + P8 ─
         console.log(`${_tag} [6] Ranking candidates...`);
@@ -341,13 +341,13 @@ router.get("/posts", verifyToken, async (req, res) => {
             return { ...post, score };
         });
         ranked.sort((a, b) => b.score - a.score);
-        console.log(`${_tag} [6] ✅ Ranked ${ranked.length} posts in ${Date.now() - rankStart}ms`);
+        console.log(`${_tag} [6]  Ranked ${ranked.length} posts in ${Date.now() - rankStart}ms`);
 
         // P3: Diversity injection — cap per-category and per-user
         const result = await ensureUserOwnRecentPostsFirst(diversifyResults(ranked, 20, 4, 2));
 
         const elapsed = Date.now() - _t0;
-        console.log(`${_tag} ✅ SUCCESS — returning ${result.length} posts in ${elapsed}ms`);
+        console.log(`${_tag} Received posts.created event:SUCCESS — returning ${result.length} posts in ${elapsed}ms`);
         res.json({ items: result, nextCursor, hasMore });
 
         // ── P6: Mark served posts as seen (Bloom Filter, fire-and-forget) ───────
@@ -392,7 +392,7 @@ router.get("/posts", verifyToken, async (req, res) => {
                 .lean()
                 .maxTimeMS(4000);
 
-            console.log(`${_tag} ✅ DB Fallback succeeded`);
+            console.log(`${_tag}  DB Fallback succeeded`);
             return res.json({
                 items: limitConsecutiveUserPosts(fallback, 2),
                 isFallback: true,
@@ -466,7 +466,7 @@ router.get("/similar/:postId", verifyToken, [
         try {
             const cachedResult = await redis.get(resultCacheKey);
             if (cachedResult) {
-                console.log(`${_tag} ✅ Cache hit for bucket: ${privacyBucket}`);
+                console.log(`${_tag}  Cache hit for bucket: ${privacyBucket}`);
                 const parsed = JSON.parse(cachedResult);
                 return res.json({
                     items: parsed.items,
@@ -593,7 +593,7 @@ router.get("/similar/:postId", verifyToken, [
         }
 
         const elapsed = Date.now() - _t0;
-        console.log(`${_tag} ✅ Success — returned ${finalItems.length} posts in ${elapsed}ms (method=${method})`);
+        console.log(`${_tag}  Success — returned ${finalItems.length} posts in ${elapsed}ms (method=${method})`);
         res.json(responsePayload);
 
     } catch (err) {
@@ -821,16 +821,16 @@ router.get("/memory", verifyToken, async (req, res) => {
 
         res.json({
             userId,
-            top_categories:       interest.topCategories,
-            liked_tags:           interest.likedTags,
-            recent_searches:      interest.recentSearches,
-            behavior_vector:      interest.interestVector,
-            disliked_categories:  interest.dislikedCategories  || [],
-            avg_dwell_sec:        interest.avgDwellTimeSec     || 0,
-            preferred_content:    interest.preferredContentType || 'mixed',
+            top_categories: interest.topCategories,
+            liked_tags: interest.likedTags,
+            recent_searches: interest.recentSearches,
+            behavior_vector: interest.interestVector,
+            disliked_categories: interest.dislikedCategories || [],
+            avg_dwell_sec: interest.avgDwellTimeSec || 0,
+            preferred_content: interest.preferredContentType || 'mixed',
             video_completion_rate: interest.videoCompletionRate || 0,
-            active_hours:         interest.activeHours          || [],
-            total_interactions:   interest.totalInteractions    || 0
+            active_hours: interest.activeHours || [],
+            total_interactions: interest.totalInteractions || 0
         });
     } catch (err) {
         console.error('[Recommendation /memory]', err);

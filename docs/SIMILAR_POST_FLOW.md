@@ -23,7 +23,7 @@ There are two paths depending on AI model availability:
     *   Used if the target post hasn't been vectorized yet.
     *   Performs a keyword-based search on `category` and `tags`, strictly applying the **Privacy Filter**.
 
-## 2. Security Measures (Privacy Guardrails) ✅
+## 2. Security Measures (Privacy Guardrails) 
 
 The flow incorporates several layers of protection to ensure private and sensitive content is never leaked.
 

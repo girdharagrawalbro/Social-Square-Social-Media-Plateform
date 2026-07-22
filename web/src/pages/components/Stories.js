@@ -23,6 +23,7 @@ import MentionSuggestions from './ui/MentionSuggestions';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 import { appChannel } from '../../utils/broadcast';
 import useBroadcast from '../../hooks/useBroadcast';
+import posthog from 'posthog-js';
 
 const UserProfile = React.lazy(() => import('./UserProfile'));
 const PostDetail = React.lazy(() => import('./PostDetail'));
@@ -51,7 +52,7 @@ const StoryViewer = ({
     const lastReportedIndex = useRef(startGroupIndex);
     const [isResharing, setIsResharing] = useState(false);
 
-    // ✅ Sync internal state with external prop (e.g. from previews)
+    //  Sync internal state with external prop (e.g. from previews)
     useEffect(() => {
         setGroupIndex(startGroupIndex);
         lastReportedIndex.current = startGroupIndex;
@@ -180,7 +181,7 @@ const StoryViewer = ({
 
     useEffect(() => {
         setProgress(0);
-        // ✅ Sync URL with current story
+        //  Sync URL with current story
         if (group?.user) {
             const target = group.user.username || group.user._id;
             const path = `/stories/${target}${story?._id ? `/${story._id}` : ''}`;
@@ -190,7 +191,7 @@ const StoryViewer = ({
         }
     }, [story?._id, group?.user, navigate]);
 
-    // ✅ Pre-fetching Logic
+    //  Pre-fetching Logic
     useEffect(() => {
         if (!group) return;
         let nextStory = null;
@@ -878,7 +879,7 @@ const StoryViewer = ({
                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={goNext} />
             </div>
 
-            {/* ✅ Neighbor Navigation Buttons (Visible on Desktop) */}
+            {/*  Neighbor Navigation Buttons (Visible on Desktop) */}
             <div className="hidden md:flex" style={{ position: 'absolute', top: '50%', left: '-80px', right: '-80px', transform: 'translateY(-50%)', justifyContent: 'space-between', zIndex: 40, pointerEvents: 'none' }}>
                 <button
                     onClick={goToPrevGroup}
@@ -954,14 +955,14 @@ const StoryViewer = ({
                             if (!reply.trim() || !story?._id) return;
                             try {
                                 const { api } = await import('../../store/zustand/useAuthStore');
-                                
+
                                 const recipientId = group.user._id.toString();
                                 const convRes = await api.post('/api/conversation/create', { recipientId });
                                 const conversationId = convRes.data?._id;
-                                
+
                                 let finalContent = reply;
                                 let isEncrypted = false;
-                                
+
                                 const useE2eeStore = (await import('../../store/zustand/useE2eeStore')).default;
                                 const e2eeState = useE2eeStore.getState();
                                 if (e2eeState.privateKey && conversationId) {
@@ -973,14 +974,14 @@ const StoryViewer = ({
                                         isEncrypted = true;
                                     }
                                 }
-                                
+
                                 await api.post(`/api/story/reply/${story._id}`, { content: finalContent, isEncrypted });
                                 toast.success('Reply sent!');
                                 e.target.reply.value = '';
                                 setIsPaused(false);
-                            } catch (err) { 
+                            } catch (err) {
                                 console.error(err);
-                                toast.error('Failed to send reply'); 
+                                toast.error('Failed to send reply');
                             }
                         }}
                         style={{ flex: 1, display: 'flex' }}
@@ -1269,30 +1270,30 @@ const bakeTextToImage = (imageFile, textContent, textPos, textColor) => {
             canvas.width = img.naturalWidth;
             canvas.height = img.naturalHeight;
             const ctx = canvas.getContext('2d');
-            
+
             // Draw original image
             ctx.drawImage(img, 0, 0);
-            
+
             // Setup text styling
             const fontSize = Math.max(20, Math.floor(img.naturalHeight * 0.045));
             ctx.font = `bold ${fontSize}px sans-serif`;
             ctx.fillStyle = textColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
+
             // Add text shadow for high readability
             ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
             ctx.shadowBlur = 8;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 2;
-            
+
             // Calculate absolute x and y coordinates from percentage
             const x = (textPos.x / 100) * img.naturalWidth;
             const y = (textPos.y / 100) * img.naturalHeight;
-            
+
             // Draw text
             ctx.fillText(textContent, x, y);
-            
+
             // Convert to blob and then to File object
             canvas.toBlob((blob) => {
                 URL.revokeObjectURL(img.src);
@@ -1345,6 +1346,25 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
     const [activeDraftId, setActiveDraftId] = useState(null);
     const [showDraftsListModal, setShowDraftsListModal] = useState(false);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+    useEffect(() => {
+        if (process.env.REACT_APP_POSTHOG_KEY) {
+            try {
+                posthog.startSessionRecording();
+            } catch (e) {
+                console.error("Failed to start session recording:", e);
+            }
+        }
+        return () => {
+            if (process.env.REACT_APP_POSTHOG_KEY) {
+                try {
+                    posthog.stopSessionRecording();
+                } catch (e) {
+                    console.error("Failed to stop session recording:", e);
+                }
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (loggeduser?._id) {
@@ -1750,11 +1770,11 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                         const res = await api.post(`/api/story/create`, {
                             mediaUrl, mediaType: item.type,
                             thumbnailUrl,
-                            text: textToUpload ? { 
-                                content: textToUpload, 
-                                color: textColorToUpload, 
-                                position: textPositionToUpload, 
-                                x: textPos.x, 
+                            text: textToUpload ? {
+                                content: textToUpload,
+                                color: textColorToUpload,
+                                position: textPositionToUpload,
+                                x: textPos.x,
                                 y: textPos.y,
                                 isBaked: item.type === 'image'
                             } : null,

@@ -63,7 +63,7 @@ Output only the summary text, nothing else.`;
                     category: post.category || 'General',
                     type: post.video ? 'video' : (post.image_url || post.image_urls?.length ? 'image' : 'text')
                 });
-                console.log(`✅ Post [${post._id}] Vectorized`);
+                console.log(` Post [${post._id}] Vectorized`);
                 updated = true;
             }
         }
@@ -121,7 +121,7 @@ Only output valid JSON.`;
                 topic: comment.topic || 'General',
                 quality: comment.quality || 'normal'
             });
-            console.log(`✅ Comment [${comment._id}] Vectorized`);
+            console.log(` Comment [${comment._id}] Vectorized`);
             updated = true;
         }
     }
@@ -133,7 +133,7 @@ Only output valid JSON.`;
 
 async function main() {
     await mongoose.connect(MONGO_URI);
-    console.log('✅ Connected to MongoDB');
+    console.log(' Connected to MongoDB');
 
     console.log('\n--- 🚀 PROCESSING POSTS ---');
     let postsProcessed = 0;

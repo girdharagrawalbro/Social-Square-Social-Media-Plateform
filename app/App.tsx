@@ -58,6 +58,9 @@ import { NavigationContainer, createNavigationContainerRef } from '@react-naviga
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import useAuthStore from './src/store/zustand/useAuthStore';
 import { CustomToastContainer } from './src/lib/CustomToast';
+import { PostHogProvider } from 'posthog-react-native';
+import { PostHogSessionReplayPlugin } from 'posthog-react-native-session-replay';
+import { POSTHOG_API_KEY, POSTHOG_HOST } from './src/lib/posthog';
 
 // Screens
 import SplashScreen from './src/screens/SplashScreen';
@@ -139,46 +142,72 @@ function App() {
     };
   }, []);
 
+  const renderAppContent = () => {
+    const mainContent = (
+      <>
+        <NavigationContainer ref={navigationRef}>
+          <Stack.Navigator
+            initialRouteName="Splash"
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          >
+            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Signup" component={SignupScreen} />
+            <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
+            <Stack.Screen name="Forgot" component={ForgotScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+            <Stack.Screen name="SocialSquare" component={MainTabsScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="ChatPane" component={ChatPaneScreen} />
+            <Stack.Screen name="Explore" component={ExploreScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="Reels" component={ReelsScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="Pulse" component={PulseScreen} />
+            <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'none' }} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="NewPost" component={NewPostScreen} />
+            <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+            <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+            <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
+            <Stack.Screen name="CloseFriends" component={CloseFriendsScreen} />
+            <Stack.Screen name="Call" component={CallScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
+            <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ gestureEnabled: false }} />
+            <Stack.Screen name="Communities" component={CommunitiesScreen} />
+            <Stack.Screen name="WikiDetail" component={WikiDetailScreen} />
+            <Stack.Screen name="CreatorInsights" component={CreatorInsightsScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+        <CustomToastContainer />
+      </>
+    );
+
+    if (POSTHOG_API_KEY) {
+      return (
+        <PostHogProvider
+          apiKey={POSTHOG_API_KEY}
+          options={{
+            host: POSTHOG_HOST,
+            // Enable session replay with manual start/stop control
+            disable_session_recording: true,
+            plugins: [new PostHogSessionReplayPlugin()],
+          }}
+        >
+          {mainContent}
+        </PostHogProvider>
+      );
+    }
+
+    return mainContent;
+  };
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NavigationContainer ref={navigationRef}>
-        <Stack.Navigator
-          initialRouteName="Splash"
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            gestureEnabled: true,
-          }}
-        >
-          <Stack.Screen name="Splash" component={SplashScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Signup" component={SignupScreen} />
-          <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
-          <Stack.Screen name="Forgot" component={ForgotScreen} />
-          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-          <Stack.Screen name="SocialSquare" component={MainTabsScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'none' }} />
-          <Stack.Screen name="ChatPane" component={ChatPaneScreen} />
-          <Stack.Screen name="Explore" component={ExploreScreen} options={{ animation: 'none' }} />
-          <Stack.Screen name="Reels" component={ReelsScreen} options={{ animation: 'none' }} />
-          <Stack.Screen name="Pulse" component={PulseScreen} />
-          <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'none' }} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          <Stack.Screen name="NewPost" component={NewPostScreen} />
-          <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-          <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
-          <Stack.Screen name="CloseFriends" component={CloseFriendsScreen} />
-          <Stack.Screen name="Call" component={CallScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
-          <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ gestureEnabled: false }} />
-          <Stack.Screen name="Communities" component={CommunitiesScreen} />
-          <Stack.Screen name="WikiDetail" component={WikiDetailScreen} />
-          <Stack.Screen name="CreatorInsights" component={CreatorInsightsScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-      <CustomToastContainer />
+      {renderAppContent()}
     </SafeAreaProvider>
   );
 }

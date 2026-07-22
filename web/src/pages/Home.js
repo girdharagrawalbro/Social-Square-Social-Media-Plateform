@@ -34,7 +34,7 @@ const Home = () => {
     const setProfileDetailId = usePostStore(s => s.setProfileDetailId);
     const setStoryDetailDeepLink = usePostStore(s => s.setStoryDetailDeepLink);
 
-    // ✅ Welcome Celebration & Guide for new users
+    //  Welcome Celebration & Guide for new users
     useEffect(() => {
         if (initialized && !loading && loggeduser && loggeduser.hasSeenWelcome === false) {
 

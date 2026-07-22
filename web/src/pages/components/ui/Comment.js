@@ -69,7 +69,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
         ? comment.user.profile_picture
         : USER_DEFAULT_IMAGE;
 
-    // ✅ Fix: compare as strings to handle ObjectId vs string mismatch
+    //  Fix: compare as strings to handle ObjectId vs string mismatch
     const loggedUserId = loggeduser?._id?.toString();
     const isLikedInitial = (comment.likes || []).some(id => id?.toString() === loggedUserId);
     const [liked, setLiked] = useState(isLikedInitial);
@@ -194,7 +194,7 @@ const CommentItem = ({ comment, postId, loggeduser, onDelete, onProfileClick, de
                     <div className="flex items-center flex-wrap gap-3 mt-1 px-1">
                         <span className="text-xs text-[var(--text-sub)]">{formatDateTime(comment.createdAt)}</span>
 
-                        {/* ✅ Like button with optimistic update and disabled state during request */}
+                        {/*  Like button with optimistic update and disabled state during request */}
                         <button
                             onClick={handleLike}
                             disabled={liking}

@@ -24,7 +24,7 @@ const FollowFollowingList = ({ userId, ids, isfollowing }) => {
 
     const { ref, inView } = useInView();
 
-    // ✅ Fix: Call hooks unconditionally to satisfy Rules of Hooks
+    //  Fix: Call hooks unconditionally to satisfy Rules of Hooks
     // Case 1: Static list (e.g. Likes)
     const { data: staticUsers = [], isLoading: staticLoading } = useUserDetails(ids);
 

@@ -12,7 +12,7 @@ const useAdmin = () => {
 // ── Action metadata ───────────────────────────────────────────────────────────
 const ACTION_META = {
     ban_user: { label: 'Banned user', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.2)', icon: '🚫' },
-    unban_user: { label: 'Unbanned user', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.2)', icon: '✅' },
+    unban_user: { label: 'Unbanned user', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.2)', icon: '' },
     delete_user: { label: 'Deleted account', color: '#dc2626', bg: 'rgba(220,38,38,0.1)', border: 'rgba(220,38,38,0.2)', icon: '🗑️' },
     delete_post: { label: 'Deleted post', color: '#f97316', bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.2)', icon: '📄' },
     delete_comment: { label: 'Deleted comment', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', icon: '💬' },

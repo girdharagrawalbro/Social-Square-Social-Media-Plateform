@@ -272,7 +272,7 @@ def get_profile(s: Session, username: str) -> dict:
                 # Walk the JSON tree looking for a user object matching the username
                 found = _find_user_in_blob(blob, username)
                 if found:
-                    print("✅")
+                    print("")
                     return _normalize(found)
             except Exception:
                 pass

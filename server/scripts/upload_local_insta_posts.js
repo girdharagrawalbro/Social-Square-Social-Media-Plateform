@@ -2,18 +2,18 @@
  * ULTRA OPTIMIZED INSTAGRAM IMPORTER
  *
  * Improvements:
- * ✅ Parallel processing with concurrency control
- * ✅ Single AI call for mood + category + tags
- * ✅ Parallel Cloudinary uploads
- * ✅ Bulk Mongo inserts
- * ✅ Bulk category creation
- * ✅ Removed artificial delays
- * ✅ Async filesystem operations
- * ✅ Faster hashtag-first classification
- * ✅ Reduced Ollama token usage
- * ✅ Lower RAM usage
- * ✅ Better error handling
- * ✅ Faster user updates
+ *  Parallel processing with concurrency control
+ *  Single AI call for mood + category + tags
+ *  Parallel Cloudinary uploads
+ *  Bulk Mongo inserts
+ *  Bulk category creation
+ *  Removed artificial delays
+ *  Async filesystem operations
+ *  Faster hashtag-first classification
+ *  Reduced Ollama token usage
+ *  Lower RAM usage
+ *  Better error handling
+ *  Faster user updates
  *
  * INSTALL:
  * npm i p-limit
@@ -279,7 +279,7 @@ async function processPost({
                 if (aiResult && aiResult.aiSummary) {
                     existing.aiSummary = aiResult.aiSummary;
                     await existing.save();
-                    console.log(`✅ Backfilled AI Summary: "${aiResult.aiSummary}"`);
+                    console.log(` Backfilled AI Summary: "${aiResult.aiSummary}"`);
                 }
             }
             return null;
@@ -539,7 +539,7 @@ async function run() {
         );
 
         console.log(
-            '✅ MongoDB Connected'
+            ' MongoDB Connected'
         );
 
         /**
@@ -580,7 +580,7 @@ async function run() {
                 );
 
             console.log(
-                `✅ Ollama model: ${OLLAMA_MODEL}`
+                ` Ollama model: ${OLLAMA_MODEL}`
             );
 
             console.log(
@@ -627,7 +627,7 @@ async function run() {
             });
 
             console.log(
-                `✅ User created ${user.username}`
+                ` User created ${user.username}`
             );
         }
 
@@ -668,7 +668,7 @@ async function run() {
                 await user.save();
 
                 console.log(
-                    `✅ Profile picture updated`
+                    ` Profile picture updated`
                 );
 
                 /**
@@ -759,7 +759,7 @@ async function run() {
                 );
 
             console.log(
-                `✅ Inserted ${insertedPosts.length} posts`
+                ` Inserted ${insertedPosts.length} posts`
             );
 
             /**
@@ -815,7 +815,7 @@ async function run() {
         );
 
         console.log(
-            '✅ IMPORT COMPLETED'
+            ' IMPORT COMPLETED'
         );
 
         console.log(

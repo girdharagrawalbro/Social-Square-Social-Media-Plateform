@@ -184,7 +184,7 @@ router.post("/create", verifyToken, [
 
         // DEBUG: Log video URL received
         if (videoURL) {
-            console.log('✅ Backend received videoURL:', videoURL.substring(0, 50) + '...');
+            console.log(' Backend received videoURL:', videoURL.substring(0, 50) + '...');
         }
 
         if (!loggedUserId || !category) return res.status(400).json({ message: "loggedUserId and category are required." });
@@ -277,7 +277,7 @@ router.post("/create", verifyToken, [
         }
 
         // DEBUG: Log saved post video field
-        console.log('✅ Post saved with video field:', newPost.video ? 'YES' : 'NO (null or undefined)');
+        console.log(' Post saved with video field:', newPost.video ? 'YES' : 'NO (null or undefined)');
 
         if (groupId) {
             await Group.findByIdAndUpdate(groupId, { $push: { posts: newPost._id } });
@@ -340,7 +340,7 @@ router.post("/create", verifyToken, [
                 .catch(err => console.warn('[NATS]:', err.message));
         }
 
-        // ✅ Add to Moderation Queue (Asynchronous)
+        //  Add to Moderation Queue (Asynchronous)
         if (moderationQueue) {
             moderationQueue.add('moderate', {
                 contentId: newPost._id,
@@ -349,7 +349,7 @@ router.post("/create", verifyToken, [
             }).catch(err => console.error('[ModerationQueue] Add error:', err.message));
         }
 
-        // ✅ Publish recommendation event
+        //  Publish recommendation event
         await publishEvent("post.created", {
             postId: newPost._id.toString(),
             userId: userDetails._id.toString(),
@@ -364,15 +364,15 @@ router.post("/create", verifyToken, [
             createdAtTs: Math.floor(new Date(newPost.createdAt).getTime() / 1000),
         });
 
-        // ✅ Update Gamification
+        //  Update Gamification
         const rewards = await updateGamification(loggedUserId, 'post');
         if (rewards && _io) {
             _io.to(loggedUserId.toString()).emit('levelUpdate', rewards);
         }
 
-        // ✅ Invalidate Redis fallback cache
+        //  Invalidate Redis fallback cache
         if (redis.status !== 'disabled') {
-            redis.del('cache:fallback_posts').catch(() => {});
+            redis.del('cache:fallback_posts').catch(() => { });
         }
 
         res.status(201).json({ ...newPost.toObject(), rewards, isFirstPost });
@@ -492,11 +492,11 @@ router.put("/update/:postId", verifyToken, [
         let isOwner = false;
 
         if (post.isAnonymous) {
-            // ✅ Fix #1: Constant-time comparison (verifyOwnerToken uses timingSafeEqual)
+            //  Fix #1: Constant-time comparison (verifyOwnerToken uses timingSafeEqual)
             isOwner = verifyOwnerToken(userId, post.ownerToken) ||
                 (post.authorId && post.authorId.toString() === userId.toString());
         } else {
-            // ✅ Fix #3: Safe string comparison for ObjectId vs String mismatch
+            //  Fix #3: Safe string comparison for ObjectId vs String mismatch
             isOwner = (post.authorId && post.authorId.toString() === userId.toString()) ||
                 (postUserId && postUserId.toString() === userId.toString());
         }
@@ -507,7 +507,7 @@ router.put("/update/:postId", verifyToken, [
         if (category) post.category = category;
         await post.save();
 
-        // ✅ Notify all users about post update
+        //  Notify all users about post update
         if (_io) _io.emit('postUpdated', { postId: post._id, caption: post.caption, category: post.category });
 
         res.status(200).json(post);
@@ -540,11 +540,11 @@ router.delete("/delete/:postId", verifyToken, [
         let isOwner = false;
 
         if (post.isAnonymous) {
-            // ✅ Fix #1: Constant-time comparison
+            //  Fix #1: Constant-time comparison
             isOwner = verifyOwnerToken(userId, post.ownerToken) ||
                 (post.authorId && post.authorId.toString() === userId.toString());
         } else {
-            // ✅ Fix #3: Type-safe check
+            //  Fix #3: Type-safe check
             isOwner = (post.authorId && post.authorId.toString() === userId.toString()) ||
                 (postUserId && postUserId.toString() === userId.toString());
         }
@@ -564,7 +564,7 @@ router.delete("/delete/:postId", verifyToken, [
             return res.status(404).json({ message: "Post already deleted." });
         }
 
-        // ✅ Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
+        //  Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
         await PostVector.deleteOne({ postId: req.params.postId }).catch(err => {
             console.error('[Post Delete] Failed to delete PostVector:', err.message);
         });
@@ -576,12 +576,12 @@ router.delete("/delete/:postId", verifyToken, [
             await User.findByIdAndUpdate(decrementUserId, { $inc: { postsCount: -1 } });
         }
 
-        // ✅ Invalidate Redis fallback cache
+        //  Invalidate Redis fallback cache
         if (redis.status !== 'disabled') {
-            redis.del('cache:fallback_posts').catch(() => {});
+            redis.del('cache:fallback_posts').catch(() => { });
         }
 
-        // ✅ Notify all users to remove post from feed
+        //  Notify all users to remove post from feed
         if (_io) _io.emit('postDeleted', { postId: req.params.postId });
 
         res.status(200).json({ message: "Post deleted.", postId: req.params.postId });
@@ -1164,7 +1164,7 @@ router.post("/save", verifyToken, [
             const userExists = await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
             if (!userExists) return res.status(404).json({ message: 'User not found.' });
 
-            // ✅ Publish recommendation event
+            //  Publish recommendation event
             const post = await Post.findById(postId).select('category tags').lean();
             if (post) {
                 await publishEvent("user.activity.save", {
@@ -1365,7 +1365,7 @@ router.post("/react", verifyToken, [
         if (!post) return res.status(404).json({ message: 'Post not found.' });
 
         // Deduplicate reactions array by user ID to resolve race conditions
-        post.reactions = (post.reactions || []).filter((r, index, self) => 
+        post.reactions = (post.reactions || []).filter((r, index, self) =>
             r.userId && self.findIndex(o => o.userId?.toString() === r.userId?.toString()) === index
         );
 
@@ -1416,7 +1416,7 @@ router.post("/react", verifyToken, [
             }
         }
 
-        // ✅ Update Gamification
+        //  Update Gamification
         const rewards = await updateGamification(userId, 'reaction');
         if (rewards && _io) _io.to(userId.toString()).emit('levelUpdate', rewards);
 
@@ -1529,7 +1529,7 @@ router.post("/like", verifyToken, [
         await Post.updateOne({ _id: postId }, { $set: { score: newScore } });
         updatedPost.score = newScore;
 
-        // ✅ Broadcast like update to all connected users
+        //  Broadcast like update to all connected users
         if (_io) _io.emit('postLiked', { postId, userId, likesCount: updatedPost.likes.length });
 
         // Create notification for post owner
@@ -1545,7 +1545,7 @@ router.post("/like", verifyToken, [
             });
         }
 
-        // ✅ Publish recommendation event
+        //  Publish recommendation event
         await publishEvent("user.activity.like", {
             userId,
             postId: updatedPost._id.toString(),
@@ -1596,7 +1596,7 @@ router.post("/share", verifyToken, [
         await publishEvent('post.share', {
             postId: postId.toString(),
             userId: userId.toString()
-        }).catch(() => {});
+        }).catch(() => { });
 
         return res.status(200).json({ success: true, sharesCount: updatedPost.shares });
     } catch (error) {
@@ -1632,7 +1632,7 @@ router.post("/unlike", verifyToken, [
             await Post.updateOne({ _id: postId }, { $set: { score: newScore } });
             updatedPost.score = newScore;
 
-            // ✅ Broadcast unlike update to all connected users
+            //  Broadcast unlike update to all connected users
             if (_io) _io.emit('postUnliked', { postId, userId, likesCount: updatedPost.likes.length });
 
             res.status(200).json({ success: true, post: updatedPost });
@@ -1738,7 +1738,7 @@ router.post('/comments/add', verifyToken, [
             await post.save();
         }
 
-        // ✅ Add to Moderation Queue (Asynchronous)
+        //  Add to Moderation Queue (Asynchronous)
         if (moderationQueue) {
             moderationQueue.add('moderate', {
                 contentId: newComment._id,
@@ -1751,7 +1751,7 @@ router.post('/comments/add', verifyToken, [
         const postData = await Post.findById(postId).select('comments image_urls user').lean();
         const commentsCount = postData?.comments?.length || 0;
 
-        // ✅ Broadcast new comment to all users viewing this post
+        //  Broadcast new comment to all users viewing this post
         if (_io) {
             _io.emit('newComment', {
                 postId,
@@ -1790,11 +1790,11 @@ router.post('/comments/add', verifyToken, [
             });
         }
 
-        // ✅ Update Gamification
+        //  Update Gamification
         const rewards = await updateGamification(user.id || user._id, 'comment');
         if (rewards && _io) _io.to((user.id || user._id).toString()).emit('levelUpdate', rewards);
 
-        // ✅ Asynchronous AI Quality & Topic Analysis (Only for parent comments or substantial replies)
+        //  Asynchronous AI Quality & Topic Analysis (Only for parent comments or substantial replies)
         if (!parentId || content.length > 20) {
             setImmediate(async () => {
                 try {
@@ -1939,7 +1939,7 @@ router.delete('/comments/:commentId', verifyToken, [
             commentsCount = postData?.comments?.length || 0;
         }
 
-        // ✅ Broadcast comment deletion
+        //  Broadcast comment deletion
         if (_io) {
             _io.emit('commentDeleted', {
                 commentId: req.params.commentId,
@@ -1969,7 +1969,7 @@ router.post('/comments/:commentId/like', verifyToken, [
             await Comment.findByIdAndUpdate(req.params.commentId, { $addToSet: { likes: userId } });
         }
 
-        // ✅ Broadcast comment like
+        //  Broadcast comment like
         if (_io) {
             _io.emit('commentLiked', {
                 commentId: req.params.commentId,
@@ -1995,7 +1995,7 @@ router.get("/detail/:postId", [
         // I need to ensure it handles optional auth.
 
 
-        // ✅ Publish recommendation event
+        //  Publish recommendation event
         await publishEvent("user.activity.view", {
             userId: viewerId,
             postId: post._id.toString(),

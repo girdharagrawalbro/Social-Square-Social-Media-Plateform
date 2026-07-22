@@ -12,7 +12,7 @@ async function test() {
     try {
         console.log('⚡ Connecting to MongoDB...');
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ MongoDB Connected.');
+        console.log(' MongoDB Connected.');
 
         console.log('🤖 Triggering AI Auto-Post Job (forced=true)...');
         const post = await runAutoPostJob(true);
@@ -36,7 +36,7 @@ async function test() {
         console.error('🔥 Test Failed:', err);
         try {
             await mongoose.disconnect();
-        } catch {}
+        } catch { }
         process.exit(1);
     }
 }

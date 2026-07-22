@@ -6,7 +6,7 @@ import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
 
 const STATUS_STYLE = {
     pending: { bg: 'var(--surface-2)', color: '#d97706', label: '⏳ Pending' },
-    accepted: { bg: '#d1fae5', color: '#059669', label: '✅ Accepted' },
+    accepted: { bg: '#d1fae5', color: '#059669', label: ' Accepted' },
     declined: { bg: '#fee2e2', color: '#ef4444', label: '❌ Declined' },
 };
 

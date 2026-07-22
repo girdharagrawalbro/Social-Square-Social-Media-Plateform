@@ -352,12 +352,12 @@ const BarChart = ({ data, label }) => {
                             }}
                             title={`${d._id}: ${d.count}`}
                         />
-                        <span 
-                            style={{ 
-                                fontSize: '9px', 
-                                color: 'var(--text-sub)', 
-                                fontWeight: 800, 
-                                textTransform: 'uppercase', 
+                        <span
+                            style={{
+                                fontSize: '9px',
+                                color: 'var(--text-sub)',
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
                                 opacity: 0.6,
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
@@ -2251,7 +2251,7 @@ const AdminDashboard = () => {
         if (!loggeduser) navigate('/login');
     }, [initialized, loading, loggeduser, navigate]);
 
-    // ✅ Redirect non-admins only after user is confirmed loaded
+    //  Redirect non-admins only after user is confirmed loaded
     useEffect(() => {
         if (!initialized || loading || !loggeduser) return;
         if (!isAdminUser) {
@@ -2274,7 +2274,7 @@ const AdminDashboard = () => {
     // Not admin
     if (!isAdminUser) return null;
 
-    // ✅ Password gate — shown before dashboard
+    //  Password gate — shown before dashboard
     if (!verified) return <PasswordGate onSuccess={() => setVerified(true)} />;
 
     const tabs = [

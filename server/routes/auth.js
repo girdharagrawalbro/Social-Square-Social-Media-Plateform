@@ -201,7 +201,7 @@ function startSessionCleanupJob() {
 startSessionCleanupJob();
 
 
-// ✅ Privacy: Standard exclusions for user responses
+//  Privacy: Standard exclusions for user responses
 // For the logged-in user (OWN), we exclude security tokens but keep email/settings
 const OWN_USER_EXCLUSIONS = '-password -twoFactorOtp -twoFactorOtpExpires -resetPasswordToken -resetPasswordExpires -emailVerificationToken -emailVerificationTokenSentAt -loginSessions -__v -followers -following -savedPosts';
 
@@ -1010,7 +1010,7 @@ router.delete('/sessions/:sessionId', verifyToken, async (req, res) => {
             _io.to(req.userId.toString()).emit('sessionRevoked', { sessionId: req.params.sessionId });
         }
 
-        // ✅ Security Alert: Send email about revoked session
+        //  Security Alert: Send email about revoked session
         const user = await User.findById(req.userId).select('email');
         if (user?.email) {
             sendSessionRevokedEmail(user.email, {
@@ -1039,7 +1039,7 @@ router.delete('/sessions/all/revoke', verifyToken, async (req, res) => {
             _io.to(req.userId.toString()).emit('sessionsRevokedAll', { exceptSessionId: req.sessionId });
         }
 
-        // ✅ Security Alert: Notify user that other sessions were cleared
+        //  Security Alert: Notify user that other sessions were cleared
         const user = await User.findById(req.userId).select('email');
         if (user?.email) {
             sendEmail({
@@ -1507,14 +1507,14 @@ router.put('/update-profile', verifyToken, [
             }
         }
 
-        // ✅ Propagate changes to denormalized collections (Posts, Comments, etc.)
+        //  Propagate changes to denormalized collections (Posts, Comments, etc.)
         if (fullname || profile_picture || username) {
             propagateUserProfileUpdate(userId, { fullname, username, profile_picture }).catch(err => {
                 console.error(`[Propagation Error] for user ${userId}:`, err.message);
             });
         }
 
-        // ✅ Broadcast profile update to all connected users
+        //  Broadcast profile update to all connected users
         if (_io) {
             _io.emit('profileUpdated', {
                 userId,

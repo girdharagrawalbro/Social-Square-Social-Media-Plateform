@@ -27,7 +27,7 @@ async function processUser(user) {
     }
 
     const postsSummaryText = posts
-        .map((p, i) => `Post ${i+1}: "${p.caption || ''}" (Category: ${p.category || 'General'}, Tags: ${p.tags?.join(', ') || 'None'})`)
+        .map((p, i) => `Post ${i + 1}: "${p.caption || ''}" (Category: ${p.category || 'General'}, Tags: ${p.tags?.join(', ') || 'None'})`)
         .join('\n');
 
     const prompt = `You are a social media analyst. Analyze the following posts from the user named "${user.fullname}" (@${user.username}) and write a warm, engaging 1-2 sentence profile insight of their vibe, top interests, or style. 
@@ -52,7 +52,7 @@ Insight:`;
 async function main() {
     console.log('🔌 Connecting to MongoDB...');
     await mongoose.connect(MONGO_URI);
-    console.log('✅ Connected to MongoDB');
+    console.log(' Connected to MongoDB');
 
     const users = await User.find({ deletedAt: null });
     console.log(`👥 Found ${users.length} active users to process.`);

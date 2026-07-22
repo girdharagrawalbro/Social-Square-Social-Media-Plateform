@@ -6,15 +6,41 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { QueryClientProvider } from '@tanstack/react-query';
 import queryClient from './queryClient';
+import { PostHogProvider } from '@posthog/react';
 
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+
+const posthogKey = process.env.REACT_APP_POSTHOG_KEY;
+const posthogHost = process.env.REACT_APP_POSTHOG_HOST || 'https://us.i.posthog.com';
+
+const renderApp = () => {
+    const appContent = (
+        <QueryClientProvider client={queryClient}>
+            <App />
+        </QueryClientProvider>
+    );
+
+    if (posthogKey) {
+        return (
+            <PostHogProvider 
+                apiKey={posthogKey} 
+                options={{ 
+                    api_host: posthogHost,
+                    enable_recording_console_log: true
+                }}
+            >
+                {appContent}
+            </PostHogProvider>
+        );
+    }
+
+    return appContent;
+};
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
     <React.StrictMode>
-        <QueryClientProvider client={queryClient}>
-            <App />
-        </QueryClientProvider>
+        {renderApp()}
     </React.StrictMode >
 );
 

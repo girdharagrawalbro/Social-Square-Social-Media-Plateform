@@ -573,7 +573,7 @@ router.delete('/posts/:postId', requireAdmin, [
 
         await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
 
-        // ✅ Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
+        //  Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
         await PostVector.deleteOne({ postId: req.params.postId }).catch(err => {
             console.error('[Admin Post Delete] Failed to delete PostVector:', err.message);
         });

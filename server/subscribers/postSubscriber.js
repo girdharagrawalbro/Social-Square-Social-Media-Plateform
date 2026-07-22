@@ -11,7 +11,7 @@ function setIo(io) { _io = io; }
 
 async function initPostSubscriber() {
     await subscribe('posts.created', async (data) => {
-        console.log('[NATS] Received posts.created event:', data);
+        console.log('[NATS] Received posts.created event:');
         const { id: postId, user, category } = data;
 
         const author = await User.findById(user._id).select('followers fullname profile_picture');
