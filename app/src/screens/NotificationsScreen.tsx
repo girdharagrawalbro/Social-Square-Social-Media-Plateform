@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -55,7 +57,16 @@ export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
   const user = useAuthStore((s: any) => s.user);
 
+  const scrollViewRef = useRef<ScrollView>(null);
+  const { width: screenWidth } = Dimensions.get('window');
+
   const [activeTab, setActiveTab] = useState<'notifications' | 'requests' | 'collabs'>('notifications');
+
+  const handleTabPress = (tabName: 'notifications' | 'requests' | 'collabs') => {
+    setActiveTab(tabName);
+    const index = tabName === 'notifications' ? 0 : tabName === 'requests' ? 1 : 2;
+    scrollViewRef.current?.scrollTo({ x: index * screenWidth, animated: true });
+  };
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [collabInvites, setCollabInvites] = useState<CollabInvite[]>([]);
   const [loading, setLoading] = useState(false);
@@ -261,7 +272,7 @@ export default function NotificationsScreen() {
       <View style={[styles.tabBar, { backgroundColor: cardBg, borderBottomColor: border }]}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'notifications' && styles.activeTab]}
-          onPress={() => setActiveTab('notifications')}
+          onPress={() => handleTabPress('notifications')}
         >
           <Text style={[styles.tabText, { color: activeTab === 'notifications' ? primaryColor : subText }]}>
             Activity
@@ -275,7 +286,7 @@ export default function NotificationsScreen() {
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
-          onPress={() => setActiveTab('requests')}
+          onPress={() => handleTabPress('requests')}
         >
           <Text style={[styles.tabText, { color: activeTab === 'requests' ? primaryColor : subText }]}>
             Requests
@@ -289,7 +300,7 @@ export default function NotificationsScreen() {
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'collabs' && styles.activeTab]}
-          onPress={() => setActiveTab('collabs')}
+          onPress={() => handleTabPress('collabs')}
         >
           <Text style={[styles.tabText, { color: activeTab === 'collabs' ? primaryColor : subText }]}>
             Collabs
@@ -315,214 +326,231 @@ export default function NotificationsScreen() {
           <NotificationSkeleton />
           <NotificationSkeleton />
         </View>
-      ) : activeTab === 'notifications' ? (
-        <FlatList
-          data={generalActivity}
-          keyExtractor={(item) => item._id}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          renderItem={({ item }) => {
-            const icon = getNotificationIcon(item.type);
-            return (
-              <TouchableOpacity
-                onPress={() => {
-                  handleMarkSingleRead(item._id);
-                  if (item.type === 'message' && item.sender) {
-                    navigation.navigate('Chat', {
-                      recipientId: item.sender._id,
-                      recipientName: item.sender.fullname,
-                    });
-                  } else if (item.post) {
-                    navigation.navigate('PostDetail', { postId: item.post });
-                  } else if (item.type === 'follow' && item.sender) {
-                    navigation.navigate('Profile', { userId: item.sender._id });
-                  }
-                }}
-                style={[
-                  styles.notificationItem,
-                  { backgroundColor: cardBg, borderBottomColor: border },
-                  !item.read && { backgroundColor: isDark ? '#1a1a2e' : '#f8fafd' },
-                ]}
-              >
-                <View style={styles.row}>
-                  <View style={styles.avatarWrapper}>
-                    {item.type === 'system' ? (
-                      <View style={[styles.avatarPlaceholder, { backgroundColor: '#fef3c7' }]}>
-                        <MaterialCommunityIcons name="shield-check" size={24} color="#f59e0b" />
-                      </View>
-                    ) : item.sender?.profile_picture ? (
-                      <Image source={{ uri: item.sender.profile_picture }} style={styles.avatar} />
-                    ) : (
-                      <View style={[styles.avatarPlaceholder, { backgroundColor: primaryColor }]}>
-                        <Text style={styles.avatarInitial}>{(item.sender?.fullname || '?')[0].toUpperCase()}</Text>
-                      </View>
-                    )}
-                    <View style={[styles.iconIndicator, { backgroundColor: icon.color }]}>
-                      <MaterialCommunityIcons name={icon.name} size={11} color="#ffffff" />
-                    </View>
-                  </View>
-
-                  <View style={styles.textDetails}>
-                    {item.type === 'system' && (
-                      <Text style={[styles.bold, { color: textColor, fontSize: 14, marginBottom: 2 }]}>Security Alert</Text>
-                    )}
-                    <Text style={[styles.description, { color: textColor }]}>{getNotificationText(item)}</Text>
-                    <Text style={[styles.timeText, { color: subText }]}>{formatTime(item.createdAt)}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyView}>
-              <MaterialCommunityIcons name="bell-off-outline" size={48} color={subText} />
-              <Text style={[styles.emptyTitle, { color: textColor }]}>All clean here</Text>
-              <Text style={[styles.emptySubtitle, { color: subText }]}>No activity notifications found.</Text>
-            </View>
-          }
-        />
-      ) : activeTab === 'requests' ? (
-        <FlatList
-          data={followRequests}
-          keyExtractor={(item) => item._id}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          renderItem={({ item }) => (
-            <View style={[styles.notificationItem, { backgroundColor: cardBg, borderBottomColor: border }]}>
-              <View style={styles.row}>
-                <View style={styles.avatarWrapper}>
-                  {item.sender?.profile_picture ? (
-                    <Image source={{ uri: item.sender.profile_picture }} style={styles.avatar} />
-                  ) : (
-                    <View style={[styles.avatarPlaceholder, { backgroundColor: primaryColor }]}>
-                      <Text style={styles.avatarInitial}>{(item.sender?.fullname || '?')[0].toUpperCase()}</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.textDetails}>
-                  <Text style={[styles.description, { color: textColor }]}>
-                    <Text style={styles.bold}>{item.sender?.fullname || 'Someone'}</Text> wants to follow you.
-                  </Text>
-                  <Text style={[styles.timeText, { color: subText }]}>{formatTime(item.createdAt)}</Text>
-
-                  {item.status ? (
-                    <Text style={[styles.statusText, { color: item.status === 'accepted' ? '#10b981' : '#ef4444' }]}>
-                      {item.status.toUpperCase()}
-                    </Text>
-                  ) : (
-                    <View style={styles.btnRow}>
-                      <TouchableOpacity
-                        onPress={() => handleAcceptFollow(item.sender?._id || '', item._id)}
-                        style={[styles.actionBtn, { backgroundColor: primaryColor }]}
-                      >
-                        <Text style={styles.actionBtnText}>Accept</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDeclineFollow(item.sender?._id || '', item._id)}
-                        style={[styles.actionBtn, { backgroundColor: isDark ? '#2d2d3f' : '#e2e8f0' }]}
-                      >
-                        <Text style={[styles.actionBtnText, { color: textColor }]}>Decline</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyView}>
-              <MaterialCommunityIcons name="account-clock" size={48} color={subText} />
-              <Text style={[styles.emptyTitle, { color: textColor }]}>No pending requests</Text>
-              <Text style={[styles.emptySubtitle, { color: subText }]}>You don't have any follow requests.</Text>
-            </View>
-          }
-        />
       ) : (
-        <FlatList
-          data={collabInvites}
-          keyExtractor={(item) => item._id}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          renderItem={({ item }) => (
-            <View style={[styles.notificationItem, { backgroundColor: cardBg, borderBottomColor: border }]}>
-              <View style={styles.row}>
-                <View style={styles.avatarWrapper}>
-                  {item.user?.profile_picture ? (
-                    <Image source={{ uri: item.user.profile_picture }} style={styles.avatar} />
-                  ) : (
-                    <View style={[styles.avatarPlaceholder, { backgroundColor: '#10b981' }]}>
-                      <Text style={styles.avatarInitial}>{(item.user?.fullname || '?')[0].toUpperCase()}</Text>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+            const tabName = index === 0 ? 'notifications' : index === 1 ? 'requests' : 'collabs';
+            setActiveTab(tabName);
+          }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ width: screenWidth * 3 }}
+        >
+          {/* Slide 1: Notifications/Activity */}
+          <View style={{ width: screenWidth }}>
+            <FlatList
+              data={generalActivity}
+              keyExtractor={(item) => item._id}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              renderItem={({ item }) => {
+                const icon = getNotificationIcon(item.type);
+                return (
+                  <TouchableOpacity
+                    onPress={() => {
+                      handleMarkSingleRead(item._id);
+                      if (item.type === 'message' && item.sender) {
+                        navigation.navigate('Chat', {
+                          recipientId: item.sender._id,
+                          recipientName: item.sender.fullname,
+                        });
+                      } else if (item.post) {
+                        navigation.navigate('PostDetail', { postId: item.post });
+                      } else if (item.type === 'follow' && item.sender) {
+                        navigation.navigate('Profile', { userId: item.sender._id });
+                      }
+                    }}
+                    style={[
+                      styles.notificationItem,
+                      { backgroundColor: cardBg, borderBottomColor: border },
+                      !item.read && { backgroundColor: isDark ? '#1c1c1c' : '#f8fafd' },
+                    ]}
+                  >
+                    <View style={styles.row}>
+                      <View style={styles.avatarWrapper}>
+                        {item.type === 'system' ? (
+                          <View style={[styles.avatarPlaceholder, { backgroundColor: '#fef3c7' }]}>
+                            <MaterialCommunityIcons name="shield-check" size={24} color="#f59e0b" />
+                          </View>
+                        ) : item.sender?.profile_picture ? (
+                          <Image source={{ uri: item.sender.profile_picture }} style={styles.avatar} />
+                        ) : (
+                          <View style={[styles.avatarPlaceholder, { backgroundColor: primaryColor }]}>
+                            <Text style={styles.avatarInitial}>{(item.sender?.fullname || '?')[0].toUpperCase()}</Text>
+                          </View>
+                        )}
+                        <View style={[styles.iconIndicator, { backgroundColor: icon.color }]}>
+                          <MaterialCommunityIcons name={icon.name} size={11} color="#ffffff" />
+                        </View>
+                      </View>
+
+                      <View style={styles.textDetails}>
+                        {item.type === 'system' && (
+                          <Text style={[styles.bold, { color: textColor, fontSize: 14, marginBottom: 2 }]}>Security Alert</Text>
+                        )}
+                        <Text style={[styles.description, { color: textColor }]}>{getNotificationText(item)}</Text>
+                        <Text style={[styles.timeText, { color: subText }]}>{formatTime(item.createdAt)}</Text>
+                      </View>
                     </View>
-                  )}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.emptyView}>
+                  <MaterialCommunityIcons name="bell-off-outline" size={48} color={subText} />
+                  <Text style={[styles.emptyTitle, { color: textColor }]}>All clean here</Text>
+                  <Text style={[styles.emptySubtitle, { color: subText }]}>No activity notifications found.</Text>
                 </View>
+              }
+            />
+          </View>
 
-                <View style={styles.textDetails}>
-                  <Text style={[styles.description, { color: textColor }]}>
-                    <Text style={styles.bold}>{item.user?.fullname || 'Someone'}</Text> invited you to collaborate on their post.
-                  </Text>
-                  {item.caption ? (
-                    <Text style={[styles.previewText, { color: subText }]} numberOfLines={1}>
-                      "{item.caption}"
-                    </Text>
-                  ) : null}
-                  <Text style={[styles.timeText, { color: subText }]}>{formatTime(item.createdAt)}</Text>
+          {/* Slide 2: Follow Requests */}
+          <View style={{ width: screenWidth }}>
+            <FlatList
+              data={followRequests}
+              keyExtractor={(item) => item._id}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              renderItem={({ item }) => (
+                <View style={[styles.notificationItem, { backgroundColor: cardBg, borderBottomColor: border }]}>
+                  <View style={styles.row}>
+                    <View style={styles.avatarWrapper}>
+                      {item.sender?.profile_picture ? (
+                        <Image source={{ uri: item.sender.profile_picture }} style={styles.avatar} />
+                      ) : (
+                        <View style={[styles.avatarPlaceholder, { backgroundColor: primaryColor }]}>
+                          <Text style={styles.avatarInitial}>{(item.sender?.fullname || '?')[0].toUpperCase()}</Text>
+                        </View>
+                      )}
+                    </View>
 
-                  {acceptingCollabId === item._id ? (
-                    <View style={styles.collabForm}>
-                      <TextInput
-                        placeholder="Describe your contribution..."
-                        placeholderTextColor={subText}
-                        value={contributionText}
-                        onChangeText={setContributionText}
-                        style={[styles.input, { color: textColor, borderColor: border, backgroundColor: bg }]}
-                      />
+                    <View style={styles.textDetails}>
+                      <Text style={[styles.description, { color: textColor }]}>
+                        <Text style={styles.bold}>{item.sender?.fullname || 'Someone'}</Text> requested to follow you.
+                      </Text>
+                      <Text style={[styles.timeText, { color: subText }]}>{formatTime(item.createdAt)}</Text>
+
                       <View style={styles.btnRow}>
                         <TouchableOpacity
-                          onPress={() => handleAcceptCollab(item._id)}
-                          style={[styles.actionBtn, { backgroundColor: '#10b981' }]}
+                          onPress={() => handleAcceptFollow(item.sender?._id || '', item._id)}
+                          style={[styles.actionBtn, { backgroundColor: primaryColor }]}
                         >
-                          <Text style={styles.actionBtnText}>Confirm Join</Text>
+                          <Text style={styles.actionBtnText}>Accept</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() => {
-                            setAcceptingCollabId(null);
-                            setContributionText('');
-                          }}
-                          style={[styles.actionBtn, { backgroundColor: isDark ? '#2d2d3f' : '#e2e8f0' }]}
+                          onPress={() => handleDeclineFollow(item.sender?._id || '', item._id)}
+                          style={[styles.actionBtn, { backgroundColor: isDark ? '#222222' : '#e2e8f0' }]}
                         >
-                          <Text style={[styles.actionBtnText, { color: textColor }]}>Cancel</Text>
+                          <Text style={[styles.actionBtnText, { color: textColor }]}>Decline</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
-                  ) : (
-                    <View style={styles.btnRow}>
-                      <TouchableOpacity
-                        onPress={() => setAcceptingCollabId(item._id)}
-                        style={[styles.actionBtn, { backgroundColor: '#10b981' }]}
-                      >
-                        <Text style={styles.actionBtnText}>Join Collab</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDeclineCollab(item._id)}
-                        style={[styles.actionBtn, { backgroundColor: isDark ? '#2d2d3f' : '#e2e8f0' }]}
-                      >
-                        <Text style={[styles.actionBtnText, { color: textColor }]}>Ignore</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                  </View>
                 </View>
-              </View>
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyView}>
-              <MaterialCommunityIcons name="account-group" size={48} color={subText} />
-              <Text style={[styles.emptyTitle, { color: textColor }]}>No collab invitations</Text>
-              <Text style={[styles.emptySubtitle, { color: subText }]}>You don't have any collab invites.</Text>
-            </View>
-          }
-        />
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyView}>
+                  <MaterialCommunityIcons name="account-clock" size={48} color={subText} />
+                  <Text style={[styles.emptyTitle, { color: textColor }]}>No pending requests</Text>
+                  <Text style={[styles.emptySubtitle, { color: subText }]}>You don't have any follow requests.</Text>
+                </View>
+              }
+            />
+          </View>
+
+          {/* Slide 3: Collab Invitations */}
+          <View style={{ width: screenWidth }}>
+            <FlatList
+              data={collabInvites}
+              keyExtractor={(item) => item._id}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              renderItem={({ item }) => (
+                <View style={[styles.notificationItem, { backgroundColor: cardBg, borderBottomColor: border }]}>
+                  <View style={styles.row}>
+                    <View style={styles.avatarWrapper}>
+                      {item.user?.profile_picture ? (
+                        <Image source={{ uri: item.user.profile_picture }} style={styles.avatar} />
+                      ) : (
+                        <View style={[styles.avatarPlaceholder, { backgroundColor: '#10b981' }]}>
+                          <Text style={styles.avatarInitial}>{(item.user?.fullname || '?')[0].toUpperCase()}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.textDetails}>
+                      <Text style={[styles.description, { color: textColor }]}>
+                        <Text style={styles.bold}>{item.user?.fullname || 'Someone'}</Text> invited you to collaborate on their post.
+                      </Text>
+                      {item.caption ? (
+                        <Text style={[styles.previewText, { color: subText }]} numberOfLines={1}>
+                          "{item.caption}"
+                        </Text>
+                      ) : null}
+                      <Text style={[styles.timeText, { color: subText }]}>{formatTime(item.createdAt)}</Text>
+
+                      {acceptingCollabId === item._id ? (
+                        <View style={styles.collabForm}>
+                          <TextInput
+                            placeholder="Describe your contribution..."
+                            placeholderTextColor={subText}
+                            value={contributionText}
+                            onChangeText={setContributionText}
+                            style={[styles.input, { color: textColor, borderColor: border, backgroundColor: bg }]}
+                          />
+                          <View style={styles.btnRow}>
+                            <TouchableOpacity
+                              onPress={() => handleAcceptCollab(item._id)}
+                              style={[styles.actionBtn, { backgroundColor: '#10b981' }]}
+                            >
+                              <Text style={styles.actionBtnText}>Confirm Join</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => {
+                                setAcceptingCollabId(null);
+                                setContributionText('');
+                              }}
+                              style={[styles.actionBtn, { backgroundColor: isDark ? '#222222' : '#e2e8f0' }]}
+                            >
+                              <Text style={[styles.actionBtnText, { color: textColor }]}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={styles.btnRow}>
+                          <TouchableOpacity
+                            onPress={() => setAcceptingCollabId(item._id)}
+                            style={[styles.actionBtn, { backgroundColor: '#10b981' }]}
+                          >
+                            <Text style={styles.actionBtnText}>Join Collab</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleDeclineCollab(item._id)}
+                            style={[styles.actionBtn, { backgroundColor: isDark ? '#222222' : '#e2e8f0' }]}
+                          >
+                            <Text style={[styles.actionBtnText, { color: textColor }]}>Ignore</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyView}>
+                  <MaterialCommunityIcons name="account-group" size={48} color={subText} />
+                  <Text style={[styles.emptyTitle, { color: textColor }]}>No collab invitations</Text>
+                  <Text style={[styles.emptySubtitle, { color: subText }]}>You don't have any collab invites.</Text>
+                </View>
+              }
+            />
+          </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );

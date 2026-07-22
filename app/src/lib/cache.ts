@@ -7,12 +7,16 @@ export const TTL = {
   STORIES: 3 * 60 * 1000,   // 3 min  — stories strip
   NOTIFICATIONS: 2 * 60 * 1000,   // 2 min  — notification list
   CONVERSATIONS: 2 * 60 * 1000,   // 2 min  — chat list
-  MESSAGES: 1 * 60 * 1000,   // 1 min  — chat messages
+  MESSAGES: 10 * 60 * 1000,   // 10 min  — chat messages
   PROFILE: 30 * 60 * 1000,   // 30 min — user profile data
   EXPLORE: 10 * 60 * 1000,   // 10 min — explore/reels grid
   USER_INFO: 30 * 60 * 1000,   // 30 min — other user info
   FORM_DATA: 15 * 60 * 1000,   // 15 min — groups, goals, users list
   ONLINE_STATUS: 20 * 1000,        // 20 sec — online/lastseen
+  FOLLOWS_LIST: 5 * 60 * 1000,     // 5 min  — followers/following lists
+  CLOSE_FRIENDS: 10 * 60 * 1000,   // 10 min — close friends list
+  ACTIVE_SESSIONS: 2 * 60 * 1000,  // 2 min  — active sessions
+  OWN_PROFILE_POSTS: 30 * 60 * 1000 // 30 min  — current user's profile posts
 } as const;
 
 interface CacheEntry<T> {

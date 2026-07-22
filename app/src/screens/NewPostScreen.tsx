@@ -609,6 +609,7 @@ export default function NewPostScreen() {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [croppingModalVisible, setCroppingModalVisible] = useState(false);
   const [croppingItemIndex, setCroppingItemIndex] = useState<number | null>(null);
+  const [pickerMenuVisible, setPickerMenuVisible] = useState(false);
 
   const selectedUri = selectedMedia[activeMediaIndex]?.uri || null;
   const mediaType = selectedMedia[activeMediaIndex]?.type || null;
@@ -733,44 +734,7 @@ export default function NewPostScreen() {
 
   // Camera/Gallery media picker — asks the user which source to use
   const handlePickMedia = () => {
-    Alert.alert(
-      'Add Media',
-      'Choose a source',
-      [
-        {
-          text: 'Camera',
-          onPress: () => {
-            launchCamera(
-              { mediaType: 'mixed', quality: 0.9, saveToPhotos: false },
-              (result) => {
-                if (result.didCancel || result.errorCode) return;
-                const asset = result.assets?.[0];
-                if (!asset?.uri) return;
-                setSelectedUri(asset.uri);
-                setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
-              },
-            );
-          },
-        },
-        {
-          text: 'Gallery',
-          onPress: () => {
-            launchImageLibrary(
-              { mediaType: 'mixed', quality: 0.8 },
-              (result) => {
-                if (result.didCancel || result.errorCode) return;
-                const asset = result.assets?.[0];
-                if (!asset?.uri) return;
-                setSelectedUri(asset.uri);
-                setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
-              },
-            );
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true },
-    );
+    setPickerMenuVisible(true);
   };
 
   const handleCropComplete = (croppedUri: string, cropData?: any) => {
@@ -1262,6 +1226,72 @@ export default function NewPostScreen() {
           setCroppingItemIndex(null);
         }}
       />
+      {/* Premium Post Media Picker Modal (Instagram-style Bottom Sheet) */}
+      <Modal
+        visible={pickerMenuVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setPickerMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setPickerMenuVisible(false)}
+        >
+          <View style={[styles.bottomSheetContent, { backgroundColor: isDark ? '#121212' : '#ffffff' }]}>
+            <View style={styles.bottomSheetHeader}>
+              <View style={[styles.bottomSheetHandle, { backgroundColor: isDark ? '#222222' : '#e2e8f0' }]} />
+              <Text style={[styles.bottomSheetTitle, { color: textColor }]}>Add Media</Text>
+            </View>
+
+            <View style={styles.bottomSheetOptions}>
+              <TouchableOpacity
+                style={styles.bottomSheetOption}
+                onPress={() => {
+                  setPickerMenuVisible(false);
+                  launchImageLibrary(
+                    { mediaType: 'mixed', quality: 0.8 },
+                    (result) => {
+                      if (result.didCancel || result.errorCode) return;
+                      const asset = result.assets?.[0];
+                      if (!asset?.uri) return;
+                      setSelectedUri(asset.uri);
+                      setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
+                    },
+                  );
+                }}
+              >
+                <View style={[styles.optionIconBg, { backgroundColor: 'rgba(128, 139, 245, 0.15)' }]}>
+                  <MaterialCommunityIcons name="image-multiple-outline" size={24} color="#808bf5" />
+                </View>
+                <Text style={[styles.optionText, { color: textColor }]}>Choose from Gallery</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.bottomSheetOption}
+                onPress={() => {
+                  setPickerMenuVisible(false);
+                  launchCamera(
+                    { mediaType: 'mixed', quality: 0.9, saveToPhotos: false },
+                    (result) => {
+                      if (result.didCancel || result.errorCode) return;
+                      const asset = result.assets?.[0];
+                      if (!asset?.uri) return;
+                      setSelectedUri(asset.uri);
+                      setMediaType(asset.type?.startsWith('video') ? 'video' : 'image');
+                    },
+                  );
+                }}
+              >
+                <View style={[styles.optionIconBg, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                  <MaterialCommunityIcons name="camera-outline" size={24} color="#f59e0b" />
+                </View>
+                <Text style={[styles.optionText, { color: textColor }]}>Take Photo / Video</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1553,5 +1583,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#808bf5',
+  },
+  bottomSheetContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+  },
+  bottomSheetHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 12,
+  },
+  bottomSheetTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  bottomSheetOptions: {
+    gap: 16,
+    paddingBottom: 20,
+  },
+  bottomSheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(128, 139, 245, 0.03)',
+  },
+  optionIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  optionText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

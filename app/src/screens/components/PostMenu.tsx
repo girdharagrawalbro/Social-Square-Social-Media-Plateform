@@ -12,6 +12,7 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api } from '../../lib/api';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import SaveAsNoteModal from './SaveAsNoteModal';
 
 interface PostMenuProps {
   visible: boolean;
@@ -37,12 +38,13 @@ export default function PostMenu({
   const isDark = useColorScheme() === 'dark';
   const { user } = useAuthStore() as any;
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
 
   // Theme colors
-  const cardBg = isDark ? '#1a1a2e' : '#ffffff';
+  const cardBg = isDark ? '#000000' : '#ffffff';
   const textColor = isDark ? '#f1f5f9' : '#0f172a';
   const subColor = isDark ? '#64748b' : '#94a3b8';
-  const border = isDark ? '#2a2a3e' : '#e2e8f0';
+  const border = isDark ? '#1a1a1a' : '#e2e8f0';
 
   if (!post) return null;
 
@@ -253,7 +255,7 @@ export default function PostMenu({
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
         <View style={[styles.content, { backgroundColor: cardBg }]}>
           {/* Handle bar */}
-          <View style={[styles.handleBar, { backgroundColor: isDark ? '#2e2e4e' : '#e2e8f0' }]} />
+          <View style={[styles.handleBar, { backgroundColor: isDark ? '#222222' : '#e2e8f0' }]} />
 
           {/* Action rows */}
           <View style={styles.optionsWrapper}>
@@ -271,7 +273,7 @@ export default function PostMenu({
             </TouchableOpacity>
 
             {/* Save to Knowledge */}
-            <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={showSaveToKnowledgeDialog}>
+            <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={() => setNoteModalVisible(true)}>
               <MaterialCommunityIcons name="book-open-page-variant-outline" size={22} color="#10b981" />
               <Text style={[styles.optionText, { color: textColor }]}>Save to Knowledge Base</Text>
               {loadingAction === 'knowledge' && <ActivityIndicator size="small" color="#10b981" />}
@@ -339,6 +341,13 @@ export default function PostMenu({
           </View>
         </View>
       </TouchableOpacity>
+
+      <SaveAsNoteModal
+        visible={noteModalVisible}
+        post={post}
+        onClose={() => setNoteModalVisible(false)}
+        onSaved={onClose}
+      />
     </Modal>
   );
 }

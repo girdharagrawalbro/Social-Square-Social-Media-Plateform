@@ -1,5 +1,58 @@
-import React, { useEffect } from 'react';
-import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import * as RN from 'react-native';
+import { StatusBar, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+let currentThemeOverride: 'dark' | 'light' | null = null;
+const themeListeners = new Set<() => void>();
+
+export const getThemeOverride = () => currentThemeOverride;
+export const setThemeOverride = async (theme: 'dark' | 'light' | null) => {
+  currentThemeOverride = theme;
+  if (theme) {
+    await AsyncStorage.setItem('theme_override', theme);
+  } else {
+    await AsyncStorage.removeItem('theme_override');
+  }
+  themeListeners.forEach(l => l());
+};
+
+// Load initial theme override
+AsyncStorage.getItem('theme_override').then((val) => {
+  if (val === 'dark' || val === 'light') {
+    currentThemeOverride = val;
+    themeListeners.forEach(l => l());
+  }
+});
+
+const originalUseColorScheme = RN.useColorScheme;
+const customUseColorScheme = () => {
+  const systemScheme = originalUseColorScheme();
+  const [scheme, setScheme] = useState(currentThemeOverride || systemScheme);
+
+  useEffect(() => {
+    const handleChange = () => {
+      setScheme(currentThemeOverride || systemScheme);
+    };
+    themeListeners.add(handleChange);
+    return () => {
+      themeListeners.delete(handleChange);
+    };
+  }, [systemScheme]);
+
+  return currentThemeOverride || systemScheme;
+};
+
+try {
+  Object.defineProperty(RN, 'useColorScheme', {
+    get() {
+      return customUseColorScheme;
+    },
+    configurable: true,
+  });
+} catch (e) {
+  console.warn('Failed to monkeypatch useColorScheme:', e);
+}
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -32,6 +85,7 @@ import CallScreen from './src/screens/CallScreen';
 import ChatbotScreen from './src/screens/ChatbotScreen';
 import CommunitiesScreen from './src/screens/CommunitiesScreen';
 import WikiDetailScreen from './src/screens/WikiDetailScreen';
+import CreatorInsightsScreen from './src/screens/CreatorInsightsScreen';
 import { getSocket } from './src/lib/socket';
 
 export const navigationRef = createNavigationContainerRef();
@@ -118,9 +172,10 @@ function App() {
           <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
           <Stack.Screen name="CloseFriends" component={CloseFriendsScreen} />
           <Stack.Screen name="Call" component={CallScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
-          <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ gestureEnabled: false }} />
           <Stack.Screen name="Communities" component={CommunitiesScreen} />
           <Stack.Screen name="WikiDetail" component={WikiDetailScreen} />
+          <Stack.Screen name="CreatorInsights" component={CreatorInsightsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
       <CustomToastContainer />

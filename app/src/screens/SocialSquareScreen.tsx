@@ -15,6 +15,7 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import StoriesStrip from './components/StoriesStrip';
+import MoodFeedToggle from './components/MoodFeedToggle';
 import { PostItem } from './components/PostItem';
 import { PostSkeleton } from './components/SkeletonLoader';
 import { api } from '../lib/api';
@@ -62,30 +63,53 @@ export default function SocialSquareScreen({ navigation }: any) {
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewableItems, setViewableItems] = useState<string[]>([]);
+  const [activeMood, setActiveMood] = useState<string | null>(null);
+  const [showHeader, setShowHeader] = useState(true);
+  const lastOffsetY = useRef(0);
+
+  const handleScroll = (event: any) => {
+    const currentOffsetY = event.nativeEvent.contentOffset.y;
+    const diff = currentOffsetY - lastOffsetY.current;
+    if (currentOffsetY <= 0) {
+      setShowHeader(true);
+    } else if (Math.abs(diff) > 15) {
+      if (diff > 0 && showHeader) {
+        setShowHeader(false);
+      } else if (diff < 0 && !showHeader) {
+        setShowHeader(true);
+      }
+    }
+    lastOffsetY.current = currentOffsetY;
+  };
 
   const onViewableItemsChanged = useRef(({ viewableItems: visible }: any) => {
     setViewableItems(visible.map((item: any) => item.key));
   }).current;
 
-  const fetchFeed = async (isRefresh = false) => {
+  const fetchFeed = async (isRefresh = false, moodVal = activeMood) => {
     if (isRefresh) {
       setRefreshing(true);
       await invalidateCacheByPrefix('feed_page_');
     } else {
-      // Load page 1 from cache instantly on mount
-      const cached = await getCache<any[]>('feed_page_1');
-      if (cached && cached.length > 0) {
-        setPosts(cached);
+      if (!moodVal) {
+        // Load page 1 from cache instantly on mount
+        const cached = await getCache<any[]>('feed_page_1');
+        if (cached && cached.length > 0) {
+          setPosts(cached);
+        } else {
+          setLoading(true);
+        }
       } else {
         setLoading(true);
       }
     }
 
     try {
-      const res = await api.get('/api/recommendation/posts');
-      const items = res.data.items || res.data.posts || res.data || [];
+      const endpoint = moodVal ? `/api/ai/mood-feed?mood=${moodVal}` : '/api/recommendation/posts';
+      const res = await api.get(endpoint);
+      const items = res.data.posts || res.data.items || res.data || [];
       const cursor = res.data.nextCursor || null;
-      const more = res.data.hasMore !== undefined ? res.data.hasMore : items.length >= 20;
+      const more = moodVal ? false : (res.data.hasMore !== undefined ? res.data.hasMore : items.length >= 20);
 
       setPosts(items);
       setNextCursor(cursor);
@@ -93,8 +117,10 @@ export default function SocialSquareScreen({ navigation }: any) {
       setCurrentPage(1);
       setIsOffline(false);
 
-      // Persist page 1 to cache
-      await setCache('feed_page_1', items, TTL.FEED);
+      if (!moodVal) {
+        // Persist page 1 to cache
+        await setCache('feed_page_1', items, TTL.FEED);
+      }
       fetchUnreadCount();
     } catch (e: any) {
       console.warn('Failed to fetch feed:', e);
@@ -103,6 +129,16 @@ export default function SocialSquareScreen({ navigation }: any) {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleMoodSelect = (mood: string) => {
+    setActiveMood(mood);
+    fetchFeed(false, mood);
+  };
+
+  const handleClearMood = () => {
+    setActiveMood(null);
+    fetchFeed(false, null);
   };
 
   const fetchMoreFeed = async () => {
@@ -176,7 +212,7 @@ export default function SocialSquareScreen({ navigation }: any) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: cardBg, paddingHorizontal: 12 }]}>
+      <View style={[styles.header, { backgroundColor: cardBg, paddingHorizontal: 12, height: showHeader ? 56 : 0, opacity: showHeader ? 1 : 0, overflow: 'hidden' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity onPress={() => navigation.navigate('NewPost')}>
             <MaterialCommunityIcons name="plus" size={26} color={isDark ? '#f3f4f6' : '#1f2937'} />
@@ -215,6 +251,8 @@ export default function SocialSquareScreen({ navigation }: any) {
         <FlatList
           data={posts}
           keyExtractor={(item) => item._id}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           renderItem={({ item }) => (
             <PostItem 
               post={item} 
@@ -224,7 +262,16 @@ export default function SocialSquareScreen({ navigation }: any) {
           )}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={VIEWABILITY_CONFIG}
-          ListHeaderComponent={<StoriesStrip />}
+          ListHeaderComponent={
+            <View>
+              <StoriesStrip />
+              <MoodFeedToggle
+                activeMood={activeMood}
+                onMoodSelect={handleMoodSelect}
+                onClear={handleClearMood}
+              />
+            </View>
+          }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} colors={['#808bf5']} />
           }

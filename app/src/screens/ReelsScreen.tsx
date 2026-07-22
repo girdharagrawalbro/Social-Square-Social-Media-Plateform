@@ -87,7 +87,9 @@ export default function ReelsScreen({ navigation }: any) {
       
       {/* FIXED/STATIC HEADER AT THE TOP */}
       <View style={styles.fixedHeader}>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconCircle}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#ffffff" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Reels</Text>
         <TouchableOpacity onPress={() => setMuted(!muted)} style={styles.iconCircle}>
           <MaterialCommunityIcons

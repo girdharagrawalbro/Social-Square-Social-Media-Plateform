@@ -452,7 +452,7 @@ router.post('/login', authRateLimiter, [
         createNotification({
             recipientId: user._id,
             type: 'system',
-            message: { content: `New Login: Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
+            message: { content: `Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
         if (_io) {

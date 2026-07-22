@@ -12,6 +12,7 @@ import {
   Modal,
   PanResponder,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Video from 'react-native-video';
@@ -30,6 +31,7 @@ import ShareModal from './ShareModal';
 import { decryptAesGcm, base64ToBytes, bytesToBase64 } from '../../lib/cryptoUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
+const aspectRatioCache = new Map<string, number>();
 
 export interface Post {
   _id: string;
@@ -312,7 +314,23 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   // Hidden when deleted or blocked
   const [hidden, setHidden] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [aspectRatio, setAspectRatio] = useState(1.2);
+  const [aspectRatio, setAspectRatio] = useState(() => {
+    if (imageUrl && aspectRatioCache.has(imageUrl)) {
+      return aspectRatioCache.get(imageUrl)!;
+    }
+    return 1.2;
+  });
+  const [imageLoading, setImageLoading] = useState(true);
+  const imageOpacity = useRef(new Animated.Value(0)).current;
+
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    Animated.timing(imageOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const user = post.user;
   const isAnon = post.isAnonymous;
@@ -401,11 +419,19 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
 
   useEffect(() => {
     if (imageUrl) {
+      if (aspectRatioCache.has(imageUrl)) {
+        setAspectRatio(aspectRatioCache.get(imageUrl)!);
+        setImageLoading(false);
+        imageOpacity.setValue(1);
+        return;
+      }
       Image.getSize(
         imageUrl,
         (width, height) => {
           if (width && height) {
-            setAspectRatio(width / height);
+            const ratio = width / height;
+            aspectRatioCache.set(imageUrl, ratio);
+            setAspectRatio(ratio);
           }
         },
         (error) => {
@@ -655,11 +681,19 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
 
           {/* Post Single Image */}
           {!post.isBeforeAfter && !post.video && imageUrl && (!post.image_urls || post.image_urls.length <= 1) ? (
-            <Image
-              source={{ uri: imageUrl }}
-              style={[styles.postImage, { aspectRatio }]}
-              resizeMode="contain"
-            />
+            <View style={{ position: 'relative', width: '100%', aspectRatio, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', borderRadius: 12, overflow: 'hidden' }}>
+              {imageLoading && (
+                <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+                  <ActivityIndicator size="small" color="#808bf5" />
+                </View>
+              )}
+              <Animated.Image
+                source={{ uri: imageUrl }}
+                style={[styles.postImage, { aspectRatio, opacity: imageOpacity }]}
+                resizeMode="contain"
+                onLoad={handleImageLoad}
+              />
+            </View>
           ) : null}
 
           {/* Heart burst double tap animation pop */}
@@ -674,7 +708,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
 
       {/* Voice note audio player container */}
       {post.voiceNote?.url && (
-        <View style={[styles.voicePlayer, { backgroundColor: isDark ? '#1e1e2f' : '#f8fafc', borderColor: dividerColor }]}>
+        <View style={[styles.voicePlayer, { backgroundColor: isDark ? '#121212' : '#f8fafc', borderColor: dividerColor }]}>
           <TouchableOpacity style={styles.voicePlayBtn}>
             <MaterialCommunityIcons name="play" size={24} color="#808bf5" />
           </TouchableOpacity>
@@ -889,7 +923,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           activeOpacity={1}
           onPressOut={() => setAiTooltipVisible(false)}
         >
-          <View style={[styles.aiSummaryCard, { backgroundColor: isDark ? '#1a1a2e' : '#ffffff' }]}>
+          <View style={[styles.aiSummaryCard, { backgroundColor: isDark ? '#121212' : '#ffffff' }]}>
             <View style={styles.aiSummaryHeader}>
               <MaterialCommunityIcons name="creation" size={18} color="#a855f7" />
               <Text style={styles.aiSummaryTitle}>AI Summary</Text>

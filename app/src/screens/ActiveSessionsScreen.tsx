@@ -15,6 +15,7 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { api } from '../lib/api';
+import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 
 const deviceIcon = (device = '') => {
   const d = device.toLowerCase();
@@ -45,14 +46,26 @@ export default function ActiveSessionsScreen() {
   const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
 
   const fetchSessions = useCallback(async () => {
-    try {
+    const cacheKey = 'active_sessions';
+    const cached = await getCache<any[]>(cacheKey);
+    if (cached) {
+      setSessions(cached);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    try {
       const res = await api.get('/api/auth/sessions');
-      setSessions(Array.isArray(res?.data) ? res.data : []);
+      const freshSessions = Array.isArray(res?.data) ? res.data : [];
+      setSessions(freshSessions);
+      await setCache(cacheKey, freshSessions, TTL.ACTIVE_SESSIONS);
     } catch (err) {
       console.warn('Fetch sessions error:', err);
-      Alert.alert('Error', 'Failed to load sessions');
-      setSessions([]);
+      if (!cached) {
+        Alert.alert('Error', 'Failed to load sessions');
+        setSessions([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -105,7 +118,9 @@ export default function ActiveSessionsScreen() {
             try {
               setRevokingSessionId(sessionId);
               await api.delete(`/api/auth/sessions/${sessionId}`);
-              setSessions((prev) => prev.filter((s) => s._id !== sessionId));
+              const updatedSessions = sessions.filter((s) => s._id !== sessionId);
+              setSessions(updatedSessions);
+              await setCache('active_sessions', updatedSessions, TTL.ACTIVE_SESSIONS);
             } catch (err) {
               console.warn('Revoke session error:', err);
               Alert.alert('Error', 'Failed to revoke session');
@@ -131,6 +146,7 @@ export default function ActiveSessionsScreen() {
             try {
               setRevokingAll(true);
               await api.delete('/api/auth/sessions/all/revoke');
+              await invalidateCache('active_sessions');
               Alert.alert('Success', 'Other sessions revoked successfully.');
               fetchSessions();
             } catch (err) {

@@ -236,7 +236,7 @@ export default function PostDetailScreen() {
 
         {/* Reply Bar Overlay */}
         {replyingToComment && (
-          <View style={[styles.replyBar, { backgroundColor: isDark ? '#1e1e2f' : '#e2e8f0', borderColor: border }]}>
+          <View style={[styles.replyBar, { backgroundColor: isDark ? '#121212' : '#e2e8f0', borderColor: border }]}>
             <Text style={{ color: textColor, fontSize: 12, flex: 1 }} numberOfLines={1}>
               Replying to <Text style={{ fontWeight: 'bold' }}>{replyingToComment.user?.fullname}</Text>
             </Text>
@@ -251,13 +251,13 @@ export default function PostDetailScreen() {
           <TextInput
             placeholder={replyingToComment ? "Write a reply..." : "Write a comment..."}
             placeholderTextColor={subText}
-            style={[styles.input, { color: textColor, backgroundColor: isDark ? '#1a1a2e' : '#f8fafc', borderColor: border }]}
+            style={[styles.input, { color: textColor, backgroundColor: isDark ? '#000000' : '#f8fafc', borderColor: border }]}
             value={commentText}
             onChangeText={setCommentText}
             multiline
           />
           <TouchableOpacity
-            style={[styles.sendBtn, { backgroundColor: commentText.trim() ? primaryColor : (isDark ? '#27273a' : '#e2e8f0') }]}
+            style={[styles.sendBtn, { backgroundColor: commentText.trim() ? primaryColor : (isDark ? '#1a1a1a' : '#e2e8f0') }]}
             disabled={!commentText.trim() || submittingComment}
             onPress={handleAddComment}
           >

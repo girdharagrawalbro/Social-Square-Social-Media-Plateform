@@ -16,6 +16,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useNavigation } from '@react-navigation/native';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { api, BASE_URL } from '../lib/api';
+import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 
 export default function CloseFriendsScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -50,14 +51,26 @@ export default function CloseFriendsScreen() {
 
   const fetchFollowing = useCallback(async () => {
     if (!loggedUser?._id) return;
-    try {
+    const cacheKey = `follows_following_${loggedUser._id}_limit100`;
+    const cached = await getCache<any[]>(cacheKey);
+    if (cached) {
+      setFollowing(cached);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    try {
       // Fetch up to 100 followed users
       const res = await api.get(`/api/auth/following/${loggedUser._id}?limit=100`);
-      setFollowing(Array.isArray(res?.data?.users) ? res.data.users : []);
+      const freshList = Array.isArray(res?.data?.users) ? res.data.users : [];
+      setFollowing(freshList);
+      await setCache(cacheKey, freshList, TTL.FOLLOWS_LIST);
     } catch (err) {
       console.warn('Fetch following list error:', err);
-      Alert.alert('Error', 'Failed to load following list.');
+      if (!cached) {
+        Alert.alert('Error', 'Failed to load following list.');
+      }
     } finally {
       setLoading(false);
     }
@@ -85,6 +98,7 @@ export default function CloseFriendsScreen() {
       }
 
       await setUser({ ...loggedUser, closeFriends: currentCloseFriends });
+      await invalidateCache(`profile_${loggedUser._id}`);
     } catch (err) {
       console.warn('Toggle close friend error:', err);
       Alert.alert('Error', 'Failed to update Close Friend status.');

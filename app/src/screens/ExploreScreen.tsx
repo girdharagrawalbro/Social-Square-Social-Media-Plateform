@@ -23,6 +23,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Video from 'react-native-video';
 const VideoComponent = Video as any;
 import BottomNav from './components/BottomNav';
+import ShareModal from './components/ShareModal';
 import { api, BASE_URL } from '../lib/api';
 import { getCache, setCache, TTL } from '../lib/cache';
 import useAuthStore from '../store/zustand/useAuthStore';
@@ -770,6 +771,7 @@ export function ReelPlayerItem({
   const heartScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [shareVisible, setShareVisible] = useState(false);
 
   // Toggle Like API
   const handleLikeToggle = async () => {
@@ -913,7 +915,23 @@ export function ReelPlayerItem({
             <MaterialCommunityIcons name="comment-outline" size={32} color="#ffffff" />
             <Text style={styles.actionText}>{item.comments?.length || 0}</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => setShareVisible(true)}
+          >
+            <MaterialCommunityIcons name="send-outline" size={32} color="#ffffff" />
+            <Text style={styles.actionText}>Share</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Share Modal Dialog */}
+        <ShareModal
+          visible={shareVisible}
+          onClose={() => setShareVisible(false)}
+          post={item}
+          myUser={loggedUser}
+        />
       </View>
     </TouchableWithoutFeedback>
   );

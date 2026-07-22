@@ -18,6 +18,7 @@ import {
   RefreshControl,
   Switch,
 } from 'react-native';
+import { getThemeOverride, setThemeOverride } from '../../App';
 import { launchImageLibrary } from 'react-native-image-picker';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -105,14 +106,27 @@ export default function ProfileScreen({ navigation, route }: any) {
     if (!targetId) return;
     setFollowsType(type);
     setFollowsModalVisible(true);
-    setLoadingFollows(true);
+
+    const cacheKey = `follows_${type}_${targetId}`;
+    const cached = await getCache<any[]>(cacheKey);
+    if (cached) {
+      setFollowsList(cached);
+      setLoadingFollows(false);
+    } else {
+      setLoadingFollows(true);
+    }
+
     try {
       const res = await api.get(`/api/auth/${type}/${targetId}?limit=50`);
-      setFollowsList(res?.data?.users || []);
+      const freshList = res?.data?.users || [];
+      setFollowsList(freshList);
+      await setCache(cacheKey, freshList, TTL.FOLLOWS_LIST);
     } catch (err: any) {
       console.warn(`Fetch ${type} error:`, err);
-      Alert.alert('Error', err.response?.data?.message || `Failed to load ${type}`);
-      setFollowsList([]);
+      if (!cached) {
+        Alert.alert('Error', err.response?.data?.message || `Failed to load ${type}`);
+        setFollowsList([]);
+      }
     } finally {
       setLoadingFollows(false);
     }
@@ -220,7 +234,7 @@ export default function ProfileScreen({ navigation, route }: any) {
       const postsRes = await api.get(`/api/post/user/${userObj._id}?limit=9`);
       const freshPosts = postsRes.data.posts || postsRes.data || [];
       setPosts(freshPosts);
-      await setCache(postsCacheKey, freshPosts, TTL.FEED);
+      await setCache(postsCacheKey, freshPosts, isOwner ? TTL.OWN_PROFILE_POSTS : TTL.FEED);
       setNextCursor(postsRes.data.nextCursor || null);
       setHasMore(postsRes.data.hasMore || false);
 
@@ -261,6 +275,10 @@ export default function ProfileScreen({ navigation, route }: any) {
         setIsFollowing(true);
         setIsRequested(false);
       }
+      await invalidateCache(`follows_following_${user._id}`);
+      await invalidateCache(`follows_followers_${targetUserId}`);
+      await invalidateCache(`follows_followers_${user._id}`);
+      await invalidateCache(`follows_following_${targetUserId}`);
       fetchProfileInfo();
     } catch (err) {
       console.warn('Failed to follow user:', err);
@@ -273,6 +291,10 @@ export default function ProfileScreen({ navigation, route }: any) {
       await api.post('/api/auth/unfollow', { userId: user._id, unfollowUserId: targetUserId });
       setIsFollowing(false);
       setIsRequested(false);
+      await invalidateCache(`follows_following_${user._id}`);
+      await invalidateCache(`follows_followers_${targetUserId}`);
+      await invalidateCache(`follows_followers_${user._id}`);
+      await invalidateCache(`follows_following_${targetUserId}`);
       fetchProfileInfo();
     } catch (err) {
       console.warn('Failed to unfollow user:', err);
@@ -436,6 +458,9 @@ export default function ProfileScreen({ navigation, route }: any) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{
             paddingVertical: 8,
+            flexGrow: 1,
+            justifyContent: 'center',
+            paddingHorizontal: 8,
           }}
         >
           {TABS.map((tab) => (
@@ -447,7 +472,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                 paddingVertical: 8,
                 borderRadius: 20,
                 backgroundColor: activeTab === tab.key ? '#808bf5' : (isDark ? '#1e293b' : '#f1f5f9'),
-                marginRight: 8,
+                marginHorizontal: 4,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
@@ -631,7 +656,7 @@ export default function ProfileScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: border }]}>
+      <View style={[styles.header, { borderBottomColor: border }]}>
         {/* Left Side: Back or Plus Icon */}
         {isOwner ? (
           <TouchableOpacity onPress={() => navigation.navigate('NewPost')} style={styles.headerLeftBtn}>
@@ -1290,6 +1315,31 @@ export default function ProfileScreen({ navigation, route }: any) {
             </View>
 
             <View style={styles.settingsList}>
+              {/* Theme Settings */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={async () => {
+                  const current = getThemeOverride() || (isDark ? 'dark' : 'light');
+                  const nextTheme = current === 'dark' ? 'light' : 'dark';
+                  await setThemeOverride(nextTheme);
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons
+                    name={isDark ? 'weather-sunny' : 'weather-night'}
+                    size={22}
+                    color={isDark ? '#eab308' : '#6366f1'}
+                  />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Theme</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>
+                    Currently {isDark ? 'Dark Mode' : 'Light Mode'}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons name="cached" size={20} color={subText} />
+              </TouchableOpacity>
+
               {/* Notification Settings */}
               <TouchableOpacity
                 style={[styles.settingsRow, { borderColor: border }]}
@@ -1376,6 +1426,24 @@ export default function ProfileScreen({ navigation, route }: any) {
                 <View style={styles.settingsTextWrapper}>
                   <Text style={[styles.settingsRowTitle, { color: textColor }]}>Social Pulse</Text>
                   <Text style={[styles.settingsRowDesc, { color: subText }]}>See trending tags and rising stars</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Creator Insights */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('CreatorInsights');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="chart-bar" size={22} color="#808bf5" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Creator Insights</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>See detailed stats, impressions, and engagement rate</Text>
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
               </TouchableOpacity>

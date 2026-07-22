@@ -205,8 +205,10 @@ router.post("/create", verifyToken, [
             }
         }
 
-        const userDetails = await User.findById(loggedUserId).select('username fullname profile_picture followers');
+        const userDetails = await User.findById(loggedUserId).select('username fullname profile_picture followers postsCount');
         if (!userDetails) return res.status(404).json({ message: "User not found." });
+
+        const isFirstPost = !isAnonymous && (!userDetails.postsCount || userDetails.postsCount === 0);
 
         let collaborators = [];
         if (isCollaborative && Array.isArray(collaboratorIds) && collaboratorIds.length > 0) {

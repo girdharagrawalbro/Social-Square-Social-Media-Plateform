@@ -32,10 +32,10 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
   const [sharingIds, setSharingIds] = useState<string[]>([]);
 
   // Theme styles
-  const cardBg = isDark ? '#1a1a2e' : '#ffffff';
+  const cardBg = isDark ? '#000000' : '#ffffff';
   const textColor = isDark ? '#f1f5f9' : '#0f172a';
   const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1e293b' : '#e2e8f0';
+  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc';
 
   useEffect(() => {
@@ -47,8 +47,30 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/api/auth/other-users');
-      setUsers(res.data || []);
+      let followingList: any[] = [];
+      if (myUser?._id) {
+        try {
+          const followingRes = await api.get(`/api/auth/following/${myUser._id}?limit=100`);
+          followingList = followingRes.data?.users || followingRes.data || [];
+        } catch (err) {
+          console.warn('[ShareModal] Failed to fetch following list:', err);
+        }
+      }
+
+      const suggestionsRes = await api.get('/api/auth/other-users');
+      const suggestionsList = suggestionsRes.data || [];
+      const publicSuggestions = suggestionsList.filter((u: any) => !u.isPrivate);
+
+      // Merge following and public suggestions, avoiding duplicates
+      const merged = [...followingList];
+      const followingIds = new Set(followingList.map((u: any) => u._id));
+      for (const u of publicSuggestions) {
+        if (!followingIds.has(u._id)) {
+          merged.push(u);
+        }
+      }
+
+      setUsers(merged);
     } catch (e) {
       console.warn('[ShareModal] Failed to fetch users:', e);
     } finally {
@@ -75,8 +97,8 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
 
     try {
       // 1. Get or create conversation
-      const convRes = await api.post('/api/conversation/messages', { recipientId: targetId });
-      const conversationId = convRes.data.conversation?._id;
+      const convRes = await api.post('/api/conversation/create', { recipientId: targetId });
+      const conversationId = convRes.data?._id;
 
       if (!conversationId) {
         throw new Error('Conversation ID not found.');

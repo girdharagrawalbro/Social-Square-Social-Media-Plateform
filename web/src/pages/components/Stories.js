@@ -1173,8 +1173,8 @@ const ShareStoryDialog = ({ visible, onHide, story, loggeduser }) => {
             // Include deep link so the recipient can open the exact story from outside chat too.
 
             // Create or get conversation
-            const convRes = await api.post('/api/conversation/messages', { recipientId: targetUser._id });
-            const conversationId = convRes.data.conversation?._id;
+            const convRes = await api.post('/api/conversation/create', { recipientId: targetUser._id });
+            const conversationId = convRes.data?._id;
 
             if (conversationId) {
                 await api.post('/api/conversation/send', {
