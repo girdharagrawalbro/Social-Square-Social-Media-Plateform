@@ -968,7 +968,7 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            retryPendingMessages();
+                                            retryPendingMessages(message._id);
                                         }}
                                         style={{ background: 'none', border: 'none', color: '#808bf5', fontSize: '9px', padding: 0, cursor: 'pointer', fontWeight: 600 }}
                                         title="Retry sending"
@@ -1250,6 +1250,12 @@ const ChatPanel = ({
     const sendMessageMutRef = useRef(null);
     sendMessageMutRef.current = sendMessageMut;
 
+    const editMessageMutRef = useRef(null);
+    editMessageMutRef.current = editMessageMut;
+
+    const deleteMessageMutRef = useRef(null);
+    deleteMessageMutRef.current = deleteMessageMut;
+
     const retryPendingMessages = useCallback(async (specificTempId = null) => {
         let pending = await dbService.getAllPending();
         if (!pending || pending.length === 0) return;
@@ -1268,6 +1274,44 @@ const ChatPanel = ({
         if (!pending.length) return;
 
         for (const msg of pending) {
+            if (msg.type === 'update') {
+                try {
+                    await editMessageMutRef.current.mutateAsync({
+                        messageId: msg.messageId,
+                        content: msg.content,
+                        conversationId: msg.conversationId || conversationIdRef.current
+                    });
+                    if (activeParticipant?.isGroup) {
+                        socket.emit('messageEdited', { messageId: msg.messageId, content: msg.content, conversationId: msg.conversationId || conversationIdRef.current });
+                    } else {
+                        socket.emit('messageEdited', { messageId: msg.messageId, content: msg.content, conversationId: msg.conversationId || conversationIdRef.current, recipientId: msg.recipientId || participantId });
+                    }
+                    await dbService.removePending(msg.tempId);
+                } catch (err) {
+                    console.error("Failed to retry pending edit:", err);
+                }
+                continue;
+            }
+
+            if (msg.type === 'delete') {
+                try {
+                    await deleteMessageMutRef.current.mutateAsync({
+                        messageId: msg.messageId,
+                        conversationId: msg.conversationId || conversationIdRef.current,
+                        mode: msg.mode || 'everyone'
+                    });
+                    if (activeParticipant?.isGroup) {
+                        socket.emit('messageDeleted', { messageId: msg.messageId, conversationId: msg.conversationId || conversationIdRef.current, mode: msg.mode || 'everyone' });
+                    } else {
+                        socket.emit('messageDeleted', { messageId: msg.messageId, conversationId: msg.conversationId || conversationIdRef.current, mode: msg.mode || 'everyone', recipientId: msg.recipientId || participantId });
+                    }
+                    await dbService.removePending(msg.tempId);
+                } catch (err) {
+                    console.error("Failed to retry pending delete:", err);
+                }
+                continue;
+            }
+
             setMessages(prev => prev.map(m => m._id === msg.tempId ? { ...m, isOptimistic: true, uploadFailed: false, uploadProgress: 10 } : m));
             try {
                 let mediaUrl = msg.mediaUrl;
@@ -1381,6 +1425,67 @@ const ChatPanel = ({
         setFirstUnreadId(null);
         lastFetchParamsRef.current = { conversationId: activeConversationId, recipientId: participantId, refreshKey };
         setLoading(true);
+
+        const cacheKey = activeConversationId
+            ? `messages_${activeConversationId}`
+            : (participantId ? `messages_${[user._id, participantId].sort().join('-')}` : null);
+
+        // Load pending messages helper
+        const getPendingMessages = async (fetchedConvId) => {
+            try {
+                const pending = await dbService.getAllPending();
+                const conversationPending = pending.filter(msg => {
+                    if (msg.type && msg.type !== 'insert') return false;
+                    if (activeParticipant?.isGroup) {
+                        return String(msg.conversationId) === String(fetchedConvId || activeConversationId);
+                    } else {
+                        return String(msg.recipientId) === String(participantId);
+                    }
+                });
+                return conversationPending.map(msg => ({
+                    _id: msg.tempId,
+                    conversationId: msg.conversationId || fetchedConvId || activeConversationId,
+                    content: msg.content,
+                    sender: user?._id,
+                    senderId: user?._id,
+                    senderName: user?.fullname,
+                    createdAt: msg.createdAt || new Date().toISOString(),
+                    uploadFailed: true,
+                    isOptimistic: false,
+                    media: msg.mediaType ? {
+                        type: msg.mediaType,
+                        url: msg.mediaUrl || (msg.file ? URL.createObjectURL(msg.file) : null),
+                        name: msg.mediaName,
+                        size: msg.mediaSize
+                    } : null,
+                    replyTo: msg.replyTo
+                }));
+            } catch (err) {
+                console.error("Failed to load pending messages:", err);
+                return [];
+            }
+        };
+
+        // Try to load cached messages immediately for UI responsiveness
+        if (cacheKey) {
+            try {
+                const cached = await dbService.getCache(cacheKey);
+                if (cached && Array.isArray(cached.messages)) {
+                    const formattedPending = await getPendingMessages(cached.conversation?._id);
+                    setMessages([...cached.messages, ...formattedPending]);
+                    if (cached.conversation?._id) {
+                        setConversationId(cached.conversation._id);
+                        conversationIdRef.current = cached.conversation._id;
+                    }
+                    if (cached.hasMore !== undefined) {
+                        setHasMore(cached.hasMore);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to read messages cache:", err);
+            }
+        }
+
         try {
             const reqPayload = {
                 limit: 30,
@@ -1393,35 +1498,16 @@ const ChatPanel = ({
             const fetchedMessages = await Promise.all(rawMessages.map(msg => decryptMessage(msg, participantId)));
             const fetchedConversationId = res.data.conversation?._id || null;
             const fetchedHasMore = res.data.hasMore || false;
-            // Load pending messages from IndexedDB for this conversation
-            const pending = await dbService.getAllPending();
-            const conversationPending = pending.filter(msg => {
-                if (activeParticipant?.isGroup) {
-                    return String(msg.conversationId) === String(fetchedConversationId || activeConversationId);
-                } else {
-                    return String(msg.recipientId) === String(participantId);
-                }
-            });
 
-            const formattedPending = conversationPending.map(msg => ({
-                _id: msg.tempId,
-                conversationId: msg.conversationId || fetchedConversationId || activeConversationId,
-                content: msg.content,
-                sender: user?._id,
-                senderId: user?._id,
-                senderName: user?.fullname,
-                createdAt: msg.createdAt || new Date().toISOString(),
-                uploadFailed: true,
-                isOptimistic: false,
-                media: msg.mediaType ? {
-                    type: msg.mediaType,
-                    url: msg.mediaUrl || (msg.file ? URL.createObjectURL(msg.file) : null),
-                    name: msg.mediaName,
-                    size: msg.mediaSize
-                } : null,
-                replyTo: msg.replyTo
-            }));
+            // Cache the newly fetched messages
+            if (cacheKey) {
+                await dbService.setCache(cacheKey, { messages: fetchedMessages, conversation: res.data.conversation, hasMore: fetchedHasMore }).catch(() => {});
+            }
+            if (fetchedConversationId && `messages_${fetchedConversationId}` !== cacheKey) {
+                await dbService.setCache(`messages_${fetchedConversationId}`, { messages: fetchedMessages, conversation: res.data.conversation, hasMore: fetchedHasMore }).catch(() => {});
+            }
 
+            const formattedPending = await getPendingMessages(fetchedConversationId);
             setMessages([...fetchedMessages, ...formattedPending]);
             setConversationId(fetchedConversationId);
             setHasMore(fetchedHasMore);
@@ -1859,13 +1945,27 @@ const ChatPanel = ({
     };
 
     const handleEdit = async (messageId, content) => {
+        const oldMessage = messages.find(m => String(m._id) === String(messageId));
+        const oldContent = oldMessage?.content;
+        const oldEdited = oldMessage?.edited;
+        
         setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content, edited: true } : m));
         try {
             await editMessageMut.mutateAsync({ messageId, content, conversationId: conversationIdRef.current });
             socket.emit('messageEdited', { messageId, content, conversationId: conversationIdRef.current, recipientId: participantId });
-        } catch {
-            setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content: m.content, edited: m.edited } : m));
-            toast.error('Edit failed');
+        } catch (err) {
+            console.error("Failed to edit message:", err);
+            const tempId = `edit-${messageId}`;
+            await dbService.setPending(tempId, {
+                type: 'update',
+                messageId,
+                content,
+                conversationId: conversationIdRef.current || conversationId,
+                recipientId: activeParticipant?.isGroup ? undefined : participantId,
+                tempId,
+                createdAt: new Date().toISOString()
+            }).catch(() => {});
+            toast.warn('Edit queued for retry');
         }
     };
 
@@ -2208,9 +2308,19 @@ const ChatPanel = ({
                                 try {
                                     await deleteMessageMut.mutateAsync({ messageId: msg._id, conversationId: conversationIdRef.current, mode: 'me' });
                                     socket.emit('messageDeleted', { messageId: msg._id, conversationId: conversationIdRef.current, mode: 'me', recipientId: participantId });
-                                } catch {
-                                    toast.error('Delete failed');
-                                    fetchMessages();
+                                } catch (err) {
+                                    console.error("Delete for me failed:", err);
+                                    const tempId = `delete-${msg._id}`;
+                                    await dbService.setPending(tempId, {
+                                        type: 'delete',
+                                        messageId: msg._id,
+                                        conversationId: conversationIdRef.current || conversationId,
+                                        mode: 'me',
+                                        recipientId: activeParticipant?.isGroup ? undefined : participantId,
+                                        tempId,
+                                        createdAt: new Date().toISOString()
+                                    }).catch(() => {});
+                                    toast.warn('Delete queued for retry');
                                 }
                             }}
                             className="p-button p-component p-button-secondary"
@@ -2228,9 +2338,19 @@ const ChatPanel = ({
                                     try {
                                         await deleteMessageMut.mutateAsync({ messageId: msg._id, conversationId: conversationIdRef.current, mode: 'everyone' });
                                         socket.emit('messageDeleted', { messageId: msg._id, conversationId: conversationIdRef.current, mode: 'everyone', recipientId: participantId });
-                                    } catch {
-                                        setMessages(prev => prev.map(m => String(m._id) === String(msg._id) ? { ...m, deletedAt: null, content: m.content } : m));
-                                        toast.error('Delete failed');
+                                    } catch (err) {
+                                        console.error("Delete for everyone failed:", err);
+                                        const tempId = `delete-${msg._id}`;
+                                        await dbService.setPending(tempId, {
+                                            type: 'delete',
+                                            messageId: msg._id,
+                                            conversationId: conversationIdRef.current || conversationId,
+                                            mode: 'everyone',
+                                            recipientId: activeParticipant?.isGroup ? undefined : participantId,
+                                            tempId,
+                                            createdAt: new Date().toISOString()
+                                        }).catch(() => {});
+                                        toast.warn('Delete queued for retry');
                                     }
                                 }}
                                 className="p-button p-component p-button-danger"

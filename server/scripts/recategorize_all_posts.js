@@ -204,7 +204,7 @@ async function processPost(post, availableCategoriesSet, newCategoriesSet) {
 async function run() {
     console.log('📦 Connecting to MongoDB...');
     await mongoose.connect(MONGO_URI);
-    console.log('✅ Connected to MongoDB');
+    console.log(' Connected to MongoDB');
 
     const processAll = process.argv.includes('--all');
 
@@ -235,7 +235,7 @@ async function run() {
 
         try {
             await Post.bulkWrite(postBulkOps);
-            console.log(`✅ Bulk updated ${postBulkOps.length} posts`);
+            console.log(` Bulk updated ${postBulkOps.length} posts`);
             postBulkOps.length = 0;
             vectorBulkOps.length = 0;
         } catch (err) {
@@ -291,13 +291,13 @@ async function run() {
                 { ordered: false }
             );
             console.log(`✨ Registered ${newCategoriesSet.size} new categories in database.`);
-        } catch {}
+        } catch { }
     }
 
     console.log('\n======================================');
-    console.log('✅ RECATEGORIZATION COMPLETED');
+    console.log(' RECATEGORIZATION COMPLETED');
     console.log(`📊 Total Processed: ${processed}`);
-    console.log(`✅ Total Updated:   ${updated}`);
+    console.log(` Total Updated:   ${updated}`);
     console.log(`⏭️ Total Skipped:   ${skipped}`);
     console.log('======================================');
 

@@ -656,6 +656,7 @@ async function clearFeedIndexedDbCache(userId) {
             dbService.removeCache(`feed_${userId}_long_read`),
             dbService.removeCache(`feed_${userId}_null`),
             dbService.removeCache(`user_posts_${userId}`),
+            dbService.removeCache('feed_posts'),
         ]);
     } catch (e) {
         console.warn('Failed to clear feed IndexedDB cache:', e.message);

@@ -25,8 +25,8 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [resending, setResending] = useState(false);
-  const [countdown, setCountdown] = useState(60);
-  const [expiryCountdown, setExpiryCountdown] = useState(600);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [expiryCountdown, setExpiryCountdown] = useState<number | null>(null);
   const inputsRef = useRef<Array<TextInput | null>>([]);
   const { verifyOtp, loading } = useAuthStore();
 
@@ -45,19 +45,21 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
         const resendUntil = await AsyncStorage.getItem('otpResendUntil');
         if (resendUntil) {
           const remaining = Math.ceil((parseInt(resendUntil, 10) - Date.now()) / 1000);
-          if (remaining > 0) {
-            setCountdown(remaining);
-          }
+          setCountdown(remaining > 0 ? remaining : 0);
+        } else {
+          setCountdown(0);
         }
         const expiresAt = await AsyncStorage.getItem('otpExpiresAt');
         if (expiresAt) {
           const remainingExpiry = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000);
-          if (remainingExpiry > 0) {
-            setExpiryCountdown(remainingExpiry);
-          }
+          setExpiryCountdown(remainingExpiry > 0 ? remainingExpiry : 0);
+        } else {
+          setExpiryCountdown(0);
         }
       } catch (e) {
         console.warn('Failed to load OTP countdown:', e);
+        setCountdown(0);
+        setExpiryCountdown(0);
       }
     };
     loadCountdown();
@@ -65,9 +67,10 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 
   // Countdown timer for code resend
   useEffect(() => {
-    if (countdown <= 0) return;
+    if (countdown === null || countdown <= 0) return;
     const t = setTimeout(() => {
       setCountdown((c) => {
+        if (c === null) return null;
         const nextVal = c - 1;
         if (nextVal <= 0) {
           AsyncStorage.removeItem('otpResendUntil').catch(() => {});
@@ -80,9 +83,10 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 
   // Countdown timer for OTP expiration
   useEffect(() => {
-    if (expiryCountdown <= 0) return;
+    if (expiryCountdown === null || expiryCountdown <= 0) return;
     const t = setTimeout(() => {
       setExpiryCountdown((c) => {
+        if (c === null) return null;
         const nextVal = c - 1;
         if (nextVal <= 0) {
           AsyncStorage.removeItem('otpExpiresAt').catch(() => {});
@@ -186,9 +190,13 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
             fontWeight: 'bold',
             textAlign: 'center',
             marginBottom: 20,
-            color: expiryCountdown <= 60 ? '#ef4444' : '#808bf5',
+            color: expiryCountdown !== null && expiryCountdown <= 60 ? '#ef4444' : '#808bf5',
           }}>
-            {expiryCountdown > 0 ? `Code expires in ${Math.floor(expiryCountdown / 60).toString().padStart(2, '0')}:${(expiryCountdown % 60).toString().padStart(2, '0')}` : 'Code has expired. Please resend.'}
+            {expiryCountdown === null
+              ? 'Checking expiry...'
+              : expiryCountdown > 0
+              ? `Code expires in ${Math.floor(expiryCountdown / 60).toString().padStart(2, '0')}:${(expiryCountdown % 60).toString().padStart(2, '0')}`
+              : 'Code has expired. Please resend.'}
           </Text>
 
           <View style={styles.otpRow}>
@@ -223,7 +231,9 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
           </TouchableOpacity>
 
           <View style={styles.resendRow}>
-            {countdown > 0 ? (
+            {countdown === null ? (
+              <ActivityIndicator size="small" color="#808bf5" />
+            ) : countdown > 0 ? (
               <Text style={{ color: subText }}>
                 Resend code in <Text style={{ fontWeight: 'bold' }}>{countdown}s</Text>
               </Text>

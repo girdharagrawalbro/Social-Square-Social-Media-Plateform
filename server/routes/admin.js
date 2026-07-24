@@ -573,7 +573,7 @@ router.delete('/posts/:postId', requireAdmin, [
 
         await Post.findByIdAndUpdate(req.params.postId, { $set: { deletedAt: new Date() } });
 
-        // ✅ Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
+        //  Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
         await PostVector.deleteOne({ postId: req.params.postId }).catch(err => {
             console.error('[Admin Post Delete] Failed to delete PostVector:', err.message);
         });
@@ -1341,13 +1341,222 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 key: 'reset_email',
                 name: 'Password Reset Email',
                 subject: 'Reset your Social Square password',
-                html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-            <h2 style="color:#808bf5">Password Reset</h2>
-            <p>Click the button below to reset your password. This link expires in 1 hour.</p>
-            <a href="{{resetUrl}}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Reset Password</a>
-            <p style="color:#6b7280;font-size:12px">If you didn't request this, ignore this email.</p>
-        </div>`,
+                html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset your password — Social Square</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #F4F3FF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      color: #1a1a2e;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .header {
+      background: #5C55E8;
+      border-radius: 12px 12px 0 0;
+      padding: 28px 36px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-name {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #E0DEFC;
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      padding: 32px 36px;
+    }
+    .icon-block {
+      width: 52px;
+      height: 52px;
+      background: #EEEDFE;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8E89D8;
+      margin-bottom: 8px;
+    }
+    .body-text {
+      font-size: 16px;
+      color: #3b3b5c;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+    .body-text strong {
+      font-weight: 500;
+      color: #1a1a2e;
+    }
+    .cta-wrap {
+      margin-bottom: 28px;
+    }
+    .cta-btn {
+      display: inline-block;
+      background: #5C55E8;
+      color: #fff;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 14px 32px;
+      border-radius: 8px;
+      letter-spacing: 0.01em;
+      transition: background 0.15s;
+    }
+    .cta-btn:hover {
+      background: #4840d0;
+    }
+    .url-fallback {
+      background: #F7F7FB;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 28px;
+    }
+    .url-fallback p {
+      font-size: 12px;
+      color: #9898B0;
+      margin-bottom: 6px;
+    }
+    .url-fallback code {
+      font-size: 12px;
+      color: #5C55E8;
+      word-break: break-all;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .security-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #FFF8EC;
+      border: 1px solid #FDDFA5;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 28px;
+    }
+    .security-note p {
+      font-size: 13px;
+      color: #7A5010;
+      line-height: 1.6;
+    }
+    .expiry-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .expiry-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #EEEDFE;
+      color: #3C3489;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 20px;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #EBEBF5;
+      margin-bottom: 20px;
+    }
+    .footer-note {
+      font-size: 12px;
+      color: #9898B0;
+      line-height: 1.6;
+    }
+    .footer-note a {
+      color: #5C55E8;
+      text-decoration: none;
+    }
+    .footer-note a:hover {
+      text-decoration: underline;
+    }
+    .meta {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 11px;
+      color: #A0A0BC;
+      line-height: 1.8;
+    }
+    .meta a {
+      color: #8E89D8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div class="logo-icon" style="background: none; width: 34px; height: 34px;">
+        <img src="https://i.ibb.co/7kr0KHK/logo.jpg" alt="Logo" style="width: 34px; height: 34px; border-radius: 8px; display: block;" />
+      </div>
+      <span class="logo-name">Social Square</span>
+    </div>
+    <div class="card">
+      <div class="icon-block">
+        <img src="https://img.icons8.com/ios-filled/100/5c55e8/lock.png" alt="Lock" style="width: 26px; height: 26px; display: block;" />
+      </div>
+      <p class="eyebrow">Password reset</p>
+      <p class="body-text">
+        We received a request to reset the password for your <strong>Social Square</strong> account.
+        Click the button below to choose a new one.
+      </p>
+      <div class="expiry-row">
+        <span class="expiry-badge">
+          Link expires in 1 hour
+        </span>
+      </div>
+      <div class="cta-wrap">
+        <a href="{{resetUrl}}" class="cta-btn">Reset my password →</a>
+      </div>
+      <div class="url-fallback">
+        <p>Or copy and paste this link into your browser:</p>
+        <code>{{resetUrl}}</code>
+      </div>
+      <div class="security-note">
+        <img src="https://img.icons8.com/ios-filled/100/ba7517/error.png" alt="Warning" style="flex-shrink: 0; width: 17px; height: 17px; margin-top: 1px; display: block;" />
+        <p>If you didn't request a password reset, ignore this email — your password won't change. If this looks suspicious, <a href="#" style="color:#BA7517;">secure your account</a>.</p>
+      </div>
+      <hr class="divider" />
+      <p class="footer-note">
+        Questions? <a href="#">Contact support</a> · This link expires in 1 hour and can only be used once.
+      </p>
+    </div>
+    <p class="meta">
+      © 2026 Social Square · <a href="#">Privacy Policy</a> · <a href="#">Unsubscribe</a>
+    </p>
+  </div>
+</body>
+</html>`,
                 variables: ['{{resetUrl}}']
             },
             {
@@ -1482,6 +1691,163 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
             <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
         </div>`,
                 variables: ['{{fullname}}', '{{content}}']
+            },
+            {
+                key: 'sessions_terminated',
+                name: 'Other Sessions Terminated Email',
+                subject: '🛡️ Other sessions terminated — Social Square',
+                html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Other sessions terminated — Social Square</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #F4F3FF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      color: #1a1a2e;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .header {
+      background: #5C55E8;
+      border-radius: 12px 12px 0 0;
+      padding: 28px 36px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-name {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #E0DEFC;
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      padding: 32px 36px;
+    }
+    .icon-block {
+      width: 52px;
+      height: 52px;
+      background: #EEEDFE;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8E89D8;
+      margin-bottom: 8px;
+    }
+    .body-text {
+      font-size: 16px;
+      color: #3b3b5c;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+    .body-text strong {
+      font-weight: 500;
+      color: #1a1a2e;
+    }
+    .security-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #FFF8EC;
+      border: 1px solid #FDDFA5;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 28px;
+    }
+    .security-note p {
+      font-size: 13px;
+      color: #7A5010;
+      line-height: 1.6;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #EBEBF5;
+      margin-bottom: 20px;
+    }
+    .footer-note {
+      font-size: 12px;
+      color: #9898B0;
+      line-height: 1.6;
+    }
+    .footer-note a {
+      color: #5C55E8;
+      text-decoration: none;
+    }
+    .footer-note a:hover {
+      text-decoration: underline;
+    }
+    .meta {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 11px;
+      color: #A0A0BC;
+      line-height: 1.8;
+    }
+    .meta a {
+      color: #8E89D8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div class="logo-icon" style="background: none; width: 34px; height: 34px;">
+        <img src="https://i.ibb.co/7kr0KHK/logo.jpg" alt="Logo" style="width: 34px; height: 34px; border-radius: 8px; display: block;" />
+      </div>
+      <span class="logo-name">Social Square</span>
+    </div>
+    <div class="card">
+      <div class="icon-block">
+        <img src="https://img.icons8.com/ios-filled/100/5c55e8/shield.png" alt="Shield" style="width: 26px; height: 26px; display: block;" />
+      </div>
+      <p class="eyebrow">Security Cleanup</p>
+      <p class="body-text">
+        As requested, all other active sessions for your account have been terminated.
+      </p>
+      <div class="security-note">
+        <img src="https://img.icons8.com/ios-filled/100/ba7517/error.png" alt="Warning" style="flex-shrink: 0; width: 17px; height: 17px; margin-top: 1px; display: block;" />
+        <p>If this wasn't you, your account may be compromised. Please change your password immediately.</p>
+      </div>
+      <hr class="divider" />
+      <p class="footer-note">
+        Questions? <a href="#">Contact support</a>
+      </p>
+    </div>
+    <p class="meta">
+      © 2026 Social Square · <a href="#">Privacy Policy</a> · <a href="#">Unsubscribe</a>
+    </p>
+  </div>
+</body>
+</html>`,
+                variables: ['{{clientUrl}}']
             }
         ];
 

@@ -41,7 +41,7 @@ async function run() {
         }
     }
 
-    console.log(`✅ Finished. Updated/hashed passwords for ${updateCount} user(s).`);
+    console.log(` Finished. Updated/hashed passwords for ${updateCount} user(s).`);
     process.exit(0);
 }
 

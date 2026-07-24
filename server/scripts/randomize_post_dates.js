@@ -86,7 +86,7 @@ async function run() {
     try {
         console.log('⚡ Connecting to MongoDB...');
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ MongoDB Connected.');
+        console.log(' MongoDB Connected.');
 
         let targetUsers = [];
 
@@ -120,7 +120,7 @@ async function run() {
 
             const userIds = [...new Set(duplicateGroups.map(g => g._id.userId))];
             targetUsers = await User.find({ _id: { $in: userIds } });
-            console.log(`✅ Auto-detected ${targetUsers.length} user(s) with bulk-uploaded posts:`, targetUsers.map(u => u.username).join(', '));
+            console.log(` Auto-detected ${targetUsers.length} user(s) with bulk-uploaded posts:`, targetUsers.map(u => u.username).join(', '));
         }
 
         for (const user of targetUsers) {
@@ -179,12 +179,12 @@ async function run() {
                     );
                     updatedCount++;
                 }
-                console.log(`✅ Successfully updated ${updatedCount} posts for ${user.username}.`);
+                console.log(` Successfully updated ${updatedCount} posts for ${user.username}.`);
             }
         }
 
         console.log(`\n==================================================`);
-        console.log(dryRun ? '✅ Dry run completed successfully.' : '✅ Database update completed successfully.');
+        console.log(dryRun ? ' Dry run completed successfully.' : ' Database update completed successfully.');
         await mongoose.disconnect();
     } catch (err) {
         console.error('🔥 Fatal Error:', err);

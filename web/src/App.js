@@ -307,12 +307,12 @@ function AppInit() {
 
     useTokenRefresh(Boolean(user?._id));
 
-    // ✅ On every page load/refresh — silently restore session from httpOnly cookie
+    //  On every page load/refresh — silently restore session from httpOnly cookie
     useEffect(() => {
         initAuth();
     }, [initAuth]);
 
-    // ✅ Push Notifications + Initial State Fetch
+    //  Push Notifications + Initial State Fetch
     const { setNotifications } = useConversationStore();
 
     useEffect(() => {
@@ -344,7 +344,7 @@ function AppInit() {
         if (!socket.connected) socket.connect();
         socket.emit('registerUser', user._id);
 
-        // ✅ Heartbeat mechanism: confirm presence every 30s
+        //  Heartbeat mechanism: confirm presence every 30s
         const heartbeatInterval = setInterval(() => {
             if (socket.connected) {
                 socket.emit('heartbeat', user._id);
@@ -756,7 +756,7 @@ function AppInit() {
                     }
                     return page;
                 });
-                
+
                 if (found) {
                     // Prepend it to the first page if it was found and removed from a later page
                     const alreadyInFirstPage = old.pages[0].conversations.some(c => String(c._id) === String(updatedConv._id));

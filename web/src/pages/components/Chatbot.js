@@ -130,7 +130,7 @@ const Chatbot = () => {
 
             if (!response.ok) throw new Error('Server error');
 
-            // ✅ Handle SSE streaming response
+            //  Handle SSE streaming response
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let accumulated = '';

@@ -2,18 +2,18 @@
  * ULTRA OPTIMIZED VECTORIZE ALL POSTS
  *
  * Improvements:
- * ✅ Parallel vector generation
- * ✅ Bulk MongoDB writes
- * ✅ Streaming cursor
- * ✅ Concurrency control
- * ✅ Memory optimized
- * ✅ Faster orphan cleanup
- * ✅ Reduced DB queries
- * ✅ Exponential retry with jitter
- * ✅ Batched processing
- * ✅ Removed artificial 1.5s delay
- * ✅ Better Gemini rate-limit handling
- * ✅ Production scalable
+ *  Parallel vector generation
+ *  Bulk MongoDB writes
+ *  Streaming cursor
+ *  Concurrency control
+ *  Memory optimized
+ *  Faster orphan cleanup
+ *  Reduced DB queries
+ *  Exponential retry with jitter
+ *  Batched processing
+ *  Removed artificial 1.5s delay
+ *  Better Gemini rate-limit handling
+ *  Production scalable
  *
  * INSTALL:
  * npm i p-limit
@@ -147,7 +147,7 @@ async function run() {
     );
 
     console.log(
-        '✅ MongoDB Connected'
+        ' MongoDB Connected'
     );
 
     /**
@@ -163,7 +163,7 @@ async function run() {
             throw new Error('Returned empty vector');
         }
         console.log(
-            `✅ Embedding generator verified successfully (dimensions: ${testVec.length})`
+            ` Embedding generator verified successfully (dimensions: ${testVec.length})`
         );
     } catch (err) {
         console.error(
@@ -251,7 +251,7 @@ async function run() {
             );
 
             console.log(
-                `✅ Bulk inserted ${bulkOps.length} vectors`
+                ` Bulk inserted ${bulkOps.length} vectors`
             );
 
             success += bulkOps.length;
@@ -363,7 +363,7 @@ async function run() {
             });
 
         console.log(
-            `✅ Removed ${cleanup.deletedCount} orphan vectors`
+            ` Removed ${cleanup.deletedCount} orphan vectors`
         );
     }
 
@@ -380,7 +380,7 @@ async function run() {
     );
 
     console.log(
-        `✅ Success: ${success}`
+        ` Success: ${success}`
     );
 
     console.log(

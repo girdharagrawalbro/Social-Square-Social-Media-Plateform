@@ -23,7 +23,7 @@ const ConfessionsFeed = ({ onProfileClick }) => {
 
     const user = useAuthStore(s => s.user);
     const queryClient = useQueryClient();
-    // ✅ TanStack Query for confessions - infinite scroll
+    //  TanStack Query for confessions - infinite scroll
     const confessionsQuery = useConfessions();
     const posts = confessionsQuery.data?.pages?.flatMap(p => p.posts) || [];
     const isLoading = confessionsQuery.isLoading;
@@ -323,7 +323,7 @@ const Communities = () => {
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [userProfileVisible, setUserProfileVisible] = useState(false);
 
-    // ✅ Tab: 'discover' | 'confessions'
+    //  Tab: 'discover' | 'confessions'
     const [activeTab, setActiveTab] = useState('confessions');
 
     const tabContainerRef = useRef(null);

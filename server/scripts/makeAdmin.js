@@ -20,7 +20,7 @@ async function run() {
     if (!user) { console.error(`No user found with email: ${email}`); process.exit(1); }
     user.isAdmin = true;
     await user.save();
-    console.log(`✅ ${user.fullname} (${user.email}) is now an admin.`);
+    console.log(` ${user.fullname} (${user.email}) is now an admin.`);
     process.exit(0);
 }
 

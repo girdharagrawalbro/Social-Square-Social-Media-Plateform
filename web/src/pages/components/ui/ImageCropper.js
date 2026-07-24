@@ -115,7 +115,7 @@ const ImageCropper = ({
     }
   };
 
-  // ✅ Original is now part of the presets array, using live imageAspect
+  //  Original is now part of the presets array, using live imageAspect
   const aspectPresets = [
     { label: 'Custom', value: null },
     { label: 'Square', value: 1 },
@@ -183,7 +183,7 @@ const ImageCropper = ({
         <div className="p-4 bg-[var(--surface-1)]">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              {/* ✅ Single unified loop — no separate Original button */}
+              {/*  Single unified loop — no separate Original button */}
               <select
                 value={selectedPreset}
                 onChange={(e) => {

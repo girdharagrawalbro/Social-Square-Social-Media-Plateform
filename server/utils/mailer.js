@@ -204,6 +204,12 @@ async function sendPasswordChangedEmail(email, fullname) {
     return sendEmail({ to: email, subject, html });
 }
 
+async function sendSessionsTerminatedEmail(email) {
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    const { subject, html } = await getParsedTemplate('sessions_terminated', { clientUrl });
+    return sendEmail({ to: email, subject, html });
+}
+
 module.exports = {
     sendEmail,
     sendOtpEmail,
@@ -214,5 +220,6 @@ module.exports = {
     sendSessionRevokedEmail,
     sendVerificationEmail,
     sendWelcomeEmail,
-    sendPasswordChangedEmail
+    sendPasswordChangedEmail,
+    sendSessionsTerminatedEmail
 };

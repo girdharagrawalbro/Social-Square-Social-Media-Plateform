@@ -99,7 +99,7 @@ router.post('/chat', verifyToken, [
             content: m.content,
         }));
 
-        // ✅ Llama3-chatqa forces specific user/assistant alternation
+        //  Llama3-chatqa forces specific user/assistant alternation
         const raw = [
             { role: 'user', content: dynamicPrompt },
             { role: 'assistant', content: 'Got it! I am SocialBot, ready to help Social Square users with the provided application context.' },

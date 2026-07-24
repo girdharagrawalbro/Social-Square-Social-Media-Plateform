@@ -9,7 +9,7 @@ const Post = require('../models/Post');
 const LoginSession = require('../models/LoginSession');
 const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
-const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail, sendSessionRevokedEmail, sendEmail, sendWelcomeEmail, sendPasswordChangedEmail } = require('../utils/mailer');
+const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail, sendSessionRevokedEmail, sendEmail, sendWelcomeEmail, sendPasswordChangedEmail, sendSessionsTerminatedEmail } = require('../utils/mailer');
 const { getSuggestedUsers } = require('../services/suggestionService');
 const { createNotification } = require('../lib/notification');
 const logger = require('../utils/logger');
@@ -201,7 +201,7 @@ function startSessionCleanupJob() {
 startSessionCleanupJob();
 
 
-// ✅ Privacy: Standard exclusions for user responses
+//  Privacy: Standard exclusions for user responses
 // For the logged-in user (OWN), we exclude security tokens but keep email/settings
 const OWN_USER_EXCLUSIONS = '-password -twoFactorOtp -twoFactorOtpExpires -resetPasswordToken -resetPasswordExpires -emailVerificationToken -emailVerificationTokenSentAt -loginSessions -__v -followers -following -savedPosts';
 
@@ -1010,7 +1010,7 @@ router.delete('/sessions/:sessionId', verifyToken, async (req, res) => {
             _io.to(req.userId.toString()).emit('sessionRevoked', { sessionId: req.params.sessionId });
         }
 
-        // ✅ Security Alert: Send email about revoked session
+        //  Security Alert: Send email about revoked session
         const user = await User.findById(req.userId).select('email');
         if (user?.email) {
             sendSessionRevokedEmail(user.email, {
@@ -1039,19 +1039,11 @@ router.delete('/sessions/all/revoke', verifyToken, async (req, res) => {
             _io.to(req.userId.toString()).emit('sessionsRevokedAll', { exceptSessionId: req.sessionId });
         }
 
-        // ✅ Security Alert: Notify user that other sessions were cleared
+        //  Security Alert: Notify user that other sessions were cleared
         const user = await User.findById(req.userId).select('email');
         if (user?.email) {
-            sendEmail({
-                to: user.email,
-                subject: '🛡️ Other sessions terminated — Social Square',
-                html: `
-                <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-                    <h2 style="color:#6366f1">Security Cleanup</h2>
-                    <p>As requested, all other active sessions for your account have been terminated.</p>
-                    <p style="color:#6b7280;font-size:12px">If this wasn't you, your account may be compromised. Please change your password immediately.</p>
-                </div>`
-            }).catch(err => console.error('[Security] Failed to send bulk revocation email:', err.message));
+            sendSessionsTerminatedEmail(user.email)
+                .catch(err => console.error('[Security] Failed to send bulk revocation email:', err.message));
         }
 
         return res.status(200).json({ message: 'Other sessions revoked' });
@@ -1507,14 +1499,14 @@ router.put('/update-profile', verifyToken, [
             }
         }
 
-        // ✅ Propagate changes to denormalized collections (Posts, Comments, etc.)
+        //  Propagate changes to denormalized collections (Posts, Comments, etc.)
         if (fullname || profile_picture || username) {
             propagateUserProfileUpdate(userId, { fullname, username, profile_picture }).catch(err => {
                 console.error(`[Propagation Error] for user ${userId}:`, err.message);
             });
         }
 
-        // ✅ Broadcast profile update to all connected users
+        //  Broadcast profile update to all connected users
         if (_io) {
             _io.emit('profileUpdated', {
                 userId,

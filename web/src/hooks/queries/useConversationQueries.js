@@ -98,6 +98,10 @@ export function useMessages(participantIds) {
                 }
                 if (res.data) {
                     await dbService.setCache(cacheKey, res.data);
+                    const convId = res.data.conversation?._id || (res.data.messages && res.data.messages[0]?.conversationId);
+                    if (convId) {
+                        await dbService.setCache(`messages_${convId}`, res.data);
+                    }
                 }
                 return res.data;
             });
@@ -130,6 +134,63 @@ export function useMessageSearch(conversationId, query) {
         enabled: !!conversationId && query.length > 1,
         staleTime: 1000 * 60,
     });
+}
+
+// ─── CACHE SYNC HELPER ────────────────────────────────────────────────────────
+function getParticipantCacheKey(message, myId) {
+    if (!message || !myId) return null;
+    const sender = message.senderId || message.sender;
+    const recipient = message.recipientId;
+    if (!sender || !recipient) return null;
+    const otherId = String(sender) === String(myId) ? recipient : sender;
+    return `messages_${[myId, otherId].sort().join('-')}`;
+}
+
+export async function updateMessageInCache({ conversationId, message, messageId, myId, op, mode }) {
+    const keys = new Set();
+    if (conversationId) {
+        keys.add(`messages_${conversationId}`);
+    }
+    if (message) {
+        if (message.conversationId) {
+            keys.add(`messages_${message.conversationId}`);
+        }
+        const pKey = getParticipantCacheKey(message, myId);
+        if (pKey) keys.add(pKey);
+    }
+
+    for (const key of keys) {
+        try {
+            const cached = await dbService.getCache(key);
+            if (cached && Array.isArray(cached.messages)) {
+                if (op === 'insert') {
+                    const exists = cached.messages.some(m => String(m._id) === String(message._id));
+                    if (!exists) {
+                        cached.messages = [...cached.messages, message];
+                    }
+                } else if (op === 'update') {
+                    cached.messages = cached.messages.map(m =>
+                        String(m._id) === String(messageId || message._id)
+                            ? { ...m, ...message }
+                            : m
+                    );
+                } else if (op === 'delete') {
+                    if (mode === 'everyone') {
+                        cached.messages = cached.messages.map(m =>
+                            String(m._id) === String(messageId)
+                                ? { ...m, deletedAt: new Date().toISOString(), content: '', media: null }
+                                : m
+                        );
+                    } else {
+                        cached.messages = cached.messages.filter(m => String(m._id) !== String(messageId));
+                    }
+                }
+                await dbService.setCache(key, cached);
+            }
+        } catch (e) {
+            console.error("Failed to update IndexedDB cache for key", key, e);
+        }
+    }
 }
 
 // ─── MUTATIONS ────────────────────────────────────────────────────────────────
@@ -217,6 +278,14 @@ export function useSendMessage() {
                     }))
                 };
             });
+
+            // Update IndexedDB Cache
+            updateMessageInCache({
+                conversationId: conversationId || message.conversationId,
+                message,
+                myId: user?._id,
+                op: 'insert'
+            }).catch(err => console.error("Failed to update cache on send:", err));
         },
     });
 }
@@ -229,7 +298,16 @@ export function useEditMessage() {
             api.patch(`${BASE}/api/conversation/messages/${messageId}`, { content }),
         onSuccess: (res, { conversationId, messageId }) => {
             updateMessageStatus(conversationId, messageId, { content: res.data.content, edited: true });
-            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
+            
+            // Update IndexedDB Cache
+            updateMessageInCache({
+                conversationId,
+                messageId,
+                message: { content: res.data.content, edited: true },
+                myId: useAuthStore.getState().user?._id,
+                op: 'update'
+            }).catch(err => console.error("Failed to update cache on edit:", err));
+
             qc.invalidateQueries({ queryKey: convoKeys.messages(conversationId) });
         },
     });
@@ -245,7 +323,16 @@ export function useDeleteMessage() {
             if (mode === 'me') {
                 deleteSocketMessage(conversationId, messageId);
             }
-            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
+            
+            // Update IndexedDB Cache
+            updateMessageInCache({
+                conversationId,
+                messageId,
+                myId: useAuthStore.getState().user?._id,
+                op: 'delete',
+                mode
+            }).catch(err => console.error("Failed to update cache on delete:", err));
+
             qc.invalidateQueries({ queryKey: convoKeys.messages(conversationId) });
         },
     });
@@ -258,8 +345,18 @@ export function useReactToMessage() {
             api.post(`${BASE}/api/conversation/messages/${messageId}/react`, {
                 emoji
             }),
-        onSuccess: (_, { conversationId }) => {
-            if (conversationId) dbService.removeCache(`messages_${conversationId}`).catch(() => {});
+        onSuccess: (res, { conversationId, messageId }) => {
+            const reactions = res.data.reactions;
+            
+            // Update IndexedDB Cache
+            updateMessageInCache({
+                conversationId,
+                messageId,
+                message: { reactions },
+                myId: useAuthStore.getState().user?._id,
+                op: 'update'
+            }).catch(err => console.error("Failed to update cache on react:", err));
+
             qc.invalidateQueries({ queryKey: convoKeys.messages(conversationId) });
         },
     });

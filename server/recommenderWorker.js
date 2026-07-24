@@ -68,7 +68,7 @@ async function handlePostCreated(data) {
     { vector, category, tags, createdAt: new Date() },
     { new: true, upsert: true }
   );
-  console.log(`✅ Post ${postId} embedded`);
+  console.log(` Post ${postId} embedded`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -219,7 +219,7 @@ async function handleUserActivity(data) {
     try {
       interest.lastUpdated = new Date();
       await interest.save();
-      console.log(`✅ User ${userId} profile updated (${action})`);
+      console.log(` User ${userId} profile updated (${action})`);
       break;
     } catch (err) {
       if (err.name === 'VersionError' && retries > 1) {

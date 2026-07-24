@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-// ✅ Hard cap Node.js heap at 400MB — leaves 112MB for OS + native modules
+//  Hard cap Node.js heap at 400MB — leaves 112MB for OS + native modules
 // Without this Node defaults to 1.5GB and never GCs aggressively
 if (process.env.NODE_ENV === 'production') {
     // Set via package.json start script: node --max-old-space-size=400 index.js
@@ -23,7 +23,7 @@ require('./models/Recommendation');
 const verifyToken = require('./middleware/Verifytoken');
 
 
-// ✅ NO cluster in single-dyno/512MB deployments
+//  NO cluster in single-dyno/512MB deployments
 // Cluster multiplies RAM usage by CPU count — 4 cores = 4x RAM
 // Use a single process + async I/O instead
 // To scale horizontally, run multiple dynos behind a load balancer
@@ -85,7 +85,7 @@ const reportLimiter = rateLimit({
     message: { error: 'Too many reports.' },
 });
 
-// ✅ Rate limiting for high-stakes post operations - MOVED to middleware/postWriteLimiter.js
+//  Rate limiting for high-stakes post operations - MOVED to middleware/postWriteLimiter.js
 
 app.use('/api/auth', authWriteLimiter);
 app.use('/api/admin/report', reportLimiter);
@@ -107,7 +107,7 @@ const io = socketIo(server, {
     allowEIO3: true,
     maxHttpBufferSize: 1e6,
 
-    // ✅ Reduce socket.io memory: don't buffer events for disconnected clients
+    //  Reduce socket.io memory: don't buffer events for disconnected clients
     connectTimeout: 10000,
 });
 
@@ -225,7 +225,7 @@ app.post('/api/user/fcm-token', verifyToken, async (req, res) => {
     res.json({ success: true });
 });
 
-// ✅ Routes
+//  Routes
 app.use('/api/auth', authRouter);
 app.use('/api/post', postRouter);
 app.use('/api/goal', require('./routes/goal.js'));
@@ -335,7 +335,7 @@ io.on('connection', (socket) => {
             if (!redis) return;
 
             await redis.hset('online_users', userId, socket.id);
-            // ✅ Track active timestamp for TTL cleanup
+            //  Track active timestamp for TTL cleanup
             await redis.zadd('presence_heartbeats', Date.now(), userId);
 
             // 1. Send list of online users
@@ -356,16 +356,16 @@ io.on('connection', (socket) => {
                 const userConvs = await Conversation.find({ 'participants.userId': userId }).select('_id');
                 if (userConvs.length > 0) {
                     const convIds = userConvs.map(c => c._id);
-                    const undeliveredMessages = await Message.find({ 
-                        conversationId: { $in: convIds }, 
-                        sender: { $ne: userId }, 
-                        isDelivered: false 
+                    const undeliveredMessages = await Message.find({
+                        conversationId: { $in: convIds },
+                        sender: { $ne: userId },
+                        isDelivered: false
                     });
 
                     if (undeliveredMessages.length > 0) {
                         const msgIds = undeliveredMessages.map(m => m._id);
                         await Message.updateMany(
-                            { _id: { $in: msgIds } }, 
+                            { _id: { $in: msgIds } },
                             { $set: { isDelivered: true }, $addToSet: { deliveredTo: userId } }
                         );
 
@@ -769,7 +769,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// ✅ ─── PRESENCE HOUSEKEEPING (TTL Cleanup) ──────────────────────────────────
+//  ─── PRESENCE HOUSEKEEPING (TTL Cleanup) ──────────────────────────────────
 // Runs every 30s to evict users who haven't sent a heartbeat in > 60s
 setInterval(async () => {
     if (!redis || process.env.DISABLE_REDIS === 'true') return;

@@ -496,14 +496,14 @@ const GoalWall = ({ userId, isOwner }) => {
                                     className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-indigo-500 cursor-pointer font-bold"
                                 >
                                     <option value="active">🚀 Active</option>
-                                    <option value="completed">✅ Completed</option>
+                                    <option value="completed"> Completed</option>
                                     <option value="failed">❌ Failed</option>
                                 </select>
                             </div>
 
                             <div className="flex flex-col gap-2 border-t border-[var(--border-color)]/60 pt-3">
                                 <label className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Manage Milestones</label>
-                                
+
                                 <div className="flex gap-2">
                                     <input
                                         type="text"

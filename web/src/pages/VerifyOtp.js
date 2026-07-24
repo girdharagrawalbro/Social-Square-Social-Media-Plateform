@@ -14,7 +14,7 @@ const VerifyOtp = () => {
       const remaining = Math.ceil((parseInt(resendUntil, 10) - Date.now()) / 1000);
       if (remaining > 0) return remaining;
     }
-    return 60;
+    return 0;
   });
   const [expiryCountdown, setExpiryCountdown] = useState(() => {
     const expiresAt = localStorage.getItem('otpExpiresAt');
@@ -22,7 +22,7 @@ const VerifyOtp = () => {
       const remaining = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000);
       if (remaining > 0) return remaining;
     }
-    return 600; // default 10 minutes
+    return 0;
   });
   const inputs = useRef([]);
   const navigate = useNavigate();
@@ -101,6 +101,8 @@ const VerifyOtp = () => {
         }
         setInitialized(true);
         toast.success('Verified...');
+        localStorage.removeItem('otpResendUntil');
+        localStorage.removeItem('otpExpiresAt');
         navigate('/');
       } else {
         toast.error(result.error || 'Invalid OTP');

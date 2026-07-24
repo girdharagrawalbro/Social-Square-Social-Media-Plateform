@@ -12,7 +12,7 @@ const SuggestedUser = () => {
     const user = useAuthStore(s => s.user);
     const isOnline = useConversationStore(s => s.isOnline);
 
-    // ✅ TanStack Query - cached, deduplicated requests
+    //  TanStack Query - cached, deduplicated requests
     const { data: users = [], isLoading } = useOtherUsers();
     const followMutation = useFollowUser();
     const unfollowMutation = useUnfollowUser();
