@@ -16,7 +16,6 @@ const Settings = () => {
     const user = useAuthStore(s => s.user);
     const { data: settings, isLoading, updateSettings } = usePrivacySettings(user?._id);
     const [activeTab, setActiveTab] = useState('posts');
-    const navigate = useNavigate();
 
     const handleToggle = (key, label) => {
         const currentVal = settings?.[key];

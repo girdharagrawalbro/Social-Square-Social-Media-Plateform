@@ -1,6 +1,5 @@
 import React from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useNavigate } from 'react-router-dom';
 
 const SecurityCheckup = ({ setActiveTab }) => {
     const user = useAuthStore(s => s.user);

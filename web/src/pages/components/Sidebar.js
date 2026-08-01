@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
-import NotificationBell from './ui/NotificationBell';
-import { Dialog } from 'primereact/dialog';
 import NewPost from "./Newpost";
 import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';

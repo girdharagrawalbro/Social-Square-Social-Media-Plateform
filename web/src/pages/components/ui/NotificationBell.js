@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect, forwardRef } from 'react';
-import { Badge } from 'primereact/badge';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { useCollabInvites, useAcceptFollowRequest, useDeclineFollowRequest } from '../../../hooks/queries/useAuthQueries';
 import CollabManager from '../CollabManager';

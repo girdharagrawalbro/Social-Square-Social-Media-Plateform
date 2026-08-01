@@ -436,8 +436,6 @@ const ActivityLog = () => {
         { id: 'sessions', label: 'Active Sessions', icon: 'pi-shield', desc: 'Logged-in devices & 2FA' },
     ];
 
-    const allTabs = [...activityTabs, ...securityTabs];
-
     return (
         <div className="px-4 py-4 max-w-5xl h-full mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             <Helmet><title>Activity & Security | Social Square</title></Helmet>

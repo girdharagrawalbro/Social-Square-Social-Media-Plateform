@@ -509,7 +509,7 @@ const Feed = ({ activeMood = null }) => {
         updateMutation.mutate({ postId: editingPost._id, caption: editCaption, settings: editSettings }, {
             onSuccess: () => { toast.success('Updated'); setEditingPost(null); },
         });
-    }, [editCaption, editingPost, updateMutation]);
+    }, [editCaption, editingPost, updateMutation, editSettings]);
 
     const handleReport = useCallback((post) => setReportPost(post), []);
 
