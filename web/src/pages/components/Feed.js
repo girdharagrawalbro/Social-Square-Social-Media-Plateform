@@ -299,6 +299,7 @@ const Feed = ({ activeMood = null }) => {
     const [heartVisible, setHeartVisible] = useState({});
     const [editingPost, setEditingPost] = useState(null);
     const [editCaption, setEditCaption] = useState('');
+    const [editSettings, setEditSettings] = useState({ hideLikeCount: false, disableComments: false });
     const [sharePost, setSharePost] = useState(null);
     const [savingPostIds, setSavingPostIds] = useState(new Set());
     const [reportPost, setReportPost] = useState(null);
@@ -505,7 +506,7 @@ const Feed = ({ activeMood = null }) => {
 
     const handleEditSubmit = useCallback(() => {
         if (!editCaption.trim()) return;
-        updateMutation.mutate({ postId: editingPost._id, caption: editCaption }, {
+        updateMutation.mutate({ postId: editingPost._id, caption: editCaption, settings: editSettings }, {
             onSuccess: () => { toast.success('Updated'); setEditingPost(null); },
         });
     }, [editCaption, editingPost, updateMutation]);
@@ -680,7 +681,17 @@ const Feed = ({ activeMood = null }) => {
                                     onShareToStory={setSharingPostToStory}
                                     onProfileClick={handleProfileClick}
                                     onSharePost={setSharePost}
-                                    onEdit={(p) => { setEditingPost(p); setEditCaption(p.caption); }}
+                                    onEdit={(p) => { 
+                                         setEditingPost(p); 
+                                         setEditCaption(p.caption || ''); 
+                                         setEditSettings({
+                                             hideLikeCount: p.settings?.hideLikeCount || false,
+                                             hideCommentCount: p.settings?.hideCommentCount || false,
+                                             hideShareCount: p.settings?.hideShareCount || false,
+                                             disableComments: p.settings?.disableComments || false,
+                                             allowedCommenters: p.settings?.allowedCommenters || 'everyone'
+                                         });
+                                     }}
                                     setVisibleCommentId={setVisiblePostId}
                                     setPickerPostId={setPickerPostId}
                                     handleDwell={handleDwell}
@@ -752,10 +763,69 @@ const Feed = ({ activeMood = null }) => {
                             <textarea
                                 value={editCaption}
                                 onChange={e => setEditCaption(e.target.value)}
-                                rows={6}
+                                rows={4}
                                 placeholder="Write your new caption…"
                                 className="w-full border-2 border-gray-100 rounded-2xl p-4 text-sm resize-none focus:border-indigo-400 outline-none transition font-medium"
                             />
+
+                            <div className="bg-gray-50 p-3 rounded-2xl flex flex-col gap-3">
+                                <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Advanced Post Settings</span>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-800">Hide Like Count</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={editSettings?.hideLikeCount || false}
+                                        onChange={(e) => setEditSettings(s => ({ ...s, hideLikeCount: e.target.checked }))}
+                                        className="accent-indigo-600 cursor-pointer"
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-800">Hide Comment Count</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={editSettings?.hideCommentCount || false}
+                                        onChange={(e) => setEditSettings(s => ({ ...s, hideCommentCount: e.target.checked }))}
+                                        className="accent-indigo-600 cursor-pointer"
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-800">Hide Share Count</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={editSettings?.hideShareCount || false}
+                                        onChange={(e) => setEditSettings(s => ({ ...s, hideShareCount: e.target.checked }))}
+                                        className="accent-indigo-600 cursor-pointer"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                                    <span className="text-xs font-semibold text-gray-800">Who Can Comment</span>
+                                    <select
+                                        value={editSettings?.allowedCommenters || 'everyone'}
+                                        onChange={(e) => setEditSettings(s => ({ ...s, allowedCommenters: e.target.value, disableComments: e.target.value === 'no_one' ? true : s.disableComments }))}
+                                        className="w-full text-xs font-medium p-2 rounded-xl border border-gray-200 bg-white text-gray-800 outline-none cursor-pointer"
+                                    >
+                                        <option value="everyone">Everyone</option>
+                                        <option value="people_you_follow">People You Follow</option>
+                                        <option value="followers">Your Followers</option>
+                                        <option value="following_and_followers">People You Follow & Your Followers</option>
+                                        <option value="no_one">No One (Disable Comments)</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-800">Turn Off Commenting</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={editSettings?.disableComments || editSettings?.allowedCommenters === 'no_one'}
+                                        onChange={(e) => setEditSettings(s => ({ ...s, disableComments: e.target.checked }))}
+                                        className="accent-red-600 cursor-pointer"
+                                    />
+                                </div>
+                            </div>
                             <div className="flex gap-3 mt-2">
                                 <button
                                     onClick={() => setEditingPost(null)}

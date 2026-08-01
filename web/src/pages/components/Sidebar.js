@@ -1,25 +1,33 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../../context/DarkModeContext';
 import NotificationBell from './ui/NotificationBell';
 import { Dialog } from 'primereact/dialog';
-import Search from './Search';
 import NewPost from "./Newpost";
 import { useSystemFlags } from '../../hooks/queries/useMiscQueries';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
+import { hoverButtonAnimation, hoverButtonReset } from '../../utils/animations';
+import useConversationStore from '../../store/zustand/useConversationStore';
+import { useCollabInvites } from '../../hooks/queries/useAuthQueries';
 
 export default function Sidebar() {
     const { isDark, toggle } = useDarkMode();
     const [newpostVisible, setnewpostVisible] = useState(false);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [open, setOpen] = useState(false);
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
     const user = useAuthStore(s => s.user);
     const logout = useAuthStore(s => s.logout);
     const location = useLocation();
+    const navigate = useNavigate();
     const { data: flags } = useSystemFlags();
+    const { totalUnread, unreadNotificationsCount } = useConversationStore();
+    const { data: collabInvites = [] } = useCollabInvites(user?._id);
+
+    const pendingCollabCount = collabInvites.length;
+    const notificationsBadge = unreadNotificationsCount + pendingCollabCount;
+    const messagesBadge = totalUnread();
 
     // ── Floating pill state ──────────────────────────────────────────────────
     const navRef = useRef(null);
@@ -34,21 +42,19 @@ export default function Sidebar() {
         ]
         : [
             { key: 'feed', label: 'Home', icon: 'pi pi-home', to: `/${user?.username}` },
-            { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/search' },
-            { key: 'explore', label: 'Explore', icon: 'pi pi-compass', to: '/explore' },
+            { key: 'search', label: 'Search', icon: 'pi pi-search', to: '/explore' },
             { key: 'reels', label: 'Reels', icon: 'pi pi-video', to: '/reels' },
             { key: 'discover', label: 'Discover', icon: 'pi pi-users', to: '/discover' },
             { key: 'pulse', label: 'Pulse', icon: 'pi pi-bolt', to: '/pulse' },
             { key: 'addpost', label: 'Add', icon: 'pi pi-plus-circle', to: '/compose' },
             { key: 'confessions', label: 'Confessions', icon: 'pi pi-map', to: '/confessions' },
-            { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations' },
-            { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications' },
+            { key: 'conversations', label: 'Conversations', icon: 'pi pi-envelope', to: '/conversations', badge: messagesBadge },
+            { key: 'notifications', label: 'Notifications', icon: 'pi pi-bell', to: '/notifications', badge: notificationsBadge },
             { key: 'knowledge', label: 'Knowledge', icon: 'pi pi-book', to: '/knowledge' },
         ].filter(item => !(item.key === 'confessions' && flags?.anonymous_posts === false));
 
     // Find active key including admin
     const getActiveKey = () => {
-        if (isSearchOpen) return 'search';
         if (newpostVisible) return 'addpost';
         for (const l of allNavItems) {
             if (!l.to) continue;
@@ -77,7 +83,7 @@ export default function Sidebar() {
             opacity: 1,
         });
         setPillReady(true);
-    }, [activeKey, open, location.pathname, isSearchOpen, newpostVisible]);
+    }, [activeKey, open, location.pathname, newpostVisible]);
 
     const menuRef = useRef(null);
 
@@ -191,42 +197,35 @@ export default function Sidebar() {
                     <ul className="flex flex-col gap-2 px-2 items-center w-full">
                         {allNavItems.map(l => (
                             <li key={l.key} className="w-full">
-                                {l.key === 'search' ? (
-                                    <button
-                                        ref={setItemRef(l.key)}
-                                        aria-label={l.label}
-                                        onClick={() => setIsSearchOpen(true)}
-                                        className={`${itemBase(l.key)} h-12`}
-                                    >
-                                        <i className={`${l.icon} ${iconClass}`} />
-                                        {open && <span className={labelClass}>{l.label}</span>}
-                                    </button>
-                                ) : l.key === 'addpost' ? (
+                                {l.key === 'addpost' ? (
                                     <button
                                         ref={setItemRef(l.key)}
                                         aria-label={l.label}
                                         onClick={() => setnewpostVisible(true)}
+                                        onMouseEnter={(e) => hoverButtonAnimation(e.currentTarget)}
+                                        onMouseLeave={(e) => hoverButtonReset(e.currentTarget)}
                                         className={`${itemBase(l.key)} h-12`}
                                     >
                                         <i className={`${l.icon} ${iconClass}`} />
                                         {open && <span className={labelClass}>{l.label}</span>}
                                     </button>
-                                ) : l.key === 'notifications' ? (
-                                    <NotificationBell
-                                        ref={setItemRef(l.key)}
-                                        userId={user?._id}
-                                        useRoute={true}
-                                        showLabel={open}
-                                        active={activeKey === 'notifications'}
-                                    />
                                 ) : (
                                     <Link
                                         ref={setItemRef(l.key)}
                                         aria-label={l.label}
                                         to={l.to || '#'}
+                                        onMouseEnter={(e) => hoverButtonAnimation(e.currentTarget)}
+                                        onMouseLeave={(e) => hoverButtonReset(e.currentTarget)}
                                         className={`${itemBase(l.key)} h-12`}
                                     >
-                                        <i className={`${l.icon} ${iconClass}`} />
+                                        <div className="relative flex items-center justify-center shrink-0">
+                                            <i className={`${l.icon} ${iconClass}`} />
+                                            {l.badge > 0 && (
+                                                <span className="absolute -top-2 -right-2 bg-red-500 text-white !min-w-[16px] !h-[16px] text-[9px] font-black flex items-center justify-center rounded-full shadow-sm z-20 px-1 py-1.5">
+                                                    {l.badge > 99 ? '99+' : l.badge}
+                                                </span>
+                                            )}
+                                        </div>
                                         {open && <span className={labelClass}>{l.label}</span>}
                                     </Link>
                                 )}
@@ -283,7 +282,16 @@ export default function Sidebar() {
                                         <i className={`pi ${isDark ? 'pi-moon' : 'pi-sun'} text-lg w-6 text-center`} />
                                         <span className="font-semibold">{isDark ? 'Dark' : 'Light'}</span>
                                     </button>
-
+                                    <button
+                                        onClick={() => {
+                                            navigate('/settings');
+                                            setIsMoreMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 text-left text-sm border-0 cursor-pointer bg-transparent transition-colors"
+                                    >
+                                        <i className="pi pi-cog text-lg w-6 text-center" />
+                                        <span className="font-semibold">Settings</span>
+                                    </button>
                                     {/* Logout Inside Popup */}
                                     <button
                                         onClick={() => {
@@ -312,22 +320,7 @@ export default function Sidebar() {
                 }
             `}</style>
 
-            <Dialog
-                header="Search Users, Posts, Categories..."
-                visible={isSearchOpen}
-                onHide={() => setIsSearchOpen(false)}
-                style={{ width: '50vw', height: '70vh' }}
-                position="center"
-                baseZIndex={9999}
-                appendTo={document.body}
-                draggable={false}
-                resizable={false}
-                modal
-            >
-                <div style={{ padding: 8 }} className='z-[9999]'>
-                    <Search onClose={() => setIsSearchOpen(false)} />
-                </div>
-            </Dialog>
+
 
             <NewPost visible={newpostVisible} onHide={() => setnewpostVisible(false)} />
         </>

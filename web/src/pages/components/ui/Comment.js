@@ -283,6 +283,12 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
     const comments = fetchedComments || [];
     const displayComments = localComments ?? comments;
     const loading = { comments: commentsLoading };
+    const isCommentsDisabled = Boolean(
+        post?.settings?.disableComments || 
+        post?.settings?.allowedCommenters === 'no_one' || 
+        post?.user?.privacySettings?.disableCommentsGlobally || 
+        post?.author?.privacySettings?.disableCommentsGlobally
+    );
 
     const topics = ['All', ...new Set((displayComments || []).map(c => c.topic).filter(Boolean))];
     const filteredComments = (displayComments || []).filter(c => selectedTopic === 'All' || c.topic === selectedTopic);
@@ -295,6 +301,11 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
         if (!a.isInsightful && b.isInsightful) return 1;
         return new Date(a.createdAt) - new Date(b.createdAt);
     });
+
+    // Split into visible and hidden (filtered) comments
+    const visibleSortedComments = sortedComments.filter(c => !c.isHidden);
+    const hiddenSortedComments = sortedComments.filter(c => c.isHidden);
+    const [showHiddenComments, setShowHiddenComments] = useState(false);
 
     const commentsEndRef = useRef(null);
     const scrollContainerRef = useRef(null);
@@ -376,14 +387,20 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
                     100% { transform: translate(-50%, -120%) scale(1.5); opacity: 0; }
                 }
             `}</style>
+            <div className="flex items-center justify-between p-3 border-b border-[var(--border-color)]">
+                <span className="font-semibold text-sm">Comments</span>
+                {setVisible && (
+                    <button onClick={() => setVisible(false)} className="text-[var(--text-sub)] hover:text-[var(--text-main)] transition border-0 bg-transparent cursor-pointer">
+                        <i className="pi pi-times"></i>
+                    </button>
+                )}
+            </div>
+
             {/* Scrollable Comments Section */}
-            <div
-                ref={scrollContainerRef}
-                className="flex-1 overflow-y-auto p-3 min-h-0"
-            >
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
                 {/* Topic Filter Pills */}
-                {topics.length > 1 && (
-                    <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+                {topics.length > 2 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[var(--border-color)]">
                         {topics.map(topic => (
                             <button
                                 key={topic}
@@ -398,18 +415,48 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
 
                 {loading.comments || !displayComments ? (
                     <p className="text-[var(--text-sub)] text-xs text-center">Loading...</p>
-                ) : sortedComments.length > 0 ? (
-                    sortedComments.map(comment => (
-                        <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} onProfileClick={onProfileClick} isOwnPost={isOwnPost} />
-                    ))
+                ) : visibleSortedComments.length > 0 || hiddenSortedComments.length > 0 ? (
+                    <>
+                        {visibleSortedComments.map(comment => (
+                            <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} onProfileClick={onProfileClick} isOwnPost={isOwnPost} />
+                        ))}
+
+                        {hiddenSortedComments.length > 0 && (
+                            <div className="mt-4 pt-3 border-t border-[var(--border-color)]">
+                                <button
+                                    onClick={() => setShowHiddenComments(v => !v)}
+                                    className="w-full text-center py-2 px-3 bg-gray-100 dark:bg-gray-800 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition border-0 cursor-pointer flex items-center justify-center gap-2"
+                                >
+                                    <i className={`pi ${showHiddenComments ? 'pi-eye-slash' : 'pi-eye'}`}></i>
+                                    {showHiddenComments ? 'Hide Filtered Comments' : `View Hidden Comments (${hiddenSortedComments.length})`}
+                                </button>
+
+                                {showHiddenComments && (
+                                    <div className="space-y-3 mt-3 opacity-75">
+                                        {hiddenSortedComments.map(comment => (
+                                            <CommentItem key={comment._id} comment={comment} postId={postId} loggeduser={loggeduser} onDelete={handleDelete} onProfileClick={onProfileClick} isOwnPost={isOwnPost} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
+                ) : isCommentsDisabled ? (
+                    <></>
                 ) : (
-                    <p className="text-[var(--text-sub)] text-xs text-center">No comments yet. Be the first!</p>
+                    <p className="text-[var(--text-sub)] text-xs text-center py-4">No comments yet. Be the first!</p>
                 )}
                 <div ref={commentsEndRef} />
             </div>
 
             {/* Fixed Input Section at Bottom */}
-            {post?.isFeedbackRequest ? (
+            {isCommentsDisabled ? (
+                <div className="sticky bottom-0 p-3.5 text-center bg-[var(--surface-1)]/90 backdrop-blur-md border-t border-[var(--border-color)] z-10 select-none">
+                    <span className="text-xs text-[var(--text-sub)] font-bold italic opacity-75">
+                        Comments have been turned off for this post.
+                    </span>
+                </div>
+            ) : post?.isFeedbackRequest ? (
                 <div className="relative sticky bottom-0 p-3 flex flex-col gap-2.5 bg-[var(--surface-1)] border-t border-[var(--border-color)] z-10">
                     <div className="flex items-center justify-between">
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#6366f1] flex items-center gap-1.5">

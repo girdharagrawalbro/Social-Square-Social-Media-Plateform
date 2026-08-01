@@ -19,6 +19,7 @@ import usePostStore from '../../../store/zustand/usePostStore';
 import { usePrefetchUserProfile } from '../../../hooks/queries/useAuthQueries';
 import { usePrefetchPost } from '../../../hooks/queries/usePostQueries';
 import { useAcceptCollaboration, useDeclineCollaboration } from '../../../hooks/queries/usePostOperationsQueries';
+import { usePrivacySettings } from '../../../hooks/queries/usePrivacyQueries';
 import { USER_DEFAULT_IMAGE } from "../../../utils/constantMediaVariable";
 
 const decryptionCache = new Map(); // url -> localBlobUrl
@@ -823,6 +824,7 @@ export const PostItem = React.memo(({
 }) => {
     const prefetchUser = usePrefetchUserProfile();
     const prefetchPost = usePrefetchPost();
+    const { data: privacySettings } = usePrivacySettings(user?._id);
 
     const getImages = post => post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
     const images = getImages(post);
@@ -902,8 +904,13 @@ export const PostItem = React.memo(({
                                     >
                                         {post.isAnonymous ? 'Anonymous' : (post.user?.fullname || 'Anonymous User')}
                                         {post.visibility === 'close_friends' && (
-                                            <span className="bg-green-500 text-white rounded-full w-3 h-3 flex items-center justify-center ml-0.5" title="Close Friends">
-                                                <i className="pi pi-star-fill text-[6px]"></i>
+                                            <span className="inline-flex items-center gap-1 bg-green-500/10 text-green-600 border border-green-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full select-none" title="Close Friends Only">
+                                                <i className="pi pi-star-fill text-[8px]"></i> Close Friends
+                                            </span>
+                                        )}
+                                        {post.visibility === 'followers' && (
+                                            <span className="inline-flex items-center gap-1 bg-indigo-500/10 text-indigo-600 border border-indigo-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full select-none" title="Followers Only">
+                                                <i className="pi pi-users text-[8px]"></i> Followers Only
                                             </span>
                                         )}
                                     </span>
@@ -1084,7 +1091,7 @@ export const PostItem = React.memo(({
                                             className={`pi ${isLikedByMe ? 'pi-heart-fill' : 'pi-heart'}`}
                                             style={{ fontSize: '1.2rem', color: isLikedByMe ? '#ef4444' : 'currentColor' }}
                                         ></i>
-                                        {likesCount > 0 && (
+                                        {likesCount > 0 && !(!isOwn && (post.settings?.hideLikeCount || privacySettings?.hideLikesOnOthersPosts)) && (
                                             <span
                                                 onClick={(e) => { e.stopPropagation(); onLikesClick && onLikesClick(post.likes); }}
                                                 className="text-xs font-bold hover:underline"
@@ -1166,9 +1173,15 @@ export const PostItem = React.memo(({
                                         <span className="text-[9px] font-extrabold uppercase tracking-wider">Critique Mode</span>
                                     </div>
                                 )}
-                                <button aria-label={visiblePostId === post._id ? "Close comments" : "Open comments"} onClick={(e) => { e.stopPropagation(); setVisibleCommentId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] gap-2">
-                                    <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i> {post.comments?.length || 0}
-                                </button>
+                                {(post.settings?.disableComments || post.settings?.allowedCommenters === 'no_one' || post.user?.privacySettings?.disableCommentsGlobally) ? (
+                                    <button disabled className="flex items-center justify-center bg-transparent border-0 p-0 text-[var(--text-main)] gap-2 opacity-50 cursor-not-allowed" title="Comments are disabled">
+                                        <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i> {!(!isOwn && post.settings?.hideCommentCount) && (post.comments?.length || 0)}
+                                    </button>
+                                ) : (
+                                    <button aria-label={visiblePostId === post._id ? "Close comments" : "Open comments"} onClick={(e) => { e.stopPropagation(); setVisibleCommentId(p => p === post._id ? null : post._id); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)] gap-2">
+                                        <i className="pi pi-comment" style={{ fontSize: '1.2rem' }}></i> {!(!isOwn && post.settings?.hideCommentCount) && (post.comments?.length || 0)}
+                                    </button>
+                                )}
                                 <button aria-label="Share post" onClick={(e) => { e.stopPropagation(); onSharePost(post); }} className="flex items-center justify-center bg-transparent border-0 cursor-pointer p-0 text-[var(--text-main)]">
                                     <i className="pi pi-send" style={{ fontSize: '1.15rem' }}></i>
                                 </button>

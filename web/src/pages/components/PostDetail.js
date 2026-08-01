@@ -19,8 +19,7 @@ import { getMediaThumbnail } from '../../utils/mediaUtils';
 import useWindowWidth from '../../hooks/useWindowWidth';
 import PostDetailSkeleton from './ui/PostDetailSkeleton';
 import SimilarPostsSkeleton from './ui/SimilarPostsSkeleton';
-
-
+import { usePrivacySettings } from '../../hooks/queries/usePrivacyQueries';
 
 const UserProfile = lazy(() => import('./UserProfile'));
 
@@ -39,6 +38,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
 
     // Use fetchedPost only if available, otherwise fall back to initialPost as a placeholder
     const post = fetchedPost || (initialPost && initialPost._id === activePostId ? initialPost : null);
+    const { data: privacySettings } = usePrivacySettings(loggeduser?._id);
 
 
     const likeMutation = useLikePost();
@@ -635,7 +635,9 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                             className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`}
                                             style={{ fontSize: '1.2rem', color: isLiked ? '#ef4444' : 'currentColor' }}
                                         ></i>
-                                        <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
+                                        {!((loggeduser?._id?.toString() !== post.user?._id?.toString()) && (post.settings?.hideLikeCount || privacySettings?.hideLikesOnOthersPosts)) && (
+                                            <span className="text-[10px] font-bold text-[var(--text-sub)]">{postLikes?.length || 0}</span>
+                                        )}
                                     </div>
                                 )}
                                 {!post.isFeedbackRequest ? (() => {
@@ -708,24 +710,28 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
                                     </div>
                                 )}
                                 <div
-                                    className="flex flex-col items-center gap-1 group cursor-pointer"
+                                    className={`flex flex-col items-center gap-1 group ${post.settings?.disableComments || post.user?.privacySettings?.disableCommentsGlobally ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                     role="button"
                                     tabIndex="0"
                                     aria-label="Comment"
                                     onClick={() => {
+                                        if (post.settings?.disableComments || post.user?.privacySettings?.disableCommentsGlobally) return;
                                         const input = document.querySelector('input[placeholder="Write a comment..."]');
                                         if (input) input.focus();
                                     }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
+                                            if (post.settings?.disableComments || post.user?.privacySettings?.disableCommentsGlobally) return;
                                             const input = document.querySelector('input[placeholder="Write a comment..."]');
                                             if (input) input.focus();
                                         }
                                     }}
                                 >
                                     <i className="pi pi-comment text-xl text-[var(--text-main)] group-hover:scale-110 transition-transform"></i>
-                                    <span className="text-[10px] font-bold text-[var(--text-sub)]">{post.commentsCount !== undefined ? post.commentsCount : (post.comments?.length || 0)}</span>
+                                    <span className="text-[10px] font-bold text-[var(--text-sub)]">
+                                         {post.settings?.disableComments || post.user?.privacySettings?.disableCommentsGlobally ? 'Off' : ((loggeduser?._id?.toString() !== post.user?._id?.toString()) && post.settings?.hideCommentCount) ? null : (post.commentsCount !== undefined ? post.commentsCount : (post.comments?.length || 0))}
+                                     </span>
                                 </div>
                                 <div
                                     className="flex flex-col items-center gap-1 group cursor-pointer"

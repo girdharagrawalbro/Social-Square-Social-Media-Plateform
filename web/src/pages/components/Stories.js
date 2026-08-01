@@ -929,101 +929,125 @@ const StoryViewer = ({
             </div>
 
             {/* Footer / Interaction Bar */}
-            <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: '4px', zIndex: 25 }}>
-                {isOwn ? (
-                    <div
-                        onClick={async () => {
-                            setIsPaused(true);
-                            try {
-                                const { api } = await import('../../store/zustand/useAuthStore');
-                                const res = await api.get(`/api/story/viewers/${story._id}`);
-                                setViewers(res.data);
-                                setViewersVisible(true);
-                            } catch { toast.error('Failed to load viewers'); setIsPaused(false); }
-                        }}
-                        style={{ flex: 1, height: 44, borderRadius: '22px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 16px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontWeight: 600 }}
-                    >
-                        <i className="pi pi-eye mr-2"></i>
-                        {story.viewers?.length || 0} Views
-                    </div>
-                ) : (
-                    <form
-                        onSubmit={async (e) => {
-                            e.preventDefault();
-                            const reply = e.target.reply.value;
-                            if (!reply.trim() || !story?._id) return;
-                            try {
-                                const { api } = await import('../../store/zustand/useAuthStore');
+            {(() => {
+                const storyAuthorSettings = group.user?.privacySettings || {};
+                const replyMode = storyAuthorSettings.allowStoryMessageReplies || 'everyone';
+                let canReplyToStory = true;
+                if (replyMode === 'off') {
+                    canReplyToStory = false;
+                } else if (replyMode === 'people_you_follow') {
+                    const authorFollowing = (group.user?.following || []).map(id => id.toString());
+                    canReplyToStory = authorFollowing.includes(loggeduser?._id?.toString());
+                }
 
-                                const recipientId = group.user._id.toString();
-                                const convRes = await api.post('/api/conversation/create', { recipientId });
-                                const conversationId = convRes.data?._id;
+                if (isOwn) {
+                    return (
+                        <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: '4px', zIndex: 25 }}>
+                            <div
+                                onClick={async () => {
+                                    setIsPaused(true);
+                                    try {
+                                        const { api } = await import('../../store/zustand/useAuthStore');
+                                        const res = await api.get(`/api/story/viewers/${story._id}`);
+                                        setViewers(res.data);
+                                        setViewersVisible(true);
+                                    } catch { toast.error('Failed to load viewers'); setIsPaused(false); }
+                                }}
+                                style={{ flex: 1, height: 44, borderRadius: '22px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 16px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontWeight: 600 }}
+                            >
+                                <i className="pi pi-eye mr-2"></i>
+                                {story.viewers?.length || 0} Views
+                            </div>
+                        </div>
+                    );
+                }
 
-                                let finalContent = reply;
-                                let isEncrypted = false;
+                return (
+                    <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: '4px', zIndex: 25 }}>
+                        {!canReplyToStory ? (
+                            <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)', fontSize: '12px', fontWeight: 600 }}>
+                                🔒 Message replies are turned off
+                            </div>
+                        ) : (
+                            <form
+                                onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const reply = e.target.reply.value;
+                                    if (!reply.trim() || !story?._id) return;
+                                    try {
+                                        const { api } = await import('../../store/zustand/useAuthStore');
 
-                                const useE2eeStore = (await import('../../store/zustand/useE2eeStore')).default;
-                                const e2eeState = useE2eeStore.getState();
-                                if (e2eeState.privateKey && conversationId) {
-                                    const aesKey = await e2eeState.getConversationKey(conversationId, recipientId);
-                                    if (aesKey) {
-                                        const { encryptText } = await import('../../utils/cryptoUtils');
-                                        const encrypted = await encryptText(reply, aesKey);
-                                        finalContent = JSON.stringify(encrypted);
-                                        isEncrypted = true;
+                                        const recipientId = group.user._id.toString();
+                                        const convRes = await api.post('/api/conversation/create', { recipientId });
+                                        const conversationId = convRes.data?._id;
+
+                                        let finalContent = reply;
+                                        let isEncrypted = false;
+
+                                        const useE2eeStore = (await import('../../store/zustand/useE2eeStore')).default;
+                                        const e2eeState = useE2eeStore.getState();
+                                        if (e2eeState.privateKey && conversationId) {
+                                            const aesKey = await e2eeState.getConversationKey(conversationId, recipientId);
+                                            if (aesKey) {
+                                                const { encryptText } = await import('../../utils/cryptoUtils');
+                                                const encrypted = await encryptText(reply, aesKey);
+                                                finalContent = JSON.stringify(encrypted);
+                                                isEncrypted = true;
+                                            }
+                                        }
+
+                                        await api.post(`/api/story/reply/${story._id}`, { content: finalContent, isEncrypted });
+                                        toast.success('Reply sent!');
+                                        e.target.reply.value = '';
+                                        setIsPaused(false);
+                                    } catch (err) {
+                                        console.error(err);
+                                        toast.error('Failed to send reply');
                                     }
-                                }
+                                }}
+                                style={{ flex: 1, display: 'flex' }}
+                            >
+                                <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+                                    <input
+                                        name="reply"
+                                        type="text"
+                                        placeholder="Send message..."
+                                        onFocus={() => setIsPaused(true)}
+                                        onBlur={() => setIsPaused(false)}
+                                        autoComplete="off"
+                                        style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '13px', padding: '0 12px', outline: 'none' }}
+                                    />
+                                    <button type="submit" style={{ background: '#808bf5', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '2px' }}>
+                                        <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
+                                    </button>
+                                </div>
+                            </form>
+                        )}
 
-                                await api.post(`/api/story/reply/${story._id}`, { content: finalContent, isEncrypted });
-                                toast.success('Reply sent!');
-                                e.target.reply.value = '';
-                                setIsPaused(false);
-                            } catch (err) {
-                                console.error(err);
-                                toast.error('Failed to send reply');
-                            }
-                        }}
-                        style={{ flex: 1, display: 'flex' }}
-                    >
-                        <div style={{ flex: 1, height: 44, borderRadius: '22px', border: '1.5px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
-                            <input
-                                name="reply"
-                                type="text"
-                                placeholder="Send message..."
-                                onFocus={() => setIsPaused(true)}
-                                onBlur={() => setIsPaused(false)}
-                                autoComplete="off"
-                                style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: '13px', padding: '0 12px', outline: 'none' }}
-                            />
-                            <button type="submit" style={{ background: '#808bf5', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '2px' }}>
-                                <i className="pi pi-send" style={{ fontSize: '14px' }}></i>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                            <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
+                                <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
                             </button>
                         </div>
-                    </form>
-                )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                    <button onClick={handleLike} style={{ background: 'none', border: 'none', color: isLiked ? '#ff4b4b' : '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', transform: isLiked ? 'scale(1.1)' : 'scale(1)' }}>
-                        <i className={`pi ${isLiked ? 'pi-heart-fill' : 'pi-heart'}`} style={{ fontSize: '24px' }}></i>
-                    </button>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsPaused(true);
-                            if (typeof onShareStory === 'function') {
-                                onShareStory(story);
-                            }
-                        }}
-                        style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title="Share Story"
-                    >
-                        <i className="pi pi-send" style={{ fontSize: '22px' }}></i>
-                    </button>
-                </div>
-            </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsPaused(true);
+                                    if (typeof onShareStory === 'function') {
+                                        onShareStory(story);
+                                    }
+                                }}
+                                style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', height: 44, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Share Story"
+                            >
+                                <i className="pi pi-send" style={{ fontSize: '22px' }}></i>
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Viewers Overlay */}
             {viewersVisible && (
@@ -1312,6 +1336,17 @@ const bakeTextToImage = (imageFile, textContent, textPos, textColor) => {
 };
 
 export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = null, sharedStory = null }) => {
+    useEffect(() => {
+        if (window.posthog) {
+            window.posthog.startSessionRecording();
+        }
+        return () => {
+            if (window.posthog) {
+                window.posthog.stopSessionRecording();
+            }
+        };
+    }, []);
+
     const fileInputRef = useRef(null);
     const textInputRef = useRef(null);
     const [previews, setPreviews] = useState([]); // [{url, type, file}]

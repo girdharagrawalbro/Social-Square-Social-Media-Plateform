@@ -21,6 +21,13 @@ const PostSchema = new mongoose.Schema(
     }],
     comments: [],
     visibility: { type: String, enum: ['public', 'followers', 'close_friends'], default: 'public' },
+    settings: {
+      hideLikeCount: { type: Boolean, default: false },
+      hideCommentCount: { type: Boolean, default: false },
+      hideShareCount: { type: Boolean, default: false },
+      disableComments: { type: Boolean, default: false },
+      allowedCommenters: { type: String, enum: ['everyone', 'people_you_follow', 'followers', 'following_and_followers', 'no_one'], default: 'everyone' }
+    },
     category: { type: String, required: true },
     tags: [{ type: String }],
     location: { name: { type: String, default: null }, lat: { type: Number, default: null }, lng: { type: Number, default: null } },

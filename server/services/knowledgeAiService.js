@@ -1,42 +1,24 @@
 /**
  * knowledgeAiService.js
  * AI-powered operations for the Knowledge Layer.
- * Reuses the same NVIDIA LLaMA endpoint already used across the codebase.
+ * Uses Groq (free tier) — llama3-8b-8192, same family as the previous NVIDIA Llama 3.1 8B.
  */
 
-const axios = require('../utils/http');
+const { generateGroqChat } = require('../utils/groq');
 
-const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
-
-// ─── HELPER: call LLaMA ────────────────────────────────────────────────────────
+// ─── HELPER: call LLaMA via Groq ──────────────────────────────────────────────
 async function llamaChat(prompt, maxTokens = 256) {
-    if (!NVIDIA_KEY) {
-        console.warn('[KnowledgeAI] NVIDIA_API_KEY not set — AI features disabled');
+    if (!process.env.GROQ_API_KEY) {
+        console.warn('[KnowledgeAI] GROQ_API_KEY not set — AI features disabled');
         return '';
     }
     try {
-        const res = await axios.post(
-            NVIDIA_URL,
-            {
-                model: 'meta/llama-3.1-8b-instruct',
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: maxTokens,
-                temperature: 0.3,
-                top_p: 0.7,
-                stream: false,
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${NVIDIA_KEY}`,
-                    Accept: 'application/json',
-                },
-                timeout: 20000,
-            }
+        return await generateGroqChat(
+            [{ role: 'user', content: prompt }],
+            { maxTokens, temperature: 0.3, topP: 0.7 }
         );
-        return res.data.choices?.[0]?.message?.content?.trim() || '';
     } catch (err) {
-        console.error('[KnowledgeAI] LLaMA call failed:', err.message);
+        console.error('[KnowledgeAI] Groq call failed:', err.message);
         return '';
     }
 }

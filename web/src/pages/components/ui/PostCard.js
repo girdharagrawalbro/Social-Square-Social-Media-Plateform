@@ -1,8 +1,13 @@
 import React from 'react'
 import { getMediaThumbnail } from '../../../utils/mediaUtils';
 import ProgressiveImage from './ProgressiveImage';
+import useAuthStore from '../../../store/zustand/useAuthStore';
+import { usePrivacySettings } from '../../../hooks/queries/usePrivacyQueries';
 
 const PostCard = ({ post, onClick, isBlur = false }) => {
+    const user = useAuthStore(s => s.user);
+    const { data: privacySettings } = usePrivacySettings(user?._id);
+
     const isVideo = !!post.video;
     const images = post.image_urls?.length > 0 ? post.image_urls : post.image_url ? [post.image_url] : [];
 
@@ -52,7 +57,9 @@ const PostCard = ({ post, onClick, isBlur = false }) => {
                     {!post.isFeedbackRequest ? (
                         <div className="flex items-center gap-1.5 text-white">
                             <i className="pi pi-star-fill text-lg text-amber-400"></i>
-                            <span className="font-bold text-sm">{formatCount(likesCount)}</span>
+                            {!((user?._id?.toString() !== post.user?._id?.toString()) && (post.settings?.hideLikeCount || privacySettings?.hideLikesOnOthersPosts)) && (
+                                <span className="font-bold text-sm">{formatCount(likesCount)}</span>
+                            )}
                         </div>
                     ) : (
                         <div className="flex items-center gap-1.5 text-[#a5b4fc]">
@@ -60,9 +67,16 @@ const PostCard = ({ post, onClick, isBlur = false }) => {
                             <span className="font-bold text-xs uppercase tracking-wider">Critique</span>
                         </div>
                     )}
+                    
                     <div className="flex items-center gap-1.5 text-white">
-                        <i className="pi pi-comment text-lg"></i>
-                        <span className="font-bold text-sm">{formatCount(commentsCount)}</span>
+                        {post.settings?.disableComments || post.settings?.allowedCommenters === 'no_one' ? (
+                             <i className="pi pi-comment text-lg opacity-50"></i>
+                        ) : (
+                            <>
+                                <i className="pi pi-comment text-lg"></i>
+                                <span className="font-bold text-sm">{formatCount(commentsCount)}</span>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const OpenAI = require('openai');
+const Groq = require('groq-sdk');
 const fs = require('fs');
 const path = require('path');
 const { getUserAIProfile } = require('../services/recommendationService');
-const verifyToken = require('../middleware/Verifytoken');
+const softVerifyToken = require('../middleware/softVerifyToken');
+const rateLimiter = require('../middleware/rateLimiter');
 const { body, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
@@ -15,9 +16,8 @@ const validate = (req, res, next) => {
     next();
 };
 
-const client = new OpenAI({
-    baseURL: 'https://integrate.api.nvidia.com/v1',
-    apiKey: process.env.NVIDIA_API_KEY,
+const client = new Groq({
+    apiKey: process.env.GROQ_API_KEY,
 });
 
 const USER_FLOWS_PATH = path.join(__dirname, '../data/user_flows.json');
@@ -60,7 +60,7 @@ const getRelevantContext = (query) => {
 };
 
 // ─── CHAT — streams tokens back to frontend ───────────────────────────────────
-router.post('/chat', verifyToken, [
+router.post('/chat', rateLimiter, softVerifyToken, [
     body('messages').isArray().withMessage('messages array required'),
     body('messages.*.role').isIn(['user', 'assistant', 'system']).withMessage('Invalid message role'),
     body('messages.*.content').notEmpty().trim().escape(),
@@ -125,7 +125,7 @@ router.post('/chat', verifyToken, [
         }
 
         const completion = await client.chat.completions.create({
-            model: 'nvidia/llama3-chatqa-1.5-8b',
+            model: 'llama-3.1-8b-instant',
             messages: fullMessages,
             temperature: 0.2,
             top_p: 0.7,
@@ -161,7 +161,7 @@ router.post('/chat', verifyToken, [
 });
 
 // ─── CAPTION SUGGESTIONS ──────────────────────────────────────────────────────
-router.post('/suggest-captions', verifyToken, [
+router.post('/suggest-captions', rateLimiter, softVerifyToken, [
     body('topic').optional().trim().escape().isLength({ max: 200 }),
     body('mood').optional().trim().escape().isLength({ max: 50 }),
     body('imageDescription').optional().trim().escape().isLength({ max: 500 }),
@@ -173,7 +173,7 @@ router.post('/suggest-captions', verifyToken, [
         const prompt = `Generate 5 engaging social media captions for a post about: "${topic || imageDescription || 'general life'}". ${mood ? `Mood/vibe: ${mood}.` : ''} Include relevant hashtags. Number them 1-5. Keep each under 2 sentences.`;
 
         const completion = await client.chat.completions.create({
-            model: 'nvidia/llama3-chatqa-1.5-8b',
+            model: 'llama-3.1-8b-instant',
             messages: [
                 { role: 'user', content: `You are a creative social media content writer. ${prompt}` },
             ],

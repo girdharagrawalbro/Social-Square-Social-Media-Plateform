@@ -1,5 +1,5 @@
-const UserMemory = require('../models/UserMemory');
-const { generateNvidiaText } = require('../utils/nvidia');
+    const UserMemory = require('../models/UserMemory');
+const { generateGroqText } = require('../utils/groq');
 
 /**
  * Runs a background prompt to extract permanent facts about a user from a conversation.
@@ -28,7 +28,7 @@ ${transcript}
 
 JSON Array:`;
 
-        const response = await generateNvidiaText(prompt);
+        const response = await generateGroqText(prompt);
         let text = response.text.trim();
 
         // Clean up markdown formatting if the model wraps it in ```json ... ```

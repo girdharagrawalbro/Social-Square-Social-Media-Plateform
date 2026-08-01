@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { generateCaptionFromImage, detectMoodFromCaption } = require('../utils/gemini');
-const { generateNvidiaText, generateNvidiaImage } = require('../utils/nvidia');
+const { generateNvidiaImage } = require('../utils/nvidia');
+const { generateGroqText } = require('../utils/groq');
 const Post = require('../models/Post');
 const User = require('../models/User');
 const Category = require('../models/Category');
@@ -145,7 +146,7 @@ router.post('/generate-text', verifyToken, [
 
         const formattedPrompt = `You are a social media expert. Write a short, engaging, and highly creative caption for: "${prompt}".\n            IMPORTANT: Return ONLY the caption text. Do not ask questions. Do not use hashtags. Do not use markdown.`;
 
-        const { text, model } = await generateNvidiaText(formattedPrompt);
+        const { text, model } = await generateGroqText(formattedPrompt);
         await consumeAiUsage(userId, 'text');
 
         const textRemaining = getRemaining(DAILY_TEXT_LIMIT, textCount + 1);
@@ -332,7 +333,7 @@ router.post('/suggest-meta', verifyToken, [
             `Input text: ${sourceText}`,
         ].join('\n');
 
-        const { text } = await generateNvidiaText(metaPrompt);
+        const { text } = await generateGroqText(metaPrompt);
         const parsed = tryParseJson(text) || {};
 
         const improvedCaption = String(parsed.improvedCaption || sourceText).trim();
@@ -392,7 +393,7 @@ router.post('/generate-and-post', verifyToken, [
         ].join('\n');
 
         const [textResult, imageResult, categoryDocs] = await Promise.all([
-            generateNvidiaText(captionPrompt),
+            generateGroqText(captionPrompt),
             generateNvidiaImage(prompt),
             Category.find().select('category -_id').lean(),
         ]);
@@ -406,7 +407,7 @@ router.post('/generate-and-post', verifyToken, [
             `Allowed categories: ${(categoryDocs.map(c => c.category).filter(Boolean).join(', ')) || 'Default'}`,
             `Caption: ${rawCaption}`,
         ].join('\n');
-        const metaResult = await generateNvidiaText(metaPrompt);
+        const metaResult = await generateGroqText(metaPrompt);
         const parsedMeta = tryParseJson(metaResult.text) || {};
 
         const allowedCategories = categoryDocs.map(c => c.category).filter(Boolean);

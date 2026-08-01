@@ -370,6 +370,7 @@ const Reels = () => {
                             <div className="flex-1 min-h-0">
                                 <Comment
                                     postId={commentPost._id}
+                                    post={commentPost}
                                     setVisible={() => setCommentPost(null)}
                                     onProfileClick={setProfileDetailId}
                                     isOwnPost={commentPost.user?._id?.toString() === user?._id?.toString()}

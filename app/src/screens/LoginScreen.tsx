@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

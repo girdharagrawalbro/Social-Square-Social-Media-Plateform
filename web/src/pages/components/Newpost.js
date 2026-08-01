@@ -96,6 +96,13 @@ const NewPost = ({ visible, onHide }) => {
     const [tagSearchTerm, setTagSearchTerm] = useState("");
     const [tagSearchResults, setTagSearchResults] = useState([]);
     const [isSearchingTags, setIsSearchingTags] = useState(false);
+    
+    // Advanced Settings
+    const [hideLikeCount, setHideLikeCount] = useState(false);
+    const [hideCommentCount, setHideCommentCount] = useState(false);
+    const [hideShareCount, setHideShareCount] = useState(false);
+    const [disableComments, setDisableComments] = useState(false);
+    const [allowedCommenters, setAllowedCommenters] = useState('everyone');
 
     // Voice note
     const [voiceBlob] = useState(null);
@@ -137,6 +144,14 @@ const NewPost = ({ visible, onHide }) => {
     const [activeDraftId, setActiveDraftId] = useState(null);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
     const [showDraftsListModal, setShowDraftsListModal] = useState(false);
+
+    useEffect(() => {
+        if (visible && window.posthog) {
+            window.posthog.startSessionRecording();
+        } else if (!visible && window.posthog) {
+            window.posthog.stopSessionRecording();
+        }
+    }, [visible]);
 
     useEffect(() => {
         if (visible && loggeduser?._id) {
@@ -1108,6 +1123,7 @@ const NewPost = ({ visible, onHide }) => {
                     isFeedbackRequest,
                     feedbackCategory: isFeedbackRequest ? feedbackCategory : null,
                     goalId: selectedGoalId,
+                    settings: { hideLikeCount, hideCommentCount, hideShareCount, disableComments: allowedCommenters === 'no_one' || disableComments, allowedCommenters },
                     // DRM Keys
                     mediaKeys,
                     videoKey,
@@ -2241,6 +2257,71 @@ const NewPost = ({ visible, onHide }) => {
                                             <option value="24">24 Hours</option>
                                             <option value="168">7 Days</option>
                                         </select>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Advanced Settings Detail */}
+                            {openFeaturePanel === 'advanced' && (
+                                <div className="py-2 px-3 bg-[var(--surface-2)]/50 flex flex-col gap-3 animate-in slide-in-from-top-2 rounded-xl my-1">
+                                    <span className="text-[10px] font-bold text-[var(--text-sub)] uppercase">Advanced Settings</span>
+                                    
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-[var(--text-main)]">Hide Like Count</span>
+                                            <span className="text-[9px] text-[var(--text-sub)]">Only you will see the total number of likes.</span>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                            <input type="checkbox" className="sr-only peer" checked={hideLikeCount} onChange={(e) => setHideLikeCount(e.target.checked)} />
+                                            <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-[#4f46e5]"></div>
+                                        </label>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-[var(--text-main)]">Hide Comment Count</span>
+                                            <span className="text-[9px] text-[var(--text-sub)]">Only you will see the total number of comments.</span>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                            <input type="checkbox" className="sr-only peer" checked={hideCommentCount} onChange={(e) => setHideCommentCount(e.target.checked)} />
+                                            <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-[#4f46e5]"></div>
+                                        </label>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-[var(--text-main)]">Hide Share Count</span>
+                                            <span className="text-[9px] text-[var(--text-sub)]">Only you will see the total number of shares.</span>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                            <input type="checkbox" className="sr-only peer" checked={hideShareCount} onChange={(e) => setHideShareCount(e.target.checked)} />
+                                            <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-[#4f46e5]"></div>
+                                        </label>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--border-color)]">
+                                        <span className="text-xs font-bold text-[var(--text-main)]">Who Can Comment</span>
+                                        <select 
+                                            value={allowedCommenters}
+                                            onChange={(e) => setAllowedCommenters(e.target.value)}
+                                            className="w-full text-xs font-medium p-2 rounded-lg border border-[var(--border-color)] bg-[var(--surface-1)] text-[var(--text-main)] outline-none focus:border-[#4f46e5] cursor-pointer"
+                                        >
+                                            <option value="everyone">Everyone</option>
+                                            <option value="people_you_follow">People You Follow</option>
+                                            <option value="followers">Your Followers</option>
+                                            <option value="following_and_followers">People You Follow & Your Followers</option>
+                                            <option value="no_one">No One (Disable Comments)</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-[var(--text-main)]">Turn Off Commenting</span>
+                                            <span className="text-[9px] text-[var(--text-sub)]">No one will be able to comment on this post.</span>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                            <input type="checkbox" className="sr-only peer" checked={disableComments || allowedCommenters === 'no_one'} onChange={(e) => setDisableComments(e.target.checked)} />
+                                            <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-[#ef4444]"></div>
+                                        </label>
                                     </div>
                                 </div>
                             )}

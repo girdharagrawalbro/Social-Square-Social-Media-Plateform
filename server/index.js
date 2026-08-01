@@ -60,7 +60,7 @@ app.use(cookieParser());
 // ─── RATE LIMITING ────────────────────────────────────────────────────────────
 const authWriteLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: process.env.NODE_ENV === 'production' ? 20 : 5000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many attempts. Try again in 15 minutes.' },
@@ -72,7 +72,7 @@ const authWriteLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 500,
+    max: process.env.NODE_ENV === 'production' ? 500 : 10000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests.' },
@@ -81,7 +81,7 @@ const apiLimiter = rateLimit({
 
 const reportLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    max: 10,
+    max: process.env.NODE_ENV === 'production' ? 10 : 5000,
     message: { error: 'Too many reports.' },
 });
 
@@ -242,6 +242,7 @@ app.use('/api/chatbot', (req, res, next) => require('./routes/chatbot.js')(req, 
 app.use("/api/recommendation", require("./routes/recommendation"));
 app.use('/api/contact', require('./routes/contact.js'));
 app.use('/api/knowledge', require('./routes/knowledge.js'));
+app.use('/api/activity', require('./routes/activity.js'));
 app.use('/api/e2ee', require('./routes/e2ee.js'));
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
@@ -258,13 +259,13 @@ const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible')
 
 // Global event limiter (10 events/sec)
 const socketGlobalLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
-    ? new RateLimiterMemory({ points: 10, duration: 1 })
-    : new RateLimiterRedis({ storeClient: redis, points: 10, duration: 1, keyPrefix: 'socket_global' });
+    ? new RateLimiterMemory({ points: process.env.NODE_ENV === 'production' ? 10 : 5000, duration: 1 })
+    : new RateLimiterRedis({ storeClient: redis, points: process.env.NODE_ENV === 'production' ? 10 : 5000, duration: 1, keyPrefix: 'socket_global' });
 
 // Stricter limiter for high-frequency events like typing (2 events/sec)
 const socketStrictLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
-    ? new RateLimiterMemory({ points: 2, duration: 1 })
-    : new RateLimiterRedis({ storeClient: redis, points: 2, duration: 1, keyPrefix: 'socket_strict' });
+    ? new RateLimiterMemory({ points: process.env.NODE_ENV === 'production' ? 2 : 5000, duration: 1 })
+    : new RateLimiterRedis({ storeClient: redis, points: process.env.NODE_ENV === 'production' ? 2 : 5000, duration: 1, keyPrefix: 'socket_strict' });
 
 const activeCalls = new Map();
 
@@ -334,20 +335,31 @@ io.on('connection', (socket) => {
         try {
             if (!redis) return;
 
-            await redis.hset('online_users', userId, socket.id);
-            //  Track active timestamp for TTL cleanup
-            await redis.zadd('presence_heartbeats', Date.now(), userId);
+            // 3. Update MongoDB and get privacy settings
+            const user = await User.findByIdAndUpdate(userId, { isOnline: true }).select('privacySettings').lean();
+            const activityMode = user?.privacySettings?.activityStatusMode || (user?.privacySettings?.hideActivityStatus ? 'hidden_both' : 'visible');
+            const hideMyStatus = activityMode === 'stealth' || activityMode === 'hidden_both';
+            const hideOthersStatus = activityMode === 'hidden_both';
 
-            // 1. Send list of online users
-            const onlineMap = await redis.hgetall('online_users');
-            const currentOnlineUsers = Object.entries(onlineMap).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
-            socket.emit('updateUserList', currentOnlineUsers);
+            if (!hideMyStatus) {
+                await redis.hset('online_users', userId, socket.id);
+                //  Track active timestamp for TTL cleanup
+                await redis.zadd('presence_heartbeats', Date.now(), userId);
+            }
 
-            // 2. Broadcast new user
-            socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
+            // 1. Send list of online users (hidden_both = can't see others, stealth/visible = can see others)
+            if (hideOthersStatus) {
+                socket.emit('updateUserList', []);
+            } else {
+                const onlineMap = await redis.hgetall('online_users');
+                const currentOnlineUsers = Object.entries(onlineMap).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
+                socket.emit('updateUserList', currentOnlineUsers);
+            }
 
-            // 3. Update MongoDB
-            await User.findByIdAndUpdate(userId, { isOnline: true });
+            // 2. Broadcast new user ONLY if they are not hidden from others
+            if (!hideMyStatus) {
+                socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
+            }
 
             // 3.1. Mark undelivered messages to this user as delivered
             try {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from '../../../utils/toast.js';
 import useAuthStore, { api } from '../../../store/zustand/useAuthStore';
 import usePostStore from '../../../store/zustand/usePostStore';
@@ -34,6 +35,7 @@ const PostMenu = ({
 
     const loggeduser = useAuthStore(s => s.user);
     const user = passedUser || loggeduser;
+    const queryClient = useQueryClient();
     
     // Check ownership
     const isOwner = passedIsOwner !== undefined 
@@ -252,6 +254,8 @@ const PostMenu = ({
                 onClick: async () => {
                     try {
                         await api.post('/api/recommendation/activity', { postId: post._id, action: 'interested' });
+                        await api.post(`/api/activity/interested/${post._id}`);
+                        queryClient.invalidateQueries(['activity', 'interested']);
                         toast.success('We will show you more posts like this');
                     } catch (e) {
                         toast.error('Failed to update preference');
@@ -266,6 +270,8 @@ const PostMenu = ({
                 onClick: async () => {
                     try {
                         await api.post('/api/recommendation/activity', { postId: post._id, action: 'not_interested' });
+                        await api.post(`/api/activity/not-interested/${post._id}`);
+                        queryClient.invalidateQueries(['activity', 'not-interested']);
                         toast.success('We will show you fewer posts like this');
                     } catch (e) {
                         toast.error('Failed to update preference');

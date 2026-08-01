@@ -176,7 +176,7 @@ router.post("/create", verifyToken, [
             isAnonymous, expiresAt, unlocksAt, isCollaborative,
             collaboratorIds, voiceNoteUrl, voiceNoteDuration, mood,
             isAiGenerated, groupId, poll, videoThumbnail, mentionIds, visibility,
-            isBeforeAfter, beforeAfter, isFeedbackRequest, feedbackCategory, goalId,
+            isBeforeAfter, beforeAfter, isFeedbackRequest, feedbackCategory, goalId, settings,
             mediaKeys, videoKey, videoIv, voiceNoteKey, voiceNoteIv,
             beforeImageKey, beforeImageIv, afterImageKey, afterImageIv
         } = req.body;
@@ -252,6 +252,7 @@ router.post("/create", verifyToken, [
             isFeedbackRequest: !!isFeedbackRequest,
             feedbackCategory: feedbackCategory || null,
             goalId: goalId || null,
+            settings: settings || {},
             // 🛡️ Store real authorId (select: false) to enforce private user follower checks
             authorId: loggedUserId,
             // DRM / Encryption keys
@@ -503,12 +504,15 @@ router.put("/update/:postId", verifyToken, [
 
         if (!isOwner) return res.status(403).json({ message: "Unauthorized." });
 
-        if (caption) post.caption = caption;
-        if (category) post.category = category;
+        if (caption !== undefined) post.caption = caption;
+        if (category !== undefined) post.category = category;
+        if (req.body.settings !== undefined) {
+            post.settings = { ...post.settings, ...req.body.settings };
+        }
         await post.save();
 
         //  Notify all users about post update
-        if (_io) _io.emit('postUpdated', { postId: post._id, caption: post.caption, category: post.category });
+        if (_io) _io.emit('postUpdated', { postId: post._id, caption: post.caption, category: post.category, settings: post.settings });
 
         res.status(200).json(post);
     } catch (error) {
@@ -647,12 +651,13 @@ router.get("/", async (req, res) => {
                 return res.status(400).json({ error: "Invalid userId format" });
             }
 
-            const user = await User.findById(userId).select('following blockedUsers mutedUsers').lean();
+            const user = await User.findById(userId).select('following blockedUsers mutedUsers mutedPosts').lean();
             if (user) {
                 followingIds = (user.following || []).map(id => id.toString());
                 excludedUserIds = [
                     ...(user.blockedUsers || []),
-                    ...(user.mutedUsers || [])
+                    ...(user.mutedUsers || []),
+                    ...(user.mutedPosts || [])
                 ].map(id => id.toString());
 
                 // Also find users who have blocked the current user
@@ -1718,20 +1723,69 @@ router.post('/comments/add', verifyToken, [
         const { content, postId, user, parentId, feedbackDetails } = req.body;
         if ((!content && !feedbackDetails) || !postId || !user) return res.status(400).json({ error: 'Invalid data' });
 
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        const authorId = (post.user._id || post.user)?.toString();
+        const commenterId = req.userId?.toString();
+
+        if (commenterId !== authorId) {
+            const author = await User.findById(authorId).select('privacySettings followers following hiddenWords').lean();
+            const effectiveMode = post.settings?.disableComments ? 'no_one' : (post.settings?.allowedCommenters || author?.privacySettings?.allowedCommenters || (author?.privacySettings?.disableCommentsGlobally ? 'no_one' : 'everyone'));
+
+            if (effectiveMode === 'no_one') {
+                return res.status(403).json({ error: 'Comments are disabled for this post.' });
+            } else if (effectiveMode !== 'everyone') {
+                const followers = (author?.followers || []).map(f => f.toString());
+                const following = (author?.following || []).map(f => f.toString());
+
+                const isFollower = followers.includes(commenterId);
+                const isFollowing = following.includes(commenterId);
+
+                let isAllowed = false;
+                if (effectiveMode === 'people_you_follow') isAllowed = isFollowing;
+                else if (effectiveMode === 'followers') isAllowed = isFollower;
+                else if (effectiveMode === 'following_and_followers') isAllowed = isFollowing || isFollower;
+
+                if (!isAllowed) {
+                    return res.status(403).json({ error: 'You do not have permission to comment on this post.' });
+                }
+            }
+        }
+
         const commentContent = content || `Rating: ${feedbackDetails.rating}/5\nStrengths: ${feedbackDetails.strengths}\nSuggestions: ${feedbackDetails.improvements}`;
+        
+        // Filter content against author's custom hiddenWords array and profanity filter
+        const author = await User.findById(authorId).select('privacySettings hiddenWords').lean();
+        let isHidden = false;
+        const customHiddenWords = author?.hiddenWords || [];
+        const hideProfanity = author?.privacySettings?.hideProfanity !== false;
+
+        if (commentContent) {
+            const defaultProfanity = ['spam', 'abuse', 'fake', 'scam', 'hate', 'trash', 'idiot', 'fool', 'bitch', 'asshole', 'fuck', 'shit'];
+            const activeBlockedWords = [...(hideProfanity ? defaultProfanity : []), ...customHiddenWords].filter(Boolean);
+
+            if (activeBlockedWords.length > 0) {
+                const pattern = new RegExp(activeBlockedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
+                if (pattern.test(commentContent)) {
+                    isHidden = true;
+                }
+            }
+        }
+
         const newComment = new Comment({
             postId,
             content: commentContent,
             user,
             parentId: parentId || null,
-            feedbackDetails: feedbackDetails || null
+            feedbackDetails: feedbackDetails || null,
+            isHidden
         });
         await newComment.save();
 
         if (parentId) {
             await Comment.findByIdAndUpdate(parentId, { $push: { replies: newComment._id } });
         } else {
-            const post = await Post.findById(postId);
             post.comments.push(newComment._id);
             post.score = computeScore(post);
             await post.save();

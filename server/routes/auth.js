@@ -20,6 +20,21 @@ const authRateLimiter = require('../middleware/authRateLimiter');
 const { propagateUserProfileUpdate } = require('../utils/userPropagation');
 const { admin } = require('../utils/firebase');
 
+const logAccountHistory = async (userId, action, details, req) => {
+    try {
+        const ipAddress = req.ip || req.connection?.remoteAddress || 'Unknown IP';
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                accountHistory: {
+                    $each: [{ action, details, ipAddress, createdAt: new Date() }],
+                    $slice: -100 // Keep last 100 entries
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Failed to log account history:', e);
+    }
+};
 
 const router = express.Router();
 let _io;
@@ -325,6 +340,16 @@ router.post('/login', authRateLimiter, [
             return res.status(403).json({ error: user.banReason || 'Your account has been banned for violating our community guidelines.' });
         }
 
+        if (user.deletionScheduledAt && user.deletionScheduledAt > new Date()) {
+            return res.status(403).json({
+                error: 'Account scheduled for deletion',
+                code: 'SCHEDULED_FOR_DELETION',
+                deletionScheduledAt: user.deletionScheduledAt,
+                deletionReason: user.deletionReason,
+                deletionAppealStatus: user.deletionAppealStatus
+            });
+        }
+
         // ── LOCKOUT CHECK ──
         if (user.lockoutUntil && user.lockoutUntil > Date.now()) {
             const remaining = Math.ceil((user.lockoutUntil - Date.now()) / 60000);
@@ -454,6 +479,8 @@ router.post('/login', authRateLimiter, [
             type: 'system',
             message: { content: `Your account was accessed via ${device} (${ip})${location ? ` in ${location.city}, ${location.country}` : ''}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
+
+        await logAccountHistory(user._id, 'LOGIN', `Logged in via ${device} (${ip})`, req);
 
         if (_io) {
             _io.to(user._id.toString()).emit('deviceLogin', {
@@ -632,6 +659,9 @@ router.post('/toggle-2fa', verifyToken, async (req, res) => {
 
         user.twoFactorEnabled = !user.twoFactorEnabled;
         await user.save();
+        
+        await logAccountHistory(user._id, '2FA_TOGGLED', `Two-Factor Authentication was ${user.twoFactorEnabled ? 'enabled' : 'disabled'}`, req);
+        
         return res.status(200).json({ twoFactorEnabled: user.twoFactorEnabled });
     } catch {
         return res.status(500).json({ error: 'Internal server error' });
@@ -1099,9 +1129,38 @@ router.post('/reset-password', authRateLimiter, [body('token').notEmpty(), body(
             message: { content: '🔒 Security Alert: Your account password was recently changed.' }
         }).catch(err => console.error('[RESET PASSWORD] Notification failed:', err));
 
+        await logAccountHistory(user._id, 'PASSWORD_RESET', 'Password was reset via token', req);
+
         return res.status(200).json({ message: 'Password reset successful. Please log in.' });
     } catch (error) {
         console.error('Reset password error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ─── CHANGE PASSWORD (AUTHENTICATED) ──────────────────────────────────────────
+router.post('/change-password', verifyToken, [
+    body('currentPassword').notEmpty(),
+    body('newPassword').isLength({ min: 6, max: 128 })
+], async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const user = await User.findById(req.userId).select('+password');
+        
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user.password) return res.status(400).json({ error: 'This account uses a third-party login and does not have a password.' });
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) return res.status(400).json({ error: 'Incorrect current password' });
+
+        user.password = await bcrypt.hash(newPassword, 12);
+        await user.save();
+        
+        await logAccountHistory(user._id, 'PASSWORD_CHANGED', 'Account password was updated', req);
+        
+        return res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+        console.error('Change password error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -1432,7 +1491,22 @@ router.post('/users/details', verifyToken, [
         });
     } catch (e) {
         logger.error('[USERS_DETAILS] Error:', e.message);
-        res.status(500).json({ error: 'Failed to fetch user details' });
+        res.status(500).json({ error: 'Failed to retrieve usage stats' });
+    }
+});
+
+// ─── ACCOUNT HISTORY ───────────────────────────────────────────────────────────
+router.get('/account-history', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select('accountHistory').lean();
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        // Return sorted by newest first
+        const history = (user.accountHistory || []).sort((a, b) => b.createdAt - a.createdAt);
+        return res.status(200).json(history);
+    } catch (error) {
+        console.error('Account history error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1522,6 +1596,8 @@ router.put('/update-profile', verifyToken, [
                 });
             }
         }
+
+        await logAccountHistory(userId, 'PROFILE_UPDATED', 'User profile details were updated', req);
 
         res.status(200).json({
             user: updatedUser,
@@ -2088,18 +2164,120 @@ router.all("/search", [
 router.get('/notification-settings', verifyToken, async (req, res) => {
     try {
         const user = await User.findById(req.userId).select('notificationSettings').lean();
-        res.json(user?.notificationSettings || { emailDigest: false, pushEnabled: true });
+        const settings = user?.notificationSettings || {};
+        res.json({
+            pushEnabled: settings.pushEnabled ?? true,
+            emailDigest: settings.emailDigest ?? false,
+            likes: settings.likes ?? true,
+            comments: settings.comments ?? true,
+            newFollowers: settings.newFollowers ?? true,
+            directMessages: settings.directMessages ?? true,
+            liveVideos: settings.liveVideos ?? true,
+            postNotifications: settings.postNotifications ?? true,
+            userNotifications: settings.userNotifications ?? true,
+            chatNotifications: settings.chatNotifications ?? true,
+        });
     } catch { res.status(500).json({ message: 'Internal server error' }); }
 });
 
 router.patch('/notification-settings', verifyToken, async (req, res) => {
     try {
-        const user = await User.findByIdAndUpdate(req.userId, { notificationSettings: req.body }, { new: true }).select('notificationSettings').lean();
+        const existingUser = await User.findById(req.userId).select('notificationSettings').lean();
+        const updatedSettings = { ...(existingUser?.notificationSettings || {}), ...req.body };
+        const user = await User.findByIdAndUpdate(req.userId, { notificationSettings: updatedSettings }, { new: true }).select('notificationSettings').lean();
         res.json(user.notificationSettings);
     } catch { res.status(500).json({ message: 'Internal server error' }); }
 });
 
+// ─── PRIVACY SETTINGS ────────────────────────────────────────────────────────
+router.get('/privacy-settings', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select('privacySettings').lean();
+        const settings = user?.privacySettings || {};
+        res.json({ 
+            hideActivityStatus: settings.hideActivityStatus ?? false, 
+            activityStatusMode: settings.activityStatusMode || (settings.hideActivityStatus ? 'hidden_both' : 'visible'),
+            hideLikesOnOthersPosts: settings.hideLikesOnOthersPosts ?? false, 
+            hideLikesOnMyPosts: settings.hideLikesOnMyPosts ?? false, 
+            hideCommentCountOnMyPosts: settings.hideCommentCountOnMyPosts ?? false,
+            hideShareCountOnMyPosts: settings.hideShareCountOnMyPosts ?? false,
+            disableCommentsGlobally: settings.disableCommentsGlobally ?? false,
+            allowedCommenters: settings.allowedCommenters || 'everyone',
+            allowedMentions: settings.allowedMentions || 'everyone',
+            allowedTags: settings.allowedTags || 'everyone',
+            manuallyApproveTags: settings.manuallyApproveTags ?? false,
+            allowStoryMessageReplies: settings.allowStoryMessageReplies || 'everyone',
+            hideProfanity: settings.hideProfanity !== false,
+            hiddenWords: user?.hiddenWords || []
+        });
+    } catch (err) { 
+        logger.error('Error fetching privacy settings:', err);
+        res.status(500).json({ message: 'Internal server error' }); 
+    }
+});
+
+router.patch('/privacy-settings', verifyToken, async (req, res) => {
+    try {
+        // Only allow updating known privacy fields
+        const allowedUpdates = {};
+        const fields = ['hideActivityStatus', 'activityStatusMode', 'hideLikesOnOthersPosts', 'hideLikesOnMyPosts', 'hideCommentCountOnMyPosts', 'hideShareCountOnMyPosts', 'disableCommentsGlobally', 'allowedCommenters', 'allowedMentions', 'allowedTags', 'manuallyApproveTags', 'allowStoryMessageReplies', 'hideProfanity'];
+        fields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                allowedUpdates[`privacySettings.${field}`] = req.body[field];
+            }
+        });
+
+        if (req.body.hiddenWords !== undefined) {
+            allowedUpdates['hiddenWords'] = req.body.hiddenWords;
+        }
+
+        if (req.body.activityStatusMode !== undefined) {
+            allowedUpdates['privacySettings.hideActivityStatus'] = req.body.activityStatusMode !== 'visible';
+        }
+
+        const user = await User.findByIdAndUpdate(req.userId, { $set: allowedUpdates }, { new: true }).select('privacySettings').lean();
+        
+        // Sync post settings
+        const Post = require('../models/Post');
+        if (req.body.hideLikesOnMyPosts !== undefined) {
+            await Post.updateMany(
+                { 'user._id': req.userId },
+                { $set: { 'settings.hideLikeCount': req.body.hideLikesOnMyPosts } }
+            );
+        }
+        if (req.body.hideCommentCountOnMyPosts !== undefined) {
+            await Post.updateMany(
+                { 'user._id': req.userId },
+                { $set: { 'settings.hideCommentCount': req.body.hideCommentCountOnMyPosts } }
+            );
+        }
+        if (req.body.hideShareCountOnMyPosts !== undefined) {
+            await Post.updateMany(
+                { 'user._id': req.userId },
+                { $set: { 'settings.hideShareCount': req.body.hideShareCountOnMyPosts } }
+            );
+        }
+        if (req.body.allowedCommenters !== undefined) {
+            await Post.updateMany(
+                { 'user._id': req.userId },
+                { $set: { 'settings.allowedCommenters': req.body.allowedCommenters } }
+            );
+        }
+        
+        // disableCommentsGlobally logic is already handled at the route level for new comments,
+        // but if we want it to block existing comments, we can just let post.js check author.privacySettings.disableCommentsGlobally.
+
+        res.json(user.privacySettings);
+    } catch (err) { 
+        logger.error('Error updating privacy settings:', err);
+        res.status(500).json({ message: 'Internal server error' }); 
+    }
+});
+
+
 const adminAlertCooldowns = new Map();
+
+
 
 // ─── VERIFY PASSWORD (for admin re-auth gate) ────────────────────────────────
 router.post('/verify-password', verifyToken, [

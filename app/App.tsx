@@ -93,7 +93,7 @@ export const navigationRef = createNavigationContainerRef();
 const Stack = createNativeStackNavigator();
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  const isDarkMode = RN.useColorScheme() === 'dark';
 
   useEffect(() => {
     const socket = getSocket();

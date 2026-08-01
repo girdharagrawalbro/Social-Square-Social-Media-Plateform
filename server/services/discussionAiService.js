@@ -1,4 +1,4 @@
-const { generateText } = require('../utils/gemini');
+const { generateGroqText } = require('../utils/groq');
 
 async function analyzeComment(commentText, postCaption) {
     if (!commentText || commentText.trim().length === 0) {
@@ -23,13 +23,13 @@ Return ONLY a valid JSON object in this exact format, with no markdown formattin
 {"quality": "normal", "topic": "General"}`;
 
     try {
-        const rawResponse = await generateText(prompt, { maxTokens: 100, temperature: 0.1 });
+        const rawResponse = await generateGroqText(prompt, { maxTokens: 100, temperature: 0.1 });
         
         let result = { quality: 'normal', topic: 'General' };
         
         try {
             // Strip any potential markdown wrappers if the LLM ignores instructions
-            const jsonStr = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            const jsonStr = rawResponse.text.replace(/```json/g, '').replace(/```/g, '').trim();
             const parsed = JSON.parse(jsonStr);
             
             if (['high', 'normal', 'low'].includes(parsed.quality)) {

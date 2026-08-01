@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog } from 'primereact/dialog';
+import gsap from 'gsap';
 
 const OnboardingGuide = ({ visible, onHide, userName }) => {
     const [step, setStep] = useState(1);
     const totalSteps = 7;
-
+    const containerRef = useRef(null);
 
     const nextStep = () => {
         if (step < totalSteps) setStep(step + 1);
@@ -15,6 +16,28 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
         if (step > 1) setStep(step - 1);
     };
 
+    // GSAP Animation on step change
+    useEffect(() => {
+        if (!containerRef.current) return;
+        
+        const ctx = gsap.context(() => {
+            gsap.fromTo('.gsap-icon', 
+                { scale: 0.5, opacity: 0, y: 20 }, 
+                { scale: 1, opacity: 1, y: 0, duration: 0.6, ease: 'back.out(1.5)' }
+            );
+            gsap.fromTo('.gsap-title', 
+                { y: 20, opacity: 0 }, 
+                { y: 0, opacity: 1, duration: 0.5, ease: 'power3.out', delay: 0.15 }
+            );
+            gsap.fromTo('.gsap-desc', 
+                { y: 20, opacity: 0 }, 
+                { y: 0, opacity: 1, duration: 0.5, ease: 'power3.out', delay: 0.3 }
+            );
+        }, containerRef);
+        
+        return () => ctx.revert();
+    }, [step]);
+
     // Auto-scroll to top of dialog on step change
     useEffect(() => {
         const dialogContent = document.querySelector('.onboarding-dialog .p-dialog-content');
@@ -22,90 +45,89 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
     }, [step]);
 
     const renderStepContent = () => {
+        const containerClasses = "flex flex-col items-center text-center p-6 gap-4";
+        
         switch (step) {
             case 1:
                 return (
-                    <div className="flex flex-col items-center text-center p-6 gap-4 animate-in fade-in zoom-in-95 duration-500">
-                        <div className="w-20 h-20 bg-[#6366f1]/10 rounded-full flex items-center justify-center text-4xl text-[#6366f1] mb-2">
+                    <div className={containerClasses}>
+                        <div className="gsap-icon w-20 h-20 bg-[#6366f1]/10 rounded-full flex items-center justify-center text-4xl text-[#6366f1] mb-2">
                             👋
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--text-main)]">Welcome to Social Square, {userName}!</h2>
-                        <p className="text-[var(--text-sub)] leading-relaxed">
-                            Let's take a quick 1 tour to show you how to get the most out of your new favorite social space.
+                        <h2 className="gsap-title text-2xl font-bold text-[var(--text-main)]">Welcome to Social Square, {userName}!</h2>
+                        <p className="gsap-desc text-[var(--text-sub)] leading-relaxed">
+                            Let's take a quick tour to show you how to get the most out of your new favorite social space.
                         </p>
                     </div>
                 );
             case 2:
                 return (
-                    <div className="flex flex-col items-center text-center p-6 gap-4 animate-in fade-in slide-in-from-right-4 duration-500">
-                        <div className="w-20 h-20 bg-pink-500/10 rounded-full flex items-center justify-center text-4xl text-pink-500 mb-2">
+                    <div className={containerClasses}>
+                        <div className="gsap-icon w-20 h-20 bg-pink-500/10 rounded-full flex items-center justify-center text-4xl text-pink-500 mb-2">
                             <i className="pi pi-video"></i>
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--text-main)]">The Smart Feed</h2>
-                        <p className="text-[var(--text-sub)] leading-relaxed">
+                        <h2 className="gsap-title text-2xl font-bold text-[var(--text-main)]">The Smart Feed</h2>
+                        <p className="gsap-desc text-[var(--text-sub)] leading-relaxed">
                             Your feed is alive! Videos play automatically as you scroll. Follow your favorite creators to personalize your experience.
                         </p>
                     </div>
                 );
             case 3:
                 return (
-                    <div className="flex flex-col items-center text-center p-6 gap-4 animate-in fade-in slide-in-from-right-4 duration-500">
-                        <div className="w-20 h-20 bg-orange-500/10 rounded-full flex items-center justify-center text-4xl text-orange-500 mb-2">
+                    <div className={containerClasses}>
+                        <div className="gsap-icon w-20 h-20 bg-orange-500/10 rounded-full flex items-center justify-center text-4xl text-orange-500 mb-2">
                             <i className="pi pi-compass"></i>
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--text-main)]">Explore & Discover</h2>
-                        <p className="text-[var(--text-sub)] leading-relaxed">
+                        <h2 className="gsap-title text-2xl font-bold text-[var(--text-main)]">Explore & Discover</h2>
+                        <p className="gsap-desc text-[var(--text-sub)] leading-relaxed">
                             Find new trending topics in <b>Explore</b> or use the <b>Pulse</b> to see what's hot right now in the community.
                         </p>
                     </div>
                 );
             case 4:
                 return (
-                    <div className="flex flex-col items-center text-center p-6 gap-4 animate-in fade-in slide-in-from-right-4 duration-500">
-                        <div className="w-20 h-20 bg-[#6366f1]/10 rounded-full flex items-center justify-center text-4xl text-[#6366f1] mb-2">
+                    <div className={containerClasses}>
+                        <div className="gsap-icon w-20 h-20 bg-[#6366f1]/10 rounded-full flex items-center justify-center text-4xl text-[#6366f1] mb-2">
                             <i className="pi pi-sparkles"></i>
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--text-main)]">Create with AI Magic</h2>
-                        <p className="text-[var(--text-sub)] leading-relaxed">
+                        <h2 className="gsap-title text-2xl font-bold text-[var(--text-main)]">Create with AI Magic</h2>
+                        <p className="gsap-desc text-[var(--text-sub)] leading-relaxed">
                             Tap the <b>Plus</b> icon to create a post. Use the <b>AI Magic Tools</b> to generate text captions or stunning images in seconds!
                         </p>
-                        <div className="text-[11px] font-bold text-[#6366f1] bg-[#6366f1]/5 px-4 py-2 rounded-xl border border-[#6366f1]/20">
-                            PRO TIP: Pointing to the Add button now!
-                        </div>
                     </div>
                 );
             case 5:
                 return (
-                    <div className="flex flex-col items-center text-center p-6 gap-4 animate-in fade-in slide-in-from-right-4 duration-500">
-                        <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center text-4xl text-cyan-500 mb-2">
+                    <div className={containerClasses}>
+                        <div className="gsap-icon w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center text-4xl text-cyan-500 mb-2">
                             <i className="pi pi-envelope"></i>
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--text-main)]">Real-time Conversations</h2>
-                        <p className="text-[var(--text-sub)] leading-relaxed">
+                        <h2 className="gsap-title text-2xl font-bold text-[var(--text-main)]">Real-time Conversations</h2>
+                        <p className="gsap-desc text-[var(--text-sub)] leading-relaxed">
                             Chat with your friends in real-time. Share posts, send voice notes, and see who's online instantly in the <b>Conversations</b> tab.
                         </p>
                     </div>
                 );
             case 6:
                 return (
-                    <div className="flex flex-col items-center text-center p-6 gap-4 animate-in fade-in slide-in-from-right-4 duration-500">
-                        <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center text-4xl text-green-500 mb-2">
+                    <div className={containerClasses}>
+                        <div className="gsap-icon w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center text-4xl text-green-500 mb-2">
                             <i className="pi pi-chart-line"></i>
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--text-main)]">Level Up Your Profile</h2>
-                        <p className="text-[var(--text-sub)] leading-relaxed">
+                        <h2 className="gsap-title text-2xl font-bold text-[var(--text-main)]">Level Up Your Profile</h2>
+                        <p className="gsap-desc text-[var(--text-sub)] leading-relaxed">
                             Engagement earns you <b>XP</b>! Level up your profile, maintain daily <b>streaks</b>, and unlock special badges as you grow.
                         </p>
                     </div>
                 );
             case 7:
                 return (
-                    <div className="flex flex-col items-center text-center p-6 gap-4 animate-in fade-in zoom-in-95 duration-500">
-                        <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center text-4xl text-green-500 mb-2">
+                    <div className={containerClasses}>
+                        <div className="gsap-icon w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center text-4xl text-green-500 mb-2">
                             <i className="pi pi-check-circle"></i>
                         </div>
-                        <h2 className="text-2xl font-bold text-[var(--text-main)]">You're All Set!</h2>
-                        <p className="text-[var(--text-sub)] leading-relaxed">
+                        <h2 className="gsap-title text-2xl font-bold text-[var(--text-main)]">You're All Set!</h2>
+                        <p className="gsap-desc text-[var(--text-sub)] leading-relaxed">
                             Explore, connect, and enjoy the future of social media. We can't wait to see what you'll share!
                         </p>
                     </div>
@@ -136,7 +158,7 @@ const OnboardingGuide = ({ visible, onHide, userName }) => {
                 </button>
                 <div className="flex flex-col min-h-[400px]">
                     {/* Content */}
-                    <div className="flex-1 flex items-center justify-center">
+                    <div className="flex-1 flex items-center justify-center" ref={containerRef}>
                         {renderStepContent()}
                     </div>
 

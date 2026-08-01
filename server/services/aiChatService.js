@@ -4,7 +4,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const UserMemory = require('../models/UserMemory');
 const { UserInterest } = require('../models/Recommendation');
-const { generateNvidiaChat } = require('../utils/nvidia');
+const { generateGroqChat } = require('../utils/groq');
 const { extractAndSaveMemory } = require('./aiMemoryService');
 const mongoose = require('mongoose');
 
@@ -62,7 +62,7 @@ async function triggerAiReply(conversationId, userSenderId, userMessageContent, 
             });
         }
 
-        const aiResponseText = await generateNvidiaChat(messages);
+        const aiResponseText = await generateGroqChat(messages);
 
         if (_io) {
             _io.to(userSenderId.toString()).emit('userStoppedTyping', {
@@ -72,7 +72,7 @@ async function triggerAiReply(conversationId, userSenderId, userMessageContent, 
         const replyText = (aiResponseText || '').trim();
 
         if (!replyText) {
-            console.warn('[AI Chat] Empty response from NVIDIA model');
+            console.warn('[AI Chat] Empty response from Groq model');
             return;
         }
 
@@ -197,7 +197,7 @@ async function triggerAiWelcomeMessage(userId, aiUser) {
         const tagsList = (userInterest?.likedTags || []).join(', ');
         const userPrompt = `User Details:\nName: ${user.fullname}\nBio: ${user.bio || 'None'}\nTop Interests: ${interestsList || 'None'}\nLiked Tags: ${tagsList || 'None'}`;
 
-        const aiResponseText = await generateNvidiaChat([
+        const aiResponseText = await generateGroqChat([
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
         ]);
@@ -210,7 +210,7 @@ async function triggerAiWelcomeMessage(userId, aiUser) {
 
         const welcomeText = (aiResponseText || '').trim();
         if (!welcomeText) {
-            console.warn('[AI Chat] Empty welcome response from NVIDIA model');
+            console.warn('[AI Chat] Empty welcome response from Groq model');
             return;
         }
 

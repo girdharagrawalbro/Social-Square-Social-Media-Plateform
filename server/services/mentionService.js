@@ -28,11 +28,18 @@ async function handleMentions(text, senderId, postId = null, commentId = null, u
         const mentionedUsers = await User.find({
             username: { $in: usernames },
             deletedAt: null
-        }).select('_id username').lean();
+        }).select('_id username privacySettings following').lean();
 
         for (const targetUser of mentionedUsers) {
             // Don't notify the sender themselves
             if (targetUser._id.toString() === senderId.toString()) continue;
+
+            const allowedMentions = targetUser.privacySettings?.allowedMentions || 'everyone';
+            if (allowedMentions === 'no_one') continue;
+            if (allowedMentions === 'people_you_follow') {
+                const targetFollowing = (targetUser.following || []).map(id => id.toString());
+                if (!targetFollowing.includes(senderId.toString())) continue;
+            }
 
             const finalUrl = url || (postId ? `/post/${postId}` : null);
 

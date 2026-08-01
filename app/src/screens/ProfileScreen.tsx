@@ -1112,7 +1112,7 @@ export default function ProfileScreen({ navigation, route }: any) {
               />
 
               {/* Content Preference Select */}
-              <Text style={{ color: subText, fontSize: 12, fontWeight: 'bold', uppercase: true }}>CONTENT PREFERENCE</Text>
+              <Text style={{ color: subText, fontSize: 12, fontWeight: 'bold' }}>CONTENT PREFERENCE</Text>
               <TouchableOpacity
                 onPress={() => setMoodModalVisible(true)}
                 style={[

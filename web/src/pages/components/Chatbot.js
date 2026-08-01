@@ -15,6 +15,39 @@ const QUICK_ACTIONS = [
     { label: '🚩 Report an issue', message: 'I want to report a problem with the app' },
 ];
 
+const renderFormattedText = (text) => {
+    if (!text) return null;
+
+    const parseInline = (str) => {
+        const parts = str.split(/(\*\*.*?\*\*)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i}>{part.slice(2, -2)}</strong>;
+            }
+            return part;
+        });
+    };
+
+    const lines = text.split('\n');
+    return lines.map((line, idx) => {
+        const listMatch = line.match(/^[-*]\s+(.*)$/);
+        if (listMatch) {
+            return (
+                <div key={idx} style={{ display: 'flex', gap: '8px', paddingLeft: '4px', marginTop: '2px' }}>
+                    <span style={{ flexShrink: 0 }}>•</span>
+                    <span style={{ flex: 1 }}>{parseInline(listMatch[1])}</span>
+                </div>
+            );
+        }
+        return (
+            <React.Fragment key={idx}>
+                {parseInline(line)}
+                {idx < lines.length - 1 && <br />}
+            </React.Fragment>
+        );
+    });
+};
+
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
 const MessageBubble = ({ msg }) => {
     const isBot = msg.role === 'assistant';
@@ -44,7 +77,7 @@ const MessageBubble = ({ msg }) => {
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
             }}>
-                {msg.content}
+                {renderFormattedText(msg.content)}
                 {msg.loading && (
                     <span style={{ display: 'inline-flex', gap: '3px', marginLeft: '4px' }}>
                         {[0, 1, 2].map(i => (

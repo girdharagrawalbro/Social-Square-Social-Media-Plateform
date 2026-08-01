@@ -1,6 +1,11 @@
 const { Queue, Worker } = require('bullmq');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Post = require('../models/Post');
+const Report = require('../models/Report');
+const { PostVector } = require('../models/Recommendation');
+const { propagateUserDeletion } = require('../utils/userPropagation');
+const { sendEmail } = require('../utils/mailer');
 const redis = require('../lib/redis');
 
 const isRedisDisabled = process.env.DISABLE_REDIS === 'true';
@@ -91,6 +96,46 @@ if (!isRedisDisabled) {
                 { $pull: { followRequests: { requestedAt: { $lt: thirtyDaysAgo } } } }
             );
             console.log(`[Cleanup] Expired follow requests in ${expiredRequests.modifiedCount} accounts.`);
+
+            // 4. Execute Scheduled Deletions
+            const usersToDelete = await User.find({
+                deletionScheduledAt: { $lte: new Date() },
+                deletionAppealStatus: { $ne: 'appealed' }
+            }).lean();
+
+            for (const u of usersToDelete) {
+                console.log(`[Cleanup] Executing scheduled deletion for user ${u._id}`);
+                
+                await User.updateOne({ _id: u._id }, { $set: { deletedAt: new Date() } });
+                
+                const emailHtml = `
+                    <h2>Account Deleted</h2>
+                    <p>Hello ${u.fullname},</p>
+                    <p>Your grace period has expired, and your account has been permanently deleted.</p>
+                `;
+                sendEmail({
+                    to: u.email,
+                    subject: 'Notice: Your Account has been Deleted',
+                    html: emailHtml,
+                    text: emailHtml.replace(/<[^>]*>?/gm, '')
+                }).catch(() => {});
+
+                // Deep scrub footprint
+                await propagateUserDeletion(u._id).catch(console.error);
+
+                await Post.updateMany(
+                    { authorId: u._id },
+                    { $set: { deletedAt: new Date() } }
+                ).catch(console.error);
+
+                const posts = await Post.find({ authorId: u._id }).select('_id').lean();
+                const postIds = posts.map(p => p._id);
+                if (postIds.length > 0) {
+                    await PostVector.deleteMany({ postId: { $in: postIds } }).catch(() => {});
+                }
+
+                await Report.deleteMany({ reporter: u._id }).catch(() => {});
+            }
 
         } catch (err) {
             console.error('[Cleanup] Error during notification cleanup:', err.message);

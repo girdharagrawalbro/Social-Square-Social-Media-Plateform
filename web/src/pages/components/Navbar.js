@@ -222,7 +222,7 @@ const Navbar = () => {
             </button>
 
             <button
-              onClick={() => { navigate('/sessions'); setMobileMenuOpen(false); }}
+              onClick={() => { navigate('/settings'); setMobileMenuOpen(false); }}
               className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors ${isDark ? 'text-gray-100 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
             >
               <i className="pi pi-cog text-lg text-blue-400"></i> Settings

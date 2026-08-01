@@ -1,53 +1,20 @@
-const OpenAI = require('openai');
 const axios = require('./http');
 
 const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
-const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
-// ── Working Flux endpoint (NVIDIA AI Foundation Models) ──────────────────────
+// ── Image generation endpoint (NVIDIA FLUX — kept here, Groq has no image gen) ──
 const IMAGE_API_URL = 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell';
-
-function createClient() {
-    if (!NVIDIA_KEY) throw new Error('NVIDIA_API_KEY is not set');
-    return new OpenAI({ baseURL: NVIDIA_BASE_URL, apiKey: NVIDIA_KEY });
-}
-
-// ── Text generation via NVIDIA Llama 3.1 ──────────────────────────────────────
-async function generateNvidiaText(prompt) {
-    if (!NVIDIA_KEY) throw new Error('NVIDIA_API_KEY is not set');
-    try {
-        const client = createClient();
-        const completion = await client.chat.completions.create({
-            model: 'meta/llama-3.1-8b-instruct',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            top_p: 0.9,
-            max_tokens: 1024,
-        });
-        return {
-            text: completion.choices[0]?.message?.content || '',
-            model: 'Social Square AI',
-        };
-    } catch (error) {
-        const status = error.status || error.response?.status;
-        console.error(`[NVIDIA Text Error] status=${status}:`, error.message);
-        throw new Error('AI text generation failed. Please try again.');
-    }
-}
 
 // ── Image generation (FLUX.1-schnell via NVIDIA AI Foundation) ────────────────
 /**
  * generateNvidiaImage(prompt, options?)
+ * NOTE: Text/chat generation has moved to utils/groq.js (free tier).
  */
 async function generateNvidiaImage(prompt, options = {}) {
     if (!NVIDIA_KEY) throw new Error('NVIDIA_API_KEY is not set');
 
-    const {
-        seed = 0,
-        modelVariant = 'standard', 
-    } = options;
+    const { seed = 0 } = options;
 
-    // Map variant to parameters if needed
     const payload = {
         prompt,
         seed: seed || Math.floor(Math.random() * 1000000),
@@ -94,28 +61,6 @@ async function generateNvidiaImage(prompt, options = {}) {
     }
 }
 
-// ── Text chat generation via NVIDIA Llama 3.1 ────────────────────────────────
-async function generateNvidiaChat(messages) {
-    if (!NVIDIA_KEY) throw new Error('NVIDIA_API_KEY is not set');
-    try {
-        const client = createClient();
-        const completion = await client.chat.completions.create({
-            model: 'meta/llama-3.1-8b-instruct',
-            messages: messages,
-            temperature: 0.7,
-            top_p: 0.9,
-            max_tokens: 1024,
-        });
-        return completion.choices[0]?.message?.content || '';
-    } catch (error) {
-        const status = error.status || error.response?.status;
-        console.error(`[NVIDIA Chat Error] status=${status}:`, error.message);
-        throw new Error('AI chat response generation failed.');
-    }
-}
-
 module.exports = {
-    generateNvidiaText,
     generateNvidiaImage,
-    generateNvidiaChat,
 };

@@ -17,7 +17,7 @@ Social Square integrates state-of-the-art AI systems to assist creators with con
 
 ### Text-to-Post Magic Generation
 * **Trigger**: User inputs a text prompt in **AI Magic Tools** and selects **Generate Magic Post**.
-* **Engine**: Nvidia Text Model (`meta/llama-3.1-8b-instruct`) and Llama 3.2 Vision.
+* **Engine**: Groq Text Model (`llama3-8b-8192`) and Nvidia FLUX for Image Generation.
 * **Process**: Asynchronously triggers text generation, image creation, and metadata classification in parallel:
   - Generates a short, engaging caption.
   - Generates a high-quality, cinematic image.
@@ -31,7 +31,7 @@ Automated moderation runs asynchronously via **BullMQ** (powered by Redis, falli
 
 ### Text Toxicity Check
 * **Local Profanity Check**: Employs a dynamic profanity check (`bad-words` module) on the post or comment text to intercept common prohibited words.
-* **AI Toxicity Classification**: Scores toxicity between `0.0` (safe) and `1.0` (toxic/harassment) using Nvidia safety instructions.
+* **AI Toxicity Classification**: Scores toxicity between `0.0` (safe) and `1.0` (toxic/harassment) using Groq safety instructions (`llama3-8b-8192`).
 * **Moderation Thresholds**:
   - `score >= 0.8` (or profane and `score > 0.5`): Post is auto-hidden (`isVisible: false`), flagged, and logged.
   - `score >= 0.6`: Hidden and queued for administrator manual review.
@@ -53,7 +53,7 @@ All automated flags, hides, and overrides are logged into the `AuditLog` collect
 
 * **Endpoint**: `/api/ai/suggest-meta`
 * **Trigger**: Triggered during Magic Post creation or requested manually.
-* **Process**: An AI classifier maps the text content against the database's available category taxonomy (e.g. Travel, Tech, Food, Art) and generates:
+* **Process**: A Groq AI classifier maps the text content against the database's available category taxonomy (e.g. Travel, Tech, Food, Art) and generates:
   - An **improved, concise caption** (max 220 chars).
   - A clean set of **5 to 8 unique hashtags**.
   - A designated **category taxonomy** for feed matching.
@@ -74,7 +74,7 @@ All automated flags, hides, and overrides are logged into the `AuditLog` collect
 ## 5. Post Summarization
 
 * **Trigger**: Runs during the background moderation pipeline.
-* **Process**: If a post is visible and has a caption longer than 10 characters, the AI generates a highly condensed 1-2 sentence preview summary (`aiSummary`).
+* **Process**: If a post is visible and has a caption longer than 10 characters, Groq AI generates a highly condensed 1-2 sentence preview summary (`aiSummary`).
 * **Usage**: Provides quick hover-over previews in the feed UI without requiring users to open full details.
 
 ---

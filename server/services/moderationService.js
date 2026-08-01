@@ -95,8 +95,8 @@ async function classifyToxicity(text) {
     Text: "${text}"`;
 
     try {
-        const { generateNvidiaText } = require('../utils/nvidia');
-        const result = await generateNvidiaText(prompt);
+        const { generateGroqText } = require('../utils/groq');
+        const result = await generateGroqText(prompt);
         const score = parseFloat(result.text.trim());
         return isNaN(score) ? 0 : Math.min(Math.max(score, 0), 1);
     } catch (error) {

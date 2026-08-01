@@ -409,12 +409,32 @@ router.patch('/users/:userId/unban', requireAdmin, [
 
 router.delete('/users/:userId', requireAdmin, [
     param('userId').isMongoId().withMessage('Invalid user ID'),
+    body('gracePeriodDays').optional().isInt({ min: 0 }),
+    body('reason').optional().isString().trim().escape(),
     validate
 ], async (req, res) => {
     try {
+        const gracePeriodDays = parseInt(req.body.gracePeriodDays || 0, 10);
+        const reason = req.body.reason || 'Violation of terms of service';
+        
+        let updateData = {};
+        if (gracePeriodDays > 0) {
+            const scheduledAt = new Date();
+            scheduledAt.setDate(scheduledAt.getDate() + gracePeriodDays);
+            updateData = { 
+                $set: { 
+                    deletionScheduledAt: scheduledAt, 
+                    deletionReason: reason,
+                    deletionAppealStatus: 'none'
+                } 
+            };
+        } else {
+            updateData = { $set: { deletedAt: new Date() } };
+        }
+
         const user = await User.findOneAndUpdate(
             { _id: req.params.userId, isAdmin: { $ne: true } },
-            { $set: { deletedAt: new Date() } },
+            updateData,
             { new: true }
         ).lean();
 
@@ -422,36 +442,76 @@ router.delete('/users/:userId', requireAdmin, [
 
         await logAdminAction({
             adminId: req.adminId,
-            action: 'delete_user',
+            action: gracePeriodDays > 0 ? 'schedule_delete_user' : 'delete_user',
             targetType: 'user',
             targetId: user._id,
-            snapshot: { name: user.fullname, email: user.email, picture: user.profile_picture },
+            snapshot: { name: user.fullname, email: user.email, picture: user.profile_picture, gracePeriodDays },
             meta: { ip: req.ip },
         });
 
-        // Cleanup social graph and counts in background
-        propagateUserDeletion(user._id).catch(console.error);
+        const { sendEmail } = require('../utils/mailer');
 
-        // Soft-delete posts in background — include anonymous posts via authorId
-        Post.updateMany(
-            { authorId: req.params.userId },
-            { $set: { deletedAt: new Date() } }
-        ).catch(console.error);
+        if (gracePeriodDays > 0) {
+            // Scheduled Deletion Email
+            const emailHtml = `
+                <h2>Account Scheduled for Deletion</h2>
+                <p>Hello ${user.fullname},</p>
+                <p>Your account has been scheduled for deletion by an administrator. It will be permanently deleted in <strong>${gracePeriodDays} days</strong>.</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p>If you believe this is a mistake, you can log in and submit an appeal.</p>
+            `;
+            sendEmail({
+                to: user.email,
+                subject: 'Action Required: Your Account is Scheduled for Deletion',
+                html: emailHtml,
+                text: emailHtml.replace(/<[^>]*>?/gm, '')
+            }).catch(console.error);
+            
+            // Revoke active sessions to enforce Option A (Restricted) - locking out from normal app usage
+            await LoginSession.updateMany(
+                { userId: user._id },
+                { $set: { isRevoked: true } }
+            );
 
-        // Clean up corresponding post vectors from recommendation collection
-        Post.find({ authorId: req.params.userId }).select('_id').lean().then(posts => {
-            const postIds = posts.map(p => p._id);
-            if (postIds.length > 0) {
-                PostVector.deleteMany({ postId: { $in: postIds } }).catch(err => {
-                    console.error('[Admin User Delete] Failed to delete PostVectors:', err.message);
-                });
-            }
-        }).catch(console.error);
+            res.json({ message: `User scheduled for deletion in ${gracePeriodDays} days` });
+        } else {
+            // Immediate Deletion Email
+            const emailHtml = `
+                <h2>Account Deleted</h2>
+                <p>Hello ${user.fullname},</p>
+                <p>Your account has been permanently deleted by an administrator.</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+            `;
+            sendEmail({
+                to: user.email,
+                subject: 'Notice: Your Account has been Deleted',
+                html: emailHtml,
+                text: emailHtml.replace(/<[^>]*>?/gm, '')
+            }).catch(console.error);
 
-        Report.deleteMany({ reporter: req.params.userId }).catch(console.error);
+            // Cleanup social graph and counts in background
+            propagateUserDeletion(user._id).catch(console.error);
 
-        invalidateCache();
-        res.json({ message: 'User deleted' });
+            // Soft-delete posts in background — include anonymous posts via authorId
+            Post.updateMany(
+                { authorId: req.params.userId },
+                { $set: { deletedAt: new Date() } }
+            ).catch(console.error);
+
+            // Clean up corresponding post vectors from recommendation collection
+            Post.find({ authorId: req.params.userId }).select('_id').lean().then(posts => {
+                const postIds = posts.map(p => p._id);
+                if (postIds.length > 0) {
+                    PostVector.deleteMany({ postId: { $in: postIds } }).catch(err => {
+                        console.error('[Admin User Delete] Failed to delete PostVectors:', err.message);
+                    });
+                }
+            }).catch(console.error);
+
+            Report.deleteMany({ reporter: req.params.userId }).catch(console.error);
+            invalidateCache();
+            res.json({ message: 'User deleted immediately' });
+        }
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 

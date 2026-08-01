@@ -26,6 +26,7 @@ const commentSchema = new mongoose.Schema(
 
         // ─── MODERATION FIELDS ────────────────────────────────────────────────────
         isVisible: { type: Boolean, default: true, index: true },
+        isHidden: { type: Boolean, default: false, index: true },
         isFlagged: { type: Boolean, default: false, index: true },
         moderationScore: { type: Number, default: 0 },
         moderationReason: { type: String, default: null },

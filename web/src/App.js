@@ -1,6 +1,8 @@
 import './App.css';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState, useRef } from 'react';
+import { useGsapEffect } from './hooks/useGsapEffect';
+import { pageEntranceAnimation } from './utils/animations';
 import queryClient from './queryClient';
 import { HelmetProvider } from 'react-helmet-async';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
@@ -43,7 +45,8 @@ import { Dialog } from 'primereact/dialog';
 import SplashScreen from './pages/components/ui/SplashScreen';
 import { showNotification } from './utils/pushNotifications';
 import ActiveSessions from './pages/components/ActiveSessions';
-import NotificationSettings from './pages/components/NotificationSettings';
+import Settings from './pages/components/Settings';
+import { usePrivacySettings } from './hooks/queries/usePrivacyQueries';
 import MaintenancePage from './pages/components/MaintenancePage';
 import PleaseVerifyEmail from './pages/PleaseVerifyEmail';
 import EmailVerificationBanner from './pages/components/EmailVerificationBanner';
@@ -100,6 +103,27 @@ function AppInit() {
 
     const sessionStartTime = useRef(Date.now());
     const prevUserId = useRef(user?._id);
+
+    // ── SESSION TIMER: record time spent ──
+    useEffect(() => {
+        if (!user?._id) return;
+        const tabStart = Date.now();
+        const flush = () => {
+            const secs = Math.round((Date.now() - tabStart) / 1000);
+            if (secs > 5) {
+                api.post(`${process.env.REACT_APP_NGINIX === 'true' ? '' : process.env.REACT_APP_BACKEND_URL}/api/activity/time-spent`, { durationSeconds: secs })
+                    .catch(() => {});
+            }
+        };
+        const handleVisibility = () => { if (document.hidden) flush(); };
+        document.addEventListener('visibilitychange', handleVisibility);
+        window.addEventListener('beforeunload', flush);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('beforeunload', flush);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?._id]);
 
     // ── LOGOUT: cross-tab logout sync ──
     useBroadcast('LOGOUT', async () => {
@@ -338,6 +362,12 @@ function AppInit() {
         fetchInitialState();
     }, [initialized, user?._id, setNotifications]);
 
+    const { data: privacySettings } = usePrivacySettings(user?._id);
+    const hideActivityRef = useRef(false);
+    useEffect(() => {
+        hideActivityRef.current = privacySettings?.hideActivityStatus || false;
+    }, [privacySettings]);
+
     // ─── SOCKET EVENTS ────────────────────────────────────────────────────────
     useEffect(() => {
         if (!user?._id) return;
@@ -356,8 +386,15 @@ function AppInit() {
             socket.emit('registerUser', user._id); // Re-register on reconnect
         });
 
-        socket.on('updateUserList', setOnlineUsers);
-        socket.on('userOnline', addOnlineUser);
+        socket.on('updateUserList', (users) => {
+            if (!hideActivityRef.current) setOnlineUsers(users);
+            else setOnlineUsers([]);
+        });
+        
+        socket.on('userOnline', (payload) => {
+            if (!hideActivityRef.current) addOnlineUser(payload);
+        });
+        
         socket.on('userOffline', removeOnlineUser);
 
         const handleNewNotification = (notification) => {
@@ -873,11 +910,24 @@ function SharedStoryRedirect() {
 }
 
 // ─── LAYOUTS ──────────────────────────────────────────────────────────────────
+function PageTransition({ children }) {
+    const location = useLocation();
+    const containerRef = useRef(null);
+
+    useGsapEffect(() => {
+        pageEntranceAnimation(containerRef.current);
+    }, [location.pathname]);
+
+    return <div ref={containerRef} className="w-full h-full">{children}</div>;
+}
+
 function PublicLayout({ children }) {
     return (
         <div className="flex flex-col min-h-[100dvh] w-full">
             <Navbar />
-            <main className="flex-1 flex flex-col">{children}</main>
+            <main className="flex-1 flex flex-col">
+                <PageTransition>{children}</PageTransition>
+            </main>
             <Footer />
         </div>
     );
@@ -904,7 +954,7 @@ function MainLayout({ children }) {
             <div className="flex w-full flex-1 min-h-0">
                 <Sidebar />
                 <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar relative">
-                    {children}
+                    <PageTransition>{children}</PageTransition>
                     {!isReels && <BottomNav />}
                 </main>
             </div>
@@ -1004,7 +1054,7 @@ function App() {
                                     <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
                                     <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
                                     <Route path="/sessions" element={<MainLayout><ActiveSessions /></MainLayout>} />
-                                    <Route path="/settings/notifications" element={<MainLayout><NotificationSettings /></MainLayout>} />
+                                    <Route path="/settings" element={<MainLayout><Settings /></MainLayout>} />
                                     <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
                                     <Route path="/confessions" element={<MainLayout><Communities /></MainLayout>} />
                                     <Route path="/discover" element={<MainLayout><DiscoverPage /></MainLayout>} />
@@ -1057,6 +1107,21 @@ function GlobalOverlays() {
     const activeCall = useConversationStore(s => s.activeCall);
     const setActiveCall = useConversationStore(s => s.setActiveCall);
     const { data: flags } = useSystemFlags();
+
+    useGsapEffect(() => {
+        if (postDetailId || profileDetailId || sharingPostToStory || activeCall) {
+            // PrimeReact renders Dialogs as direct children of the body by default (or appendTo).
+            // A slight delay ensures the DOM node exists.
+            setTimeout(() => {
+                const dialogs = document.querySelectorAll('.p-dialog, .gsap-modal');
+                if (dialogs.length > 0) {
+                    import('./utils/animations').then(({ modalEntranceAnimation }) => {
+                        dialogs.forEach(dialog => modalEntranceAnimation(dialog));
+                    });
+                }
+            }, 50);
+        }
+    }, [postDetailId, profileDetailId, sharingPostToStory, activeCall]);
 
     return (
         <>

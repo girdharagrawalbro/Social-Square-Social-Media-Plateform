@@ -104,10 +104,18 @@ router.post('/create', verifyToken, [
 router.get('/feed', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        const user = await User.findById(userId).select('following');
+        const user = await User.findById(userId).select('following mutedStories');
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
-        const userIds = [userId, ...user.following.map(id => id.toString())];
+        const mutedStoryIds = (user?.mutedStories || []).map(id => id.toString());
+
+        // Find users who hid their stories from this user
+        const hiddenByUsers = await User.find({ hideStoryFrom: userId }).select('_id');
+        const hiddenByUserIds = hiddenByUsers.map(u => u._id.toString());
+
+        const rawUserIds = [userId, ...user.following.map(id => id.toString())];
+        // Exclude authors who have hidden their stories or are muted by this user (except self)
+        const userIds = rawUserIds.filter(id => id === userId.toString() || (!hiddenByUserIds.includes(id) && !mutedStoryIds.includes(id)));
 
         // Find users who added this user to their closeFriends list
         const cfUsers = await User.find({ closeFriends: userId }).select('_id');

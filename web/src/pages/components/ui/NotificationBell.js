@@ -164,10 +164,9 @@ const NotificationBell = forwardRef(({ userId, useRoute = false, showLabel = tru
                 <div className="relative flex items-center justify-center w-6 shrink-0 z-10">
                     <i className="pi pi-bell text-xl"></i>
                     {totalBadge > 0 && (
-                        <Badge
-                            value={totalBadge > 99 ? '99+' : totalBadge}
-                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white p-1 py-2 !min-w-[16px] !h-[16px] !text-[9px] flex items-center justify-center border-2 dark:border-[#0d0d0d] dark:bg-red-600 border-white font-bold"
-                        />
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white !min-w-[16px] !h-[16px] text-[9px] flex items-center justify-center rounded-full font-bold shadow-sm z-20 px-1 py-1.5">
+                            {totalBadge > 99 ? '99+' : totalBadge}
+                        </span>
                     )}
                 </div>
                 {showLabel && <span className='hidden md:inline font-medium text-base whitespace-nowrap ml-3 z-10'>Notifications</span>}

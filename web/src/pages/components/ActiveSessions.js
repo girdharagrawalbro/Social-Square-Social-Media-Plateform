@@ -15,8 +15,6 @@ const deviceIcon = (device = "") => {
 const ActiveSessions = () => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
-  const [toggling2FA, setToggling2FA] = useState(false);
   const [revokingAll, setRevokingAll] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState(null);
 
@@ -34,19 +32,9 @@ const ActiveSessions = () => {
     }
   }, []);
 
-  const fetchUser = useCallback(async () => {
-    try {
-      const res = await api.get("/api/auth/get");
-      setTwoFaEnabled(!!res?.data?.twoFactorEnabled);
-    } catch (error) {
-      console.error("Fetch user error:", error);
-    }
-  }, []);
-
   useEffect(() => {
     fetchSessions();
-    fetchUser();
-  }, [fetchSessions, fetchUser]);
+  }, [fetchSessions]);
 
   const revokeSession = async (sessionId, isCurrentSession = false) => {
     if (isCurrentSession) {
@@ -67,20 +55,7 @@ const ActiveSessions = () => {
     }
   };
 
-  const toggle2FA = async () => {
-    try {
-      setToggling2FA(true);
-      const res = await api.post("/api/auth/toggle-2fa", {});
-      const enabled = !!res?.data?.twoFactorEnabled;
-      setTwoFaEnabled(enabled);
-      toast.success(`2FA ${enabled ? "enabled" : "disabled"}`);
-    } catch (error) {
-      console.error("Toggle 2FA error:", error);
-      toast.error("Failed to toggle 2FA");
-    } finally {
-      setToggling2FA(false);
-    }
-  };
+
 
   const revokeAllSessions = () => {
     confirmDialog({
@@ -129,30 +104,7 @@ const ActiveSessions = () => {
         </div>
       </div>
 
-      {/* 2FA Toggle */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-3 mx-3 flex items-center justify-between gap-4 shadow-sm">
-        <div>
-          <h3 className="text-sm font-bold m-0">
-            Two-Factor Authentication
-          </h3>
-          <p className="text-xs text-gray-500 mt-1 m-0">
-            {twoFaEnabled
-              ? "Enabled — OTP sent to your email on every login"
-              : "Add an extra layer of security to your account"}
-          </p>
-        </div>
 
-        <button
-          onClick={toggle2FA}
-          disabled={toggling2FA}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed ${twoFaEnabled
-            ? "bg-red-100 text-red-500 hover:bg-red-200"
-            : "bg-indigo-500 text-white hover:bg-indigo-600"
-            }`}
-        >
-          {toggling2FA ? "Please wait..." : twoFaEnabled ? "Disable" : "Enable"}
-        </button>
-      </div>
 
       {/* Sessions header */}
       <div className="flex items-center justify-between mb-3 mx-3 mt-6">

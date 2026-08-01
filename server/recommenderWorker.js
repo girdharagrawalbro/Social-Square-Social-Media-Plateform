@@ -138,85 +138,84 @@ async function handleUserActivity(data) {
   const currentAlpha = computeAlpha(action, duration);
   const shouldUpdateTags = action !== 'not_interested';
 
-  let interest = await UserInterest.findOne({ userId });
-
-  if (!interest) {
-    if (action === 'not_interested') return;
-
-    interest = new UserInterest({
-      userId,
-      interestVector: postVecDoc.vector,
-      likedTags: tags,
-      topCategories: category ? [category] : [],
-      // P5b: initialize behavioral stats
-      avgDwellTimeSec: duration,
-      totalInteractions: 1,
-      preferredContentType: action === 'video_watch' ? 'video' : 'mixed',
-      activeHours: [new Date().getHours()],
-      dislikedCategories: [],
-    });
-  } else {
-    // ── Update EMA interest vector ─────────────────────────────────────────
-    if (interest.interestVector.length !== postVecDoc.vector.length) {
-      console.warn(`⚠️ Vector dimension mismatch for user ${userId}: stored=${interest.interestVector.length}, new=${postVecDoc.vector.length}. Resetting.`);
-      interest.interestVector = postVecDoc.vector;
-    } else {
-      interest.interestVector = interest.interestVector.map((val, i) => {
-        const updated = (1 - Math.abs(currentAlpha)) * val + currentAlpha * (postVecDoc.vector[i] ?? 0);
-        return Number.isFinite(updated) ? updated : val;
-      });
-    }
-
-    // ── Update tags & categories ───────────────────────────────────────────
-    if (shouldUpdateTags) {
-      if (tags.length > 0) {
-        interest.likedTags = [...new Set([...interest.likedTags, ...tags])].slice(-20);
-      }
-      if (category && !interest.topCategories.includes(category)) {
-        interest.topCategories = [category, ...interest.topCategories.filter(c => c !== category)].slice(0, 5);
-      }
-    } else if (action === 'not_interested') {
-      // Remove disliked tags and track disliked category
-      if (tags.length > 0) {
-        interest.likedTags = interest.likedTags.filter(t => !tags.includes(t));
-      }
-      if (category && !(interest.dislikedCategories || []).includes(category)) {
-        interest.dislikedCategories = [...(interest.dislikedCategories || []), category].slice(-10);
-      }
-    }
-
-    // ── P5b: Update behavioral statistics ─────────────────────────────────
-    const n = (interest.totalInteractions || 0) + 1;
-    interest.totalInteractions = n;
-
-    // Rolling average dwell time
-    if (duration > 0) {
-      interest.avgDwellTimeSec = ((interest.avgDwellTimeSec || 0) * (n - 1) + duration) / n;
-    }
-
-    // P9b: Update video completion rate for user
-    if (action === 'video_watch') {
-      interest.videoWatchCount = (interest.videoWatchCount || 0) + 1;
-      const isCompletion = videoLength > 0 && duration >= videoLength * 0.8;
-      if (isCompletion) {
-        interest.videoCompletionCount = (interest.videoCompletionCount || 0) + 1;
-      }
-      if (interest.videoWatchCount > 0) {
-        interest.videoCompletionRate = interest.videoCompletionCount / interest.videoWatchCount;
-      }
-      // Detect preference for video content
-      const videoRatio = interest.videoWatchCount / Math.max(1, interest.totalInteractions);
-      interest.preferredContentType = videoRatio > 0.5 ? 'video' : videoRatio > 0.25 ? 'mixed' : interest.preferredContentType;
-    }
-
-    // P7a: Track active hour
-    updateActiveHours(interest);
-  }
-
-  // ── Exponential Backoff for VersionError (Optimistic Concurrency) ────────
   let retries = 5;
   while (retries > 0) {
     try {
+      let interest = await UserInterest.findOne({ userId });
+
+      if (!interest) {
+        if (action === 'not_interested') return;
+
+        interest = new UserInterest({
+          userId,
+          interestVector: postVecDoc.vector,
+          likedTags: tags,
+          topCategories: category ? [category] : [],
+          // P5b: initialize behavioral stats
+          avgDwellTimeSec: duration,
+          totalInteractions: 1,
+          preferredContentType: action === 'video_watch' ? 'video' : 'mixed',
+          activeHours: [new Date().getHours()],
+          dislikedCategories: [],
+        });
+      } else {
+        // ── Update EMA interest vector ─────────────────────────────────────────
+        if (interest.interestVector.length !== postVecDoc.vector.length) {
+          console.warn(`⚠️ Vector dimension mismatch for user ${userId}: stored=${interest.interestVector.length}, new=${postVecDoc.vector.length}. Resetting.`);
+          interest.interestVector = postVecDoc.vector;
+        } else {
+          interest.interestVector = interest.interestVector.map((val, i) => {
+            const updated = (1 - Math.abs(currentAlpha)) * val + currentAlpha * (postVecDoc.vector[i] ?? 0);
+            return Number.isFinite(updated) ? updated : val;
+          });
+        }
+
+        // ── Update tags & categories ───────────────────────────────────────────
+        if (shouldUpdateTags) {
+          if (tags.length > 0) {
+            interest.likedTags = [...new Set([...interest.likedTags, ...tags])].slice(-20);
+          }
+          if (category && !interest.topCategories.includes(category)) {
+            interest.topCategories = [category, ...interest.topCategories.filter(c => c !== category)].slice(0, 5);
+          }
+        } else if (action === 'not_interested') {
+          // Remove disliked tags and track disliked category
+          if (tags.length > 0) {
+            interest.likedTags = interest.likedTags.filter(t => !tags.includes(t));
+          }
+          if (category && !(interest.dislikedCategories || []).includes(category)) {
+            interest.dislikedCategories = [...(interest.dislikedCategories || []), category].slice(-10);
+          }
+        }
+
+        // ── P5b: Update behavioral statistics ─────────────────────────────────
+        const n = (interest.totalInteractions || 0) + 1;
+        interest.totalInteractions = n;
+
+        // Rolling average dwell time
+        if (duration > 0) {
+          interest.avgDwellTimeSec = ((interest.avgDwellTimeSec || 0) * (n - 1) + duration) / n;
+        }
+
+        // P9b: Update video completion rate for user
+        if (action === 'video_watch') {
+          interest.videoWatchCount = (interest.videoWatchCount || 0) + 1;
+          const isCompletion = videoLength > 0 && duration >= videoLength * 0.8;
+          if (isCompletion) {
+            interest.videoCompletionCount = (interest.videoCompletionCount || 0) + 1;
+          }
+          if (interest.videoWatchCount > 0) {
+            interest.videoCompletionRate = interest.videoCompletionCount / interest.videoWatchCount;
+          }
+          // Detect preference for video content
+          const videoRatio = interest.videoWatchCount / Math.max(1, interest.totalInteractions);
+          interest.preferredContentType = videoRatio > 0.5 ? 'video' : videoRatio > 0.25 ? 'mixed' : interest.preferredContentType;
+        }
+
+        // P7a: Track active hour
+        updateActiveHours(interest);
+      }
+
       interest.lastUpdated = new Date();
       await interest.save();
       console.log(` User ${userId} profile updated (${action})`);
@@ -224,25 +223,10 @@ async function handleUserActivity(data) {
     } catch (err) {
       if (err.name === 'VersionError' && retries > 1) {
         retries--;
-        const delay = Math.floor(Math.random() * 50) + 50; // Jittered 50-100ms
+        // Jittered backoff to avoid thundering herd (50ms - 150ms)
+        const delay = Math.floor(Math.random() * 100) + 50; 
         console.warn(`⚠️ [Recommender Worker] VersionError for user ${userId}. Retrying in ${delay}ms... (${retries} left)`);
         await new Promise(r => setTimeout(r, delay));
-
-        const freshInterest = await UserInterest.findOne({ userId });
-        if (!freshInterest) break;
-        // Re-apply all changes to the freshly fetched document
-        freshInterest.interestVector = interest.interestVector;
-        freshInterest.likedTags = interest.likedTags;
-        freshInterest.topCategories = interest.topCategories;
-        freshInterest.dislikedCategories = interest.dislikedCategories;
-        freshInterest.avgDwellTimeSec = interest.avgDwellTimeSec;
-        freshInterest.totalInteractions = interest.totalInteractions;
-        freshInterest.preferredContentType = interest.preferredContentType;
-        freshInterest.activeHours = interest.activeHours;
-        freshInterest.videoWatchCount = interest.videoWatchCount;
-        freshInterest.videoCompletionCount = interest.videoCompletionCount;
-        freshInterest.videoCompletionRate = interest.videoCompletionRate;
-        interest = freshInterest;
       } else {
         throw err;
       }

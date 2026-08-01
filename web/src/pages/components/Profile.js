@@ -45,7 +45,6 @@ const Profile = ({ userId }) => {
     const tabItemRefs = useRef({});
     const [tabPill, setTabPill] = useState({ left: 0, width: 0, opacity: 0 });
     const [tabPillReady, setTabPillReady] = useState(false);
-    const [settingsVisible, setSettingsVisible] = useState(false);
     const [showCloseFriendsList, setShowCloseFriendsList] = useState(false);
 
     const [collections, setCollections] = useState([]);
@@ -418,7 +417,7 @@ const Profile = ({ userId }) => {
                         ""
                     }
                     <button
-                        onClick={() => { setSettingsVisible(true); }}
+                        onClick={() => { navigate('/settings'); }}
                         className={`text-left px-3 py-2.5 rounded-xl border-0 bg-transparent cursor-pointer flex items-center gap-4 font-medium transition-colors'}`}
                         title="Settings"
                     >
@@ -959,67 +958,7 @@ const Profile = ({ userId }) => {
                 </div>
             </Dialog>
 
-            <Dialog
-                header="Settings"
-                visible={settingsVisible}
-                style={{ width: '90vw', maxWidth: '400px' }}
-                onHide={() => setSettingsVisible(false)}
-                className="custom-dialog"
-            >
-                <div className="flex flex-col gap-2 py-1 pb-2 px-2">
-                    <button
-                        onClick={() => {
-                            setSettingsVisible(false);
-                            navigate('/settings/notifications');
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-3)] cursor-pointer text-left transition-all active:scale-95"
-                    >
-                        <span className="text-xl">🔔</span>
-                        <div className="flex-1">
-                            <p className="m-0 text-sm font-bold">Notification Settings</p>
-                            <p className="m-0 text-[10px] text-[var(--text-sub)] opacity-70 mt-0.5">Toggle daily digest emails and preferences</p>
-                        </div>
-                        <i className="pi pi-chevron-right text-[10px] text-gray-400"></i>
-                    </button>
 
-                    <button
-                        onClick={() => {
-                            setSettingsVisible(false);
-                            navigate('/sessions');
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-3)] cursor-pointer text-left transition-all active:scale-95"
-                    >
-                        <span className="text-xl">🔑</span>
-                        <div className="flex-1">
-                            <p className="m-0 text-sm font-bold">Active Sessions & Security</p>
-                            <p className="m-0 text-[10px] text-[var(--text-sub)] opacity-70 mt-0.5">Manage logged in devices and 2FA settings</p>
-                        </div>
-                        <i className="pi pi-chevron-right text-[10px] text-gray-400"></i>
-                    </button>
-
-                    <button
-                        onClick={() => {
-                            setSettingsVisible(false);
-                            setShowCloseFriendsList(true);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--surface-2)] text-[var(--text-main)] hover:bg-[var(--surface-3)] cursor-pointer text-left transition-all active:scale-95"
-                    >
-                        <span className="text-xl pr-2"><i className='pi pi-star-fill text-xl text-green-500' /></span>
-                        <div className="flex-1">
-                            <p className="m-0 text-sm font-bold">Close Friends</p>
-                            <p className="m-0 text-[10px] text-[var(--text-sub)] opacity-70 mt-0.5">Manage your close friends list</p>
-                        </div>
-                        <i className="pi pi-chevron-right text-[10px] text-gray-400"></i>
-                    </button>
-
-                    {/* <button
-                        onClick={() => setSettingsVisible(false)}
-                        className="w-full mt-2 py-3 rounded-xl border border-dashed border-[var(--border-color)] bg-transparent text-[var(--text-sub)] hover:text-[var(--text-main)] hover:border-gray-400 cursor-pointer font-bold uppercase tracking-wider text-xs transition-all active:scale-95"
-                    >
-                        Cancel
-                    </button> */}
-                </div>
-            </Dialog>
 
             {/* Create Collection Dialog */}
             <Dialog
@@ -1072,7 +1011,7 @@ const Profile = ({ userId }) => {
                 </form>
             </Dialog>
 
-            
+
         </>
     );
 };

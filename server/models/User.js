@@ -68,14 +68,54 @@ const UserSchema = new mongoose.Schema({
   notificationSettings: {
     emailDigest: { type: Boolean, default: false },
     pushEnabled: { type: Boolean, default: true },
+    likes: { type: Boolean, default: true },
+    comments: { type: Boolean, default: true },
+    newFollowers: { type: Boolean, default: true },
+    directMessages: { type: Boolean, default: true },
+    liveVideos: { type: Boolean, default: true },
     postNotifications: { type: Boolean, default: true },
     userNotifications: { type: Boolean, default: true },
     chatNotifications: { type: Boolean, default: true },
   },
+  privacySettings: {
+    hideActivityStatus: { type: Boolean, default: false },
+    activityStatusMode: { type: String, enum: ['visible', 'stealth', 'hidden_both'], default: 'visible' },
+    hideLikesOnOthersPosts: { type: Boolean, default: false },
+    hideLikesOnMyPosts: { type: Boolean, default: false },
+    hideCommentCountOnMyPosts: { type: Boolean, default: false },
+    hideShareCountOnMyPosts: { type: Boolean, default: false },
+    disableCommentsGlobally: { type: Boolean, default: false },
+    allowedCommenters: { type: String, enum: ['everyone', 'people_you_follow', 'followers', 'following_and_followers', 'no_one'], default: 'everyone' },
+    allowedMentions: { type: String, enum: ['everyone', 'people_you_follow', 'no_one'], default: 'everyone' },
+    allowedTags: { type: String, enum: ['everyone', 'people_you_follow', 'no_one'], default: 'everyone' },
+    manuallyApproveTags: { type: Boolean, default: false },
+    allowStoryMessageReplies: { type: String, enum: ['everyone', 'people_you_follow', 'off'], default: 'everyone' },
+    hideProfanity: { type: Boolean, default: true }
+  },
+  hiddenWords: [{ type: String }],
+  hideStoryFrom: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  mutedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  mutedStories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  notInterestedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+  interestedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+
+  // Time Spent Analytics
+  usageStats: [{
+    date: { type: String }, // YYYY-MM-DD
+    durationSeconds: { type: Number, default: 0 }
+  }],
 
   // Presence
   isOnline: { type: Boolean, default: false },
   lastSeen: { type: Date, default: Date.now },
+
+  // Account History
+  accountHistory: [{
+    action: { type: String }, // e.g., 'LOGIN', 'PASSWORD_CHANGED', '2FA_TOGGLED', 'PROFILE_UPDATED'
+    details: { type: String },
+    ipAddress: { type: String },
+    createdAt: { type: Date, default: Date.now }
+  }],
 
   // Gamification
   streak: {
@@ -94,6 +134,13 @@ const UserSchema = new mongoose.Schema({
     iv: { type: String, default: null },
     salt: { type: String, default: null }
   },
+
+  // Admin Deletion & Appeals
+  deletionScheduledAt: { type: Date, default: null },
+  deletionReason: { type: String, default: null },
+  deletionAppealStatus: { type: String, enum: ['none', 'appealed', 'rejected'], default: 'none' },
+  deletionAppealText: { type: String, default: null },
+
   deletedAt: { type: Date, default: null },
   created_at: { type: Date, default: Date.now },
 });

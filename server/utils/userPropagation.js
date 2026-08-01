@@ -2,6 +2,8 @@ const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const Story = require('../models/Story');
 const Notification = require('../models/Notification');
+const LoginSession = require('../models/LoginSession');
+const { UserInterest } = require('../models/Recommendation');
 const logger = require('./logger');
 
 /**
@@ -109,6 +111,39 @@ async function propagateUserDeletion(userId) {
             { 'followRequests.userId': userId },
             { $pull: { followRequests: { userId: userId } } }
         );
+
+        // 5. Revoke active sessions (logs user out everywhere)
+        await LoginSession.updateMany(
+            { userId: userId },
+            { $set: { isRevoked: true } }
+        );
+
+        // 6. Scrub Post Likes & Reactions
+        await Post.updateMany(
+            { likes: userId },
+            { $pull: { likes: userId } }
+        );
+        await Post.updateMany(
+            { 'reactions.userId': userId },
+            { $pull: { reactions: { userId: userId } } }
+        );
+
+        // 7. Scrub Comment Likes
+        await Comment.updateMany(
+            { likes: userId },
+            { $pull: { likes: userId } }
+        );
+
+        // 8. Scrub Story Views & Likes
+        await Story.updateMany(
+            { $or: [{ viewers: userId }, { likes: userId }] },
+            { $pull: { viewers: userId, likes: userId } }
+        );
+
+        // 9. Scrub Recommendation Analytics Profile
+        if (UserInterest) {
+            await UserInterest.deleteOne({ userId: userId }).catch(() => {});
+        }
 
         logger.info(`[Deletion] Cleanup propagation completed for user ${userId}`);
     } catch (err) {

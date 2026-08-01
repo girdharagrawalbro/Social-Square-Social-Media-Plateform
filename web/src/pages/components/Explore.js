@@ -18,6 +18,7 @@ import { useMuteUser, useBlockUser } from '../../hooks/queries/useAuthQueries';
 import usePostStore from '../../store/zustand/usePostStore';
 import SkeletonExplore from './ui/SkeletonExplore';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
+import Search from './Search';
 
 const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
   const videoRef = useRef(null);
@@ -46,7 +47,7 @@ const VideoCard = React.memo(({ vid, onClick, isPlaying, onVisible }) => {
     <div
       ref={ref}
       onMouseEnter={() => onVisible(vid._id)}
-      className="relative rounded-2xl overflow-hidden bg-[#121212] cursor-pointer group transition-transform active:scale-95 shadow-lg"
+      className="relative overflow-hidden bg-[#121212] cursor-pointer group transition-transform active:scale-95"
       style={{ aspectRatio: '9/16' }}
       onClick={onClick}
     >
@@ -292,16 +293,16 @@ const Explore = () => {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="sticky top-0 z-20 px-4 py-2 bg-[var(--surface-1)]/80 backdrop-blur-lg mb-2">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <h2 className="m-0 text-2xl font-black text-[var(--text-main)]">
-            Explore
-          </h2>
+    <div className="w-full max-w-6xl mx-auto">
+      <div className="sticky top-0 z-20 px-4 py-2 ">
+        <div className="flex items-center gap-3 max-w-6xl mx-auto">
+          <div className="flex-1">
+            <Search desc={false} />
+          </div>
           <button
             onClick={() => refetch()}
             disabled={isLoading || isRefetching}
-            className="w-10 h-10 bg-[var(--surface-2)] rounded-full text-[var(--text-sub)] border-0 cursor-pointer hover:bg-[var(--surface-3)] transition-all flex items-center justify-center disabled:opacity-50"
+            className="w-10 h-10 flex-shrink-0 bg-[var(--surface-2)] rounded-full text-[var(--text-sub)] border-0 cursor-pointer hover:bg-[var(--surface-3)] transition-all flex items-center justify-center disabled:opacity-50"
           >
             <i className={`pi pi-refresh ${isRefetching ? 'pi-spin' : ''}`}></i>
           </button>
@@ -310,9 +311,9 @@ const Explore = () => {
 
       <div className="px-2 sm:px-4 pb-12 text-center">
         {isLoading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="skeleton rounded-2xl w-full" style={{ aspectRatio: '9/16', minHeight: '200px' }} />
+            <div className="grid grid-cols-5 max-w-6xl mx-auto gap-1 sm:gap-1">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="skeleton w-full" style={{ aspectRatio: '9/16', minHeight: '120px' }} />
             ))}
           </div>
         ) : videos.length === 0 ? (
@@ -322,7 +323,7 @@ const Explore = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto gap-2 sm:gap-4">
+            <div className="grid grid-cols-5 max-w-6xl mx-auto gap-1 sm:gap-1">
               {videos.map((vid, idx) => (
                 <VideoCard
                   key={vid._id}
@@ -622,6 +623,7 @@ const Explore = () => {
             >
               <Comment
                 postId={activePost._id}
+                post={activePost}
                 setVisible={setCommentVisible}
                 onProfileClick={(userId) => {
                   setCommentVisible(false);

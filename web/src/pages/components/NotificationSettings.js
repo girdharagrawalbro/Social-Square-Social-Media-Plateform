@@ -42,11 +42,11 @@ const NotificationSettings = () => {
     }
 
     return (
-        <div className="px-4 py-3 max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
+        <div className="max-w-xl animate-in fade-in mx-auto  slide-in-from-bottom-3 duration-500">
             <h2 className="text-xl font-black mb-1 text-[var(--text-main)]">Notification Preferences</h2>
             <p className="text-xs text-[var(--text-sub)] opacity-70 mb-6 tracking-wider font-bold">Customize how you interact with Social Square</p>
 
-            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm space-y-6">
+            <div className="px-1 space-y-6">
 
                 {/* 🔔 Global Push */}
                 <div className="flex items-start justify-between gap-4">
@@ -222,7 +222,7 @@ const NotificationSettings = () => {
                 </div>
 
             </div>
-            
+
         </div>
     );
 };

@@ -105,16 +105,23 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
 
       if (recipient?.fcmToken) {
         const pushEnabled = recipient?.notificationSettings?.pushEnabled !== false;
+        const nSettings = recipient?.notificationSettings || {};
         let shouldSendPush = false;
 
-        if (isLoginAlert || isChat) {
-          shouldSendPush = true; // Always send login alerts and chat notifications
-        } else if (pushEnabled) {
-          if (isPostRelated && postEnabled) {
+        if (pushEnabled) {
+          if (isLoginAlert) {
             shouldSendPush = true;
-          } else if (isUserRelated && userEnabled) {
+          } else if (type === 'like' && nSettings.likes !== false && postEnabled) {
             shouldSendPush = true;
-          } else if (!isPostRelated && !isUserRelated) {
+          } else if (type === 'comment' && nSettings.comments !== false && postEnabled) {
+            shouldSendPush = true;
+          } else if ((type === 'follow' || type === 'follow_request') && nSettings.newFollowers !== false && userEnabled) {
+            shouldSendPush = true;
+          } else if (isChat && nSettings.directMessages !== false) {
+            shouldSendPush = true;
+          } else if (type === 'live_video' && nSettings.liveVideos !== false) {
+            shouldSendPush = true;
+          } else if (!['like', 'comment', 'follow', 'follow_request', 'message', 'live_video'].includes(type)) {
             shouldSendPush = true;
           }
         }
