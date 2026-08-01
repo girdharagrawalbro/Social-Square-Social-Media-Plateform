@@ -1945,7 +1945,6 @@ const ChatPanel = ({
     };
 
     const handleEdit = async (messageId, content) => {
-        const oldMessage = messages.find(m => String(m._id) === String(messageId));
         
         setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content, edited: true } : m));
         try {

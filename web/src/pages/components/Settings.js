@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { usePrivacySettings } from '../../hooks/queries/usePrivacyQueries';
 import toast from '../../utils/toast.js';
