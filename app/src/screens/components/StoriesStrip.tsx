@@ -24,6 +24,7 @@ import { getCache, setCache, TTL } from '../../lib/cache';
 import { appChannel } from '../../lib/broadcast';
 import { useBroadcast } from '../../lib/useBroadcast';
 import useAuthStore from '../../store/zustand/useAuthStore';
+import { usePostHog } from 'posthog-react-native';
 import { useLiveStore } from '../../store/zustand/useLiveStore';
 import { useNavigation } from '@react-navigation/native';
 import ShareModal from './ShareModal';
@@ -143,6 +144,23 @@ export default function StoriesStrip() {
   const [textColor, setTextColor] = useState('#ffffff');
   const [textPosition, setTextPosition] = useState<'top' | 'center' | 'bottom'>('center');
   const [visibility, setVisibility] = useState<'public' | 'followers' | 'close_friends'>('public');
+
+  const posthog = usePostHog();
+  useEffect(() => {
+    if (createVisible) {
+      try {
+        posthog?.startSessionRecording();
+      } catch (e) {
+        console.error("Failed to start session recording:", e);
+      }
+    } else {
+      try {
+        posthog?.stopSessionRecording();
+      } catch (e) {
+        console.error("Failed to stop session recording:", e);
+      }
+    }
+  }, [createVisible, posthog]);
 
   // Poll Composer States
   const [hasPoll, setHasPoll] = useState(false);

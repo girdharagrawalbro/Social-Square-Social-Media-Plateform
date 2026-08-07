@@ -160,7 +160,7 @@ export default function WikiPage() {
     return (
         <>
             <Helmet>
-                <title>{wiki.topic} — Community Wiki · Social Square</title>
+                <title>{`${wiki?.topic || 'Wiki'} — Community Wiki · Social Square`}</title>
                 <meta name="description" content={wiki.description || `Community-curated knowledge wiki about ${wiki.topic} on Social Square.`} />
             </Helmet>
 

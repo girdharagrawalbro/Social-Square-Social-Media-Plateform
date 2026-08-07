@@ -295,7 +295,7 @@ const GoalWall = ({ userId, isOwner }) => {
                                                             />
                                                         ) : (
                                                             <span className={`text-xs ${m.isCompleted ? 'text-green-500' : 'text-gray-400'}`}>
-                                                                {m.isCompleted ? '✅' : '⚪'}
+                                                                {m.isCompleted ? '' : '⚪'}
                                                             </span>
                                                         )}
                                                         <span className={`text-xs font-medium truncate ${m.isCompleted ? 'line-through text-[var(--text-sub)] opacity-50' : 'text-[var(--text-main)]'}`}>

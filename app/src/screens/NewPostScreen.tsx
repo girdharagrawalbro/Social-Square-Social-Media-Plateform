@@ -27,6 +27,7 @@ import { api } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import { appChannel } from '../lib/broadcast';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { usePostHog } from 'posthog-react-native';
 
 interface ModalBodyProps {
   activeModal: string | null;
@@ -595,6 +596,22 @@ const ModalBody = ({
 };
 
 export default function NewPostScreen() {
+  const posthog = usePostHog();
+  useEffect(() => {
+    try {
+      posthog?.startSessionRecording();
+    } catch (e) {
+      console.error("Failed to start session recording:", e);
+    }
+    return () => {
+      try {
+        posthog?.stopSessionRecording();
+      } catch (e) {
+        console.error("Failed to stop session recording:", e);
+      }
+    };
+  }, [posthog]);
+
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
   const user = useAuthStore((s: any) => s.user);

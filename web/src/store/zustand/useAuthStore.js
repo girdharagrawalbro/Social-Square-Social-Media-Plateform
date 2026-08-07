@@ -5,6 +5,30 @@ import toast from '../../utils/toast.js';
 import performLogout from '../../utils/performLogout';
 import { appChannel } from "../../utils/broadcast";
 import dbService from '../../utils/indexedDb';
+import posthog from 'posthog-js';
+
+const identifyUser = (user) => {
+    if (user && process.env.REACT_APP_POSTHOG_KEY) {
+        try {
+            posthog.identify(user.id || user._id, {
+                email: user.email,
+                name: user.fullname
+            });
+        } catch (e) {
+            console.error('PostHog identify error:', e);
+        }
+    }
+};
+
+const resetPostHog = () => {
+    if (process.env.REACT_APP_POSTHOG_KEY) {
+        try {
+            posthog.reset();
+        } catch (e) {
+            console.error('PostHog reset error:', e);
+        }
+    }
+};
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 const handleRateLimit = err => {
@@ -36,7 +60,10 @@ const useAuthStore = create(
             error: null,
             isMaintenance: false,
 
-            setUser: (user) => set({ user }),
+            setUser: (user) => {
+                identifyUser(user);
+                set({ user });
+            },
             fetchAndSetRelationships: async () => {
                 if (!getToken() || !get().user) return;
                 try {
@@ -100,7 +127,8 @@ const useAuthStore = create(
                             try {
                                 const cachedUser = await dbService.getCache('own_profile');
                                 if (cachedUser) {
-                                    set({ user: cachedUser, loading: false, error: null, initialized: true });
+                                    get().setUser(cachedUser);
+                                    set({ loading: false, error: null, initialized: true });
                                     return;
                                 }
                             } catch (cacheErr) {
@@ -108,7 +136,8 @@ const useAuthStore = create(
                             }
                         }
                         clearToken();
-                        set({ user: null, loading: false, initialized: true });
+                        get().setUser(null);
+                        set({ loading: false, initialized: true });
                     } finally {
                         initAuthPromise = null;
                     }
@@ -123,7 +152,8 @@ const useAuthStore = create(
                     if (res.data.requiresOtp) { set({ loading: false }); return { requiresOtp: true, userId: res.data.userId }; }
                     const { token, user, sessionId } = res.data;
                     get().updateAuthToken(token, sessionId);
-                    set({ user, loading: false, initialized: true });
+                    get().setUser(user);
+                    set({ loading: false, initialized: true });
                     get().fetchAndSetRelationships();
                     return { success: true, user };
                 } catch (err) {
@@ -139,7 +169,8 @@ const useAuthStore = create(
                     const res = await api.post(`/api/auth/google`, { credential, fingerprint });
                     const { token, user, sessionId } = res.data;
                     get().updateAuthToken(token, sessionId);
-                    set({ user, loading: false, initialized: true });
+                    get().setUser(user);
+                    set({ loading: false, initialized: true });
                     get().fetchAndSetRelationships();
                     return { success: true, user };
                 } catch (err) {
@@ -155,7 +186,8 @@ const useAuthStore = create(
                     const res = await api.post(`/api/auth/add`, { fullname, email, password, fingerprint });
                     const { token, user, sessionId } = res.data;
                     get().updateAuthToken(token, sessionId);
-                    set({ user, loading: false, initialized: true });
+                    get().setUser(user);
+                    set({ loading: false, initialized: true });
                     get().fetchAndSetRelationships();
                     return { success: true, user };
                 } catch (err) {
@@ -166,6 +198,7 @@ const useAuthStore = create(
             },
 
             logout: async () => {
+                resetPostHog();
                 try {
                     await api.post("/api/auth/logout");
                 } catch { }
@@ -188,7 +221,8 @@ const useAuthStore = create(
                 try {
                     const res = await api.put('/api/auth/update-profile', data);
                     const userData = res.data.user || res.data;
-                    set({ user: userData, loading: false });
+                    get().setUser(userData);
+                    set({ loading: false });
                     const { getQueryClient } = await import('../../queryClient');
                     getQueryClient()?.invalidateQueries({ queryKey: ['user', 'me'] });
                     return { success: true, user: userData, privacyWarning: res.data.privacyWarning };
@@ -263,6 +297,35 @@ api.interceptors.response.use(res => {
     if (typeof res.data === 'string' && res.data) {
         try { res.data = JSON.parse(res.data); } catch (e) { }
     }
+
+    // PostHog Event Tracking for successful API requests
+    try {
+        if (process.env.REACT_APP_POSTHOG_KEY && res.config?.url) {
+            const url = res.config.url;
+            if (url.includes('/api/post/create')) {
+                posthog.capture('post_created', { is_collaborative: res.data?.isCollaborative });
+            } else if (url.includes('/api/story/create')) {
+                let visibility = undefined;
+                try {
+                    if (typeof res.config.data === 'string') {
+                        visibility = JSON.parse(res.config.data).visibility;
+                    } else if (res.config.data) {
+                        visibility = res.config.data.visibility;
+                    }
+                } catch (e) {}
+                posthog.capture('story_created', { visibility });
+            } else if (url.includes('/api/conversation/messages') || url.includes('/api/conversation/send')) {
+                posthog.capture('message_sent');
+            } else if (url.includes('/api/goal/create')) {
+                posthog.capture('goal_created');
+            } else if (url.includes('/api/live/start')) {
+                posthog.capture('live_stream_started');
+            }
+        }
+    } catch (e) {
+        console.error('PostHog interceptor tracking error:', e);
+    }
+
     return res;
 }, handleRateLimit);
 api.interceptors.response.use(

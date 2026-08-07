@@ -9,6 +9,7 @@ import ImageCropper from './ui/ImageCropper';
 import { encryptFile, generateSymmetricKey, exportSymmetricKey } from "../../utils/cryptoUtils";
 import useToastStore from '../../store/zustand/useToastStore';
 import { appChannel } from "../../utils/broadcast";
+import posthog from 'posthog-js';
 
 import { uploadMedia, uploadVideo, generateVideoThumbnail, validateImageFile, validateImageType, validateVideoFile, validateVideoType } from '../../utils/cloudinary';
 import { useSystemFlags } from "../../hooks/queries/useMiscQueries";
@@ -41,6 +42,25 @@ const EmojiSelector = ({ onSelect }) => (
 );
 
 const NewPost = ({ visible, onHide }) => {
+    useEffect(() => {
+        if (visible && process.env.REACT_APP_POSTHOG_KEY) {
+            try {
+                posthog.startSessionRecording();
+            } catch (e) {
+                console.error("Failed to start session recording:", e);
+            }
+        }
+        return () => {
+            if (visible && process.env.REACT_APP_POSTHOG_KEY) {
+                try {
+                    posthog.stopSessionRecording();
+                } catch (e) {
+                    console.error("Failed to stop session recording:", e);
+                }
+            }
+        };
+    }, [visible]);
+
     const loggeduser = useAuthStore(s => s.user);
     const addSocketPost = usePostStore(s => s.addSocketPost);
     const { data: flags } = useSystemFlags();

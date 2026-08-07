@@ -186,7 +186,7 @@ const PostDetail = ({ post: initialPost, postId, onHide }) => {
     return (
         <>
             <Helmet>
-                <title>{post.user?.fullname} on Social Square: "{post.caption?.slice(0, 60)}"</title>
+                <title>{`${post?.user?.fullname || 'Post'} on Social Square: "${post?.caption?.slice(0, 60) || ''}"`}</title>
                 <meta name="description" content={post.caption} />
                 <meta property="og:title" content={`${post.user?.fullname} on Social Square`} />
                 <meta property="og:description" content={post.caption} />
