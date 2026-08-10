@@ -2274,30 +2274,30 @@
   resolved "https://registry.npmjs.org/@popperjs/core/-/core-2.11.8.tgz"
   integrity sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==
 
-"@posthog/browser-common@^0.2.0":
-  version "0.2.0"
-  resolved "https://registry.npmjs.org/@posthog/browser-common/-/browser-common-0.2.0.tgz"
-  integrity sha512-w+/0/Be/x48uNM7d/M37ZimSGwhuh8WBSvx61xzKzFnuoV5HqmH7GNDhaM3E3exXoBZmWNPS8hM/Ufy8zoOQSg==
+"@posthog/browser-common@^0.4.0":
+  version "0.4.0"
+  resolved "https://registry.npmjs.org/@posthog/browser-common/-/browser-common-0.4.0.tgz"
+  integrity sha512-W9DCGVks15docUMPvJ2nd8NS16Gn74bsGWuaeg31beEKFSjdW8wvnQ1ETY6WSql5pYxZb3GdJmEUZVVstKSrBQ==
   dependencies:
-    "@posthog/core" "^1.44.0"
-    "@posthog/types" "^1.397.1"
+    "@posthog/core" "^1.46.8"
+    "@posthog/types" "^1.402.0"
 
-"@posthog/core@^1.44.0":
-  version "1.44.0"
-  resolved "https://registry.npmjs.org/@posthog/core/-/core-1.44.0.tgz"
-  integrity sha512-uE+mdKvetxNQC6gWQf4MHIH8bGt+JN6z7ho0A4G3t9G1VGQTx9wHYHNwkKf3gzi+1oAXS9ej2VVY4pjWUU2PWg==
+"@posthog/core@^1.46.8", "@posthog/core@^1.47.0":
+  version "1.47.0"
+  resolved "https://registry.npmjs.org/@posthog/core/-/core-1.47.0.tgz"
+  integrity sha512-LW62V+9yx7G7mLd+EYpwW0PiaPZI8XRJ1tLuhw+9fXHpugLp8XQD5JuCQ2kIXvoUfyx1DpKfGQY3dUnzMOIn7Q==
   dependencies:
-    "@posthog/types" "^1.397.0"
+    "@posthog/types" "^1.402.2"
 
 "@posthog/react@^1.10.3":
   version "1.10.3"
   resolved "https://registry.npmjs.org/@posthog/react/-/react-1.10.3.tgz"
   integrity sha512-Qu//fGQmVlX0B9kTA3LLg67e7AYLEmeuA0Bf1qSyUM0uUILcRQGjQezhNQPLYSTakOqvXEnl6fM2iQBF6Toxrw==
 
-"@posthog/types@^1.397.0", "@posthog/types@^1.397.1":
-  version "1.397.1"
-  resolved "https://registry.npmjs.org/@posthog/types/-/types-1.397.1.tgz"
-  integrity sha512-W/LpWbKVaaUnfZKuFuHa+Dg03D+fC87cM+PQbG+59JcSPW8F0JcBtSoXmpfrqbpuxUToMo+gktutrUkAb/KQBw==
+"@posthog/types@^1.402.0", "@posthog/types@^1.402.2":
+  version "1.402.2"
+  resolved "https://registry.npmjs.org/@posthog/types/-/types-1.402.2.tgz"
+  integrity sha512-ZZTiS4dLwF4/D0YTzS3gGSLFnhuNOY5yu4d9VGS9trGe5GW6FjIXo20p18K5BPW2RZSYSld8sdnSAY3AUXleUQ==
 
 "@protobufjs/aspromise@^1.1.1", "@protobufjs/aspromise@^1.1.2":
   version "1.1.2"
@@ -4734,7 +4734,7 @@ domhandler@^4.0.0, domhandler@^4.2.0, domhandler@^4.3.1:
   dependencies:
     domelementtype "^2.2.0"
 
-dompurify@^3.3.2:
+dompurify@^3.4.12:
   version "3.4.12"
   resolved "https://registry.npmjs.org/dompurify/-/dompurify-3.4.12.tgz"
   integrity sha512-zQvGet8Z2sWbQhCmfFz/T5QWH2oBmjnqK3qvOjaqaNLrLEF912WamU+ohnTp0TCep/MFVHpdJuCZEdFOdTnEFg==
@@ -8638,20 +8638,21 @@ postcss@8.4.38:
     picocolors "^1.0.0"
     source-map-js "^1.2.0"
 
-posthog-js@^1.406.2, posthog-js@>=1.257.2:
-  version "1.406.2"
-  resolved "https://registry.npmjs.org/posthog-js/-/posthog-js-1.406.2.tgz"
-  integrity sha512-HNJO6Llro79s3x/ScxGY7i+Tf/o+ctJkOc79vrnS6R1I3TzucfzfwgAip1JVnQHnkBPV4JE8hI6nUXMJdU113Q==
+posthog-js@^1.415.1, posthog-js@>=1.257.2:
+  version "1.415.1"
+  resolved "https://registry.npmjs.org/posthog-js/-/posthog-js-1.415.1.tgz"
+  integrity sha512-42kmHsgzxAZ3fM6W/NcbBun6r39Zoc5v0l0RJRZ6O+2BdVGNCQXiZTe/mDG9+7Bf0yz/dKY5BDZXB85Vq0JGFw==
   dependencies:
-    "@posthog/browser-common" "^0.2.0"
-    "@posthog/core" "^1.44.0"
-    "@posthog/types" "^1.397.1"
+    "@posthog/browser-common" "^0.4.0"
+    "@posthog/core" "^1.47.0"
+    "@posthog/types" "^1.402.2"
     core-js "^3.49.0"
-    dompurify "^3.3.2"
+    dompurify "^3.4.12"
     fflate "^0.4.8"
     preact "^10.29.3"
     query-selector-shadow-dom "^1.0.1"
     web-vitals "^5.3.0"
+    web-vitals-soft-navs "npm:web-vitals@6.0.0"
 
 preact@^10.29.3, preact@>=10:
   version "10.29.7"
@@ -10641,6 +10642,11 @@ wbuf@^1.1.0, wbuf@^1.7.3:
   integrity sha512-O84QOnr0icsbFGLS0O3bI5FswxzRr8/gHwWkDlQFskhSPryQXvrTMxjxGP4+iWYoauLoBvfDpkrOauZ+0iZpDA==
   dependencies:
     minimalistic-assert "^1.0.0"
+
+"web-vitals-soft-navs@npm:web-vitals@6.0.0":
+  version "6.0.0"
+  resolved "https://registry.npmjs.org/web-vitals/-/web-vitals-6.0.0.tgz"
+  integrity sha512-Guaibvy/+uNtL6Bsu4jmMJGzuSl91oeRH5iO9pPRbYftnFUr3yqT1TUNX/OE4o9HexuEMU3Kb/Wg7iKhlffZUA==
 
 web-vitals@^4.2.4:
   version "4.2.4"

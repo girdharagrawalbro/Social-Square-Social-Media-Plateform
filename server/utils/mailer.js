@@ -72,6 +72,9 @@ async function sendEmailBase({ to, from, subject, html, text }) {
 }
 
 async function sendEmail(args) {
+    if (process.env.DISABLE_EMAILS === 'true') {
+        return { success: true, mocked: true };
+    }
     try {
         const result = await sendEmailBase(args);
         await MailLog.create({
@@ -93,14 +96,28 @@ async function sendEmail(args) {
             status: 'failed',
             error: err.message
         }).catch(e => console.error('[Mailer MailLog Error]:', e.message));
+        if (err.response?.data) {
+            console.error('[Mailer] API Error Response:', err.response.data);
+            if (err.response.status === 422 || err.response.data.statusCode === 422) {
+                console.warn('[Mailer] Suppressing 422 Validation Error (e.g. unverified test email) to prevent endless queue retries.');
+                return null;
+            }
+        }
         throw err;
     }
 }
 
 // ─── TEMPLATE PARSER ──────────────────────────────────────────────────────────
 
+const templateCache = new Map();
+
 async function getParsedTemplate(key, variables) {
-    const template = await EmailTemplate.findOne({ key }).lean();
+    let template = templateCache.get(key);
+    if (!template) {
+        template = await EmailTemplate.findOne({ key }).lean();
+        if (template) templateCache.set(key, template);
+    }
+
     if (!template) {
         throw new Error(`EmailTemplate with key '${key}' not found in database. Please seed templates.`);
     }

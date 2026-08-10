@@ -151,6 +151,8 @@ if (isDisabled) {
         maxRetriesPerRequest: null,
         enableReadyCheck: true,
         keepAlive: 10000,
+        pingInterval: 10000,
+        family: 0,
         retryStrategy: (times) => {
             const delay = Math.min(times * 100, 3000);
             return delay;

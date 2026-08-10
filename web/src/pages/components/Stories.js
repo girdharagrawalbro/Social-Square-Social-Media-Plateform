@@ -1820,11 +1820,6 @@ export const CreateStoryModal = ({ onClose, onCreated, loggeduser, sharedPost = 
                                 color: textColorToUpload,
                                 position: textPositionToUpload,
                                 x: textPos.x,
-                            text: textToUpload ? {
-                                content: textToUpload,
-                                color: textColorToUpload,
-                                position: textPositionToUpload,
-                                x: textPos.x,
                                 y: textPos.y,
                                 isBaked: item.type === 'image'
                             } : null,

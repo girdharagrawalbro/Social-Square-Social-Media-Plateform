@@ -9,7 +9,18 @@ const Post = require('../models/Post');
 const LoginSession = require('../models/LoginSession');
 const { decryptPassword, isEncrypted } = require('../utils/crypto');
 const { hashValue, generateFamily, parseDevice, getLocation, getIp } = require('../utils/authSecurity');
-const { sendNewDeviceAlert, sendResetEmail, sendOtpEmail, sendLockoutEmail, sendVerificationEmail, sendSessionRevokedEmail, sendEmail, sendWelcomeEmail, sendPasswordChangedEmail, sendSessionsTerminatedEmail } = require('../utils/mailer');
+const { emailQueue } = require('../queues/emailQueue');
+const directMailer = require('../utils/mailer');
+const sendWelcomeEmail = (email, fullname) => emailQueue ? emailQueue.add('sendWelcomeEmail', { email, fullname }) : directMailer.sendWelcomeEmail(email, fullname);
+const sendVerificationEmail = (email, verificationUrl) => emailQueue ? emailQueue.add('sendVerificationEmail', { email, verificationUrl }) : directMailer.sendVerificationEmail(email, verificationUrl);
+const sendOtpEmail = (email, otp) => emailQueue ? emailQueue.add('sendOtpEmail', { email, otp }) : directMailer.sendOtpEmail(email, otp);
+const sendNewDeviceAlert = (email, alertData) => emailQueue ? emailQueue.add('sendNewDeviceAlert', { email, alertData }) : directMailer.sendNewDeviceAlert(email, alertData);
+const sendSessionRevokedEmail = (email, alertData) => emailQueue ? emailQueue.add('sendSessionRevokedEmail', { email, alertData }) : directMailer.sendSessionRevokedEmail(email, alertData);
+const sendLockoutEmail = (email, fullname, unlockTime) => emailQueue ? emailQueue.add('sendLockoutEmail', { email, fullname, unlockTime }) : directMailer.sendLockoutEmail(email, fullname, unlockTime);
+const sendPasswordChangedEmail = (email, fullname) => emailQueue ? emailQueue.add('sendPasswordChangedEmail', { email, fullname }) : directMailer.sendPasswordChangedEmail(email, fullname);
+const sendSessionsTerminatedEmail = (email) => emailQueue ? emailQueue.add('sendSessionsTerminatedEmail', { email }) : directMailer.sendSessionsTerminatedEmail(email);
+const sendEmail = (data) => emailQueue ? emailQueue.add('sendEmail', data) : directMailer.sendEmail(data);
+const sendResetEmail = (email, resetUrl) => emailQueue ? emailQueue.add('sendResetEmail', { email, resetUrl }) : directMailer.sendResetEmail(email, resetUrl);
 const { getSuggestedUsers } = require('../services/suggestionService');
 const { createNotification } = require('../lib/notification');
 const logger = require('../utils/logger');
@@ -276,21 +287,17 @@ async function generateUniqueUsername(fullname) {
     let base = fullname.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15);
     if (!base) base = 'user';
 
-    // Find all usernames that start with the base
-    const existingUsers = await User.find({
-        username: new RegExp(`^${base}[0-9]*$`, 'i')
-    }).select('username').lean();
+    // First try the exact base
+    const existingBase = await User.findOne({ username: base }).select('_id').lean();
+    if (!existingBase) return base;
 
-    if (existingUsers.length === 0) return base;
-
-    const usernames = new Set(existingUsers.map(u => u.username.toLowerCase()));
-    if (!usernames.has(base)) return base;
-
-    let counter = 1;
-    while (usernames.has(`${base}${counter}`)) {
-        counter++;
+    // If taken, append a random number to avoid long sequential loops or large regex scans
+    let candidate = `${base}${Math.floor(Math.random() * 9000) + 1000}`;
+    while (true) {
+        const existing = await User.findOne({ username: candidate }).select('_id').lean();
+        if (!existing) return candidate;
+        candidate = `${base}${Math.floor(Math.random() * 90000) + 10000}`;
     }
-    return `${base}${counter}`;
 }
 
 // verifyToken middleware imported from ../middleware/Verifytoken
@@ -689,7 +696,7 @@ router.post('/add', authRateLimiter, [
         const verificationToken = crypto.randomBytes(32).toString('hex');
         const hashedVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
-        const hashedPassword = await bcrypt.hash(decryptedPassword, 12);
+        const hashedPassword = await bcrypt.hash(decryptedPassword, 10);
 
         const username = await generateUniqueUsername(fullname);
 
@@ -1112,7 +1119,7 @@ router.post('/reset-password', authRateLimiter, [body('token').notEmpty(), body(
         });
         if (!user) return res.status(400).json({ error: 'Invalid or expired reset token.' });
         const decryptedPassword = isEncrypted(password) ? decryptPassword(password) : password;
-        user.password = await bcrypt.hash(decryptedPassword, 12);
+        user.password = await bcrypt.hash(decryptedPassword, 10);
         user.resetPasswordToken = null;
         user.resetPasswordExpires = null;
         await user.save();
@@ -1153,7 +1160,7 @@ router.post('/change-password', verifyToken, [
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) return res.status(400).json({ error: 'Incorrect current password' });
 
-        user.password = await bcrypt.hash(newPassword, 12);
+        user.password = await bcrypt.hash(newPassword, 10);
         await user.save();
         
         await logAccountHistory(user._id, 'PASSWORD_CHANGED', 'Account password was updated', req);

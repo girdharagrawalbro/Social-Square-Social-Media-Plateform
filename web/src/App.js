@@ -910,7 +910,7 @@ function SharedStoryRedirect() {
 }
 
 // ─── LAYOUTS ──────────────────────────────────────────────────────────────────
-function PageTransition({ children }) {
+function PageTransition({ children, className = "w-full h-full" }) {
     const location = useLocation();
     const containerRef = useRef(null);
 
@@ -918,7 +918,7 @@ function PageTransition({ children }) {
         pageEntranceAnimation(containerRef.current);
     }, [location.pathname]);
 
-    return <div ref={containerRef} className="w-full h-full">{children}</div>;
+    return <div ref={containerRef} className={className}>{children}</div>;
 }
 
 function PublicLayout({ children }) {
@@ -926,7 +926,7 @@ function PublicLayout({ children }) {
         <div className="flex flex-col min-h-[100dvh] w-full">
             <Navbar />
             <main className="flex-1 flex flex-col">
-                <PageTransition>{children}</PageTransition>
+                <PageTransition className="w-full flex-1 flex flex-col">{children}</PageTransition>
             </main>
             <Footer />
         </div>

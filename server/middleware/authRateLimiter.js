@@ -1,25 +1,31 @@
 const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible');
-const redisClient = require('../lib/redis'); 
+const redisClient = require('../lib/redis');
 
 let rateLimiter;
+
+const limitPoints = Number(process.env.AUTH_RATE_LIMIT_POINTS) || 5000;
+const limitDuration = Number(process.env.AUTH_RATE_LIMIT_DURATION) || 60;
+const isRateLimitDisabled = process.env.DISABLE_RATE_LIMIT === 'true';
 
 // Initialize the primary Redis-backed limiter if URL is available AND not disabled
 if (process.env.REDIS_URL && redisClient.status !== 'disabled') {
   rateLimiter = new RateLimiterRedis({
     storeClient: redisClient,
-    points: 10,
-    duration: 60,
+    points: limitPoints,
+    duration: limitDuration,
     keyPrefix: 'rl-auth',
   });
 }
 
 // Memory-backed limiter for fallback
 const memoryLimiter = new RateLimiterMemory({
-  points: 10,
-  duration: 60,
+  points: limitPoints,
+  duration: limitDuration,
 });
 
 module.exports = async (req, res, next) => {
+  if (isRateLimitDisabled) return next();
+
   const key = req.ip;
 
   // 1. If no Redis or disabled, just use memory limiter and proceed
@@ -35,14 +41,14 @@ module.exports = async (req, res, next) => {
     next();
   } catch (err) {
     // Check if it's a rate limit rejection (no 'message' field usually) or a Redis Error
-    if (err && err.consumePoints !== undefined) {
+    if (err && err.consumedPoints !== undefined) {
       // It's a rate limit rejection!
       return res.status(429).json({ error: 'Too many login/signup attempts. Please try again later.' });
     }
 
-    // It's a Redis internal error (e.g., Upstash limit reached)
-    console.warn('[RateLimiter] Redis error (limit reached?), falling back to Memory:', err?.message || 'Unknown error');
-    
+    // It's a Redis internal error (e.g., connection drop)
+    console.warn('[RateLimiter] Redis connection issue, falling back to Memory:', err?.message || 'Unknown error');
+
     try {
       await memoryLimiter.consume(key);
       next();
