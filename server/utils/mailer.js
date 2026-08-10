@@ -72,9 +72,6 @@ async function sendEmailBase({ to, from, subject, html, text }) {
 }
 
 async function sendEmail(args) {
-    if (process.env.DISABLE_EMAILS === 'true') {
-        return { success: true, mocked: true };
-    }
     try {
         const result = await sendEmailBase(args);
         await MailLog.create({
@@ -227,6 +224,17 @@ async function sendSessionsTerminatedEmail(email) {
     return sendEmail({ to: email, subject, html });
 }
 
+async function sendAdminSecurityAlertEmail(email, { userId, fullname, ip, device, time }) {
+    const { subject, html } = await getParsedTemplate('admin_security_alert', {
+        userId,
+        fullname,
+        ip,
+        device,
+        time
+    });
+    return sendEmail({ to: email, subject, html });
+}
+
 module.exports = {
     sendEmail,
     sendOtpEmail,
@@ -238,5 +246,6 @@ module.exports = {
     sendVerificationEmail,
     sendWelcomeEmail,
     sendPasswordChangedEmail,
-    sendSessionsTerminatedEmail
+    sendSessionsTerminatedEmail,
+    sendAdminSecurityAlertEmail
 };

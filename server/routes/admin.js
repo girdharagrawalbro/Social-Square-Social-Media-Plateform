@@ -1389,12 +1389,18 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'OTP Email',
                 subject: 'Your Social Square verification code',
                 html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-            <h2 style="color:#808bf5">Social Square</h2>
-            <p>Your verification code is:</p>
-            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#808bf5;padding:16px;background:#f5f3ff;border-radius:8px;text-align:center">{{otp}}</div>
-            <p style="color:#6b7280;font-size:12px;margin-top:16px">Expires in 10 minutes. Do not share this code.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+            <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:32px 28px;text-align:center">
+                <h1 style="color:#fff;margin:0;font-size:24px">Social Square</h1>
+                <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">Verify your identity</p>
+            </div>
+            <div style="padding:28px;text-align:center">
+                <p style="font-size:16px;color:#374151;margin:0 0 20px 0">Your verification code is:</p>
+                <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#808bf5;padding:16px;background:#f5f3ff;border-radius:8px;display:inline-block;margin:0 auto">{{otp}}</div>
+                <p style="color:#6b7280;font-size:12px;margin-top:24px">Expires in 10 minutes. Do not share this code.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{otp}}']
             },
             {
@@ -1740,6 +1746,31 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 variables: ['{{fullname}}', '{{content}}']
             },
             {
+                key: 'admin_security_alert',
+                name: 'Admin Panel Security Alert',
+                subject: '🚨 Security Alert: Admin Password Failure',
+                html: `
+        <!DOCTYPE html><html><body style="font-family:sans-serif;background:#f9fafb;margin:0;padding:20px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+            <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:32px 28px;text-align:center">
+                <h1 style="color:#fff;margin:0;font-size:24px">Social Square</h1>
+                <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">Admin Security Alert</p>
+            </div>
+            <div style="padding:28px;text-align:center">
+                <p style="font-size:16px;color:#374151;margin:0 0 20px 0">An incorrect password was entered on the <strong>Admin Control Panel</strong>.</p>
+                <div style="background:#f9fafb;padding:16px;border-radius:12px;margin:20px 0;font-size:14px;text-align:left;border:1px solid #f3f4f6">
+                    <p style="margin:0 0 8px;color:#111827"><strong>Attempted By (User ID):</strong> {{userId}} ({{fullname}})</p>
+                    <p style="margin:0 0 8px;color:#111827"><strong>IP Address:</strong> {{ip}}</p>
+                    <p style="margin:0 0 8px;color:#111827"><strong>Device:</strong> {{device}}</p>
+                    <p style="margin:0;color:#111827"><strong>Time:</strong> {{time}}</p>
+                </div>
+                <p style="color:#ef4444;font-weight:bold">If this wasn't you, someone may be trying to access the Admin Control Panel.</p>
+                <p style="color:#6b7280;font-size:12px;margin-top:24px">This is an automated security alert from Social Square.</p>
+            </div>
+        </div></body></html>`,
+                variables: ['{{userId}}', '{{fullname}}', '{{ip}}', '{{device}}', '{{time}}']
+            },
+            {
                 key: 'broadcast_announcement',
                 name: 'Broadcast Announcement Email',
                 subject: '📢 Announcement from Social Square',
@@ -1912,15 +1943,19 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
         ];
 
         let added = 0;
+        let updated = 0;
         for (const template of defaultTemplates) {
             const exists = await EmailTemplate.findOne({ key: template.key });
             if (!exists) {
                 await EmailTemplate.create(template);
                 added++;
+            } else {
+                await EmailTemplate.findOneAndUpdate({ key: template.key }, { html: template.html, subject: template.subject, name: template.name, variables: template.variables });
+                updated++;
             }
         }
 
-        res.json({ success: true, message: `Seeded ${added} templates.` });
+        res.json({ success: true, message: `Seeded ${added} templates. Updated ${updated} templates.` });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

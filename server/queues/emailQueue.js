@@ -28,6 +28,8 @@ if (!isRedisDisabled) {
         await mailer.sendPasswordChangedEmail(data.email, data.fullname);
       } else if (name === 'sendSessionsTerminatedEmail') {
         await mailer.sendSessionsTerminatedEmail(data.email);
+      } else if (name === 'sendAdminSecurityAlertEmail') {
+        await mailer.sendAdminSecurityAlertEmail(data.email, data.data);
       } else if (name === 'sendResetEmail') {
         await mailer.sendResetEmail(data.email, data.resetUrl);
       } else if (name === 'sendEmail') {

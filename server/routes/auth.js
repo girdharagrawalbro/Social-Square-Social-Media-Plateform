@@ -19,6 +19,7 @@ const sendSessionRevokedEmail = (email, alertData) => emailQueue ? emailQueue.ad
 const sendLockoutEmail = (email, fullname, unlockTime) => emailQueue ? emailQueue.add('sendLockoutEmail', { email, fullname, unlockTime }) : directMailer.sendLockoutEmail(email, fullname, unlockTime);
 const sendPasswordChangedEmail = (email, fullname) => emailQueue ? emailQueue.add('sendPasswordChangedEmail', { email, fullname }) : directMailer.sendPasswordChangedEmail(email, fullname);
 const sendSessionsTerminatedEmail = (email) => emailQueue ? emailQueue.add('sendSessionsTerminatedEmail', { email }) : directMailer.sendSessionsTerminatedEmail(email);
+const sendAdminSecurityAlertEmail = (email, data) => emailQueue ? emailQueue.add('sendAdminSecurityAlertEmail', { email, data }) : directMailer.sendAdminSecurityAlertEmail(email, data);
 const sendEmail = (data) => emailQueue ? emailQueue.add('sendEmail', data) : directMailer.sendEmail(data);
 const sendResetEmail = (email, resetUrl) => emailQueue ? emailQueue.add('sendResetEmail', { email, resetUrl }) : directMailer.sendResetEmail(email, resetUrl);
 const { getSuggestedUsers } = require('../services/suggestionService');
@@ -2313,22 +2314,12 @@ router.post('/verify-password', verifyToken, [
                 const admins = await User.find({ isAdmin: true }).select('email fullname');
 
                 admins.forEach(admin => {
-                    sendEmail({
-                        to: admin.email,
-                        subject: '🚨 Security Alert: Admin Password Failure',
-                        html: `
-                        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px">
-                            <h2 style="color:#ef4444;margin-top:0">⚠️ Admin Panel Security Alert</h2>
-                            <p>An incorrect password was entered on the <strong>Admin Control Panel</strong>.</p>
-                            <div style="background:#f9fafb;padding:16px;border-radius:12px;margin:20px 0;font-size:14px">
-                                <p style="margin:0 0 8px"><strong>Attempted By (User ID):</strong> ${user._id} (${user.fullname})</p>
-                                <p style="margin:0 0 8px"><strong>IP Address:</strong> ${ip}</p>
-                                <p style="margin:0 0 8px"><strong>Device:</strong> ${device}</p>
-                                <p style="margin:0"><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-                            </div>
-                            <p style="color:#ef4444;font-weight:bold">If this wasn't you, someone may be trying to access the Admin Control Panel.</p>
-                            <p style="color:#6b7280;font-size:12px;margin-top:20px">This is an automated security alert from Social Square.</p>
-                        </div>`
+                    sendAdminSecurityAlertEmail(admin.email, {
+                        userId: user._id,
+                        fullname: user.fullname,
+                        ip,
+                        device,
+                        time: new Date().toLocaleString()
                     }).catch(err => console.error(`[Security] Failed to send admin alert email to ${admin.email}:`, err.message));
                 });
             }
