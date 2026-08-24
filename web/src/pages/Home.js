@@ -14,7 +14,6 @@ import useWindowWidth from '../hooks/useWindowWidth';
 import usePostStore from '../store/zustand/usePostStore';
 import OnboardingGuideModal from './components/OnboardingGuideModal';
 import { api } from '../store/zustand/useAuthStore';
-import FloatMessagesButton from './components/ui/FloatMessagesButton';
 import SuggestedUser from './components/SuggestedUser';
 
 
@@ -176,10 +175,6 @@ const Home = () => {
 
             <div className="hidden min-[1384px]:block max-w-[380px] min-w-[380px] fixed top-4 right-[10rem]">
                 <SuggestedUser />
-            </div>
-
-            <div className="hidden md:block fixed bottom-6 right-[88px]">
-                <FloatMessagesButton />
             </div>
 
             {showGuide && (

@@ -485,10 +485,10 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     useEffect(() => {
-        if (openFeaturePanel === 'ai') {
+        if (visible || openFeaturePanel === 'ai') {
             fetchAiLimits();
         }
-    }, [openFeaturePanel]);
+    }, [visible, openFeaturePanel]);
 
     const generateAiText = async () => {
         if (!aiPrompt.trim()) {
@@ -959,7 +959,7 @@ const NewPost = ({ visible, onHide }) => {
     };
 
     const handleSubmit = async () => {
-        if (isBeforeAfter) {
+        if (isBeforeAfter && step !== STEPS.AI_PROMPT) {
             if (beforeAfterType === 'image') {
                 if (!beforeImage || !afterImage) { toast.error("Please upload both Before and After images!"); return; }
             } else {
@@ -1018,7 +1018,7 @@ const NewPost = ({ visible, onHide }) => {
                 let afterImageKey = null;
                 let afterImageIv = null;
 
-                if (isBeforeAfter && beforeAfterType === 'image') {
+                if (isBeforeAfter && beforeAfterType === 'image' && beforeImageToUpload?.file && afterImageToUpload?.file) {
                     // Encrypt Before Image
                     const beforeKey = await generateSymmetricKey();
                     const { ciphertext: beforeCt, iv: beforeIv } = await encryptFile(beforeImageToUpload.file, beforeKey);
@@ -1043,7 +1043,7 @@ const NewPost = ({ visible, onHide }) => {
                 let imageURLs = [];
                 let mediaKeys = [];
                 if (imagesToUpload.length > 0) {
-                    const pending = imagesToUpload.filter(img => !img.uploaded);
+                    const pending = imagesToUpload.filter(img => !img.uploaded && img.file);
                     const uploaded = [...imagesToUpload];
 
                     await Promise.all(pending.map(async (img) => {
@@ -1063,8 +1063,8 @@ const NewPost = ({ visible, onHide }) => {
                             throw new Error(`Failed to upload ${img.file?.name || 'Image'}`);
                         }
                     }));
-                    imageURLs = uploaded.filter(i => i.uploaded).map(i => i.url);
-                    mediaKeys = uploaded.filter(i => i.uploaded).map(i => ({ key: i.key, iv: i.iv }));
+                    imageURLs = uploaded.filter(i => i.uploaded || i.url).map(i => i.url || i.preview);
+                    mediaKeys = uploaded.filter(i => i.key).map(i => ({ key: i.key, iv: i.iv }));
                 }
 
                 let voiceNoteUrl = null, voiceNoteDuration = null, voiceNoteKey = null, voiceNoteIv = null;
@@ -1083,7 +1083,7 @@ const NewPost = ({ visible, onHide }) => {
                 }
 
                 let videoUrl = null, videoDuration = null, videoThumbnail = null, videoKey = null, videoIv = null;
-                if (videoToUpload) {
+                if (videoToUpload && videoToUpload.file) {
                     // Generate thumbnail from the ORIGINAL file before encryption.
                     // After encryption the file is binary and can't be decoded as video.
                     let thumbnailUrl = null;
@@ -1222,7 +1222,10 @@ const NewPost = ({ visible, onHide }) => {
 
             <div className="flex flex-col gap-3 w-full max-w-md ">
                 <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                        setIsBeforeAfter(false);
+                        fileInputRef.current?.click();
+                    }}
                     className="flex-1 bg-[#4F46E5] text-white h-14 p-4 text-base rounded-xl font-semibold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/15 active:scale-[0.98] transition-all duration-200"
                 >
                     <i className="pi pi-upload text-sm"></i>
@@ -1231,7 +1234,10 @@ const NewPost = ({ visible, onHide }) => {
 
                 <div className="flex flex-col sm:flex-row gap-4">
                     <button
-                        onClick={() => setStep(STEPS.FINALIZE)}
+                        onClick={() => {
+                            setIsBeforeAfter(false);
+                            setStep(STEPS.FINALIZE);
+                        }}
                         className="flex-1 h-14 bg-[var(--surface-2)] text-[var(--text-main)] px-4 py-3 rounded-xl font-semibold hover:bg-[var(--surface-3)] hover:border-indigo-400  transition flex items-center justify-center gap-2 border border-[var(--border-color)] transition-all duration-200"
                     >
                         <i className="pi pi-pencil text-sm"></i>
@@ -1239,11 +1245,21 @@ const NewPost = ({ visible, onHide }) => {
                     </button>
                     {flags?.ai_features !== false && (
                         <button
-                            onClick={() => setStep(STEPS.AI_PROMPT)}
-                            className="flex-1 h-14 bg-gradient-to-tr from-[#6366F1] to-[#8B5CF6] text-white px-4 py-3 rounded-xl font-semibold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/15 transition-all duration-200"
+                            onClick={() => {
+                                if (aiLimits.text <= 0 && aiLimits.image <= 0) {
+                                    toast.error("You've reached your daily AI post limit (0 left today). Try uploading media or creating a text post!", { id: 'ai-limit-empty' });
+                                    return;
+                                }
+                                setIsBeforeAfter(false);
+                                setStep(STEPS.AI_PROMPT);
+                            }}
+                            className={`flex-1 h-14 bg-gradient-to-tr from-[#6366F1] to-[#8B5CF6] text-white px-4 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/15 transition-all duration-200 cursor-pointer ${aiLimits.text <= 0 && aiLimits.image <= 0 ? 'opacity-60' : 'hover:brightness-110'}`}
                         >
                             <i className="pi pi-sparkles text-sm"></i>
                             AI Create
+                            {aiLimits.text <= 0 && aiLimits.image <= 0 && (
+                                <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded-full font-bold">0 left</span>
+                            )}
                         </button>
                     )}
                 </div>
@@ -1277,6 +1293,22 @@ const NewPost = ({ visible, onHide }) => {
                         </div>
                     </div>
 
+                    {/* Limit Reached Banner */}
+                    {aiLimits.text <= 0 && aiLimits.image <= 0 && (
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in">
+                            <div className="flex items-center gap-2 text-amber-500">
+                                <i className="pi pi-info-circle text-base"></i>
+                                <span className="text-xs font-semibold">Daily AI post quota reached (0 remaining today).</span>
+                            </div>
+                            <button
+                                onClick={() => setStep(STEPS.FINALIZE)}
+                                className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold px-3 py-1.5 rounded-xl transition border-0 cursor-pointer shadow-sm"
+                            >
+                                Standard Post
+                            </button>
+                        </div>
+                    )}
+
                     {/* AI Prompt Input Area */}
                     <div className="flex flex-col gap-3">
                         <div className="flex justify-between items-center px-1">
@@ -1287,25 +1319,36 @@ const NewPost = ({ visible, onHide }) => {
                         </div>
                         <textarea
                             autoFocus
-                            placeholder="Describe your post idea... (e.g. A futuristic city in the clouds, cinematic style)"
+                            placeholder={aiLimits.text <= 0 && aiLimits.image <= 0 ? "Daily AI quota exhausted. Try again tomorrow or create a standard post!" : "Describe your post idea... (e.g. A futuristic city in the clouds, cinematic style)"}
                             value={aiPrompt}
+                            disabled={aiLimits.text <= 0 && aiLimits.image <= 0}
                             onChange={(e) => setAiPrompt(e.target.value)}
-                            className="w-full bg-transparent border rounded text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2 min-h-[10px]"
+                            className="w-full bg-transparent border rounded text-[var(--text-main)] text-sm resize-none outline-none border-none placeholder-[var(--text-sub)] leading-relaxed p-2 min-h-[10px] disabled:opacity-60"
                         />
 
                         {/* AI Image Preview Area */}
                         {(isGeneratingAi || images.length > 0) && (
-                            <div className="relative rounded-xl overflow-hidden border border-indigo-500/20 aspect-video h-24 group shadow-inner">
+                            <div className="relative rounded-2xl overflow-hidden border border-indigo-500/30 w-full min-h-[200px] max-h-[340px] aspect-video group shadow-lg bg-black/40 flex items-center justify-center my-1">
                                 {images.length > 0 ? (
-                                    <img
-                                        src={images[0].preview}
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                        alt="AI Generated"
-                                    />
+                                    <>
+                                        <img
+                                            src={images[0].preview}
+                                            className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-[1.02]"
+                                            alt="AI Generated"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => { setImages([]); setFormData(prev => ({ ...prev, caption: '' })); }}
+                                            className="absolute top-2.5 right-2.5 bg-black/70 hover:bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center transition border-0 cursor-pointer text-xs shadow-md z-10"
+                                            title="Remove image"
+                                        >
+                                            <i className="pi pi-times"></i>
+                                        </button>
+                                    </>
                                 ) : (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 ">
-                                        <div className="w-8 h-8 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin"></div>
-                                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest animate-pulse">Painting your vision...</span>
+                                    <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
+                                        <div className="w-9 h-9 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin"></div>
+                                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest animate-pulse">Painting your vision with AI...</span>
                                     </div>
                                 )}
                             </div>
@@ -1540,31 +1583,46 @@ const NewPost = ({ visible, onHide }) => {
 
 
                     {/* Actions */}
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 pt-2">
                         <button
                             onClick={() => setStep(STEPS.SELECT)}
                             disabled={isGeneratingAi}
-                            className="flex-1 py-3 px-4 rounded-xl font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition disabled:opacity-50"
+                            className="flex-1 py-3 px-4 rounded-xl font-bold text-[var(--text-sub)] hover:bg-[var(--surface-2)] transition disabled:opacity-50 border border-[var(--border-color)] cursor-pointer"
                         >
                             Back
                         </button>
-                        <button
-                            onClick={handleAiMagicPost}
-                            disabled={isGeneratingAi || !aiPrompt.trim()}
-                            className="flex-[2] bg-gradient-to-tr from-indigo-600 to-purple-600 text-white py-2 px-6 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 disabled:opacity-50"
-                        >
-                            {isGeneratingAi ? (
-                                <>
-                                    <i className="pi pi-spin pi-spinner text-sm"></i>
-                                    Creating Magic...
-                                </>
-                            ) : (
-                                <>
-                                    <i className="pi pi-sparkles text-sm"></i>
-                                    Generate Magic Post
-                                </>
-                            )}
-                        </button>
+                        {images.length > 0 && formData.caption ? (
+                            <button
+                                onClick={() => setStep(STEPS.FINALIZE)}
+                                className="flex-[2] bg-gradient-to-tr from-emerald-600 to-teal-600 text-white py-3 px-6 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 cursor-pointer"
+                            >
+                                <i className="pi pi-arrow-right text-sm"></i>
+                                Review & Finalize Post
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleAiMagicPost}
+                                disabled={isGeneratingAi || !aiPrompt.trim() || (aiLimits.text <= 0 && aiLimits.image <= 0)}
+                                className={`flex-[2] bg-gradient-to-tr from-indigo-600 to-purple-600 text-white py-3 px-6 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 disabled:opacity-50 ${aiLimits.text <= 0 && aiLimits.image <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 cursor-pointer'}`}
+                            >
+                                {isGeneratingAi ? (
+                                    <>
+                                        <i className="pi pi-spin pi-spinner text-sm"></i>
+                                        Creating Magic...
+                                    </>
+                                ) : aiLimits.text <= 0 && aiLimits.image <= 0 ? (
+                                    <>
+                                        <i className="pi pi-lock text-sm"></i>
+                                        Daily Limit Reached (0 left)
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="pi pi-sparkles text-sm"></i>
+                                        Generate Magic Post
+                                    </>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

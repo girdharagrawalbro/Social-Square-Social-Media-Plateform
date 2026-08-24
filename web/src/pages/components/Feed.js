@@ -634,9 +634,9 @@ const Feed = ({ activeMood = null }) => {
                         <button
                             key={tab.id}
                             onClick={() => setSelectedDepth(tab.id)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black border transition-all cursor-pointer whitespace-nowrap ${selectedDepth === tab.id
-                                ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
-                                : 'bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black transition-all cursor-pointer whitespace-nowrap ${selectedDepth === tab.id
+                                ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20 hover:bg-indigo-600'
+                                : 'bg-[var(--surface-2)] text-[var(--text-sub)] hover:bg-[var(--surface-3)]'
                                 }`}
                         >
                             <span>{tab.label}</span>

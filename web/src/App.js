@@ -39,6 +39,7 @@ import Footer from './pages/components/Footer';
 import CustomToastContainer from './pages/components/ui/CustomToastContainer';
 import NotificationBell from './pages/components/ui/NotificationBell';
 import Chatbot from './pages/components/Chatbot';
+import FloatMessagesButton from './pages/components/ui/FloatMessagesButton';
 import PostDetail from './pages/components/PostDetail';
 import UserProfile from './pages/components/UserProfile';
 import { Dialog } from 'primereact/dialog';
@@ -104,25 +105,71 @@ function AppInit() {
     const sessionStartTime = useRef(Date.now());
     const prevUserId = useRef(user?._id);
 
-    // ── SESSION TIMER: record time spent ──
+    // ── SESSION TIMER: batch record time spent (flushes every 60s or on page unload) ──
+    const accumulatedSeconds = useRef(0);
+    const lastTickTime = useRef(Date.now());
+
     useEffect(() => {
         if (!user?._id) return;
-        const tabStart = Date.now();
-        const flush = () => {
-            const secs = Math.round((Date.now() - tabStart) / 1000);
-            if (secs > 5) {
-                api.post(`${process.env.REACT_APP_NGINIX === 'true' ? '' : process.env.REACT_APP_BACKEND_URL}/api/activity/time-spent`, { durationSeconds: secs })
+
+        lastTickTime.current = Date.now();
+
+        const flushBatch = () => {
+            const secsToSend = accumulatedSeconds.current;
+            if (secsToSend >= 10) {
+                accumulatedSeconds.current = 0;
+                api.post(`${process.env.REACT_APP_NGINIX === 'true' ? '' : process.env.REACT_APP_BACKEND_URL}/api/activity/time-spent`, { durationSeconds: secsToSend })
                     .catch(() => {});
             }
         };
-        const handleVisibility = () => { if (document.hidden) flush(); };
-        document.addEventListener('visibilitychange', handleVisibility);
-        window.addEventListener('beforeunload', flush);
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibility);
-            window.removeEventListener('beforeunload', flush);
+
+        // Tick every 10s: accumulate active seconds
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const elapsed = Math.round((now - lastTickTime.current) / 1000);
+            lastTickTime.current = now;
+
+            if (!document.hidden && elapsed > 0 && elapsed < 30) {
+                accumulatedSeconds.current += elapsed;
+            }
+
+            // Flush in batches every 60 seconds of active usage
+            if (accumulatedSeconds.current >= 60) {
+                flushBatch();
+            }
+        }, 10000);
+
+        const handleVisibility = () => {
+            const now = Date.now();
+            const elapsed = Math.round((now - lastTickTime.current) / 1000);
+            lastTickTime.current = now;
+
+            if (document.hidden) {
+                if (elapsed > 0 && elapsed < 30) {
+                    accumulatedSeconds.current += elapsed;
+                }
+                flushBatch();
+            }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+        const handleBeforeUnload = () => {
+            const now = Date.now();
+            const elapsed = Math.round((now - lastTickTime.current) / 1000);
+            if (!document.hidden && elapsed > 0 && elapsed < 30) {
+                accumulatedSeconds.current += elapsed;
+            }
+            flushBatch();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibility);
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            flushBatch();
+        };
     }, [user?._id]);
 
     // ── LOGOUT: cross-tab logout sync ──
@@ -752,14 +799,29 @@ function AppInit() {
                 style: { borderRadius: '12px', background: 'var(--surface-1)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }
             });
         };
-
-        const handleIncomingCall = ({ callerId, callerName, callerAvatar, type, conversationId }) => {
+        const handleIncomingCall = ({ callerId, callerName, callerAvatar, type, conversationId, isGroup, groupName }) => {
             console.log('[Socket] Incoming call from:', callerName);
             setActiveCall({
                 conversationId,
                 callerId,
                 callerName,
                 callerAvatar,
+                groupName,
+                isGroup: !!isGroup,
+                callType: type,
+                isIncoming: true
+            });
+        };
+
+        const handleIncomingGroupCall = ({ callerId, callerName, callerAvatar, groupName, type, conversationId }) => {
+            console.log('[Socket] Incoming group call for:', groupName, 'from:', callerName);
+            setActiveCall({
+                conversationId,
+                callerId,
+                callerName,
+                callerAvatar,
+                groupName,
+                isGroup: true,
                 callType: type,
                 isIncoming: true
             });
@@ -843,6 +905,7 @@ function AppInit() {
         socket.on('newStory', handleNewStory);
         socket.on('collaborationInvite', handleCollabInvite);
         socket.on('incomingCall', handleIncomingCall);
+        socket.on('incomingGroupCall', handleIncomingGroupCall);
         socket.on('conversationUpdated', handleConversationUpdated);
         socket.on('sessionRevoked', handleSessionRevoked);
         socket.on('sessionsRevokedAll', handleSessionsRevokedAll);
@@ -857,9 +920,9 @@ function AppInit() {
             socket.off('newStory', handleNewStory);
             socket.off('collaborationInvite', handleCollabInvite);
             socket.off('incomingCall', handleIncomingCall);
+            socket.off('incomingGroupCall', handleIncomingGroupCall);
             socket.off('conversationUpdated', handleConversationUpdated);
             socket.off('sessionRevoked', handleSessionRevoked);
-            socket.off('sessionsRevokedAll', handleSessionsRevokedAll);
         };
     }, [user?._id, user?.fullname, setOnlineUsers, addOnlineUser, removeOnlineUser, addNotification, setPostDetailId, setStoryDetailUserId, navigate, setActiveCall, addOrUpdateConversation]);
 
@@ -1126,6 +1189,7 @@ function GlobalOverlays() {
     return (
         <>
             {!location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && flags?.ai_features !== false && <Chatbot />}
+            {!location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && user && <FloatMessagesButton />}
 
             {activeCall && (
                 <CallModal

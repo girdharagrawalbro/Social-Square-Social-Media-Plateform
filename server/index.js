@@ -60,7 +60,7 @@ app.use(cookieParser());
 // ─── RATE LIMITING ────────────────────────────────────────────────────────────
 const authWriteLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: process.env.NODE_ENV === 'production' ? 20 : 5000,
+    max: 20,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many attempts. Try again in 15 minutes.' },
@@ -72,7 +72,7 @@ const authWriteLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: process.env.NODE_ENV === 'production' ? 500 : 10000,
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests.' },
@@ -81,7 +81,7 @@ const apiLimiter = rateLimit({
 
 const reportLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    max: process.env.NODE_ENV === 'production' ? 10 : 5000,
+    max: 10,
     message: { error: 'Too many reports.' },
 });
 
@@ -242,8 +242,8 @@ app.use('/api/chatbot', (req, res, next) => require('./routes/chatbot.js')(req, 
 app.use("/api/recommendation", require("./routes/recommendation"));
 app.use('/api/contact', require('./routes/contact.js'));
 app.use('/api/knowledge', require('./routes/knowledge.js'));
-app.use('/api/activity', require('./routes/activity.js'));
 app.use('/api/e2ee', require('./routes/e2ee.js'));
+app.use('/api/activity', require('./routes/activity.js'));
 
 // ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -259,13 +259,13 @@ const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible')
 
 // Global event limiter (10 events/sec)
 const socketGlobalLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
-    ? new RateLimiterMemory({ points: process.env.NODE_ENV === 'production' ? 10 : 5000, duration: 1 })
-    : new RateLimiterRedis({ storeClient: redis, points: process.env.NODE_ENV === 'production' ? 10 : 5000, duration: 1, keyPrefix: 'socket_global' });
+    ? new RateLimiterMemory({ points: 10, duration: 1 })
+    : new RateLimiterRedis({ storeClient: redis, points: 10, duration: 1, keyPrefix: 'socket_global' });
 
 // Stricter limiter for high-frequency events like typing (2 events/sec)
 const socketStrictLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
-    ? new RateLimiterMemory({ points: process.env.NODE_ENV === 'production' ? 2 : 5000, duration: 1 })
-    : new RateLimiterRedis({ storeClient: redis, points: process.env.NODE_ENV === 'production' ? 2 : 5000, duration: 1, keyPrefix: 'socket_strict' });
+    ? new RateLimiterMemory({ points: 2, duration: 1 })
+    : new RateLimiterRedis({ storeClient: redis, points: 2, duration: 1, keyPrefix: 'socket_strict' });
 
 const activeCalls = new Map();
 
@@ -335,31 +335,20 @@ io.on('connection', (socket) => {
         try {
             if (!redis) return;
 
-            // 3. Update MongoDB and get privacy settings
-            const user = await User.findByIdAndUpdate(userId, { isOnline: true }).select('privacySettings').lean();
-            const activityMode = user?.privacySettings?.activityStatusMode || (user?.privacySettings?.hideActivityStatus ? 'hidden_both' : 'visible');
-            const hideMyStatus = activityMode === 'stealth' || activityMode === 'hidden_both';
-            const hideOthersStatus = activityMode === 'hidden_both';
+            await redis.hset('online_users', userId, socket.id);
+            //  Track active timestamp for TTL cleanup
+            await redis.zadd('presence_heartbeats', Date.now(), userId);
 
-            if (!hideMyStatus) {
-                await redis.hset('online_users', userId, socket.id);
-                //  Track active timestamp for TTL cleanup
-                await redis.zadd('presence_heartbeats', Date.now(), userId);
-            }
+            // 1. Send list of online users
+            const onlineMap = await redis.hgetall('online_users');
+            const currentOnlineUsers = Object.entries(onlineMap).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
+            socket.emit('updateUserList', currentOnlineUsers);
 
-            // 1. Send list of online users (hidden_both = can't see others, stealth/visible = can see others)
-            if (hideOthersStatus) {
-                socket.emit('updateUserList', []);
-            } else {
-                const onlineMap = await redis.hgetall('online_users');
-                const currentOnlineUsers = Object.entries(onlineMap).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
-                socket.emit('updateUserList', currentOnlineUsers);
-            }
+            // 2. Broadcast new user
+            socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
 
-            // 2. Broadcast new user ONLY if they are not hidden from others
-            if (!hideMyStatus) {
-                socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
-            }
+            // 3. Update MongoDB
+            await User.findByIdAndUpdate(userId, { isOnline: true });
 
             // 3.1. Mark undelivered messages to this user as delivered
             try {
@@ -543,6 +532,7 @@ io.on('connection', (socket) => {
         if (recipientId) io.to(recipientId).emit('messageReaction', { messageId, conversationId, reactions });
     });
 
+    // ─── 1-ON-1 CALLS ─────────────────────────────────────────────────────────────
     socket.on('initiateCall', ({ recipientId, type, conversationId, callerName, callerAvatar }) => {
         if (recipientId) {
             activeCalls.set(conversationId, {
@@ -550,6 +540,7 @@ io.on('connection', (socket) => {
                 type,
                 callerId: socket.userId,
                 recipientId,
+                isGroup: false,
                 accepted: false
             });
 
@@ -558,7 +549,8 @@ io.on('connection', (socket) => {
                 callerName,
                 callerAvatar,
                 type,
-                conversationId
+                conversationId,
+                isGroup: false
             });
         }
     });
@@ -574,10 +566,13 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('declineCall', ({ callerId }) => {
-        if (callerId) {
-            let callToDecline = null;
-            let foundConvId = null;
+    socket.on('declineCall', ({ callerId, conversationId }) => {
+        let callToDecline = null;
+        let foundConvId = conversationId || null;
+
+        if (conversationId && activeCalls.has(conversationId)) {
+            callToDecline = activeCalls.get(conversationId);
+        } else if (callerId) {
             for (const [convId, call] of activeCalls.entries()) {
                 if (call.callerId === callerId && call.recipientId === socket.userId) {
                     callToDecline = call;
@@ -585,19 +580,21 @@ io.on('connection', (socket) => {
                     break;
                 }
             }
+        }
 
-            if (callToDecline && foundConvId) {
-                const content = callToDecline.type === 'video' ? '📹 Missed video chat' : '📞 Missed voice call';
-                saveCallMessage(io, foundConvId, callToDecline.callerId, content);
-                activeCalls.delete(foundConvId);
-            }
+        if (callToDecline && foundConvId) {
+            const content = callToDecline.type === 'video' ? '📹 Missed video chat' : '📞 Missed voice call';
+            saveCallMessage(io, foundConvId, callToDecline.callerId, content);
+            activeCalls.delete(foundConvId);
+        }
 
-            io.to(callerId).emit('callDeclined');
+        if (callerId) {
+            io.to(callerId).emit('callDeclined', { conversationId: foundConvId });
         }
     });
 
     socket.on('endCall', ({ recipientId, conversationId }) => {
-        if (recipientId) {
+        if (conversationId) {
             const call = activeCalls.get(conversationId);
             if (call) {
                 let content = '';
@@ -617,8 +614,118 @@ io.on('connection', (socket) => {
                 saveCallMessage(io, conversationId, call.callerId, content);
                 activeCalls.delete(conversationId);
             }
+        }
 
+        if (recipientId) {
             io.to(recipientId).emit('callEnded', { conversationId });
+        }
+    });
+
+    // ─── GROUP CALLS ───────────────────────────────────────────────────────────────
+    socket.on('initiateGroupCall', async ({ conversationId, type, callerName, callerAvatar, groupName }) => {
+        try {
+            const Conversation = require('./models/Conversation');
+            const conv = await Conversation.findById(conversationId).select('participants groupName isGroup').lean();
+            if (!conv) return;
+
+            const effectiveGroupName = groupName || conv.groupName || 'Group Call';
+
+            activeCalls.set(conversationId, {
+                startTime: Date.now(),
+                type,
+                callerId: socket.userId,
+                conversationId,
+                groupName: effectiveGroupName,
+                isGroup: true,
+                participants: [socket.userId],
+                connectedParticipants: [socket.userId],
+                connectTime: Date.now()
+            });
+
+            socket.join(`call:group:${conversationId}`);
+
+            conv.participants.forEach(p => {
+                const pId = p.userId ? p.userId.toString() : p.toString();
+                if (pId !== socket.userId) {
+                    io.to(pId).emit('incomingGroupCall', {
+                        callerId: socket.userId,
+                        callerName,
+                        callerAvatar,
+                        groupName: effectiveGroupName,
+                        type,
+                        conversationId,
+                        isGroup: true
+                    });
+                }
+            });
+            console.log(`[Socket Group Call] Initiated for conversation ${conversationId} by ${socket.userId}`);
+        } catch (err) {
+            console.error('[Socket initiateGroupCall Error]:', err.message);
+        }
+    });
+
+    socket.on('joinGroupCall', ({ conversationId, user }) => {
+        try {
+            socket.join(`call:group:${conversationId}`);
+            const call = activeCalls.get(conversationId);
+            if (call && call.isGroup) {
+                if (!call.connectedParticipants.includes(socket.userId)) {
+                    call.connectedParticipants.push(socket.userId);
+                }
+                // Notify other participants in the room
+                socket.to(`call:group:${conversationId}`).emit('groupCallUserJoined', {
+                    userId: socket.userId,
+                    user,
+                    conversationId
+                });
+                // Send list of already connected participants back to joining user
+                socket.emit('groupCallExistingUsers', {
+                    participants: call.connectedParticipants.filter(id => id !== socket.userId),
+                    conversationId
+                });
+            }
+        } catch (err) {
+            console.error('[Socket joinGroupCall Error]:', err.message);
+        }
+    });
+
+    socket.on('leaveGroupCall', ({ conversationId }) => {
+        try {
+            socket.leave(`call:group:${conversationId}`);
+            socket.to(`call:group:${conversationId}`).emit('groupCallUserLeft', {
+                userId: socket.userId,
+                conversationId
+            });
+
+            const call = activeCalls.get(conversationId);
+            if (call && call.isGroup) {
+                call.connectedParticipants = call.connectedParticipants.filter(id => id !== socket.userId);
+                if (call.connectedParticipants.length <= 1) {
+                    const durationSec = Math.floor((Date.now() - call.connectTime) / 1000);
+                    const minutes = Math.floor(durationSec / 60);
+                    const seconds = durationSec % 60;
+                    const durationStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                    const content = call.type === 'video'
+                        ? `📹 Group video chat ended - ${durationStr}`
+                        : `📞 Group voice call ended - ${durationStr}`;
+                    saveCallMessage(io, conversationId, call.callerId, content);
+                    activeCalls.delete(conversationId);
+                    io.to(`call:group:${conversationId}`).emit('groupCallEnded', { conversationId });
+                }
+            }
+        } catch (err) {
+            console.error('[Socket leaveGroupCall Error]:', err.message);
+        }
+    });
+
+    // ─── UNIVERSAL WEBRTC SIGNALING RELAY ─────────────────────────────────────────
+    socket.on('webrtc-signal', ({ to, signal, conversationId }) => {
+        if (to) {
+            io.to(to).emit('webrtc-signal', {
+                from: socket.userId,
+                signal,
+                conversationId
+            });
         }
     });
 
@@ -638,6 +745,44 @@ io.on('connection', (socket) => {
                 }
             } catch (err) {
                 console.error('[Socket] Redis error (disconnect):', err.message);
+            }
+
+            // Clean up any active calls if this user disconnected
+            for (const [convId, call] of activeCalls.entries()) {
+                if (call.isGroup) {
+                    if (call.connectedParticipants && call.connectedParticipants.includes(userId)) {
+                        call.connectedParticipants = call.connectedParticipants.filter(id => id !== userId);
+                        io.to(`call:group:${convId}`).emit('groupCallUserLeft', { userId, conversationId: convId });
+                        if (call.connectedParticipants.length <= 1) {
+                            const durationSec = Math.floor((Date.now() - (call.connectTime || call.startTime)) / 1000);
+                            const minutes = Math.floor(durationSec / 60);
+                            const seconds = durationSec % 60;
+                            const durationStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                            const content = call.type === 'video'
+                                ? `📹 Group video chat ended - ${durationStr}`
+                                : `📞 Group voice call ended - ${durationStr}`;
+                            saveCallMessage(io, convId, call.callerId, content);
+                            activeCalls.delete(convId);
+                            io.to(`call:group:${convId}`).emit('groupCallEnded', { conversationId: convId });
+                        }
+                    }
+                } else {
+                    if (call.callerId === userId || call.recipientId === userId) {
+                        const otherUserId = call.callerId === userId ? call.recipientId : call.callerId;
+                        io.to(otherUserId).emit('callEnded', { conversationId: convId });
+                        if (call.accepted && call.connectTime) {
+                            const durationSec = Math.floor((Date.now() - call.connectTime) / 1000);
+                            const minutes = Math.floor(durationSec / 60);
+                            const seconds = durationSec % 60;
+                            const durationStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                            const content = call.type === 'video'
+                                ? `📹 Video chat ended - ${durationStr}`
+                                : `📞 Voice call ended - ${durationStr}`;
+                            saveCallMessage(io, convId, call.callerId, content);
+                        }
+                        activeCalls.delete(convId);
+                    }
+                }
             }
         }
 

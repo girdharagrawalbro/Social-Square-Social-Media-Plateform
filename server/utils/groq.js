@@ -1,6 +1,5 @@
 const Groq = require('groq-sdk');
 
-// Groq client using llama-3.1-8b-instant model
 let _client = null;
 
 function getClient() {
@@ -13,9 +12,18 @@ function getClient() {
     return _client;
 }
 
-const DEFAULT_MODEL = 'llama-3.1-8b-instant';
+const CANDIDATE_MODELS = [
+    'groq/compound-mini',
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'llama3-8b-8192',
+    'qwen/qwen3.6-27b',
+    'openai/gpt-oss-20b'
+];
 
-// Generate a text response from a single prompt
+const DEFAULT_MODEL = CANDIDATE_MODELS[0];
+
+// Generate a text response from a single prompt with automatic fallback
 async function generateGroqText(prompt, options = {}) {
     const {
         model = DEFAULT_MODEL,
@@ -26,25 +34,51 @@ async function generateGroqText(prompt, options = {}) {
 
     if (!prompt) throw new Error('Prompt is required for generateGroqText');
 
-    try {
-        const client = getClient();
-        const completion = await client.chat.completions.create({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: maxTokens,
-            temperature,
-            top_p: topP,
-        });
+    const modelsToTry = [model, ...CANDIDATE_MODELS.filter(m => m !== model)];
+    let lastError = null;
 
-        return {
-            text: completion.choices[0]?.message?.content || '',
-            model: 'Social Square AI (Groq)',
-        };
-    } catch (error) {
-        const status = error.status || error.response?.status;
-        console.error(`[Groq Text Error] status=${status}:`, error.message);
-        throw new Error('AI text generation failed. Please try again.');
+    for (const currentModel of modelsToTry) {
+        try {
+            const client = getClient();
+            const completion = await client.chat.completions.create({
+                model: currentModel,
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: maxTokens,
+                temperature,
+                top_p: topP,
+            });
+
+            const text = completion.choices[0]?.message?.content || '';
+            if (text) {
+                return {
+                    text,
+                    model: `Social Square AI (${currentModel})`,
+                };
+            }
+        } catch (error) {
+            lastError = error;
+            console.warn(`[Groq Text] Model ${currentModel} failed: ${error.message}. Trying next candidate...`);
+        }
     }
+
+    // Secondary fallback: NVIDIA chat
+    try {
+        const { nvidiaChat } = require('./gemini');
+        if (typeof nvidiaChat === 'function') {
+            const fallbackText = await nvidiaChat([{ role: 'user', content: prompt }], maxTokens);
+            if (fallbackText) {
+                return {
+                    text: fallbackText,
+                    model: 'Social Square AI (NVIDIA)',
+                };
+            }
+        }
+    } catch (nvErr) {
+        console.error('[Groq NVIDIA Fallback Error]:', nvErr.message);
+    }
+
+    console.error('[Groq Text Error Final]:', lastError?.message);
+    throw new Error('AI text generation failed. Please try again.');
 }
 
 // Generate a chat response from an array of messages
@@ -60,22 +94,41 @@ async function generateGroqChat(messages, options = {}) {
         throw new Error('Messages array is required for generateGroqChat');
     }
 
-    try {
-        const client = getClient();
-        const completion = await client.chat.completions.create({
-            model,
-            messages,
-            max_tokens: maxTokens,
-            temperature,
-            top_p: topP,
-        });
+    const modelsToTry = [model, ...CANDIDATE_MODELS.filter(m => m !== model)];
+    let lastError = null;
 
-        return completion.choices[0]?.message?.content || '';
-    } catch (error) {
-        const status = error.status || error.response?.status;
-        console.error(`[Groq Chat Error] status=${status}:`, error.message);
-        throw new Error('AI chat response generation failed.');
+    for (const currentModel of modelsToTry) {
+        try {
+            const client = getClient();
+            const completion = await client.chat.completions.create({
+                model: currentModel,
+                messages,
+                max_tokens: maxTokens,
+                temperature,
+                top_p: topP,
+            });
+
+            const content = completion.choices[0]?.message?.content || '';
+            if (content) return content;
+        } catch (error) {
+            lastError = error;
+            console.warn(`[Groq Chat] Model ${currentModel} failed: ${error.message}. Trying next candidate...`);
+        }
     }
+
+    // Secondary fallback: NVIDIA chat
+    try {
+        const { nvidiaChat } = require('./gemini');
+        if (typeof nvidiaChat === 'function') {
+            const fallbackContent = await nvidiaChat(messages, maxTokens);
+            if (fallbackContent) return fallbackContent;
+        }
+    } catch (nvErr) {
+        console.error('[Groq Chat NVIDIA Fallback Error]:', nvErr.message);
+    }
+
+    console.error('[Groq Chat Error Final]:', lastError?.message);
+    throw new Error('AI chat response generation failed.');
 }
 
 module.exports = {

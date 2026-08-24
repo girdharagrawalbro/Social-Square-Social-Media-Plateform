@@ -438,12 +438,32 @@ const Conversations = () => {
             toast.error("Please send at least one message to establish a secure chat before calling!");
             return;
         }
+
+        if (selectedParticipant.isGroup) {
+            setActiveCall({
+                conversationId: selectedParticipant.conversationId,
+                groupName: selectedParticipant.fullname,
+                isGroup: true,
+                callType: type,
+                isIncoming: false
+            });
+            socket.emit('initiateGroupCall', {
+                conversationId: selectedParticipant.conversationId,
+                type,
+                callerName: user.fullname,
+                callerAvatar: user.profile_picture || '',
+                groupName: selectedParticipant.fullname
+            });
+            return;
+        }
+
         setActiveCall({
             conversationId: selectedParticipant.conversationId,
             recipientId: selectedParticipant.userId,
             recipientName: selectedParticipant.fullname,
             recipientAvatar: selectedParticipant.profilePicture,
             callType: type,
+            isGroup: false,
             isIncoming: false
         });
         socket.emit('initiateCall', {
@@ -736,16 +756,12 @@ const Conversations = () => {
                                         </div>
                                     ) : (
                                         <>
-                                            {!selectedParticipant?.isGroup && (
-                                                <>
-                                                    <button onClick={() => handleStartCall('voice')} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title="Voice Call">
-                                                        <i className="pi pi-phone" style={{ fontSize: '13px' }}></i>
-                                                    </button>
-                                                    <button onClick={() => handleStartCall('video')} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title="Video Call">
-                                                        <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
-                                                    </button>
-                                                </>
-                                            )}
+                                            <button onClick={() => handleStartCall('voice')} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title={selectedParticipant?.isGroup ? "Start Group Voice Call" : "Voice Call"}>
+                                                <i className="pi pi-phone" style={{ fontSize: '13px' }}></i>
+                                            </button>
+                                            <button onClick={() => handleStartCall('video')} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title={selectedParticipant?.isGroup ? "Start Group Video Call" : "Video Call"}>
+                                                <i className="pi pi-video" style={{ fontSize: '13px' }}></i>
+                                            </button>
                                             <button onClick={() => setIsSearching(true)} className="w-8 h-8 flex items-center justify-center rounded-full border-0 bg-transparent text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all" title="Search messages">
                                                 <i className="pi pi-search" style={{ fontSize: '13px' }}></i>
                                             </button>

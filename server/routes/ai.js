@@ -75,30 +75,35 @@ function tryParseJson(text) {
     }
 }
 
-async function uploadGeneratedImageToCloudinary(imageBuffer) {
+const cloudinary = require('cloudinary').v2;
+
+function getCloudinary() {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+    return cloudinary;
+}
+
+async function uploadGeneratedImageToCloudinary(imageBuffer, folder = 'ai-generated') {
     if (!imageBuffer) {
         throw new Error('No image buffer provided for upload');
     }
     try {
-        let cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
-        if (cloudApiBase.endsWith('/api/cloudinary')) {
-            cloudApiBase = cloudApiBase.slice(0, -'/api/cloudinary'.length).replace(/\/+$/, '');
+        const cld = getCloudinary();
+        const base64Uri = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+        const result = await cld.uploader.upload(base64Uri, {
+            folder,
+            resource_type: 'image'
+        });
+        if (!result?.secure_url) {
+            throw new Error('Cloudinary upload returned no secure_url');
         }
-        const cloudRes = await axios.post(
-            `${cloudApiBase}/api/cloudinary/upload-base64`,
-            {
-                file: `data:image/png;base64,${imageBuffer.toString('base64')}`
-            },
-            { headers: { 'Content-Type': 'application/json' } }
-        );
-        const secureUrl = cloudRes.data?.data?.secure_url;
-        if (cloudRes.data?.success === false || !secureUrl) {
-            throw new Error(cloudRes.data?.message || 'Invalid Cloudinary upload response');
-        }
-        return secureUrl;
+        return result.secure_url;
     } catch (error) {
-        const reason = error.response?.data?.message || error.response?.data?.error?.message || error.message;
-        throw new Error(`Cloudinary upload failed: ${reason}`);
+        console.error('[Cloudinary Upload Error]:', error.message);
+        throw new Error(`Cloudinary upload failed: ${error.message}`);
     }
 }
 
@@ -107,24 +112,17 @@ async function uploadImageUrlToCloudinary(url, folder = 'ai-generated') {
         throw new Error('No image URL provided for upload');
     }
     try {
-        let cloudApiBase = (process.env.CLOUDINARY_API_BASE_URL || 'http://localhost:5001').replace(/\/+$/, '');
-        if (cloudApiBase.endsWith('/api/cloudinary')) {
-            cloudApiBase = cloudApiBase.slice(0, -'/api/cloudinary'.length).replace(/\/+$/, '');
-        }
-        const cloudRes = await axios.post(
-            `${cloudApiBase}/api/cloudinary/upload-url`,
-            { url, folder },
-            { headers: { 'Content-Type': 'application/json' } }
-        );
-        const secureUrl = cloudRes.data?.data?.secure_url;
-        if (cloudRes.data?.success === false || !secureUrl) {
-            // throw new Error(cloudRes.data?.message || 'Invalid Cloudinary URL upload response');
+        const cld = getCloudinary();
+        const result = await cld.uploader.upload(url, {
+            folder,
+            resource_type: 'image'
+        });
+        if (!result?.secure_url) {
             throw new Error('Image backup failed');
         }
-        return secureUrl;
+        return result.secure_url;
     } catch (error) {
-        const reason = error.response?.data?.message || error.response?.data?.error?.message || error.message;
-        // throw new Error(`Cloudinary URL upload failed: ${reason}`);
+        console.error('[Cloudinary URL Upload Error]:', error.message);
         throw new Error('Service Temporarily Unavailable');
     }
 }

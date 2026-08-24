@@ -13,6 +13,14 @@ const validate = (req, res, next) => {
     next();
 };
 
+// GET /api/conversation/call/provider - Return configured calling provider
+router.get('/provider', (req, res) => {
+    res.json({
+        provider: process.env.CALL_PROVIDER || 'websocket',
+        livekitUrl: process.env.LIVEKIT_URL || 'ws://localhost:7880'
+    });
+});
+
 // POST /api/conversation/call/token - Generate access token for call room
 router.post('/token', verifyToken, [
     body('conversationId').isMongoId().withMessage('Invalid conversation ID'),
@@ -37,17 +45,18 @@ router.post('/token', verifyToken, [
 
         const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 
-        // Pre-create the room with 1-on-1 call optimized settings:
-        // emptyTimeout: 60 seconds (destroy room quickly if they leave)
-        // maxParticipants: 2 (1-on-1 calls)
+        // Dynamic room settings: larger room for group chats, lean settings for 1-on-1
+        const maxParticipants = conv.isGroup ? 50 : 2;
+        const emptyTimeout = conv.isGroup ? 120 : 60;
+
         const roomService = new RoomServiceClient(livekitHttpUrl, apiKey, apiSecret);
         try {
             await roomService.createRoom({
                 name: conversationId,
-                emptyTimeout: 60,
-                maxParticipants: 2,
+                emptyTimeout: emptyTimeout,
+                maxParticipants: maxParticipants,
             });
-            console.log('[LiveKit Call] Room ensured:', conversationId);
+            console.log(`[LiveKit Call] Room ensured: ${conversationId} (isGroup: ${!!conv.isGroup}, maxParticipants: ${maxParticipants})`);
         } catch (roomErr) {
             console.log('[LiveKit Call] Room already exists or ensured (safe to ignore):', roomErr.message);
         }
@@ -67,7 +76,7 @@ router.post('/token', verifyToken, [
         });
 
         const token = await at.toJwt();
-        res.json({ token, conversationId });
+        res.json({ token, conversationId, provider: process.env.CALL_PROVIDER || 'websocket' });
     } catch (error) {
         console.error('[LiveKit Call Token Error]:', error.message);
         res.status(500).json({ error: 'Internal Server Error' });

@@ -681,8 +681,11 @@ router.post("/search/synthesize", softVerifyToken, [
 ], async (req, res) => {
     try {
         const { q, itemIds } = req.body;
-        if (!itemIds || itemIds.length === 0) {
-            return res.status(200).json({ answer: "I couldn't find enough context to answer that question." });
+        const cleanQuery = (q || '').trim();
+
+        // If query is too short (< 3 chars) or no items, skip AI answer
+        if (cleanQuery.length < 3 || !itemIds || itemIds.length === 0) {
+            return res.status(200).json({ answer: null });
         }
 
         const Post = require("../models/Post");
@@ -693,28 +696,46 @@ router.post("/search/synthesize", softVerifyToken, [
         const posts = await Post.find({ _id: { $in: itemIds } }).select('caption category').limit(5).lean();
         const comments = await Comment.find({ _id: { $in: itemIds } }).select('content').limit(5).lean();
 
+        if (posts.length === 0 && comments.length === 0) {
+            return res.status(200).json({ answer: null });
+        }
+
         let contextText = "";
-        posts.forEach((p, i) => contextText += `[Post ${i + 1}] Category: ${p.category}\nContent: ${p.caption}\n\n`);
-        comments.forEach((c, i) => contextText += `[Comment ${i + 1}] Content: ${c.content}\n\n`);
+        posts.forEach((p, i) => {
+            if (p.caption) contextText += `[Post ${i + 1}] Category: ${p.category || 'General'}\nContent: ${p.caption}\n\n`;
+        });
+        comments.forEach((c, i) => {
+            if (c.content) contextText += `[Comment ${i + 1}] Content: ${c.content}\n\n`;
+        });
 
-        const prompt = `You are a helpful community assistant. Based on the following discussions from our platform, provide a direct, concise answer to the user's query.
+        if (!contextText.trim()) {
+            return res.status(200).json({ answer: null });
+        }
 
-User Query: "${q}"
+        const prompt = `You are a search intelligence assistant for a social media community.
+User Query: "${cleanQuery}"
 
-Discussions Context:
+Community Posts & Discussions:
 ${contextText}
 
-Instructions:
-1. Answer the query directly using ONLY the provided context.
-2. If the context does not contain the answer, say "I couldn't find a definitive answer in the current discussions, but here are some related posts."
-3. Highlight the most useful point or "best answer" in **bold**.
-4. Keep it under 3-4 sentences. Make it sound natural and helpful.`;
+Task:
+Determine if the provided community posts contain useful, relevant knowledge that directly answers or summarizes the user's query topic.
 
-        const answer = await generateText(prompt, { maxTokens: 200, temperature: 0.3 });
-        res.status(200).json({ answer: answer || "I couldn't find enough context to answer that." });
+Rules:
+1. If the user query is a person's name (e.g. "subh", "rahul", "john"), a random prefix, a greeting, or if the discussions do NOT contain genuinely relevant, helpful information about the query, reply with EXACTLY: "NO_ANSWER".
+2. Do NOT apologize, do NOT say "I couldn't find...", and do NOT force connections to unrelated posts.
+3. If genuinely relevant information is present, provide a crisp, direct 1-2 sentence overview. Put the most important keywords or key takeaway in **bold**.
+4. Write in a clean, authoritative, and helpful tone.`;
+
+        const answer = await generateText(prompt, { maxTokens: 150, temperature: 0.2 });
+        if (!answer || answer.includes("NO_ANSWER") || answer.toLowerCase().startsWith("i couldn't find") || answer.toLowerCase().startsWith("i could not find") || answer.toLowerCase().includes("not enough context")) {
+            return res.status(200).json({ answer: null });
+        }
+
+        res.status(200).json({ answer: answer.trim() });
     } catch (err) {
         console.error('[Recommendation /search/synthesize]', err);
-        res.status(500).json({ error: "Failed to synthesize answer" });
+        res.status(200).json({ answer: null });
     }
 });
 

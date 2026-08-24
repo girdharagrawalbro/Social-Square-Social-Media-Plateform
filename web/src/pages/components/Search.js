@@ -13,6 +13,16 @@ import dbService from "../../utils/indexedDb";
 
 const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
 
+const decodeHtml = (html) => {
+    if (!html || typeof html !== 'string') return '';
+    return html
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+};
+
 const RECENT_KEY = 'recentSearches';
 const MAX_RECENT = 8; // Increased slightly for better UX
 
@@ -34,11 +44,11 @@ const Search = ({ onClose, desc = true }) => {
                     const localSaved = JSON.parse(localStorage.getItem(RECENT_KEY)) || [];
                     if (localSaved.length) {
                         setRecentSearches(localSaved.filter(Boolean));
-                        dbService.setCache(RECENT_KEY, localSaved.filter(Boolean)).catch(() => {});
+                        dbService.setCache(RECENT_KEY, localSaved.filter(Boolean)).catch(() => { });
                     }
-                } catch {}
+                } catch { }
             }
-        }).catch(() => {});
+        }).catch(() => { });
     }, []);
     const containerRef = useRef(null);
     const user = useAuthStore(s => s.user);
@@ -54,11 +64,11 @@ const Search = ({ onClose, desc = true }) => {
     // AI Recommendations — use debounced term to sync with search results
     const { data: aiResults = [] } = usePersonalizedSearch(user?._id, debouncedTerm, typeFilter);
     const loading = { search: searchLoading };
-    
+
     const topResultIds = useMemo(() => {
         return aiResults.slice(0, 3).map(r => r._id);
     }, [aiResults]);
-    
+
     const { data: aiAnswer, isLoading: isAiAnswerLoading } = useAiAnswer(debouncedTerm, topResultIds);
 
     const doSearch = async (term) => {
@@ -153,13 +163,13 @@ const Search = ({ onClose, desc = true }) => {
         })].slice(0, MAX_RECENT);
 
         setRecentSearches(updated);
-        dbService.setCache(RECENT_KEY, updated).catch(() => {});
+        dbService.setCache(RECENT_KEY, updated).catch(() => { });
         localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
     };
 
     const clearRecentSearches = () => {
         setRecentSearches([]);
-        dbService.removeCache(RECENT_KEY).catch(() => {});
+        dbService.removeCache(RECENT_KEY).catch(() => { });
         localStorage.removeItem(RECENT_KEY);
     };
 
@@ -252,7 +262,7 @@ const Search = ({ onClose, desc = true }) => {
                 </div>
 
 
-                <div className={`absolute left-0 w-[90vw] sm:w-[500px] md:w-[600px] lg:w-full bg-[var(--surface-1)] rounded-2xl z-50 overflow-hidden mt-2 shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'} transition-all duration-300`} style={{ top: '100%', maxHeight: '500px', overflowY: 'auto', border: '1px solid var(--border-color)' }}>
+                <div className={`absolute left-0 w-[90vw] sm:w-[500px] md:w-[600px] lg:w-full bg-[var(--surface-1)] rounded-2xl z-50 overflow-y-auto mt-2 shadow-[0_12px_45px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.6)] backdrop-blur-xl ${!isFocused && !searchTerm ? 'hidden' : 'block'} transition-all duration-300`} style={{ top: '100%', maxHeight: 'min(780px, calc(100vh - 80px))', overscrollBehavior: 'contain', border: '1px solid var(--border-color)' }}>
 
                     {/* Recent searches — shown when no search term */}
                     {!searchTerm && recentSearches.length > 0 && (
@@ -307,14 +317,13 @@ const Search = ({ onClose, desc = true }) => {
                         <div className="px-3 py-2 border-b border-[var(--border-color)]">
                             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
                                 {['all', 'tutorial', 'discussion', 'beginner', 'comments'].map(tf => (
-                                    <button 
+                                    <button
                                         key={tf}
                                         onClick={() => setTypeFilter(tf)}
-                                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider cursor-pointer border flex-shrink-0 transition-colors ${
-                                            typeFilter === tf 
-                                                ? 'bg-[#808bf5] text-white border-[#808bf5]' 
-                                                : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[#808bf5]'
-                                        }`}
+                                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider cursor-pointer border flex-shrink-0 transition-colors ${typeFilter === tf
+                                            ? 'bg-[#808bf5] text-white border-[#808bf5]'
+                                            : 'bg-[var(--surface-2)] text-[var(--text-sub)] border-[var(--border-color)] hover:border-[#808bf5]'
+                                            }`}
                                     >
                                         {tf}
                                     </button>
@@ -325,12 +334,30 @@ const Search = ({ onClose, desc = true }) => {
 
                     {/* Search results */}
                     {searchTerm && (
-                        <div className="pt-3 px-1">
+                        <div className="pt-3 px-2 pb-6">
                             {(loading.search && blendedUsers.length === 0) ? (
                                 <SkeletonSearch />
                             ) : hasResults ? (
                                 <>
-                                    {/* User results (Blended Local + Remote) */}
+                                    {/* 1. AI Answer Box - Only shown when a genuinely relevant answer is available */}
+                                    {debouncedTerm?.trim()?.length >= 3 && topResultIds.length > 0 && flags?.ai_features !== false && (aiAnswer || isAiAnswerLoading) && (
+                                        <div className="mb-3 px-1">
+                                            <div className="p-2">
+                                                <p className="text-[10px] font-bold text-[#808bf5] uppercase tracking-widest mb-1.5 m-0 flex items-center gap-1.5">
+                                                </p>
+                                                {isAiAnswerLoading ? (
+                                                    <div className="animate-pulse flex flex-col gap-1.5 mt-1.5">
+                                                        <div className="h-2.5 bg-[#808bf5]/20 rounded w-full"></div>
+                                                        <div className="h-2.5 bg-[#808bf5]/20 rounded w-4/5"></div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs m-0 text-[var(--text-main)] leading-relaxed" dangerouslySetInnerHTML={{ __html: aiAnswer?.replace(/\*\*(.*?)\*\*/g, '<strong className="font-semibold text-[#808bf5]">$1</strong>') }}></p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 2. User results (People) */}
                                     {blendedUsers.length > 0 && (
                                         <div className="mb-3">
                                             <p className="text-[10px] font-bold text-[var(--text-sub)] mb-2 m-0 uppercase tracking-widest px-1 flex items-center justify-between">
@@ -350,7 +377,6 @@ const Search = ({ onClose, desc = true }) => {
                                                                 <div className="min-w-0 flex-1">
                                                                     <div className="flex items-center gap-1.5">
                                                                         <p className="m-0 text-sm font-semibold text-[var(--text-main)] truncate">{u.fullname}</p>
-                                                                        {isLocalMatch && <span className="text-[9px] bg-[var(--surface-3)] text-[var(--text-sub)] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">History</span>}
                                                                     </div>
                                                                     <div className="flex items-center gap-2 mt-0.5">
                                                                         {u.username && <p className="m-0 text-[11px] text-[#808bf5] font-bold truncate">@{u.username}</p>}
@@ -372,67 +398,15 @@ const Search = ({ onClose, desc = true }) => {
                                             </div>
                                         </div>
                                     )}
-                                    
-                                    {/* AI Answer Box */}
-                                    {debouncedTerm && topResultIds.length > 0 && flags?.ai_features !== false && (
-                                        <div className="mb-3 px-1">
-                                            <div className="bg-[#808bf5]/10 border border-[#808bf5]/20 rounded-2xl p-2">
-                                                <h4 className="text-[11px] font-bold text-[#808bf5] m-0 uppercase tracking-widest flex items-center gap-2 mb-2">
-                                                    <i className="pi pi-sparkles"></i> AI Answer
-                                                </h4>
-                                                {isAiAnswerLoading ? (
-                                                    <div className="animate-pulse flex flex-col gap-2 mt-2">
-                                                        <div className="h-3 bg-[#808bf5]/20 rounded w-full"></div>
-                                                        <div className="h-3 bg-[#808bf5]/20 rounded w-5/6"></div>
-                                                        <div className="h-3 bg-[#808bf5]/20 rounded w-4/6"></div>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm m-0 text-[var(--text-main)] leading-relaxed" dangerouslySetInnerHTML={{__html: aiAnswer?.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}}></p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
 
-                                    {aiResults.length > 0 && flags?.ai_features !== false && (
-                                        <div className="pb-2">
-                                            <p className="text-[10px] font-bold text-[#808bf5] mb-2 m-0 uppercase tracking-widest px-1">✨ Semantic Results</p>
-                                            <div className="flex flex-col gap-1.5">
-                                                {aiResults.slice(0, 5).map(post => {
-                                                    const thumbnail = post.image_urls?.[0] || post.image_url || post.videoThumbnail || (post.video ? getMediaThumbnail(post.video, 'video') : null);
-                                                    return (
-                                                        <div key={post._id}
-                                                            onClick={() => {
-                                                                saveRecentSearch(post.caption || '(No caption)');
-                                                                if (onClose) onClose();
-                                                                setPostDetailId(post._id);
-                                                            }}
-                                                            className="flex items-center gap-4 px-3 py-3 rounded-2xl bg-[#808bf5]/5 border border-[#808bf5]/10 hover:bg-[#808bf5]/10 transition-colors cursor-pointer group"
-                                                        >
-                                                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-[var(--surface-2)] flex-shrink-0 shadow-sm">
-                                                                {thumbnail
-                                                                    ? <img src={thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                                                    : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '14px' }}></i></div>
-                                                                }
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category || post.topic || post.type}</p>
-                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || post.content || '(No content)'}</p>
-                                                            </div>
-                                                            <i className="pi pi-sparkles text-[var(--text-sub)] opacity-30 group-hover:opacity-100 transition-opacity"></i>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Post results */}
+                                    {/* 3. Post results */}
                                     {searchResults.posts?.length > 0 && (
-                                        <div className="mt-2">
+                                        <div className="mb-3">
                                             <p className="text-[10px] font-bold text-[var(--text-sub)] mb-2 m-0 uppercase tracking-widest px-1">Posts</p>
-                                            <div className="flex flex-col gap-0.5">
-                                                {searchResults.posts.slice(0, 4).map(post => {
+                                            <div className="flex flex-col gap-1">
+                                                {searchResults.posts.slice(0, 10).map(post => {
                                                     const thumbnail = post.image_urls?.[0] || post.image_url || post.videoThumbnail || (post.video ? getMediaThumbnail(post.video, 'video') : null);
+                                                    const captionText = decodeHtml(post.caption || '(No caption)');
                                                     return (
                                                         <div
                                                             key={post._id}
@@ -451,7 +425,41 @@ const Search = ({ onClose, desc = true }) => {
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category}</p>
-                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{post.caption || '(No caption)'}</p>
+                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{captionText}</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 4. Semantic Results */}
+                                    {aiResults.length > 0 && flags?.ai_features !== false && (
+                                        <div className="pb-3">
+                                            <p className="text-[10px] font-bold text-[var(--text-sub)] mb-2 m-0 uppercase tracking-widest px-1">Other</p>
+                                            <div className="flex flex-col gap-1">
+                                                {aiResults.slice(0, 10).map(post => {
+                                                    const thumbnail = post.image_urls?.[0] || post.image_url || post.videoThumbnail || (post.video ? getMediaThumbnail(post.video, 'video') : null);
+                                                    const captionText = decodeHtml(post.caption || post.content || '(No content)');
+                                                    return (
+                                                        <div key={post._id}
+                                                            onClick={() => {
+                                                                saveRecentSearch(post.caption || '(No caption)');
+                                                                if (onClose) onClose();
+                                                                setPostDetailId(post._id);
+                                                            }}
+                                                            className="flex items-center gap-4 px-3 py-2.5 rounded-2xl hover:bg-[var(--surface-2)] transition-colors cursor-pointer group"
+                                                        >
+                                                            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[var(--surface-3)] flex-shrink-0 shadow-sm">
+                                                                {thumbnail
+                                                                    ? <img src={thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                                    : <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)]"><i className="pi pi-file text-[var(--text-sub)] opacity-20" style={{ fontSize: '12px' }}></i></div>
+                                                                }
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="m-0 text-[9px] font-bold text-[#808bf5] uppercase tracking-wider mb-1">#{post.category || post.topic || post.type}</p>
+                                                                <p className="m-0 text-sm font-medium text-[var(--text-main)] truncate">{captionText}</p>
                                                             </div>
                                                         </div>
                                                     );

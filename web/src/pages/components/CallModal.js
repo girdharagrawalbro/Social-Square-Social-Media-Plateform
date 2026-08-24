@@ -1,15 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { socket } from '../../socket';
-import { api } from '../../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../../store/zustand/useAuthStore';
 import toast from '../../utils/toast.js';
-import { LiveKitRoom, RoomAudioRenderer, useTracks, useLocalParticipant, useRemoteParticipants, VideoTrack } from '@livekit/components-react';
-import { Track, setLogLevel } from 'livekit-client';
-import '@livekit/components-styles';
 import { USER_DEFAULT_IMAGE } from '../../utils/constantMediaVariable';
+import { useCallEngine } from '../../services/calling/useCallEngine';
+import { CALL_PROVIDERS } from '../../services/calling/types';
 
-setLogLevel('silent');
-
-// Web Audio API Ringtone / Dial-tone Synthesizer (Zero asset dependencies!)
+// Web Audio API Ringtone / Dial-tone Synthesizer
 class CallSynth {
     constructor() {
         this.ctx = null;
@@ -47,7 +44,7 @@ class CallSynth {
                 try {
                     osc1.stop();
                     osc2.stop();
-                } catch (e) { }
+                } catch (e) {}
             }, 2200);
         };
 
@@ -68,7 +65,6 @@ class CallSynth {
 
             osc1.type = 'sine';
             osc1.frequency.setValueAtTime(453, this.ctx.currentTime);
-            // Warble effect
             const modulator = this.ctx.createOscillator();
             const modulatorGain = this.ctx.createGain();
             modulator.frequency.value = 20;
@@ -96,7 +92,7 @@ class CallSynth {
                 try {
                     modulator.stop();
                     osc1.stop();
-                } catch (e) { }
+                } catch (e) {}
             }, 1200);
         };
 
@@ -112,7 +108,7 @@ class CallSynth {
         if (this.ctx) {
             try {
                 this.ctx.close();
-            } catch (e) { }
+            } catch (e) {}
             this.ctx = null;
         }
     }
@@ -120,58 +116,121 @@ class CallSynth {
 
 const callSynth = new CallSynth();
 
-// ─── CallInner Component ───
-const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) => {
-    const { localParticipant } = useLocalParticipant();
-    const remoteParticipants = useRemoteParticipants();
+/**
+ * Reusable Media Video / Avatar Stream Tile
+ */
+const StreamTile = ({ stream, isLocal = false, user, isVideoOff = false, callType = 'video' }) => {
+    const videoRef = useRef(null);
+    const [hasActiveVideo, setHasActiveVideo] = useState(false);
 
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(callType === 'voice');
-
-    // Fetch local and remote camera tracks
-    const localTracks = useTracks(
-        [{ source: Track.Source.Camera, withPlaceholder: false }],
-        { onlySubscribed: false }
-    );
-    const remoteTracks = useTracks(
-        [{ source: Track.Source.Camera, withPlaceholder: false }],
-        { onlySubscribed: true }
-    );
-
-    const activeLocalTrackRef = localTracks.find(t => t.participant?.isLocal);
-    const activeRemoteTrackRef = remoteTracks.find(t => !t.participant?.isLocal);
-
-    // Publish local media
     useEffect(() => {
-        if (localParticipant) {
-            localParticipant.setMicrophoneEnabled(true);
-            if (callType === 'video') {
-                localParticipant.setCameraEnabled(true);
-            }
-        }
-    }, [localParticipant, callType]);
+        if (!videoRef.current || !stream) return;
+        videoRef.current.srcObject = stream;
 
-    const handleMuteToggle = async () => {
-        if (!localParticipant) return;
-        const next = !isMuted;
-        await localParticipant.setMicrophoneEnabled(!next);
-        setIsMuted(next);
-    };
+        const checkTracks = () => {
+            const vTracks = stream.getVideoTracks();
+            const hasLive = vTracks.some((t) => t.enabled && t.readyState === 'live');
+            setHasActiveVideo(hasLive && !isVideoOff && callType === 'video');
+        };
 
-    const handleVideoToggle = async () => {
-        if (!localParticipant || callType === 'voice') return;
-        const next = !isVideoOff;
-        await localParticipant.setCameraEnabled(!next);
-        setIsVideoOff(next);
-    };
+        checkTracks();
+        stream.onaddtrack = checkTracks;
+        stream.onremovetrack = checkTracks;
+    }, [stream, isVideoOff, callType]);
 
-    const isConnected = remoteParticipants.length > 0;
+    return (
+        <div className="relative w-full h-full bg-[#11121a] rounded-2xl overflow-hidden flex items-center justify-center border border-white/10 shadow-2xl group transition-all duration-300">
+            {/* Native Video Element */}
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted={isLocal} // Always mute local video playback to prevent audio feedback
+                className={`w-full h-full object-cover transition-opacity duration-300 ${hasActiveVideo ? 'opacity-100' : 'opacity-0 absolute'}`}
+            />
+
+            {/* Fallback Animated Avatar Card */}
+            {!hasActiveVideo && (
+                <div className="flex flex-col items-center justify-center gap-3 p-4 z-10 text-center">
+                    <div className="relative">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full p-1 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-xl animate-pulse">
+                            <img
+                                src={user?.avatar || user?.profile_picture || USER_DEFAULT_IMAGE}
+                                alt=""
+                                className="w-full h-full rounded-full object-cover border-2 border-[#11121a]"
+                            />
+                        </div>
+                        {isLocal && (
+                            <span className="absolute bottom-0 right-0 bg-indigo-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full border border-black">
+                                YOU
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <h4 className="text-white text-sm font-black m-0 tracking-wide drop-shadow-md">
+                            {isLocal ? 'You (Microphone On)' : user?.fullname || 'Participant'}
+                        </h4>
+                        <span className="text-white/40 text-xs mt-0.5 font-medium">
+                            {callType === 'voice' ? 'Voice Active' : 'Camera Off'}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Bottom Overlay Label */}
+            <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-white text-xs font-semibold flex items-center gap-2 border border-white/10 z-20">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
+                <span>{isLocal ? 'You' : user?.fullname || 'Participant'}</span>
+            </div>
+        </div>
+    );
+};
+
+/**
+ * Active Connected Call View (Works for 1-on-1 and Group Calls)
+ */
+const ActiveCallView = ({
+    conversationId,
+    isGroup,
+    groupName,
+    callType,
+    currentUser,
+    remoteUser,
+    isHost,
+    token,
+    liveKitUrl,
+    providerOverride,
+    onClose,
+}) => {
+    const {
+        provider,
+        localStream,
+        remoteStreams,
+        isConnected,
+        isMuted,
+        isVideoOff,
+        toggleMute,
+        toggleVideo,
+        endCall,
+    } = useCallEngine({
+        conversationId,
+        isGroup,
+        callType,
+        user: currentUser,
+        remoteUser,
+        isHost,
+        token,
+        liveKitUrl,
+        provider: providerOverride,
+        onEnded: onClose,
+    });
+
     const [secondsElapsed, setSecondsElapsed] = useState(0);
 
     useEffect(() => {
         if (!isConnected) return;
         const interval = setInterval(() => {
-            setSecondsElapsed(prev => prev + 1);
+            setSecondsElapsed((prev) => prev + 1);
         }, 1000);
         return () => clearInterval(interval);
     }, [isConnected]);
@@ -182,79 +241,136 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
         return `${m}:${s}`;
     };
 
+    // Calculate grid classes based on participant count
+    const totalParticipants = 1 + remoteStreams.length;
+    let gridLayoutClass = 'grid-cols-1';
+    if (totalParticipants === 2) gridLayoutClass = 'grid-cols-1 sm:grid-cols-2';
+    else if (totalParticipants >= 3 && totalParticipants <= 4) gridLayoutClass = 'grid-cols-1 sm:grid-cols-2';
+    else if (totalParticipants > 4) gridLayoutClass = 'grid-cols-2 sm:grid-cols-3';
+
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#090a0f', justifyContent: 'space-between' }}>
-            {/* Elegant Floating Header for Call Status / Timer */}
-            <div style={{ zIndex: 100, position: 'absolute', top: '24px', left: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ background: 'rgba(9, 10, 15, 0.6)', backdropFilter: 'blur(12px)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isConnected ? '#10b981' : '#f59e0b' }} />
-                    <span style={{ color: '#fff', fontSize: '13px', fontWeight: 600 }}>
-                        {isConnected ? formatTime(secondsElapsed) : 'Connecting...'}
-                    </span>
+        <div className="relative w-full h-full flex flex-col bg-[#090a0f] overflow-hidden select-none">
+            {/* Top Floating Header */}
+            <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-50 pointer-events-none">
+                {/* Call Timer & Status Badge */}
+                <div className="flex items-center gap-3 pointer-events-auto">
+                    <div className="bg-black/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-2.5 shadow-xl">
+                        <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                        <span className="text-white text-xs font-bold tracking-wider uppercase">
+                            {isConnected ? formatTime(secondsElapsed) : 'Connecting Media...'}
+                        </span>
+                    </div>
+
+                    {/* Engine Indicator */}
+                    <div className="bg-indigo-500/20 backdrop-blur-xl px-3 py-2 rounded-2xl border border-indigo-500/30 flex items-center gap-2">
+                        <i className={`pi ${provider === CALL_PROVIDERS.LIVEKIT ? 'pi-cloud' : 'pi-bolt'} text-indigo-400 text-xs`} />
+                        <span className="text-indigo-300 text-[11px] font-extrabold uppercase tracking-wider">
+                            {provider === CALL_PROVIDERS.LIVEKIT ? 'LiveKit SFU' : 'P2P WebRTC'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Call Title */}
+                <div className="hidden sm:flex bg-black/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 text-white text-xs font-bold shadow-xl">
+                    {isGroup ? (groupName || 'Group Call') : (remoteUser?.fullname || 'Direct Call')}
                 </div>
             </div>
 
-            {/* Background Stream View */}
-            <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {callType === 'video' && isConnected && activeRemoteTrackRef ? (
-                    <VideoTrack trackRef={activeRemoteTrackRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {/* Main Stream Area */}
+            <div className="flex-1 w-full h-full p-4 sm:p-8 pt-20 pb-28 flex items-center justify-center overflow-y-auto">
+                {!isGroup && remoteStreams.length === 1 ? (
+                    // 1-on-1 Call Optimized View
+                    <div className="relative w-full h-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center">
+                        <StreamTile
+                            stream={remoteStreams[0].stream}
+                            isLocal={false}
+                            user={remoteStreams[0].user}
+                            callType={callType}
+                        />
+
+                        {/* Local Picture-in-Picture Thumbnail */}
+                        <div className="absolute top-4 right-4 w-32 h-44 sm:w-44 sm:h-60 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl z-30">
+                            <StreamTile
+                                stream={localStream}
+                                isLocal={true}
+                                user={currentUser}
+                                isVideoOff={isVideoOff}
+                                callType={callType}
+                            />
+                        </div>
+                    </div>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', zIndex: 10 }}>
-                        <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', padding: '4px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                            <img src={remoteUser?.avatar || USER_DEFAULT_IMAGE} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid #090a0f' }} />
+                    // Group Call Grid View
+                    <div className={`grid ${gridLayoutClass} gap-4 w-full h-full max-w-6xl auto-rows-fr items-stretch justify-items-stretch`}>
+                        {/* Local Stream Tile */}
+                        <div className="min-h-[180px] h-full w-full">
+                            <StreamTile
+                                stream={localStream}
+                                isLocal={true}
+                                user={currentUser}
+                                isVideoOff={isVideoOff}
+                                callType={callType}
+                            />
                         </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 800, margin: '0 0 6px' }}>{remoteUser?.fullname}</h2>
-                            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: 0 }}>
-                                {isConnected ? `Call Connected • ${formatTime(secondsElapsed)}` : 'Connecting Audio/Video...'}
-                            </p>
-                        </div>
+
+                        {/* Remote Stream Tiles */}
+                        {remoteStreams.map((r) => (
+                            <div key={r.id} className="min-h-[180px] h-full w-full">
+                                <StreamTile
+                                    stream={r.stream}
+                                    isLocal={false}
+                                    user={r.user}
+                                    callType={callType}
+                                />
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
 
-            {/* Local Video Thumbnail Overlay (for Video Calls) */}
-            {callType === 'video' && !isVideoOff && activeLocalTrackRef && (
-                <div style={{ position: 'absolute', top: '24px', right: '24px', width: '100px', height: '150px', borderRadius: '16px', border: '2px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', background: '#111', zIndex: 50 }}>
-                    <VideoTrack trackRef={activeLocalTrackRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-            )}
-
-            {/* Control Panel Footer */}
-            <div style={{
-                zIndex: 60, width: '100%', padding: '24px 0 40px',
-                background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px',
-                marginTop: 'auto'
-            }}>
-                <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                    {/* Audio Mute Button */}
-                    <button onClick={handleMuteToggle} style={{
-                        width: '56px', height: '56px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                        background: isMuted ? '#ef4444' : 'rgba(255,255,255,0.15)',
-                        backdropFilter: 'blur(10px)', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
-                    }}>
-                        <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'}`} style={{ fontSize: '20px' }} />
+            {/* Floating Footer Control Bar */}
+            <div className="absolute bottom-6 inset-x-0 flex items-center justify-center gap-6 z-50 pointer-events-none">
+                <div className="bg-black/70 backdrop-blur-2xl px-6 py-3 rounded-full border border-white/10 flex items-center gap-5 shadow-2xl pointer-events-auto">
+                    {/* Microphone Toggle */}
+                    <button
+                        onClick={toggleMute}
+                        className={`w-13 h-13 rounded-full border-0 cursor-pointer flex items-center justify-center transition-all duration-200 ${
+                            isMuted ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-white/10 hover:bg-white/20 text-white'
+                        }`}
+                        title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                        style={{ width: '52px', height: '52px' }}
+                    >
+                        <i className={`pi ${isMuted ? 'pi-volume-off' : 'pi-volume-up'} text-lg`} />
                     </button>
 
-                    {/* End Call Button */}
-                    <button onClick={onClose} style={{
-                        width: '68px', height: '68px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                        background: '#ef4444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)', transition: 'all 0.2s'
-                    }}>
-                        <i className="pi pi-phone" style={{ fontSize: '24px', transform: 'rotate(135deg)' }} />
+                    {/* Hang Up Button */}
+                    <button
+                        onClick={() => {
+                            endCall();
+                            onClose();
+                        }}
+                        className="w-16 h-16 rounded-full border-0 bg-red-600 hover:bg-red-700 text-white flex items-center justify-center cursor-pointer shadow-xl shadow-red-600/40 hover:scale-105 active:scale-95 transition-all duration-200"
+                        title="End Call"
+                        style={{ width: '64px', height: '64px' }}
+                    >
+                        <i className="pi pi-phone text-2xl" style={{ transform: 'rotate(135deg)' }} />
                     </button>
 
-                    {/* Camera Toggle Button */}
-                    <button onClick={handleVideoToggle} disabled={callType === 'voice'} style={{
-                        width: '56px', height: '56px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                        background: isVideoOff ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)',
-                        backdropFilter: 'blur(10px)', color: callType === 'voice' ? 'rgba(255,255,255,0.2)' : '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
-                    }}>
-                        <i className={`pi ${isVideoOff ? 'pi-video' : 'pi-video'}`} style={{ fontSize: '20px', opacity: isVideoOff ? 0.4 : 1 }} />
+                    {/* Camera Toggle */}
+                    <button
+                        onClick={toggleVideo}
+                        disabled={callType === 'voice'}
+                        className={`w-13 h-13 rounded-full border-0 cursor-pointer flex items-center justify-center transition-all duration-200 ${
+                            callType === 'voice'
+                                ? 'opacity-30 cursor-not-allowed bg-white/5 text-white/40'
+                                : isVideoOff
+                                ? 'bg-white/10 text-white/50 hover:bg-white/20'
+                                : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                        }`}
+                        title={isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
+                        style={{ width: '52px', height: '52px' }}
+                    >
+                        <i className={`pi ${isVideoOff ? 'pi-video' : 'pi-video'} text-lg`} />
                     </button>
                 </div>
             </div>
@@ -262,23 +378,36 @@ const CallInner = ({ conversationId, callType, remoteUser, isHost, onClose }) =>
     );
 };
 
-// ─── Main CallModal Component ───
+/**
+ * Top-Level Unified Call Modal
+ */
 const CallModal = ({
-    conversationId, recipientId, recipientName, recipientAvatar,
-    callerId, callerName, callerAvatar, callType,
-    isIncoming: initialIsIncoming, onClose
+    conversationId,
+    recipientId,
+    recipientName,
+    recipientAvatar,
+    callerId,
+    callerName,
+    callerAvatar,
+    groupName,
+    isGroup = false,
+    callType = 'voice',
+    isIncoming: initialIsIncoming = false,
+    onClose,
 }) => {
+    const user = useAuthStore((s) => s.user);
     const [callStatus, setCallStatus] = useState(initialIsIncoming ? 'incoming' : 'calling');
     const [token, setToken] = useState(null);
-    const [liveKitUrl] = useState(process.env.REACT_APP_LIVEKIT_URL || 'ws://localhost:7880');
+    const [provider, setProvider] = useState(process.env.REACT_APP_CALL_PROVIDER || CALL_PROVIDERS.WEBSOCKET);
+    const [liveKitUrl, setLiveKitUrl] = useState(process.env.REACT_APP_LIVEKIT_URL || 'ws://localhost:7880');
     const fetchInitiated = useRef(false);
 
-    // Identity resolved
+    // Identify remote user details
     const remoteUser = initialIsIncoming
-        ? { id: callerId, fullname: callerName, avatar: callerAvatar }
-        : { id: recipientId, fullname: recipientName, avatar: recipientAvatar };
+        ? { id: callerId, _id: callerId, fullname: callerName, avatar: callerAvatar }
+        : { id: recipientId, _id: recipientId, fullname: recipientName, avatar: recipientAvatar };
 
-    // Dial-tone or ringtone playback based on status
+    // Dialtone / Ringtone synthesizer triggers
     useEffect(() => {
         if (callStatus === 'calling') {
             callSynth.startDialTone();
@@ -290,166 +419,210 @@ const CallModal = ({
         return () => callSynth.stop();
     }, [callStatus]);
 
-    // Handle Socket Call Events
+    // Handle Socket Signal Handlers
     useEffect(() => {
-        const handleCallAccepted = ({ receiverId, conversationId: acceptedConvId }) => {
-            console.log('[Socket] Call Accepted by:', receiverId);
+        const handleCallAccepted = () => {
+            console.log('[CallModal] Call accepted by peer');
             setCallStatus('connecting');
         };
 
         const handleCallDeclined = () => {
-            console.log('[Socket] Call Declined');
-            toast.error('Call declined');
+            console.log('[CallModal] Call declined');
+            toast.error('Call was declined');
             onClose();
         };
 
         const handleCallEnded = () => {
-            console.log('[Socket] Call Ended');
+            console.log('[CallModal] Call ended');
             toast.success('Call ended');
+            onClose();
+        };
+
+        const handleGroupCallEnded = () => {
+            console.log('[CallModal] Group call ended');
+            toast.success('Group call ended');
             onClose();
         };
 
         socket.on('callAccepted', handleCallAccepted);
         socket.on('callDeclined', handleCallDeclined);
         socket.on('callEnded', handleCallEnded);
+        socket.on('groupCallEnded', handleGroupCallEnded);
 
         return () => {
             socket.off('callAccepted', handleCallAccepted);
             socket.off('callDeclined', handleCallDeclined);
             socket.off('callEnded', handleCallEnded);
+            socket.off('groupCallEnded', handleGroupCallEnded);
         };
     }, [onClose]);
 
-    // Fetch LiveKit Token upon acceptance / connection
+    // Auto-connect for group calls or outgoing calls once accepted
+    useEffect(() => {
+        if (isGroup && !initialIsIncoming && callStatus === 'calling') {
+            setCallStatus('connecting');
+        }
+    }, [isGroup, initialIsIncoming, callStatus]);
+
+    // Setup Token & Provider upon connection
     useEffect(() => {
         if (callStatus !== 'connecting' || fetchInitiated.current) return;
         fetchInitiated.current = true;
 
-        const fetchToken = async () => {
+        const setupCallingSession = async () => {
             try {
-                const res = await api.post(`/api/conversation/call/token`, { conversationId });
-                setToken(res.data.token);
+                // Fetch provider setting from server
+                const providerRes = await api.get('/api/conversation/call/provider');
+                const resolvedProvider = process.env.REACT_APP_CALL_PROVIDER || providerRes.data?.provider || CALL_PROVIDERS.WEBSOCKET;
+                setProvider(resolvedProvider);
+                if (providerRes.data?.livekitUrl) setLiveKitUrl(providerRes.data.livekitUrl);
+
+                if (resolvedProvider === CALL_PROVIDERS.LIVEKIT) {
+                    const tokenRes = await api.post('/api/conversation/call/token', { conversationId });
+                    setToken(tokenRes.data.token);
+                }
+
                 setCallStatus('connected');
             } catch (err) {
-                console.error('[CallModal] Token generation failed:', err);
-                toast.error('Failed to establish media server credentials');
-                onClose();
+                console.warn('[CallModal] Token/Provider query failed, falling back to WebSocket:', err.message);
+                setProvider(CALL_PROVIDERS.WEBSOCKET);
+                setCallStatus('connected');
             }
         };
 
-        fetchToken();
-    }, [callStatus, conversationId, onClose]);
+        setupCallingSession();
+    }, [callStatus, conversationId]);
 
     const handleAccept = () => {
-        socket.emit('acceptCall', { callerId: remoteUser.id, conversationId });
-        setCallStatus('connecting');
+        if (isGroup) {
+            setCallStatus('connecting');
+        } else {
+            socket.emit('acceptCall', { callerId: remoteUser.id, conversationId });
+            setCallStatus('connecting');
+        }
     };
 
     const handleDecline = () => {
-        socket.emit('declineCall', { callerId: remoteUser.id });
+        if (!isGroup) {
+            socket.emit('declineCall', { callerId: remoteUser.id, conversationId });
+        }
         onClose();
     };
 
     const handleHangUp = () => {
-        socket.emit('endCall', { recipientId: remoteUser.id, conversationId });
+        if (isGroup) {
+            socket.emit('leaveGroupCall', { conversationId });
+        } else {
+            socket.emit('endCall', { recipientId: remoteUser.id, conversationId });
+        }
         onClose();
     };
 
-    // Render Overlay Views
+    // ─── Render Incoming Screen ───
     if (callStatus === 'incoming') {
+        const title = isGroup ? (groupName || 'Group Call') : (remoteUser.fullname || 'Direct Call');
         return (
             <div className="fixed inset-0 bg-black/95 z-[99999] flex flex-col items-center justify-between py-24 px-8 text-center backdrop-blur-md">
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                    <span style={{ fontSize: '12px', color: '#808bf5', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>Incoming {callType} Call</span>
-                    <div style={{ width: 140, height: 140, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', padding: '4px', margin: '20px 0', animation: 'pulseRing 2s infinite' }}>
-                        <img src={remoteUser.avatar || USER_DEFAULT_IMAGE} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #000' }} />
+                <div className="flex flex-col items-center gap-5 animate-in fade-in zoom-in duration-300">
+                    <span className="text-indigo-400 text-xs font-black tracking-widest uppercase bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
+                        Incoming {isGroup ? 'Group ' : ''}{callType} Call
+                    </span>
+                    <div className="w-36 h-36 rounded-full p-1 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-2xl animate-bounce">
+                        <img
+                            src={remoteUser.avatar || USER_DEFAULT_IMAGE}
+                            alt=""
+                            className="w-full h-full rounded-full object-cover border-4 border-black"
+                        />
                     </div>
-                    <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: 0 }}>{remoteUser.fullname}</h1>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', margin: 0 }}>Calling you...</p>
+                    <div>
+                        <h1 className="text-white text-2xl font-black m-0 mb-1">{title}</h1>
+                        <p className="text-white/50 text-sm m-0">
+                            {isGroup ? `${callerName || 'Someone'} started a group call` : 'Calling you...'}
+                        </p>
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '48px', alignItems: 'center' }}>
-                    {/* Decline Button */}
-                    <button onClick={handleDecline} style={{ width: '72px', height: '72px', borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#ef4444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(239, 68, 68, 0.4)' }}>
-                        <i className="pi pi-phone" style={{ fontSize: '24px', transform: 'rotate(135deg)' }} />
+                <div className="flex gap-12 items-center">
+                    <button
+                        onClick={handleDecline}
+                        className="w-18 h-18 rounded-full border-0 cursor-pointer bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-2xl shadow-red-600/40 hover:scale-105 active:scale-95 transition-all"
+                        style={{ width: '72px', height: '72px' }}
+                    >
+                        <i className="pi pi-phone text-2xl" style={{ transform: 'rotate(135deg)' }} />
                     </button>
-                    {/* Accept Button */}
-                    <button onClick={handleAccept} style={{ width: '72px', height: '72px', borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(16, 185, 129, 0.4)' }}>
-                        <i className="pi pi-phone" style={{ fontSize: '24px' }} />
+                    <button
+                        onClick={handleAccept}
+                        className="w-18 h-18 rounded-full border-0 cursor-pointer bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-2xl shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all"
+                        style={{ width: '72px', height: '72px' }}
+                    >
+                        <i className="pi pi-phone text-2xl" />
                     </button>
                 </div>
-
-                <style>{`
-                    @keyframes pulseRing {
-                        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(128, 139, 245, 0.5); }
-                        70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(128, 139, 245, 0); }
-                        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(128, 139, 245, 0); }
-                    }
-                `}</style>
             </div>
         );
     }
 
+    // ─── Render Outgoing Calling Screen ───
     if (callStatus === 'calling') {
+        const title = isGroup ? (groupName || 'Group Call') : (remoteUser.fullname || 'Direct Call');
         return (
             <div className="fixed inset-0 bg-black/95 z-[99999] flex flex-col items-center justify-between py-24 px-8 text-center backdrop-blur-md">
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                    <span style={{ fontSize: '12px', color: '#808bf5', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>Calling...</span>
-                    <div style={{ width: 140, height: 140, borderRadius: '50%', background: 'linear-gradient(135deg, #808bf5, #ec4899)', padding: '4px', margin: '20px 0', animation: 'callingPulse 2.5s infinite' }}>
-                        <img src={remoteUser.avatar || USER_DEFAULT_IMAGE} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #000' }} />
+                <div className="flex flex-col items-center gap-5 animate-in fade-in zoom-in duration-300">
+                    <span className="text-indigo-400 text-xs font-black tracking-widest uppercase bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
+                        Calling {isGroup ? 'Group...' : '...'}
+                    </span>
+                    <div className="w-36 h-36 rounded-full p-1 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-2xl animate-pulse">
+                        <img
+                            src={remoteUser.avatar || USER_DEFAULT_IMAGE}
+                            alt=""
+                            className="w-full h-full rounded-full object-cover border-4 border-black"
+                        />
                     </div>
-                    <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: 0 }}>{remoteUser.fullname}</h1>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', margin: 0 }}>Ringing your phone...</p>
+                    <div>
+                        <h1 className="text-white text-2xl font-black m-0 mb-1">{title}</h1>
+                        <p className="text-white/50 text-sm m-0">Ringing...</p>
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    {/* Hang Up Button */}
-                    <button onClick={handleHangUp} style={{ width: '72px', height: '72px', borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#ef4444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(239, 68, 68, 0.4)' }}>
-                        <i className="pi pi-phone" style={{ fontSize: '24px', transform: 'rotate(135deg)' }} />
-                    </button>
-                </div>
-
-                <style>{`
-                    @keyframes callingPulse {
-                        0% { transform: scale(1); opacity: 0.9; }
-                        50% { transform: scale(1.04); opacity: 1; }
-                        100% { transform: scale(1); opacity: 0.9; }
-                    }
-                `}</style>
+                <button
+                    onClick={handleHangUp}
+                    className="w-18 h-18 rounded-full border-0 cursor-pointer bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-2xl shadow-red-600/40 hover:scale-105 active:scale-95 transition-all"
+                    style={{ width: '72px', height: '72px' }}
+                >
+                    <i className="pi pi-phone text-2xl" style={{ transform: 'rotate(135deg)' }} />
+                </button>
             </div>
         );
     }
 
+    // ─── Render Connecting Spinner ───
     if (callStatus === 'connecting') {
         return (
             <div className="fixed inset-0 bg-black/95 z-[99999] flex flex-col items-center justify-center text-center p-10 gap-6 backdrop-blur-md">
-                <div className="w-16 h-16 rounded-full border-4 border-[#808bf5]/30 border-t-[#808bf5] animate-spin" />
-                <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 700, margin: 0 }}>Securing Connection</h2>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: 0 }}>Establishing secure audio/video channel...</p>
+                <div className="w-16 h-16 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+                <h2 className="text-white text-xl font-bold m-0">Connecting Call</h2>
+                <p className="text-white/50 text-sm m-0">Negotiating secure audio/video channels...</p>
             </div>
         );
     }
 
-    if (callStatus === 'connected' && token) {
+    // ─── Render Active Connected Session ───
+    if (callStatus === 'connected') {
         return (
             <div className="fixed inset-0 z-[99999] overflow-hidden">
-                <LiveKitRoom
-                    video={callType === 'video'}
-                    audio={true}
+                <ActiveCallView
+                    conversationId={conversationId}
+                    isGroup={isGroup}
+                    groupName={groupName}
+                    callType={callType}
+                    currentUser={user}
+                    remoteUser={remoteUser}
+                    isHost={!initialIsIncoming}
                     token={token}
-                    serverUrl={liveKitUrl}
-                    connectOptions={{ autoSubscribe: true }}
-                    options={{ adaptiveStream: true, dynacast: true }}
-                >
-                    <RoomAudioRenderer />
-                    <CallInner
-                        conversationId={conversationId}
-                        callType={callType}
-                        remoteUser={remoteUser}
-                        isHost={!initialIsIncoming}
-                        onClose={handleHangUp}
-                    />
-                </LiveKitRoom>
+                    liveKitUrl={liveKitUrl}
+                    providerOverride={provider}
+                    onClose={handleHangUp}
+                />
             </div>
         );
     }

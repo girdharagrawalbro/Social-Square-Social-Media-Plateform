@@ -561,10 +561,10 @@ router.get('/search', verifyToken, [
 
 // ─── FETCH MESSAGES (PROTECTED) ───────────────────────────────────────────────
 router.post('/messages', verifyToken, [
-    body('recipientId').optional().isMongoId().withMessage('Invalid recipient ID'),
-    body('conversationId').optional().isMongoId().withMessage('Invalid conversation ID'),
-    body('before').optional().isISO8601(),
-    body('limit').optional().isInt({ min: 1, max: 100 }),
+    body('recipientId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid recipient ID'),
+    body('conversationId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid conversation ID'),
+    body('before').optional({ nullable: true, checkFalsy: true }).isISO8601(),
+    body('limit').optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 100 }),
     validate
 ], async (req, res) => {
     try {
@@ -710,10 +710,11 @@ router.get('/messages/search', verifyToken, [
 
 // ─── SEND MESSAGE (PROTECTED) ─────────────────────────────────────────────────
 router.post(['/messages/create', '/send'], verifyToken, [
-    body('conversationId').optional().isMongoId(),
-    body('recipientId').optional().isMongoId(),
-    body('content').optional().trim().escape(),
-    body('mediaUrl').optional().custom((val) => {
+    body('conversationId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid conversation ID'),
+    body('recipientId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid recipient ID'),
+    body('content').optional({ nullable: true, checkFalsy: true }),
+    body('mediaUrl').optional({ nullable: true, checkFalsy: true }).custom((val) => {
+        if (!val) return true;
         if (typeof val === 'string' && (val.startsWith('{"ciphertext":') || val.startsWith('http://') || val.startsWith('https://'))) {
             return true;
         }

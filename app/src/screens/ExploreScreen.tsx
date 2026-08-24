@@ -547,7 +547,6 @@ export default function ExploreScreen({ navigation }: any) {
               {/* Semantic Results */}
               {aiResults.length > 0 && (
                 <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>✨ Semantic Results</Text>
                   {aiResults.slice(0, 5).map((post: any) => {
                     const thumbnail = post.image_urls?.[0] || post.image_url || post.videoThumbnail;
                     return (
