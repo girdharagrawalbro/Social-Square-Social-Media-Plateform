@@ -366,7 +366,6 @@ const Search = ({ onClose, desc = true }) => {
                                             </p>
                                             <div className="flex flex-col gap-0.5">
                                                 {blendedUsers.map(u => {
-                                                    const isLocalMatch = localMatches.some(m => m._id === u._id);
                                                     return (
                                                         <button key={u._id} onClick={() => handleUserClick(u)}
                                                             className="flex items-center justify-between gap-3 px-1 py-2 rounded-2xl border-0 bg-transparent cursor-pointer text-left w-full hover:bg-[var(--surface-2)] transition-all group">
