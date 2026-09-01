@@ -355,7 +355,7 @@ const Reels = () => {
                                 <div className="flex flex-col">
                                     <span className="text-sm font-black">Comments</span>
                                     <span className="text-[11px] text-[var(--text-sub)] truncate max-w-[260px]">
-                                        {commentPost.caption || 'Reel discussion'}
+                                        {commentPost.caption || ''}
                                     </span>
                                 </div>
                                 <button
