@@ -387,14 +387,6 @@ const Comment = ({ postId, post, setVisible, onProfileClick, isOwnPost }) => {
                     100% { transform: translate(-50%, -120%) scale(1.5); opacity: 0; }
                 }
             `}</style>
-            <div className="flex items-center justify-between p-3 border-b border-[var(--border-color)]">
-                <span className="font-semibold text-sm">Comments</span>
-                {setVisible && (
-                    <button onClick={() => setVisible(false)} className="text-[var(--text-sub)] hover:text-[var(--text-main)] transition border-0 bg-transparent cursor-pointer">
-                        <i className="pi pi-times"></i>
-                    </button>
-                )}
-            </div>
 
             {/* Scrollable Comments Section */}
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
