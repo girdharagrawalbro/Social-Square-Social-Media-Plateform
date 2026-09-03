@@ -27,13 +27,21 @@ const VerifyOtp = () => {
   const inputs = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const mode = location.state?.mode || 'login';
   const userId = location.state?.userId;
   const setUser = useAuthStore(s => s.setUser);
   const setInitialized = useAuthStore(s => s.setInitialized);
+  const verifyEmailLocally = useAuthStore(s => s.verifyEmailLocally);
   const BASE = process.env.REACT_APP_NGINIX === "true" ? "" : process.env.REACT_APP_BACKEND_URL;
   useEffect(() => {
-    if (!userId) navigate('/login');
-  }, [userId, navigate]);
+    if (!userId) {
+      if (mode === 'email') {
+        navigate('/please-verify');
+      } else {
+        navigate('/login');
+      }
+    }
+  }, [userId, mode, navigate]);
 
   // Countdown for resend
   useEffect(() => {
@@ -86,15 +94,33 @@ const VerifyOtp = () => {
 
     setLoading(true);
     try {
-      const fingerprint = await getFingerprint();
-      const response = await fetch(`${BASE}/api/auth/verify-otp`, {
+      const isEmailVerification = mode === 'email';
+      const endpoint = isEmailVerification ? '/api/auth/verify-email-otp' : '/api/auth/verify-otp';
+      const payload = isEmailVerification
+        ? { otp: otpValue }
+        : { userId, otp: otpValue, fingerprint: await getFingerprint() };
+
+      const response = await fetch(`${BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ userId, otp: otpValue, fingerprint }),
+        body: JSON.stringify(payload),
       });
       const result = await response.json();
       if (response.ok) {
+        if (isEmailVerification) {
+          const currentUser = useAuthStore.getState().user;
+          if (currentUser) {
+            setUser({ ...currentUser, isEmailVerified: true });
+          }
+          verifyEmailLocally();
+          toast.success('Email verified successfully!');
+          localStorage.removeItem('otpResendUntil');
+          localStorage.removeItem('otpExpiresAt');
+          navigate(`/${useAuthStore.getState().user?.username || 'me'}`);
+          return;
+        }
+
         setToken(result.token);
         if (result.user) {
           setUser(result.user);
@@ -116,10 +142,13 @@ const VerifyOtp = () => {
   const handleResend = async () => {
     setResending(true);
     try {
-      const response = await fetch(`${BASE}/api/auth/resend-otp`, {
+      const isEmailVerification = mode === 'email';
+      const endpoint = isEmailVerification ? '/api/auth/resend-verification' : '/api/auth/resend-otp';
+      const response = await fetch(`${BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        credentials: isEmailVerification ? 'include' : 'omit',
+        body: isEmailVerification ? JSON.stringify({}) : JSON.stringify({ userId }),
       });
       const result = await response.json();
       if (response.ok) {
@@ -152,8 +181,8 @@ const VerifyOtp = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-2xl shadow-lg text-center max-w-sm w-full">
           <div style={{ fontSize: '48px', marginBottom: '8px' }}>🔐</div>
-          <h2 className="text-2xl font-bold mb-1">Verify your identity</h2>
-          <p className="text-gray-500 text-sm mb-2">Enter the 6-digit code sent to your email</p>
+          <h2 className="text-2xl font-bold mb-1">{mode === 'email' ? 'Verify your email' : 'Verify your identity'}</h2>
+          <p className="text-gray-500 text-sm mb-2">{mode === 'email' ? 'Enter the 6-digit code sent to your email' : 'Enter the 6-digit code sent to your email'}</p>
           <p className={`text-xs font-semibold mb-6 ${expiryCountdown <= 60 ? 'text-red-500 font-bold' : 'text-indigo-600'}`}>
             {expiryCountdown > 0 ? `Code expires in ${formatTime(expiryCountdown)}` : 'Code has expired. Please resend.'}
           </p>
@@ -200,7 +229,7 @@ const VerifyOtp = () => {
           </div>
         </div>
       </div>
-      
+
     </>
   );
 };

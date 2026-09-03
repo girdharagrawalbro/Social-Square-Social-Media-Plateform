@@ -22,7 +22,7 @@ const EmailVerificationBanner = () => {
             </div>
             <div className="mt-0 shrink-0 ml-4">
                 <button
-                    onClick={() => navigate('/please-verify')}
+                    onClick={() => navigate('/verify-email-otp', { state: { userId: user?._id, mode: 'email' } })}
                     className="flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-yellow-200 hover:bg-yellow-300 transition-colors"
                 >
                     Verify Now

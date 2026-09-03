@@ -695,9 +695,6 @@ router.post('/add', authRateLimiter, [
         const existing = await User.findOne({ email: email.toLowerCase().trim() });
         if (existing) return res.status(400).json({ message: 'User already exists with this email.' });
 
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        const hashedVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
-
         const hashedPassword = await bcrypt.hash(decryptedPassword, 10);
 
         const username = await generateUniqueUsername(fullname);
@@ -708,17 +705,19 @@ router.post('/add', authRateLimiter, [
             email: email.toLowerCase().trim(),
             password: hashedPassword,
             authProvider: 'local',
-            emailVerificationToken: hashedVerificationToken,
             isEmailVerified: false,
         });
+
+        const verificationOtp = generateOtp();
+        newUser.emailVerificationOtp = hashValue(verificationOtp);
+        newUser.emailVerificationOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
         await newUser.save();
 
         // Send welcome email
         sendWelcomeEmail(newUser.email, newUser.fullname).catch(err => logger.error('[SIGNUP] Welcome email failed:', err));
 
-        // Send verification email
-        const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
-        sendVerificationEmail(newUser.email, verificationUrl).catch(err => logger.error('[SIGNUP] Verification email failed:', err));
+        // Send verification OTP email
+        sendOtpEmail(newUser.email, verificationOtp).catch(err => logger.error('[SIGNUP] Verification OTP failed:', err));
 
         const family = generateFamily();
         const accessToken = generateAccessToken(newUser._id, family);
@@ -1215,23 +1214,62 @@ router.post('/resend-verification', verifyToken, async (req, res) => {
         if (!user) return res.status(404).json({ error: 'User not found' });
         if (user.isEmailVerified) return res.status(400).json({ error: 'Email already verified' });
 
-        // Cooldown check (5 mins)
         const lastSent = user.emailVerificationTokenSentAt || 0;
         if (Date.now() - lastSent < 5 * 60 * 1000) {
             return res.status(429).json({ error: 'Please wait 5 minutes before resending.' });
         }
 
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        user.emailVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+        const verificationOtp = generateOtp();
+        user.emailVerificationOtp = hashValue(verificationOtp);
+        user.emailVerificationOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        user.emailVerificationToken = null;
         user.emailVerificationTokenSentAt = Date.now();
         await user.save();
 
-        const verificationUrl = `${CLIENT_URL}/verify-email/${verificationToken}`;
-        await sendVerificationEmail(user.email, verificationUrl);
-        return res.status(200).json({ message: 'Verification link sent and delivered to your inbox.' });
+        await sendOtpEmail(user.email, verificationOtp);
+        return res.status(200).json({
+            message: 'Verification code sent and delivered to your inbox.',
+            otpExpireTime: user.emailVerificationOtpExpires.toISOString(),
+            resendDuration: 60,
+        });
     } catch (error) {
         console.error('Resend verification error:', error);
-        return res.status(500).json({ error: 'Failed to resend verification email.' });
+        return res.status(500).json({ error: 'Failed to resend verification code.' });
+    }
+});
+
+router.post('/verify-email-otp', verifyToken, [
+    body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+        const { otp } = req.body;
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (user.isEmailVerified) return res.status(400).json({ error: 'Email already verified' });
+        if (!user.emailVerificationOtp || !user.emailVerificationOtpExpires || user.emailVerificationOtpExpires < new Date()) {
+            return res.status(400).json({ error: 'Verification code expired. Please request a new one.' });
+        }
+        if (user.emailVerificationOtp !== hashValue(otp)) {
+            return res.status(401).json({ error: 'Invalid verification code.' });
+        }
+
+        user.isEmailVerified = true;
+        user.emailVerificationOtp = null;
+        user.emailVerificationOtpExpires = null;
+        user.emailVerificationToken = null;
+        user.emailVerificationTokenSentAt = null;
+        await user.save();
+
+        return res.status(200).json({
+            message: 'Email verified successfully.',
+            user: sanitizeUser(user.toObject ? user.toObject() : user),
+        });
+    } catch (error) {
+        console.error('Email OTP verification error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
     }
 });
 

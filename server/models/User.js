@@ -60,6 +60,8 @@ const UserSchema = new mongoose.Schema({
   isEmailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String, default: null },
   emailVerificationTokenSentAt: { type: Date, default: null },
+  emailVerificationOtp: { type: String, default: null },
+  emailVerificationOtpExpires: { type: Date, default: null },
 
   // Analytics
   profileViews: { type: Number, default: 0 },
@@ -154,6 +156,8 @@ UserSchema.set('toJSON', {
     delete ret.resetPasswordToken;
     delete ret.resetPasswordExpires;
     delete ret.emailVerificationToken;
+    delete ret.emailVerificationOtp;
+    delete ret.emailVerificationOtpExpires;
     delete ret.failedLoginAttempts;
     delete ret.lockoutUntil;
     delete ret.googleId;

@@ -65,8 +65,8 @@ const Signup = () => {
           console.error("E2EE initialization failed:", e2eeErr);
         }
 
-        toast.success("Signup successful...");
-        navigate(`/${result.user.username}`);
+        toast.success("Signup successful. Check your email for the verification code.");
+        navigate('/verify-email-otp', { state: { userId, mode: 'email' } });
       } else { toast.error(result.message || result.error || "Something went wrong!"); }
     } catch { toast.error("Network error! Please try again."); }
   };
@@ -122,7 +122,7 @@ const Signup = () => {
 
         </div>
       </Bg>
-      
+
     </>
   );
 };

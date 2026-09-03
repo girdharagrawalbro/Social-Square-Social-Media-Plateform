@@ -1129,7 +1129,8 @@ function App() {
                                     <Route path="/stories/:username" element={<StoriesPage />} />
                                     <Route path="/stories/:username/:storyId" element={<StoriesPage />} />
                                     <Route path="/stories" element={<StoriesPage />} />
-                                    <Route path="/please-verify" element={<PleaseVerifyEmail />} />
+                                    <Route path="/please-verify" element={<MainLayout><PleaseVerifyEmail /></MainLayout>} />
+                                    <Route path="/verify-email-otp" element={<MainLayout><VerifyOtp /></MainLayout>} />
                                     <Route path="/knowledge" element={<MainLayout><KnowledgeDashboard /></MainLayout>} />
                                     <Route path="/knowledge/wiki" element={<MainLayout><WikiListPage /></MainLayout>} />
                                     <Route path="/knowledge/wiki/:slug" element={<MainLayout><WikiPage /></MainLayout>} />
@@ -1148,6 +1149,7 @@ function App() {
                                     <Route path="/help" element={<PublicLayout><Help /></PublicLayout>} />
                                     <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
                                     <Route path="/verify-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
+                                    <Route path="/verify-email-otp" element={<PublicLayout><VerifyOtp /></PublicLayout>} />
                                     <Route path="/verify-email/:token" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
                                     <Route path="/post/:postId" element={<PublicLayout><SharedPostRedirect /></PublicLayout>} />
                                     <Route path="/story/:userId/:storyId" element={<PublicLayout><SharedStoryRedirect /></PublicLayout>} />
