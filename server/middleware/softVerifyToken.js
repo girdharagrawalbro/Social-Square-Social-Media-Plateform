@@ -38,7 +38,7 @@ async function softVerifyToken(req, res, next) {
 
         // Final source of truth is the verified session
         if (session) {
-            const sessionUser = await User.findById(session.userId).select('isBanned banReason').lean();
+            const sessionUser = await User.findById(session.userId).select('isBanned').lean();
             if (sessionUser?.isBanned) {
                 req.userId = null;
                 return next();

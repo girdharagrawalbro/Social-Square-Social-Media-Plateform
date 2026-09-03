@@ -346,7 +346,7 @@ router.post('/login', authRateLimiter, [
         if (!user || user.deletedAt || !user.password) return res.status(401).json({ error: 'Invalid email, username or password' });
 
         if (user.isBanned) {
-            return res.status(403).json({ error: user.banReason || 'Your account has been banned for violating our community guidelines.' });
+            return res.status(403).json({ error: 'This account is unavailable.' });
         }
 
         if (user.deletionScheduledAt && user.deletionScheduledAt > new Date()) {
@@ -628,11 +628,11 @@ router.post('/verify-otp', authRateLimiter, [
                 .catch(() => { });
         }
 
-        // ── SECURITY NOTIFICATION FOR SUCCESSFUL LOGIN (OTP) ──
+        // ── SECURITY NOTIFICATION FOR SUCCESSFUL LOGIN (OTP / 2FA) ──
         createNotification({
             recipientId: user._id,
             type: 'system',
-            message: { content: `Secure Login: Your account was accessed via ${device} (OTP verified) at IP ${ip}.` }
+            message: { content: `Secure Login: Your account was accessed via ${device} (2FA verified) at IP ${ip}.` }
         }).catch(e => logger.error('Failed to send login alert:', e));
 
         if (_io) {
@@ -794,8 +794,8 @@ router.post('/google', async (req, res) => {
 
         let user = await User.findOne({ $or: [{ googleId }, { email }] });
         if (user) {
-            if (user.deletedAt) return res.status(403).json({ error: 'This account has been deactivated.' });
-            if (user.isBanned) return res.status(403).json({ error: user.banReason || 'This account has been banned.' });
+            if (user.deletedAt) return res.status(403).json({ error: 'This account is unavailable.' });
+            if (user.isBanned) return res.status(403).json({ error: 'This account is unavailable.' });
         }
 
         let isNewUser = false;
@@ -870,6 +870,12 @@ router.post('/google', async (req, res) => {
             sendNewDeviceAlert(user.email, { device, ip, location, time: new Date().toLocaleString() })
                 .catch(() => { });
         }
+
+        createNotification({
+            recipientId: user._id,
+            type: 'system',
+            message: { content: `Secure Login: Your account was accessed via ${device} (Google sign-in) at IP ${ip}.` }
+        }).catch(e => logger.error('Failed to send Google login alert:', e));
 
         if (_io) {
             _io.to(user._id.toString()).emit('deviceLogin', {
@@ -1408,7 +1414,7 @@ router.get('/other-user/view/:id', verifyToken, [
 
         if (!targetUser) return res.status(404).json({ message: 'User not found.' });
         if (targetUser.isBanned) {
-            return res.status(403).json({ message: targetUser.banReason || 'This profile is unavailable because the account has been banned.' });
+            return res.status(403).json({ error: 'This account is unavailable.' });
         }
 
         const postCount = targetUser.postsCount || 0;
@@ -1495,7 +1501,7 @@ router.get('/public/profile/:identifier', softVerifyToken, [
 
         if (!user) return res.status(404).json({ message: 'User not found.' });
         if (user.isBanned) {
-            return res.status(403).json({ message: user.banReason || 'This profile is unavailable because the account has been banned.' });
+            return res.status(403).json({ error: 'This account is unavailable.' });
         }
 
         const postCount = user.postsCount || 0;

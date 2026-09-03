@@ -24,9 +24,9 @@ async function verifyToken(req, res, next) {
             return res.status(401).json({ message: 'Unauthorized. Session expired.' });
         }
 
-        const sessionUser = await User.findById(session.userId).select('isBanned banReason').lean();
+        const sessionUser = await User.findById(session.userId).select('isBanned').lean();
         if (sessionUser?.isBanned) {
-            return res.status(403).json({ message: sessionUser.banReason || 'This account has been banned.' });
+            return res.status(403).json({ error: 'This account is unavailable.' });
         }
 
         // Update sliding window TTL safely (non-blocking)
