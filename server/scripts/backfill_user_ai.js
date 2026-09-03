@@ -5,7 +5,7 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const { generateText } = require('../utils/gemini');
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://girdharagrawalbro:7909905038@cluster0.czsb19m.mongodb.net/socialsquare?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/socialsquare';
 
 async function processUser(user) {
     // Check if user already has aiProfileSummary

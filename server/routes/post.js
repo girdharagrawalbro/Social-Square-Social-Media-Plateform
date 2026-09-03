@@ -1033,6 +1033,8 @@ router.get("/user/:userId", [
         const cursor = req.query.cursor;
         const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
         // Show all posts where user is owner OR an accepted collaborator
+        const bannedUsers = await User.find({ isBanned: true }).select('_id').lean();
+        const bannedUserIds = bannedUsers.map(u => u._id.toString());
         const query = {
             $or: [
                 { 'user._id': ownerObjectId },
@@ -1046,6 +1048,7 @@ router.get("/user/:userId", [
                 }
             ],
             isVisible: { $ne: false },
+            'user._id': { $nin: bannedUserIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) },
             ...(!isOwner ? { isAnonymous: { $ne: true } } : {})
         };
 
@@ -1703,13 +1706,25 @@ router.get('/comments', softVerifyToken, [
             }
         }
 
-        // 2. Fetch all parent comments
-        const comments = await Comment.find({ postId, parentId: null, isVisible: { $ne: false } }).sort({ createdAt: 1 }).lean();
+        const bannedAuthors = await User.find({ isBanned: true }).select('_id').lean();
+        const bannedAuthorIds = new Set(bannedAuthors.map(u => String(u._id)));
+
+        // 2. Fetch all parent comments, excluding banned users and hidden content
+        const comments = await Comment.find({
+            postId,
+            parentId: null,
+            isVisible: { $ne: false },
+            'user._id': { $nin: [...bannedAuthorIds] }
+        }).sort({ createdAt: 1 }).lean();
         if (!comments.length) return res.status(200).json([]);
 
         // 2. Fetch all replies for these parents in one single query (Optimized)
         const parentIds = comments.map(c => c._id);
-        const allReplies = await Comment.find({ parentId: { $in: parentIds }, isVisible: { $ne: false } }).sort({ createdAt: 1 }).lean();
+        const allReplies = await Comment.find({
+            parentId: { $in: parentIds },
+            isVisible: { $ne: false },
+            'user._id': { $nin: [...bannedAuthorIds] }
+        }).sort({ createdAt: 1 }).lean();
 
         // 3. Map replies to their parents
         const replyMap = {};
@@ -1724,7 +1739,14 @@ router.get('/comments', softVerifyToken, [
             repliesList: replyMap[comment._id.toString()] || []
         }));
 
-        res.status(200).json(withReplies);
+        const rankedComments = withReplies.sort((a, b) => {
+            const scoreA = (a.likes?.length || 0) + (a.repliesList?.length || 0) * 2 + (a.isBestAnswer ? 5 : 0) + (a.isInsightful ? 3 : 0);
+            const scoreB = (b.likes?.length || 0) + (b.repliesList?.length || 0) * 2 + (b.isBestAnswer ? 5 : 0) + (b.isInsightful ? 3 : 0);
+            if (scoreB !== scoreA) return scoreB - scoreA;
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+
+        res.status(200).json(rankedComments);
     } catch (e) {
         console.error('[Post] Fetch comments error:', e);
         res.status(500).json({ error: 'Internal server error' });
@@ -2266,8 +2288,10 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
 
         // 3. Fetch Candidate Pool
         // We fetch a larger pool (100) to allow for ranking and Bloom Filter exclusion
+        const bannedUsers = await User.find({ isBanned: true }).select('_id').lean();
+        const bannedUserIds = bannedUsers.map(u => u._id.toString());
         const query = {
-            'user._id': { $nin: [...excludedUserIds, ...privateUserIdsExcluded].filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) },
+            'user._id': { $nin: [...excludedUserIds, ...privateUserIdsExcluded, ...bannedUserIds].filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) },
             isAnonymous: { $ne: true },
             video: { $ne: null },
             deletedAt: null

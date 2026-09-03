@@ -8,6 +8,7 @@ const notificationUtils = require('../lib/notification.js');
 const verifyToken = require('../middleware/Verifytoken');
 const router = express.Router();
 const { body, param, validationResult } = require('express-validator');
+const { sortStoryGroupsByRelationship } = require('../utils/contentFilters');
 
 const validate = (req, res, next) => {
     const errors = validationResult(req);
@@ -52,7 +53,7 @@ router.post('/create', verifyToken, [
             music: music || undefined
         });
         await story.save();
-        
+
         // Dispatch text-based mentions
         if (text && typeof text === 'object' && text.content) {
             const { handleMentions } = require('../services/mentionService');
@@ -104,7 +105,7 @@ router.post('/create', verifyToken, [
 router.get('/feed', verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
-        const user = await User.findById(userId).select('following mutedStories');
+        const user = await User.findById(userId).select('following closeFriends followers mutedStories');
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
         const mutedStoryIds = (user?.mutedStories || []).map(id => id.toString());
@@ -181,11 +182,7 @@ router.get('/feed', verifyToken, async (req, res) => {
             }
         });
 
-        const result = Object.values(grouped).sort((a, b) => {
-            if (a.user._id.toString() === userId.toString()) return -1;
-            if (b.user._id.toString() === userId.toString()) return 1;
-            return b.hasUnviewed - a.hasUnviewed;
-        });
+        const result = sortStoryGroupsByRelationship(Object.values(grouped), userId.toString(), user);
 
         res.status(200).json(result);
     } catch (error) {

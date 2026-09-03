@@ -42,7 +42,7 @@ if (cloudinaryMatch) {
 
 // Connect to DB
 async function connectDB() {
-    const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://girdharagrawalbro:7909905038@cluster0.czsb19m.mongodb.net/socialsquare?retryWrites=true&w=majority&appName=Cluster0";
+    const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/socialsquare';
     await mongoose.connect(MONGO_URI);
     console.log('Connected to MongoDB');
 }

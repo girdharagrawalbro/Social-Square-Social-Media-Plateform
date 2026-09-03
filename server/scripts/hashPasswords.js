@@ -13,8 +13,7 @@ const isBcrypt = (str) => {
 };
 
 async function run() {
-    const MONGO_URI = "mongodb+srv://girdharagrawalbro:7909905038@cluster0.czsb19m.mongodb.net/socialsquare?retryWrites=true&w=majority&appName=Cluster0"
-    // const MONGO_URI = process.env.MONGO_URI;
+    const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/socialsquare';
     if (!MONGO_URI) {
         console.error('MONGO_URI is missing in your environment variables.');
         process.exit(1);

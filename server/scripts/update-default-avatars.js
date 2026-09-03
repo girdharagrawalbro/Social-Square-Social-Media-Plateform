@@ -14,7 +14,7 @@ const OLD_URL = "https://th.bing.com/th/id/OIP.S171c9HYsokHyCPs9brbPwHaGP?rs=1&p
 const NEW_URL = "https://res.cloudinary.com/dcmrsdydh/image/upload/v1773920333/9e837528f01cf3f42119c5aeeed1b336_qf6lzf.jpg";
 
 async function connectDB() {
-    await mongoose.connect("mongodb+srv://girdharagrawalbro:7909905038@cluster0.czsb19m.mongodb.net/socialsquare?retryWrites=true&w=majority&appName=Cluster0");
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/socialsquare');
     console.log('Connected to MongoDB');
 }
 

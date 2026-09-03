@@ -24,6 +24,7 @@ const sendEmail = (data) => emailQueue ? emailQueue.add('sendEmail', data) : dir
 const sendResetEmail = (email, resetUrl) => emailQueue ? emailQueue.add('sendResetEmail', { email, resetUrl }) : directMailer.sendResetEmail(email, resetUrl);
 const { getSuggestedUsers } = require('../services/suggestionService');
 const { createNotification } = require('../lib/notification');
+const { buildUserSearchQuery } = require('../utils/searchFilters');
 const logger = require('../utils/logger');
 const verifyToken = require('../middleware/Verifytoken');
 const softVerifyToken = require('../middleware/softVerifyToken');
@@ -2177,16 +2178,13 @@ router.all("/search", [
             }
         } catch (e) { /* ignore invalid tokens for public search */ }
 
-        // Escape special regex characters to prevent crashes
         const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const normalizedQuery = escapedQuery.startsWith('@') ? escapedQuery.slice(1) : escapedQuery;
 
-        const userResults = await User.find({
-            $or: [
-                { fullname: { $regex: escapedQuery, $options: "i" } },
-                { username: { $regex: normalizedQuery, $options: "i" } }
-            ]
-        }).select('fullname username profile_picture bio isPrivate isVerified creatorTier isOnline followersCount followingCount postsCount followRequests')
+        const userQuery = buildUserSearchQuery(query, normalizedQuery);
+
+        const userResults = await User.find(userQuery)
+            .select('fullname username profile_picture bio isPrivate isVerified creatorTier isOnline followersCount followingCount postsCount followRequests')
             .limit(20)
             .lean();
 

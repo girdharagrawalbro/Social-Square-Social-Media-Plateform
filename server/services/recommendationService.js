@@ -17,8 +17,11 @@ async function getRecommendedPosts(userId) {
         // FIX: userId is a string — cast to ObjectId for proper $ne comparison
         let selfObjectId;
         try { selfObjectId = new mongoose.Types.ObjectId(userId); } catch { selfObjectId = null; }
+        const bannedUsers = await User.find({ isBanned: true }).select('_id').lean();
+        const bannedUserIds = bannedUsers.map(u => u._id.toString());
         const candidates = await Post.find({
             ...(selfObjectId ? { "user._id": { $ne: selfObjectId } } : {}),
+            ...(bannedUserIds.length ? { "user._id": { $nin: bannedUserIds } } : {}),
             isAnonymous: { $ne: true },
             isVisible: { $ne: false },
             deletedAt: null
@@ -92,9 +95,12 @@ async function getSimilarPosts(postId) {
         const targetPost = await Post.findById(postId).lean();
         if (!targetPost) return [];
 
+        const bannedUsers = await User.find({ isBanned: true }).select('_id').lean();
+        const bannedUserIds = bannedUsers.map(u => u._id.toString());
         const similar = await Post.find({
             _id: { $ne: postId },
             category: targetPost.category,
+            ...(bannedUserIds.length ? { "user._id": { $nin: bannedUserIds } } : {}),
             isAnonymous: { $ne: true },
             isVisible: { $ne: false },
             deletedAt: null
@@ -112,10 +118,13 @@ async function getSimilarPosts(postId) {
 async function getPersonalizedTrending(userId) {
     try {
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const bannedUsers = await User.find({ isBanned: true }).select('_id').lean();
+        const bannedUserIds = bannedUsers.map(u => u._id.toString());
         return await Post.find({
             isAnonymous: { $ne: true },
             isVisible: { $ne: false },
             deletedAt: null,
+            ...(bannedUserIds.length ? { "user._id": { $nin: bannedUserIds } } : {}),
             createdAt: { $gte: sevenDaysAgo }
         }).sort({ score: -1, views: -1 }).limit(10)
             .select('_id caption image_urls video videoThumbnail category user createdAt score views mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
@@ -136,10 +145,10 @@ async function getPersonalizedSearch(userId, q, restrictedIds = [], typeFilter =
 
         // 1. Generate Embedding for query
         const queryVector = await getEmbedding(q);
-        
+
         if (typeFilter === 'comments') {
             if (!queryVector || queryVector.length === 0) return [];
-            
+
             // Search Comments Vector
             const commentVecs = await CommentVector.aggregate([
                 {
@@ -152,13 +161,13 @@ async function getPersonalizedSearch(userId, q, restrictedIds = [], typeFilter =
                     }
                 }
             ]);
-            
+
             const commentIds = commentVecs.map(cv => cv.commentId);
             const Comment = require("../models/Comment");
             const comments = await Comment.find({ _id: { $in: commentIds }, isVisible: { $ne: false } })
                 .populate('user', 'fullname profile_picture')
                 .lean();
-                
+
             return comments.map(c => ({ ...c, type: 'comment' }));
         }
 
@@ -204,7 +213,7 @@ async function getPersonalizedSearch(userId, q, restrictedIds = [], typeFilter =
                 isVisible: { $ne: false },
                 deletedAt: null
             };
-            
+
             if (typeFilter === 'tutorial') {
                 regexQuery.$or.push({ tags: 'tutorial' }, { category: 'Tutorial' });
             } else if (typeFilter === 'beginner') {
@@ -222,7 +231,7 @@ async function getPersonalizedSearch(userId, q, restrictedIds = [], typeFilter =
             isVisible: { $ne: false },
             deletedAt: null
         }).lean();
-        
+
         // Re-order posts based on vector search results order
         const orderedPosts = postIds.map(id => posts.find(p => p._id.toString() === id.toString())).filter(Boolean);
         return orderedPosts.map(p => ({ ...p, type: 'post' }));

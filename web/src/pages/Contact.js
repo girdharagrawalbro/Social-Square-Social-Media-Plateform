@@ -208,19 +208,6 @@ const Contact = () => {
                         </form>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <a href="https://linkedin.com/in/girdhar-agrawa" target="_blank" rel="noopener noreferrer" className={cardClass}>
-                            <p className={labelClass}>LinkedIn</p>
-                            <p className={valueClass}>Girdhar Agrawal</p>
-                        </a>
-
-                        <a href="https://instagram.com/codewithgirdhar" target="_blank" rel="noopener noreferrer" className={cardClass}>
-                            <p className={labelClass}>Instagram</p>
-                            <p className={valueClass}>@codewithgirdhar</p>
-                        </a>
-                    </div>
-
-
                 </div>
             </div>
         </Bg>

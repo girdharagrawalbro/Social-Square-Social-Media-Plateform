@@ -7,19 +7,19 @@ async function check() {
         await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/socialsquare');
 
         const muskan = await User.findOne({ fullname: /Muskan/i });
-        const girdhar = await User.findOne({ fullname: /Girdhar/i });
+        const targetUser = await User.findOne({ fullname: /Target/i });
 
-        if (!muskan || !girdhar) {
+        if (!muskan || !targetUser) {
             console.log("Users not found");
             process.exit();
         }
 
         console.log("Muskan ID:", muskan._id);
-        console.log("Girdhar Following:", girdhar.following);
-        console.log("Is Girdhar following Muskan?", girdhar.following.includes(muskan._id));
+        console.log("Target Following:", targetUser.following);
+        console.log("Is target user following Muskan?", targetUser.following.includes(muskan._id));
 
-        const followingStrings = girdhar.following.map(id => id.toString());
-        console.log("Is Muskan ID (string) in Girdhar following (strings)?", followingStrings.includes(muskan._id.toString()));
+        const followingStrings = targetUser.following.map(id => id.toString());
+        console.log("Is Muskan ID (string) in target following (strings)?", followingStrings.includes(muskan._id.toString()));
 
     } catch (err) {
         console.error(err);

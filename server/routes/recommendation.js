@@ -525,9 +525,11 @@ router.get("/similar/:postId", verifyToken, [
                 console.error(`${_tag} ❌ Atlas Vector Search failed:`, vectorErr.message);
                 // Fallback to manual ranking
                 method = 'vector_manual';
+                const bannedUserIds = await User.find({ isBanned: true }).select('_id').lean();
+                const bannedIdSet = bannedUserIds.map(u => u._id.toString());
                 const candidates = await Post.find({
                     _id: { $ne: postId },
-                    "user._id": { $nin: restrictedUserIds },
+                    "user._id": { $nin: [...restrictedUserIds, ...bannedIdSet] },
                     isAnonymous: { $ne: true },
                     isVisible: { $ne: false },
                     deletedAt: null
@@ -558,9 +560,11 @@ router.get("/similar/:postId", verifyToken, [
             // Emit metric/log event for monitoring
             logger.info(`similarity_fallback_used`, { postId, category: targetPost.category });
 
+            const bannedUserIds = await User.find({ isBanned: true }).select('_id').lean();
+            const bannedIdSet = bannedUserIds.map(u => u._id.toString());
             similarPosts = await Post.find({
                 _id: { $ne: postId },
-                "user._id": { $nin: restrictedUserIds },
+                "user._id": { $nin: [...restrictedUserIds, ...bannedIdSet] },
                 isAnonymous: { $ne: true },
                 isVisible: { $ne: false },
                 deletedAt: null,

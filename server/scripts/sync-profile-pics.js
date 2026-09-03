@@ -11,13 +11,13 @@ const LiveChatMessage = require('../models/LiveChatMessage');
 const Notification = require('../models/Notification');
 
 async function connectDB() {
-    await mongoose.connect("mongodb+srv://girdharagrawalbro:7909905038@cluster0.czsb19m.mongodb.net/socialsquare?retryWrites=true&w=majority&appName=Cluster0");
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/socialsquare');
     console.log('Connected to MongoDB');
 }
 
 async function syncProfilePics() {
     console.log('--- Syncing Profile Pics Across Models ---');
-    
+
     // Find users with a valid profile_picture
     const users = await User.find({ profile_picture: { $exists: true, $ne: '' } });
     console.log(`Found ${users.length} users to sync.`);

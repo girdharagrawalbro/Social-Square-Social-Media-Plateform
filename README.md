@@ -93,4 +93,4 @@ The platform is optimized for a smooth, 60fps experience:
 
 ---
 
-*Built with ❤️ by Girdhar Agrawal*
+*Built with ❤️ by the Social Square team*
