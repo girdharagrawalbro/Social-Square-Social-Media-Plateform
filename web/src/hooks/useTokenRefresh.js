@@ -22,13 +22,17 @@ export default function useTokenRefresh(isActive = true) {
                 // refreshAccessToken handles the guard and the queue
                 await refreshAccessToken();
             } catch (err) {
+                const code = err.response?.data?.code;
+                const silentNoSessionCodes = ['NO_TOKEN', 'SESSION_NOT_FOUND', 'MISSING_FINGERPRINT'];
+
                 // 401/403 means refresh token expired — stop interval
                 if (err.response?.status === 401 || err.response?.status === 403) {
                     clearInterval(intervalRef.current);
-                    if (useAuthStore.getState().user) {
+                    if (useAuthStore.getState().user && !silentNoSessionCodes.includes(code)) {
                         appChannel.postMessage({
                             type: "SESSION_EXPIRED",
-                            reason: err.response?.data?.error || "Your session has expired. Please log in again."
+                            reason: err.response?.data?.error || "Your session has expired. Please log in again.",
+                            code,
                         });
                     }
                 }

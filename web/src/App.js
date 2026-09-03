@@ -178,7 +178,13 @@ function AppInit() {
     });
 
     // ── SESSION_EXPIRED: 401 from any API call ──
-    useBroadcast('SESSION_EXPIRED', ({ reason }) => {
+    useBroadcast('SESSION_EXPIRED', ({ reason, code }) => {
+        const silentNoSessionCodes = ['NO_TOKEN', 'SESSION_NOT_FOUND', 'MISSING_FINGERPRINT'];
+        if (silentNoSessionCodes.includes(code)) {
+            performLogout();
+            return;
+        }
+
         toast.error(reason || 'Your session has expired. Please log in again.', {
             id: 'session-expired',
             duration: 5000,

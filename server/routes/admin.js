@@ -367,6 +367,50 @@ router.post('/users/bulk-ban', requireAdmin, [
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
+router.post('/users/bulk-unban', requireAdmin, [
+    body('userIds').isArray().withMessage('userIds must be an array'),
+    body('userIds.*').isMongoId().withMessage('Invalid user ID in array'),
+    validate
+], async (req, res) => {
+    try {
+        const { userIds } = req.body;
+        if (!Array.isArray(userIds) || !userIds.length) {
+            return res.status(400).json({ error: 'No user IDs provided' });
+        }
+
+        const usersToUnban = await User.find({
+            _id: { $in: userIds },
+            isAdmin: { $ne: true },
+            isBanned: true
+        }).select('_id fullname email profile_picture isBanned').lean();
+
+        const finalIds = usersToUnban.map(u => u._id);
+
+        if (finalIds.length > 0) {
+            await User.updateMany(
+                { _id: { $in: finalIds } },
+                { $unset: { banReason: '', bannedAt: '' }, isBanned: false }
+            );
+
+            await Promise.allSettled(finalIds.map(userId => invalidateUserCacheData(String(userId))));
+
+            for (const user of usersToUnban) {
+                await logAdminAction({
+                    adminId: req.adminId,
+                    action: 'unban_user',
+                    targetType: 'user',
+                    targetId: user._id,
+                    snapshot: { name: user.fullname, email: user.email, picture: user.profile_picture },
+                    meta: { ip: req.ip, bulk: true },
+                });
+            }
+        }
+
+        invalidateCache();
+        res.json({ message: `Successfully unbanned ${finalIds.length} users` });
+    } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
 router.post('/users/bulk-delete', requireAdmin, [
     body('userIds').isArray().withMessage('userIds must be an array'),
     body('userIds.*').isMongoId().withMessage('Invalid user ID in array'),

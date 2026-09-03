@@ -618,6 +618,20 @@ const UsersTab = () => {
         }
     };
 
+    const handleBulkUnban = async () => {
+        if (!selectedUsers.length) return;
+        if (!window.confirm(`Are you sure you want to unban ${selectedUsers.length} users?`)) return;
+
+        try {
+            await api.post('/api/admin/users/bulk-unban', { userIds: selectedUsers }, { headers });
+            toast.success(`Successfully unbanned ${selectedUsers.length} users`);
+            setSelectedUsers([]);
+            fetchUsers();
+        } catch (err) {
+            toast.error('Bulk unban failed');
+        }
+    };
+
     const handleBulkDelete = async () => {
         if (!selectedUsers.length) return;
         if (!window.confirm(`Are you sure you want to delete ${selectedUsers.length} users?`)) return;
@@ -736,6 +750,7 @@ const UsersTab = () => {
                     <p className="text-xs font-black text-[#808bf5] m-0 uppercase tracking-widest">{selectedUsers.length} users selected</p>
                     <div className="flex gap-2">
                         <button onClick={handleBulkBan} className="bg-red-500 text-white px-4 py-2 rounded text-[10px] font-black uppercase tracking-wider border-0 cursor-pointer hover:bg-red-600 transition-all shadow-lg shadow-red-500/20">Bulk Ban</button>
+                        <button onClick={handleBulkUnban} className="bg-green-500 text-white px-4 py-2 rounded text-[10px] font-black uppercase tracking-wider border-0 cursor-pointer hover:bg-green-600 transition-all shadow-lg shadow-green-500/20">Bulk Unban</button>
                         <button onClick={handleBulkDelete} className="bg-[var(--surface-3)] text-[var(--text-main)] px-4 py-2 rounded text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-400/20 border border-[var(--border-color)] transition-all">Bulk Delete</button>
                     </div>
                 </div>

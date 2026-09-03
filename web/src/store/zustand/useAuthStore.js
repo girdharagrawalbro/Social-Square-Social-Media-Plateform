@@ -259,7 +259,16 @@ export const refreshAccessToken = () => {
             }
             return token;
         } catch (err) {
+            const errorCode = err.response?.data?.code;
+            const silentNoSessionCodes = ['NO_TOKEN', 'SESSION_NOT_FOUND', 'MISSING_FINGERPRINT'];
+
             if (inMemoryToken) return inMemoryToken;
+            if (silentNoSessionCodes.includes(errorCode)) {
+                clearToken();
+                useAuthStore.getState().setUser(null);
+                return null;
+            }
+
             clearToken();
             useAuthStore.getState().setUser(null);
             throw err;
@@ -312,7 +321,7 @@ api.interceptors.response.use(res => {
                     } else if (res.config.data) {
                         visibility = res.config.data.visibility;
                     }
-                } catch (e) {}
+                } catch (e) { }
                 posthog.capture('story_created', { visibility });
             } else if (url.includes('/api/conversation/messages') || url.includes('/api/conversation/send')) {
                 posthog.capture('message_sent');
@@ -365,7 +374,9 @@ api.interceptors.response.use(
                 })
                 .catch(refreshErr => {
                     processQueue(refreshErr, null);
-                    if (useAuthStore.getState().user) {
+                    const code = refreshErr.response?.data?.code;
+                    const silentNoSessionCodes = ['NO_TOKEN', 'SESSION_NOT_FOUND', 'MISSING_FINGERPRINT'];
+                    if (useAuthStore.getState().user && !silentNoSessionCodes.includes(code)) {
                         appChannel.postMessage({
                             type: "SESSION_EXPIRED",
                             reason: refreshErr.response?.data?.error || "Your session has expired. Please log in again."

@@ -346,7 +346,8 @@ router.post('/login', authRateLimiter, [
         if (!user || user.deletedAt || !user.password) return res.status(401).json({ error: 'Invalid email, username or password' });
 
         if (user.isBanned) {
-            return res.status(403).json({ error: 'This account is unavailable.' });
+            clearRefreshTokenCookie(res);
+            return res.status(403).json({ error: 'This account is unavailable.', code: 'ACCOUNT_BANNED' });
         }
 
         if (user.deletionScheduledAt && user.deletionScheduledAt > new Date()) {
