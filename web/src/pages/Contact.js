@@ -88,10 +88,6 @@ const Contact = () => {
         }
     };
 
-    const cardClass = `border rounded-xl px-4 py-3 transition-all duration-200 transform hover:scale-[1.02] ${isDark ? 'bg-white/5 border-gray-800 hover:bg-white/10' : 'bg-white border-gray-100 hover:shadow-md'}`;
-    const labelClass = `text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`;
-    const valueClass = `font-bold text-base sm:text-lg text-[#808bf5] break-all`;
-
     const inputStyle = `w-full px-4 py-3 rounded-lg border text-sm outline-none transition-all duration-200 ${isDark
         ? 'bg-black/40 border-gray-800 text-white placeholder-gray-600 focus:border-[#808bf5] focus:ring-1 focus:ring-[#808bf5]/30'
         : 'bg-gray-50/50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-[#808bf5] focus:ring-1 focus:ring-[#808bf5]/30'
