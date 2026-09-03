@@ -805,6 +805,8 @@ router.post('/google', async (req, res) => {
             isNewUser = true;
         } else {
             user.googleId = googleId;
+            user.authProvider = user.authProvider || 'google';
+            user.isEmailVerified = true;
             if (!user.username) user.username = await generateUniqueUsername(name);
             if (!user.profile_picture || user.profile_picture.includes('OIP')) user.profile_picture = picture;
         }
