@@ -13,9 +13,11 @@ const SystemSetting = require('../models/SystemSetting');
 const Notification = require('../models/Notification');
 const MailLog = require('../models/MailLog');
 const EmailTemplate = require('../models/EmailTemplate');
+const { sendEmail } = require('../utils/mailer');
 const verifyToken = require('../middleware/Verifytoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
+const redis = require('../lib/redis');
 const { digestQueue } = require('../queues/digestQueue');
 const { propagateUserDeletion, purgeUserData } = require('../utils/userPropagation');
 const { body, param, query, validationResult } = require('express-validator');
@@ -49,6 +51,57 @@ function invalidateCache() {
     cache.clear();
 }
 
+function shouldSendAccountNotice(user) {
+    if (!user || !user.email) return false;
+    if (user.isBanned || user.deletedAt) return false;
+    return true;
+}
+
+async function invalidateUserCacheData(userId) {
+    if (!userId) return;
+
+    invalidateCache();
+
+    const exactKeys = [
+        `user:${userId}`,
+        `profile:${userId}`,
+        `feed:${userId}`,
+        `stories:${userId}`,
+        `reels:${userId}`,
+        `restricted_users:excl:${userId}`,
+        `private_users:excl:${userId}`,
+        `convs:${userId}`,
+    ];
+
+    const patternKeys = [
+        `user:${userId}:*`,
+        `profile:${userId}:*`,
+        `feed:${userId}:*`,
+        `stories:${userId}:*`,
+        `story:${userId}:*`,
+        `activity:${userId}:*`,
+        `recommendations:${userId}:*`,
+        `search:${userId}:*`,
+    ];
+
+    await Promise.allSettled(
+        exactKeys.map(async (key) => {
+            if (!redis || !redis.del) return;
+            await redis.del(key).catch(() => { });
+        })
+    );
+
+    if (redis && typeof redis.keys === 'function') {
+        await Promise.allSettled(
+            patternKeys.map(async (pattern) => {
+                const keys = await redis.keys(pattern).catch(() => []);
+                if (keys && keys.length) {
+                    await redis.del(keys).catch(() => { });
+                }
+            })
+        );
+    }
+}
 
 // ─── ADMIN MIDDLEWARE ─────────────────────────────────────────────────────────
 const requireAdmin = async (req, res, next) => {
@@ -223,6 +276,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         if (search) {
             query.$or = [
                 { fullname: { $regex: search, $options: 'i' } },
+                { username: { $regex: search, $options: 'i' } },
                 { email: { $regex: search, $options: 'i' } },
             ];
         }
@@ -266,8 +320,10 @@ router.post('/users/bulk-ban', requireAdmin, [
 
         const usersToBan = await User.find({
             _id: { $in: userIds },
-            isAdmin: { $ne: true }
-        }).select('_id fullname email profile_picture').lean();
+            isAdmin: { $ne: true },
+            isBanned: { $ne: true },
+            deletedAt: null
+        }).select('_id fullname email profile_picture isBanned deletedAt').lean();
 
         const finalIds = usersToBan.map(u => u._id);
 
@@ -277,19 +333,23 @@ router.post('/users/bulk-ban', requireAdmin, [
                 { isBanned: true, banReason: reason || 'Violated community guidelines', bannedAt: new Date() }
             );
 
+            await Promise.allSettled(finalIds.map(userId => invalidateUserCacheData(String(userId))));
+
             for (const user of usersToBan) {
-                await sendEmail({
-                    to: user.email,
-                    subject: 'Account Warning: You have been banned',
-                    html: `
-                        <h2>Account Banned</h2>
-                        <p>Hello ${user.fullname || 'there'},</p>
-                        <p>Your account has been banned by an administrator.</p>
-                        <p><strong>Reason:</strong> ${reason || 'Violated community guidelines (Bulk)'}</p>
-                        <p>If you believe this action was taken in error, please contact support.</p>
-                    `,
-                    text: `Your account has been banned by an administrator. Reason: ${reason || 'Violated community guidelines (Bulk)'}`
-                }).catch(console.error);
+                if (shouldSendAccountNotice(user)) {
+                    await sendEmail({
+                        to: user.email,
+                        subject: 'Account Warning: You have been banned',
+                        html: `
+                            <h2>Account Banned</h2>
+                            <p>Hello ${user.fullname || 'there'},</p>
+                            <p>Your account has been banned by an administrator.</p>
+                            <p><strong>Reason:</strong> ${reason || 'Violated community guidelines (Bulk)'}</p>
+                            <p>If you believe this action was taken in error, please contact support.</p>
+                        `,
+                        text: `Your account has been banned by an administrator. Reason: ${reason || 'Violated community guidelines (Bulk)'}`
+                    }).catch(console.error);
+                }
 
                 await logAdminAction({
                     adminId: req.adminId,
@@ -385,18 +445,22 @@ router.patch('/users/:userId/ban', requireAdmin, [
         ).lean();
         if (!user) return res.status(404).json({ error: 'User not found or is an admin' });
 
-        await sendEmail({
-            to: user.email,
-            subject: 'Account Warning: You have been banned',
-            html: `
-                <h2>Account Banned</h2>
-                <p>Hello ${user.fullname || 'there'},</p>
-                <p>Your account has been banned by an administrator.</p>
-                <p><strong>Reason:</strong> ${reason || 'Violated community guidelines'}</p>
-                <p>If you believe this action was taken in error, please contact support.</p>
-            `,
-            text: `Your account has been banned by an administrator. Reason: ${reason || 'Violated community guidelines'}`
-        }).catch(console.error);
+        await invalidateUserCacheData(String(req.params.userId));
+
+        if (shouldSendAccountNotice(user)) {
+            await sendEmail({
+                to: user.email,
+                subject: 'Account Warning: You have been banned',
+                html: `
+                    <h2>Account Banned</h2>
+                    <p>Hello ${user.fullname || 'there'},</p>
+                    <p>Your account has been banned by an administrator.</p>
+                    <p><strong>Reason:</strong> ${reason || 'Violated community guidelines'}</p>
+                    <p>If you believe this action was taken in error, please contact support.</p>
+                `,
+                text: `Your account has been banned by an administrator. Reason: ${reason || 'Violated community guidelines'}`
+            }).catch(console.error);
+        }
 
         await logAdminAction({
             adminId: req.adminId,
@@ -490,12 +554,14 @@ router.delete('/users/:userId', requireAdmin, [
                 <p><strong>Reason:</strong> ${reason}</p>
                 <p>If you believe this is a mistake, you can log in and submit an appeal.</p>
             `;
-            sendEmail({
-                to: user.email,
-                subject: 'Action Required: Your Account is Scheduled for Deletion',
-                html: emailHtml,
-                text: emailHtml.replace(/<[^>]*>?/gm, '')
-            }).catch(console.error);
+            if (shouldSendAccountNotice(user)) {
+                sendEmail({
+                    to: user.email,
+                    subject: 'Action Required: Your Account is Scheduled for Deletion',
+                    html: emailHtml,
+                    text: emailHtml.replace(/<[^>]*>?/gm, '')
+                }).catch(console.error);
+            }
 
             await LoginSession.updateMany(
                 { userId: user._id },
@@ -510,12 +576,14 @@ router.delete('/users/:userId', requireAdmin, [
                 <p>Your account has been permanently deleted by an administrator.</p>
                 <p><strong>Reason:</strong> ${reason}</p>
             `;
-            sendEmail({
-                to: user.email,
-                subject: 'Notice: Your Account has been Deleted',
-                html: emailHtml,
-                text: emailHtml.replace(/<[^>]*>?/gm, '')
-            }).catch(console.error);
+            if (shouldSendAccountNotice(user)) {
+                sendEmail({
+                    to: user.email,
+                    subject: 'Notice: Your Account has been Deleted',
+                    html: emailHtml,
+                    text: emailHtml.replace(/<[^>]*>?/gm, '')
+                }).catch(console.error);
+            }
 
             await purgeUserData(user._id).catch(console.error);
             invalidateCache();
@@ -571,7 +639,21 @@ router.get('/posts', requireAdmin, async (req, res) => {
         const filter = req.query.filter || 'all';
 
         const query = { deletedAt: null };
-        if (search) query.caption = { $regex: search, $options: 'i' };
+        if (search) {
+            const userMatches = await User.find({
+                $or: [
+                    { fullname: { $regex: search, $options: 'i' } },
+                    { username: { $regex: search, $options: 'i' } },
+                ]
+            }).select('_id').lean();
+
+            const userIds = userMatches.map(u => u._id);
+            query.$or = [
+                { caption: { $regex: search, $options: 'i' } },
+                { 'user.fullname': { $regex: search, $options: 'i' } },
+                ...(userIds.length ? [{ 'user._id': { $in: userIds } }] : []),
+            ];
+        }
         if (req.query.userId) query['user._id'] = req.query.userId;
         if (filter === 'anonymous') query.isAnonymous = true;
         if (filter === 'timelocked') query.unlocksAt = { $gt: new Date() };
@@ -1387,12 +1469,18 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'Verification Email',
                 subject: 'Verify your Social Square account',
                 html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-            <h2 style="color:#808bf5">Welcome to Social Square!</h2>
-            <p>Please click the button below to verify your email address.</p>
-            <a href="{{verificationUrl}}" style="display:inline-block;padding:12px 24px;background:#808bf5;color:#fff;text-decoration:none;border-radius:8px;margin:16px 0">Verify Email</a>
-            <p style="color:#6b7280;font-size:12px">If you didn't create an account, ignore this email.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f3ff;margin:0;padding:24px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e9e7ff;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(92,85,232,0.08)">
+            <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:28px 24px;text-align:center">
+                <h1 style="margin:0;color:#fff;font-size:28px;letter-spacing:0.02em">Social Square</h1>
+                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Verify your email address</p>
+            </div>
+            <div style="padding:28px 24px;text-align:center">
+                <p style="margin:0 0 18px;color:#374151;font-size:16px;line-height:1.6">Welcome aboard! Please confirm your email to activate your Social Square account.</p>
+                <a href="{{verificationUrl}}" style="display:inline-block;background:linear-gradient(135deg,#808bf5,#6366f1);color:#fff;text-decoration:none;padding:14px 30px;border-radius:10px;font-weight:700;font-size:14px">Verify Email</a>
+                <p style="margin-top:20px;color:#6b7280;font-size:12px;line-height:1.5">If you didn't create an account, you can safely ignore this email.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{verificationUrl}}']
             },
             {
@@ -1657,16 +1745,22 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'New Device Alert Email',
                 subject: '⚠️ New device login detected — Social Square',
                 html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-            <h2 style="color:#ef4444">New Login Detected</h2>
-            <p>Your account was accessed from a new device:</p>
-            <ul style="color:#374151">
-                <li><strong>Device:</strong> {{device}}</li>
-                <li><strong>Location:</strong> {{locationStr}}</li>
-                <li><strong>Time:</strong> {{time}}</li>
-            </ul>
-            <p>If this was you, no action needed. If not, <a href="{{clientUrl}}/sessions">review your sessions</a> immediately.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#fff7ed;margin:0;padding:24px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #ffe1c7;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(251,146,60,0.08)">
+            <div style="background:linear-gradient(135deg,#f97316,#ef4444);padding:28px 24px;text-align:center">
+                <h1 style="margin:0;color:#fff;font-size:28px;letter-spacing:0.02em">Social Square</h1>
+                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Security alert</p>
+            </div>
+            <div style="padding:28px 24px">
+                <p style="margin:0 0 18px;color:#374151;font-size:16px;line-height:1.6">A new sign-in was detected on your Social Square account.</p>
+                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:18px;margin:0 0 18px;color:#374151;line-height:1.7">
+                    <p style="margin:0"><strong>Device:</strong> {{device}}</p>
+                    <p style="margin:0"><strong>Location:</strong> {{locationStr}}</p>
+                    <p style="margin:0"><strong>Time:</strong> {{time}}</p>
+                </div>
+                <p style="margin:0;color:#374151;font-size:14px;line-height:1.6">If this was you, no action is needed. If it wasn't, <a href="{{clientUrl}}/sessions" style="color:#ef4444;font-weight:700;text-decoration:none">review your sessions</a> immediately.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{device}}', '{{locationStr}}', '{{time}}', '{{clientUrl}}']
             },
             {
@@ -1674,16 +1768,22 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'Session Revoked Email',
                 subject: '🛡️ Session terminated — Social Square',
                 html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-            <h2 style="color:#6366f1">Session Revoked</h2>
-            <p>The following login session has been successfully terminated as per your request:</p>
-            <ul style="color:#374151">
-                <li><strong>Device:</strong> {{device}}</li>
-                <li><strong>Location:</strong> {{locationStr}}</li>
-                <li><strong>IP Address:</strong> {{ip}}</li>
-            </ul>
-            <p style="color:#6b7280;font-size:12px">If this wasn't you, your account may be compromised. Please change your password immediately.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f3ff;margin:0;padding:24px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e9e7ff;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(92,85,232,0.08)">
+            <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:28px 24px;text-align:center">
+                <h1 style="margin:0;color:#fff;font-size:28px;letter-spacing:0.02em">Social Square</h1>
+                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Session terminated</p>
+            </div>
+            <div style="padding:28px 24px">
+                <p style="margin:0 0 18px;color:#374151;font-size:16px;line-height:1.6">The following session has been successfully ended.</p>
+                <div style="background:#f9fafb;border:1px solid #eef2ff;border-radius:12px;padding:18px;margin:0 0 18px;color:#374151;line-height:1.7">
+                    <p style="margin:0"><strong>Device:</strong> {{device}}</p>
+                    <p style="margin:0"><strong>Location:</strong> {{locationStr}}</p>
+                    <p style="margin:0"><strong>IP Address:</strong> {{ip}}</p>
+                </div>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6">If this wasn't you, your account may be compromised. Please change your password immediately.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{device}}', '{{locationStr}}', '{{ip}}']
             },
             {
@@ -1691,13 +1791,19 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'Account Lockout Email',
                 subject: '🔒 Account temporarily locked — Social Square',
                 html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-            <h2 style="color:#f59e0b">Account Locked</h2>
-            <p>Hi {{fullname}},</p>
-            <p>Too many failed login attempts. Your account is locked until:</p>
-            <p style="font-size:18px;font-weight:bold;color:#808bf5">{{unlockTime}}</p>
-            <p style="color:#6b7280;font-size:12px">If this wasn't you, consider resetting your password after the lockout expires.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#fffbeb;margin:0;padding:24px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #fef3c7;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(245,158,11,0.08)">
+            <div style="background:linear-gradient(135deg,#f59e0b,#f97316);padding:28px 24px;text-align:center">
+                <h1 style="margin:0;color:#fff;font-size:28px;letter-spacing:0.02em">Social Square</h1>
+                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Account security notice</p>
+            </div>
+            <div style="padding:28px 24px">
+                <p style="margin:0 0 12px;color:#374151;font-size:16px;line-height:1.6">Hi {{fullname}},</p>
+                <p style="margin:0 0 18px;color:#374151;font-size:15px;line-height:1.7">Too many failed login attempts were detected. Your account is temporarily locked until:</p>
+                <p style="margin:0 0 18px;padding:12px 16px;background:#fffbeb;border:1px solid #fef3c7;border-radius:10px;color:#b45309;font-size:18px;font-weight:700;text-align:center">{{unlockTime}}</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6">If this wasn't you, consider resetting your password after the lockout expires.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{fullname}}', '{{unlockTime}}']
             },
             {
@@ -1705,14 +1811,19 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'Password Changed Email',
                 subject: '🔒 Security Alert: Social Square password changed',
                 html: `
-        <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
-            <h2 style="color:#ef4444;margin-top:0">Password Changed</h2>
-            <p>Hi {{fullname}},</p>
-            <p>This is a security alert to confirm that the password for your Social Square account was successfully changed.</p>
-            <p>If you made this change, you can safely ignore this email.</p>
-            <p style="color:#ef4444;font-weight:bold">If you didn't request this change, please contact support immediately to secure your account.</p>
-            <p style="color:#6b7280;font-size:12px;margin-top:20px">This is an automated security notification.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#fef2f2;margin:0;padding:24px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #fecaca;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(239,68,68,0.08)">
+            <div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:28px 24px;text-align:center">
+                <h1 style="margin:0;color:#fff;font-size:28px;letter-spacing:0.02em">Social Square</h1>
+                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Password changed</p>
+            </div>
+            <div style="padding:28px 24px">
+                <p style="margin:0 0 12px;color:#374151;font-size:16px;line-height:1.6">Hi {{fullname}},</p>
+                <p style="margin:0 0 18px;color:#374151;font-size:15px;line-height:1.7">This security alert confirms that the password for your Social Square account was successfully changed.</p>
+                <p style="margin:0 0 18px;color:#374151;font-size:15px;line-height:1.7">If you made this change, you can ignore this email. If you did not, please contact support immediately to secure your account.</p>
+                <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.5">This is an automated security notification from Social Square.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{fullname}}']
             },
             {
@@ -1764,12 +1875,18 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'Broadcast Warning Email',
                 subject: '⚠️ Security Warning from Social Square',
                 html: `
-        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
-            <h2 style="color:#ef4444;margin-top:0">Security Warning</h2>
-            <p>Hi {{fullname}},</p>
-            <p style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">{{content}}</p>
-            <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#fff7ed;margin:0;padding:24px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #fed7aa;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(239,68,68,0.08)">
+            <div style="background:linear-gradient(135deg,#ef4444,#f97316);padding:28px 24px;text-align:center">
+                <h1 style="margin:0;color:#fff;font-size:28px;letter-spacing:0.02em">Social Square</h1>
+                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Security warning</p>
+            </div>
+            <div style="padding:28px 24px">
+                <p style="margin:0 0 12px;color:#374151;font-size:16px;line-height:1.6">Hi {{fullname}},</p>
+                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:18px;color:#374151;line-height:1.7;white-space:pre-wrap">{{content}}</div>
+                <p style="margin-top:18px;color:#6b7280;font-size:12px;line-height:1.5">This email was sent by the Social Square administration team.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{fullname}}', '{{content}}']
             },
             {
@@ -1802,12 +1919,18 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
                 name: 'Broadcast Announcement Email',
                 subject: '📢 Announcement from Social Square',
                 html: `
-        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05)">
-            <h2 style="color:#6366f1;margin-top:0">Announcement</h2>
-            <p>Hi {{fullname}},</p>
-            <p style="font-size:14px;line-height:1.6;color:#374151;white-space:pre-wrap">{{content}}</p>
-            <p style="color:#6b7280;font-size:12px;margin-top:20px">This email was sent by the system administration.</p>
-        </div>`,
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f3ff;margin:0;padding:24px">
+        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e9e7ff;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(92,85,232,0.08)">
+            <div style="background:linear-gradient(135deg,#808bf5,#6366f1);padding:28px 24px;text-align:center">
+                <h1 style="margin:0;color:#fff;font-size:28px;letter-spacing:0.02em">Social Square</h1>
+                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Announcement</p>
+            </div>
+            <div style="padding:28px 24px">
+                <p style="margin:0 0 12px;color:#374151;font-size:16px;line-height:1.6">Hi {{fullname}},</p>
+                <div style="background:#f9fafb;border:1px solid #eef2ff;border-radius:12px;padding:18px;color:#374151;line-height:1.7;white-space:pre-wrap">{{content}}</div>
+                <p style="margin-top:18px;color:#6b7280;font-size:12px;line-height:1.5">This email was sent by the Social Square administration team.</p>
+            </div>
+        </div></body></html>`,
                 variables: ['{{fullname}}', '{{content}}']
             },
             {

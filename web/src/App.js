@@ -1002,6 +1002,7 @@ function MainLayout({ children }) {
     const location = useLocation();
     const isMessages = location.pathname.startsWith('/conversation');
     const isReels = location.pathname.startsWith('/reels');
+    const isAdminRoute = location.pathname.startsWith('/admin');
 
     return (
         <div className="relative flex flex-col h-screen w-full overflow-hidden">
@@ -1009,7 +1010,7 @@ function MainLayout({ children }) {
             {!isReels && <div className="lg:hidden">
                 <Navbar />
             </div>}
-            {!isMessages && !isReels && (
+            {!isMessages && !isReels && !isAdminRoute && (
                 <div className="hidden lg:block fixed top-6 right-8 z-50">
                     <NotificationBell userId={user?._id} showLabel={false} />
                 </div>
@@ -1019,7 +1020,7 @@ function MainLayout({ children }) {
                 <Sidebar />
                 <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar relative">
                     <PageTransition disableAnimation={isMessages}>{children}</PageTransition>
-                    {!isReels && <BottomNav />}
+                    {!isReels && !isAdminRoute && <BottomNav />}
                 </main>
             </div>
         </div>
@@ -1189,8 +1190,8 @@ function GlobalOverlays() {
 
     return (
         <>
-            {!location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && flags?.ai_features !== false && <Chatbot />}
-            {!location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && user && <FloatMessagesButton />}
+            {!location.pathname.startsWith('/admin') && !location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && flags?.ai_features !== false && <Chatbot />}
+            {!location.pathname.startsWith('/admin') && !location.pathname.startsWith('/conversations') && !location.pathname.startsWith('/conversation') && user && <FloatMessagesButton />}
 
             {activeCall && (
                 <CallModal

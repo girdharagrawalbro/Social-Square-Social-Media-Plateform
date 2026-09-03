@@ -700,7 +700,7 @@ const UsersTab = () => {
             <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
                 <div className="relative flex-1 min-w-[240px]">
                     <i className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-sub)] opacity-50"></i>
-                    <input type="text" placeholder="Search name or email..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+                    <input type="text" placeholder="Search name, username or email..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
                         className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded py-2.5 pl-11 pr-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all" />
                 </div>
 
@@ -921,6 +921,7 @@ const PostsTab = () => {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
+    const [selectedPosts, setSelectedPosts] = useState([]);
 
     const fetchPosts = useCallback(() => {
         setLoading(true);
@@ -930,6 +931,24 @@ const PostsTab = () => {
     }, [page, search, filter, headers]);
 
     useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+    const handleSelectPost = (postId) => {
+        setSelectedPosts(prev => prev.includes(postId) ? prev.filter(id => id !== postId) : [...prev, postId]);
+    };
+
+    const handleBulkDeletePosts = async () => {
+        if (!selectedPosts.length) return;
+        if (!window.confirm(`Delete ${selectedPosts.length} selected posts?`)) return;
+
+        try {
+            await Promise.all(selectedPosts.map(postId => api.delete(`/api/admin/posts/${postId}`, { headers })));
+            toast.success(`Deleted ${selectedPosts.length} posts`);
+            setSelectedPosts([]);
+            fetchPosts();
+        } catch (err) {
+            toast.error('Bulk post deletion failed');
+        }
+    };
 
     const exportPostsCSV = () => {
         if (!posts.length) return;
@@ -975,7 +994,7 @@ const PostsTab = () => {
             <div className="flex gap-4 flex-wrap items-center bg-[var(--surface-1)] p-2 rounded border border-[var(--border-color)] shadow-sm">
                 <div className="relative flex-1 min-w-[240px]">
                     <i className="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-sub)] opacity-50"></i>
-                    <input type="text" placeholder="Search captions..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+                    <input type="text" placeholder="Search captions, author or username..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
                         className="w-full bg-[var(--surface-2)] border border-[var(--border-color)] rounded py-2.5 pl-11 pr-4 text-sm text-[var(--text-main)] outline-none focus:ring-2 ring-indigo-500/10 focus:border-[#808bf5] transition-all" />
                 </div>
                 <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="bg-[var(--surface-2)] border border-[var(--border-color)] rounded px-2 py-2 text-sm text-[var(--text-main)] outline-none hover:bg-[var(--surface-3)] cursor-point  er transition-all">
@@ -993,6 +1012,13 @@ const PostsTab = () => {
                 </div>
             </div>
 
+            {selectedPosts.length > 0 && (
+                <div className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/20 p-4 rounded shadow-sm animate-pulse">
+                    <p className="text-xs font-black text-[#808bf5] m-0 uppercase tracking-widest">{selectedPosts.length} posts selected</p>
+                    <button onClick={handleBulkDeletePosts} className="bg-red-500 text-white px-4 py-2 rounded text-[10px] font-black uppercase tracking-wider border-0 cursor-pointer hover:bg-red-600 transition-all shadow-lg shadow-red-500/20">Bulk Delete</button>
+                </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                 {loading ? [1, 2, 3, 4, 5, 6].map(i => (
                     <div key={i} className="bg-[var(--surface-1)] rounded p-4 border border-[var(--border-color)] shadow-sm animate-pulse">
@@ -1008,6 +1034,9 @@ const PostsTab = () => {
                     const postImg = post.image_urls?.[0] || post.image_url || post.videoThumbnail;
                     return (
                         <div key={post._id} className="group bg-[var(--surface-1)] rounded border border-[var(--border-color)] shadow-sm overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+                            <div className="absolute top-3 left-3 z-10">
+                                <input type="checkbox" checked={selectedPosts.includes(post._id)} onChange={() => handleSelectPost(post._id)} className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--surface-2)] text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                            </div>
                             <div className="relative aspect-[4/3] overflow-hidden bg-[var(--surface-2)]">
                                 {postImg ? (
                                     <img src={postImg} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
