@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from '../utils/toast.js';
-import useAuthStore from '../store/zustand/useAuthStore';
+import useAuthStore, { api } from '../store/zustand/useAuthStore';
 
 const VerifyEmail = () => {
     const { token } = useParams();
@@ -19,6 +19,16 @@ const VerifyEmail = () => {
                 const response = await axios.get(`${API_BASE_URL}/auth/verify-email/${token}`);
                 setStatus('success');
                 setMessage(response.data.message || 'Email verified successfully!');
+
+                try {
+                    const meRes = await api.get('/api/auth/me');
+                    if (meRes.data) {
+                        useAuthStore.getState().setUser(meRes.data);
+                    }
+                } catch (refreshErr) {
+                    console.warn('Failed to refresh user profile after verification:', refreshErr);
+                }
+
                 verifyEmailLocally();
                 toast.success('Verification complete!');
             } catch (error) {
@@ -147,7 +157,7 @@ const VerifyEmail = () => {
                     </>
                 )}
             </div>
-            
+
         </div>
     );
 };

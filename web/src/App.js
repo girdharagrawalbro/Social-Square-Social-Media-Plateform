@@ -1118,6 +1118,7 @@ function App() {
                                     <Route path="/story/:userId/:storyId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
                                     <Route path="/story/:userId" element={<MainLayout><SharedStoryRedirect /></MainLayout>} />
                                     <Route path="/admin" element={<MainLayout><AdminDashboard /></MainLayout>} />
+                                    <Route path="/verify-email/:token" element={<MainLayout><VerifyEmail /></MainLayout>} />
                                     <Route path="/sessions" element={<MainLayout><ActiveSessions /></MainLayout>} />
                                     <Route path="/settings" element={<MainLayout><Settings /></MainLayout>} />
                                     <Route path="/explore" element={<MainLayout><Explore /></MainLayout>} />
