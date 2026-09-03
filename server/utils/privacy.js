@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { buildRelationshipContext } = require('../services/relationshipService');
 const { USER_DEFAULT_IMAGE } = require('./constantMediaVariable');
 
 const HMAC_SECRETS = {
@@ -117,8 +118,8 @@ function sanitizeAnonymousPost(post, viewerId = null) {
 const canViewPost = async (post, requesterId) => {
     if (!post || post.deletedAt || post.isVisible === false) return false;
 
-    // 1. Requester is the owner?
     const mongoose = require('mongoose');
+    const User = require('../models/User');
     const postUserId = post.user?._id || post.user;
 
     let isOwner = false;
@@ -130,29 +131,21 @@ const canViewPost = async (post, requesterId) => {
             isOwner = true;
         }
     }
-
     if (isOwner) return true;
-
-    // 2. Anonymous posts are confessions and are considered public in the feed context
     if (post.isAnonymous) return true;
 
-    // 3. Check owner's privacy settings
-    const User = require('../models/User');
-    const owner = await User.findById(postUserId).select('isPrivate followers').lean();
+    const [viewer, owner] = await Promise.all([
+        requesterId ? User.findById(requesterId).select('following blockedUsers mutedUsers closeFriends').lean() : null,
+        User.findById(postUserId).select('isPrivate followers following blockedUsers mutedUsers closeFriends').lean(),
+    ]);
+
     if (!owner) return false;
 
-    // Public accounts are visible to everyone
+    const relationship = buildRelationshipContext(viewer || null, owner);
+    if (relationship.isBlocked || relationship.isMuted) return false;
     if (!owner.isPrivate) return true;
 
-    // 4. Private account: Only followers can view
-    const isFollower = requesterId && owner.followers?.some(f => {
-        try {
-            return new mongoose.Types.ObjectId(requesterId).equals(f);
-        } catch {
-            return false;
-        }
-    });
-    return !!isFollower;
+    return !!relationship.isFollowing || !!relationship.isFollowedBy;
 };
 
 /**

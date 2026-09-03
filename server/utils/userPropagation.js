@@ -13,7 +13,7 @@ const logger = require('./logger');
  */
 async function propagateUserProfileUpdate(userId, updateData) {
     const { fullname, username, profile_picture } = updateData;
-    
+
     // Base update object for collections that store user info as 'user' object
     const userUpdate = {};
     if (fullname) userUpdate['user.fullname'] = fullname;
@@ -77,7 +77,7 @@ async function propagateUserProfileUpdate(userId, updateData) {
 async function propagateUserDeletion(userId) {
     try {
         const User = require('../models/User'); // Lazy load to avoid circular dependency
-        
+
         // 1. Find users who are following this deleted user
         // We need to decrement their followingCount
         await User.updateMany(
@@ -94,16 +94,20 @@ async function propagateUserDeletion(userId) {
 
         // 3. Remove from blockedUsers, mutedUsers, dismissedUsers
         await User.updateMany(
-            { $or: [
-                { blockedUsers: userId },
-                { mutedUsers: userId },
-                { dismissedUsers: userId }
-            ]},
-            { $pull: { 
-                blockedUsers: userId,
-                mutedUsers: userId,
-                dismissedUsers: userId
-            }}
+            {
+                $or: [
+                    { blockedUsers: userId },
+                    { mutedUsers: userId },
+                    { dismissedUsers: userId }
+                ]
+            },
+            {
+                $pull: {
+                    blockedUsers: userId,
+                    mutedUsers: userId,
+                    dismissedUsers: userId
+                }
+            }
         );
 
         // 4. Remove from followRequests
@@ -142,7 +146,7 @@ async function propagateUserDeletion(userId) {
 
         // 9. Scrub Recommendation Analytics Profile
         if (UserInterest) {
-            await UserInterest.deleteOne({ userId: userId }).catch(() => {});
+            await UserInterest.deleteOne({ userId: userId }).catch(() => { });
         }
 
         logger.info(`[Deletion] Cleanup propagation completed for user ${userId}`);
@@ -151,4 +155,28 @@ async function propagateUserDeletion(userId) {
     }
 }
 
-module.exports = { propagateUserProfileUpdate, propagateUserDeletion };
+async function purgeUserData(userId) {
+    try {
+        const User = require('../models/User');
+        const Report = require('../models/Report');
+
+        await Promise.allSettled([
+            propagateUserDeletion(userId),
+            Post.deleteMany({ 'user._id': userId }),
+            Post.deleteMany({ authorId: userId }),
+            Comment.deleteMany({ 'user._id': userId }),
+            Story.deleteMany({ 'user._id': userId }),
+            Notification.deleteMany({ $or: [{ recipient: userId }, { 'sender.id': userId }] }),
+            Report.deleteMany({ $or: [{ reporter: userId }, { reportedUser: userId }] }),
+            LoginSession.deleteMany({ userId }),
+            User.deleteOne({ _id: userId })
+        ]);
+
+        logger.info(`[Deletion] Complete purge executed for user ${userId}`);
+    } catch (err) {
+        logger.error(`[Deletion] Purge failed for user ${userId}: ${err.message}`);
+        throw err;
+    }
+}
+
+module.exports = { propagateUserProfileUpdate, propagateUserDeletion, purgeUserData };

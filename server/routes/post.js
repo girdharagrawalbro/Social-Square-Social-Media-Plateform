@@ -34,6 +34,7 @@ const postWriteLimiter = require('../middleware/postWriteLimiter'); // Break cir
 const { moderationQueue } = require('../queues/moderationQueue');
 const { body, param, query, validationResult } = require('express-validator');
 const { USER_DEFAULT_IMAGE } = require('../utils/constantMediaVariable.js');
+const { sendEmail } = require('../utils/mailer');
 
 const validate = (req, res, next) => {
     const errors = validationResult(req);
@@ -582,6 +583,24 @@ router.delete("/delete/:postId", verifyToken, [
         //  Invalidate Redis fallback cache
         if (redis.status !== 'disabled') {
             redis.del('cache:fallback_posts').catch(() => { });
+        }
+
+        const postAuthorId = post.authorId || post.user?._id || post.user;
+        if (postAuthorId) {
+            const postAuthor = await User.findById(postAuthorId).select('email fullname').lean();
+            if (postAuthor?.email) {
+                await sendEmail({
+                    to: postAuthor.email,
+                    subject: 'Post Notice: Your post has been deleted',
+                    html: `
+                        <h2>Post Deleted</h2>
+                        <p>Hello ${postAuthor.fullname || 'there'},</p>
+                        <p>Your post has been deleted.</p>
+                        <p>If this was unexpected, please review your account activity and content guidelines.</p>
+                    `,
+                    text: 'Your post has been deleted. If this was unexpected, please review your account activity and content guidelines.'
+                }).catch(console.error);
+            }
         }
 
         //  Notify all users to remove post from feed
@@ -1754,7 +1773,7 @@ router.post('/comments/add', verifyToken, [
         }
 
         const commentContent = content || `Rating: ${feedbackDetails.rating}/5\nStrengths: ${feedbackDetails.strengths}\nSuggestions: ${feedbackDetails.improvements}`;
-        
+
         // Filter content against author's custom hiddenWords array and profanity filter
         const author = await User.findById(authorId).select('privacySettings hiddenWords').lean();
         let isHidden = false;

@@ -1,5 +1,6 @@
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
+const User = require('../models/User');
 
 /**
  * softVerifyToken middleware
@@ -29,14 +30,19 @@ async function softVerifyToken(req, res, next) {
 
         const hashedToken = hashValue(token);
         // Use lean() for performance
-        const session = await LoginSession.findOne({ 
+        const session = await LoginSession.findOne({
             accessToken: hashedToken,
             isRevoked: false,
             expiresAt: { $gt: new Date() }
         }).select('userId').lean();
-        
+
         // Final source of truth is the verified session
         if (session) {
+            const sessionUser = await User.findById(session.userId).select('isBanned banReason').lean();
+            if (sessionUser?.isBanned) {
+                req.userId = null;
+                return next();
+            }
             req.userId = session.userId;
         } else {
             // If session is invalid, revert userId to null to treat as guest

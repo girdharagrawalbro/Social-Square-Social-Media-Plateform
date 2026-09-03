@@ -667,9 +667,9 @@ router.post('/toggle-2fa', verifyToken, async (req, res) => {
 
         user.twoFactorEnabled = !user.twoFactorEnabled;
         await user.save();
-        
+
         await logAccountHistory(user._id, '2FA_TOGGLED', `Two-Factor Authentication was ${user.twoFactorEnabled ? 'enabled' : 'disabled'}`, req);
-        
+
         return res.status(200).json({ twoFactorEnabled: user.twoFactorEnabled });
     } catch {
         return res.status(500).json({ error: 'Internal server error' });
@@ -1154,7 +1154,7 @@ router.post('/change-password', verifyToken, [
     try {
         const { currentPassword, newPassword } = req.body;
         const user = await User.findById(req.userId).select('+password');
-        
+
         if (!user) return res.status(404).json({ error: 'User not found' });
         if (!user.password) return res.status(400).json({ error: 'This account uses a third-party login and does not have a password.' });
 
@@ -1163,9 +1163,9 @@ router.post('/change-password', verifyToken, [
 
         user.password = await bcrypt.hash(newPassword, 10);
         await user.save();
-        
+
         await logAccountHistory(user._id, 'PASSWORD_CHANGED', 'Account password was updated', req);
-        
+
         return res.status(200).json({ message: 'Password updated successfully' });
     } catch (error) {
         console.error('Change password error:', error);
@@ -1280,6 +1280,76 @@ router.get('/relationship-ids', verifyToken, async (req, res) => {
     }
 });
 
+router.delete('/delete-account', verifyToken, [
+    body('reason').optional().trim().escape(),
+    body('immediate').optional().isBoolean().withMessage('immediate must be a boolean'),
+    validate
+], async (req, res) => {
+    try {
+        const userId = req.userId;
+        const immediate = Boolean(req.body.immediate);
+        const reason = req.body.reason || 'User requested account deletion';
+
+        const user = await User.findById(userId).select('email fullname deletionScheduledAt').lean();
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        if (immediate) {
+            await sendEmail({
+                to: user.email,
+                subject: 'Account Notice: Your account has been deleted',
+                html: `
+                    <h2>Account Deleted</h2>
+                    <p>Hello ${user.fullname || 'there'},</p>
+                    <p>Your account has been permanently deleted.</p>
+                    <p><strong>Reason:</strong> ${reason}</p>
+                `,
+                text: `Your account has been permanently deleted. Reason: ${reason}`
+            }).catch(console.error);
+
+            await require('../utils/userPropagation').purgeUserData(userId);
+            await LoginSession.deleteMany({ userId }).catch(() => { });
+            return res.status(200).json({ message: 'Account deleted successfully.' });
+        }
+
+        const scheduledAt = new Date();
+        scheduledAt.setDate(scheduledAt.getDate() + 30);
+
+        await sendEmail({
+            to: user.email,
+            subject: 'Account Warning: Your account is scheduled for deletion',
+            html: `
+                <h2>Account Scheduled for Deletion</h2>
+                <p>Hello ${user.fullname || 'there'},</p>
+                <p>Your account has been scheduled for permanent deletion in 30 days.</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p>If you did not request this, please contact support immediately.</p>
+            `,
+            text: `Your account has been scheduled for permanent deletion in 30 days. Reason: ${reason}`
+        }).catch(console.error);
+
+        await User.findByIdAndUpdate(userId, {
+            $set: {
+                deletionScheduledAt: scheduledAt,
+                deletionReason: reason,
+                deletionAppealStatus: 'none',
+                deletedAt: null,
+                isBanned: true,
+                banReason: 'Account scheduled for deletion by user request'
+            }
+        });
+
+        await LoginSession.updateMany({ userId }, { $set: { isRevoked: true } });
+
+        return res.status(200).json({
+            message: 'Your account has been scheduled for permanent deletion in 30 days.',
+            deletionScheduledAt: scheduledAt
+        });
+    } catch (error) {
+        logger.error('[DELETE_ACCOUNT] Error:', error);
+        return res.status(500).json({ message: 'Failed to process account deletion.' });
+    }
+});
+
 router.get('/users/:userId/contributions', verifyToken, [
     param('userId').isMongoId().withMessage('Invalid user ID'),
     validate
@@ -1332,10 +1402,13 @@ router.get('/other-user/view/:id', verifyToken, [
         }
 
         const targetUser = await User.findById(targetId)
-            .select('fullname username profile_picture bio isPrivate level streak xp profileViews isOnline followRequests blockedUsers postsCount followersCount followingCount aiProfileSummary')
+            .select('fullname username profile_picture bio isPrivate level streak xp profileViews isOnline followRequests blockedUsers postsCount followersCount followingCount aiProfileSummary isBanned banReason')
             .lean();
 
         if (!targetUser) return res.status(404).json({ message: 'User not found.' });
+        if (targetUser.isBanned) {
+            return res.status(403).json({ message: targetUser.banReason || 'This profile is unavailable because the account has been banned.' });
+        }
 
         const postCount = targetUser.postsCount || 0;
 
@@ -1416,10 +1489,13 @@ router.get('/public/profile/:identifier', softVerifyToken, [
         }
 
         const user = await User.findOne(query)
-            .select('fullname username profile_picture bio isPrivate followers following level streak xp profileViews postsCount followersCount followingCount')
+            .select('fullname username profile_picture bio isPrivate followers following level streak xp profileViews postsCount followersCount followingCount isBanned banReason')
             .lean();
 
         if (!user) return res.status(404).json({ message: 'User not found.' });
+        if (user.isBanned) {
+            return res.status(403).json({ message: user.banReason || 'This profile is unavailable because the account has been banned.' });
+        }
 
         const postCount = user.postsCount || 0;
 
@@ -1508,7 +1584,7 @@ router.get('/account-history', verifyToken, async (req, res) => {
     try {
         const user = await User.findById(req.userId).select('accountHistory').lean();
         if (!user) return res.status(404).json({ error: 'User not found' });
-        
+
         // Return sorted by newest first
         const history = (user.accountHistory || []).sort((a, b) => b.createdAt - a.createdAt);
         return res.status(200).json(history);
@@ -2202,11 +2278,11 @@ router.get('/privacy-settings', verifyToken, async (req, res) => {
     try {
         const user = await User.findById(req.userId).select('privacySettings').lean();
         const settings = user?.privacySettings || {};
-        res.json({ 
-            hideActivityStatus: settings.hideActivityStatus ?? false, 
+        res.json({
+            hideActivityStatus: settings.hideActivityStatus ?? false,
             activityStatusMode: settings.activityStatusMode || (settings.hideActivityStatus ? 'hidden_both' : 'visible'),
-            hideLikesOnOthersPosts: settings.hideLikesOnOthersPosts ?? false, 
-            hideLikesOnMyPosts: settings.hideLikesOnMyPosts ?? false, 
+            hideLikesOnOthersPosts: settings.hideLikesOnOthersPosts ?? false,
+            hideLikesOnMyPosts: settings.hideLikesOnMyPosts ?? false,
             hideCommentCountOnMyPosts: settings.hideCommentCountOnMyPosts ?? false,
             hideShareCountOnMyPosts: settings.hideShareCountOnMyPosts ?? false,
             disableCommentsGlobally: settings.disableCommentsGlobally ?? false,
@@ -2218,9 +2294,9 @@ router.get('/privacy-settings', verifyToken, async (req, res) => {
             hideProfanity: settings.hideProfanity !== false,
             hiddenWords: user?.hiddenWords || []
         });
-    } catch (err) { 
+    } catch (err) {
         logger.error('Error fetching privacy settings:', err);
-        res.status(500).json({ message: 'Internal server error' }); 
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
@@ -2244,7 +2320,7 @@ router.patch('/privacy-settings', verifyToken, async (req, res) => {
         }
 
         const user = await User.findByIdAndUpdate(req.userId, { $set: allowedUpdates }, { new: true }).select('privacySettings').lean();
-        
+
         // Sync post settings
         const Post = require('../models/Post');
         if (req.body.hideLikesOnMyPosts !== undefined) {
@@ -2271,14 +2347,14 @@ router.patch('/privacy-settings', verifyToken, async (req, res) => {
                 { $set: { 'settings.allowedCommenters': req.body.allowedCommenters } }
             );
         }
-        
+
         // disableCommentsGlobally logic is already handled at the route level for new comments,
         // but if we want it to block existing comments, we can just let post.js check author.privacySettings.disableCommentsGlobally.
 
         res.json(user.privacySettings);
-    } catch (err) { 
+    } catch (err) {
         logger.error('Error updating privacy settings:', err);
-        res.status(500).json({ message: 'Internal server error' }); 
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 

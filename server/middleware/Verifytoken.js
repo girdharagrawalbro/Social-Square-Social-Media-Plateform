@@ -1,5 +1,6 @@
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
+const User = require('../models/User');
 
 async function verifyToken(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -10,29 +11,34 @@ async function verifyToken(req, res, next) {
     try {
         const hashedToken = hashValue(token);
         const session = await LoginSession.findOne({ accessToken: hashedToken });
-        
+
         if (!session) {
             return res.status(401).json({ message: 'Unauthorized. Session not found.' });
         }
-        
+
         if (session.isRevoked) {
             return res.status(401).json({ message: 'Unauthorized. Session revoked.' });
         }
-        
+
         if (session.expiresAt < new Date()) {
             return res.status(401).json({ message: 'Unauthorized. Session expired.' });
+        }
+
+        const sessionUser = await User.findById(session.userId).select('isBanned banReason').lean();
+        if (sessionUser?.isBanned) {
+            return res.status(403).json({ message: sessionUser.banReason || 'This account has been banned.' });
         }
 
         // Update sliding window TTL safely (non-blocking)
         LoginSession.updateOne(
             { _id: session._id },
-            { 
-                $set: { 
-                    lastUsedAt: new Date(), 
-                    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
-                } 
+            {
+                $set: {
+                    lastUsedAt: new Date(),
+                    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                }
             }
-        ).catch(() => {});
+        ).catch(() => { });
 
         req.userId = session.userId;
         req.family = session.tokenFamily;

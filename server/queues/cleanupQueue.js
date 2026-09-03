@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Report = require('../models/Report');
 const { PostVector } = require('../models/Recommendation');
-const { propagateUserDeletion } = require('../utils/userPropagation');
+const { propagateUserDeletion, purgeUserData } = require('../utils/userPropagation');
 const { sendEmail } = require('../utils/mailer');
 const redis = require('../lib/redis');
 
@@ -49,7 +49,7 @@ if (!isRedisDisabled) {
             // 1. Delete READ notifications older than 3 days
             const oldDeleted = await Notification.deleteMany({
                 read: true,
-                type: { $ne: 'follow_request' }, 
+                type: { $ne: 'follow_request' },
                 createdAt: { $lt: threeDaysAgo }
             });
             console.log(`[Cleanup] Purged ${oldDeleted.deletedCount} old read notifications.`);
@@ -105,9 +105,7 @@ if (!isRedisDisabled) {
 
             for (const u of usersToDelete) {
                 console.log(`[Cleanup] Executing scheduled deletion for user ${u._id}`);
-                
-                await User.updateOne({ _id: u._id }, { $set: { deletedAt: new Date() } });
-                
+
                 const emailHtml = `
                     <h2>Account Deleted</h2>
                     <p>Hello ${u.fullname},</p>
@@ -118,23 +116,11 @@ if (!isRedisDisabled) {
                     subject: 'Notice: Your Account has been Deleted',
                     html: emailHtml,
                     text: emailHtml.replace(/<[^>]*>?/gm, '')
-                }).catch(() => {});
+                }).catch(() => { });
 
-                // Deep scrub footprint
-                await propagateUserDeletion(u._id).catch(console.error);
+                await purgeUserData(u._id).catch(console.error);
 
-                await Post.updateMany(
-                    { authorId: u._id },
-                    { $set: { deletedAt: new Date() } }
-                ).catch(console.error);
-
-                const posts = await Post.find({ authorId: u._id }).select('_id').lean();
-                const postIds = posts.map(p => p._id);
-                if (postIds.length > 0) {
-                    await PostVector.deleteMany({ postId: { $in: postIds } }).catch(() => {});
-                }
-
-                await Report.deleteMany({ reporter: u._id }).catch(() => {});
+                await User.deleteOne({ _id: u._id }).catch(() => { });
             }
 
         } catch (err) {

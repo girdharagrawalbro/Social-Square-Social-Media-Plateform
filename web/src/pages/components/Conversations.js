@@ -777,7 +777,10 @@ const Conversations = () => {
                                 </div>
                             </div>
 
-                            <div className="flex-1 min-h-0 h-full overflow-hidden">
+                            <div
+                                key={`${selectedParticipant.conversationId || selectedParticipant.userId}-${refreshKey}`}
+                                className="flex-1 min-h-0 h-full overflow-hidden animate-in fade-in slide-in-from-right-2 duration-200"
+                            >
                                 <ChatPanel
                                     key={`${selectedParticipant.userId}-${refreshKey}`}
                                     participantId={selectedParticipant.userId}

@@ -17,7 +17,7 @@ const verifyToken = require('../middleware/Verifytoken');
 const { hashValue } = require('../utils/authSecurity');
 const LoginSession = require('../models/LoginSession');
 const { digestQueue } = require('../queues/digestQueue');
-const { propagateUserDeletion } = require('../utils/userPropagation');
+const { propagateUserDeletion, purgeUserData } = require('../utils/userPropagation');
 const { body, param, query, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
@@ -278,6 +278,19 @@ router.post('/users/bulk-ban', requireAdmin, [
             );
 
             for (const user of usersToBan) {
+                await sendEmail({
+                    to: user.email,
+                    subject: 'Account Warning: You have been banned',
+                    html: `
+                        <h2>Account Banned</h2>
+                        <p>Hello ${user.fullname || 'there'},</p>
+                        <p>Your account has been banned by an administrator.</p>
+                        <p><strong>Reason:</strong> ${reason || 'Violated community guidelines (Bulk)'}</p>
+                        <p>If you believe this action was taken in error, please contact support.</p>
+                    `,
+                    text: `Your account has been banned by an administrator. Reason: ${reason || 'Violated community guidelines (Bulk)'}`
+                }).catch(console.error);
+
                 await logAdminAction({
                     adminId: req.adminId,
                     action: 'ban_user',
@@ -372,6 +385,19 @@ router.patch('/users/:userId/ban', requireAdmin, [
         ).lean();
         if (!user) return res.status(404).json({ error: 'User not found or is an admin' });
 
+        await sendEmail({
+            to: user.email,
+            subject: 'Account Warning: You have been banned',
+            html: `
+                <h2>Account Banned</h2>
+                <p>Hello ${user.fullname || 'there'},</p>
+                <p>Your account has been banned by an administrator.</p>
+                <p><strong>Reason:</strong> ${reason || 'Violated community guidelines'}</p>
+                <p>If you believe this action was taken in error, please contact support.</p>
+            `,
+            text: `Your account has been banned by an administrator. Reason: ${reason || 'Violated community guidelines'}`
+        }).catch(console.error);
+
         await logAdminAction({
             adminId: req.adminId,
             action: 'ban_user',
@@ -414,22 +440,26 @@ router.delete('/users/:userId', requireAdmin, [
     validate
 ], async (req, res) => {
     try {
-        const gracePeriodDays = parseInt(req.body.gracePeriodDays || 0, 10);
+        const gracePeriodDays = req.body.gracePeriodDays === undefined ? null : parseInt(req.body.gracePeriodDays, 10);
         const reason = req.body.reason || 'Violation of terms of service';
-        
+
+        const effectiveGracePeriod = Number.isInteger(gracePeriodDays) && gracePeriodDays > 0 ? gracePeriodDays : null;
         let updateData = {};
-        if (gracePeriodDays > 0) {
+        if (effectiveGracePeriod) {
             const scheduledAt = new Date();
-            scheduledAt.setDate(scheduledAt.getDate() + gracePeriodDays);
-            updateData = { 
-                $set: { 
-                    deletionScheduledAt: scheduledAt, 
+            scheduledAt.setDate(scheduledAt.getDate() + effectiveGracePeriod);
+            updateData = {
+                $set: {
+                    deletionScheduledAt: scheduledAt,
                     deletionReason: reason,
-                    deletionAppealStatus: 'none'
-                } 
+                    deletionAppealStatus: 'none',
+                    deletedAt: null,
+                    isBanned: true,
+                    banReason: reason || 'Account scheduled for deletion'
+                }
             };
         } else {
-            updateData = { $set: { deletedAt: new Date() } };
+            updateData = { $set: { deletedAt: new Date(), isBanned: true, banReason: reason || 'Account deleted by administrator' } };
         }
 
         const user = await User.findOneAndUpdate(
@@ -442,21 +472,21 @@ router.delete('/users/:userId', requireAdmin, [
 
         await logAdminAction({
             adminId: req.adminId,
-            action: gracePeriodDays > 0 ? 'schedule_delete_user' : 'delete_user',
+            action: effectiveGracePeriod ? 'schedule_delete_user' : 'delete_user',
             targetType: 'user',
             targetId: user._id,
-            snapshot: { name: user.fullname, email: user.email, picture: user.profile_picture, gracePeriodDays },
+            snapshot: { name: user.fullname, email: user.email, picture: user.profile_picture, gracePeriodDays: effectiveGracePeriod },
             meta: { ip: req.ip },
         });
 
         const { sendEmail } = require('../utils/mailer');
 
-        if (gracePeriodDays > 0) {
+        if (effectiveGracePeriod) {
             // Scheduled Deletion Email
             const emailHtml = `
                 <h2>Account Scheduled for Deletion</h2>
                 <p>Hello ${user.fullname},</p>
-                <p>Your account has been scheduled for deletion by an administrator. It will be permanently deleted in <strong>${gracePeriodDays} days</strong>.</p>
+                <p>Your account has been scheduled for deletion by an administrator. It will be permanently deleted in <strong>${effectiveGracePeriod} days</strong>.</p>
                 <p><strong>Reason:</strong> ${reason}</p>
                 <p>If you believe this is a mistake, you can log in and submit an appeal.</p>
             `;
@@ -466,16 +496,14 @@ router.delete('/users/:userId', requireAdmin, [
                 html: emailHtml,
                 text: emailHtml.replace(/<[^>]*>?/gm, '')
             }).catch(console.error);
-            
-            // Revoke active sessions to enforce Option A (Restricted) - locking out from normal app usage
+
             await LoginSession.updateMany(
                 { userId: user._id },
                 { $set: { isRevoked: true } }
             );
 
-            res.json({ message: `User scheduled for deletion in ${gracePeriodDays} days` });
+            res.json({ message: `User scheduled for deletion in ${effectiveGracePeriod} days` });
         } else {
-            // Immediate Deletion Email
             const emailHtml = `
                 <h2>Account Deleted</h2>
                 <p>Hello ${user.fullname},</p>
@@ -489,26 +517,7 @@ router.delete('/users/:userId', requireAdmin, [
                 text: emailHtml.replace(/<[^>]*>?/gm, '')
             }).catch(console.error);
 
-            // Cleanup social graph and counts in background
-            propagateUserDeletion(user._id).catch(console.error);
-
-            // Soft-delete posts in background — include anonymous posts via authorId
-            Post.updateMany(
-                { authorId: req.params.userId },
-                { $set: { deletedAt: new Date() } }
-            ).catch(console.error);
-
-            // Clean up corresponding post vectors from recommendation collection
-            Post.find({ authorId: req.params.userId }).select('_id').lean().then(posts => {
-                const postIds = posts.map(p => p._id);
-                if (postIds.length > 0) {
-                    PostVector.deleteMany({ postId: { $in: postIds } }).catch(err => {
-                        console.error('[Admin User Delete] Failed to delete PostVectors:', err.message);
-                    });
-                }
-            }).catch(console.error);
-
-            Report.deleteMany({ reporter: req.params.userId }).catch(console.error);
+            await purgeUserData(user._id).catch(console.error);
             invalidateCache();
             res.json({ message: 'User deleted immediately' });
         }
@@ -644,6 +653,24 @@ router.delete('/posts/:postId', requireAdmin, [
         }
 
         if (post) {
+            const postAuthorId = post.authorId || post.user?._id || post.user;
+            if (postAuthorId) {
+                const postAuthor = await User.findById(postAuthorId).select('email fullname').lean();
+                if (postAuthor?.email) {
+                    await sendEmail({
+                        to: postAuthor.email,
+                        subject: 'Post Warning: Your post was removed',
+                        html: `
+                            <h2>Post Removed</h2>
+                            <p>Hello ${postAuthor.fullname || 'there'},</p>
+                            <p>Your post was removed by an administrator.</p>
+                            <p>Please review the community guidelines and ensure your future content follows our rules.</p>
+                        `,
+                        text: 'Your post was removed by an administrator. Please review the community guidelines.'
+                    }).catch(console.error);
+                }
+            }
+
             await logAdminAction({
                 adminId: req.adminId,
                 action: 'delete_post',

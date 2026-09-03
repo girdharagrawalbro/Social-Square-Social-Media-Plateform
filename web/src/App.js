@@ -119,7 +119,7 @@ function AppInit() {
             if (secsToSend >= 10) {
                 accumulatedSeconds.current = 0;
                 api.post(`${process.env.REACT_APP_NGINIX === 'true' ? '' : process.env.REACT_APP_BACKEND_URL}/api/activity/time-spent`, { durationSeconds: secsToSend })
-                    .catch(() => {});
+                    .catch(() => { });
             }
         };
 
@@ -437,11 +437,11 @@ function AppInit() {
             if (!hideActivityRef.current) setOnlineUsers(users);
             else setOnlineUsers([]);
         });
-        
+
         socket.on('userOnline', (payload) => {
             if (!hideActivityRef.current) addOnlineUser(payload);
         });
-        
+
         socket.on('userOffline', removeOnlineUser);
 
         const handleNewNotification = (notification) => {
@@ -973,13 +973,14 @@ function SharedStoryRedirect() {
 }
 
 // ─── LAYOUTS ──────────────────────────────────────────────────────────────────
-function PageTransition({ children, className = "w-full h-full" }) {
+function PageTransition({ children, className = "w-full h-full", disableAnimation = false }) {
     const location = useLocation();
     const containerRef = useRef(null);
 
     useGsapEffect(() => {
+        if (disableAnimation) return;
         pageEntranceAnimation(containerRef.current);
-    }, [location.pathname]);
+    }, [location.pathname, disableAnimation]);
 
     return <div ref={containerRef} className={className}>{children}</div>;
 }
@@ -1017,7 +1018,7 @@ function MainLayout({ children }) {
             <div className="flex w-full flex-1 min-h-0">
                 <Sidebar />
                 <main className="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar relative">
-                    <PageTransition>{children}</PageTransition>
+                    <PageTransition disableAnimation={isMessages}>{children}</PageTransition>
                     {!isReels && <BottomNav />}
                 </main>
             </div>
