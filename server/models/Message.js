@@ -58,7 +58,7 @@ const MessageSchema = new mongoose.Schema({
     }],
 }, { timestamps: true });
 
-MessageSchema.index({ conversationId: 1, createdAt: 1 });
+MessageSchema.index({ conversationId: 1, createdAt: -1 });
 MessageSchema.index({ sender: 1 });
 MessageSchema.index({ content: 'text' });
 

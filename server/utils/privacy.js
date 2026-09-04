@@ -2,8 +2,20 @@ const crypto = require('crypto');
 const { buildRelationshipContext } = require('../services/relationshipService');
 const { USER_DEFAULT_IMAGE } = require('./constantMediaVariable');
 
+// PRIVACY_HMAC_SECRET MUST be set — it is distinct key material from JWT_SECRET.
+// Using JWT_SECRET as a fallback would be a security misconfiguration (wrong key purpose).
+// A missing secret is caught at startup to prevent silent HMAC failures in production.
+if (!process.env.PRIVACY_HMAC_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+        // Fatal in production — do not allow anonymous post HMAC to use wrong key material
+        throw new Error('[FATAL] PRIVACY_HMAC_SECRET is not set. Cannot start in production without it.');
+    }
+    // In dev/test — log a clear warning; do not use JWT_SECRET as a silent fallback
+    console.warn('[WARNING] PRIVACY_HMAC_SECRET not set. Anonymous post ownership tokens are INSECURE in this environment.');
+}
+
 const HMAC_SECRETS = {
-    1: { secret: process.env.PRIVACY_HMAC_SECRET || process.env.JWT_SECRET || 'fallback_secret' },
+    1: { secret: process.env.PRIVACY_HMAC_SECRET },
     // 2: { secret: process.env.PRIVACY_HMAC_SECRET_OLD, retiredAt: new Date('2026-08-01') }
 };
 
@@ -187,42 +199,57 @@ const checkPostPrivacy = async (req, res, next) => {
  * 3. Users who have blocked the current user.
  * Results are cached in Redis for 60 seconds (Risk 2).
  */
+const restrictedUserPromises = new Map();
+
 const getRestrictedUserIds = async (userId) => {
     if (!userId) return [];
-    const redis = require('../lib/redis');
-    const User = require('../models/User');
-    const cacheKey = `restricted_users:excl:${userId}`;
-
-    try {
-        const cached = await redis.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
-        const loggedUser = await User.findById(userId).select('following blockedUsers mutedUsers').lean();
-        const followingIds = (loggedUser?.following || []).map(id => id.toString());
-        const blockedIds = (loggedUser?.blockedUsers || []).map(id => id.toString());
-        const mutedIds = (loggedUser?.mutedUsers || []).map(id => id.toString());
-
-        // Find users who have blocked this user
-        const blockers = await User.find({ blockedUsers: userId }).select('_id').lean();
-        const blockerIds = blockers.map(b => b._id.toString());
-
-        // Find all private users excluding those the user follows (and themselves)
-        const privateUsers = await User.find({
-            isPrivate: true,
-            _id: { $nin: [...followingIds, userId] }
-        }).select('_id').lean();
-
-        const privateUserIds = privateUsers.map(u => u._id.toString());
-
-        const restrictedIds = [...new Set([...privateUserIds, ...blockedIds, ...mutedIds, ...blockerIds])];
-
-        // Cache with TTL (5 minutes) to balance freshness and performance
-        await redis.set(cacheKey, JSON.stringify(restrictedIds), 'EX', 300);
-        return restrictedIds;
-    } catch (err) {
-        console.error('[getRestrictedUserIds] Error:', err.message);
-        return [];
+    
+    // Promise Coalescing: return the existing promise if already fetching for this userId
+    if (restrictedUserPromises.has(userId)) {
+        return restrictedUserPromises.get(userId);
     }
+    
+    const promise = (async () => {
+        const redis = require('../lib/redis');
+        const User = require('../models/User');
+        const cacheKey = `restricted_users:excl:${userId}`;
+
+        try {
+            const cached = await redis.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
+            const loggedUser = await User.findById(userId).select('following blockedUsers mutedUsers').lean();
+            const followingIds = (loggedUser?.following || []).map(id => id.toString());
+            const blockedIds = (loggedUser?.blockedUsers || []).map(id => id.toString());
+            const mutedIds = (loggedUser?.mutedUsers || []).map(id => id.toString());
+
+            // Run independent queries concurrently
+            const [blockers, privateUsers] = await Promise.all([
+                User.find({ blockedUsers: userId }).select('_id').lean(),
+                User.find({
+                    isPrivate: true,
+                    _id: { $nin: [...followingIds, userId] }
+                }).select('_id').lean()
+            ]);
+
+            const blockerIds = blockers.map(b => b._id.toString());
+            const privateUserIds = privateUsers.map(u => u._id.toString());
+
+            const restrictedIds = [...new Set([...privateUserIds, ...blockedIds, ...mutedIds, ...blockerIds])];
+
+            // Cache with TTL (5 minutes) to balance freshness and performance
+            await redis.set(cacheKey, JSON.stringify(restrictedIds), 'EX', 300);
+            return restrictedIds;
+        } catch (err) {
+            console.error('[getRestrictedUserIds] Error:', err.message);
+            return [];
+        } finally {
+            restrictedUserPromises.delete(userId);
+        }
+    })();
+    
+    restrictedUserPromises.set(userId, promise);
+    return promise;
 };
 
 module.exports = {

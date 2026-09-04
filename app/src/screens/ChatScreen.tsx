@@ -14,13 +14,14 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
 import AppHeader from './components/AppHeader';
 import useAuthStore from '../store/zustand/useAuthStore';
 import BottomNav from './components/BottomNav';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText } from '../lib/cryptoUtils';
 import { api, BASE_URL } from '../lib/api';
-import { getCache, setCache, TTL } from '../lib/cache';
+import { pruneOldMessages } from '../lib/db';
 import { ChatSkeleton } from './components/SkeletonLoader';
 
 interface Participant {
@@ -60,6 +61,8 @@ interface SearchUser {
   profile_picture?: string;
 }
 
+const decryptionCache = new Map<string, string>();
+
 const MessagePreview = ({ messageText, conversationId, recipientId, isDark, subColor, unread, styles }: any) => {
   const [decryptedText, setDecryptedText] = useState('Encrypted');
 
@@ -82,15 +85,24 @@ const MessagePreview = ({ messageText, conversationId, recipientId, isDark, subC
       return;
     }
 
+    // Check RAM cache first to avoid expensive re-decryption on every render
+    if (decryptionCache.has(unescaped)) {
+      setDecryptedText(decryptionCache.get(unescaped)!);
+      return;
+    }
+
     let active = true;
     const decrypt = async () => {
       try {
         const e2eeState = useE2eeStore.getState();
-        const aesKey = await e2eeState.getConversationKey(conversationId, recipientId);
+        const aesKey = await e2eeState.getConversationKey(conversationId);
         if (aesKey && active) {
           const encryptedObj = JSON.parse(unescaped);
           const text = await decryptText(encryptedObj.ciphertext, encryptedObj.iv, aesKey);
-          if (active) setDecryptedText(text);
+          if (active) {
+            decryptionCache.set(unescaped, text);
+            setDecryptedText(text);
+          }
         }
       } catch (err) {
         if (active) setDecryptedText('Encrypted');
@@ -134,12 +146,21 @@ export default function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchUnreadCount();
+      // Prune old messages asynchronously on chat list focus
+      // to keep SQLite database from growing unbounded over months of usage
+      setTimeout(() => {
+        pruneOldMessages(2000); // keep only 2000 per chat
+      }, 2000);
     }, [])
   );
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { data: conversations = [], isLoading: loading, isRefetching: refreshing, refetch } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: async () => {
+      const res = await api.get('/api/conversation');
+      return res.data?.conversations || res.data || [];
+    },
+  });
 
   // New Chat states
   const [searchModalVisible, setSearchModalVisible] = useState(false);
@@ -170,39 +191,14 @@ export default function ChatScreen() {
   const subColor = isDark ? '#64748b' : '#94a3b8';
   const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
 
-  const fetchConversations = useCallback(async (showLoader = false) => {
-    // Load from cache immediately for instant display (like WhatsApp)
-    const cached = await getCache<Conversation[]>('conversations_list');
-    if (cached && cached.length > 0) {
-      setConversations(cached);
-      if (showLoader) setLoading(false); // don't show spinner if we have cache
-    } else if (showLoader) {
-      setLoading(true);
-    }
-    try {
-      const res = await api.get('/api/conversation');
-      const fresh = res.data?.conversations || res.data || [];
-      setConversations(fresh);
-      // Cache the list for next time (profile pics, names, last message)
-      await setCache('conversations_list', fresh, TTL.CONVERSATIONS);
-    } catch (e) {
-      console.warn('Failed to load conversations:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Fetch when screen is focused
   useFocusEffect(
     useCallback(() => {
-      fetchConversations(conversations.length === 0);
-    }, [fetchConversations])
+      refetch();
+    }, [refetch])
   );
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchConversations(false);
-    setRefreshing(false);
+    await refetch();
   };
 
   const handleSearchUsers = async (query: string) => {

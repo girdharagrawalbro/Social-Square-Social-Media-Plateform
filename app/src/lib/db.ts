@@ -175,6 +175,34 @@ export function clearConversationMessages(conversationId: string): void {
   }
 }
 
+/**
+ * Prune old messages to prevent unbounded database growth.
+ * Keeps only the most recent N messages per conversation and hard-deletes soft-deleted messages.
+ */
+export function pruneOldMessages(keepCount = 2000): void {
+  try {
+    const db = getDB();
+    db.transaction((tx) => {
+      // Hard delete soft-deleted messages
+      tx.execute(`DELETE FROM messages WHERE deletedAt IS NOT NULL`);
+      
+      // Delete old messages keeping only the most recent 'keepCount' per conversation
+      tx.execute(`
+        DELETE FROM messages 
+        WHERE _id NOT IN (
+          SELECT _id FROM (
+            SELECT _id, ROW_NUMBER() OVER(PARTITION BY conversationId ORDER BY createdAt DESC) as rn
+            FROM messages
+          ) WHERE rn <= ?
+        )
+      `, [keepCount]);
+    });
+    console.log('[DB] Pruned old messages');
+  } catch (e) {
+    console.warn('[DB] pruneOldMessages error:', e);
+  }
+}
+
 // ─── DRAFT POST OPERATIONS ───────────────────────────────────────────────────
 
 export function saveDraft(draft: {

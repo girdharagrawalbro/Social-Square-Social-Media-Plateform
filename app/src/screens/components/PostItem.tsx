@@ -18,6 +18,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Video from 'react-native-video';
 const VideoComponent = Video as any;
 import LinearGradient from 'react-native-linear-gradient';
+import FastImage from 'react-native-fast-image';
+const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useNavigation } from '@react-navigation/native';
 import { appChannel } from '../../lib/broadcast';
@@ -484,7 +486,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
             </LinearGradient>
           ) : user?.profile_picture ? (
             <View style={user?.isOnline ? styles.onlineIndicatorWrapper : null}>
-              <Image source={{ uri: user.profile_picture }} style={styles.avatar} />
+              <FastImage source={{ uri: user.profile_picture }} style={styles.avatar} />
               {user?.isOnline && <View style={styles.onlineBadge} />}
             </View>
           ) : (
@@ -545,7 +547,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
               {isDecryptingVideo ? (
                 <View style={[styles.videoPlayOverlay, { flexDirection: 'column', gap: 8 }]}>
                   {videoThumbnailUrl ? (
-                    <Image source={{ uri: videoThumbnailUrl }} style={[StyleSheet.absoluteFill]} resizeMode="contain" />
+                    <FastImage source={{ uri: videoThumbnailUrl }} style={[StyleSheet.absoluteFill]} resizeMode={FastImage.resizeMode.contain} />
                   ) : null}
                   <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 12, alignItems: 'center', gap: 6 }}>
                     <MaterialCommunityIcons name="lock-open-outline" size={24} color="#808bf5" />
@@ -597,10 +599,10 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
               {!isDecryptingVideo ? (
                 <>
                   {!isPlaying && videoThumbnailUrl ? (
-                    <Image
+                    <FastImage
                       source={{ uri: videoThumbnailUrl }}
                       style={[styles.postVideo, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}
-                      resizeMode="cover"
+                      resizeMode={FastImage.resizeMode.cover}
                     />
                   ) : null}
 
@@ -654,11 +656,11 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                 scrollEventThrottle={16}
               >
                 {post.image_urls.map((url: string, index: number) => (
-                  <Image
+                  <FastImage
                     key={index}
                     source={{ uri: resolveMediaUrl(url) }}
                     style={{ width: screenWidth - 24, aspectRatio: 1.2, borderRadius: 12 }}
-                    resizeMode="cover"
+                    resizeMode={FastImage.resizeMode.cover}
                   />
                 ))}
               </ScrollView>
@@ -687,10 +689,10 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                   <ActivityIndicator size="small" color="#808bf5" />
                 </View>
               )}
-              <Animated.Image
+              <AnimatedFastImage
                 source={{ uri: imageUrl }}
                 style={[styles.postImage, { aspectRatio, opacity: imageOpacity }]}
-                resizeMode="contain"
+                resizeMode={FastImage.resizeMode.contain}
                 onLoad={handleImageLoad}
               />
             </View>

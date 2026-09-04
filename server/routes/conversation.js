@@ -1,9 +1,10 @@
+const logger = require('../utils/logger');
 const express = require('express');
 const router = express.Router();
 
 // Debug middleware
 router.use((req, res, next) => {
-    console.log(`[Conversation] ${req.method} ${req.url}`);
+    logger.debug(`[Conversation] ${req.method} ${req.url}`);
     next();
 });
 const Conversation = require('../models/Conversation');
@@ -52,7 +53,7 @@ async function delCache(...keys) {
             await redis.del(keysToDelete);
         }
     } catch (e) {
-        console.error('[Redis Cache Delete Error]:', e);
+        logger.error('[Redis Cache Delete Error]:', e);
     }
 }
 
@@ -67,7 +68,7 @@ router.delete('/:conversationId/clear', verifyToken, [
     try {
         const { conversationId } = req.params;
         const userId = req.userId;
-        console.log(`[Conversation] Clear request: ${conversationId} by ${userId}`);
+        logger.debug(`[Conversation] Clear request: ${conversationId} by ${userId}`);
 
         if (!mongoose.Types.ObjectId.isValid(conversationId)) {
             return res.status(400).json({ error: 'Invalid conversation ID' });
@@ -84,11 +85,11 @@ router.delete('/:conversationId/clear', verifyToken, [
         });
 
         const participants = conv.participants.map(p => p.userId.toString());
-        await delCache(...participants.map(p => `convs:${p}`), `msgs:${participants.sort().join(':')}`);
+        await delCache(...participants.map(p => `convs:${p}:*`), `msgs:${participants.sort().join(':')}`);
 
         res.json({ message: 'Chat cleared' });
     } catch (err) {
-        console.error('[Conversation] Clear error:', err.message);
+        logger.error('[Conversation] Clear error:', err.message);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -101,7 +102,7 @@ router.delete('/:conversationId', verifyToken, [
     try {
         const { conversationId } = req.params;
         const userId = req.userId;
-        console.log(`[Conversation] Delete request: ${conversationId} by ${userId}`);
+        logger.debug(`[Conversation] Delete request: ${conversationId} by ${userId}`);
 
         if (!mongoose.Types.ObjectId.isValid(conversationId)) {
             return res.status(400).json({ error: 'Invalid conversation ID' });
@@ -117,11 +118,11 @@ router.delete('/:conversationId', verifyToken, [
             Conversation.findByIdAndDelete(conversationId)
         ]);
 
-        await delCache(...participants.map(p => `convs:${p}`), `msgs:${participants.sort().join(':')}`);
+        await delCache(...participants.map(p => `convs:${p}:*`), `msgs:${participants.sort().join(':')}`);
 
         res.json({ message: 'Chat deleted' });
     } catch (err) {
-        console.error('[Conversation] Delete error:', err.message);
+        logger.error('[Conversation] Delete error:', err.message);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -170,7 +171,7 @@ router.post('/create', verifyToken, [
             ]
         });
 
-        await delCache(`convs:${senderId}`, `convs:${recipientId}`);
+        await delCache(`convs:${senderId}:*`, `convs:${recipientId}:*`);
         res.status(201).json(conversation);
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
 });
@@ -222,7 +223,7 @@ router.post('/group/create', verifyToken, [
         });
 
         // Clear cached conversation lists for all participants
-        await delCache(...uniqueIds.map(id => `convs:${id}`));
+        await delCache(...uniqueIds.map(id => `convs:${id}:*`));
 
         if (_io) {
             uniqueIds.forEach(id => {
@@ -234,7 +235,7 @@ router.post('/group/create', verifyToken, [
 
         res.status(201).json(conversation);
     } catch (err) {
-        console.error('[Conversation] Create group error:', err);
+        logger.error('[Conversation] Create group error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -294,7 +295,7 @@ router.post('/group/:id/add-members', verifyToken, [
         });
 
         const allMemberIds = conv.participants.map(p => p.userId.toString());
-        await delCache(...allMemberIds.map(id => `convs:${id}`));
+        await delCache(...allMemberIds.map(id => `convs:${id}:*`));
 
         if (_io) {
             allMemberIds.forEach(id => {
@@ -305,7 +306,7 @@ router.post('/group/:id/add-members', verifyToken, [
 
         res.json(conv);
     } catch (err) {
-        console.error('[Conversation] Add members error:', err);
+        logger.error('[Conversation] Add members error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -359,7 +360,7 @@ router.post('/group/:id/remove-members', verifyToken, [
         });
 
         const allUserIds = [...conv.participants.map(p => p.userId.toString()), ...memberIds];
-        await delCache(...allUserIds.map(id => `convs:${id}`));
+        await delCache(...allUserIds.map(id => `convs:${id}:*`));
 
         if (_io) {
             allUserIds.forEach(id => {
@@ -370,7 +371,7 @@ router.post('/group/:id/remove-members', verifyToken, [
 
         res.json(conv);
     } catch (err) {
-        console.error('[Conversation] Remove members error:', err);
+        logger.error('[Conversation] Remove members error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -419,7 +420,7 @@ router.post('/group/:id/leave', verifyToken, [
         });
 
         const notifyIds = [...conv.participants.map(p => p.userId.toString()), senderId];
-        await delCache(...notifyIds.map(id => `convs:${id}`));
+        await delCache(...notifyIds.map(id => `convs:${id}:*`));
 
         if (_io) {
             notifyIds.forEach(id => {
@@ -430,7 +431,7 @@ router.post('/group/:id/leave', verifyToken, [
 
         res.json({ message: 'Successfully left the group' });
     } catch (err) {
-        console.error('[Conversation] Leave group error:', err);
+        logger.error('[Conversation] Leave group error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -481,7 +482,7 @@ router.patch('/group/:id/update', verifyToken, [
         });
 
         const allMemberIds = conv.participants.map(p => p.userId.toString());
-        await delCache(...allMemberIds.map(id => `convs:${id}`));
+        await delCache(...allMemberIds.map(id => `convs:${id}:*`));
 
         if (_io) {
             allMemberIds.forEach(id => {
@@ -492,7 +493,7 @@ router.patch('/group/:id/update', verifyToken, [
 
         res.json(conv);
     } catch (err) {
-        console.error('[Conversation] Update group details error:', err);
+        logger.error('[Conversation] Update group details error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -504,26 +505,33 @@ router.get('/', verifyToken, async (req, res) => {
         const userId = req.userId;
         const { cursor, limit = 20 } = req.query;
 
-        const query = { 'participants.userId': userId };
-        if (cursor) {
-            query.lastMessageAt = { $lt: new Date(cursor) };
+        const cursorStr = cursor ? new Date(cursor).getTime() : '0';
+        const cacheKey = `convs:${userId}:${cursorStr}:${limit}`;
+        
+        let responseData = await getCache(cacheKey);
+        
+        if (!responseData) {
+            const query = { 'participants.userId': userId };
+            if (cursor) {
+                query.lastMessageAt = { $lt: new Date(cursor) };
+            }
+
+            const conversations = await Conversation.find(query)
+                .sort({ lastMessageAt: -1 })
+                .limit(parseInt(limit))
+                .lean();
+
+            const nextCursor = conversations.length === parseInt(limit)
+                ? conversations[conversations.length - 1].lastMessageAt
+                : null;
+                
+            responseData = { conversations, nextCursor };
+            await setCache(cacheKey, responseData, 60); // 60s TTL
         }
 
-        const conversations = await Conversation.find(query)
-            .sort({ lastMessageAt: -1 })
-            .limit(parseInt(limit))
-            .lean();
-
-        const nextCursor = conversations.length === parseInt(limit)
-            ? conversations[conversations.length - 1].lastMessageAt
-            : null;
-
-        res.status(200).json({
-            conversations,
-            nextCursor
-        });
+        res.status(200).json(responseData);
     } catch (err) {
-        console.error('[Conversation] Fetch error:', err);
+        logger.error('[Conversation] Fetch error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -554,7 +562,7 @@ router.get('/search', verifyToken, [
 
         res.json(conversations);
     } catch (err) {
-        console.error('[Conversation] Search error:', err);
+        logger.error('[Conversation] Search error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -821,7 +829,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
 
         // Robust cache clearing for all participants
         const participants = updatedConv.participants.map(p => p.userId.toString());
-        await delCache(...participants.map(p => `convs:${p}`), `msgs:${conv._id}*`);
+        await delCache(...participants.map(p => `convs:${p}:*`), `msgs:${conv._id}*`);
 
         if (_io) {
             const msgObj = { ...message.toObject(), senderId: sender, senderName: senderName || senderUser?.fullname };
@@ -846,7 +854,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
                 if (aiUser && aiUser.username === 'social_square_ai') {
                     const aiChatService = require('../services/aiChatService');
                     aiChatService.triggerAiReply(conv._id, sender, content || '', aiUser).catch(err => {
-                        console.error('[AI Reply Trigger Error]:', err);
+                        logger.error('[AI Reply Trigger Error]:', err);
                     });
                 }
             }
@@ -854,7 +862,7 @@ router.post(['/messages/create', '/send'], verifyToken, [
 
         res.status(201).json(message);
     } catch (err) {
-        console.error('[Send Message Error]:', err);
+        logger.error('[Send Message Error]:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -889,7 +897,7 @@ router.patch('/messages/:messageId', verifyToken, [
 
         // Robust cache clearing
         const participants = conv.participants.map(p => p.userId.toString());
-        await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
+        await delCache(...participants.map(p => `convs:${p}:*`), `msgs:${message.conversationId}*`);
 
         if (_io) {
             participants.forEach(p => {
@@ -928,7 +936,7 @@ router.delete('/messages/:messageId', verifyToken, [
             await message.save();
 
             // Clear cache for this specific user
-            await delCache(`convs:${userId}`, `msgs:${message.conversationId}*`);
+            await delCache(`convs:${userId}:*`, `msgs:${message.conversationId}*`);
 
             if (_io) {
                 _io.to(userId).emit('messageDeleted', { messageId: message._id, conversationId: message.conversationId, mode: 'me' });
@@ -950,7 +958,7 @@ router.delete('/messages/:messageId', verifyToken, [
 
             // Clear cache for all participants
             const participants = conv.participants.map(p => p.userId.toString());
-            await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
+            await delCache(...participants.map(p => `convs:${p}:*`), `msgs:${message.conversationId}*`);
 
             if (_io) {
                 participants.forEach(p => {
@@ -962,7 +970,7 @@ router.delete('/messages/:messageId', verifyToken, [
 
         res.json({ message: 'Deleted' });
     } catch (err) {
-        console.error('[Conversation] Delete error:', err);
+        logger.error('[Conversation] Delete error:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -1003,7 +1011,7 @@ router.post('/messages/mark-read', verifyToken, [
                     }
                 }
             } catch (err) {
-                console.error('[Conversation] Error sending messagesReadSync socket:', err.message);
+                logger.error('[Conversation] Error sending messagesReadSync socket:', err.message);
             }
         }
 
@@ -1012,12 +1020,12 @@ router.post('/messages/mark-read', verifyToken, [
             if (msg) {
                 await Conversation.findByIdAndUpdate(msg.conversationId, { 'lastMessage.isRead': true });
                 // Clear cache for both sender (to update seen status) and receiver (to update unread count)
-                await delCache(`convs:${msg.sender}`, `convs:${userId}`);
+                await delCache(`convs:${msg.sender}:*`, `convs:${userId}:*`);
             }
         }
         res.json({ success: true });
     } catch (err) {
-        console.error('[Conversation] Mark read error:', err.message);
+        logger.error('[Conversation] Mark read error:', err.message);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -1090,7 +1098,7 @@ router.post('/messages/:messageId/react', verifyToken, [
 
         const conv = await Conversation.findById(message.conversationId);
         const participants = conv.participants.map(p => p.userId.toString());
-        await delCache(...participants.map(p => `convs:${p}`), `msgs:${message.conversationId}*`);
+        await delCache(...participants.map(p => `convs:${p}:*`), `msgs:${message.conversationId}*`);
 
         const reactionsObj = Object.fromEntries(message.reactions);
 
@@ -1102,7 +1110,7 @@ router.post('/messages/:messageId/react', verifyToken, [
 
         res.json({ messageId: message._id, reactions: reactionsObj });
     } catch (err) {
-        console.error('[React Message Error]:', err);
+        logger.error('[React Message Error]:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -1128,7 +1136,7 @@ router.get('/messages/:messageId/info', verifyToken, [
             conversation: conv
         });
     } catch (err) {
-        console.error('[Get Message Info Error]:', err);
+        logger.error('[Get Message Info Error]:', err);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

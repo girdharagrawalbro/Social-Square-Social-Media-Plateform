@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const express = require('express');
 const mongoose = require('mongoose');
 
@@ -125,16 +126,16 @@ router.post("/vote", verifyToken, [
         const userId = req.userId;
 
         const post = await Post.findById(postId);
-        if (!post || !post.poll) return res.status(404).json({ message: "Poll not found." });
+        if (!post || !post.poll) return res.status(404).json({ error: "Poll not found." });
 
         if (post.poll.expiresAt && new Date() > new Date(post.poll.expiresAt)) {
-            return res.status(400).json({ message: "This poll has expired." });
+            return res.status(400).json({ error: "This poll has expired." });
         }
 
         const hasVoted = post.poll.options.some(opt => opt.votes.includes(userId));
-        if (hasVoted) return res.status(400).json({ message: "You have already voted." });
+        if (hasVoted) return res.status(400).json({ error: "You have already voted." });
 
-        if (!post.poll.options[optionIndex]) return res.status(400).json({ message: "Invalid option." });
+        if (!post.poll.options[optionIndex]) return res.status(400).json({ error: "Invalid option." });
 
         post.poll.options[optionIndex].votes.push(userId);
         await post.save();
@@ -170,7 +171,7 @@ router.post("/create", verifyToken, [
     body('isAnonymous').optional().isBoolean(),
     body('isCollaborative').optional().isBoolean(),
     validate
-], contentFilter, async (req, res) => {
+], postWriteLimiter, contentFilter, async (req, res) => {
     try {
         const {
             caption, category, imageURLs, videoURL, location, music,
@@ -185,17 +186,16 @@ router.post("/create", verifyToken, [
 
         // DEBUG: Log video URL received
         if (videoURL) {
-            console.log(' Backend received videoURL:', videoURL.substring(0, 50) + '...');
         }
 
-        if (!loggedUserId || !category) return res.status(400).json({ message: "loggedUserId and category are required." });
+        if (!loggedUserId || !category) return res.status(400).json({ error: "loggedUserId and category are required." });
 
         // 🛡️ Risk 3: Rate Limit Check (Moved to top to prevent DB bloat)
         if (isAnonymous) {
             const rateLimitKey = `rl:confession:${loggedUserId}`;
             const confessionCount = await redis.get(rateLimitKey);
             if (confessionCount && parseInt(confessionCount) >= 5) {
-                return res.status(429).json({ message: "Confession limit reached (5 per hour). Please try again later." });
+                return res.status(429).json({ error: "Confession limit reached (5 per hour). Please try again later." });
             }
 
             // Increment or set with 1 hour TTL
@@ -207,7 +207,7 @@ router.post("/create", verifyToken, [
         }
 
         const userDetails = await User.findById(loggedUserId).select('username fullname profile_picture followers postsCount');
-        if (!userDetails) return res.status(404).json({ message: "User not found." });
+        if (!userDetails) return res.status(404).json({ error: "User not found." });
 
         const isFirstPost = !isAnonymous && (!userDetails.postsCount || userDetails.postsCount === 0);
 
@@ -271,7 +271,7 @@ router.post("/create", verifyToken, [
         if (!isAnonymous && caption) {
             const { handleMentions } = require('../services/mentionService');
             handleMentions(caption, loggedUserId, newPost._id, null, `/post/${newPost._id}`).catch(err => {
-                console.error('[Mentions Post Error]:', err.message);
+                logger.error('[Mentions Post Error]:', err.message);
             });
         }
         if (!isAnonymous) {
@@ -279,7 +279,7 @@ router.post("/create", verifyToken, [
         }
 
         // DEBUG: Log saved post video field
-        console.log(' Post saved with video field:', newPost.video ? 'YES' : 'NO (null or undefined)');
+        logger.debug(' Post saved with video field:', newPost.video ? 'YES' : 'NO (null or undefined)');
 
         if (groupId) {
             await Group.findByIdAndUpdate(groupId, { $push: { posts: newPost._id } });
@@ -339,7 +339,7 @@ router.post("/create", verifyToken, [
 
         if (!isAnonymous) {
             publish('posts.created', { id: newPost._id, user: newPost.user, category: newPost.category })
-                .catch(err => console.warn('[NATS]:', err.message));
+                .catch(err => logger.warn('[NATS]:', err.message));
         }
 
         //  Add to Moderation Queue (Asynchronous)
@@ -348,7 +348,7 @@ router.post("/create", verifyToken, [
                 contentId: newPost._id,
                 contentType: 'post',
                 text: caption || ''
-            }).catch(err => console.error('[ModerationQueue] Add error:', err.message));
+            }).catch(err => logger.error('[ModerationQueue] Add error:', err.message));
         }
 
         //  Publish recommendation event
@@ -391,12 +391,12 @@ router.post("/collaborate/accept", verifyToken, [
         const { postId, contribution } = req.body;
         const userId = req.userId;
         const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ message: "Post not found." });
+        if (!post) return res.status(404).json({ error: "Post not found." });
         const idx = post.collaborators.findIndex(c => {
             const cId = c.userId || c._id;
             return cId && cId.toString() === userId.toString();
         });
-        if (idx === -1) return res.status(403).json({ message: "Not a collaborator." });
+        if (idx === -1) return res.status(403).json({ error: "Not a collaborator." });
         post.collaborators[idx].status = 'accepted';
         if (contribution) post.collaborators[idx].contribution = contribution;
         await post.save();
@@ -414,7 +414,7 @@ router.post("/collaborate/decline", verifyToken, [
         const { postId } = req.body;
         const userId = req.userId;
         const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ message: "Post not found." });
+        if (!post) return res.status(404).json({ error: "Post not found." });
         const idx = post.collaborators.findIndex(c => {
             const cId = c.userId || c._id;
             return cId && cId.toString() === userId.toString();
@@ -423,7 +423,7 @@ router.post("/collaborate/decline", verifyToken, [
             post.collaborators[idx].status = 'declined';
             await post.save();
         } else {
-            return res.status(403).json({ message: "Not a collaborator." });
+            return res.status(403).json({ error: "Not a collaborator." });
         }
         res.status(200).json({ message: "Declined." });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
@@ -484,7 +484,7 @@ router.put("/update/:postId", verifyToken, [
 
         // 1. Lightweight fetch to check anonymity state
         const initialPost = await Post.findOne({ _id: req.params.postId, deletedAt: null }).select('isAnonymous');
-        if (!initialPost) return res.status(404).json({ message: "Post not found or already deleted." });
+        if (!initialPost) return res.status(404).json({ error: "Post not found or already deleted." });
 
         // 2. Optimized fetch: only pull ownerToken if actually anonymous
         const selectFields = initialPost.isAnonymous ? '+ownerToken +authorId' : '+authorId';
@@ -503,7 +503,7 @@ router.put("/update/:postId", verifyToken, [
                 (postUserId && postUserId.toString() === userId.toString());
         }
 
-        if (!isOwner) return res.status(403).json({ message: "Unauthorized." });
+        if (!isOwner) return res.status(403).json({ error: "Unauthorized." });
 
         if (caption !== undefined) post.caption = caption;
         if (category !== undefined) post.category = category;
@@ -517,8 +517,8 @@ router.put("/update/:postId", verifyToken, [
 
         res.status(200).json(post);
     } catch (error) {
-        console.error('Update post error:', error);
-        res.status(500).json({ message: "Internal Server Error" });
+        logger.error('Update post error:', error);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -532,7 +532,7 @@ router.delete("/delete/:postId", verifyToken, [
 
         // 1. Lightweight fetch
         const initialPost = await Post.findById(req.params.postId).select('isAnonymous');
-        if (!initialPost) return res.status(404).json({ message: "Post not found." });
+        if (!initialPost) return res.status(404).json({ error: "Post not found." });
 
         // 2. Optimized fetch
         const selectFields = initialPost.isAnonymous ? '+ownerToken +authorId' : '+authorId';
@@ -554,23 +554,23 @@ router.delete("/delete/:postId", verifyToken, [
                 (postUserId && postUserId.toString() === userId.toString());
         }
 
-        if (!isOwner && !isAdmin) return res.status(403).json({ message: "Unauthorized." });
+        if (!isOwner && !isAdmin) return res.status(403).json({ error: "Unauthorized." });
 
         // Perform a hard delete on the post
         const result = await Post.findOneAndDelete({ _id: req.params.postId });
 
         if (!result) {
-            return res.status(404).json({ message: "Post not found or already deleted." });
+            return res.status(404).json({ error: "Post not found or already deleted." });
         }
 
         // Delete all associated comments for the deleted post
         await Comment.deleteMany({ postId: req.params.postId }).catch(err => {
-            console.error('[Post Delete] Failed to delete comments:', err.message);
+            logger.error('[Post Delete] Failed to delete comments:', err.message);
         });
 
         //  Remove Recommendation Vector for the deleted post to save database space and prevent stale recommendations
         await PostVector.deleteOne({ postId: req.params.postId }).catch(err => {
-            console.error('[Post Delete] Failed to delete PostVector:', err.message);
+            logger.error('[Post Delete] Failed to delete PostVector:', err.message);
         });
 
         // Only decrement postsCount if this specific request was the one that performed the soft-delete
@@ -599,7 +599,7 @@ router.delete("/delete/:postId", verifyToken, [
                         <p>If this was unexpected, please review your account activity and content guidelines.</p>
                     `,
                     text: 'Your post has been deleted. If this was unexpected, please review your account activity and content guidelines.'
-                }).catch(console.error);
+                }).catch(logger.error);
             }
         }
 
@@ -608,8 +608,8 @@ router.delete("/delete/:postId", verifyToken, [
 
         res.status(200).json({ message: "Post deleted.", postId: req.params.postId });
     } catch (error) {
-        console.error('Delete post error:', error);
-        res.status(500).json({ message: "Internal Server Error" });
+        logger.error('Delete post error:', error);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -695,7 +695,7 @@ router.get("/", async (req, res) => {
                 const likedPosts = await Post.find({ likes: userId }).select('category').limit(20);
                 userCategories = [...new Set(likedPosts.map(p => p.category))];
             } catch (catErr) {
-                console.error("[Feed] Failed to fetch liked categories:", catErr.message);
+                logger.error("[Feed] Failed to fetch liked categories:", catErr.message);
             }
         }
 
@@ -747,7 +747,7 @@ router.get("/", async (req, res) => {
         const candidateMultiplier = 4; // Fetch 4x more candidates to allow robust diversification
         const fetchLimit = (recentLimit * candidateMultiplier) + 1;
 
-        const recentPosts = await Post.find(query).sort({ createdAt: -1 }).limit(fetchLimit).populate('mentions', 'username fullname').populate('goalId', 'title progress').lean().maxTimeMS(5000);
+        const recentPosts = await Post.find(query).sort({ createdAt: -1 }).limit(fetchLimit).lean().maxTimeMS(5000);
         const hasMore = recentPosts.length > (recentLimit * candidateMultiplier);
 
         // Fetch old unseen pics (20% of feed)
@@ -787,7 +787,7 @@ router.get("/", async (req, res) => {
                     oldUnseenSelection = unseenCandidates.slice(0, oldTargetCount);
                 }
             } catch (err) {
-                console.error("[Feed] Failed to load old unseen pics:", err.message);
+                logger.error("[Feed] Failed to load old unseen pics:", err.message);
             }
         }
 
@@ -822,11 +822,10 @@ router.get("/", async (req, res) => {
                     anonymousQuery.category = { $in: userCategories };
                 }
 
-                let anonCandidates = await Post.find(anonymousQuery)
-                    .sort({ score: -1, createdAt: -1 })
-                    .limit(50)
-                    .populate('mentions', 'username fullname')
-                    .lean();
+                    let anonCandidates = await Post.find(anonymousQuery)
+                        .sort({ score: -1, createdAt: -1 })
+                        .limit(50)
+                        .lean();
 
                 // Fallback: If no posts matching categories, fetch general confessions
                 if (anonCandidates.length === 0 && userCategories.length > 0) {
@@ -835,7 +834,6 @@ router.get("/", async (req, res) => {
                     anonCandidates = await Post.find(fallbackQuery)
                         .sort({ score: -1, createdAt: -1 })
                         .limit(50)
-                        .populate('mentions', 'username fullname')
                         .lean();
                 }
 
@@ -849,7 +847,7 @@ router.get("/", async (req, res) => {
                     anonymousSelection = unseenAnon.slice(0, anonymousTargetCount);
                 }
             } catch (err) {
-                console.error("[Feed] Failed to load anonymous interest posts:", err.message);
+                logger.error("[Feed] Failed to load anonymous interest posts:", err.message);
             }
         }
 
@@ -931,6 +929,12 @@ router.get("/", async (req, res) => {
         const limitedResult = limitConsecutiveUserPosts(result, 2);
         const slicedResult = limitedResult.slice(0, limit);
 
+        // Populate mentions and goalId ONLY on the final sliced array to save massive DB overhead
+        await Post.populate(slicedResult, [
+            { path: 'mentions', select: 'username fullname' },
+            { path: 'goalId', select: 'title progress' }
+        ]);
+
         // The cursor should be based on the oldest post FETCHED in this batch from the recent pool, before scoring/sorting.
         // This ensures the next query picks up exactly where the DB query left off.
         const lastFetchedPost = recentPosts[recentPosts.length - 1];
@@ -946,7 +950,7 @@ router.get("/", async (req, res) => {
                     presenceMap[uid] = !!presenceValues[index];
                 });
             } catch (err) {
-                console.error('[Presence Redis Error]', err);
+                logger.error('[Presence Redis Error]', err);
             }
         }
         if (Object.keys(presenceMap).length === 0 && uniqueUserIds.length > 0) {
@@ -954,7 +958,7 @@ router.get("/", async (req, res) => {
                 const usersWithPresence = await User.find({ _id: { $in: uniqueUserIds } }).select('isOnline');
                 usersWithPresence.forEach(u => presenceMap[u._id.toString()] = u.isOnline);
             } catch (err) {
-                console.error('[Presence DB Fallback Error]', err);
+                logger.error('[Presence DB Fallback Error]', err);
             }
         }
 
@@ -977,7 +981,7 @@ router.get("/", async (req, res) => {
         const finalPosts = resultWithPresence.map(p => sanitizeAnonymousPost(p, userId));
         res.status(200).json({ posts: finalPosts, nextCursor, hasMore });
     } catch (error) {
-        console.error('[Feed] CRITICAL Error:', error.message);
+        logger.error('[Feed] CRITICAL Error:', error.message);
 
         // 🛡️ Fail-Safe Fallback: Try a super-minimal query if the complex feed logic crashes/times out
         try {
@@ -995,7 +999,7 @@ router.get("/", async (req, res) => {
                 message: "Basic feed active (Database is slow)"
             });
         } catch (innerError) {
-            console.error('[Feed] Fallback also failed:', innerError.message);
+            logger.error('[Feed] Fallback also failed:', innerError.message);
             res.status(503).json({ error: "Service temporarily overloaded. Please try again later." });
         }
     }
@@ -1020,7 +1024,7 @@ router.get("/user/:userId", [
         const isOwner = viewerId && viewerId.toString() === ownerId;
 
         const postOwner = await User.findById(ownerId).select('isPrivate followers closeFriends').lean();
-        if (!postOwner) return res.status(404).json({ message: "User not found" });
+        if (!postOwner) return res.status(404).json({ error: "User not found" });
 
         const isFollower = viewerId && postOwner.followers?.some(f => f.toString() === viewerId.toString());
         const isCloseFriend = viewerId && postOwner.closeFriends?.some(f => f.toString() === viewerId.toString());
@@ -1089,7 +1093,7 @@ router.get("/user/:userId", [
             hasMore
         });
     } catch (error) {
-        console.error('[Post Route] /user/:userId error:', error);
+        logger.error('[Post Route] /user/:userId error:', error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -1103,7 +1107,7 @@ router.get("/public/user/:userId", [
         const ownerId = req.params.userId;
         const postOwner = await User.findById(ownerId).select('isPrivate').lean();
 
-        if (!postOwner) return res.status(404).json({ message: "User not found." });
+        if (!postOwner) return res.status(404).json({ error: "User not found." });
 
         // Set cache headers for aggressive CDN caching (5 minutes)
         res.setHeader('Cache-Control', 'public, max-age=300');
@@ -1188,7 +1192,7 @@ router.post("/save", verifyToken, [
         } else {
             // Not saved yet, add it
             const userExists = await User.findByIdAndUpdate(userId, { $addToSet: { savedPosts: postId } });
-            if (!userExists) return res.status(404).json({ message: 'User not found.' });
+            if (!userExists) return res.status(404).json({ error: 'User not found.' });
 
             //  Publish recommendation event
             const post = await Post.findById(postId).select('category tags').lean();
@@ -1212,7 +1216,7 @@ router.post("/save", verifyToken, [
 router.get("/saved-ids", verifyToken, async (req, res) => {
     try {
         const user = await User.findById(req.userId).select('savedPosts').lean();
-        if (!user) return res.status(404).json({ message: 'User not found.' });
+        if (!user) return res.status(404).json({ error: 'User not found.' });
         return res.status(200).json(user.savedPosts || []);
     } catch (e) {
         res.status(500).json({ error: "Internal Server Error" });
@@ -1228,10 +1232,22 @@ router.get("/saved/:userId", verifyToken, [
         if (String(userId) !== String(req.userId)) return res.status(403).json({ error: 'Unauthorized' });
 
         const user = await User.findById(userId).select('savedPosts');
-        if (!user) return res.status(404).json({ message: 'User not found.' });
-        const posts = await Post.find({ _id: { $in: user.savedPosts } }).sort({ createdAt: -1 }).populate('mentions', 'username fullname').populate('goalId', 'title progress').lean();
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const posts = await Post.find({ _id: { $in: user.savedPosts } })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('mentions', 'username fullname')
+            .populate('goalId', 'title progress')
+            .lean();
+        
+        const total = user.savedPosts.length;
         const sanitized = posts.map(p => sanitizeAnonymousPost(p, req.userId));
-        res.status(200).json(sanitized);
+        res.status(200).json({ items: sanitized, total, page, limit });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
@@ -1268,7 +1284,7 @@ router.post("/collections/create", verifyToken, [
         const userId = req.userId;
 
         const exists = await Collection.findOne({ user: userId, name: new RegExp(`^${name}$`, 'i') });
-        if (exists) return res.status(400).json({ message: 'Collection already exists with this name.' });
+        if (exists) return res.status(400).json({ error: 'Collection already exists with this name.' });
 
         let coverImage = null;
         let posts = [];
@@ -1323,7 +1339,7 @@ router.post("/collections/toggle-post", verifyToken, [
         const userId = req.userId;
 
         const collection = await Collection.findOne({ _id: collectionId, user: userId });
-        if (!collection) return res.status(404).json({ message: 'Collection not found.' });
+        if (!collection) return res.status(404).json({ error: 'Collection not found.' });
 
         const postIndex = collection.posts.indexOf(postId);
         let saved = false;
@@ -1357,7 +1373,7 @@ router.delete("/collections/:id", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const result = await Collection.findOneAndDelete({ _id: req.params.id, user: userId });
-        if (!result) return res.status(404).json({ message: 'Collection not found.' });
+        if (!result) return res.status(404).json({ error: 'Collection not found.' });
         res.status(200).json({ success: true, message: 'Collection deleted successfully.' });
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
 });
@@ -1367,7 +1383,7 @@ router.get("/collections/:id", verifyToken, async (req, res) => {
     try {
         const userId = req.userId;
         const collection = await Collection.findOne({ _id: req.params.id, user: userId }).lean();
-        if (!collection) return res.status(404).json({ message: 'Collection not found.' });
+        if (!collection) return res.status(404).json({ error: 'Collection not found.' });
 
         const posts = await Post.find({ _id: { $in: collection.posts } }).sort({ createdAt: -1 }).populate('mentions', 'username fullname').lean();
         const sanitized = posts.map(p => sanitizeAnonymousPost(p, userId));
@@ -1385,10 +1401,10 @@ router.post("/react", verifyToken, [
     try {
         const { postId, emoji } = req.body;
         const userId = req.userId;
-        if (!postId || !emoji) return res.status(400).json({ message: 'PostId and emoji required.' });
+        if (!postId || !emoji) return res.status(400).json({ error: 'PostId and emoji required.' });
 
         const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ message: 'Post not found.' });
+        if (!post) return res.status(404).json({ error: 'Post not found.' });
 
         // Deduplicate reactions array by user ID to resolve race conditions
         post.reactions = (post.reactions || []).filter((r, index, self) =>
@@ -1459,7 +1475,7 @@ router.get("/trending", async (req, res) => {
                 const cached = await redis.get(cacheKey);
                 if (cached) return res.status(200).json(JSON.parse(cached));
             } catch (err) {
-                console.error('[Trending Cache Error]', err);
+                logger.error('[Trending Cache Error]', err);
             }
         }
 
@@ -1515,7 +1531,7 @@ router.get("/trending", async (req, res) => {
             try {
                 await redis.set(cacheKey, JSON.stringify(result), 'EX', 600); // 10 minutes cache
             } catch (err) {
-                console.error('[Trending Cache Set Error]', err);
+                logger.error('[Trending Cache Set Error]', err);
             }
         }
 
@@ -1531,7 +1547,7 @@ router.post("/like", verifyToken, [
     try {
         const { postId } = req.body;
         const userId = req.userId;
-        if (!postId) return res.status(400).json({ message: 'PostId required.' });
+        if (!postId) return res.status(400).json({ error: 'PostId required.' });
 
         // Atomic update first
         const updatedPost = await Post.findOneAndUpdate(
@@ -1546,7 +1562,7 @@ router.post("/like", verifyToken, [
         if (!updatedPost) {
             // Check if post exists or if it's already liked
             const post = await Post.findById(postId);
-            if (!post) return res.status(404).json({ message: 'Post not found.' });
+            if (!post) return res.status(404).json({ error: 'Post not found.' });
             // Return success even if already liked — for optimistic UI robustness
             return res.status(200).json({ success: true, message: 'Already liked.', post });
         }
@@ -1593,7 +1609,7 @@ router.post("/share", verifyToken, [
     try {
         const { postId } = req.body;
         const userId = req.userId;
-        if (!postId) return res.status(400).json({ message: 'PostId required.' });
+        if (!postId) return res.status(400).json({ error: 'PostId required.' });
 
         const updatedPost = await Post.findByIdAndUpdate(
             postId,
@@ -1602,7 +1618,7 @@ router.post("/share", verifyToken, [
         );
 
         if (!updatedPost) {
-            return res.status(404).json({ message: 'Post not found.' });
+            return res.status(404).json({ error: 'Post not found.' });
         }
 
         const newScore = computeScore(updatedPost);
@@ -1626,7 +1642,7 @@ router.post("/share", verifyToken, [
 
         return res.status(200).json({ success: true, sharesCount: updatedPost.shares });
     } catch (error) {
-        console.error('[Share Post] Error:', error);
+        logger.error('[Share Post] Error:', error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -1639,7 +1655,7 @@ router.post("/unlike", verifyToken, [
     try {
         const { postId } = req.body;
         const userId = req.userId;
-        if (!postId) return res.status(400).json({ message: 'PostId required.' });
+        if (!postId) return res.status(400).json({ error: 'PostId required.' });
 
         // Atomic update first
         const updatedPost = await Post.findOneAndUpdate(
@@ -1665,7 +1681,7 @@ router.post("/unlike", verifyToken, [
         } else {
             // Check if post exists or if it was already unliked
             const post = await Post.findById(postId);
-            if (!post) return res.status(404).json({ message: 'Post not found.' });
+            if (!post) return res.status(404).json({ error: 'Post not found.' });
             // Return success even if not liked — for optimistic UI robustness
             res.status(200).json({ success: true, message: "Already unliked.", post });
         }
@@ -1748,7 +1764,7 @@ router.get('/comments', softVerifyToken, [
 
         res.status(200).json(rankedComments);
     } catch (e) {
-        console.error('[Post] Fetch comments error:', e);
+        logger.error('[Post] Fetch comments error:', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -1838,7 +1854,7 @@ router.post('/comments/add', verifyToken, [
                 contentId: newComment._id,
                 contentType: 'comment',
                 text: content || ''
-            }).catch(err => console.error('[ModerationQueue] Add error:', err.message));
+            }).catch(err => logger.error('[ModerationQueue] Add error:', err.message));
         }
 
         // FIX #4: Combine into one query instead of two separate Post.findById calls
@@ -1880,7 +1896,7 @@ router.post('/comments/add', verifyToken, [
         if (content) {
             const { handleMentions } = require('../services/mentionService');
             handleMentions(content, user.id || user._id, postId, newComment._id, `/post/${postId}`).catch(err => {
-                console.error('[Mentions Comment Error]:', err.message);
+                logger.error('[Mentions Comment Error]:', err.message);
             });
         }
 
@@ -1914,7 +1930,7 @@ router.post('/comments/add', verifyToken, [
                         topic: analysis.topic
                     });
                 } catch (err) {
-                    console.error('[Async AI Analysis Error]', err);
+                    logger.error('[Async AI Analysis Error]', err);
                 }
             });
         }
@@ -1960,7 +1976,7 @@ router.put('/comments/:commentId/mark-best', verifyToken, [
 
         res.status(200).json({ isBestAnswer: !isCurrentlyBest });
     } catch (error) {
-        console.error('[Mark Best Answer Error]', error);
+        logger.error('[Mark Best Answer Error]', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -1996,7 +2012,7 @@ router.put('/comments/:commentId/mark-insightful', verifyToken, [
 
         res.status(200).json({ isInsightful: newValue });
     } catch (error) {
-        console.error('[Mark Insightful Error]', error);
+        logger.error('[Mark Insightful Error]', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -2123,7 +2139,7 @@ router.post("/:postId/mute-author", verifyToken, [
         await User.findByIdAndUpdate(req.userId, { $addToSet: { mutedUsers: targetUserId } });
         res.status(200).json({ message: 'User muted' });
     } catch (e) {
-        console.error('[Mute Author Error]', e);
+        logger.error('[Mute Author Error]', e);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -2155,11 +2171,11 @@ router.post("/:postId/block-author", verifyToken, [
         await Promise.all([
             redis.del(`restricted_users:excl:${req.userId}`),
             redis.del(`restricted_users:excl:${targetUserId}`)
-        ]).catch(err => console.error('[Block Author Redis Error]', err));
+        ]).catch(err => logger.error('[Block Author Redis Error]', err));
 
         res.status(200).json({ message: 'User blocked' });
     } catch (e) {
-        console.error('[Block Author Error]', e);
+        logger.error('[Block Author Error]', e);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -2235,7 +2251,7 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
 
         res.status(200).json({ posts: sanitized, nextCursor: hasMore ? result[result.length - 1]._id : null, hasMore });
     } catch (error) {
-        console.error('[Confessions Feed Error]', error);
+        logger.error('[Confessions Feed Error]', error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -2334,7 +2350,7 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
                     filteredCandidates = uniqueCandidates;
                 }
             } catch (bfErr) {
-                console.warn(`${_tag} Bloom Filter check failed:`, bfErr.message);
+                logger.warn(`${_tag} Bloom Filter check failed:`, bfErr.message);
                 filteredCandidates = candidates;
             }
         }
@@ -2412,7 +2428,7 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
 
             ranked.sort((a, b) => b._score - a._score);
         } catch (recErr) {
-            console.warn(`${_tag} Recommendation failed, using chronological with jitter:`, recErr.message);
+            logger.warn(`${_tag} Recommendation failed, using chronological with jitter:`, recErr.message);
             ranked = filteredCandidates.map(p => ({ ...p, _score: Math.random() }));
             ranked.sort((a, b) => b._score - a._score);
         }
@@ -2440,7 +2456,7 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
             hasMore
         });
     } catch (error) {
-        console.error(`${_tag} CRITICAL ERROR:`, error);
+        logger.error(`${_tag} CRITICAL ERROR:`, error);
         // Minimal Fallback
         try {
             const fallback = await Post.find({ video: { $ne: null }, isAnonymous: { $ne: true } })
@@ -2449,7 +2465,7 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
                 .lean();
             return res.status(200).json({ posts: fallback, hasMore: false, isFallback: true, error: "An unexpected error occurred" });
         } catch (innerErr) {
-            console.error(`${_tag} Fallback also failed:`, innerErr.message);
+            logger.error(`${_tag} Fallback also failed:`, innerErr.message);
             res.status(500).json({ error: "Service unavailable", details: "Could not fetch fallback content" });
         }
     }

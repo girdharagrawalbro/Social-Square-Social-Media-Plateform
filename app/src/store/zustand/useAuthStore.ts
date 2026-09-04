@@ -22,15 +22,8 @@ function base64Decode(str: string): string {
   return output;
 }
 
-let inMemoryToken: string | null = null;
 export function getToken() {
-  return inMemoryToken;
-}
-export function setToken(t: string | null) {
-  inMemoryToken = t;
-}
-export function clearToken() {
-  inMemoryToken = null;
+  return useAuthStore.getState().token;
 }
 
 interface AuthState {
@@ -62,21 +55,12 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
   setUser: async (user: any) => {
     if (user) {
       await AsyncStorage.setItem('auth_user', JSON.stringify(user));
-      try {
-        const { connectSocket } = require('../../lib/socket');
-        connectSocket(user._id);
-      } catch (e) {}
     } else {
       await AsyncStorage.removeItem('auth_user');
-      try {
-        const { disconnectSocket } = require('../../lib/socket');
-        disconnectSocket();
-      } catch (e) {}
     }
     set({ user });
   },
   updateAuthToken: async (token: string | null, sessionId?: string) => {
-    setToken(token);
     if (token) {
       await setSecureToken(token);
     } else {
@@ -98,12 +82,7 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
 
       if (storedToken && storedUserStr) {
         const storedUser = JSON.parse(storedUserStr);
-        setToken(storedToken);
         set({ user: storedUser, token: storedToken, initialized: true, loading: false });
-        try {
-          const { connectSocket } = require('../../lib/socket');
-          connectSocket(storedUser._id);
-        } catch (e) {}
 
         // Verify session silently in background
         api.get('/api/auth/me')
@@ -121,7 +100,6 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
       }
 
       if (storedToken) {
-        setToken(storedToken);
         try {
           const res = await api.get('/api/auth/me');
           if (res.data?.user) {
@@ -136,7 +114,6 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
 
       set({ initialized: true, loading: false });
     } catch (err) {
-      clearToken();
       await clearSecureToken();
       await AsyncStorage.removeItem('auth_user');
       set({ user: null, initialized: true, loading: false });
@@ -236,11 +213,6 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
     try {
       await api.post('/api/auth/logout');
     } catch (e) {}
-    try {
-      const { disconnectSocket } = require('../../lib/socket');
-      disconnectSocket();
-    } catch (e) {}
-    clearToken();
     await clearSecureToken();
     await AsyncStorage.removeItem('auth_user');
     // Clear all app-side cache on logout so next user gets fresh data
@@ -266,8 +238,8 @@ export const refreshAccessToken = async (): Promise<string | null> => {
       if (user) useAuthStore.getState().setUser(user);
       return token;
     } catch (err) {
-      if (inMemoryToken) return inMemoryToken;
-      clearToken();
+      const currentToken = useAuthStore.getState().token;
+      if (currentToken) return currentToken;
       await AsyncStorage.removeItem('auth_token');
       useAuthStore.getState().setUser(null);
       throw err;

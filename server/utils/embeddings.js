@@ -111,6 +111,11 @@ let localExtractor = null;
  */
 async function getLocalTransformerEmbedding(text) {
     try {
+        if (process.env.NODE_ENV === 'production') {
+            console.error('[Embeddings] FATAL: Production embedding APIs failed. Disabled local @xenova/transformers fallback to prevent OOM. Returning empty vector.');
+            return [];
+        }
+
         if (!localExtractor) {
             const { pipeline } = require('@xenova/transformers');
             localExtractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');

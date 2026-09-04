@@ -1,14 +1,20 @@
 const mongoose = require('mongoose');
+const logger = require('./utils/logger');
 
-// Global plugin to track and warn about slow queries (> 1 second)
+// Throttled slow query logging: at most 1 warning per 60s
+let lastSlowQueryLog = 0;
 mongoose.plugin((schema) => {
     schema.pre(['find', 'findOne', 'aggregate'], function () {
         this._startTime = Date.now();
     });
-    schema.post(['find', 'findOne', 'aggregate'], function (result) {
+    schema.post(['find', 'findOne', 'aggregate'], function () {
         const duration = Date.now() - (this._startTime || Date.now());
         if (duration > 1000) {
-            console.warn(`[SlowQuery] ${this.mongooseCollection?.name || 'unknown'} took ${duration}ms`);
+            const now = Date.now();
+            if (now - lastSlowQueryLog > 60000) {
+                lastSlowQueryLog = now;
+                logger.warn(`[SlowQuery] ${this.mongooseCollection?.name || 'unknown'} took ${duration}ms`);
+            }
         }
     });
 });
@@ -16,41 +22,27 @@ mongoose.plugin((schema) => {
 const connectToMongo = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI, {
-            // ─── Pool: reduced for 512MB target ──────────────────────────────
-            // 50 connections × ~1MB = 50MB — too much for 512MB budget
-            // 10 is enough for most apps under 10k concurrent users
-            maxPoolSize: 10,
-            minPoolSize: 2,     // only 2 warm — saves ~8MB idle
-            maxIdleTimeMS: 10000, // close idle faster (10s not 30s)
-
-            // ─── Timeouts ─────────────────────────────────────────────────────
+            maxPoolSize: 30,
+            minPoolSize: 2,
+            maxIdleTimeMS: 10000,
             serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 15000, // Reduced from 30s to 15s to fail faster
-            connectTimeoutMS: 5000,  // Reduced from 10s to 5s
-
-            // ─── Reliability ──────────────────────────────────────────────────
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 5000,
             retryWrites: true,
             retryReads: true,
         });
-
-        console.log(`[MongoDB] Connected (PID: ${process.pid})`);
-
-        if (process.env.NODE_ENV !== 'production') {
-            // Log method only — not full query object (saves memory/string allocation)
-            // mongoose.set('debug', (col, method) => console.log(`[Mongoose] ${col}.${method}`));
-        }
-
+        logger.info(`[MongoDB] Connected (PID: ${process.pid})`); ``
     } catch (err) {
-        console.error('[MongoDB] Failed:', err.message);
+        logger.error('[MongoDB] Connection failed:', err.message);
         setTimeout(connectToMongo, 5000);
     }
 };
 
 mongoose.connection.on('disconnected', () => {
-    console.warn('[MongoDB] Disconnected — reconnecting...');
+    logger.warn('[MongoDB] Disconnected — reconnecting...');
     setTimeout(connectToMongo, 3000);
 });
 
-mongoose.connection.on('error', (err) => console.error('[MongoDB] Error:', err.message));
+mongoose.connection.on('error', (err) => logger.error('[MongoDB] Error:', err.message));
 
 module.exports = connectToMongo;

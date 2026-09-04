@@ -1,14 +1,7 @@
-const path = require('path');
-const { spawn } = require('child_process');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const logger = require('../utils/logger');
-
-const PYTHON_ENABLED = (process.env.SUGGESTIONS_PYTHON_ENABLED || 'false').toLowerCase() !== 'false';
-const PYTHON_EXECUTABLE = process.env.SUGGESTIONS_PYTHON_EXECUTABLE || 'python';
-const PYTHON_TIMEOUT_MS = Number(process.env.SUGGESTIONS_PYTHON_TIMEOUT_MS || 2000);
-const PYTHON_SCRIPT = path.join(__dirname, '..', 'ml', 'suggestion_rerank.py');
 
 const LIMIT_CANDIDATES = 250;
 const RECENT_ACTIVITY_DAYS = 45;
@@ -212,46 +205,7 @@ function reasonFromSignals(candidate, mutualCount) {
   return 'People you may know';
 }
 
-function rerankWithPython(payload) {
-  return new Promise((resolve, reject) => {
-    if (!PYTHON_ENABLED) {
-      resolve(null);
-      return;
-    }
 
-    const child = spawn(PYTHON_EXECUTABLE, [PYTHON_SCRIPT], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
-
-    let stdout = '';
-    let stderr = '';
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-      reject(new Error('Python rerank timed out'));
-    }, PYTHON_TIMEOUT_MS);
-
-    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
-    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
-
-    child.on('error', reject);
-    child.on('close', code => {
-      clearTimeout(timer);
-      if (code !== 0) {
-        reject(new Error(stderr || `Python rerank exited with code ${code}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(stdout));
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    child.stdin.write(JSON.stringify(payload));
-    child.stdin.end();
-  });
-}
 
 function diversifyByPrimaryCategory(candidates, limit) {
   const byCategory = new Map();
@@ -349,37 +303,7 @@ async function getSuggestedUsers(loggedUserId, limit = 10, page = 1) {
 
   ranked.sort((a, b) => b.score - a.score);
 
-  try {
-    const pyResult = await rerankWithPython({
-      userId: String(loggedUserId),
-      candidates: ranked.map(c => ({
-        userId: String(c._id),
-        score: c.score,
-        mutualCount: c.mutualCount,
-        mutualScore: c.mutualScore,
-        interestScore: c.interestScore,
-        activityScore: c.activityScore,
-        socialScore: c.socialScore,
-        freshnessScore: c.freshnessScore,
-        followersCount: c.followersCount,
-        followingCount: c.followingCount,
-      })),
-      limit: 50, // Rank more candidates to support pagination
-    });
 
-    if (pyResult?.ranked?.length) {
-      const rerankMap = new Map(pyResult.ranked.map((r, i) => [String(r.userId), { i, score: r.score }]));
-      ranked = ranked
-        .filter(c => rerankMap.has(String(c._id)))
-        .sort((a, b) => rerankMap.get(String(a._id)).i - rerankMap.get(String(b._id)).i)
-        .map(c => {
-          const py = rerankMap.get(String(c._id));
-          return { ...c, score: clamp(py.score) };
-        });
-    }
-  } catch (error) {
-    logger.warn('[Suggestions] Python rerank skipped: %s', error.message);
-  }
 
   // Diversify a larger set then slice for current page
   const diversified = diversifyByPrimaryCategory(ranked, 100);

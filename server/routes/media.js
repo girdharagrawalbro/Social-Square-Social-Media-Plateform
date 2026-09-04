@@ -17,9 +17,8 @@ const GDRIVE_API_BASE_URL = process.env.GDRIVE_API_BASE_URL;
 const IMAGE_MAX = 20 * 1024 * 1024;
 const VIDEO_MAX = 100 * 1024 * 1024;
 
-// Buffer in memory is fine for images; for 100MB video at scale consider
-// multer.diskStorage + fs stream instead of memoryStorage.
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: VIDEO_MAX } });
+const os = require('os');
+const upload = multer({ storage: multer.diskStorage({ dest: os.tmpdir() }), limits: { fileSize: VIDEO_MAX } });
 
 async function getStandardizedFolder(req) {
     let userFolder = req.userId || 'anonymous';
@@ -55,9 +54,12 @@ function getCleanErrorMessage(error) {
 }
 
 // Priority #1: Local server Google Drive service. Priority #2: External microservice.
-async function performDriveUpload(fileData, fileName, folder) {
+async function performDriveUpload(fileData, fileName, folder, mimeType) {
     // 1. Try local server in-process driveService FIRST
     try {
+        if (typeof fileData === 'string' && !fileData.startsWith('data:')) {
+            return await driveService.uploadFile(fileData, fileName, mimeType || 'application/octet-stream', { folder });
+        }
         return await driveService.uploadBase64(fileData, { name: fileName, folder });
     } catch (inProcessErr) {
         console.warn('[In-Process Google Drive Upload Failed]:', inProcessErr.message);
@@ -141,11 +143,12 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
             return res.status(400).json({ success: false, message: 'size limit exceeded' });
         }
 
-        const base64File = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+        // Process the file from disk (avoid massive memory buffers for 100MB videos)
+        const fileData = req.file.path;
 
-        // 1. Try Cloudinary Upload FIRST (local server direct Cloudinary upload first, microservice second)
+        // 1. Try Cloudinary Upload FIRST
         try {
-            const resultData = await performCloudinaryUpload(base64File, folder, resourceType);
+            const resultData = await performCloudinaryUpload(fileData, folder, resourceType);
 
             console.log('[Upload] Cloudinary success:', resultData.public_id || resultData.url);
 
@@ -158,18 +161,23 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
         } catch (cloudinaryError) {
             console.warn('[Cloudinary Upload Failed] Falling back to Google Drive:', cloudinaryError.message);
 
-            // 2. Fall back to Google Drive (local server direct Drive upload first, microservice second)
+            // 2. Fall back to Google Drive
             try {
-                const fileData = await performDriveUpload(base64File, req.file.originalname, folder);
+                const driveResult = await performDriveUpload(fileData, req.file.originalname, folder, req.file.mimetype);
                 return res.status(200).json({
                     success: true,
-                    url: fileData.webContentLink || fileData.webViewLink || `https://drive.google.com/file/d/${fileData.fileId}/view`,
-                    fileId: fileData.fileId,
+                    url: driveResult.webContentLink || driveResult.webViewLink || `https://drive.google.com/file/d/${driveResult.fileId}/view`,
+                    fileId: driveResult.fileId,
                     source: 'drive'
                 });
             } catch (driveErr) {
                 console.error('[Google Drive Fallback Failed]:', driveErr.message);
                 throw new Error(`Upload failed on all services. Cloudinary: ${cloudinaryError.message} | Drive: ${driveErr.message}`);
+            }
+        } finally {
+            if (req.file && req.file.path) {
+                const fs = require('fs');
+                fs.promises.unlink(req.file.path).catch(err => console.warn('Failed to cleanup temp file:', err));
             }
         }
     } catch (error) {

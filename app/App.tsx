@@ -61,6 +61,8 @@ import { CustomToastContainer } from './src/lib/CustomToast';
 import { PostHogProvider } from 'posthog-react-native';
 import { PostHogSessionReplayPlugin } from 'posthog-react-native-session-replay';
 import { POSTHOG_API_KEY, POSTHOG_HOST } from './src/lib/posthog';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './src/lib/queryClient';
 
 // Screens
 import SplashScreen from './src/screens/SplashScreen';
@@ -89,7 +91,7 @@ import ChatbotScreen from './src/screens/ChatbotScreen';
 import CommunitiesScreen from './src/screens/CommunitiesScreen';
 import WikiDetailScreen from './src/screens/WikiDetailScreen';
 import CreatorInsightsScreen from './src/screens/CreatorInsightsScreen';
-import { getSocket } from './src/lib/socket';
+import { getSocket, connectSocket, disconnectSocket } from './src/lib/socket';
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -97,6 +99,28 @@ const Stack = createNativeStackNavigator();
 
 function App() {
   const isDarkMode = RN.useColorScheme() === 'dark';
+  const user = useAuthStore(state => state.user);
+
+  useEffect(() => {
+    // Socket lifecycle management based on foreground/background and auth state
+    if (user && RN.AppState.currentState === 'active') {
+      connectSocket(user._id);
+    } else if (!user || RN.AppState.currentState.match(/inactive|background/)) {
+      disconnectSocket();
+    }
+
+    const subscription = RN.AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && user) {
+        connectSocket(user._id);
+      } else if (nextAppState.match(/inactive|background/)) {
+        disconnectSocket();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [user]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -205,10 +229,12 @@ function App() {
   };
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      {renderAppContent()}
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        {renderAppContent()}
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
 

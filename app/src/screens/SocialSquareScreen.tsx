@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import StoriesStrip from './components/StoriesStrip';
 import MoodFeedToggle from './components/MoodFeedToggle';
 import { PostItem } from './components/PostItem';
@@ -55,14 +56,8 @@ export default function SocialSquareScreen({ navigation }: any) {
   );
   const isDark = useColorScheme() === 'dark';
   const { logout, user } = useAuthStore();
-  const [posts, setPosts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const queryClient = useQueryClient();
   const [isOffline, setIsOffline] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
   const [viewableItems, setViewableItems] = useState<string[]>([]);
   const [activeMood, setActiveMood] = useState<string | null>(null);
   const [showHeader, setShowHeader] = useState(true);
@@ -87,123 +82,84 @@ export default function SocialSquareScreen({ navigation }: any) {
     setViewableItems(visible.map((item: any) => item.key));
   }).current;
 
-  const fetchFeed = async (isRefresh = false, moodVal = activeMood) => {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isRefetching,
+    refetch,
+    isError
+  } = useInfiniteQuery({
+    queryKey: ['feed', activeMood],
+    queryFn: async ({ pageParam = null }) => {
+      try {
+        const endpoint = activeMood
+          ? `/api/ai/mood-feed?mood=${activeMood}`
+          : `/api/recommendation/posts${pageParam ? `?cursor=${pageParam}` : ''}`;
+        const res = await api.get(endpoint);
+        const items = res.data.posts || res.data.items || res.data || [];
+        const cursor = res.data.nextCursor || null;
+        const more = activeMood ? false : (res.data.hasMore !== undefined ? res.data.hasMore : items.length >= 20);
+        setIsOffline(false);
+        return { items, nextCursor: more ? cursor : null };
+      } catch (e) {
+        setIsOffline(true);
+        throw e;
+      }
+    },
+    getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
+    initialPageParam: null as string | null,
+  });
+
+  const posts = data?.pages.flatMap((page) => page.items) || [];
+  const loading = isLoading;
+  const refreshing = isRefetching && !isFetchingNextPage;
+  const loadingMore = isFetchingNextPage;
+  const hasMore = hasNextPage;
+
+  const fetchFeed = async (isRefresh = false) => {
     if (isRefresh) {
-      setRefreshing(true);
-      await invalidateCacheByPrefix('feed_page_');
-    } else {
-      if (!moodVal) {
-        // Load page 1 from cache instantly on mount
-        const cached = await getCache<any[]>('feed_page_1');
-        if (cached && cached.length > 0) {
-          setPosts(cached);
-        } else {
-          setLoading(true);
-        }
-      } else {
-        setLoading(true);
-      }
+      await refetch();
     }
+  };
 
-    try {
-      const endpoint = moodVal ? `/api/ai/mood-feed?mood=${moodVal}` : '/api/recommendation/posts';
-      const res = await api.get(endpoint);
-      const items = res.data.posts || res.data.items || res.data || [];
-      const cursor = res.data.nextCursor || null;
-      const more = moodVal ? false : (res.data.hasMore !== undefined ? res.data.hasMore : items.length >= 20);
-
-      setPosts(items);
-      setNextCursor(cursor);
-      setHasMore(more);
-      setCurrentPage(1);
-      setIsOffline(false);
-
-      if (!moodVal) {
-        // Persist page 1 to cache
-        await setCache('feed_page_1', items, TTL.FEED);
-      }
-      fetchUnreadCount();
-    } catch (e: any) {
-      console.warn('Failed to fetch feed:', e);
-      setIsOffline(true);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  const fetchMoreFeed = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
   };
 
   const handleMoodSelect = (mood: string) => {
     setActiveMood(mood);
-    fetchFeed(false, mood);
   };
 
   const handleClearMood = () => {
     setActiveMood(null);
-    fetchFeed(false, null);
-  };
-
-  const fetchMoreFeed = async () => {
-    if (loadingMore || !hasMore || !nextCursor) return;
-    setLoadingMore(true);
-
-    const nextPage = currentPage + 1;
-    const cacheKey = `feed_page_${nextPage}`;
-
-    // Load next page from cache first if available
-    const cached = await getCache<any[]>(cacheKey);
-    if (cached && cached.length > 0) {
-      setPosts((prev) => [...prev, ...cached]);
-      setCurrentPage(nextPage);
-      setLoadingMore(false);
-      return;
-    }
-
-    try {
-      const res = await api.get(`/api/recommendation/posts?cursor=${nextCursor}`);
-      const items = res.data.items || res.data.posts || res.data || [];
-      const cursor = res.data.nextCursor || null;
-      const more = res.data.hasMore !== undefined ? res.data.hasMore : items.length >= 20;
-
-      if (items.length > 0) {
-        setPosts((prev) => [...prev, ...items]);
-        setNextCursor(cursor);
-        setHasMore(more);
-        setCurrentPage(nextPage);
-
-        // Cache page-by-page
-        await setCache(cacheKey, items, TTL.FEED);
-      } else {
-        setHasMore(false);
-      }
-      setIsOffline(false);
-    } catch (e) {
-      console.warn('Failed to fetch more feed:', e);
-      setIsOffline(true);
-    } finally {
-      setLoadingMore(false);
-    }
   };
 
   useEffect(() => {
-    InteractionManager.runAfterInteractions(() => {
-      fetchFeed();
-    });
-
     // Listen to post creation event
     const unsub = appChannel.on('POST_CREATED', (data: any) => {
       if (data?.post) {
-        setPosts((prev) => [data.post, ...prev]);
-        
-        // Update first page cache asynchronously
-        getCache<any[]>('feed_page_1').then((cached) => {
-          const updated = cached ? [data.post, ...cached] : [data.post];
-          setCache('feed_page_1', updated, TTL.FEED);
+        queryClient.setQueryData(['feed', activeMood], (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: any, index: number) => {
+              if (index === 0) {
+                return { ...page, items: [data.post, ...page.items] };
+              }
+              return page;
+            })
+          };
         });
       }
     });
 
     return () => unsub();
-  }, []);
+  }, [activeMood, queryClient]);
 
   const bg = isDark ? '#000000' : '#ffffff';
   const cardBg = isDark ? '#000000' : '#ffffff';
@@ -254,6 +210,10 @@ export default function SocialSquareScreen({ navigation }: any) {
           keyExtractor={(item) => item._id}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          removeClippedSubviews={true}
+          initialNumToRender={5}
+          maxToRenderPerBatch={5}
+          windowSize={5}
           renderItem={({ item }) => (
             <PostItem 
               post={item} 

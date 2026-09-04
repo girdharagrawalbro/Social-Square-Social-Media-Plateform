@@ -95,9 +95,10 @@ async function uploadFile(buffer, fileName, mimeType, options = {}) {
         parents: [parentId],
     };
 
+    const fs = require('fs');
     const media = {
         mimeType,
-        body: bufferToStream(buffer),
+        body: typeof buffer === 'string' ? fs.createReadStream(buffer) : bufferToStream(buffer),
     };
 
     const uploadRes = await drive.files.create({

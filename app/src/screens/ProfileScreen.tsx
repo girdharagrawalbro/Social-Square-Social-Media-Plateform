@@ -148,7 +148,7 @@ export default function ProfileScreen({ navigation, route }: any) {
     try {
       if (tab === 'saved') {
         const res = await api.get(`/api/post/saved/${profileId}`);
-        setSavedPosts(res.data || []);
+        setSavedPosts(res.data.items || res.data || []);
       } else if (tab === 'goals') {
         const res = await api.get(`/api/goal/user/${profileId}`);
         setGoals(res.data || []);

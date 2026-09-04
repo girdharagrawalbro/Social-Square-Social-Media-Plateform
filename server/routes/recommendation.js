@@ -185,16 +185,13 @@ router.get("/posts", verifyToken, async (req, res) => {
             $nin: restrictedObjectIds
         };
 
-        // Helper to ensure user's own recent posts (last 24h) appear at top of page 1 feed
-        const ensureUserOwnRecentPostsFirst = async (feedList) => {
-            if (cursor || !userId || !selfObjectId) return feedList;
+        // Kick off user's own posts query concurrently
+        const userOwnPostsPromise = (async () => {
+            if (cursor || !userId || !selfObjectId) return [];
             try {
                 const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const userOwnPosts = await Post.find({
-                    $or: [
-                        { "user._id": selfObjectId },
-                        { "user": selfObjectId }
-                    ],
+                return await Post.find({
+                    $or: [{ "user._id": selfObjectId }, { "user": selfObjectId }],
                     isVisible: { $ne: false },
                     deletedAt: null,
                     createdAt: { $gte: oneDayAgo }
@@ -204,18 +201,12 @@ router.get("/posts", verifyToken, async (req, res) => {
                     .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
                     .populate('mentions', 'username fullname')
                     .lean();
-
-                if (!userOwnPosts || userOwnPosts.length === 0) return feedList;
-
-                const existingIds = new Set(feedList.map(p => p._id.toString()));
-                const toAdd = userOwnPosts.filter(p => !existingIds.has(p._id.toString()));
-
-                return [...toAdd, ...feedList];
             } catch (err) {
-                return feedList;
+                return [];
             }
-        };
+        })();
 
+        // Candidates Query setup
         const candidatesQuery = {
             $or: [
                 { "user._id": baseUserExclusion },
@@ -244,13 +235,39 @@ router.get("/posts", verifyToken, async (req, res) => {
             }
         }
 
-        const candidates = await Post.find(candidatesQuery)
+        const isColdStart = !interest || !interest.interestVector || !interest.interestVector.length;
+
+        let trendingColdPromise = Promise.resolve([]);
+        if (isColdStart) {
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            trendingColdPromise = Post.find({
+                $or: [{ "user._id": baseUserExclusion }, { "user": baseUserExclusion }],
+                isAnonymous: { $ne: true },
+                isVisible: { $ne: false },
+                deletedAt: null,
+                createdAt: { $gte: sevenDaysAgo }
+            })
+                .sort({ score: -1, views: -1 })
+                .limit(60)
+                .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
+                .lean();
+        }
+
+        const candidatesPromise = Post.find(candidatesQuery)
             .sort({ createdAt: -1 })
             .limit(100)
             .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
             .populate('mentions', 'username fullname')
             .lean()
             .maxTimeMS(10000);
+
+        // Run all queries concurrently
+        console.log(`${_tag} [4] Fetching candidates, cold trending (if any), and user own posts concurrently...`);
+        const [candidates, trendingCold, userOwnPosts] = await Promise.all([
+            candidatesPromise,
+            trendingColdPromise,
+            userOwnPostsPromise
+        ]);
 
         console.log(`${_tag} [4]  Fetched ${candidates.length} candidate posts`);
 
@@ -263,32 +280,24 @@ router.get("/posts", verifyToken, async (req, res) => {
         const lastFetchedPost = candidates[candidates.length - 1];
         const nextCursor = (hasMore && lastFetchedPost) ? encodeCursor(lastFetchedPost.createdAt, lastFetchedPost._id) : null;
 
-        if (!interest || !interest.interestVector || !interest.interestVector.length) {
-            // ── P4: Cold Start — trending + diverse instead of raw chronological ──
-            console.log(`${_tag} [4] Cold start detected — building trending+diverse cold feed...`);
-            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            let trendingCold = await Post.find({
-                $or: [
-                    { "user._id": baseUserExclusion },
-                    { "user": baseUserExclusion }
-                ],
-                isAnonymous: { $ne: true },
-                isVisible: { $ne: false },
-                deletedAt: null,
-                createdAt: { $gte: sevenDaysAgo }
-            })
-                .sort({ score: -1, views: -1 })
-                .limit(60)
-                .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
-                .lean();
+        // Helper to prepend user's own posts
+        const mergeUserOwnPostsFirst = (feedList) => {
+            if (!userOwnPosts || userOwnPosts.length === 0) return feedList;
+            const existingIds = new Set(feedList.map(p => p._id.toString()));
+            const toAdd = userOwnPosts.filter(p => !existingIds.has(p._id.toString()));
+            return [...toAdd, ...feedList];
+        };
 
-            // If no posts in last 7 days, fallback to recent posts regardless of date window
-            if (!trendingCold || trendingCold.length === 0) {
+        if (isColdStart) {
+            console.log(`${_tag} [4] Cold start detected — building trending+diverse cold feed...`);
+            let finalCold = trendingCold;
+            // If no posts in last 7 days, fallback to recent posts
+            if (!finalCold || finalCold.length === 0) {
                 console.log(`${_tag} [4] Cold start fallback — no posts in last 7 days, fetching candidates as cold pool...`);
-                trendingCold = candidates;
+                finalCold = candidates;
             }
 
-            const coldResult = await ensureUserOwnRecentPostsFirst(diversifyResults(trendingCold, 20, 3, 1));
+            const coldResult = mergeUserOwnPostsFirst(diversifyResults(finalCold, 20, 3, 1));
             return res.json({ items: coldResult, nextCursor, hasMore, isColdStart: true });
         }
 
@@ -344,7 +353,7 @@ router.get("/posts", verifyToken, async (req, res) => {
         console.log(`${_tag} [6]  Ranked ${ranked.length} posts in ${Date.now() - rankStart}ms`);
 
         // P3: Diversity injection — cap per-category and per-user
-        const result = await ensureUserOwnRecentPostsFirst(diversifyResults(ranked, 20, 4, 2));
+        const result = mergeUserOwnPostsFirst(diversifyResults(ranked, 20, 4, 2));
 
         const elapsed = Date.now() - _t0;
         console.log(`${_tag}  SUCCESS — returning ${result.length} posts in ${elapsed}ms`);

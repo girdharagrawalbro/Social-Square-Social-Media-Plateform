@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node --max-old-space-size=400 --expose-gc server.js",
-    "dev": "nodemon --max-old-space-size=400 server.js",
-    "start:debug": "node --max-old-space-size=400 --expose-gc --inspect server.js",
+    "start": "node --max-old-space-size=2048 --expose-gc server.js",
+    "dev": "nodemon --max-old-space-size=2048 server.js",
+    "start:debug": "node --max-old-space-size=2048 --expose-gc --inspect server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

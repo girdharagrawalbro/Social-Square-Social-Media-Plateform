@@ -32,8 +32,11 @@ import ZoomableImage from './components/ZoomableImage';
 import { ChatMessageSkeleton } from './components/SkeletonLoader';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText, encryptText } from '../lib/cryptoUtils';
+import { useQuery } from '@tanstack/react-query';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const decryptionCache = new Map<string, string>();
 
 // ─── DOUBLE TICK ─────────────────────────────────────────────────────────────
 const DoubleCheck = ({ isRead, isMe }: { isRead: boolean; isMe: boolean }) => {
@@ -381,6 +384,8 @@ export default function ChatPaneScreen() {
 
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [replyTo, setReplyTo] = useState<any>(null);
+  const [e2eeModalVisible, setE2eeModalVisible] = useState(false);
+  const [e2eePassword, setE2eePassword] = useState('');
   const [editingMessage, setEditingMessage] = useState<any>(null);
 
   const [isOnline, setIsOnline] = useState(false);
@@ -422,7 +427,7 @@ export default function ChatPaneScreen() {
   };
 
   const processMessages = useCallback(async (raw: any[]) => {
-    const aesKey = await useE2eeStore.getState().getConversationKey(conversationId, recipientId);
+    const aesKey = await useE2eeStore.getState().getConversationKey(conversationId);
     return Promise.all(raw.map(async (msg: any) => {
       let dec = msg.content;
       let decMediaUrl = msg.mediaUrl;
@@ -434,52 +439,62 @@ export default function ChatPaneScreen() {
     }));
   }, [conversationId, recipientId]);
 
-  const fetchMessages = useCallback(async (showLoader = false) => {
-    // ── 1. SQLite hot layer: instant render from disk (no network wait) ──────
-    if (showLoader) {
-      const dbMessages = getMessagesFromDB(conversationId, 50, 0);
-      if (dbMessages.length > 0) {
-        const processed = await processMessages(dbMessages);
+  // Initial SQLite Load
+  useEffect(() => {
+    const dbMessages = getMessagesFromDB(conversationId, 50, 0);
+    if (dbMessages.length > 0) {
+      processMessages(dbMessages).then(processed => {
         setMessages(processed);
         setOlderOffset(dbMessages.length);
         setHasOlderMessages(dbMessages.length >= 50);
         setLoading(false);
-      } else {
-        setLoading(true);
-      }
+      });
+    } else {
+      setLoading(false);
     }
+  }, [conversationId, processMessages]);
 
-    // ── 2. Server sync: fetch new messages and merge into SQLite + RAM ────────
-    try {
+  // Network Sync with React Query
+  const { data: networkMessages } = useQuery({
+    queryKey: ['messages', conversationId],
+    queryFn: async () => {
       const payload: any = { limit: 50 };
       if (recipientId) payload.recipientId = recipientId;
       if (conversationId) payload.conversationId = conversationId;
-
       const res = await api.post('/api/conversation/messages', payload);
-      const raw = res.data?.messages || (Array.isArray(res.data) ? res.data : []);
-      if (!Array.isArray(raw)) return;
+      return res.data?.messages || (Array.isArray(res.data) ? res.data : []);
+    },
+    refetchInterval: 4000,
+  });
 
-      // Persist raw (encrypted) messages to SQLite for next open
-      upsertMessages(raw.map(m => ({ ...m, conversationId })));
+  useEffect(() => {
+    if (networkMessages && networkMessages.length > 0) {
+      // Persist raw to SQLite
+      upsertMessages(networkMessages.map((m: any) => ({ ...m, conversationId })));
       markMessagesRead(conversationId);
 
-      // Decrypt for in-RAM display
-      try {
-        const processed = await processMessages(raw);
-        const ordered = [...processed].reverse();
-        setMessages(ordered);
-        setOlderOffset(ordered.length);
-        setHasOlderMessages(ordered.length >= 50);
-      } catch (procErr) {
-        console.warn('[ChatPane] processMessages error:', procErr);
-        setMessages([...raw].reverse().map(m => ({ ...m, decryptedContent: m.content })));
-      }
-    } catch (e: any) {
-      console.warn('[ChatPane] fetchMessages error:', e?.response?.status, e?.message);
-    } finally {
-      if (showLoader) setLoading(false);
+      // Decrypt and merge for in-RAM display without destroying older messages
+      processMessages(networkMessages).then(processed => {
+        setMessages(prev => {
+          const prevMap = new Map(prev.map(m => [m._id, m]));
+          const newOrdered = [...processed].reverse();
+          // Merge updates for existing messages and prepend new ones
+          const merged = [...prev];
+          newOrdered.forEach(newMsg => {
+            if (prevMap.has(newMsg._id)) {
+              // Update existing
+              const index = merged.findIndex(m => m._id === newMsg._id);
+              merged[index] = newMsg;
+            } else {
+              // Prepend new
+              merged.unshift(newMsg);
+            }
+          });
+          return merged;
+        });
+      }).catch(e => console.warn('Process error:', e));
     }
-  }, [recipientId, conversationId, processMessages]);
+  }, [networkMessages, conversationId, processMessages]);
 
   /** Load older messages from SQLite (scroll to top — no network needed) */
   const loadOlderMessages = useCallback(async () => {
@@ -502,25 +517,22 @@ export default function ChatPaneScreen() {
     }
   }, [conversationId, olderOffset, hasOlderMessages, loadingOlder, processMessages]);
 
-  const fetchOnlineStatus = useCallback(async () => {
-    try {
+  const { refetch: refetchOnlineStatus } = useQuery({
+    queryKey: ['online-status', recipientId],
+    queryFn: async () => {
       const res = await api.get(`/api/auth/online-status/${recipientId}`);
       setIsOnline(res.data?.isOnline || false);
       setLastSeen(res.data?.lastSeen || null);
-    } catch { /* silent */ }
-  }, [recipientId]);
+      return res.data;
+    },
+    refetchInterval: 20000,
+    enabled: !!recipientId,
+  });
 
   useEffect(() => {
     if (!isFocused) return;
-    fetchMessages(true);
-    fetchOnlineStatus();
-    const msgInterval = setInterval(() => fetchMessages(false), 4000);
-    const statusInterval = setInterval(fetchOnlineStatus, 20000);
-    return () => {
-      clearInterval(msgInterval);
-      clearInterval(statusInterval);
-    };
-  }, [isFocused, fetchMessages, fetchOnlineStatus]);
+    refetchOnlineStatus();
+  }, [isFocused, refetchOnlineStatus]);
 
   const handleSend = async () => {
     if (!inputText.trim() || sending) return;
@@ -528,10 +540,10 @@ export default function ChatPaneScreen() {
     setInputText('');
     setSending(true);
     try {
-      const aesKey = await useE2eeStore.getState().getConversationKey(conversationId, recipientId);
+      const aesKey = await useE2eeStore.getState().getConversationKey(conversationId);
       let finalContent = text;
       let isEncrypted = false;
-      if (aesKey && aesKey !== 'mock-conversation-aes-key') {
+      if (aesKey) {
         isEncrypted = true;
         finalContent = JSON.stringify(await encryptText(text, aesKey));
       }
@@ -609,8 +621,8 @@ export default function ChatPaneScreen() {
         let finalContent = 'Sent an attachment';
         let finalMediaUrl = uploadedUrl;
         let isEncrypted = false;
-        const aesKey = await e2ee.getConversationKey(conversationId, recipientId);
-        if (aesKey && aesKey !== 'mock-conversation-aes-key') {
+        const aesKey = await e2ee.getConversationKey(conversationId);
+        if (aesKey) {
           isEncrypted = true;
           finalContent = JSON.stringify(await encryptText('Sent an attachment', aesKey));
           finalMediaUrl = JSON.stringify(await encryptText(uploadedUrl, aesKey));
@@ -779,6 +791,10 @@ export default function ChatPaneScreen() {
               });
             }}>
             <MaterialCommunityIcons name="phone-outline" size={20} color={textColor} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn}
+            onPress={() => setE2eeModalVisible(true)}>
+            <MaterialCommunityIcons name="lock-outline" size={20} color={textColor} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn}
             onPress={() => {
@@ -1013,11 +1029,46 @@ export default function ChatPaneScreen() {
                     {selectedStory.text.content}
                   </Text>
                 </View>
-              ) : null}
-            </View>
+</TouchableOpacity>
           )}
         </View>
       </Modal>
+
+      <Modal visible={e2eeModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+            <Text style={[styles.modalTitle, { color: textColor }]}>Set Conversation Password</Text>
+            <Text style={{ color: subColor, marginBottom: 15 }}>Enter the shared secret password for this conversation to enable End-to-End Encryption.</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: bg, color: textColor, marginBottom: 15, width: '100%' }]}
+              placeholder="Password..."
+              placeholderTextColor={subColor}
+              secureTextEntry
+              value={e2eePassword}
+              onChangeText={setE2eePassword}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%' }}>
+              <TouchableOpacity onPress={() => setE2eeModalVisible(false)} style={{ padding: 10 }}>
+                <Text style={{ color: subColor }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={async () => {
+                  if (e2eePassword.trim()) {
+                    await useE2eeStore.getState().setConversationKey(conversationId, e2eePassword.trim());
+                    setE2eeModalVisible(false);
+                    setE2eePassword('');
+                    fetchMessages(false);
+                  }
+                }} 
+                style={{ padding: 10, marginLeft: 10 }}
+              >
+                <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }

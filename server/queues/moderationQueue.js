@@ -33,13 +33,24 @@ const processModerationJob = async (jobData) => {
 
         const isEncryptedPost = (content.mediaKeys && content.mediaKeys.length > 0) || content.videoKey || content.voiceNoteKey;
 
-        for (const imageUrl of uniqueImages) {
+        const imagePromises = uniqueImages.map(async (imageUrl) => {
             if (isEncryptedPost || imageUrl.includes('/raw/upload/')) {
                 console.log(`[ModerationWorker] Skipping image moderation for encrypted/raw file: ${imageUrl}`);
-                continue;
+                return null;
             }
             console.log(`[ModerationWorker] Moderating image: ${imageUrl}`);
-            const imgMod = await checkImageNudity(imageUrl);
+            try {
+                return await checkImageNudity(imageUrl);
+            } catch (err) {
+                console.error(`[ModerationWorker] Error checking image ${imageUrl}:`, err.message);
+                return null;
+            }
+        });
+
+        const imageResults = await Promise.all(imagePromises);
+
+        for (const imgMod of imageResults) {
+            if (!imgMod) continue;
             
             // Update the overall moderation score to reflect image severity if it's higher than text
             if (imgMod.details) {

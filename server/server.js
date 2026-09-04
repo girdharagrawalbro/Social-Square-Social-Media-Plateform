@@ -1,13 +1,14 @@
 'use strict';
 
 const { loadSecrets } = require('./loadSecrets');
+const logger = require('./utils/logger');
 
 loadSecrets()
   .then(() => {
-    // Secrets are now in process.env — boot the app
+    // All secrets now injected into process.env — boot the app
     require('./index');
   })
   .catch((err) => {
-    console.error('[infisical] Fatal: could not load secrets:', err.message);
+    logger.error('[Infisical] Fatal: could not load secrets — refusing to start', { message: err.message });
     process.exit(1);
   });

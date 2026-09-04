@@ -1,11 +1,5 @@
 require('dotenv').config();
 
-//  Hard cap Node.js heap at 400MB — leaves 112MB for OS + native modules
-// Without this Node defaults to 1.5GB and never GCs aggressively
-if (process.env.NODE_ENV === 'production') {
-    // Set via package.json start script: node --max-old-space-size=400 index.js
-    // But also set here as fallback
-}
 
 const connectToMongo = require('./db.js');
 const express = require('express');
@@ -14,19 +8,15 @@ const http = require('http');
 const socketIo = require('socket.io');
 const helmet = require('helmet');
 const compression = require('compression');
-const rateLimit = require('express-rate-limit');
+const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible');
 const cookieParser = require('cookie-parser');
 const redis = require('./lib/redis');
 const User = require('./models/User');
 const Conversation = require('./models/Conversation');
 require('./models/Recommendation');
 const verifyToken = require('./middleware/Verifytoken');
+const logger = require('./utils/logger');
 
-
-//  NO cluster in single-dyno/512MB deployments
-// Cluster multiplies RAM usage by CPU count — 4 cores = 4x RAM
-// Use a single process + async I/O instead
-// To scale horizontally, run multiple dynos behind a load balancer
 
 connectToMongo();
 
@@ -34,15 +24,28 @@ const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 5000;
 
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('[Unhandled Rejection]', { reason, promise: String(promise) });
+});
+process.on('uncaughtException', (err) => {
+    logger.error('[Uncaught Exception]', err);
+});
+
 const { correlationMiddleware } = require('./middleware/correlation');
 
 app.set('trust proxy', 1);
 app.use(correlationMiddleware);
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+let allowedOrigins;
+if (process.env.ALLOWED_ORIGINS) {
+    allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean);
+} else {
+    if (process.env.NODE_ENV === 'production') {
+        console.error('[SECURITY] ALLOWED_ORIGINS not set in production! Defaulting to localhost only.');
+    }
+    allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+}
 
 app.use(cors({
     origin: allowedOrigins, credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -51,41 +54,71 @@ app.use(cors({
 
 // ─── SECURITY + COMPRESSION ───────────────────────────────────────────────────
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false, crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'none'"],
+            frameAncestors: ["'none'"]
+        }
+    },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
     crossOriginEmbedderPolicy: false,
 }));
 app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cookieParser());
 
 // ─── RATE LIMITING ────────────────────────────────────────────────────────────
-const authWriteLimiter = rateLimit({
+const createRateLimiterMiddleware = (options) => {
+    let limiter;
+    if (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL || !redis) {
+        limiter = new RateLimiterMemory({ points: options.max, duration: options.windowMs / 1000 });
+    } else {
+        limiter = new RateLimiterRedis({
+            storeClient: redis,
+            points: options.max,
+            duration: options.windowMs / 1000,
+            keyPrefix: options.keyPrefix
+        });
+    }
+
+    return async (req, res, next) => {
+        if (options.skip && options.skip(req)) return next();
+        const key = req.ip;
+        try {
+            await limiter.consume(key);
+            next();
+        } catch (err) {
+            res.status(429).json(options.message);
+        }
+    };
+};
+
+const authWriteLimiter = createRateLimiterMiddleware({
+    keyPrefix: 'rl_auth',
     windowMs: 15 * 60 * 1000,
     max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
     message: { error: 'Too many attempts. Try again in 15 minutes.' },
     skip: (req) => {
         const safePaths = ['/refresh', '/get', '/other-users', '/search', '/other-user', '/user', '/notification-settings'];
         return safePaths.some(p => req.path.includes(p));
-    },
+    }
 });
 
-const apiLimiter = rateLimit({
+const apiLimiter = createRateLimiterMiddleware({
+    keyPrefix: 'rl_api',
     windowMs: 60 * 1000,
     max: 500,
-    standardHeaders: true,
-    legacyHeaders: false,
     message: { error: 'Too many requests.' },
     skip: (req) => req.path.startsWith('/admin') || req.path.startsWith('/socket.io'),
 });
 
-const reportLimiter = rateLimit({
+const reportLimiter = createRateLimiterMiddleware({
+    keyPrefix: 'rl_report',
     windowMs: 60 * 60 * 1000,
     max: 10,
-    message: { error: 'Too many reports.' },
+    message: { error: 'Too many reports.' }
 });
 
-//  Rate limiting for high-stakes post operations - MOVED to middleware/postWriteLimiter.js
 
 app.use('/api/auth', authWriteLimiter);
 app.use('/api/admin/report', reportLimiter);
@@ -98,7 +131,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const morgan = require('morgan');
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'tiny' : 'dev'));
 
-// ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const io = socketIo(server, {
     cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
     pingTimeout: 60000,
@@ -106,43 +138,25 @@ const io = socketIo(server, {
     transports: ['websocket', 'polling'],
     allowEIO3: true,
     maxHttpBufferSize: 1e6,
-
-    //  Reduce socket.io memory: don't buffer events for disconnected clients
     connectTimeout: 10000,
 });
 
-// ─── REDIS ADAPTER (optional — only if REDIS_URL set) ─────────────────────────
 async function initRedis() {
-    if (process.env.DISABLE_REDIS === 'true') {
-        console.log('[Redis] Adapter skipped (DISABLE_REDIS is true)');
-        return;
-    }
-    if (!process.env.REDIS_URL) {
-        console.log('[Redis] No REDIS_URL — skipping adapter (single instance mode)');
-        return;
-    }
+    if (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL) return;
     try {
         const { createClient } = require('redis');
         const { createAdapter } = require('@socket.io/redis-adapter');
         const pubClient = createClient({ url: process.env.REDIS_URL });
-        pubClient.on('error', err => console.error('[Redis Pub]', err.message));
+        pubClient.on('error', err => logger.error('[Redis Pub]', err.message));
         const subClient = pubClient.duplicate();
-        subClient.on('error', err => console.error('[Redis Sub]', err.message));
+        subClient.on('error', err => logger.error('[Redis Sub]', err.message));
         await Promise.all([pubClient.connect(), subClient.connect()]);
-        // Gate the socket.io Redis adapter behind an env flag so we can disable during testing
-        // To enable, set `ENABLE_SOCKET_REDIS_ADAPTER=true` in your environment
-        if (process.env.ENABLE_SOCKET_REDIS_ADAPTER === 'true') {
-            io.adapter(createAdapter(pubClient, subClient));
-            console.log('[Redis] Socket.io adapter configured');
-        } else {
-            console.log('[Redis] Socket.io adapter disabled (ENABLE_SOCKET_REDIS_ADAPTER !== true)');
-        }
+        io.adapter(createAdapter(pubClient, subClient));
     } catch (err) {
-        console.warn('[Redis] Failed:', err.message);
+        logger.warn('[Redis] Failed:', err.message);
     }
 }
 
-// ─── PUBSUB ───────────────────────────────────────────────────────────────────
 async function initPubSubLayer() {
     try {
         const { initPubSub } = require('./lib/pubsub');
@@ -150,13 +164,10 @@ async function initPubSubLayer() {
         setSubscriberIo(io);
         await initPubSub();
         await initPostSubscriber();
-        console.log('[PubSub] Initialized');
-
-        // Initialize integrated Recommender Worker locally
         const { initWorker: initRecommenderWorker } = require('./recommenderWorker');
         await initRecommenderWorker();
     } catch (err) {
-        console.warn('[PubSub] Failed:', err.message);
+        logger.warn('[PubSub] Failed:', err.message);
     }
 }
 
@@ -165,7 +176,7 @@ async function initCleanupJobs() {
         const { scheduleCleanup } = require('./queues/cleanupQueue');
         await scheduleCleanup();
     } catch (err) {
-        console.warn('[Cleanup] Failed to schedule:', err.message);
+        logger.warn('[Cleanup] Failed to schedule:', err.message);
     }
 }
 
@@ -174,15 +185,10 @@ async function initAutoPostJobs() {
         const { scheduleAutoPost } = require('./queues/autoPostQueue');
         await scheduleAutoPost();
     } catch (err) {
-        console.warn('[AutoPost] Failed to schedule auto-post jobs:', err.message);
+        logger.warn('[AutoPost] Failed to schedule:', err.message);
     }
 }
 
-
-// ─── ROUTES (lazy-loaded to reduce startup memory) ────────────────────────────
-// Each require() loads the module + its dependencies into memory
-// By using a getter pattern we defer loading until first request
-// Saves ~20-40MB at startup depending on module sizes
 
 const postRouter = require('./routes/post.js');
 const storyRouter = require('./routes/story.js');
@@ -225,7 +231,6 @@ app.post('/api/user/fcm-token', verifyToken, async (req, res) => {
     res.json({ success: true });
 });
 
-//  Routes
 app.use('/api/auth', authRouter);
 app.use('/api/post', postRouter);
 app.use('/api/goal', require('./routes/goal.js'));
@@ -245,29 +250,37 @@ app.use('/api/knowledge', require('./routes/knowledge.js'));
 app.use('/api/e2ee', require('./routes/e2ee.js'));
 app.use('/api/activity', require('./routes/activity.js'));
 
-// ─── ERROR HANDLERS ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-    console.error('[Error]', err.message);
+    logger.error('[Error]', err);
     res.status(err.status || 500).json({
         error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
     });
 });
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
-// ─── SOCKET.IO RATE LIMITING ──────────────────────────────────────────────────
-const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible');
-
-// Global event limiter (10 events/sec)
 const socketGlobalLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
     ? new RateLimiterMemory({ points: 10, duration: 1 })
     : new RateLimiterRedis({ storeClient: redis, points: 10, duration: 1, keyPrefix: 'socket_global' });
 
-// Stricter limiter for high-frequency events like typing (2 events/sec)
 const socketStrictLimiter = (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL)
     ? new RateLimiterMemory({ points: 2, duration: 1 })
     : new RateLimiterRedis({ storeClient: redis, points: 2, duration: 1, keyPrefix: 'socket_strict' });
 
 const activeCalls = new Map();
+// Module-level timer map for live stream auto-end — avoids global state anti-pattern
+const liveEndTimers = new Map();
+
+// Periodically clean up stale active calls to prevent Map unbounded growth
+setInterval(() => {
+    const now = Date.now();
+    for (const [convId, call] of activeCalls.entries()) {
+        // If a call has been active for more than 4 hours, remove it
+        if (now - call.startTime > 4 * 60 * 60 * 1000) {
+            activeCalls.delete(convId);
+            logger.debug(`[Call Cleanup] Removed stale call for conversation: ${convId}`);
+        }
+    }
+}, 60 * 60 * 1000); // Check every hour
 
 async function saveCallMessage(io, conversationId, senderId, content) {
     try {
@@ -300,12 +313,12 @@ async function saveCallMessage(io, conversationId, senderId, content) {
             io.to(p).emit('conversationUpdated', updatedConv);
         });
     } catch (err) {
-        console.error('[saveCallMessage Error]:', err);
+        logger.error('[saveCallMessage Error]:', err);
     }
 }
 
 io.on('connection', (socket) => {
-    console.log(`[Socket] Connected: ${socket.id} from ${socket.handshake.address}`);
+    logger.debug(`[Socket] Connected: ${socket.id} from ${socket.handshake.address}`);
     // Middleware to rate limit every incoming event
     socket.use(async ([event, ...args], next) => {
         // Whitelist critical/internal events
@@ -321,7 +334,7 @@ io.on('connection', (socket) => {
             await limiter.consume(key);
             next();
         } catch (err) {
-            console.warn(`[Socket Rate Limit] Blocked ${event} from ${key}`);
+            logger.warn(`[Socket Rate Limit] Blocked ${event} from ${key}`);
             socket.emit('error', { message: 'Rate limit exceeded. Please slow down.' });
             // By not calling next(), the event is dropped.
         }
@@ -339,10 +352,7 @@ io.on('connection', (socket) => {
             //  Track active timestamp for TTL cleanup
             await redis.zadd('presence_heartbeats', Date.now(), userId);
 
-            // 1. Send list of online users
-            const onlineMap = await redis.hgetall('online_users');
-            const currentOnlineUsers = Object.entries(onlineMap).map(([uId, sId]) => ({ userId: uId, socketId: sId }));
-            socket.emit('updateUserList', currentOnlineUsers);
+            // 1. Send list of online users (REMOVED: Bulk broadcast of all online users disabled for performance)
 
             // 2. Broadcast new user
             socket.broadcast.emit('userOnline', { userId, socketId: socket.id });
@@ -387,7 +397,7 @@ io.on('connection', (socket) => {
                     }
                 }
             } catch (err) {
-                console.error('[Socket] Delivered state update error:', err.message);
+                logger.error('[Socket] Delivered state update error:', err.message);
             }
 
             // 4. Check if there is an active call waiting for this user (e.g. after a page refresh)
@@ -402,12 +412,12 @@ io.on('connection', (socket) => {
                         type: call.type,
                         conversationId: convId
                     });
-                    console.log(`[Socket] Restored active call to reconnected user: ${userId}`);
+                    logger.debug(`[Socket] Restored active call to reconnected user: ${userId}`);
                     break;
                 }
             }
         } catch (err) {
-            console.error('[Socket] Redis error (registerUser):', err.message);
+            logger.error('[Socket] Redis error (registerUser):', err.message);
         }
     });
 
@@ -416,7 +426,7 @@ io.on('connection', (socket) => {
         const userId = socket.userId;
         if (!userId) return;
 
-        console.log(`🔍 [Socket] User ${userId} requested active call check`);
+        logger.debug(`🔍 [Socket] User ${userId} requested active call check`);
         for (const [convId, call] of activeCalls.entries()) {
             if (call.recipientId === userId && !call.accepted) {
                 const User = require('./models/User');
@@ -429,31 +439,29 @@ io.on('connection', (socket) => {
                     conversationId: convId,
                     isRestored: true
                 });
-                console.log(`[Socket] Restored active incoming call to ${userId} on request`);
+                logger.debug(`[Socket] Restored active incoming call to ${userId} on request`);
                 break;
             }
         }
     });
 
     socket.on('heartbeat', async (userId) => {
-        if (!redis || !userId) return;
+        if (!userId) return;
         try {
             await redis.zadd('presence_heartbeats', Date.now(), userId);
         } catch (err) {
-            console.error('[Socket] Heartbeat error:', err.message);
+            logger.error('[Socket] Heartbeat error:', err.message);
         }
     });
 
     socket.on('logoutUser', async (userId) => {
         try {
-            if (redis) {
-                await redis.hdel('online_users', userId);
-                await redis.zrem('presence_heartbeats', userId);
-                io.emit('userOffline', userId);
-                await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
-            }
+            await redis.hdel('online_users', userId);
+            await redis.zrem('presence_heartbeats', userId);
+            io.emit('userOffline', userId);
+            await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
         } catch (err) {
-            console.error('[Socket] Redis error (logoutUser):', err.message);
+            logger.error('[Socket] Redis error (logoutUser):', err.message);
         }
     });
 
@@ -462,19 +470,19 @@ io.on('connection', (socket) => {
             if (conversationId) {
                 const conv = await Conversation.findById(conversationId).select('participants').lean();
                 if (conv) {
-                    conv.participants.forEach(async (p) => {
+                    for (const p of conv.participants) {
                         if (p.userId.toString() !== socket.userId) {
-                            const sid = redis ? await redis.hget('online_users', p.userId.toString()) : null;
+                            const sid = await redis.hget('online_users', p.userId.toString());
                             if (sid) io.to(sid).emit('userTyping', { senderName, conversationId });
                         }
-                    });
+                    }
                 }
             } else if (recipientId) {
-                const sid = redis ? await redis.hget('online_users', recipientId) : null;
+                const sid = await redis.hget('online_users', recipientId);
                 if (sid) io.to(sid).emit('userTyping', { senderName });
             }
         } catch (err) {
-            console.error('[Socket] Redis error (typing):', err.message);
+            logger.error('[Socket] Redis error (typing):', err.message);
         }
     });
 
@@ -483,19 +491,19 @@ io.on('connection', (socket) => {
             if (conversationId) {
                 const conv = await Conversation.findById(conversationId).select('participants').lean();
                 if (conv) {
-                    conv.participants.forEach(async (p) => {
+                    for (const p of conv.participants) {
                         if (p.userId.toString() !== socket.userId) {
-                            const sid = redis ? await redis.hget('online_users', p.userId.toString()) : null;
+                            const sid = await redis.hget('online_users', p.userId.toString());
                             if (sid) io.to(sid).emit('userStoppedTyping', { conversationId });
                         }
-                    });
+                    }
                 }
             } else if (recipientId) {
-                const sid = redis ? await redis.hget('online_users', recipientId) : null;
+                const sid = await redis.hget('online_users', recipientId);
                 if (sid) io.to(sid).emit('userStoppedTyping');
             }
         } catch (err) {
-            console.error('[Socket] Redis error (stopTyping):', err.message);
+            logger.error('[Socket] Redis error (stopTyping):', err.message);
         }
     });
 
@@ -508,11 +516,11 @@ io.on('connection', (socket) => {
             const Message = require('./models/Message');
             await Message.findByIdAndUpdate(messageId, { isDelivered: true, $addToSet: { deliveredTo: socket.userId } });
             if (senderId) {
-                const sid = redis ? await redis.hget('online_users', senderId.toString()) : null;
+                const sid = await redis.hget('online_users', senderId.toString());
                 if (sid) io.to(sid).emit('messagesDelivered', { messageIds: [messageId] });
             }
         } catch (err) {
-            console.error('[Socket] messageDelivered error:', err.message);
+            logger.error('[Socket] messageDelivered error:', err.message);
         }
     });
 
@@ -535,13 +543,27 @@ io.on('connection', (socket) => {
     // ─── 1-ON-1 CALLS ─────────────────────────────────────────────────────────────
     socket.on('initiateCall', ({ recipientId, type, conversationId, callerName, callerAvatar }) => {
         if (recipientId) {
+            // 60-second ring timeout — if not accepted, auto-clean and notify both parties
+            const ringTimeoutId = setTimeout(() => {
+                const call = activeCalls.get(conversationId);
+                if (call && !call.accepted) {
+                    const content = type === 'video' ? '📹 Missed video chat' : '📞 Missed voice call';
+                    saveCallMessage(io, conversationId, socket.userId, content);
+                    activeCalls.delete(conversationId);
+                    io.to(recipientId).emit('callTimeout', { conversationId });
+                    io.to(socket.userId).emit('callTimeout', { conversationId });
+                    logger.info(`[Call] Unanswered call ${conversationId} cleaned up after 60s ring timeout`);
+                }
+            }, 60000);
+
             activeCalls.set(conversationId, {
                 startTime: Date.now(),
                 type,
                 callerId: socket.userId,
                 recipientId,
                 isGroup: false,
-                accepted: false
+                accepted: false,
+                ringTimeoutId,
             });
 
             io.to(recipientId).emit('incomingCall', {
@@ -559,6 +581,8 @@ io.on('connection', (socket) => {
         if (callerId) {
             const call = activeCalls.get(conversationId);
             if (call) {
+                // Cancel the ring timeout now that the call is answered
+                if (call.ringTimeoutId) clearTimeout(call.ringTimeoutId);
                 call.accepted = true;
                 call.connectTime = Date.now();
             }
@@ -583,6 +607,8 @@ io.on('connection', (socket) => {
         }
 
         if (callToDecline && foundConvId) {
+            // Cancel the ring timeout before deleting the call entry
+            if (callToDecline.ringTimeoutId) clearTimeout(callToDecline.ringTimeoutId);
             const content = callToDecline.type === 'video' ? '📹 Missed video chat' : '📞 Missed voice call';
             saveCallMessage(io, foundConvId, callToDecline.callerId, content);
             activeCalls.delete(foundConvId);
@@ -597,6 +623,8 @@ io.on('connection', (socket) => {
         if (conversationId) {
             const call = activeCalls.get(conversationId);
             if (call) {
+                // Cancel the ring timeout if the call ends before it fires
+                if (call.ringTimeoutId) clearTimeout(call.ringTimeoutId);
                 let content = '';
                 if (call.accepted && call.connectTime) {
                     const durationSec = Math.floor((Date.now() - call.connectTime) / 1000);
@@ -658,9 +686,9 @@ io.on('connection', (socket) => {
                     });
                 }
             });
-            console.log(`[Socket Group Call] Initiated for conversation ${conversationId} by ${socket.userId}`);
+            logger.debug(`[Socket Group Call] Initiated for conversation ${conversationId} by ${socket.userId}`);
         } catch (err) {
-            console.error('[Socket initiateGroupCall Error]:', err.message);
+            logger.error('[Socket initiateGroupCall Error]:', err.message);
         }
     });
 
@@ -685,7 +713,7 @@ io.on('connection', (socket) => {
                 });
             }
         } catch (err) {
-            console.error('[Socket joinGroupCall Error]:', err.message);
+            logger.error('[Socket joinGroupCall Error]:', err.message);
         }
     });
 
@@ -714,7 +742,7 @@ io.on('connection', (socket) => {
                 }
             }
         } catch (err) {
-            console.error('[Socket leaveGroupCall Error]:', err.message);
+            logger.error('[Socket leaveGroupCall Error]:', err.message);
         }
     });
 
@@ -730,21 +758,19 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', async (reason) => {
-        console.log(`[Socket] Disconnected: ${socket.id} (${socket.userId || 'unregistered'}) — reason: ${reason}`);
+        logger.debug(`[Socket] Disconnected: ${socket.id} (${socket.userId || 'unregistered'}) — reason: ${reason}`);
         const userId = socket.userId;
         if (userId) {
             try {
-                if (redis) {
-                    const currentSid = await redis.hget('online_users', userId);
-                    if (currentSid === socket.id) {
-                        await redis.hdel('online_users', userId);
-                        await redis.zrem('presence_heartbeats', userId);
-                        io.emit('userOffline', userId);
-                        await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
-                    }
+                const currentSid = await redis.hget('online_users', userId);
+                if (currentSid === socket.id) {
+                    await redis.hdel('online_users', userId);
+                    await redis.zrem('presence_heartbeats', userId);
+                    io.emit('userOffline', userId);
+                    await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
                 }
             } catch (err) {
-                console.error('[Socket] Redis error (disconnect):', err.message);
+                logger.error('[Socket] Redis error (disconnect):', err.message);
             }
 
             // Clean up any active calls if this user disconnected
@@ -789,29 +815,29 @@ io.on('connection', (socket) => {
         // If host disconnected unexpectedly (internet drop, browser crash, tab close)
         if (socket.isLiveHostOf) {
             const streamId = socket.isLiveHostOf;
-            if (!global.liveEndTimers) global.liveEndTimers = {};
 
-            console.log(`[Live Stream] Host ${socket.userId} disconnected from stream ${streamId}. Starting 30s auto-end countdown...`);
+            logger.info(`[Live Stream] Host ${socket.userId} disconnected from stream ${streamId}. Starting 30s auto-end countdown...`);
 
             // Notify viewers host is trying to reconnect
             io.to(`live:${streamId}`).emit('live-paused', streamId);
 
-            global.liveEndTimers[streamId] = setTimeout(async () => {
+            const autoEndTimer = setTimeout(async () => {
                 try {
                     const LiveStream = require('./models/LiveStream');
                     await LiveStream.findByIdAndUpdate(streamId, { status: 'ended', endTime: Date.now() });
                     io.to(`live:${streamId}`).emit('live-ended', streamId);
-                    console.log(`[Live Stream] Stream ${streamId} automatically ended: Host did not reconnect within 30s.`);
+                    logger.info(`[Live Stream] Stream ${streamId} automatically ended: Host did not reconnect within 30s.`);
                 } catch (err) {
-                    console.error('[Live Stream] Auto-end failed:', err.message);
+                    logger.error('[Live Stream] Auto-end failed:', err.message);
                 } finally {
-                    delete global.liveEndTimers[streamId];
+                    liveEndTimers.delete(streamId);
                 }
             }, 30000); // 30 seconds buffer
+            liveEndTimers.set(streamId, autoEndTimer);
         }
 
         // Update viewer count for any live rooms this socket was in
-        socket.rooms.forEach(async (room) => {
+        for (const room of socket.rooms) {
             if (room.startsWith('live:')) {
                 const streamId = room.replace('live:', '');
                 const totalInRoom = io.sockets.adapter.rooms.get(room)?.size || 0;
@@ -830,7 +856,7 @@ io.on('connection', (socket) => {
                     }
                 } catch (e) { }
             }
-        });
+        }
     });
 
     // ─── WebRTC Signaling for Live Stream ────────────────────────────────────
@@ -846,10 +872,10 @@ io.on('connection', (socket) => {
                 socket.isLiveHostOf = streamId;
 
                 // If there was an existing auto-end countdown running for this stream, cancel it (host reconnected)
-                if (global.liveEndTimers && global.liveEndTimers[streamId]) {
-                    clearTimeout(global.liveEndTimers[streamId]);
-                    delete global.liveEndTimers[streamId];
-                    console.log(`[Live Stream] Host reconnected to stream ${streamId}. Auto-end timer cancelled.`);
+                if (liveEndTimers.has(streamId)) {
+                    clearTimeout(liveEndTimers.get(streamId));
+                    liveEndTimers.delete(streamId);
+                    logger.info(`[Live Stream] Host reconnected to stream ${streamId}. Auto-end timer cancelled.`);
                     // Notify viewers the host is back online and recovered, so they must recreate peer connections
                     io.to(`live:${streamId}`).emit('live-host-recovered', streamId);
                     io.to(`live:${streamId}`).emit('live-resumed', streamId);
@@ -936,7 +962,6 @@ setInterval(async () => {
         const staleIds = await redis.zrangebyscore('presence_heartbeats', '-inf', threshold);
 
         if (staleIds.length > 0) {
-            console.log(`[Presence] Evicting ${staleIds.length} stale users`);
 
             // 1. Batch Redis cleanup in a pipeline
             const pipeline = redis.pipeline();
@@ -958,7 +983,7 @@ setInterval(async () => {
             );
         }
     } catch (err) {
-        console.error('[Presence Cleanup] Error:', err.message);
+        logger.error('[Presence Cleanup] Error:', err.message);
     }
 }, 30000);
 
@@ -969,13 +994,12 @@ if (global.gc) {
     setInterval(() => {
         global.gc();
         const mb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-        if (mb > 300) console.warn(`[Memory] Heap at ${mb}MB after GC`);
+        if (mb > 300) logger.warn(`[Memory] Heap at ${mb}MB after GC`);
     }, 5 * 60 * 1000);
 }
 
 // ─── GRACEFUL SHUTDOWN ────────────────────────────────────────────────────────
 const gracefulShutdown = (signal) => {
-    console.log(`[${signal}] Shutting down...`);
     server.close(async () => {
         try { const mongoose = require('mongoose'); await mongoose.connection.close(); } catch { }
         process.exit(0);
@@ -995,40 +1019,25 @@ async function bootstrap() {
     const { scheduleDailyDigest } = require('./queues/digestQueue');
     await scheduleDailyDigest();
 
-    // ─── KNOWLEDGE LAYER: Wiki Auto-generation Worker ────────────────────────
     try {
         const { initWikiWorker } = require('./workers/wikiWorker');
         await initWikiWorker();
     } catch (err) {
-        console.warn('[WikiWorker] Failed to initialize:', err.message);
+        logger.warn('[WikiWorker] Failed to initialize:', err.message);
     }
 
-    // ─── MODERATION ───────────────────────────────────────────────────────────────
     try {
         require('./queues/moderationQueue');
-        console.log('[Moderation] Worker/Queue initialized');
+        logger.info('[Moderation] Initialized');
     } catch (err) {
-        console.warn('[Moderation] Failed to initialize:', err.message);
+        logger.warn('[Moderation] Failed to initialize:', err.message);
     }
     server.listen(port, () => {
-        console.log(`[Server] Running on port ${port} (PID: ${process.pid})`);
-
-        // Self-ping mechanism to keep Render free tier alive
-        // const PING_INTERVAL = 5 * 1000; // 5 seconds
-        // setInterval(async () => {
-        //     try {
-        //         const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
-        //         const axios = require('axios');
-        //         await axios.get(`${url}/ping`);
-        //         console.log(`[Self-Ping] Keep-alive ping sent to ${url}/ping successfully`);
-        //     } catch (error) {
-        //         console.error(`[Self-Ping] Error: ${error.message}`);
-        //     }
-        // }, PING_INTERVAL);
+        logger.info(`[Server] Running on port ${port} (PID: ${process.pid})`);
     });
 }
 
 bootstrap().catch(err => {
-    console.error('[Bootstrap] Failed:', err.message);
+    logger.error('[Bootstrap] Failed:', err.message);
     process.exit(1);
 });

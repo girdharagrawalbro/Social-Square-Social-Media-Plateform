@@ -104,6 +104,20 @@ async function invalidateUserCacheData(userId) {
 }
 
 // ─── ADMIN MIDDLEWARE ─────────────────────────────────────────────────────────
+const { RateLimiterMemory, RateLimiterRedis } = require('rate-limiter-flexible');
+
+let adminLimiter;
+if (process.env.DISABLE_REDIS === 'true' || !process.env.REDIS_URL || !redis) {
+    adminLimiter = new RateLimiterMemory({ points: 20, duration: 60 });
+} else {
+    adminLimiter = new RateLimiterRedis({
+        storeClient: redis,
+        points: 20,
+        duration: 60,
+        keyPrefix: 'rl_admin'
+    });
+}
+
 const requireAdmin = async (req, res, next) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
@@ -119,6 +133,13 @@ const requireAdmin = async (req, res, next) => {
         const user = await User.findById(session.userId).select('isAdmin isBanned').lean();
         if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
         if (user.isBanned) return res.status(403).json({ error: 'Account banned' });
+        
+        try {
+            await adminLimiter.consume(session.userId.toString());
+        } catch (rlErr) {
+            return res.status(429).json({ error: 'Too many admin requests. Please wait a minute.' });
+        }
+        
         req.adminId = session.userId;
         next();
     } catch {
@@ -1089,7 +1110,7 @@ router.get('/audit', requireAdmin, async (req, res) => {
 
         res.json({ success: true, logs, total, adminList });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1165,7 +1186,7 @@ router.get('/system/flags', requireAdmin, async (req, res) => {
         });
 
         res.json({ success: true, flags: result });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.post('/system/flags', requireAdmin, async (req, res) => {
@@ -1201,7 +1222,7 @@ router.post('/system/flags', requireAdmin, async (req, res) => {
         });
 
         res.json({ success: true, message: 'Feature flags updated' });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── BROADCAST ANNOUNCEMENTS ─────────────────────────────────────────────────
@@ -1291,7 +1312,7 @@ router.post('/broadcast', requireAdmin, async (req, res) => {
         });
 
         res.json({ success: true, message: `Broadcast sent to ${users.length} users` });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── CONTACTS MANAGEMENT ──────────────────────────────────────────────────────
@@ -1319,7 +1340,7 @@ router.get('/contacts', requireAdmin, async (req, res) => {
 
         res.json({ success: true, contacts, total });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1343,7 +1364,7 @@ router.patch('/contacts/:id/status', requireAdmin, [
 
         res.json({ success: true, contact });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1402,7 +1423,7 @@ router.post('/contacts/:id/reply', requireAdmin, [
         res.json({ success: true, contact: updatedContact });
     } catch (err) {
         console.error('Contact reply error:', err);
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1429,7 +1450,7 @@ router.get('/mail-logs', requireAdmin, async (req, res) => {
 
         res.json({ success: true, logs, total });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1440,7 +1461,7 @@ router.get('/email-templates', requireAdmin, async (req, res) => {
         const templates = await EmailTemplate.find().sort({ key: 1 }).lean();
         res.json({ success: true, templates });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1448,12 +1469,12 @@ router.post('/email-templates', requireAdmin, async (req, res) => {
     try {
         const { key, name, subject, html, variables } = req.body;
         if (!key || !name || !subject || !html) {
-            return res.status(400).json({ success: false, message: 'Key, name, subject, and HTML are required.' });
+            return res.status(400).json({ error: 'Key, name, subject, and HTML are required.' });
         }
 
         const exists = await EmailTemplate.findOne({ key });
         if (exists) {
-            return res.status(400).json({ success: false, message: 'Template key already exists.' });
+            return res.status(400).json({ error: 'Template key already exists.' });
         }
 
         const template = await EmailTemplate.create({ key, name, subject, html, variables: variables || [] });
@@ -1468,7 +1489,7 @@ router.post('/email-templates', requireAdmin, async (req, res) => {
 
         res.json({ success: true, template });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1478,7 +1499,7 @@ router.put('/email-templates/:key', requireAdmin, async (req, res) => {
         const { subject, html } = req.body;
 
         if (!subject || !html) {
-            return res.status(400).json({ success: false, message: 'Subject and HTML are required.' });
+            return res.status(400).json({ error: 'Subject and HTML are required.' });
         }
 
         const template = await EmailTemplate.findOneAndUpdate(
@@ -1488,7 +1509,7 @@ router.put('/email-templates/:key', requireAdmin, async (req, res) => {
         );
 
         if (!template) {
-            return res.status(404).json({ success: false, message: 'Template not found.' });
+            return res.status(404).json({ error: 'Template not found.' });
         }
 
         await logAdminAction({
@@ -1501,7 +1522,7 @@ router.put('/email-templates/:key', requireAdmin, async (req, res) => {
 
         res.json({ success: true, template });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -2151,7 +2172,7 @@ router.post('/email-templates/seed', requireAdmin, async (req, res) => {
 
         res.json({ success: true, message: `Seeded ${added} templates. Updated ${updated} templates.` });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
