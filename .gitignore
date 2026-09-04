@@ -126,3 +126,6 @@ insta_data_local
 /app/android/.gradle/
 /app/android/local.properties
 /app/ios/xcuserdata/
+
+
+audit
