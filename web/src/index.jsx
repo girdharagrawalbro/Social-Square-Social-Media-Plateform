@@ -62,7 +62,5 @@ if ('caches' in window) {
 reportWebVitals((metric) => {
     if (window.posthog) {
         window.posthog.capture(metric.name, metric);
-    } else {
-        console.log(metric);
     }
 });
