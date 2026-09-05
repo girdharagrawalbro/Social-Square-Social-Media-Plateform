@@ -12,6 +12,7 @@ import {
   Dimensions,
   Platform,
   Vibration,
+  PermissionsAndroid,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -19,7 +20,7 @@ import { api, BASE_URL } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { Room, RoomEvent, Track, RemoteParticipant, RoomOptions } from 'livekit-client';
-import { registerGlobals, VideoView } from '@livekit/react-native';
+import { registerGlobals, VideoView, AudioSession } from '@livekit/react-native';
 
 // Register LiveKit React Native WebRTC globals if not already done
 try {
@@ -34,7 +35,7 @@ export default function CallScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const loggedUser = useAuthStore((s: any) => s.user);
+  const loggedUser = useAuthStore((s) => s.user);
 
   const {
     conversationId,
@@ -57,6 +58,17 @@ export default function CallScreen() {
   const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<any>(null);
   
+  const [isSpeaker, setIsSpeaker] = useState(callType === 'video');
+
+  const toggleAudioRoute = async () => {
+    try {
+      const nextRoute = isSpeaker ? 'earpiece' : 'speaker';
+      await AudioSession.selectAudioOutput(nextRoute);
+      setIsSpeaker(!isSpeaker);
+    } catch (e) {
+      console.warn('Failed to switch audio route', e);
+    }
+  };
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === 'voice');
   const [secondsElapsed, setSecondsElapsed] = useState(0);
@@ -150,6 +162,17 @@ export default function CallScreen() {
     };
   }, [conversationId, recipientId, initialIsIncoming, callType]);
 
+  // 60-second auto-decline timeout if call is unanswered
+  useEffect(() => {
+    if (callStatus === 'calling') {
+      const timer = setTimeout(() => {
+        Alert.alert('No Answer', 'The call was not answered.');
+        cleanupAndClose();
+      }, 60000);
+      return () => clearTimeout(timer);
+    }
+  }, [callStatus]);
+
   // Fetch LiveKit Token upon acceptance / connection transition
   useEffect(() => {
     if (callStatus !== 'connecting' || fetchInitiated.current) return;
@@ -174,6 +197,7 @@ export default function CallScreen() {
   useEffect(() => {
     if (callStatus !== 'connected' || !token) return;
 
+    let isMounted = true;
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
@@ -181,17 +205,44 @@ export default function CallScreen() {
 
     const connectToRoom = async () => {
       try {
+        // Request Permissions
+        if (Platform.OS === 'android') {
+          const granted = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          ]);
+          if (
+            granted['android.permission.RECORD_AUDIO'] !== PermissionsAndroid.RESULTS.GRANTED ||
+            (callType === 'video' && granted['android.permission.CAMERA'] !== PermissionsAndroid.RESULTS.GRANTED)
+          ) {
+            Alert.alert('Permissions Required', 'Camera and microphone permissions are required for calls.');
+            cleanupAndClose();
+            return;
+          }
+        }
+
         await room.connect(handleLivekitUrl, token);
+        if (!isMounted) {
+          room.disconnect();
+          return;
+        }
         setLiveKitRoom(room);
 
         // Publish local camera and mic
-        await room.localParticipant.setMicrophoneEnabled(true);
-        if (callType === 'video') {
-          await room.localParticipant.setCameraEnabled(true);
-          const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.videoTrack;
-          if (cameraTrack) {
-            setLocalVideoTrack(cameraTrack);
+        try {
+          await room.localParticipant.setMicrophoneEnabled(true);
+          if (callType === 'video') {
+            await room.localParticipant.setCameraEnabled(true);
+            const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.videoTrack;
+            if (cameraTrack) {
+              setLocalVideoTrack(cameraTrack);
+            }
           }
+        } catch (mediaErr) {
+          console.error('[LiveKit] Permission denied or media unavailable:', mediaErr);
+          Alert.alert('Permission Denied', 'Could not access camera or microphone.');
+          cleanupAndClose();
+          return;
         }
 
         // Check for existing remote camera tracks
@@ -226,6 +277,18 @@ export default function CallScreen() {
           cleanupAndClose();
         });
 
+        room.on(RoomEvent.Disconnected, () => {
+          console.log('[LiveKit] Disconnected from room');
+          Alert.alert('Call Ended', 'Connection was lost.');
+          cleanupAndClose();
+        });
+
+        room.on(RoomEvent.Reconnecting, () => {
+          console.log('[LiveKit] Reconnecting to room...');
+          // Can show a toast or connecting state here
+        });
+
+
       } catch (err) {
         console.error('[LiveKit] Connection failed:', err);
         Alert.alert('Connection Error', 'Could not establish media connection.');
@@ -236,6 +299,7 @@ export default function CallScreen() {
     connectToRoom();
 
     return () => {
+      isMounted = false;
       room.disconnect();
     };
   }, [callStatus, token]);
@@ -412,7 +476,7 @@ export default function CallScreen() {
       {/* Floating Local Camera Preview */}
       {callType === 'video' && !isVideoOff && localVideoTrack && (
         <View style={styles.localVideoOverlay}>
-          <VideoView style={StyleSheet.absoluteFill} videoTrack={localVideoTrack} />
+          <VideoView style={StyleSheet.absoluteFill} videoTrack={localVideoTrack} zOrderMediaOverlay={true} />
         </View>
       )}
 
@@ -426,6 +490,15 @@ export default function CallScreen() {
           >
             <MaterialCommunityIcons
               name={isMuted ? 'microphone-off' : 'microphone'}
+              size={24}
+              color="#ffffff"
+            />
+          </TouchableOpacity>
+
+          {/* Audio Route Toggle */}
+          <TouchableOpacity onPress={toggleAudioRoute} style={styles.controlBtn}>
+            <MaterialCommunityIcons
+              name={isSpeaker ? 'volume-high' : 'phone-in-talk'}
               size={24}
               color="#ffffff"
             />

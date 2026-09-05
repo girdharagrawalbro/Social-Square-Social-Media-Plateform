@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  Animated,
   useColorScheme,
   Dimensions,
 } from 'react-native';
@@ -35,11 +35,48 @@ const QUICK_ACTIONS = [
   { label: '🚩 Report an issue', message: 'I want to report a problem with the app' },
 ];
 
+/** Animated 3-dot typing indicator — matches the web ChatPanel style */
+const TypingDots = () => {
+  const dots = [useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current];
+
+  useEffect(() => {
+    const animations = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 180),
+          Animated.timing(dot, { toValue: -6, duration: 280, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 280, useNativeDriver: true }),
+          Animated.delay(540 - i * 180),
+        ])
+      )
+    );
+    animations.forEach(a => a.start());
+    return () => animations.forEach(a => a.stop());
+  }, []);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: 4,
+            backgroundColor: '#808bf5',
+            transform: [{ translateY: dot }],
+          }}
+        />
+      ))}
+    </View>
+  );
+};
+
 export default function ChatbotScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
-  const user = useAuthStore((s: any) => s.user);
-  const token = useAuthStore((s: any) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -208,9 +245,7 @@ export default function ChatbotScreen() {
           ]}
         >
           {item.loading ? (
-            <View style={styles.loaderRow}>
-              <ActivityIndicator size="small" color="#808bf5" />
-            </View>
+            <TypingDots />
           ) : (
             <Text style={[styles.msgText, { color: isBot ? textColor : '#ffffff' }]}>
               {item.content}

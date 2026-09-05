@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, StyleSheet, PanResponder, Modal } from 'react-native';
 import { useTabStore } from '../store/zustand/useTabStore';
 import { useLiveStore } from '../store/zustand/useLiveStore';
@@ -17,6 +17,14 @@ const navItemsList = ['feed', 'reels', 'messages', 'explore', 'profile'];
 export default function MainTabsScreen({ navigation }: any) {
   const { currentTab, setTab } = useTabStore();
   const { liveStreamId, isLiveHost, clearLiveStream } = useLiveStore();
+
+  const [mountedTabs, setMountedTabs] = useState<string[]>([currentTab]);
+
+  useEffect(() => {
+    if (!mountedTabs.includes(currentTab)) {
+      setMountedTabs(prev => [...prev, currentTab]);
+    }
+  }, [currentTab, mountedTabs]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -49,21 +57,31 @@ export default function MainTabsScreen({ navigation }: any) {
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
-      <View style={[styles.screenContainer, { display: currentTab === 'feed' ? 'flex' : 'none' }]}>
-        <SocialSquareScreen navigation={navigation} />
-      </View>
-      <View style={[styles.screenContainer, { display: currentTab === 'reels' ? 'flex' : 'none' }]}>
-        <ReelsScreen navigation={navigation} />
-      </View>
-      <View style={[styles.screenContainer, { display: currentTab === 'messages' ? 'flex' : 'none' }]}>
-        <ChatScreen />
-      </View>
-      <View style={[styles.screenContainer, { display: currentTab === 'explore' ? 'flex' : 'none' }]}>
-        <ExploreScreen navigation={navigation} />
-      </View>
-      <View style={[styles.screenContainer, { display: currentTab === 'profile' ? 'flex' : 'none' }]}>
-        <ProfileScreen navigation={navigation} />
-      </View>
+      {mountedTabs.includes('feed') && (
+        <View style={[styles.screenContainer, { display: currentTab === 'feed' ? 'flex' : 'none' }]}>
+          <SocialSquareScreen navigation={navigation} />
+        </View>
+      )}
+      {mountedTabs.includes('reels') && (
+        <View style={[styles.screenContainer, { display: currentTab === 'reels' ? 'flex' : 'none' }]}>
+          <ReelsScreen navigation={navigation} />
+        </View>
+      )}
+      {mountedTabs.includes('messages') && (
+        <View style={[styles.screenContainer, { display: currentTab === 'messages' ? 'flex' : 'none' }]}>
+          <ChatScreen />
+        </View>
+      )}
+      {mountedTabs.includes('explore') && (
+        <View style={[styles.screenContainer, { display: currentTab === 'explore' ? 'flex' : 'none' }]}>
+          <ExploreScreen navigation={navigation} />
+        </View>
+      )}
+      {mountedTabs.includes('profile') && (
+        <View style={[styles.screenContainer, { display: currentTab === 'profile' ? 'flex' : 'none' }]}>
+          <ProfileScreen navigation={navigation} />
+        </View>
+      )}
 
       {/* Full-screen Native Live Stream Overlay */}
       <Modal

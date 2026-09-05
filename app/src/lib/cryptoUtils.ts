@@ -2,8 +2,11 @@
  * Crypto utilities for React Native.
  * Uses @noble/ciphers for AES-GCM decryption (pure JS, no native modules).
  */
+import 'react-native-get-random-values';
 // @ts-ignore
 import { gcm } from '@noble/ciphers/aes';
+import { pbkdf2 } from '@noble/hashes/pbkdf2';
+import { sha256 } from '@noble/hashes/sha2';
 
 /**
  * Convert a base64 string to a Uint8Array
@@ -57,10 +60,7 @@ export async function decryptText(
   try {
     const ciphertext = base64ToBytes(ciphertextBase64);
     const iv = base64ToBytes(ivBase64);
-    const keyBytes = new Uint8Array(32);
-    for (let i = 0; i < Math.min(keyString.length, 32); i++) {
-      keyBytes[i] = keyString.charCodeAt(i);
-    }
+    const keyBytes = pbkdf2(sha256, keyString, 'socialsquare-salt', { c: 10000, dkLen: 32 });
     const cipher = gcm(keyBytes, iv);
     const decrypted = cipher.decrypt(ciphertext);
     
@@ -84,13 +84,9 @@ export async function encryptText(
     cleartext[i] = text.charCodeAt(i);
   }
   const iv = new Uint8Array(12);
-  for (let i = 0; i < 12; i++) {
-    iv[i] = Math.floor(Math.random() * 256);
-  }
-  const keyBytes = new Uint8Array(32);
-  for (let i = 0; i < Math.min(keyString.length, 32); i++) {
-    keyBytes[i] = keyString.charCodeAt(i);
-  }
+  crypto.getRandomValues(iv);
+
+  const keyBytes = pbkdf2(sha256, keyString, 'socialsquare-salt', { c: 10000, dkLen: 32 });
   const cipher = gcm(keyBytes, iv);
   const ciphertext = cipher.encrypt(cleartext);
   return {

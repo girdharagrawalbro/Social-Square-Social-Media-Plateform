@@ -75,7 +75,7 @@ export default function ExploreScreen({ navigation }: any) {
   const isDark = useColorScheme() === 'dark';
   const isFocused = useIsFocused();
   const { currentTab } = useTabStore();
-  const loggedUser = useAuthStore((s: any) => s.user);
+  const loggedUser = useAuthStore((s) => s.user);
 
   // States
   const [reels, setReels] = useState<any[]>([]);

@@ -25,46 +25,64 @@ function getDB(): DB {
   return _db;
 }
 
-function initSchema(db: DB) {
-  // ─── Chat Messages ─────────────────────────────────────────────────────────
-  db.execute(`
-    CREATE TABLE IF NOT EXISTS messages (
-      _id             TEXT PRIMARY KEY,
-      conversationId  TEXT NOT NULL,
-      content         TEXT,
-      mediaUrl        TEXT,
-      senderId        TEXT,
-      senderName      TEXT,
-      senderAvatar    TEXT,
-      isRead          INTEGER DEFAULT 0,
-      isEncrypted     INTEGER DEFAULT 0,
-      replyTo         TEXT,
-      sharedPost      TEXT,
-      storyReply      TEXT,
-      deletedAt       TEXT,
-      edited          INTEGER DEFAULT 0,
-      createdAt       TEXT NOT NULL,
-      updatedAt       TEXT
-    );
-  `);
-  db.execute(`
-    CREATE INDEX IF NOT EXISTS idx_messages_conv
-    ON messages (conversationId, createdAt DESC);
-  `);
+const CURRENT_SCHEMA_VERSION = 1;
 
-  // ─── Draft Posts ────────────────────────────────────────────────────────────
-  db.execute(`
-    CREATE TABLE IF NOT EXISTS draft_posts (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      caption     TEXT,
-      imageUri    TEXT,
-      videoUri    TEXT,
-      postType    TEXT,
-      groupId     TEXT,
-      goalId      TEXT,
-      savedAt     TEXT NOT NULL
-    );
-  `);
+function initSchema(db: DB) {
+  // ─── Migrations ────────────────────────────────────────────────────────────
+  const versionRes = db.execute('PRAGMA user_version;');
+  const userVersion = (versionRes as any).rows?._array[0]?.user_version || 0;
+
+  if (userVersion < 1) {
+    db.transaction((tx) => {
+      // ─── Chat Messages ─────────────────────────────────────────────────────────
+      tx.execute(`
+        CREATE TABLE IF NOT EXISTS messages (
+          _id             TEXT PRIMARY KEY,
+          conversationId  TEXT NOT NULL,
+          content         TEXT,
+          mediaUrl        TEXT,
+          senderId        TEXT,
+          senderName      TEXT,
+          senderAvatar    TEXT,
+          isRead          INTEGER DEFAULT 0,
+          isEncrypted     INTEGER DEFAULT 0,
+          replyTo         TEXT,
+          sharedPost      TEXT,
+          storyReply      TEXT,
+          deletedAt       TEXT,
+          edited          INTEGER DEFAULT 0,
+          createdAt       TEXT NOT NULL,
+          updatedAt       TEXT
+        );
+      `);
+      tx.execute(`
+        CREATE INDEX IF NOT EXISTS idx_messages_conv
+        ON messages (conversationId, createdAt DESC);
+      `);
+      // V1: Add global createdAt index to optimize time-based queries
+      tx.execute(`
+        CREATE INDEX IF NOT EXISTS idx_messages_created_at 
+        ON messages (createdAt DESC);
+      `);
+
+      // ─── Draft Posts ────────────────────────────────────────────────────────────
+      tx.execute(`
+        CREATE TABLE IF NOT EXISTS draft_posts (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          caption     TEXT,
+          imageUri    TEXT,
+          videoUri    TEXT,
+          postType    TEXT,
+          groupId     TEXT,
+          goalId      TEXT,
+          savedAt     TEXT NOT NULL
+        );
+      `);
+      
+      tx.execute(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION};`);
+    });
+    console.log(`[DB] Migrated schema to version ${CURRENT_SCHEMA_VERSION}`);
+  }
 }
 
 // ─── MESSAGE OPERATIONS ──────────────────────────────────────────────────────
@@ -200,6 +218,27 @@ export function pruneOldMessages(keepCount = 2000): void {
     console.log('[DB] Pruned old messages');
   } catch (e) {
     console.warn('[DB] pruneOldMessages error:', e);
+  }
+}
+
+/**
+ * Delete messages belonging to conversations that the user is no longer a part of
+ * (e.g., deleted server-side).
+ */
+export function cleanupOrphanedConversations(activeConversationIds: string[]): void {
+  if (!activeConversationIds.length) return;
+  try {
+    const placeholders = activeConversationIds.map(() => '?').join(',');
+    const db = getDB();
+    const result = db.execute(
+      `DELETE FROM messages WHERE conversationId NOT IN (${placeholders})`,
+      activeConversationIds
+    );
+    if (result.rowsAffected > 0) {
+      console.log(`[DB] Cleaned up ${result.rowsAffected} orphaned messages.`);
+    }
+  } catch (e) {
+    console.warn('[DB] cleanupOrphanedConversations error:', e);
   }
 }
 

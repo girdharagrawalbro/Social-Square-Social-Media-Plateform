@@ -22,7 +22,7 @@ export default function WikiDetailScreen() {
   const isDark = useColorScheme() === 'dark';
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const user = useAuthStore((s: any) => s.user);
+  const user = useAuthStore((s) => s.user);
 
   const { slug } = route.params || {};
 

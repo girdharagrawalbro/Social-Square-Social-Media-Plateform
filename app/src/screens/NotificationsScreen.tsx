@@ -55,7 +55,7 @@ interface CollabInvite {
 export default function NotificationsScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
-  const user = useAuthStore((s: any) => s.user);
+  const user = useAuthStore((s) => s.user);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const { width: screenWidth } = Dimensions.get('window');

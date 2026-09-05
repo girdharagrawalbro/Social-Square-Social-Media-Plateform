@@ -21,7 +21,7 @@ import BottomNav from './components/BottomNav';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText } from '../lib/cryptoUtils';
 import { api, BASE_URL } from '../lib/api';
-import { pruneOldMessages } from '../lib/db';
+import { pruneOldMessages, cleanupOrphanedConversations } from '../lib/db';
 import { ChatSkeleton } from './components/SkeletonLoader';
 
 interface Participant {
@@ -129,7 +129,7 @@ const MessagePreview = ({ messageText, conversationId, recipientId, isDark, subC
 export default function ChatScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
-  const currentUser = useAuthStore((s: any) => s.user);
+  const currentUser = useAuthStore((s) => s.user);
 
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
@@ -158,7 +158,17 @@ export default function ChatScreen() {
     queryKey: ['conversations'],
     queryFn: async () => {
       const res = await api.get('/api/conversation');
-      return res.data?.conversations || res.data || [];
+      const fetchedConversations = res.data?.conversations || res.data || [];
+      
+      // Cleanup orphaned SQLite messages asynchronously
+      if (fetchedConversations.length > 0) {
+        setTimeout(() => {
+          const activeIds = fetchedConversations.map((c: any) => c._id);
+          cleanupOrphanedConversations(activeIds);
+        }, 1000);
+      }
+      
+      return fetchedConversations;
     },
   });
 
@@ -236,6 +246,37 @@ export default function ChatScreen() {
     } catch (e: any) {
       const errorMsg = e.response?.data?.message || 'Failed to start conversation.';
       Alert.alert('Error', errorMsg);
+    }
+  };
+
+  const [createGroupModalVisible, setCreateGroupModalVisible] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupMembers, setGroupMembers] = useState<SearchUser[]>([]);
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || groupMembers.length === 0) {
+      Alert.alert('Error', 'Please enter a group name and add at least one member.');
+      return;
+    }
+    try {
+      const res = await api.post('/api/conversation/group/create', {
+        name: groupName,
+        participantIds: groupMembers.map(m => m._id)
+      });
+      if (res.data?._id) {
+        setCreateGroupModalVisible(false);
+        setGroupName('');
+        setGroupMembers([]);
+        setSearchQuery('');
+        setSearchResults([]);
+        navigation.navigate('ChatPane', {
+          conversationId: res.data._id,
+          title: groupName,
+          isGroup: true
+        });
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.message || 'Failed to create group');
     }
   };
 
@@ -336,7 +377,7 @@ export default function ChatScreen() {
       {/* Customized Header */}
       <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: borderColor }]}>
         <TouchableOpacity
-          onPress={() => setSearchModalVisible(true)}
+          onPress={() => navigation.navigate('StoryCamera')}
           style={styles.headerLeftBtn}
         >
           <MaterialCommunityIcons name="plus" size={26} color={textColor} />
@@ -346,19 +387,28 @@ export default function ChatScreen() {
           {currentUser?.username ? `@${currentUser.username}` : 'Conversations'}
         </Text>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Notifications')}
-          style={styles.headerRightBtn}
-        >
-          <View style={styles.badgeWrapper}>
-            {unreadNotificationsCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
-              </View>
-            )}
-            <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
-          </View>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            onPress={() => { setCreateGroupModalVisible(true); setSearchQuery(''); setSearchResults([]); }}
+            style={[styles.headerRightBtn, { marginRight: 8 }]}
+          >
+            <MaterialCommunityIcons name="account-multiple-plus-outline" size={24} color={textColor} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Notifications')}
+            style={styles.headerRightBtn}
+          >
+            <View style={styles.badgeWrapper}>
+              {unreadNotificationsCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
+                </View>
+              )}
+              <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Conversation Search Bar */}
@@ -478,6 +528,100 @@ export default function ChatScreen() {
                     </Text>
                   </View>
                 )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Group Modal */}
+      <Modal
+        visible={createGroupModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setCreateGroupModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#121212' : '#ffffff' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: borderColor }]}>
+              <Text style={[styles.modalTitle, { color: textColor }]}>New Group</Text>
+              <TouchableOpacity onPress={() => setCreateGroupModalVisible(false)} style={styles.closeBtn}>
+                <MaterialCommunityIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 16 }}>
+              <TextInput
+                style={[styles.searchInput, { color: textColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6', marginBottom: 16 }]}
+                placeholder="Group Name"
+                placeholderTextColor={subColor}
+                value={groupName}
+                onChangeText={setGroupName}
+              />
+              
+              <Text style={{ color: subColor, marginBottom: 8, fontSize: 12 }}>MEMBERS ({groupMembers.length})</Text>
+              {groupMembers.length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12, gap: 8 }}>
+                  {groupMembers.map(m => (
+                    <TouchableOpacity key={m._id} style={{ backgroundColor: '#e0e7ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}
+                      onPress={() => setGroupMembers(prev => prev.filter(x => x._id !== m._id))}>
+                      <Text style={{ color: '#4f46e5', fontSize: 12, marginRight: 4 }}>{m.fullname}</Text>
+                      <MaterialCommunityIcons name="close" size={14} color="#4f46e5" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <View style={[styles.searchBarContainer, { marginBottom: 16 }]}>
+                <MaterialCommunityIcons name="magnify" size={20} color={subColor} style={{ marginLeft: 8 }} />
+                <TextInput
+                  style={[styles.searchInput, { color: textColor }]}
+                  placeholder="Add people..."
+                  placeholderTextColor={subColor}
+                  value={searchQuery}
+                  onChangeText={handleSearchUsers}
+                />
+              </View>
+
+              <TouchableOpacity onPress={handleCreateGroup} style={{ backgroundColor: '#808bf5', padding: 12, borderRadius: 8, alignItems: 'center', opacity: (!groupName.trim() || groupMembers.length === 0) ? 0.5 : 1 }} disabled={!groupName.trim() || groupMembers.length === 0}>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>Create Group</Text>
+              </TouchableOpacity>
+            </View>
+
+            {searching ? (
+              <ActivityIndicator color="#808bf5" style={{ padding: 20 }} />
+            ) : (
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+                renderItem={({ item }) => {
+                  const isSelected = groupMembers.some(m => m._id === item._id);
+                  return (
+                    <TouchableOpacity
+                      style={styles.userListItem}
+                      onPress={() => {
+                        if (isSelected) setGroupMembers(prev => prev.filter(m => m._id !== item._id));
+                        else setGroupMembers(prev => [...prev, item]);
+                      }}
+                    >
+                      {item.profile_picture ? (
+                        <Image source={{ uri: item.profile_picture }} style={styles.searchAvatar} />
+                      ) : (
+                        <View style={styles.searchAvatarFallback}>
+                          <Text style={styles.searchAvatarInitial}>{item.fullname[0].toUpperCase()}</Text>
+                        </View>
+                      )}
+                      <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={[styles.searchFullname, { color: textColor }]}>{item.fullname}</Text>
+                        <Text style={[styles.searchUsername, { color: subColor }]}>@{item.username}</Text>
+                      </View>
+                      {isSelected && (
+                        <MaterialCommunityIcons name="check-circle" size={24} color="#808bf5" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
               />
             )}
           </View>

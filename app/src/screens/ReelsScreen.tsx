@@ -25,7 +25,7 @@ const { height } = Dimensions.get('window');
 export default function ReelsScreen({ navigation }: any) {
   const isFocused = useIsFocused();
   const { currentTab } = useTabStore();
-  const loggedUser = useAuthStore((s: any) => s.user);
+  const loggedUser = useAuthStore((s) => s.user);
 
   const [reels, setReels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,8 +143,6 @@ export default function ReelsScreen({ navigation }: any) {
           contentContainerStyle={{ paddingBottom: 60 }}
         />
       )}
-
-      <BottomNav currentTab="reels" navigation={navigation} />
     </SafeAreaView>
   );
 }

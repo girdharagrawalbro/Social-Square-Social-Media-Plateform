@@ -496,12 +496,29 @@ export default function ProfileScreen({ navigation, route }: any) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 40 }}>
           <MaterialCommunityIcons name="flag-outline" size={48} color={subText} />
-          <Text style={{ color: subText, marginTop: 12 }}>No goals set yet.</Text>
+          <Text style={{ color: subText, marginTop: 12, marginBottom: 20 }}>No goals set yet.</Text>
+          {isOwner && (
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('GoalCreate')}
+              style={{ backgroundColor: '#808bf5', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Create Goal</Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
     return (
       <View style={{ gap: 12 }}>
+        {isOwner && (
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('GoalCreate')}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: cardBg, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: border, borderStyle: 'dashed' }}
+          >
+            <MaterialCommunityIcons name="plus" size={24} color="#808bf5" />
+            <Text style={{ color: '#808bf5', fontWeight: 'bold', marginLeft: 8 }}>Create New Goal</Text>
+          </TouchableOpacity>
+        )}
         {goals.map((g: any) => {
           const completedMilestones = (g.milestones || []).filter((m: any) => m.completed).length;
           const totalMilestones = (g.milestones || []).length;
@@ -1358,7 +1375,25 @@ export default function ProfileScreen({ navigation, route }: any) {
                 <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
               </TouchableOpacity>
 
-              {/* Active Sessions & Security */}
+              {/* Password & Security */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('PasswordSecurity');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="shield-lock-outline" size={22} color="#f59e0b" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Password & Security</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Change password and update security settings</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Active Sessions */}
               <TouchableOpacity
                 style={[styles.settingsRow, { borderColor: border }]}
                 onPress={() => {
@@ -1367,11 +1402,29 @@ export default function ProfileScreen({ navigation, route }: any) {
                 }}
               >
                 <View style={styles.settingsIconWrapper}>
-                  <MaterialCommunityIcons name="key-outline" size={22} color="#f59e0b" />
+                  <MaterialCommunityIcons name="cellphone-link" size={22} color="#f59e0b" />
                 </View>
                 <View style={styles.settingsTextWrapper}>
-                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Active Sessions & Security</Text>
-                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Manage logged in devices and 2FA settings</Text>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Active Sessions</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Manage logged in devices</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
+              </TouchableOpacity>
+
+              {/* Help & Support */}
+              <TouchableOpacity
+                style={[styles.settingsRow, { borderColor: border }]}
+                onPress={() => {
+                  setSettingsVisible(false);
+                  navigation.navigate('Contact');
+                }}
+              >
+                <View style={styles.settingsIconWrapper}>
+                  <MaterialCommunityIcons name="lifebuoy" size={22} color="#0ea5e9" />
+                </View>
+                <View style={styles.settingsTextWrapper}>
+                  <Text style={[styles.settingsRowTitle, { color: textColor }]}>Help & Support</Text>
+                  <Text style={[styles.settingsRowDesc, { color: subText }]}>Contact us or report an issue</Text>
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
               </TouchableOpacity>

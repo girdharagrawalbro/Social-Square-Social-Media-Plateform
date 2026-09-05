@@ -106,7 +106,7 @@ const ModalBody = ({
   bg,
   primaryColor,
 }: ModalBodyProps) => {
-  const loggedUser = useAuthStore((s: any) => s.user);
+  const loggedUser = useAuthStore((s) => s.user);
 
   // Collab Search States
   const [collabQuery, setCollabQuery] = useState('');
@@ -614,7 +614,7 @@ export default function NewPostScreen() {
 
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
-  const user = useAuthStore((s: any) => s.user);
+  const user = useAuthStore((s) => s.user);
 
   // Core Form states
   const [caption, setCaption] = useState('');

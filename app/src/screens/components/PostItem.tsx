@@ -101,7 +101,7 @@ let activePlayersCount = 0;
 
 export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackButton = false }: PostItemProps) => {
   const navigation = useNavigation<any>();
-  const loggedUser = useAuthStore((s: any) => s.user);
+  const loggedUser = useAuthStore((s) => s.user);
 
   const resolveMediaUrl = (url?: string) => {
     if (!url) return undefined;
@@ -183,7 +183,9 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   // Effective video URL: use decrypted local path if encrypted, otherwise direct URL
   const videoUrl = isEncryptedVideo ? decryptedVideoPath : rawVideoUrl;
 
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(
+    post.likes?.some((id: any) => id?.toString() === loggedUser?._id?.toString()) || false
+  );
   const [likeCount, setLikeCount] = useState(post.likes?.length || 0);
   const [saved, setSaved] = useState(
     loggedUser?.savedPosts?.some((id: any) => id?.toString() === post._id?.toString()) || false
@@ -193,6 +195,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   const [shareVisible, setShareVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const videoRef = useRef(null);
+  const scrollRef = useRef<ScrollView>(null);
   const isFocused = useIsFocused();
 
   // ── Video playback state ────────────────────────────────────────────────
@@ -353,7 +356,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   }, [post.reactions]);
 
   // ── Broadcast: POST_LIKE_COUNT — emit when this user likes; sync when another card emits
-  const toggleLike = useCallback(() => {
+  const toggleLike = useCallback(async () => {
     const nextLiked = !liked;
     const nextCount = nextLiked ? likeCount + 1 : likeCount - 1;
     setLiked(nextLiked);
@@ -364,6 +367,16 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
       count: nextCount,
       liked: nextLiked,
     });
+    
+    try {
+      if (nextLiked) {
+        await api.post('/api/post/like', { postId: post._id });
+      } else {
+        await api.post('/api/post/unlike', { postId: post._id });
+      }
+    } catch (err) {
+      console.warn('Failed to sync like on server:', err);
+    }
   }, [liked, likeCount, post._id]);
 
   useBroadcast('POST_LIKE_COUNT', useCallback(({ postId, count, liked: incomingLiked }) => {
@@ -645,6 +658,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           {!post.isBeforeAfter && !post.video && post.image_urls && post.image_urls.length > 1 ? (
             <View style={{ width: '100%', position: 'relative' }}>
               <ScrollView
+                ref={scrollRef}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
@@ -659,11 +673,31 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                   <FastImage
                     key={index}
                     source={{ uri: resolveMediaUrl(url) }}
-                    style={{ width: screenWidth - 24, aspectRatio: 1.2, borderRadius: 12 }}
+                    style={{ width: screenWidth - 24, aspectRatio: 1.2 }}
                     resizeMode={FastImage.resizeMode.cover}
                   />
                 ))}
               </ScrollView>
+              
+              {/* Left Arrow */}
+              {activeIndex > 0 && (
+                <TouchableOpacity 
+                  onPress={() => scrollRef.current?.scrollTo({ x: (activeIndex - 1) * (screenWidth - 24), animated: true })}
+                  style={{ position: 'absolute', left: 8, top: '45%', backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <MaterialCommunityIcons name="chevron-left" size={24} color="#fff" />
+                </TouchableOpacity>
+              )}
+              
+              {/* Right Arrow */}
+              {activeIndex < post.image_urls.length - 1 && (
+                <TouchableOpacity 
+                  onPress={() => scrollRef.current?.scrollTo({ x: (activeIndex + 1) * (screenWidth - 24), animated: true })}
+                  style={{ position: 'absolute', right: 8, top: '45%', backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
+                </TouchableOpacity>
+              )}
               {/* Pagination Dots */}
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
                 {post.image_urls.map((_: any, index: number) => (
@@ -683,7 +717,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
 
           {/* Post Single Image */}
           {!post.isBeforeAfter && !post.video && imageUrl && (!post.image_urls || post.image_urls.length <= 1) ? (
-            <View style={{ position: 'relative', width: '100%', aspectRatio, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', borderRadius: 12, overflow: 'hidden' }}>
+            <View style={{ position: 'relative', width: '100%', aspectRatio, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', overflow: 'hidden' }}>
               {imageLoading && (
                 <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
                   <ActivityIndicator size="small" color="#808bf5" />

@@ -21,8 +21,8 @@ import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 export default function CloseFriendsScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
-  const loggedUser = useAuthStore((s: any) => s.user);
-  const setUser = useAuthStore((s: any) => s.setUser);
+  const loggedUser = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
 
   const [following, setFollowing] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');

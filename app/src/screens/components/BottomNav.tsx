@@ -27,7 +27,7 @@ const navItems = [
 ];
 
 export default function BottomNav({ currentTab, navigation }: { currentTab: string; navigation: any }) {
-  const user = useAuthStore((s: any) => s.user);
+  const user = useAuthStore((s) => s.user);
   const { currentTab: storeTab, setTab } = useTabStore();
   const activeTab = storeTab || currentTab;
 

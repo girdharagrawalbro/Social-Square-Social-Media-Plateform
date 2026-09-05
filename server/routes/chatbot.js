@@ -125,7 +125,7 @@ router.post('/chat', rateLimiter, softVerifyToken, [
         }
 
         const completion = await client.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
+            model: 'openai/gpt-oss-20b',
             messages: fullMessages,
             temperature: 0.2,
             top_p: 0.7,
@@ -173,7 +173,7 @@ router.post('/suggest-captions', rateLimiter, softVerifyToken, [
         const prompt = `Generate 5 engaging social media captions for a post about: "${topic || imageDescription || 'general life'}". ${mood ? `Mood/vibe: ${mood}.` : ''} Include relevant hashtags. Number them 1-5. Keep each under 2 sentences.`;
 
         const completion = await client.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
+            model: 'openai/gpt-oss-20b',
             messages: [
                 { role: 'user', content: `You are a creative social media content writer. ${prompt}` },
             ],

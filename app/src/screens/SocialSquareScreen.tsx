@@ -206,7 +206,7 @@ export default function SocialSquareScreen({ navigation }: any) {
         </View>
       ) : (
         <FlatList
-          data={posts}
+          data={[{ _id: 'mood_selector', type: 'mood_selector' } as any, ...posts]}
           keyExtractor={(item) => item._id}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -214,24 +214,31 @@ export default function SocialSquareScreen({ navigation }: any) {
           initialNumToRender={5}
           maxToRenderPerBatch={5}
           windowSize={5}
-          renderItem={({ item }) => (
-            <PostItem 
-              post={item} 
-              isDark={isDark} 
-              isVisible={viewableItems.includes(item._id) && currentTab === 'feed'} 
-            />
-          )}
+          stickyHeaderIndices={[1]}
+          renderItem={({ item }) => {
+            if (item.type === 'mood_selector') {
+              return (
+                <View style={{ backgroundColor: bg }}>
+                  <MoodFeedToggle
+                    activeMood={activeMood}
+                    onMoodSelect={handleMoodSelect}
+                    onClear={handleClearMood}
+                  />
+                </View>
+              );
+            }
+            return (
+              <PostItem 
+                post={item} 
+                isDark={isDark} 
+                isVisible={viewableItems.includes(item._id) && currentTab === 'feed'} 
+              />
+            );
+          }}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={VIEWABILITY_CONFIG}
           ListHeaderComponent={
-            <View>
-              <StoriesStrip />
-              <MoodFeedToggle
-                activeMood={activeMood}
-                onMoodSelect={handleMoodSelect}
-                onClear={handleClearMood}
-              />
-            </View>
+            <StoriesStrip />
           }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} colors={['#808bf5']} />

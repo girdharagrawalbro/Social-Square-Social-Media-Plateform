@@ -85,7 +85,7 @@ const COLOR_OPTIONS = ['#ffffff', '#facc15', '#60a5fa', '#f87171', '#4ade80', '#
 
 export default function StoriesStrip() {
   const isDark = useColorScheme() === 'dark';
-  const myUser = useAuthStore((s: any) => s.user);
+  const myUser = useAuthStore((s) => s.user);
   const { setLiveStream } = useLiveStore();
   const navigation = useNavigation<any>();
   const [feed, setFeed] = useState<GroupedStory[]>([]);

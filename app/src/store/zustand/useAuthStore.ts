@@ -26,14 +26,25 @@ export function getToken() {
   return useAuthStore.getState().token;
 }
 
+export interface User {
+  _id: string;
+  fullname: string;
+  email: string;
+  profile_picture?: string;
+  bio?: string;
+  username?: string;
+  isVerified?: boolean;
+  [key: string]: any; // fallback for other dynamic fields
+}
+
 interface AuthState {
-  user: any | null;
+  user: User | null;
   token: string | null;
   sessionId: string | null;
   loading: boolean;
   initialized: boolean;
   isMaintenance: boolean;
-  setUser: (user: any) => Promise<void>;
+  setUser: (user: User | null) => Promise<void>;
   updateAuthToken: (token: string | null, sessionId?: string) => Promise<void>;
   setInitialized: (initialized: boolean) => void;
   initAuth: () => Promise<void>;
@@ -44,7 +55,7 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set: any, get: any) => ({
+export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   token: null,
   sessionId: null,
@@ -52,7 +63,7 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
   initialized: false,
   isMaintenance: false,
 
-  setUser: async (user: any) => {
+  setUser: async (user: User | null) => {
     if (user) {
       await AsyncStorage.setItem('auth_user', JSON.stringify(user));
     } else {
@@ -66,7 +77,7 @@ export const useAuthStore = create<AuthState>((set: any, get: any) => ({
     } else {
       await clearSecureToken();
     }
-    set((state: any) => ({
+    set((state) => ({
       token,
       ...(sessionId !== undefined ? { sessionId } : {}),
     }));

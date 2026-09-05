@@ -144,7 +144,7 @@ export default function LiveStreamScreen({ streamId, isHost, onClose }: LiveStre
     );
   }
 
-  const loggedUser = useAuthStore((s: any) => s.user);
+  const loggedUser = useAuthStore((s) => s.user);
   const isDark = useColorScheme() === 'dark';
 
   const [token, setToken] = useState('');

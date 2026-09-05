@@ -59,7 +59,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import useAuthStore from './src/store/zustand/useAuthStore';
 import { CustomToastContainer } from './src/lib/CustomToast';
 import { PostHogProvider } from 'posthog-react-native';
-import { PostHogSessionReplayPlugin } from 'posthog-react-native-session-replay';
+
 import { POSTHOG_API_KEY, POSTHOG_HOST } from './src/lib/posthog';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './src/lib/queryClient';
@@ -91,6 +91,9 @@ import ChatbotScreen from './src/screens/ChatbotScreen';
 import CommunitiesScreen from './src/screens/CommunitiesScreen';
 import WikiDetailScreen from './src/screens/WikiDetailScreen';
 import CreatorInsightsScreen from './src/screens/CreatorInsightsScreen';
+import GoalCreateScreen from './src/screens/GoalCreateScreen';
+import PasswordSecurityScreen from './src/screens/PasswordSecurityScreen';
+import ContactScreen from './src/screens/ContactScreen';
 import { getSocket, connectSocket, disconnectSocket } from './src/lib/socket';
 
 export const navigationRef = createNavigationContainerRef();
@@ -166,67 +169,86 @@ function App() {
     };
   }, []);
 
+  const linking = {
+    prefixes: ['socialsquare://'],
+    config: {
+      screens: {
+        ChatPane: 'chat/:conversationId',
+        PostDetail: 'post/:postId',
+        Profile: 'profile/:userId',
+      },
+    },
+  };
+
   const renderAppContent = () => {
-    const mainContent = (
+    const stackNavigator = (
+      <Stack.Navigator
+        initialRouteName="Splash"
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        <Stack.Screen name="Splash" component={SplashScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
+        <Stack.Screen name="Forgot" component={ForgotScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        <Stack.Screen name="SocialSquare" component={MainTabsScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'none' }} />
+        <Stack.Screen name="ChatPane" component={ChatPaneScreen} />
+        <Stack.Screen name="Explore" component={ExploreScreen} options={{ animation: 'none' }} />
+        <Stack.Screen name="Reels" component={ReelsScreen} options={{ animation: 'none' }} />
+        <Stack.Screen name="Pulse" component={PulseScreen} />
+        <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'none' }} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="NewPost" component={NewPostScreen} />
+        <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+        <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+        <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
+        <Stack.Screen name="CloseFriends" component={CloseFriendsScreen} />
+        <Stack.Screen name="Call" component={CallScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
+        <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="Communities" component={CommunitiesScreen} />
+        <Stack.Screen name="WikiDetail" component={WikiDetailScreen} />
+        <Stack.Screen name="CreatorInsights" component={CreatorInsightsScreen} />
+        <Stack.Screen name="GoalCreate" component={GoalCreateScreen} />
+        <Stack.Screen name="PasswordSecurity" component={PasswordSecurityScreen} />
+        <Stack.Screen name="Contact" component={ContactScreen} />
+      </Stack.Navigator>
+    );
+
+    // PostHogProvider must be INSIDE NavigationContainer so its internal
+    // useNavigationTracker hook has access to the navigation context.
+    const innerContent = POSTHOG_API_KEY ? (
+      <PostHogProvider
+        apiKey={POSTHOG_API_KEY}
+        options={{
+          host: POSTHOG_HOST,
+          enableSessionReplay: true,
+        }}
+        // captureScreens must be set via the autocapture prop (not options).
+        // Setting captureScreens: false here prevents PostHogNavigationHook
+        // from mounting and calling useNavigationState inside a non-screen context.
+        autocapture={{ captureScreens: false }}
+      >
+        {stackNavigator}
+      </PostHogProvider>
+    ) : stackNavigator;
+
+    return (
       <>
-        <NavigationContainer ref={navigationRef}>
-          <Stack.Navigator
-            initialRouteName="Splash"
-            screenOptions={{
-              headerShown: false,
-              animation: 'slide_from_right',
-              gestureEnabled: true,
-            }}
-          >
-            <Stack.Screen name="Splash" component={SplashScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Signup" component={SignupScreen} />
-            <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
-            <Stack.Screen name="Forgot" component={ForgotScreen} />
-            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-            <Stack.Screen name="SocialSquare" component={MainTabsScreen} />
-            <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'none' }} />
-            <Stack.Screen name="ChatPane" component={ChatPaneScreen} />
-            <Stack.Screen name="Explore" component={ExploreScreen} options={{ animation: 'none' }} />
-            <Stack.Screen name="Reels" component={ReelsScreen} options={{ animation: 'none' }} />
-            <Stack.Screen name="Pulse" component={PulseScreen} />
-            <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'none' }} />
-            <Stack.Screen name="Notifications" component={NotificationsScreen} />
-            <Stack.Screen name="NewPost" component={NewPostScreen} />
-            <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-            <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-            <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
-            <Stack.Screen name="CloseFriends" component={CloseFriendsScreen} />
-            <Stack.Screen name="Call" component={CallScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
-            <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ gestureEnabled: false }} />
-            <Stack.Screen name="Communities" component={CommunitiesScreen} />
-            <Stack.Screen name="WikiDetail" component={WikiDetailScreen} />
-            <Stack.Screen name="CreatorInsights" component={CreatorInsightsScreen} />
-          </Stack.Navigator>
+        <NavigationContainer ref={navigationRef} linking={linking}>
+          {innerContent}
         </NavigationContainer>
         <CustomToastContainer />
       </>
     );
-
-    if (POSTHOG_API_KEY) {
-      return (
-        <PostHogProvider
-          apiKey={POSTHOG_API_KEY}
-          options={{
-            host: POSTHOG_HOST,
-            // Enable session replay with manual start/stop control
-            disable_session_recording: true,
-            plugins: [new PostHogSessionReplayPlugin()],
-          }}
-        >
-          {mainContent}
-        </PostHogProvider>
-      );
-    }
-
-    return mainContent;
   };
+
 
   return (
     <QueryClientProvider client={queryClient}>

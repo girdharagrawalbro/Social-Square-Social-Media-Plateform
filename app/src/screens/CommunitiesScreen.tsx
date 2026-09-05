@@ -39,7 +39,7 @@ interface Group {
 export default function CommunitiesScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
-  const user = useAuthStore((s: any) => s.user);
+  const user = useAuthStore((s) => s.user);
 
   const [activeTab, setActiveTab] = useState<'confessions' | 'groups'>('confessions');
 

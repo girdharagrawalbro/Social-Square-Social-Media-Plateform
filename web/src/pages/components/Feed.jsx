@@ -4,6 +4,7 @@ import React, {
 import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
 import SkeletonPost from './ui/SkeletonPost';
+
 import { Dialog } from 'primereact/dialog';
 import { confirmDialog } from 'primereact/confirmdialog';
 import ReportDialog from './ui/ReportDialog';
@@ -651,80 +652,59 @@ const Feed = ({ activeMood = null }) => {
                 ) : (
                     <div className="mt-1 flex flex-col">
                         {displayPosts.length > 0 ? (
-                                    (() => {
-                                        // Use react-window virtualization for large lists
-                                        const { FixedSizeList: List } = require('react-window');
-
-                                        const Row = ({ index, style }) => {
-                                            const post = displayPosts[index];
-                                            return (
-                                                <div style={style} key={post._id ?? index}>
-                                                    <PostItem
-                                                        post={post}
-                                    user={user}
-                                    isLikedByMe={
-                                        optimisticLikes[post._id]
-                                            ? Array.from(optimisticLikes[post._id]).some(id => id?.toString() === user?._id?.toString())
-                                            : (post.likes ?? []).some(id => id?.toString() === user?._id?.toString())
-                                    }
-                                    likesCount={
-                                        optimisticLikes[post._id]
-                                            ? optimisticLikes[post._id].size
-                                            : (post.likes?.length ?? 0)
-                                    }
-                                    isSavedByMe={isSaved(post._id)}
-                                    isFollowing={user?.following?.some(f => f?.toString() === post.user?._id?.toString())}
-                                    heartVisible={!!heartVisible[post._id]}
-                                    visiblePostId={visiblePostId}
-                                    pickerPostId={pickerPostId}
-                                    savingPostIds={savingPostIds}
-                                    onLikeToggle={handleLikeToggle}
-                                    onImageDoubleClick={handleImageDoubleClick}
-                                    onImageTap={handleImageTap}
-                                    onSave={handleSave}
-                                    onDelete={handleDelete}
-                                    onReport={handleReport}
-                                    onShareToStory={setSharingPostToStory}
-                                    onProfileClick={handleProfileClick}
-                                    onSharePost={setSharePost}
-                                    onEdit={(p) => { 
-                                         setEditingPost(p); 
-                                         setEditCaption(p.caption || ''); 
-                                         setEditSettings({
-                                             hideLikeCount: p.settings?.hideLikeCount || false,
-                                             hideCommentCount: p.settings?.hideCommentCount || false,
-                                             hideShareCount: p.settings?.hideShareCount || false,
-                                             disableComments: p.settings?.disableComments || false,
-                                             allowedCommenters: p.settings?.allowedCommenters || 'everyone'
-                                         });
-                                     }}
-                                    setVisibleCommentId={setVisiblePostId}
-                                    setPickerPostId={setPickerPostId}
-                                    handleDwell={handleDwell}
-                                    handleReact={handleReact}
-                                    renderCaption={renderCaption}
-                                    onFollow={handleFollowClick}
-                                    onLikesClick={(ids) => { setLikesIds(ids); setLikesVisible(true); }}
-                                    onMute={handleMute}
-                                    onBlock={handleBlock}
+                                    displayPosts.map((post, index) => (
+                                        <div className="mb-4" key={post._id ?? index}>
+                                            <PostItem
+                                                post={post}
+                                                user={user}
+                                                isLikedByMe={
+                                                    optimisticLikes[post._id]
+                                                        ? Array.from(optimisticLikes[post._id]).some(id => id?.toString() === user?._id?.toString())
+                                                        : (post.likes ?? []).some(id => id?.toString() === user?._id?.toString())
+                                                }
+                                                likesCount={
+                                                    optimisticLikes[post._id]
+                                                        ? optimisticLikes[post._id].size
+                                                        : (post.likes?.length ?? 0)
+                                                }
+                                                isSavedByMe={isSaved(post._id)}
+                                                isFollowing={user?.following?.some(f => f?.toString() === post.user?._id?.toString())}
+                                                heartVisible={!!heartVisible[post._id]}
+                                                visiblePostId={visiblePostId}
+                                                pickerPostId={pickerPostId}
+                                                savingPostIds={savingPostIds}
+                                                onLikeToggle={handleLikeToggle}
+                                                onImageDoubleClick={handleImageDoubleClick}
+                                                onImageTap={handleImageTap}
+                                                onSave={handleSave}
+                                                onDelete={handleDelete}
+                                                onReport={handleReport}
+                                                onShareToStory={setSharingPostToStory}
+                                                onProfileClick={handleProfileClick}
+                                                onSharePost={setSharePost}
+                                                onEdit={(p) => { 
+                                                    setEditingPost(p); 
+                                                    setEditCaption(p.caption || ''); 
+                                                    setEditSettings({
+                                                        hideLikeCount: p.settings?.hideLikeCount || false,
+                                                        hideCommentCount: p.settings?.hideCommentCount || false,
+                                                        hideShareCount: p.settings?.hideShareCount || false,
+                                                        disableComments: p.settings?.disableComments || false,
+                                                        allowedCommenters: p.settings?.allowedCommenters || 'everyone'
+                                                    });
+                                                }}
+                                                setVisibleCommentId={setVisiblePostId}
+                                                setPickerPostId={setPickerPostId}
+                                                handleDwell={handleDwell}
+                                                handleReact={handleReact}
+                                                renderCaption={renderCaption}
+                                                onFollow={handleFollowClick}
+                                                onLikesClick={(ids) => { setLikesIds(ids); setLikesVisible(true); }}
+                                                onMute={handleMute}
+                                                onBlock={handleBlock}
                                             />
                                         </div>
-                                    );
-                                };
-
-                                const avgHeight = 420; // tuned estimate; adjust as needed
-
-                                return (
-                                    <List
-                                        height={Math.min(window.innerHeight - 120, displayPosts.length * avgHeight)}
-                                        itemCount={displayPosts.length}
-                                        itemSize={avgHeight}
-                                        width={'100%'}
-                                    >
-                                        {Row}
-                                    </List>
-                                );
-                            })()
+                                    ))
                         ) : (
                             <EmptyFeed activeMood={activeMood} isDark={isDark} onExplore={() => navigate('/explore')} />
                         )}

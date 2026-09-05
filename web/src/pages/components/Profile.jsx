@@ -427,7 +427,7 @@ const Profile = ({ userId }) => {
                 <div className="bg-[var(--surface-1)] flex flex-col min-h-screen">
 
                     {/* Header: Sticky Profile Info */}
-                    <div className="bg-[var(--surface-1)] bg-opacity-90 backdrop-blur-md py-2 sm:py-0 sm:px-0 sm:mx-0 sm:px-0 max-w-xl w-full mx-auto">
+                    <div className="bg-[var(--surface-1)] bg-opacity-90 backdrop-blur-md py-2 sm:py-0 px-2 sm:px-0 max-w-xl w-full mx-auto">
                         {/* Avatar + identity */}
                         <div className="flex items-center justify-center text-center flex-col gap-1 mb-3">
                             <div className="relative">

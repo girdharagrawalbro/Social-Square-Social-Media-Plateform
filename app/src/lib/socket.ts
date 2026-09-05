@@ -13,7 +13,7 @@ export const getSocket = (): Socket => {
   return socket;
 };
 
-import { invalidateCache } from './cache';
+import { queryClient } from './queryClient';
 
 export const connectSocket = (userId: string) => {
   const s = getSocket();
@@ -24,52 +24,52 @@ export const connectSocket = (userId: string) => {
 
     // Global real-time cache invalidations on socket event receipts
     s.on('sessionRevoked', async () => {
-      await invalidateCache('active_sessions');
+      await queryClient.invalidateQueries({ queryKey: ['active_sessions'] });
       console.log('[Socket Cache Sync] Invalidated active_sessions due to session revocation');
     });
 
     s.on('deviceLogin', async () => {
-      await invalidateCache('active_sessions');
+      await queryClient.invalidateQueries({ queryKey: ['active_sessions'] });
       console.log('[Socket Cache Sync] Invalidated active_sessions due to new device login');
     });
 
     s.on('newFeedPost', async (post: any) => {
-      await invalidateCache('feed');
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
       if (post && post.user) {
         const uId = post.user._id || post.user;
-        await invalidateCache(`profile_posts_${uId}`);
+        await queryClient.invalidateQueries({ queryKey: ['profile_posts', uId] });
       }
       console.log('[Socket Cache Sync] Invalidated feed and user posts due to new post');
     });
 
     s.on('postDeleted', async (data: any) => {
-      await invalidateCache('feed');
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
       if (data && data.userId) {
-        await invalidateCache(`profile_posts_${data.userId}`);
+        await queryClient.invalidateQueries({ queryKey: ['profile_posts', data.userId] });
       }
       console.log('[Socket Cache Sync] Invalidated feed and profile posts due to post deletion');
     });
 
     s.on('profileUpdated', async (data: any) => {
       if (data && data.userId) {
-        await invalidateCache(`profile_${data.userId}`);
+        await queryClient.invalidateQueries({ queryKey: ['profile', data.userId] });
       }
       console.log('[Socket Cache Sync] Invalidated profile cache due to profile update');
     });
 
     s.on('newNotification', async () => {
-      await invalidateCache('notifications');
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       console.log('[Socket Cache Sync] Invalidated notifications due to new notification');
     });
 
     s.on('conversationUpdated', async () => {
-      await invalidateCache('conversations');
+      await queryClient.invalidateQueries({ queryKey: ['conversations'] });
       console.log('[Socket Cache Sync] Invalidated conversations due to conversation update');
     });
 
     s.on('receiveMessage', async (msg: any) => {
       if (msg && msg.conversationId) {
-        await invalidateCache(`chat_messages_${msg.conversationId}`);
+        await queryClient.invalidateQueries({ queryKey: ['conversations'] }); // to update snippet
       }
       console.log('[Socket Cache Sync] Invalidated messages due to new message');
     });
@@ -77,16 +77,8 @@ export const connectSocket = (userId: string) => {
     s.on('followUpdate', async (data: any) => {
       if (data) {
         const targetId = data.targetId || data.requesterId;
-        await invalidateCache(`follows_following_${userId}`);
-        await invalidateCache(`follows_followers_${userId}`);
-        await invalidateCache(`follows_following_${userId}_limit100`);
-        if (targetId) {
-          await invalidateCache(`follows_following_${targetId}`);
-          await invalidateCache(`follows_followers_${targetId}`);
-          await invalidateCache(`follows_following_${targetId}_limit100`);
-          await invalidateCache(`profile_${targetId}`);
-        }
-        await invalidateCache(`profile_${userId}`);
+        await queryClient.invalidateQueries({ queryKey: ['follows'] });
+        await queryClient.invalidateQueries({ queryKey: ['profile'] });
       }
       console.log('[Socket Cache Sync] Invalidated follows list and profiles due to followUpdate');
     });
