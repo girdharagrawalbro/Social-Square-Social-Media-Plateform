@@ -29,6 +29,8 @@ import { api } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import { getMessagesFromDB, upsertMessages, markMessagesRead, deleteMessageInDB } from '../lib/db';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { usePresenceStore } from '../store/zustand/usePresenceStore';
+import { getSocket } from '../lib/socket';
 import ZoomableImage from './components/ZoomableImage';
 import { ChatMessageSkeleton } from './components/SkeletonLoader';
 import useE2eeStore from '../store/zustand/useE2eeStore';
@@ -36,6 +38,8 @@ import { decryptText, encryptText } from '../lib/cryptoUtils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import GroupSettingsModal from './components/GroupSettingsModal';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import Video from 'react-native-video';
+const VideoComponent = Video as any;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const audioRecorderPlayer = new AudioRecorderPlayer();
@@ -43,6 +47,43 @@ const audioRecorderPlayer = new AudioRecorderPlayer();
 const decryptionCache = new Map<string, string>();
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+
+// ─── VOICE NOTE PLAYBACK BAR ─────────────────────────────────────────────────
+function VoiceNoteBar({ isPlaying, currentTime, duration, onPlayPause, onSeek, iconColor, trackColor, labelColor }: any) {
+  const trackWidth = useRef(140);
+  const progressPct = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+  const formatMs = (ms: number) => {
+    const totalSecs = Math.floor(ms / 1000);
+    const m = Math.floor(totalSecs / 60);
+    const s = totalSecs % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 180 }}>
+      <TouchableOpacity onPress={onPlayPause}>
+        <MaterialCommunityIcons name={isPlaying ? 'pause-circle' : 'play-circle'} size={30} color={iconColor} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={{ flex: 1, height: 20, justifyContent: 'center' }}
+        disabled={!isPlaying || duration <= 0}
+        onLayout={(e) => { trackWidth.current = e.nativeEvent.layout.width; }}
+        onPress={(e) => {
+          if (!isPlaying || duration <= 0) return;
+          const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / trackWidth.current));
+          onSeek(ratio * duration);
+        }}
+      >
+        <View style={{ height: 3, borderRadius: 2, backgroundColor: trackColor, overflow: 'hidden' }}>
+          <View style={{ height: '100%', width: `${progressPct * 100}%`, backgroundColor: iconColor }} />
+        </View>
+      </TouchableOpacity>
+      <Text style={{ color: labelColor, fontSize: 11, minWidth: 32 }}>
+        {isPlaying && duration > 0 ? formatMs(currentTime) : 'Voice'}
+      </Text>
+    </View>
+  );
+}
 
 // ─── DOUBLE TICK ─────────────────────────────────────────────────────────────
 const DoubleCheck = ({ isRead, isMe }: { isRead: boolean; isMe: boolean }) => {
@@ -76,9 +117,17 @@ function SwipeableBubble({
   onLongPress,
   onReply,
   onImagePress,
+  onVideoPress,
   onStoryPress,
   onPostPress,
+  onReplyQuotePress,
+  onRetry,
+  isPlayingAudio,
+  audioProgress,
+  onPlayAudio,
+  onSeekAudio,
   isHighlighted,
+  isJumpHighlighted,
   searchQuery,
 }: any) {
   const translateX = useRef(new Animated.Value(0)).current;
@@ -184,12 +233,15 @@ function SwipeableBubble({
           activeOpacity={0.85}
           style={isMe ? styles.bubbleRight : styles.bubbleLeft}>
           <View style={{ maxWidth: '100%' }}>
-            {/* Reply Quote */}
+            {/* Reply Quote — tap to jump to the original message */}
             {item.replyTo && !isDeleted && (
-              <View style={[styles.replyQuote, {
-                borderLeftColor: isMe ? 'rgba(255,255,255,0.6)' : '#808bf5',
-                backgroundColor: isMe ? 'rgba(0,0,0,0.12)' : (isDark ? '#334155' : '#e8eaf6'),
-              }]}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => onReplyQuotePress && onReplyQuotePress(item.replyTo._id)}
+                style={[styles.replyQuote, {
+                  borderLeftColor: isMe ? 'rgba(255,255,255,0.6)' : '#808bf5',
+                  backgroundColor: isMe ? 'rgba(0,0,0,0.12)' : (isDark ? '#334155' : '#e8eaf6'),
+                }]}>
                 <Text style={[styles.replyQuoteName, {
                   color: isMe ? 'rgba(255,255,255,0.9)' : '#808bf5',
                 }]}>
@@ -200,11 +252,13 @@ function SwipeableBubble({
                 }]} numberOfLines={1}>
                   {item.replyTo.decryptedContent || item.replyTo.content || '📎 Media'}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
 
             <View style={[styles.bubble, {
-              backgroundColor: (isSharedPost || isSharedProfile) ? 'transparent' : isMe ? '#808bf5' : incomingBg,
+              backgroundColor: isJumpHighlighted
+                ? 'rgba(250, 204, 21, 0.35)'
+                : (isSharedPost || isSharedProfile) ? 'transparent' : isMe ? '#808bf5' : incomingBg,
               borderTopRightRadius: isMe ? 4 : 18,
               borderTopLeftRadius: isMe ? 18 : 4,
               padding: (item.storyReply || item.media?.url || item.mediaUrl || item.decryptedMediaUrl) ? 5 : undefined,
@@ -325,10 +379,13 @@ function SwipeableBubble({
 
                   {/* Video Media */}
                   {(item.decryptedMediaUrl || item.mediaUrl) && item.mediaType === 'video' && !item.storyReply && (
-                    <View style={styles.videoPreview}>
+                    <TouchableOpacity
+                      style={styles.videoPreview}
+                      onPress={() => onVideoPress && onVideoPress(item.decryptedMediaUrl || item.mediaUrl)}
+                    >
                       <MaterialCommunityIcons name="play-circle" size={44} color="#fff" />
                       <Text style={{ color: '#fff', fontSize: 11, marginTop: 4 }}>Video</Text>
-                    </View>
+                    </TouchableOpacity>
                   )}
 
                   {/* media.url format (web-compatible) */}
@@ -338,16 +395,23 @@ function SwipeableBubble({
                     </TouchableOpacity>
                   )}
                   {item.media?.url && item.media?.type === 'video' && !item.storyReply && (
-                    <View style={styles.videoPreview}>
+                    <TouchableOpacity style={styles.videoPreview} onPress={() => onVideoPress && onVideoPress(item.media.url)}>
                       <MaterialCommunityIcons name="play-circle" size={44} color="#fff" />
-                    </View>
+                    </TouchableOpacity>
                   )}
-                  {item.media?.url && item.media?.type === 'audio' && !item.storyReply && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <MaterialCommunityIcons name="waveform" size={20} color={isMe ? '#fff' : '#808bf5'} />
-                      <Text style={{ color: isMe ? '#fff' : textColor, fontSize: 13 }}>Voice Note</Text>
-                    </View>
-                  )}
+                  {((item.decryptedMediaUrl || item.mediaUrl) && item.mediaType === 'audio' && !item.storyReply) ||
+                  (item.media?.url && item.media?.type === 'audio' && !item.storyReply) ? (
+                    <VoiceNoteBar
+                      isPlaying={!!isPlayingAudio}
+                      currentTime={audioProgress?.currentTime || 0}
+                      duration={audioProgress?.duration || 0}
+                      onPlayPause={() => onPlayAudio && onPlayAudio(item)}
+                      onSeek={(ms: number) => onSeekAudio && onSeekAudio(ms)}
+                      iconColor={isMe ? '#fff' : '#808bf5'}
+                      trackColor={isMe ? 'rgba(255,255,255,0.35)' : 'rgba(128,139,245,0.25)'}
+                      labelColor={isMe ? 'rgba(255,255,255,0.85)' : subColor}
+                    />
+                  ) : null}
                   {item.media?.url && item.media?.type === 'file' && !item.storyReply && (
                     <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                       onPress={() => Linking.openURL(item.media.url)}>
@@ -372,12 +436,26 @@ function SwipeableBubble({
                 </>
               )}
 
-              {/* Time + ticks */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 3, gap: 2 }}>
-                <Text style={[styles.timeText, { color: isMe ? 'rgba(255,255,255,0.65)' : '#64748b' }]}>
-                  {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                </Text>
-                <DoubleCheck isRead={!!item.isRead} isMe={isMe} />
+              {/* Time + ticks / send status */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 3, gap: 4 }}>
+                {item.status === 'failed' && isMe ? (
+                  <TouchableOpacity
+                    onPress={() => onRetry && onRetry(item)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}
+                  >
+                    <MaterialCommunityIcons name="alert-circle" size={12} color="#fecaca" />
+                    <Text style={{ fontSize: 10, color: '#fecaca', fontWeight: '600' }}>Tap to retry</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={[styles.timeText, { color: isMe ? 'rgba(255,255,255,0.65)' : '#64748b' }]}>
+                    {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </Text>
+                )}
+                {item.status === 'pending' ? (
+                  <MaterialCommunityIcons name="clock-outline" size={11} color={isMe ? 'rgba(255,255,255,0.65)' : '#64748b'} />
+                ) : (
+                  <DoubleCheck isRead={!!item.isRead} isMe={isMe} />
+                )}
               </View>
             </View>
 
@@ -445,8 +523,11 @@ export default function ChatPaneScreen() {
   const [e2eePassword, setE2eePassword] = useState('');
   const [editingMessage, setEditingMessage] = useState<any>(null);
 
-  const [isOnline, setIsOnline] = useState(false);
-  const [lastSeen, setLastSeen] = useState<string | null>(null);
+  // Live presence — kept in a shared store fed by the socket's userOnline/userOffline
+  // broadcasts (src/lib/socket.ts), so it updates in real time instead of only on poll.
+  const presenceEntry = usePresenceStore((s) => (recipientId ? s.byUserId[recipientId] : undefined));
+  const isOnline = presenceEntry?.isOnline ?? false;
+  const lastSeen = presenceEntry?.lastSeen ?? null;
 
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -516,8 +597,21 @@ export default function ChatPaneScreen() {
   }, [searchQuery, searchVisible, conversationId]);
 
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
+  const [videoViewerUrl, setVideoViewerUrl] = useState<string | null>(null);
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [storyPlayerVisible, setStoryPlayerVisible] = useState(false);
+
+  // Voice-note playback — only one message plays at a time via the shared player instance.
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState({ currentTime: 0, duration: 0 });
+
+  // Jump-to-original-message (tapping a reply quote) — briefly highlights the target.
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+
+  // Typing indicator, driven by the other participant's socket events.
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopTypingEmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const bg = isDark ? '#000000' : '#f1f5f9';
   const cardBg = isDark ? '#111111' : '#ffffff';
@@ -649,11 +743,17 @@ export default function ChatPaneScreen() {
     queryKey: ['online-status', recipientId],
     queryFn: async () => {
       const res = await api.get(`/api/auth/online-status/${recipientId}`);
-      setIsOnline(res.data?.isOnline || false);
-      setLastSeen(res.data?.lastSeen || null);
+      if (recipientId) {
+        usePresenceStore.getState().seed(recipientId, {
+          isOnline: !!res.data?.isOnline,
+          lastSeen: res.data?.lastSeen || null,
+        });
+      }
       return res.data;
     },
-    refetchInterval: 20000,
+    // No refetchInterval — the socket's userOnline/userOffline broadcasts (wired in
+    // src/lib/socket.ts) keep this live from here on. This REST call only seeds the
+    // initial value before the first socket event for this user arrives.
     enabled: !!recipientId,
   });
 
@@ -662,11 +762,77 @@ export default function ChatPaneScreen() {
     refetchOnlineStatus();
   }, [isFocused, refetchOnlineStatus]);
 
+  // Typing indicator — backend already relays 'typing'/'stopTyping' as 'userTyping'/
+  // 'userStoppedTyping' to the other participant(s) (see server/index.js); this just
+  // needed a consumer + emitter, neither of which existed anywhere in the app before.
+  useEffect(() => {
+    const socket = getSocket();
+    const clearTypingTimeout = () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+    };
+    const handleUserTyping = (data: any) => {
+      if (data?.conversationId && data.conversationId !== conversationId) return;
+      setOtherUserTyping(true);
+      clearTypingTimeout();
+      typingTimeoutRef.current = setTimeout(() => setOtherUserTyping(false), 4000);
+    };
+    const handleUserStoppedTyping = (data: any) => {
+      if (data?.conversationId && data.conversationId !== conversationId) return;
+      setOtherUserTyping(false);
+      clearTypingTimeout();
+    };
+    socket.on('userTyping', handleUserTyping);
+    socket.on('userStoppedTyping', handleUserStoppedTyping);
+    return () => {
+      socket.off('userTyping', handleUserTyping);
+      socket.off('userStoppedTyping', handleUserStoppedTyping);
+      clearTypingTimeout();
+    };
+  }, [conversationId]);
+
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+    const socket = getSocket();
+    socket.emit('typing', { conversationId, recipientId, senderName: currentUser?.fullname });
+    if (stopTypingEmitRef.current) clearTimeout(stopTypingEmitRef.current);
+    stopTypingEmitRef.current = setTimeout(() => {
+      socket.emit('stopTyping', { conversationId, recipientId });
+    }, 2000);
+  };
+
   const handleSend = async () => {
     if ((!inputText.trim() && pendingMedia.length === 0) || sending) return;
     const text = inputText.trim();
+    const outgoingReplyTo = replyTo;
+    const isEditing = !!editingMessage;
     setInputText('');
     setSending(true);
+    if (stopTypingEmitRef.current) clearTimeout(stopTypingEmitRef.current);
+    getSocket().emit('stopTyping', { conversationId, recipientId });
+
+    // Optimistic placeholder for a plain text send — shows immediately instead of
+    // waiting for the round-trip, and if the request fails it stays in the thread
+    // marked as failed (tap to retry) instead of silently disappearing with the
+    // typed text gone for good.
+    let tempId: string | null = null;
+    if (text && !isEditing) {
+      tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setMessages(prev => [{
+        _id: tempId,
+        content: text,
+        decryptedContent: text,
+        sender: { _id: currentUser?._id, fullname: currentUser?.fullname },
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        status: 'pending',
+        replyTo: outgoingReplyTo || undefined,
+      }, ...prev]);
+      setReplyTo(null);
+    }
+
     try {
       const aesKey = await useE2eeStore.getState().getConversationKey(conversationId);
 
@@ -681,7 +847,7 @@ export default function ChatPaneScreen() {
           finalContent = JSON.stringify(await encryptText(text, aesKey));
         }
 
-        if (editingMessage) {
+        if (isEditing) {
           await api.patch(`/api/conversation/messages/${editingMessage._id}`, { content: finalContent, isEncrypted });
           setMessages(prev => prev.map(m => m._id === editingMessage._id
             ? { ...m, content: finalContent, decryptedContent: text, edited: true } : m));
@@ -689,12 +855,11 @@ export default function ChatPaneScreen() {
         } else {
           const res = await api.post('/api/conversation/messages/create', {
             conversationId, content: finalContent, senderName: currentUser?.fullname,
-            recipientId, isEncrypted, replyTo: replyTo ? replyTo._id : undefined,
+            recipientId, isEncrypted, replyTo: outgoingReplyTo ? outgoingReplyTo._id : undefined,
           });
-          const newMsg = { ...res.data, decryptedContent: text };
-          if (replyTo) newMsg.replyTo = replyTo;
-          setMessages(prev => [newMsg, ...prev]);
-          setReplyTo(null);
+          const newMsg = { ...res.data, decryptedContent: text, status: 'sent' };
+          if (outgoingReplyTo) newMsg.replyTo = outgoingReplyTo;
+          setMessages(prev => prev.map(m => m._id === tempId ? newMsg : m));
         }
       }
 
@@ -746,10 +911,103 @@ export default function ChatPaneScreen() {
       }
     } catch (e) {
       console.warn('Send failed:', e);
-      Alert.alert('Error', 'Failed to send message or attachments.');
+      if (tempId) {
+        setMessages(prev => prev.map(m => m._id === tempId ? { ...m, status: 'failed' } : m));
+      } else {
+        Alert.alert('Error', 'Failed to send message or attachments.');
+      }
     } finally {
       setSending(false);
       setUploadingMedia(false);
+    }
+  };
+
+  // Voice-note playback — tap toggles play/pause; only one message plays at a time.
+  const handlePlayAudio = async (item: any) => {
+    const url = item.decryptedMediaUrl || item.media?.url || item.mediaUrl;
+    if (!url) return;
+
+    if (playingAudioId === item._id) {
+      await audioRecorderPlayer.pausePlayer();
+      setPlayingAudioId(null);
+      return;
+    }
+
+    if (playingAudioId) {
+      await audioRecorderPlayer.stopPlayer();
+      audioRecorderPlayer.removePlayBackListener();
+    }
+
+    try {
+      setPlayingAudioId(item._id);
+      setAudioProgress({ currentTime: 0, duration: 0 });
+      await audioRecorderPlayer.startPlayer(url);
+      audioRecorderPlayer.addPlayBackListener((e) => {
+        setAudioProgress({ currentTime: e.currentPosition, duration: e.duration });
+        if (e.isFinished) {
+          audioRecorderPlayer.stopPlayer().catch(() => {});
+          audioRecorderPlayer.removePlayBackListener();
+          setPlayingAudioId(null);
+          setAudioProgress({ currentTime: 0, duration: 0 });
+        }
+      });
+    } catch (e) {
+      console.warn('[ChatPane] voice note playback failed:', e);
+      setPlayingAudioId(null);
+    }
+  };
+
+  const handleSeekAudio = async (ms: number) => {
+    try {
+      await audioRecorderPlayer.seekToPlayer(ms);
+    } catch (e) {
+      console.warn('[ChatPane] voice note seek failed:', e);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (playingAudioId) {
+        audioRecorderPlayer.stopPlayer().catch(() => {});
+        audioRecorderPlayer.removePlayBackListener();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Jump to a replied-to message and briefly highlight it — no-op if it isn't
+  // currently loaded (older messages not yet paginated in).
+  const handleJumpToMessage = (replyToId?: string) => {
+    if (!replyToId) return;
+    const index = messages.findIndex((m) => String(m._id) === String(replyToId));
+    if (index === -1) return;
+    flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    setHighlightedMessageId(replyToId);
+    setTimeout(() => setHighlightedMessageId((cur) => (cur === replyToId ? null : cur)), 1500);
+  };
+
+  // Retry a failed optimistic send without re-typing the message.
+  const handleRetrySend = async (failedMsg: any) => {
+    setMessages((prev) => prev.map((m) => (m._id === failedMsg._id ? { ...m, status: 'pending' } : m)));
+    try {
+      const aesKey = await useE2eeStore.getState().getConversationKey(conversationId);
+      const plainText = failedMsg.decryptedContent || failedMsg.content;
+      let finalContent = plainText;
+      let isEncrypted = false;
+      if (aesKey) {
+        isEncrypted = true;
+        finalContent = JSON.stringify(await encryptText(plainText, aesKey));
+      }
+      const res = await api.post('/api/conversation/messages/create', {
+        conversationId, content: finalContent, senderName: currentUser?.fullname,
+        recipientId, isEncrypted, replyTo: failedMsg.replyTo ? failedMsg.replyTo._id : undefined,
+      });
+      const newMsg = { ...res.data, decryptedContent: plainText, status: 'sent' };
+      if (failedMsg.replyTo) newMsg.replyTo = failedMsg.replyTo;
+      setMessages((prev) => prev.map((m) => (m._id === failedMsg._id ? newMsg : m)));
+    } catch (e) {
+      console.warn('[ChatPane] retry send failed:', e);
+      setMessages((prev) => prev.map((m) => (m._id === failedMsg._id ? { ...m, status: 'failed' } : m)));
     }
   };
 
@@ -928,9 +1186,17 @@ export default function ChatPaneScreen() {
           onLongPress={(msg: any) => setSelectedMessage(msg)}
           onReply={(msg: any) => setReplyTo(msg)}
           onImagePress={(url: string) => setImageViewerUrl(url)}
+          onVideoPress={(url: string) => setVideoViewerUrl(url)}
           onStoryPress={handleStoryPress}
           onPostPress={handlePostPress}
+          onReplyQuotePress={handleJumpToMessage}
+          onRetry={handleRetrySend}
+          isPlayingAudio={playingAudioId === item._id}
+          audioProgress={playingAudioId === item._id ? audioProgress : undefined}
+          onPlayAudio={handlePlayAudio}
+          onSeekAudio={handleSeekAudio}
           isHighlighted={matchingIndices.includes(index) && matchingIndices[searchIndex] === index}
+          isJumpHighlighted={highlightedMessageId === item._id}
           searchQuery={searchQuery}
         />
         {showSeparator && (
@@ -944,7 +1210,7 @@ export default function ChatPaneScreen() {
         )}
       </>
     );
-  }, [messages, matchingIndices, searchIndex, isDark, textColor, subColor, borderColor, bg, currentUser, handleStoryPress, handlePostPress]);
+  }, [messages, matchingIndices, searchIndex, isDark, textColor, subColor, borderColor, bg, currentUser, handleStoryPress, handlePostPress, playingAudioId, audioProgress, highlightedMessageId]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
@@ -972,8 +1238,12 @@ export default function ChatPaneScreen() {
 
             <View style={styles.headerInfo}>
               <Text style={[styles.headerTitle, { color: textColor }]} numberOfLines={1}>{title}</Text>
-              <Text style={[styles.headerSub, { color: isOnline ? '#10b981' : subColor }]}>
-                {isGroup ? 'Tap for group info' : (isOnline ? 'Active now' : lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline')}
+              <Text style={[styles.headerSub, { color: otherUserTyping ? '#808bf5' : isOnline ? '#10b981' : subColor }]}>
+                {isGroup
+                  ? 'Tap for group info'
+                  : otherUserTyping
+                    ? 'typing...'
+                    : (isOnline ? 'Active now' : lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1102,6 +1372,11 @@ export default function ChatPaneScreen() {
           showsVerticalScrollIndicator={false}
           onEndReached={loadOlderMessages}
           onEndReachedThreshold={0.2}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+            }, 100);
+          }}
           ListHeaderComponent={loadingOlder ? (
             <View style={{ paddingVertical: 12 }}>
               <ActivityIndicator size="small" color="#808bf5" />
@@ -1241,7 +1516,7 @@ export default function ChatPaneScreen() {
                 <TextInput
                   style={[styles.input, { color: textColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6' }]}
                   placeholder="Type a message..." placeholderTextColor={subColor}
-                  value={inputText} onChangeText={setInputText} multiline maxLength={2000} />
+                  value={inputText} onChangeText={handleInputChange} multiline maxLength={2000} />
                 {inputText.trim() || pendingMedia.length > 0 ? (
                   <TouchableOpacity onPress={handleSend}
                     style={[styles.sendBtn, { backgroundColor: '#808bf5' }]}
@@ -1370,6 +1645,25 @@ export default function ChatPaneScreen() {
           </TouchableOpacity>
           {imageViewerUrl && (
             <ZoomableImage uri={imageViewerUrl} />
+          )}
+        </View>
+      </Modal>
+
+      {/* VIDEO VIEWER */}
+      <Modal visible={!!videoViewerUrl} transparent animationType="fade"
+        onRequestClose={() => setVideoViewerUrl(null)}>
+        <View style={styles.imgViewerBg}>
+          <TouchableOpacity style={styles.imgViewerClose} onPress={() => setVideoViewerUrl(null)}>
+            <MaterialCommunityIcons name="close" size={26} color="#fff" />
+          </TouchableOpacity>
+          {videoViewerUrl && (
+            <VideoComponent
+              source={{ uri: videoViewerUrl }}
+              style={{ width: '100%', height: '70%' }}
+              resizeMode="contain"
+              controls
+              paused={false}
+            />
           )}
         </View>
       </Modal>

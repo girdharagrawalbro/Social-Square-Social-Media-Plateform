@@ -31,6 +31,8 @@ import PostMenu from './PostMenu';
 import BeforeAfterView from './BeforeAfterView';
 import ShareModal from './ShareModal';
 import { decryptAesGcm, base64ToBytes, bytesToBase64 } from '../../lib/cryptoUtils';
+import { useQueryClient } from '@tanstack/react-query';
+import { patchPostInFeedCaches, removeFromFeedCaches } from '../../lib/feedCache';
 
 const { width: screenWidth } = Dimensions.get('window');
 const aspectRatioCache = new Map<string, number>();
@@ -48,8 +50,12 @@ export interface Post {
   caption?: string;
   image_url?: string;
   image_urls?: string[];
+  // Real pixel dimensions captured at upload time (same index as image_urls),
+  // used to size the post container correctly before the image ever loads.
+  imageDimensions?: { width?: number; height?: number }[];
   video?: string;
   videoThumbnail?: string;
+  videoDimensions?: { width?: number; height?: number };
   // Encryption fields for new posts (AES-GCM)
   videoKey?: string;  // base64 AES-256 key
   videoIv?: string;   // base64 12-byte IV
@@ -102,6 +108,7 @@ let activePlayersCount = 0;
 export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackButton = false }: PostItemProps) => {
   const navigation = useNavigation<any>();
   const loggedUser = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
 
   const resolveMediaUrl = (url?: string) => {
     if (!url) return undefined;
@@ -319,13 +326,35 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   // Hidden when deleted or blocked
   const [hidden, setHidden] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Known-upfront dimensions (captured at upload time), same trick Instagram uses
+  // to size a post's media box on the very first render — no discovery, no resize.
+  const knownImageDim = post.imageDimensions?.[0];
+  const knownVideoDim = post.videoDimensions;
+  // Instagram-style multi-image carousels use one fixed height for the whole
+  // post, taken from the first slide, so swiping never resizes the card.
+  const carouselAspectRatio = knownImageDim?.width && knownImageDim?.height
+    ? knownImageDim.width / knownImageDim.height
+    : 1.2;
+  const hasKnownDimensions = post.video
+    ? !!(knownVideoDim?.width && knownVideoDim?.height)
+    : !!(knownImageDim?.width && knownImageDim?.height);
+
   const [aspectRatio, setAspectRatio] = useState(() => {
+    if (post.video && knownVideoDim?.width && knownVideoDim?.height) {
+      return knownVideoDim.width / knownVideoDim.height;
+    }
+    if (knownImageDim?.width && knownImageDim?.height) {
+      return knownImageDim.width / knownImageDim.height;
+    }
     if (imageUrl && aspectRatioCache.has(imageUrl)) {
       return aspectRatioCache.get(imageUrl)!;
     }
     return 1.2;
   });
-  const [imageLoading, setImageLoading] = useState(true);
+  // Post already knew its own aspect ratio, so there's nothing to wait on —
+  // skip the loading placeholder entirely instead of flashing it for a frame.
+  const [imageLoading, setImageLoading] = useState(!hasKnownDimensions);
   const imageOpacity = useRef(new Animated.Value(0)).current;
 
   const handleImageLoad = () => {
@@ -355,7 +384,10 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
     setReactions(post.reactions || []);
   }, [post.reactions]);
 
-  // ── Broadcast: POST_LIKE_COUNT — emit when this user likes; sync when another card emits
+  // ── Broadcast: POST_LIKE_COUNT — emit when this user likes; sync when another card emits.
+  // Also patches the react-query feed cache directly (not just local state / broadcast) so
+  // that if this card scrolls out of the virtualization window and remounts later, it reads
+  // the correct liked state back from its props instead of reverting to the pre-like value.
   const toggleLike = useCallback(async () => {
     const nextLiked = !liked;
     const nextCount = nextLiked ? likeCount + 1 : likeCount - 1;
@@ -367,7 +399,16 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
       count: nextCount,
       liked: nextLiked,
     });
-    
+
+    const myId = loggedUser?._id;
+    const patchLikes = (targetLiked: boolean) => patchPostInFeedCaches(queryClient, post._id, (p) => ({
+      ...p,
+      likes: targetLiked
+        ? [...(p.likes || []), myId]
+        : (p.likes || []).filter((id: any) => id?.toString() !== myId?.toString()),
+    }));
+    if (myId) patchLikes(nextLiked);
+
     try {
       if (nextLiked) {
         await api.post('/api/post/like', { postId: post._id });
@@ -376,8 +417,11 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
       }
     } catch (err) {
       console.warn('Failed to sync like on server:', err);
+      setLiked(liked);
+      setLikeCount(likeCount);
+      if (myId) patchLikes(liked);
     }
-  }, [liked, likeCount, post._id]);
+  }, [liked, likeCount, post._id, loggedUser?._id, queryClient]);
 
   useBroadcast('POST_LIKE_COUNT', useCallback(({ postId, count, liked: incomingLiked }) => {
     if (postId === post._id) {
@@ -392,13 +436,24 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
     }
   }, [post._id]));
 
+  // "Saved" is per-user (loggedUser.savedPosts), not part of the post object itself, so it
+  // has to be written back into the auth store — otherwise a remount re-derives `saved` from
+  // the still-stale savedPosts array and the bookmark silently reverts.
   const handleSaveToggle = async () => {
     const nextSaved = !saved;
+    const previousSavedPosts = loggedUser?.savedPosts || [];
+    const nextSavedPosts = nextSaved
+      ? [...previousSavedPosts, post._id]
+      : previousSavedPosts.filter((id: any) => id?.toString() !== post._id?.toString());
+
     setSaved(nextSaved);
+    if (loggedUser) useAuthStore.getState().setUser({ ...loggedUser, savedPosts: nextSavedPosts });
+
     try {
       await api.post('/api/post/save', { postId: post._id });
     } catch (e) {
       setSaved(!nextSaved);
+      if (loggedUser) useAuthStore.getState().setUser({ ...loggedUser, savedPosts: previousSavedPosts });
       console.warn('Failed to toggle save:', e);
     }
   };
@@ -433,6 +488,10 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
 
 
   useEffect(() => {
+    // Dimensions already came with the post (upload-time metadata) — the box is
+    // already sized correctly, so there's nothing left to discover.
+    if (hasKnownDimensions) return;
+
     if (imageUrl) {
       if (aspectRatioCache.has(imageUrl)) {
         setAspectRatio(aspectRatioCache.get(imageUrl)!);
@@ -454,7 +513,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
         }
       );
     }
-  }, [imageUrl]);
+  }, [imageUrl, hasKnownDimensions]);
 
   // If post hidden (deleted or user blocked), render nothing
   if (hidden) return null;
@@ -673,7 +732,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                   <FastImage
                     key={index}
                     source={{ uri: resolveMediaUrl(url) }}
-                    style={{ width: screenWidth - 24, aspectRatio: 1.2 }}
+                    style={{ width: screenWidth - 24, aspectRatio: carouselAspectRatio }}
                     resizeMode={FastImage.resizeMode.cover}
                   />
                 ))}
@@ -809,7 +868,9 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                   onPress={async () => {
                     try {
                       const res = await api.post('/api/post/react', { postId: post._id, emoji });
-                      appChannel.postMessage({ type: 'POST_REACTED', postId: post._id, reactions: res.data.reactions || [] });
+                      const nextReactions = res.data.reactions || [];
+                      appChannel.postMessage({ type: 'POST_REACTED', postId: post._id, reactions: nextReactions });
+                      patchPostInFeedCaches(queryClient, post._id, (p) => ({ ...p, reactions: nextReactions }));
                     } catch (err) {
                       console.warn('Failed to react:', err);
                     }
@@ -929,7 +990,9 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                       setPickerVisible(false);
                       try {
                         const res = await api.post('/api/post/react', { postId: post._id, emoji: reaction.emoji });
-                        appChannel.postMessage({ type: 'POST_REACTED', postId: post._id, reactions: res.data.reactions || [] });
+                        const nextReactions = res.data.reactions || [];
+                        appChannel.postMessage({ type: 'POST_REACTED', postId: post._id, reactions: nextReactions });
+                        patchPostInFeedCaches(queryClient, post._id, (p) => ({ ...p, reactions: nextReactions }));
                       } catch (err) {
                         console.warn('Failed to react:', err);
                       }
@@ -976,8 +1039,16 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
         post={post}
         isSaved={saved}
         onToggleSave={(nextSaved) => setSaved(nextSaved)}
-        onDeleteSuccess={() => setHidden(true)}
-        onMuteBlockSuccess={() => setHidden(true)}
+        onDeleteSuccess={() => {
+          setHidden(true);
+          removeFromFeedCaches(queryClient, (p) => p._id === post._id);
+        }}
+        onMuteBlockSuccess={() => {
+          setHidden(true);
+          // Mute/block acts on the author, so drop every post of theirs from the
+          // feed cache — not just this card — matching the USER_BLOCK broadcast intent.
+          removeFromFeedCaches(queryClient, (p) => p.user?._id === user?._id);
+        }}
       />
     </View>
   );

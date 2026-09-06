@@ -221,9 +221,14 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   logout: async () => {
-    try {
-      await api.post('/api/auth/logout');
-    } catch (e) {}
+    // Only hit the endpoint if there's actually a session to invalidate — avoids a
+    // repeated-call cascade when this is invoked again after already logging out
+    // (e.g. a second forceLogout() fired while the first logout() was in flight).
+    if (get().token) {
+      try {
+        await api.post('/api/auth/logout');
+      } catch (e) {}
+    }
     await clearSecureToken();
     await AsyncStorage.removeItem('auth_user');
     // Clear all app-side cache on logout so next user gets fresh data
@@ -249,10 +254,9 @@ export const refreshAccessToken = async (): Promise<string | null> => {
       if (user) useAuthStore.getState().setUser(user);
       return token;
     } catch (err) {
-      const currentToken = useAuthStore.getState().token;
-      if (currentToken) return currentToken;
-      await AsyncStorage.removeItem('auth_token');
-      useAuthStore.getState().setUser(null);
+      // Always call logout + throw so the interceptor can redirect to Login.
+      // Do NOT return a stale token — that causes an infinite 401 retry loop.
+      await useAuthStore.getState().logout();
       throw err;
     } finally {
       refreshPromise = null;

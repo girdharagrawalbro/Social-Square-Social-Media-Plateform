@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,6 @@ import MoodFeedToggle from './components/MoodFeedToggle';
 import { PostItem } from './components/PostItem';
 import { PostSkeleton } from './components/SkeletonLoader';
 import { api } from '../lib/api';
-import { getCache, setCache, invalidateCache, invalidateCacheByPrefix, TTL } from '../lib/cache';
 import { appChannel } from '../lib/broadcast';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useTabStore } from '../store/zustand/useTabStore';
@@ -121,6 +120,15 @@ export default function SocialSquareScreen({ navigation }: any) {
 
   const fetchFeed = async (isRefresh = false) => {
     if (isRefresh) {
+      // react-query v5's refetch() on an infinite query re-fetches EVERY loaded page —
+      // 10 pages deep, that's 10 sequential requests, and it can silently rewrite posts
+      // far below the viewport. Truncate to just the first page before refetching so a
+      // pull-to-refresh only reloads the top, like Instagram; scrolling back down
+      // re-paginates naturally from the freshly refetched page 1's cursor.
+      queryClient.setQueryData(['feed', activeMood], (old: any) => {
+        if (!old?.pages?.length) return old;
+        return { pages: old.pages.slice(0, 1), pageParams: old.pageParams.slice(0, 1) };
+      });
       await refetch();
     }
   };
@@ -131,13 +139,13 @@ export default function SocialSquareScreen({ navigation }: any) {
     }
   };
 
-  const handleMoodSelect = (mood: string) => {
+  const handleMoodSelect = useCallback((mood: string) => {
     setActiveMood(mood);
-  };
+  }, []);
 
-  const handleClearMood = () => {
+  const handleClearMood = useCallback(() => {
     setActiveMood(null);
-  };
+  }, []);
 
   useEffect(() => {
     // Listen to post creation event
@@ -165,6 +173,35 @@ export default function SocialSquareScreen({ navigation }: any) {
   const cardBg = isDark ? '#000000' : '#ffffff';
   const textColor = isDark ? '#ffffff' : '#111827';
   const border = isDark ? '#1a1a1a' : '#e5e7eb';
+
+  // Stable reference unless `posts` itself changes — without this, every unrelated
+  // re-render (header show/hide, viewability tracking, notification count) built a
+  // brand-new array, forcing FlatList to re-diff every mounted row for no reason.
+  const listData = useMemo(
+    () => [{ _id: 'mood_selector', type: 'mood_selector' } as any, ...posts],
+    [posts]
+  );
+
+  const renderItem = useCallback(({ item }: any) => {
+    if (item.type === 'mood_selector') {
+      return (
+        <View style={{ backgroundColor: bg }}>
+          <MoodFeedToggle
+            activeMood={activeMood}
+            onMoodSelect={handleMoodSelect}
+            onClear={handleClearMood}
+          />
+        </View>
+      );
+    }
+    return (
+      <PostItem
+        post={item}
+        isDark={isDark}
+        isVisible={viewableItems.includes(item._id) && currentTab === 'feed'}
+      />
+    );
+  }, [bg, activeMood, handleMoodSelect, handleClearMood, isDark, viewableItems, currentTab]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
@@ -206,7 +243,7 @@ export default function SocialSquareScreen({ navigation }: any) {
         </View>
       ) : (
         <FlatList
-          data={[{ _id: 'mood_selector', type: 'mood_selector' } as any, ...posts]}
+          data={listData}
           keyExtractor={(item) => item._id}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -215,26 +252,7 @@ export default function SocialSquareScreen({ navigation }: any) {
           maxToRenderPerBatch={5}
           windowSize={5}
           stickyHeaderIndices={[1]}
-          renderItem={({ item }) => {
-            if (item.type === 'mood_selector') {
-              return (
-                <View style={{ backgroundColor: bg }}>
-                  <MoodFeedToggle
-                    activeMood={activeMood}
-                    onMoodSelect={handleMoodSelect}
-                    onClear={handleClearMood}
-                  />
-                </View>
-              );
-            }
-            return (
-              <PostItem 
-                post={item} 
-                isDark={isDark} 
-                isVisible={viewableItems.includes(item._id) && currentTab === 'feed'} 
-              />
-            );
-          }}
+          renderItem={renderItem}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={VIEWABILITY_CONFIG}
           ListHeaderComponent={

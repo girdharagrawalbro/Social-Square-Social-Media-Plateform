@@ -190,6 +190,53 @@ router.get('/feed', verifyToken, async (req, res) => {
     }
 });
 
+// ─── STORY STATUS FOR AN ARBITRARY USER (e.g. profile header story-ring) ──────
+router.get('/status/:userId', verifyToken, [
+    param('userId').isMongoId().withMessage('Invalid user ID'),
+    validate
+], async (req, res) => {
+    try {
+        const viewerId = req.userId;
+        const targetId = req.params.userId;
+
+        const owner = await User.findById(targetId).select('isPrivate followers closeFriends');
+        if (!owner) return res.status(404).json({ error: 'User not found.' });
+
+        const isSelf = owner._id.toString() === viewerId.toString();
+        const isFollower = owner.followers.map((f) => f.toString()).includes(viewerId.toString());
+        if (owner.isPrivate && !isSelf && !isFollower) {
+            return res.status(200).json({ hasActiveStory: false });
+        }
+
+        const isCloseFriend = owner.closeFriends.map((f) => f.toString()).includes(viewerId.toString());
+
+        // Mirror /feed's visibility rules exactly — otherwise the ring could show for a
+        // close-friends-only story the viewer isn't actually allowed to open.
+        const stories = await Story.find({
+            'user._id': targetId,
+            expiresAt: { $gt: new Date() },
+            $or: [
+                { visibility: 'public' },
+                { visibility: { $exists: false } },
+                { visibility: 'followers' },
+                ...(isSelf || isCloseFriend ? [{ visibility: 'close_friends' }] : []),
+            ],
+        }).select('viewers').lean();
+
+        if (stories.length === 0) {
+            return res.status(200).json({ hasActiveStory: false });
+        }
+
+        const hasUnviewed = stories.some(
+            (s) => !(s.viewers || []).map((v) => v.toString()).includes(viewerId.toString())
+        );
+
+        res.status(200).json({ hasActiveStory: true, hasUnviewed });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // ─── MARK AS VIEWED (PROTECTED) ───────────────────────────────────────────────
 router.post('/view/:storyId', verifyToken, [
     param('storyId').isMongoId().withMessage('Invalid story ID'),

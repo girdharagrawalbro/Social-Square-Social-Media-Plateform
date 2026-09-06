@@ -1089,6 +1089,32 @@ router.get('/relationship-ids', verifyToken, async (req, res) => {
     }
 });
 
+// GET /api/auth/online-status/:id — live presence for a single user (chat header, etc.)
+router.get('/online-status/:id', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'Invalid user id.' });
+        }
+
+        const redis = require('../lib/redis');
+        // Redis's online_users hash is the live truth (set on socket connect, cleared on
+        // disconnect/logout — see server/index.js); the User document's isOnline/lastSeen
+        // fields are just a DB mirror of the same state, kept for cases where Redis is cold.
+        const activeSocketId = await redis.hget('online_users', id);
+        if (activeSocketId) {
+            return res.status(200).json({ isOnline: true, lastSeen: null });
+        }
+
+        const user = await User.findById(id).select('isOnline lastSeen').lean();
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+        return res.status(200).json({ isOnline: !!user.isOnline, lastSeen: user.lastSeen || null });
+    } catch (error) {
+        logger.error('[ONLINE_STATUS] Error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 router.delete('/delete-account', verifyToken, [
     body('reason').optional().trim().escape(),
     body('immediate').optional().isBoolean().withMessage('immediate must be a boolean'),

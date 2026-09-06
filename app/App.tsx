@@ -83,6 +83,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import NewPostScreen from './src/screens/NewPostScreen';
 import PostDetailScreen from './src/screens/PostDetailScreen';
+import HashtagResultsScreen from './src/screens/HashtagResultsScreen';
 import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
 import ActiveSessionsScreen from './src/screens/ActiveSessionsScreen';
 import CloseFriendsScreen from './src/screens/CloseFriendsScreen';
@@ -95,6 +96,7 @@ import GoalCreateScreen from './src/screens/GoalCreateScreen';
 import PasswordSecurityScreen from './src/screens/PasswordSecurityScreen';
 import ContactScreen from './src/screens/ContactScreen';
 import { getSocket, connectSocket, disconnectSocket } from './src/lib/socket';
+import { appChannel } from './src/lib/broadcast';
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -169,6 +171,23 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleLogout = () => {
+      if (navigationRef.isReady()) {
+        navigationRef.reset({
+          index: 0,
+          routes: [{ name: 'Login' as never }],
+        });
+      }
+    };
+
+    appChannel.on('LOGOUT', handleLogout);
+
+    return () => {
+      appChannel.off('LOGOUT', handleLogout);
+    };
+  }, []);
+
   const linking = {
     prefixes: ['socialsquare://'],
     config: {
@@ -207,6 +226,7 @@ function App() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="NewPost" component={NewPostScreen} />
         <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+        <Stack.Screen name="HashtagResults" component={HashtagResultsScreen} />
         <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
         <Stack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
         <Stack.Screen name="CloseFriends" component={CloseFriendsScreen} />

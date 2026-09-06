@@ -5,14 +5,20 @@ const PostSchema = new mongoose.Schema(
     user: {
       _id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
       fullname: { type: String, required: true },
+      username: { type: String },
       profile_picture: { type: String },
     },
     // Hidden field to track the real author even for anonymous posts (optional for high-anonymity posts)
     authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false, select: false },
     image_url: { type: String, default: null },
     image_urls: [{ type: String }],
+    // Real pixel dimensions of each image_urls entry (same index), captured from the
+    // upload response at post-creation time. Lets clients size the post container
+    // correctly on first render instead of discovering it after the image loads.
+    imageDimensions: [{ width: Number, height: Number, _id: false }],
     video: { type: String, default: null },
     videoThumbnail: { type: String, default: null },
+    videoDimensions: { width: Number, height: Number, _id: false },
     caption: { type: String, maxLength: 500 },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     reactions: [{

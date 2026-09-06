@@ -29,6 +29,23 @@ api.interceptors.request.use((config: any) => {
   return config;
 });
 
+// Helper: clear state and broadcast LOGOUT so App.tsx navigates to Login
+const forceLogout = () => {
+  try {
+    const { useAuthStore } = require('../store/zustand/useAuthStore');
+    // Fire-and-forget; broadcast happens synchronously inside logout()
+    useAuthStore.getState().logout();
+  } catch (e) {
+    // As a last resort, emit LOGOUT directly so navigation still fires
+    try {
+      const { appChannel } = require('./broadcast');
+      appChannel.postMessage({ type: 'LOGOUT' });
+    } catch (_) {
+      // ignore
+    }
+  }
+};
+
 api.interceptors.response.use(
   (res: any) => {
     if (typeof res.data === 'string' && res.data) {
@@ -43,19 +60,21 @@ api.interceptors.response.use(
   async (err: any) => {
     const originalRequest = err.config;
 
-    // Check if refresh itself fails with 401, or if request fails 401 and can't be retried
     if (err.response?.status === 401) {
-      if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/me')) {
-        // Refresh token failed, or token validation failed. Trigger direct logout to redirect the user to login.
-        try {
-          const { useAuthStore } = require('../store/zustand/useAuthStore');
-          useAuthStore.getState().logout();
-        } catch (e) {
-          // ignore
-        }
+      // Refresh, /me, or logout itself failed — session is dead, log out immediately.
+      // /auth/logout MUST be terminal here: logout() calls this endpoint, and if it
+      // 401s and retries a refresh, that refresh (on failure) calls logout() again,
+      // which calls this endpoint again — a circular await that never resolves.
+      if (
+        originalRequest.url?.includes('/auth/refresh') ||
+        originalRequest.url?.includes('/auth/me') ||
+        originalRequest.url?.includes('/auth/logout')
+      ) {
+        forceLogout();
         return Promise.reject(err);
       }
 
+      // First 401 on a normal request — try to refresh the token once
       if (!originalRequest._retry) {
         originalRequest._retry = true;
         try {
@@ -65,25 +84,19 @@ api.interceptors.response.use(
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return api(originalRequest);
           }
-        } catch (refreshErr) {
-          // If refreshAccessToken fails, log out the user
-          try {
-            const { useAuthStore } = require('../store/zustand/useAuthStore');
-            useAuthStore.getState().logout();
-          } catch (logoutErr) {
-            // ignore
-          }
+          // refreshAccessToken returned null/undefined — treat as failure
+          forceLogout();
+        } catch (_refreshErr) {
+          // refreshAccessToken threw (already called logout internally),
+          // but call forceLogout as a safety net to ensure the broadcast fires.
+          forceLogout();
         }
       } else {
-        // If we already retried and still got 401
-        try {
-          const { useAuthStore } = require('../store/zustand/useAuthStore');
-          useAuthStore.getState().logout();
-        } catch (logoutErr) {
-          // ignore
-        }
+        // Already retried and still got 401
+        forceLogout();
       }
     }
+
     return Promise.reject(err);
   }
 );

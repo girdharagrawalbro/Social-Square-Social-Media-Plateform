@@ -19,6 +19,7 @@ import {
   Switch,
 } from 'react-native';
 import { getThemeOverride, setThemeOverride } from '../../App';
+import LinearGradient from 'react-native-linear-gradient';
 import { launchImageLibrary } from 'react-native-image-picker';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -68,6 +69,10 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isRequested, setIsRequested] = useState(false);
+  // Backend already omits posts entirely for a private account you don't follow
+  // (returns posts: [], isPrivate: true) — this just drives the locked-state UI.
+  const [isPrivateGated, setIsPrivateGated] = useState(false);
+  const [storyStatus, setStoryStatus] = useState<{ hasActiveStory: boolean; hasUnviewed: boolean } | null>(null);
 
   const MOODS = [
     { key: null, label: 'None (Default Feed)' },
@@ -234,17 +239,55 @@ export default function ProfileScreen({ navigation, route }: any) {
       const postsRes = await api.get(`/api/post/user/${userObj._id}?limit=9`);
       const freshPosts = postsRes.data.posts || postsRes.data || [];
       setPosts(freshPosts);
+      setIsPrivateGated(!!postsRes.data.isPrivate);
       await setCache(postsCacheKey, freshPosts, isOwner ? TTL.OWN_PROFILE_POSTS : TTL.FEED);
       setNextCursor(postsRes.data.nextCursor || null);
       setHasMore(postsRes.data.hasMore || false);
 
       const contributionsRes = await api.get(`/api/auth/users/${userObj._id}/contributions`);
       setContributions(contributionsRes.data.contributions || {});
+
+      // Story-ring around the avatar — fire-and-forget, non-critical to the rest of the profile.
+      api.get(`/api/story/status/${userObj._id}`)
+        .then((res) => setStoryStatus(res.data))
+        .catch(() => setStoryStatus(null));
     } catch (err) {
       console.warn('Failed to load profile info:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMentionPress = async (username: string) => {
+    try {
+      const res = await api.get(`/api/auth/public/profile/${username}`);
+      if (res.data?._id) {
+        navigation.push('Profile', { userId: res.data._id });
+      }
+    } catch (e) {
+      toast.show('User not found');
+    }
+  };
+
+  const renderBioWithLinks = (bio: string) => {
+    const parts = bio.split(/(@[a-zA-Z0-9_.]+|#[a-zA-Z0-9_]+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('@') && part.length > 1) {
+        return (
+          <Text key={i} style={{ color: '#808bf5', fontWeight: '600' }} onPress={() => handleMentionPress(part.slice(1))}>
+            {part}
+          </Text>
+        );
+      }
+      if (part.startsWith('#') && part.length > 1) {
+        return (
+          <Text key={i} style={{ color: '#808bf5', fontWeight: '600' }} onPress={() => navigation.navigate('HashtagResults', { tag: part })}>
+            {part}
+          </Text>
+        );
+      }
+      return <Text key={i}>{part}</Text>;
+    });
   };
 
   const fetchMorePosts = async () => {
@@ -671,6 +714,15 @@ export default function ProfileScreen({ navigation, route }: any) {
     );
   };
 
+  const gridData =
+    activeTab === 'posts'
+      ? posts
+      : activeTab === 'reels'
+        ? posts.filter((p) => !!p.video)
+        : activeTab === 'saved'
+          ? savedPosts
+          : [];
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       <View style={[styles.header, { borderBottomColor: border }]}>
@@ -727,17 +779,37 @@ export default function ProfileScreen({ navigation, route }: any) {
               {/* User Card */}
               <View style={[styles.profileCard]}>
                 <View style={{ position: 'relative' }}>
-                  <Image
-                    source={{
-                      uri: profileData?.profile_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-                    }}
-                    style={styles.avatar}
-                  />
+                  <TouchableOpacity
+                    activeOpacity={storyStatus?.hasActiveStory ? 0.8 : 1}
+                    disabled={!storyStatus?.hasActiveStory}
+                    onPress={() => toast.show('Open their story from your Feed to view it')}
+                  >
+                    {storyStatus?.hasActiveStory ? (
+                      <LinearGradient
+                        colors={storyStatus.hasUnviewed ? ['#f43f5e', '#ec4899', '#8b5cf6'] : [border, border]}
+                        style={styles.avatarStoryRing}
+                      >
+                        <Image
+                          source={{
+                            uri: profileData?.profile_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+                          }}
+                          style={[styles.avatar, { marginBottom: 0 }]}
+                        />
+                      </LinearGradient>
+                    ) : (
+                      <Image
+                        source={{
+                          uri: profileData?.profile_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+                        }}
+                        style={styles.avatar}
+                      />
+                    )}
+                  </TouchableOpacity>
                 </View>
                 <Text style={[styles.fullname, { color: textColor }]}>{profileData?.fullname || 'Alex Rivera'}</Text>
                 {profileData?.bio ? (
                   <Text style={[styles.bioText, { color: textColor }]} numberOfLines={3}>
-                    {profileData.bio}
+                    {renderBioWithLinks(profileData.bio)}
                   </Text>
                 ) : null}
 
@@ -955,21 +1027,22 @@ export default function ProfileScreen({ navigation, route }: any) {
               {renderTabBar()}
             </>
           }
-          data={
-            activeTab === 'posts'
-              ? posts
-              : activeTab === 'reels'
-                ? posts.filter((p) => !!p.video)
-                : activeTab === 'saved'
-                  ? savedPosts
-                  : []
-          }
-          renderItem={({ item: post }) => {
+          data={gridData}
+          renderItem={({ item: post, index }) => {
             const thumb = getPreviewSource(post);
             return (
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate('PostDetail', { postId: post._id })}
+                onPress={() => {
+                  // Reels get the real full-screen swipeable reel experience (autoplay
+                  // chrome, action rail) instead of the static post-detail viewer —
+                  // same screen the Reels tab and Explore's reel grid already open.
+                  if (activeTab === 'reels') {
+                    navigation.navigate('Reels', { posts: gridData, initialIndex: index });
+                  } else {
+                    navigation.navigate('PostDetail', { postId: post._id, posts: gridData, initialIndex: index });
+                  }
+                }}
                 style={{ width: gridWidth, height: gridWidth, marginRight: 1, marginBottom: 1, position: 'relative', overflow: 'hidden', backgroundColor: isDark ? '#1e1e1e' : '#f1f5f9', justifyContent: 'center', alignItems: 'center' }}
               >
                 {thumb ? (
@@ -999,6 +1072,22 @@ export default function ProfileScreen({ navigation, route }: any) {
             ) : null
           }
           ListEmptyComponent={() => {
+            if (isPrivateGated && !isOwner && (activeTab === 'posts' || activeTab === 'reels')) {
+              return (
+                <View style={{ paddingVertical: 50, alignItems: 'center', width: '100%' }}>
+                  <View style={{
+                    width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: subText,
+                    justifyContent: 'center', alignItems: 'center', marginBottom: 12,
+                  }}>
+                    <MaterialCommunityIcons name="lock-outline" size={30} color={subText} />
+                  </View>
+                  <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 15 }}>This Account is Private</Text>
+                  <Text style={{ color: subText, fontSize: 13, marginTop: 4, textAlign: 'center', paddingHorizontal: 40 }}>
+                    Follow this account to see their photos and videos.
+                  </Text>
+                </View>
+              );
+            }
             if (activeTab === 'posts' || activeTab === 'reels' || activeTab === 'saved') {
               return (
                 <View style={{ paddingVertical: 40, alignItems: 'center', width: '100%' }}>
@@ -1323,7 +1412,7 @@ export default function ProfileScreen({ navigation, route }: any) {
         onRequestClose={() => setSettingsVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+          <View style={[styles.modalContent, { backgroundColor: cardBg, maxHeight: '85%' }]}>
             <View style={[styles.modalHeader, { borderBottomColor: border }]}>
               <Text style={[styles.modalTitle, { color: textColor }]}>Settings</Text>
               <TouchableOpacity onPress={() => setSettingsVisible(false)} style={styles.modalCloseBtn}>
@@ -1331,7 +1420,12 @@ export default function ProfileScreen({ navigation, route }: any) {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.settingsList}>
+            <ScrollView
+              style={styles.settingsList}
+              showsVerticalScrollIndicator={false}
+              bounces={true}
+              contentContainerStyle={{ paddingBottom: 8 }}
+            >
               {/* Theme Settings */}
               <TouchableOpacity
                 style={[styles.settingsRow, { borderColor: border }]}
@@ -1525,7 +1619,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={subText} />
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1600,6 +1694,15 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 45,
+    marginBottom: 4,
+  },
+  avatarStoryRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 49,
+    padding: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 4,
   },
   fullname: {

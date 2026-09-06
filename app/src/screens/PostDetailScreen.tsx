@@ -14,13 +14,18 @@ import {
   Platform,
   Alert,
   Image,
+  Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { useQueryClient, QueryClient } from '@tanstack/react-query';
 import { api, BASE_URL } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { PostItem } from './components/PostItem';
 import { PostSkeleton } from './components/SkeletonLoader';
+import { patchPostInFeedCaches } from '../lib/feedCache';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Comment {
   _id: string;
@@ -38,13 +43,23 @@ interface Comment {
   isInsightful?: boolean;
 }
 
-export default function PostDetailScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
-  const loggedUser = useAuthStore((s) => s.user);
-  const { postId } = route.params || {};
-
+// A single post + its comments — reusable both standalone (today's behavior, used by
+// every existing caller) and as one page of the swipeable multi-post viewer below.
+function PostDetailPage({
+  postId,
+  isDark,
+  isVisible,
+  navigation,
+  loggedUser,
+  queryClient,
+}: {
+  postId: string;
+  isDark: boolean;
+  isVisible: boolean;
+  navigation: any;
+  loggedUser: any;
+  queryClient: QueryClient;
+}) {
   const [post, setPost] = useState<any>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,6 +136,14 @@ export default function PostDetailScreen() {
       setReplyingToComment(null);
       // Reload comments
       fetchComments();
+      // Keep the feed's comment count in sync so it's correct when the user goes back,
+      // instead of staying stale until the whole feed query goes stale/refetches.
+      if (postId) {
+        patchPostInFeedCaches(queryClient, postId, (p) => ({
+          ...p,
+          comments: [...(p.comments || []), { _id: `local-${Date.now()}` }],
+        }));
+      }
     } catch (e) {
       Alert.alert('Error', 'Failed to add comment. Please try again.');
     } finally {
@@ -192,7 +215,7 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+    <View style={[styles.container, { backgroundColor: bg }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -208,7 +231,7 @@ export default function PostDetailScreen() {
             contentContainerStyle={{ paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
           >
-            {post && <PostItem post={post} isDark={isDark} isVisible={true} showBackButton={true} />}
+            {post && <PostItem post={post} isDark={isDark} isVisible={isVisible} showBackButton={true} />}
 
             {/* Comments Header */}
             <View style={[styles.sectionHeader, { borderBottomColor: border }]}>
@@ -269,6 +292,68 @@ export default function PostDetailScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+export default function PostDetailScreen() {
+  const isDark = useColorScheme() === 'dark';
+  const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const loggedUser = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
+  const { postId, posts, initialIndex } = route.params || {};
+
+  const bg = isDark ? '#000000' : '#ffffff';
+  const [activeIndex, setActiveIndex] = useState(initialIndex || 0);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) setActiveIndex(viewableItems[0].index ?? 0);
+  }).current;
+
+  // Swipeable mode — only used when a caller passes a posts array (currently just the
+  // Profile grid); every other existing caller passes just { postId } and keeps today's
+  // static single-post behavior unchanged.
+  if (Array.isArray(posts) && posts.length > 0) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item._id}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          initialScrollIndex={initialIndex || 0}
+          getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
+          renderItem={({ item, index }) => (
+            <View style={{ width: SCREEN_WIDTH }}>
+              <PostDetailPage
+                postId={item._id}
+                isDark={isDark}
+                isVisible={index === activeIndex}
+                navigation={navigation}
+                loggedUser={loggedUser}
+                queryClient={queryClient}
+              />
+            </View>
+          )}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+      <PostDetailPage
+        postId={postId}
+        isDark={isDark}
+        isVisible={true}
+        navigation={navigation}
+        loggedUser={loggedUser}
+        queryClient={queryClient}
+      />
     </SafeAreaView>
   );
 }

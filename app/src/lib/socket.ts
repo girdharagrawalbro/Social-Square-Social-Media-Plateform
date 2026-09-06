@@ -14,6 +14,7 @@ export const getSocket = (): Socket => {
 };
 
 import { queryClient } from './queryClient';
+import { usePresenceStore } from '../store/zustand/usePresenceStore';
 
 export const connectSocket = (userId: string) => {
   const s = getSocket();
@@ -72,6 +73,19 @@ export const connectSocket = (userId: string) => {
         await queryClient.invalidateQueries({ queryKey: ['conversations'] }); // to update snippet
       }
       console.log('[Socket Cache Sync] Invalidated messages due to new message');
+    });
+
+    // Presence — backend broadcasts these globally on connect/disconnect (server/index.js),
+    // but nothing consumed them client-side before, so any open chat's online/offline
+    // indicator only ever changed via a REST poll (or never, if that endpoint 404'd).
+    s.on('userOnline', (data: any) => {
+      const userId = typeof data === 'string' ? data : data?.userId;
+      if (userId) usePresenceStore.getState().setOnline(userId);
+    });
+
+    s.on('userOffline', (data: any) => {
+      const userId = typeof data === 'string' ? data : data?.userId;
+      if (userId) usePresenceStore.getState().setOffline(userId);
     });
 
     s.on('followUpdate', async (data: any) => {

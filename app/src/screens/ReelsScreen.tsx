@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useRoute } from '@react-navigation/native';
 import { api } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useTabStore } from '../store/zustand/useTabStore';
@@ -24,18 +24,27 @@ const { height } = Dimensions.get('window');
 
 export default function ReelsScreen({ navigation }: any) {
   const isFocused = useIsFocused();
+  const route = useRoute<any>();
   const { currentTab } = useTabStore();
   const loggedUser = useAuthStore((s) => s.user);
 
-  const [reels, setReels] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // When opened with a specific array (from Explore's reel grid or Profile's reels
+  // tab), page through exactly that set instead of self-fetching the global feed —
+  // this is what makes those two entry points and the Reels tab all open the same
+  // real full-screen experience instead of three different implementations.
+  const givenPosts: any[] | undefined = route.params?.posts;
+  const isGivenMode = Array.isArray(givenPosts) && givenPosts.length > 0;
+
+  const [reels, setReels] = useState<any[]>(isGivenMode ? givenPosts! : []);
+  const [loading, setLoading] = useState(!isGivenMode);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeReelIndex, setActiveReelIndex] = useState(0);
+  const [activeReelIndex, setActiveReelIndex] = useState(route.params?.initialIndex || 0);
   const [muted, setMuted] = useState(true);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(!isGivenMode);
   const [cursor, setCursor] = useState<string | null>(null);
 
   const fetchReels = async (isRefresh = false) => {
+    if (isGivenMode) return;
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -76,29 +85,18 @@ export default function ReelsScreen({ navigation }: any) {
   };
 
   useEffect(() => {
+    if (isGivenMode) return;
     if (isFocused && currentTab === 'reels') {
       fetchReels(true);
     }
-  }, [isFocused, currentTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused, currentTab, isGivenMode]);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       
-      {/* FIXED/STATIC HEADER AT THE TOP */}
-      <View style={styles.fixedHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconCircle}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Reels</Text>
-        <TouchableOpacity onPress={() => setMuted(!muted)} style={styles.iconCircle}>
-          <MaterialCommunityIcons
-            name={muted ? 'volume-off' : 'volume-high'}
-            size={24}
-            color="#ffffff"
-          />
-        </TouchableOpacity>
-      </View>
+
 
       {loading && reels.length === 0 ? (
         <View style={styles.center}>
@@ -110,6 +108,8 @@ export default function ReelsScreen({ navigation }: any) {
           pagingEnabled
           showsVerticalScrollIndicator={false}
           keyExtractor={(item) => item._id}
+          initialScrollIndex={activeReelIndex}
+          getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
           onMomentumScrollEnd={(e) => {
             const index = Math.round(e.nativeEvent.contentOffset.y / height);
             setActiveReelIndex(index);
@@ -130,6 +130,7 @@ export default function ReelsScreen({ navigation }: any) {
           onEndReachedThreshold={0.4}
           renderItem={({ item, index }) => (
             <ReelPlayerItem
+              key={item._id}
               item={item}
               isActive={index === activeReelIndex && isFocused && currentTab === 'reels'}
               isPreload={index === activeReelIndex + 1 || index === activeReelIndex + 2}
@@ -137,12 +138,27 @@ export default function ReelsScreen({ navigation }: any) {
               setMuted={setMuted}
               loggedUser={loggedUser}
               navigation={navigation}
-              hideHeader={true} // Disable individual scrolling header
+              hideHeader={true}
             />
           )}
           contentContainerStyle={{ paddingBottom: 60 }}
         />
       )}
+
+      {/* FIXED HEADER — rendered AFTER FlatList so it sits on top in paint order */}
+      <View style={styles.fixedHeader}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconCircle}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#ffffff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Reels</Text>
+        <TouchableOpacity onPress={() => setMuted(!muted)} style={styles.iconCircle}>
+          <MaterialCommunityIcons
+            name={muted ? 'volume-off' : 'volume-high'}
+            size={24}
+            color="#ffffff"
+          />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -167,7 +183,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    zIndex: 100, // Make sure it sits on top of everything
+    zIndex: 999,
+    elevation: 10, // Android: creates a stacking context above FlatList items
   },
   headerTitle: {
     color: '#ffffff',

@@ -156,6 +156,11 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
                 success: true,
                 url: resultData.secure_url || resultData.url,
                 publicId: resultData.public_id,
+                // Cloudinary already measures the final (post-transform) asset —
+                // pass it through so clients can size media containers without a
+                // separate dimension-discovery round trip.
+                width: resultData.width,
+                height: resultData.height,
                 data: resultData
             });
         } catch (cloudinaryError) {

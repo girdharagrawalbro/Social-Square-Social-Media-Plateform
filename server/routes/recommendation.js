@@ -198,7 +198,7 @@ router.get("/posts", verifyToken, async (req, res) => {
                 })
                     .sort({ createdAt: -1 })
                     .limit(5)
-                    .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
+                    .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url imageDimensions video videoThumbnail videoDimensions isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
                     .populate('mentions', 'username fullname')
                     .lean();
             } catch (err) {
@@ -249,14 +249,14 @@ router.get("/posts", verifyToken, async (req, res) => {
             })
                 .sort({ score: -1, views: -1 })
                 .limit(60)
-                .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
+                .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url imageDimensions video videoThumbnail videoDimensions isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
                 .lean();
         }
 
         const candidatesPromise = Post.find(candidatesQuery)
             .sort({ createdAt: -1 })
             .limit(100)
-            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url video videoThumbnail isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
+            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url imageDimensions video videoThumbnail videoDimensions isCollaborative collaborators voiceNote mood isAiGenerated poll aiSummary mentions mediaKeys videoKey videoIv voiceNoteKey voiceNoteIv')
             .populate('mentions', 'username fullname')
             .lean()
             .maxTimeMS(10000);

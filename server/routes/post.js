@@ -180,7 +180,8 @@ router.post("/create", verifyToken, [
             isAiGenerated, groupId, poll, videoThumbnail, mentionIds, visibility,
             isBeforeAfter, beforeAfter, isFeedbackRequest, feedbackCategory, goalId, settings,
             mediaKeys, videoKey, videoIv, voiceNoteKey, voiceNoteIv,
-            beforeImageKey, beforeImageIv, afterImageKey, afterImageIv
+            beforeImageKey, beforeImageIv, afterImageKey, afterImageIv,
+            imageDimensions, videoDimensions
         } = req.body;
         const loggedUserId = req.userId; // Secure: from token
 
@@ -225,15 +226,20 @@ router.post("/create", verifyToken, [
         const newPost = new Post({
             caption, category,
             image_urls: calculatedImageUrls,
+            // Only trust client-supplied dimensions when they line up with the actual
+            // image_urls being saved (the before/after override above changes that array).
+            imageDimensions: (!isBeforeAfter && Array.isArray(imageDimensions)) ? imageDimensions : [],
             video: videoURL || null,
             videoThumbnail: videoThumbnail || null,
+            videoDimensions: videoURL && videoDimensions ? videoDimensions : undefined,
             user: isAnonymous
                 ? {
                     _id: ANONYMOUS_USER_ID,
                     fullname: 'Anonymous',
+                    username: 'anonymous',
                     profile_picture: USER_DEFAULT_IMAGE
                 }
-                : { _id: userDetails._id, fullname: userDetails.fullname, profile_picture: userDetails.profile_picture },
+                : { _id: userDetails._id, fullname: userDetails.fullname, username: userDetails.username, profile_picture: userDetails.profile_picture },
             location: location || {}, music: music || {},
             isAnonymous: !!isAnonymous,
             ownerToken: isAnonymous ? getOwnerToken(loggedUserId) : null,
@@ -1537,6 +1543,63 @@ router.get("/trending", async (req, res) => {
 
         res.status(200).json(result);
     } catch (error) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// ─── POSTS BY HASHTAG (tappable #hashtag in bios/captions) ────────────────────
+router.get('/hashtag/:tag', softVerifyToken, async (req, res) => {
+    try {
+        const viewerId = req.userId; // resolved by softVerifyToken, may be undefined if logged out
+        let tag = req.params.tag || '';
+        if (!tag.startsWith('#')) tag = `#${tag}`;
+        const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const limit = Math.min(parseInt(req.query.limit) || 21, 50);
+        const cursor = req.query.cursor;
+
+        const query = {
+            caption: { $regex: `(^|\\s)${escaped}(\\s|$)`, $options: 'i' },
+            isAnonymous: { $ne: true },
+            deletedAt: null,
+            isVisible: { $ne: false },
+        };
+        if (cursor) {
+            try {
+                const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString());
+                query.$and = [{
+                    $or: [
+                        { createdAt: { $lt: new Date(decoded.date) } },
+                        { createdAt: new Date(decoded.date), _id: { $lt: decoded.id } },
+                    ],
+                }];
+            } catch (e) { /* ignore malformed cursor */ }
+        }
+
+        let posts = await Post.find(query)
+            .sort({ createdAt: -1, _id: -1 })
+            .limit(limit + 1)
+            .select('_id createdAt likes reactions comments category tags score user caption image_urls image_url imageDimensions video videoThumbnail videoDimensions')
+            .lean();
+
+        // Exclude posts authored by private accounts the viewer doesn't follow —
+        // same rule as the per-user posts endpoint, applied per-author here since
+        // hashtag results can span many different authors.
+        const authorIds = [...new Set(posts.map((p) => (p.user?._id || p.user)?.toString()).filter(Boolean))];
+        const privateAuthors = await User.find({ _id: { $in: authorIds }, isPrivate: true }).select('_id followers').lean();
+        const blockedAuthorIds = new Set(
+            privateAuthors
+                .filter((u) => !viewerId || !u.followers?.some((f) => f.toString() === viewerId.toString()))
+                .map((u) => u._id.toString())
+        );
+        posts = posts.filter((p) => !blockedAuthorIds.has((p.user?._id || p.user)?.toString()));
+
+        const hasMore = posts.length > limit;
+        const sliced = hasMore ? posts.slice(0, limit) : posts;
+        const last = sliced[sliced.length - 1];
+        const nextCursor = hasMore && last ? Buffer.from(JSON.stringify({ date: last.createdAt, id: last._id })).toString('base64') : null;
+
+        res.status(200).json({ tag, posts: sliced, nextCursor, hasMore });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
 // ─── LIKE (PROTECTED) ─────────────────────────────────────────────────────────

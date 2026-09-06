@@ -54,6 +54,7 @@ export default function CallScreen() {
   >(initialIsIncoming ? 'incoming' : 'calling');
 
   const [token, setToken] = useState<string | null>(null);
+  const [liveKitUrl, setLiveKitUrl] = useState<string | null>(null);
   const [liveKitRoom, setLiveKitRoom] = useState<Room | null>(null);
   const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<any>(null);
@@ -80,26 +81,6 @@ export default function CallScreen() {
   const remoteUser = initialIsIncoming
     ? { id: callerId, fullname: callerName, avatar: callerAvatar }
     : { id: recipientId, fullname: recipientName, avatar: recipientAvatar };
-
-  const getLiveKitUrl = () => {
-    if (BASE_URL.includes('10.0.2.2')) return 'ws://10.0.2.2:7880';
-    if (BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1')) return 'ws://localhost:7880';
-    
-    // Parse BASE_URL to support local network (e.g. 192.168.x.x)
-    try {
-      const urlMatches = BASE_URL.match(/^https?:\/\/([^:]+)/);
-      if (urlMatches && urlMatches[1]) {
-        const host = urlMatches[1];
-        if (host.startsWith('192.168.') || host.startsWith('10.')) {
-          return `ws://${host}:7880`;
-        }
-      }
-    } catch (e) {}
-
-    return 'wss://social-square-wstenfwc.livekit.cloud';
-  };
-
-  const handleLivekitUrl = getLiveKitUrl();
 
   const resolveMediaUrl = (url?: string) => {
     if (!url) return undefined;
@@ -188,6 +169,11 @@ export default function CallScreen() {
 
     const fetchToken = async () => {
       try {
+        // Ask the backend which LiveKit server it actually issues tokens for —
+        // same as the web client — instead of guessing a URL from BASE_URL.
+        const providerRes = await api.get('/api/conversation/call/provider');
+        if (providerRes.data?.livekitUrl) setLiveKitUrl(providerRes.data.livekitUrl);
+
         const res = await api.post(`/api/conversation/call/token`, { conversationId });
         setToken(res.data.token);
         setCallStatus('connected');
@@ -203,7 +189,7 @@ export default function CallScreen() {
 
   // Connect to LiveKit Room once token is fetched
   useEffect(() => {
-    if (callStatus !== 'connected' || !token) return;
+    if (callStatus !== 'connected' || !token || !liveKitUrl) return;
 
     let isMounted = true;
     const room = new Room({
@@ -229,7 +215,7 @@ export default function CallScreen() {
           }
         }
 
-        await room.connect(handleLivekitUrl, token);
+        await room.connect(liveKitUrl, token);
         if (!isMounted) {
           room.disconnect();
           return;
@@ -310,7 +296,7 @@ export default function CallScreen() {
       isMounted = false;
       room.disconnect();
     };
-  }, [callStatus, token]);
+  }, [callStatus, token, liveKitUrl]);
 
   // Call timer effect
   useEffect(() => {

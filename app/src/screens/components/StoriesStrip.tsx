@@ -13,8 +13,6 @@ import {
   Alert,
   TextInput,
   Switch,
-  FlatList,
-  Pressable,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -27,59 +25,10 @@ import useAuthStore from '../../store/zustand/useAuthStore';
 import { usePostHog } from 'posthog-react-native';
 import { useLiveStore } from '../../store/zustand/useLiveStore';
 import { useNavigation } from '@react-navigation/native';
-import ShareModal from './ShareModal';
+import StoryViewer, { StoryItem, GroupedStory } from './StoryViewer';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const playerHeight = Math.min(screenHeight, screenWidth * (16 / 9));
-
-interface StoryItem {
-  _id: string;
-  media?: {
-    url: string;
-    type: 'image' | 'video';
-    thumbnailUrl?: string;
-  };
-  mediaUrl?: string; // fallback
-  mediaType?: string; // fallback
-  text?: {
-    content?: string;
-    color?: string;
-    position?: 'top' | 'center' | 'bottom';
-    y?: number;
-  };
-  visibility?: 'public' | 'followers' | 'close_friends';
-  createdAt: string;
-  poll?: {
-    question: string;
-    options: {
-      text: string;
-      votes: string[];
-    }[];
-    y?: number;
-  };
-  music?: {
-    title: string;
-    artist: string;
-  };
-  likes?: string[];
-  viewers?: string[];
-  sharedPostId?: any;
-  sharedStoryId?: any;
-  mentions?: any[];
-  viewersCount?: number;
-}
-
-interface GroupedStory {
-  user: {
-    _id: string;
-    username: string;
-    fullname: string;
-    profile_picture?: string;
-    isOnline: boolean;
-  };
-  stories: StoryItem[];
-  hasUnviewed: boolean;
-}
 
 const COLOR_OPTIONS = ['#ffffff', '#facc15', '#60a5fa', '#f87171', '#4ade80', '#c084fc'];
 
@@ -115,22 +64,11 @@ export default function StoriesStrip() {
     }
   };
 
-  // Stories player modal state
+  // Stories player modal state — the viewer (StoryViewer) owns all playback/gesture/
+  // reply/viewers state internally; the strip only needs to know whether it's open
+  // and which group to open it at.
   const [playerVisible, setPlayerVisible] = useState(false);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
-  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
-  const progressAnim = useRef(0);
-  const [timerProgress, setTimerProgress] = useState(0);
-  const timerRef = useRef<any>(null);
-
-  // Stories player interactive elements
-  const [replyText, setReplyText] = useState('');
-  const [sendingReply, setSendingReply] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [viewers, setViewers] = useState<any[]>([]);
-  const [viewersVisible, setViewersVisible] = useState(false);
-  const [loadingViewers, setLoadingViewers] = useState(false);
-  const [shareVisible, setShareVisible] = useState(false);
 
   // Story creation modal state
   const [createVisible, setCreateVisible] = useState(false);
@@ -226,74 +164,6 @@ export default function StoriesStrip() {
   useBroadcast('STORY_DELETED', React.useCallback(() => {
     fetchStories();
   }, []));
-
-  // Story playback timer logic
-  useEffect(() => {
-    if (!playerVisible || feed.length === 0 || isPaused) {
-      clearInterval(timerRef.current);
-      return;
-    }
-
-    const currentGroup = feed[activeGroupIndex];
-    if (!currentGroup || !currentGroup.stories || currentGroup.stories.length === 0) {
-      return;
-    }
-
-    const currentStory = currentGroup.stories[activeStoryIndex];
-    const isVideo = currentStory?.media?.type === 'video' || currentStory?.mediaType === 'video';
-    const totalDuration = isVideo ? 15000 : 5000;
-
-    const intervalTime = 100;
-    const steps = totalDuration / intervalTime;
-
-    clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      progressAnim.current += 1;
-      setTimerProgress(progressAnim.current / steps);
-
-      if (progressAnim.current >= steps) {
-        clearInterval(timerRef.current);
-        progressAnim.current = 0;
-        handleNextStory();
-      }
-    }, intervalTime);
-
-    if (currentStory && progressAnim.current === 1) {
-      api.post(`/api/story/view/${currentStory._id}`).catch(() => { });
-    }
-
-    return () => clearInterval(timerRef.current);
-  }, [playerVisible, activeGroupIndex, activeStoryIndex, isPaused]);
-
-  const handleNextStory = () => {
-    progressAnim.current = 0;
-    const currentGroup = feed[activeGroupIndex];
-    if (!currentGroup) return;
-
-    if (activeStoryIndex < currentGroup.stories.length - 1) {
-      setActiveStoryIndex((prev) => prev + 1);
-    } else {
-      if (activeGroupIndex < feed.length - 1) {
-        setActiveGroupIndex((prev) => prev + 1);
-        setActiveStoryIndex(0);
-      } else {
-        setPlayerVisible(false);
-      }
-    }
-  };
-
-  const handlePrevStory = () => {
-    progressAnim.current = 0;
-    if (activeStoryIndex > 0) {
-      setActiveStoryIndex((prev) => prev - 1);
-    } else {
-      if (activeGroupIndex > 0) {
-        setActiveGroupIndex((prev) => prev - 1);
-        const prevGroup = feed[activeGroupIndex - 1];
-        setActiveStoryIndex(prevGroup ? prevGroup.stories.length - 1 : 0);
-      }
-    }
-  };
 
   // Opens camera/gallery choice — the proper way, like Instagram/WhatsApp
   const handlePickMedia = () => {
@@ -430,29 +300,34 @@ export default function StoriesStrip() {
     }
   };
 
-  const handleSendReply = async (storyId: string) => {
-    if (!replyText.trim()) return;
-    setSendingReply(true);
-
-    try {
-      await api.post(`/api/story/reply/${storyId}`, { text: replyText.trim() });
-      Alert.alert('Sent', 'Story reply sent as a Direct Message!');
-      setReplyText('');
-    } catch (e: any) {
-      Alert.alert('Reply Error', e.response?.data?.message || 'Failed to send reply.');
-    } finally {
-      setSendingReply(false);
-    }
+  // The viewer owns the reply UI (input state, sending spinner, success/error alert)
+  // and just needs this to actually make the call.
+  const sendStoryReply = async (storyId: string, text: string) => {
+    await api.post(`/api/story/reply/${storyId}`, { text });
   };
 
-  const currentGroup = feed[activeGroupIndex];
-  const currentStory = currentGroup?.stories[activeStoryIndex];
+  // Fired when the viewer's "Add to your Story" (mention-back) button is tapped —
+  // pre-fills the create-story composer with the reshared story's content/music.
+  const handleReshareStory = (story: StoryItem) => {
+    setResharedStory(story);
+    setSelectedUri(story.media?.url || story.mediaUrl || null);
+    setMediaType((story.media?.type || story.mediaType || 'image') as 'image' | 'video');
+
+    if (story.music) {
+      setHasMusic(true);
+      setMusicTitle(story.music.title);
+      setMusicArtist(story.music.artist);
+    } else {
+      setHasMusic(false);
+      setMusicTitle('');
+      setMusicArtist('');
+    }
+
+    setCreateVisible(true);
+  };
 
   const myGroupIndex = feed.findIndex((g) => g.user._id === myUser?._id);
   const myGroup = myGroupIndex !== -1 ? feed[myGroupIndex] : null;
-
-  const storyMediaUrl = currentStory?.media?.url || currentStory?.mediaUrl || '';
-  const storyMediaType = currentStory?.media?.type || currentStory?.mediaType || 'image';
 
   return (
     <View style={styles.container}>
@@ -467,7 +342,6 @@ export default function StoriesStrip() {
             <TouchableOpacity
               onPress={() => {
                 setActiveGroupIndex(myGroupIndex);
-                setActiveStoryIndex(0);
                 setPlayerVisible(true);
               }}
             >
@@ -561,7 +435,6 @@ export default function StoriesStrip() {
               style={styles.bubbleContainer}
               onPress={() => {
                 setActiveGroupIndex(index);
-                setActiveStoryIndex(0);
                 setPlayerVisible(true);
               }}
             >
@@ -597,540 +470,20 @@ export default function StoriesStrip() {
         })}
       </ScrollView>
 
-      {/* Stories Playback Modal */}
-      <Modal
+      <StoryViewer
         visible={playerVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setPlayerVisible(false)}
-      >
-        <View style={styles.playerContainer}>
-          {currentGroup && currentStory && (
-            <View style={styles.playerContent}>
-              {/* Background media with dynamic blur and resizeMode */}
-              <Image
-                source={{ uri: storyMediaUrl }}
-                style={[
-                  styles.playerMedia,
-                  (currentStory.sharedPostId || currentStory.sharedStoryId)
-                    ? { opacity: 0.6 }
-                    : { opacity: 1 }
-                ]}
-                resizeMode={(currentStory.sharedPostId || currentStory.sharedStoryId) ? 'cover' : 'contain'}
-                blurRadius={(currentStory.sharedPostId || currentStory.sharedStoryId) ? 35 : 0}
-              />
-
-              {/* Tap skip zones */}
-              <View style={styles.gestureOverlay}>
-                <Pressable
-                  style={styles.leftTap}
-                  onPressIn={() => setIsPaused(true)}
-                  onPressOut={() => setIsPaused(false)}
-                  onPress={handlePrevStory}
-                />
-                <Pressable
-                  style={styles.rightTap}
-                  onPressIn={() => setIsPaused(true)}
-                  onPressOut={() => setIsPaused(false)}
-                  onPress={handleNextStory}
-                />
-              </View>
-
-              {/* Header bars */}
-              <View style={styles.progressHeaderContainer}>
-                <View style={styles.progressBarRow}>
-                  {currentGroup.stories.map((s, idx) => {
-                    let progress = 0;
-                    if (idx < activeStoryIndex) progress = 1;
-                    if (idx === activeStoryIndex) progress = timerProgress;
-                    return (
-                      <View key={s._id} style={styles.progressBarTrack}>
-                        <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {/* User info header row */}
-                <View style={styles.playerUserInfoRow}>
-                  {currentGroup.user.profile_picture ? (
-                    <Image source={{ uri: currentGroup.user.profile_picture }} style={styles.playerAvatar} />
-                  ) : (
-                    <View style={[styles.playerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
-                      <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{currentGroup.user.fullname[0]}</Text>
-                    </View>
-                  )}
-                  <Text style={styles.playerUsername}>{currentGroup.user.username}</Text>
-
-                  {currentStory.visibility === 'close_friends' && (
-                    <View style={styles.closeFriendsBadge}>
-                      <Text style={styles.closeFriendsText}>Close Friends</Text>
-                    </View>
-                  )}
-
-                  <TouchableOpacity style={styles.playerCloseBtn} onPress={() => setPlayerVisible(false)}>
-                    <MaterialCommunityIcons name="close" size={26} color="#ffffff" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Music overlay tag */}
-              {currentStory.music && currentStory.music.title ? (
-                <View style={styles.musicOverlayBadge}>
-                  <MaterialCommunityIcons name="music-note" size={16} color="#ffffff" />
-                  <Text style={styles.musicOverlayText} numberOfLines={1}>
-                    {currentStory.music.title} - {currentStory.music.artist || 'Unknown Artist'}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Rich text overlay caption */}
-              {currentStory.text && currentStory.text.content ? (
-                <View
-                  style={[
-                    styles.textOverlayContainer,
-                    currentStory.text.position === 'top' && { top: '20%' },
-                    currentStory.text.position === 'center' && { top: '45%' },
-                    currentStory.text.position === 'bottom' && { top: '75%' },
-                    currentStory.text.y !== undefined && { top: `${currentStory.text.y}%` },
-                  ]}
-                >
-                  <Text style={[styles.textOverlayContent, { color: currentStory.text.color || '#ffffff' }]}>
-                    {currentStory.text.content}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Tagged/Mentioned Users Overlay */}
-              {currentStory.mentions && currentStory.mentions.length > 0 && (
-                <View style={styles.mentionsOverlayContainer}>
-                  {currentStory.mentions.map((m: any) => {
-                    const uid = m._id || m;
-                    const name = m.username || m.fullname || 'user';
-                    return (
-                      <TouchableOpacity
-                        key={uid.toString()}
-                        style={styles.mentionChip}
-                        onPress={() => {
-                          setIsPaused(true);
-                          Alert.alert('Mention', `@${name}`, [{ text: 'OK', onPress: () => setIsPaused(false) }]);
-                        }}
-                      >
-                        <MaterialCommunityIcons name="account" size={10} color="#ffffff" />
-                        <Text style={styles.mentionChipText}>@{name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* Mention-back / Reshare Button */}
-              {currentGroup.user._id !== myUser?._id && currentStory.mentions?.some((m: any) => (m._id || m).toString() === myUser?._id?.toString()) && (
-                <TouchableOpacity
-                  style={styles.reshareBtn}
-                  onPress={() => {
-                    setResharedStory(currentStory);
-                    setSelectedUri(currentStory.media?.url || currentStory.mediaUrl || null);
-                    setMediaType((currentStory.media?.type || currentStory.mediaType || 'image') as 'image' | 'video');
-                    
-                    // Music rules: if original has music, pre-fill and lock it!
-                    if (currentStory.music) {
-                      setHasMusic(true);
-                      setMusicTitle(currentStory.music.title);
-                      setMusicArtist(currentStory.music.artist);
-                    } else {
-                      setHasMusic(false);
-                      setMusicTitle('');
-                      setMusicArtist('');
-                    }
-
-                    setPlayerVisible(false);
-                    setCreateVisible(true);
-                  }}
-                >
-                  <MaterialCommunityIcons name="flash" size={14} color="#ffffff" />
-                  <Text style={styles.reshareBtnText}>Add to your Story</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Reshared Post Sticker Card */}
-              {currentStory.sharedPostId && (
-                <TouchableOpacity
-                  style={styles.stickerCard}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    // Navigate to post detail if possible
-                    setIsPaused(true);
-                    const pid = currentStory.sharedPostId._id || currentStory.sharedPostId.id || currentStory.sharedPostId;
-                    if (pid) {
-                      Alert.alert(
-                        'Open Post',
-                        'Would you like to view this post?',
-                        [
-                          { text: 'Cancel', onPress: () => setIsPaused(false), style: 'cancel' },
-                          {
-                            text: 'View Post',
-                            onPress: () => {
-                              setIsPaused(false);
-                              setPlayerVisible(false);
-                              navigation.navigate('PostDetail', { postId: pid.toString() });
-                            }
-                          }
-                        ]
-                      );
-                    }
-                  }}
-                >
-                  <View style={styles.stickerHeader}>
-                    {currentStory.sharedPostId.user?.profile_picture ? (
-                      <Image source={{ uri: currentStory.sharedPostId.user.profile_picture }} style={styles.stickerAvatar} />
-                    ) : (
-                      <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
-                        <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
-                          {currentStory.sharedPostId.user?.fullname?.[0]?.toUpperCase() || 'U'}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.stickerName} numberOfLines={1}>{currentStory.sharedPostId.user?.fullname}</Text>
-                      <Text style={styles.stickerSub} numberOfLines={1}>Social Square Post</Text>
-                    </View>
-                    <MaterialCommunityIcons name="instagram" size={16} color="#9ca3af" />
-                  </View>
-                  <View style={styles.stickerMediaContainer}>
-                    <Image
-                      source={{ uri: currentStory.sharedPostId.image_urls?.[0] || currentStory.sharedPostId.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80' }}
-                      style={styles.stickerMedia1to1}
-                      resizeMode="cover"
-                    />
-                  </View>
-                  {currentStory.sharedPostId.caption ? (
-                    <Text style={styles.stickerCaption} numberOfLines={2}>{currentStory.sharedPostId.caption}</Text>
-                  ) : null}
-                </TouchableOpacity>
-              )}
-
-              {/* Reshared Story Sticker Card */}
-              {currentStory.sharedStoryId && (
-                <TouchableOpacity
-                  style={styles.stickerCard}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    setIsPaused(true);
-                    const originalUser = currentStory.sharedStoryId.user?.username || currentStory.sharedStoryId.user?._id;
-                    if (originalUser) {
-                      Alert.alert(
-                        'View Story',
-                        `Would you like to view @${originalUser}'s original story?`,
-                        [
-                          { text: 'Cancel', onPress: () => setIsPaused(false), style: 'cancel' },
-                          {
-                            text: 'View',
-                            onPress: () => {
-                              setIsPaused(false);
-                              // Load group and open original story
-                              const grpIdx = feed.findIndex((g) => g.user._id === currentStory.sharedStoryId.user?._id);
-                              if (grpIdx !== -1) {
-                                setActiveGroupIndex(grpIdx);
-                                setActiveStoryIndex(0);
-                              } else {
-                                Alert.alert('Notice', 'This story group is no longer active.');
-                              }
-                            }
-                          }
-                        ]
-                      );
-                    }
-                  }}
-                >
-                  <View style={styles.stickerHeader}>
-                    {currentStory.sharedStoryId.user?.profile_picture ? (
-                      <Image source={{ uri: currentStory.sharedStoryId.user.profile_picture }} style={styles.stickerAvatar} />
-                    ) : (
-                      <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
-                        <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
-                          {currentStory.sharedStoryId.user?.fullname?.[0]?.toUpperCase() || 'U'}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.stickerName} numberOfLines={1}>{currentStory.sharedStoryId.user?.fullname}</Text>
-                      <Text style={styles.stickerSub} numberOfLines={1}>Social Square Story</Text>
-                    </View>
-                    <MaterialCommunityIcons name="layers" size={16} color="#9ca3af" />
-                  </View>
-                  <View style={styles.stickerMediaContainer9to16}>
-                    <Image
-                      source={{ uri: currentStory.sharedStoryId.media?.url }}
-                      style={styles.stickerMedia9to16}
-                      resizeMode="cover"
-                    />
-
-                    {/* Original story text caption overlay inside reshared story */}
-                    {currentStory.sharedStoryId.text && currentStory.sharedStoryId.text.content ? (
-                      <View
-                        style={[
-                          styles.miniTextOverlayContainer,
-                          currentStory.sharedStoryId.text.position === 'top' && { top: '15%' },
-                          currentStory.sharedStoryId.text.position === 'center' && { top: '45%' },
-                          currentStory.sharedStoryId.text.position === 'bottom' && { top: '75%' },
-                          currentStory.sharedStoryId.text.y !== undefined && { top: `${currentStory.sharedStoryId.text.y}%` },
-                        ]}
-                      >
-                        <Text style={[styles.miniTextOverlayContent, { color: currentStory.sharedStoryId.text.color || '#ffffff' }]}>
-                          {currentStory.sharedStoryId.text.content}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    {/* Original story poll sticker inside reshared story */}
-                    {currentStory.sharedStoryId.poll && currentStory.sharedStoryId.poll.question ? (
-                      <View style={[styles.miniPollCard, { top: currentStory.sharedStoryId.poll.y !== undefined ? `${currentStory.sharedStoryId.poll.y}%` : '28%' }]}>
-                        <Text style={styles.miniPollQuestion} numberOfLines={1}>{currentStory.sharedStoryId.poll.question}</Text>
-                        <View style={styles.miniPollOptionsRow}>
-                          {currentStory.sharedStoryId.poll.options.map((opt: any) => (
-                            <View key={opt.text} style={styles.miniPollOptionBtn}>
-                              <Text style={styles.miniPollOptionText}>{opt.text}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Interactive Poll card */}
-              {currentStory.poll && currentStory.poll.question ? (
-                <View style={[styles.pollCard, { top: currentStory.poll.y !== undefined ? `${currentStory.poll.y}%` : '28%' }]}>
-                  <Text style={styles.pollQuestion}>{currentStory.poll.question}</Text>
-                  <View style={styles.pollOptionsRow}>
-                    {currentStory.poll.options.map((opt, optIdx) => {
-                      const votes = opt.votes || [];
-                      const totalVotes = (currentStory.poll?.options || []).reduce(
-                        (acc, cur) => acc + (cur.votes || []).length,
-                        0
-                      );
-                      const hasVoted = (currentStory.poll?.options || []).some((o) =>
-                        (o.votes || []).some((vId) => vId.toString() === myUser?._id?.toString())
-                      );
-
-                      const votePercent = totalVotes > 0 ? Math.round((votes.length / totalVotes) * 100) : 0;
-
-                      return (
-                        <TouchableOpacity
-                          key={opt.text}
-                          style={[styles.pollOptionBtn, hasVoted && styles.pollOptionVoted]}
-                          onPress={() => !hasVoted && handleVotePoll(currentStory._id, optIdx)}
-                          disabled={hasVoted}
-                        >
-                          {hasVoted ? (
-                            <View style={styles.pollVotedWrapper}>
-                              <Text style={styles.pollOptionText}>{opt.text}</Text>
-                              <Text style={styles.pollPercentText}>{votePercent}%</Text>
-                            </View>
-                          ) : (
-                            <Text style={styles.pollOptionText}>{opt.text}</Text>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
-
-              {/* Story Actions & Reply compose footer */}
-              {currentGroup.user._id === myUser?._id ? (
-                <View style={styles.ownerFooterRow}>
-                  <TouchableOpacity
-                    style={styles.viewsBtn}
-                    onPress={async () => {
-                      setIsPaused(true);
-                      setLoadingViewers(true);
-                      setViewersVisible(true);
-                      try {
-                        const res = await api.get(`/api/story/viewers/${currentStory._id}`);
-                        setViewers(res.data || []);
-                      } catch (e) {
-                        console.warn('Failed to fetch viewers:', e);
-                      } finally {
-                        setLoadingViewers(false);
-                      }
-                    }}
-                  >
-                    <MaterialCommunityIcons name="eye" size={20} color="#ffffff" style={{ marginRight: 6 }} />
-                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 14 }}>
-                      {(currentStory.viewersCount || (currentStory.viewers || []).length)} Views
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <TouchableOpacity
-                      style={styles.actionBtn}
-                      onPress={() => {
-                        setIsPaused(true);
-                        setShareVisible(true);
-                      }}
-                    >
-                      <MaterialCommunityIcons name="send-outline" size={24} color="#ffffff" style={{ transform: [{ rotate: '-25deg' }] }} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.deleteStoryBtn}
-                      onPress={() => {
-                        setIsPaused(true);
-                        Alert.alert('Delete Story', 'Are you sure you want to delete this story?', [
-                          { text: 'Cancel', style: 'cancel', onPress: () => setIsPaused(false) },
-                          {
-                            text: 'Delete',
-                            style: 'destructive',
-                            onPress: async () => {
-                              try {
-                                await api.delete(`/api/story/${currentStory._id}`);
-                                setPlayerVisible(false);
-                                fetchStories();
-                              } catch (e) {
-                                Alert.alert('Error', 'Failed to delete story.');
-                                setIsPaused(false);
-                              }
-                            }
-                          }
-                        ]);
-                      }}
-                    >
-                      <MaterialCommunityIcons name="delete-outline" size={24} color="#ef4444" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.playerFooterRow}>
-                  <TextInput
-                    style={styles.replyInput}
-                    placeholder="Send message..."
-                    placeholderTextColor="rgba(255,255,255,0.7)"
-                    value={replyText}
-                    onChangeText={setReplyText}
-                    onSubmitEditing={() => handleSendReply(currentStory._id)}
-                  />
-
-                  {replyText.trim().length > 0 ? (
-                    <TouchableOpacity
-                      style={styles.actionBtn}
-                      onPress={() => handleSendReply(currentStory._id)}
-                      disabled={sendingReply}
-                    >
-                      {sendingReply ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <MaterialCommunityIcons name="send" size={24} color="#ffffff" />
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <>
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => handleLikeStory(currentStory._id)}
-                      >
-                        <MaterialCommunityIcons
-                          name={
-                            (currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString())
-                              ? 'heart'
-                              : 'heart-outline'
-                          }
-                          size={28}
-                          color={
-                            (currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString())
-                              ? '#ef4444'
-                              : '#ffffff'
-                          }
-                        />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => {
-                          setIsPaused(true);
-                          setShareVisible(true);
-                        }}
-                      >
-                        <MaterialCommunityIcons name="send-outline" size={24} color="#ffffff" style={{ transform: [{ rotate: '-25deg' }] }} />
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              )}
-
-              {/* Viewers list modal */}
-              <Modal
-                visible={viewersVisible}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => {
-                  setViewersVisible(false);
-                  setIsPaused(false);
-                }}
-              >
-                <View style={styles.modalOverlay}>
-                  <View style={[styles.modalContent, { backgroundColor: isDark ? '#121212' : '#ffffff' }]}>
-                    <View style={[styles.modalHeader, { borderBottomColor: borderColor }]}>
-                      <Text style={[styles.modalTitle, { color: textColorStyle }]}>Viewers ({viewers.length})</Text>
-                      <TouchableOpacity onPress={() => { setViewersVisible(false); setIsPaused(false); }}>
-                        <MaterialCommunityIcons name="close" size={24} color={textColorStyle} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {loadingViewers ? (
-                      <ActivityIndicator size="large" color="#808bf5" style={{ marginVertical: 40 }} />
-                    ) : viewers.length === 0 ? (
-                      <Text style={{ color: subColor, textAlign: 'center', marginVertical: 40 }}>No views yet</Text>
-                    ) : (
-                      <FlatList
-                        data={viewers}
-                        keyExtractor={(item) => item._id}
-                        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 30 }}
-                        renderItem={({ item }) => {
-                          const hasLiked = (currentStory?.likes || []).some(
-                            (likeId) => likeId.toString() === item._id.toString()
-                          );
-                          return (
-                            <View style={[styles.viewerItem, { borderBottomColor: borderColor }]}>
-                              {item.profile_picture ? (
-                                <Image source={{ uri: item.profile_picture }} style={styles.viewerAvatar} />
-                              ) : (
-                                <View style={[styles.viewerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
-                                  <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{item.fullname[0]}</Text>
-                                </View>
-                              )}
-                              <View style={{ flex: 1, marginLeft: 12 }}>
-                                <Text style={[styles.viewerName, { color: textColorStyle }]}>{item.fullname}</Text>
-                                <Text style={{ color: subColor, fontSize: 12 }}>@{item.username}</Text>
-                              </View>
-                              {hasLiked && (
-                                <MaterialCommunityIcons name="heart" size={20} color="#ef4444" />
-                              )}
-                            </View>
-                          );
-                        }}
-                      />
-                    )}
-                  </View>
-                </View>
-              </Modal>
-
-              {/* Share Story Modal */}
-              <ShareModal
-                visible={shareVisible}
-                onClose={() => {
-                  setShareVisible(false);
-                  setIsPaused(false);
-                }}
-                story={currentStory}
-                myUser={myUser}
-              />
-            </View>
-          )}
-        </View>
-      </Modal>
+        feed={feed}
+        initialGroupIndex={activeGroupIndex}
+        myUser={myUser}
+        isDark={isDark}
+        navigation={navigation}
+        onClose={() => setPlayerVisible(false)}
+        onLike={handleLikeStory}
+        onVote={handleVotePoll}
+        onReply={sendStoryReply}
+        onStoriesChanged={fetchStories}
+        onReshare={handleReshareStory}
+      />
 
       {/* Story Creation configuration Modal */}
       <Modal

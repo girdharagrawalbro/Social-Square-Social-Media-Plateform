@@ -838,7 +838,11 @@ export default function NewPostScreen() {
     // Run the upload in background
     (async () => {
       const uploadedUrls: string[] = [];
+      // Kept in lockstep (same index) with uploadedUrls so the backend can size
+      // each image's post container correctly on first render.
+      const imageDimensionsList: { width?: number; height?: number }[] = [];
       let videoUrlString = '';
+      let videoDimensions: { width?: number; height?: number } | undefined;
       try {
         for (const item of selectedMedia) {
           if (item.uri.startsWith('http')) {
@@ -846,6 +850,7 @@ export default function NewPostScreen() {
               videoUrlString = item.uri;
             } else {
               uploadedUrls.push(item.uri);
+              imageDimensionsList.push({});
             }
           } else {
             const formData = new FormData();
@@ -865,10 +870,13 @@ export default function NewPostScreen() {
             });
 
             if (uploadRes.data?.success && uploadRes.data?.url) {
+              const dimensions = { width: uploadRes.data.width, height: uploadRes.data.height };
               if (item.type === 'video') {
                 videoUrlString = uploadRes.data.url;
+                videoDimensions = dimensions;
               } else {
                 uploadedUrls.push(uploadRes.data.url);
+                imageDimensionsList.push(dimensions);
               }
             } else {
               throw new Error(uploadRes.data?.message || 'Failed to upload media to backend proxy.');
@@ -904,15 +912,19 @@ export default function NewPostScreen() {
 
         if (videoUrlString) {
           payload.videoURL = videoUrlString;
+          if (videoDimensions?.width && videoDimensions?.height) {
+            payload.videoDimensions = videoDimensions;
+          }
         }
         if (uploadedUrls.length > 0) {
           payload.imageURLs = uploadedUrls;
+          payload.imageDimensions = imageDimensionsList;
         }
 
         const createRes = await api.post('/api/post/create', payload);
 
-        // Invalidate caches
-        await invalidateCache('feed_page_1');
+        // Invalidate caches (the feed itself doesn't use this AsyncStorage cache —
+        // new posts appear instantly via the POST_CREATED broadcast + query cache splice)
         if (user?._id) {
           await invalidateCache(`profile_posts_${user._id}`);
         }
