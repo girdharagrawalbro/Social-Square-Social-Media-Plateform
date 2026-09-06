@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   useColorScheme,
   FlatList,
   TouchableOpacity,
@@ -259,7 +259,8 @@ export default function NotificationsScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: textColor, marginLeft: 12 }]}>Notifications</Text>
+          <MaterialCommunityIcons name="bell-outline" size={22} color={textColor} style={{ marginLeft: 8 }} />
+          <Text style={[styles.headerTitle, { color: textColor, marginLeft: 8 }]}>Notifications</Text>
         </View>
         {activeTab === 'notifications' && notifications.some((n) => !n.read) ? (
           <TouchableOpacity onPress={handleMarkAllRead} style={{ padding: 4 }}>

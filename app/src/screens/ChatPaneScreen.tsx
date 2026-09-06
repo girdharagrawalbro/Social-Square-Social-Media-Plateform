@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,10 +33,12 @@ import ZoomableImage from './components/ZoomableImage';
 import { ChatMessageSkeleton } from './components/SkeletonLoader';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText, encryptText } from '../lib/cryptoUtils';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import GroupSettingsModal from './components/GroupSettingsModal';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const decryptionCache = new Map<string, string>();
 
@@ -46,12 +48,12 @@ const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 const DoubleCheck = ({ isRead, isMe }: { isRead: boolean; isMe: boolean }) => {
   if (!isMe) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center'}}>
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       <MaterialCommunityIcons
         name="check"
         size={12}
         color={isRead ? '#3897f0' : 'rgba(255,255,255,0.65)'}
-        style={{  }}
+        style={{}}
       />
       <MaterialCommunityIcons
         name="check"
@@ -76,6 +78,8 @@ function SwipeableBubble({
   onImagePress,
   onStoryPress,
   onPostPress,
+  isHighlighted,
+  searchQuery,
 }: any) {
   const translateX = useRef(new Animated.Value(0)).current;
   const replyOpacity = useRef(new Animated.Value(0)).current;
@@ -137,6 +141,22 @@ function SwipeableBubble({
   const isSharedProfile = !!link.profileId;
   const hasCard = isSharedPost || isSharedProfile || !!item.storyReply;
   const isPlaceholder = content === 'Sent an attachment' || content === 'You sent an attachment' || content.startsWith('http://') || content.startsWith('https://') || content.includes('/post/') || content.includes('/profile/');
+
+  const renderHighlightedText = (text: string, query?: string) => {
+    if (!query || !query.trim()) return text;
+    // Escape special characters in query to prevent regex errors
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, i) =>
+      regex.test(part) ? (
+        <Text key={i} style={{ backgroundColor: isHighlighted ? '#facc15' : 'rgba(250, 204, 21, 0.4)', color: '#000' }}>{part}</Text>
+      ) : (
+        <Text key={i}>{part}</Text>
+      )
+    );
+  };
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
@@ -341,7 +361,7 @@ function SwipeableBubble({
                   {/* Text */}
                   {!isPlaceholder && content ? (
                     <Text style={[styles.messageText, { color: isMe ? '#ffffff' : '#0f172a', marginTop: hasCard ? 6 : 0 }]}>
-                      {content}
+                      {renderHighlightedText(content, searchQuery)}
                     </Text>
                   ) : null}
 
@@ -433,20 +453,32 @@ export default function ChatPaneScreen() {
   const [searchingServer, setSearchingServer] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  
+
   const [groupSettingsModalVisible, setGroupSettingsModalVisible] = useState(false);
+
+  // Voice note recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const queryClient = useQueryClient();
 
-  const filteredMessages = searchQuery.trim()
-    ? messages.filter(m =>
-      (m.decryptedContent || m.content || '').toLowerCase().includes(searchQuery.toLowerCase()))
-    : messages;
+  const matchingIndices = useMemo(() => {
+    if (!searchQuery.trim() || !searchVisible) return [];
+    const q = searchQuery.toLowerCase();
+    const indices: number[] = [];
+    messages.forEach((m, idx) => {
+      if ((m.decryptedContent || m.content || '').toLowerCase().includes(q)) {
+        indices.push(idx);
+      }
+    });
+    return indices;
+  }, [messages, searchQuery, searchVisible]);
 
   useEffect(() => {
     setSearchIndex(0);
     if (!searchQuery.trim() || !searchVisible) return;
-    if (filteredMessages.length > 0) return;
+    if (matchingIndices.length > 0) return;
 
     const timer = setTimeout(async () => {
       setSearchingServer(true);
@@ -457,7 +489,7 @@ export default function ChatPaneScreen() {
         if (res.data?.messages?.length > 0) {
           const e2ee = useE2eeStore.getState();
           const aesKey = await e2ee.getConversationKey(conversationId);
-          
+
           const processed = await Promise.all(res.data.messages.map(async (m: any) => {
             if (m.isEncrypted && aesKey) {
               try {
@@ -507,7 +539,7 @@ export default function ChatPaneScreen() {
   const decryptContent = async (raw: string, aesKey: string) => {
     const unescaped = unescapeHtml(raw);
     if (!unescaped || !unescaped.startsWith('{"ciphertext":')) return raw;
-    
+
     if (decryptionCache.has(unescaped)) {
       return decryptionCache.get(unescaped)!;
     }
@@ -637,7 +669,7 @@ export default function ChatPaneScreen() {
     setSending(true);
     try {
       const aesKey = await useE2eeStore.getState().getConversationKey(conversationId);
-      
+
       // If we have text and no media, or text with media, handle text normally
       // But actually, in web, text and media are sent together if it's 1 media, or text goes first.
       // Let's send the text message first if there is text.
@@ -688,20 +720,20 @@ export default function ChatPaneScreen() {
             let finalContent = 'Sent an attachment';
             let finalMediaUrl = uploadedUrl;
             let isEncrypted = false;
-            
+
             if (aesKey) {
               isEncrypted = true;
               finalContent = JSON.stringify(await encryptText('Sent an attachment', aesKey));
               finalMediaUrl = JSON.stringify(await encryptText(uploadedUrl, aesKey));
             }
-            
+
             const res = await api.post('/api/conversation/messages/create', {
               conversationId, content: finalContent, mediaUrl: finalMediaUrl,
               mediaType: media.type, senderName: currentUser?.fullname, recipientId, isEncrypted,
               mediaName: media.type === 'file' ? media.name : undefined,
               mediaSize: media.type === 'file' ? media.size : undefined,
             });
-            
+
             const newMsg = { ...res.data, decryptedContent: 'Sent an attachment', decryptedMediaUrl: uploadedUrl, mediaType: media.type };
             if (media.type === 'file') {
               newMsg.media = { url: uploadedUrl, type: 'file', name: media.name, size: media.size };
@@ -778,7 +810,7 @@ export default function ChatPaneScreen() {
     try {
       const result = await launchImageLibrary({ mediaType: 'mixed', selectionLimit: 10, quality: 0.8 });
       if (result.didCancel || !result.assets?.length) return;
-      
+
       const newMedia = result.assets.map(asset => ({
         uri: asset.uri,
         name: asset.type?.startsWith('video') ? 'chat.mp4' : 'chat.jpg',
@@ -786,7 +818,7 @@ export default function ChatPaneScreen() {
         type: asset.type?.startsWith('video') ? 'video' : 'image',
         resourceType: asset.type?.startsWith('video') ? 'video' : 'image',
       }));
-      
+
       setPendingMedia(prev => [...prev, ...newMedia]);
     } catch (e) {
       console.warn('Media pick error:', e);
@@ -876,7 +908,7 @@ export default function ChatPaneScreen() {
     const isMe = senderId && String(senderId) === String(currentUser?._id);
 
     // Date separator (FlatList is inverted so index 0 = newest)
-    const nextItem = index < filteredMessages.length - 1 ? filteredMessages[index + 1] : null;
+    const nextItem = index < messages.length - 1 ? messages[index + 1] : null;
     const showSeparator = nextItem &&
       new Date(item.createdAt).toDateString() !== new Date(nextItem.createdAt).toDateString();
     const formatDate = (d: Date) => {
@@ -898,6 +930,8 @@ export default function ChatPaneScreen() {
           onImagePress={(url: string) => setImageViewerUrl(url)}
           onStoryPress={handleStoryPress}
           onPostPress={handlePostPress}
+          isHighlighted={matchingIndices.includes(index) && matchingIndices[searchIndex] === index}
+          searchQuery={searchQuery}
         />
         {showSeparator && (
           <View style={styles.dateSeparator}>
@@ -910,7 +944,7 @@ export default function ChatPaneScreen() {
         )}
       </>
     );
-  }, [filteredMessages, isDark, textColor, subColor, borderColor, bg, currentUser, handleStoryPress, handlePostPress]);
+  }, [messages, matchingIndices, searchIndex, isDark, textColor, subColor, borderColor, bg, currentUser, handleStoryPress, handlePostPress]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
@@ -922,7 +956,7 @@ export default function ChatPaneScreen() {
             <MaterialCommunityIcons name="chevron-left" size={28} color={textColor} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => { if(isGroup) setGroupSettingsModalVisible(true); }}>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => { if (isGroup) setGroupSettingsModalVisible(true); }}>
             <View style={{ position: 'relative', marginRight: 10 }}>
               {recipientAvatar ? (
                 <Image source={{ uri: recipientAvatar }} style={styles.headerAvatar} />
@@ -946,40 +980,10 @@ export default function ChatPaneScreen() {
         </View>
 
         <View style={styles.headerActions}>
-          {!isGroup && (
-            <TouchableOpacity style={styles.actionBtn}
-              onPress={() => {
-                if (!conversationId || !recipientId) {
-                  Alert.alert('Error', 'Cannot start a call without an active conversation.');
-                  return;
-                }
-                navigation.navigate('Call', {
-                  conversationId,
-                  recipientId,
-                  recipientName: title,
-                  recipientAvatar,
-                  callType: 'voice',
-                  isIncoming: false,
-                });
-              }}>
-              <MaterialCommunityIcons name="phone-outline" size={20} color={textColor} />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity style={styles.actionBtn}
-            onPress={() => {
-              Alert.alert('Chat Options', 'Select an action:', [
-                { text: 'Set Encryption Password 🔒', onPress: () => setE2eeModalVisible(true) },
-                { text: 'View Profile', onPress: () => {
-                   if(isGroup) {
-                      // Handled by group settings modal later
-                   } else {
-                      navigation.navigate('Profile', { userId: recipientId });
-                   }
-                } },
-                { text: 'Cancel', style: 'cancel' }
-              ]);
-            }}>
-            <MaterialCommunityIcons name="dots-vertical" size={22} color={textColor} />
+            onPress={() => { setSearchVisible(v => !v); setSearchQuery(''); }}>
+            <MaterialCommunityIcons name={searchVisible ? 'close' : 'magnify'} size={20}
+              color={searchVisible ? '#808bf5' : textColor} />
           </TouchableOpacity>
           {!isGroup && (
             <TouchableOpacity style={styles.actionBtn}
@@ -988,22 +992,54 @@ export default function ChatPaneScreen() {
                   Alert.alert('Error', 'Cannot start a call without an active conversation.');
                   return;
                 }
-                navigation.navigate('Call', {
-                  conversationId,
-                  recipientId,
-                  recipientName: title,
-                  recipientAvatar,
-                  callType: 'video',
-                  isIncoming: false,
-                });
+                Alert.alert('Start Call', 'Select call type', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Voice Call', onPress: () => {
+                      navigation.navigate('Call', {
+                        conversationId,
+                        recipientId,
+                        recipientName: title,
+                        recipientAvatar,
+                        callType: 'voice',
+                        isIncoming: false,
+                      });
+                    }
+                  },
+                  {
+                    text: 'Video Call', onPress: () => {
+                      navigation.navigate('Call', {
+                        conversationId,
+                        recipientId,
+                        recipientName: title,
+                        recipientAvatar,
+                        callType: 'video',
+                        isIncoming: false,
+                      });
+                    }
+                  }
+                ]);
               }}>
-              <MaterialCommunityIcons name="video-outline" size={22} color={textColor} />
+              <MaterialCommunityIcons name="phone-outline" size={20} color={textColor} />
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.actionBtn}
-            onPress={() => { setSearchVisible(v => !v); setSearchQuery(''); }}>
-            <MaterialCommunityIcons name={searchVisible ? 'close' : 'magnify'} size={20}
-              color={searchVisible ? '#808bf5' : textColor} />
+            onPress={() => {
+              Alert.alert('Chat Options', 'Select an action:', [
+                { text: 'Set Encryption Password 🔒', onPress: () => setE2eeModalVisible(true) },
+                {
+                  text: 'View Profile', onPress: () => {
+                    if (isGroup) {
+                      // Handled by group settings modal later
+                    } else {
+                      navigation.navigate('Profile', { userId: recipientId });
+                    }
+                  }
+                },
+                { text: 'Cancel', style: 'cancel' }
+              ]);
+            }}>
+            <MaterialCommunityIcons name="dots-vertical" size={22} color={textColor} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1018,27 +1054,27 @@ export default function ChatPaneScreen() {
             placeholder={`Search in conversation...`}
             placeholderTextColor={subColor} value={searchQuery}
             onChangeText={setSearchQuery} autoFocus />
-          
+
           {searchingServer ? (
             <ActivityIndicator size="small" color="#808bf5" style={{ marginRight: 8 }} />
           ) : searchQuery.length > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: subColor, fontSize: 12, marginRight: 8 }}>
-                {filteredMessages.length > 0 ? `${searchIndex + 1}/${filteredMessages.length}` : '0 results'}
+                {matchingIndices.length > 0 ? `${searchIndex + 1}/${matchingIndices.length}` : '0 results'}
               </Text>
-              {filteredMessages.length > 0 && (
+              {matchingIndices.length > 0 && (
                 <>
                   <TouchableOpacity onPress={() => {
                     const next = Math.max(0, searchIndex - 1);
                     setSearchIndex(next);
-                    flatListRef.current?.scrollToIndex({ index: next, animated: true });
+                    flatListRef.current?.scrollToIndex({ index: matchingIndices[next], animated: true });
                   }} style={{ padding: 4 }}>
                     <MaterialCommunityIcons name="chevron-down" size={20} color={subColor} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => {
-                    const next = Math.min(filteredMessages.length - 1, searchIndex + 1);
+                    const next = Math.min(matchingIndices.length - 1, searchIndex + 1);
                     setSearchIndex(next);
-                    flatListRef.current?.scrollToIndex({ index: next, animated: true });
+                    flatListRef.current?.scrollToIndex({ index: matchingIndices[next], animated: true });
                   }} style={{ padding: 4, marginRight: 8 }}>
                     <MaterialCommunityIcons name="chevron-up" size={20} color={subColor} />
                   </TouchableOpacity>
@@ -1058,7 +1094,7 @@ export default function ChatPaneScreen() {
       ) : (
         <FlatList
           ref={flatListRef}
-          data={filteredMessages}
+          data={messages}
           inverted
           keyExtractor={(item, index) => item._id ? String(item._id) : `msg-${index}`}
           contentContainerStyle={styles.listContent}
@@ -1072,7 +1108,7 @@ export default function ChatPaneScreen() {
             </View>
           ) : null}
           ListEmptyComponent={() => (
-            <View style={{ padding: 40, alignItems: 'center' }}>
+            <View style={{ padding: 40, alignItems: 'center', transform: [{ rotate: '180deg' }] }}>
               {searchQuery ? (
                 <>
                   <MaterialCommunityIcons name="magnify" size={48} color={subColor} />
@@ -1115,7 +1151,7 @@ export default function ChatPaneScreen() {
         )}
 
         <View style={[styles.inputRow, { backgroundColor: cardBg, borderTopColor: borderColor, flexDirection: 'column', alignItems: 'stretch' }]}>
-          
+
           {/* Pending Media Strip */}
           {pendingMedia.length > 0 && (
             <View style={{ paddingHorizontal: 10, paddingVertical: 4 }}>
@@ -1147,21 +1183,103 @@ export default function ChatPaneScreen() {
           )}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 }}>
-            <TouchableOpacity onPress={promptAttachment} style={styles.attachBtn} disabled={uploadingMedia}>
-              {uploadingMedia
-                ? <ActivityIndicator size="small" color="#808bf5" />
-                : <MaterialCommunityIcons name="paperclip" size={24} color={subColor} />}
-            </TouchableOpacity>
-            <TextInput
-              style={[styles.input, { color: textColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6' }]}
-              placeholder="Type a message..." placeholderTextColor={subColor}
-              value={inputText} onChangeText={setInputText} multiline maxLength={2000} />
-            <TouchableOpacity onPress={handleSend}
-              style={[styles.sendBtn, { backgroundColor: (inputText.trim() || pendingMedia.length > 0) ? '#808bf5' : (isDark ? '#334155' : '#e2e8f0') }]}
-              disabled={(!inputText.trim() && pendingMedia.length === 0) || sending || uploadingMedia}>
-              <MaterialCommunityIcons name={editingMessage ? 'check' : 'send'} size={20}
-                color={(inputText.trim() || pendingMedia.length > 0) ? '#fff' : subColor} />
-            </TouchableOpacity>
+            {/* Voice note recording UI */}
+            {isRecording ? (
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : '#fee2e2', borderRadius: 24, paddingHorizontal: 14, paddingVertical: 10 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', marginRight: 10 }} />
+                <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 13, flex: 1 }}>
+                  Recording... {Math.floor(recordSecs / 60)}:{String(recordSecs % 60).padStart(2, '0')}
+                </Text>
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      const result = await audioRecorderPlayer.stopRecorder();
+                      audioRecorderPlayer.removeRecordBackListener();
+                      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+                      setIsRecording(false);
+                      setRecordSecs(0);
+                      // Upload voice note
+                      const formData = new FormData();
+                      formData.append('file', { uri: result, type: 'audio/m4a', name: 'voice_note.m4a' } as any);
+                      setUploadingMedia(true);
+                      try {
+                        const uploadRes = await api.post('/api/media/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                        const url = uploadRes.data.url || uploadRes.data.secure_url;
+                        await api.post(`/api/conversation/${conversationId}/messages`, {
+                          content: '🎤 Voice message',
+                          media: [{ url, type: 'audio', mimeType: 'audio/m4a' }],
+                        });
+                      } finally {
+                        setUploadingMedia(false);
+                      }
+                    } catch (e: any) { Alert.alert('Error', e.message || 'Failed to send voice note'); }
+                  }}
+                  style={{ backgroundColor: '#808bf5', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
+                >
+                  <MaterialCommunityIcons name="send" size={18} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={async () => {
+                    await audioRecorderPlayer.stopRecorder();
+                    audioRecorderPlayer.removeRecordBackListener();
+                    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+                    setIsRecording(false);
+                    setRecordSecs(0);
+                  }}
+                  style={{ backgroundColor: isDark ? '#334155' : '#e2e8f0', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <MaterialCommunityIcons name="close" size={18} color={subColor} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity onPress={promptAttachment} style={styles.attachBtn} disabled={uploadingMedia}>
+                  {uploadingMedia
+                    ? <ActivityIndicator size="small" color="#808bf5" />
+                    : <MaterialCommunityIcons name="paperclip" size={24} color={subColor} />}
+                </TouchableOpacity>
+                <TextInput
+                  style={[styles.input, { color: textColor, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6' }]}
+                  placeholder="Type a message..." placeholderTextColor={subColor}
+                  value={inputText} onChangeText={setInputText} multiline maxLength={2000} />
+                {inputText.trim() || pendingMedia.length > 0 ? (
+                  <TouchableOpacity onPress={handleSend}
+                    style={[styles.sendBtn, { backgroundColor: '#808bf5' }]}
+                    disabled={sending || uploadingMedia}>
+                    <MaterialCommunityIcons name={editingMessage ? 'check' : 'send'} size={20} color="#fff" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onLongPress={async () => {
+                      try {
+                        await audioRecorderPlayer.startRecorder();
+                        audioRecorderPlayer.addRecordBackListener(() => { });
+                        setIsRecording(true);
+                        setRecordSecs(0);
+                        recordTimerRef.current = setInterval(() => setRecordSecs(s => s + 1), 1000);
+                      } catch (e: any) {
+                        Alert.alert('Microphone Permission', 'Please allow microphone access to record voice notes.');
+                      }
+                    }}
+                    onPress={async () => {
+                      if (isRecording) return;
+                      try {
+                        await audioRecorderPlayer.startRecorder();
+                        audioRecorderPlayer.addRecordBackListener(() => { });
+                        setIsRecording(true);
+                        setRecordSecs(0);
+                        recordTimerRef.current = setInterval(() => setRecordSecs(s => s + 1), 1000);
+                      } catch (e: any) {
+                        Alert.alert('Microphone Permission', 'Please allow microphone access to record voice notes.');
+                      }
+                    }}
+                    style={[styles.sendBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
+                  >
+                    <MaterialCommunityIcons name="microphone" size={20} color={subColor} />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -1321,7 +1439,7 @@ export default function ChatPaneScreen() {
               <TouchableOpacity onPress={() => setE2eeModalVisible(false)} style={{ padding: 10 }}>
                 <Text style={{ color: subColor }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={async () => {
                   if (e2eePassword.trim()) {
                     await useE2eeStore.getState().setConversationKey(conversationId, e2eePassword.trim());
@@ -1330,7 +1448,7 @@ export default function ChatPaneScreen() {
                     // Query handles refetch
                     queryClient.invalidateQueries({ queryKey: ['chat_messages', conversationId] });
                   }
-                }} 
+                }}
                 style={{ padding: 10, marginLeft: 10 }}
               >
                 <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>Save</Text>

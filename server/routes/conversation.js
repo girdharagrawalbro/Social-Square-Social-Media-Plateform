@@ -792,6 +792,8 @@ router.post(['/messages/create', '/send'], verifyToken, [
             replyTo: replyTo || null,
             isEncrypted: req.body.isEncrypted || false,
             encryptedKeys: req.body.encryptedKeys || undefined,
+            expiresAt: conv.disappearingTimer > 0 ? new Date(Date.now() + conv.disappearingTimer * 1000) : null,
+            mentions: req.body.mentions || undefined
         });
 
         // Populate replyTo for the response
@@ -1150,6 +1152,176 @@ router.get('/:participantId', verifyToken, async (req, res) => {
         const conversations = await Conversation.find({ 'participants.userId': req.userId }).sort({ lastMessageAt: -1 }).lean();
         res.json(conversations);
     } catch (err) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+// ─── ADVANCED CHAT FEATURES ──────────────────────────────────────────────────
+
+// 1. Mute Conversation
+router.post('/:id/mute', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    validate
+], async (req, res) => {
+    try {
+        const conv = await Conversation.findOne({ _id: req.params.id, 'participants.userId': req.userId });
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+        const participant = conv.participants.find(p => p.userId.toString() === req.userId.toString());
+        participant.isMuted = !participant.isMuted;
+        await conv.save();
+
+        res.json({ success: true, isMuted: participant.isMuted });
+    } catch (err) {
+        logger.error('[Mute Conversation Error]:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// 2. Archive Conversation
+router.post('/:id/archive', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    validate
+], async (req, res) => {
+    try {
+        const conv = await Conversation.findOne({ _id: req.params.id, 'participants.userId': req.userId });
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+        const participant = conv.participants.find(p => p.userId.toString() === req.userId.toString());
+        participant.isArchived = !participant.isArchived;
+        await conv.save();
+
+        res.json({ success: true, isArchived: participant.isArchived });
+    } catch (err) {
+        logger.error('[Archive Conversation Error]:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// 3. Pin Message
+router.post('/:id/pin', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    body('messageId').isMongoId().withMessage('Invalid message ID'),
+    validate
+], async (req, res) => {
+    try {
+        const conv = await Conversation.findOne({ _id: req.params.id, 'participants.userId': req.userId });
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+        const { messageId } = req.body;
+        const msg = await Message.findOne({ _id: messageId, conversationId: conv._id });
+        if (!msg) return res.status(404).json({ error: 'Message not found in this conversation' });
+
+        const isPinned = conv.pinnedMessages.includes(messageId);
+        if (isPinned) {
+            conv.pinnedMessages.pull(messageId);
+        } else {
+            conv.pinnedMessages.push(messageId);
+        }
+        await conv.save();
+
+        if (_io) {
+            _io.to(conv._id.toString()).emit('messagePinned', { conversationId: conv._id, messageId, pinned: !isPinned });
+        }
+
+        res.json({ success: true, pinned: !isPinned, pinnedMessages: conv.pinnedMessages });
+    } catch (err) {
+        logger.error('[Pin Message Error]:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// 4. Disappearing Messages Timer
+router.put('/:id/disappearing', verifyToken, [
+    param('id').isMongoId().withMessage('Invalid conversation ID'),
+    body('timer').isInt({ min: 0 }).withMessage('Timer must be in seconds'),
+    validate
+], async (req, res) => {
+    try {
+        const conv = await Conversation.findOne({ _id: req.params.id, 'participants.userId': req.userId });
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+        // If it's a group, only admins can change this? Let's allow any participant for now, similar to WhatsApp.
+        conv.disappearingTimer = req.body.timer;
+        await conv.save();
+
+        // Broadcast a system message
+        const systemMsg = new Message({
+            conversationId: conv._id,
+            sender: req.userId,
+            content: req.body.timer === 0 
+                ? 'Turned off disappearing messages.' 
+                : `Set disappearing messages to ${req.body.timer} seconds.`,
+            isSystem: true
+        });
+        await systemMsg.save();
+        conv.lastMessage = { id: systemMsg._id, message: systemMsg.content, isRead: false, isReply: false };
+        conv.lastMessageBy = req.userId;
+        conv.lastMessageAt = Date.now();
+        await conv.save();
+
+        if (_io) {
+            _io.to(conv._id.toString()).emit('disappearingTimerUpdated', { conversationId: conv._id, timer: req.body.timer });
+            _io.to(conv._id.toString()).emit('newMessage', systemMsg);
+        }
+
+        res.json({ success: true, timer: conv.disappearingTimer });
+    } catch (err) {
+        logger.error('[Disappearing Timer Error]:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// 5. Forward Message
+router.post('/forward', verifyToken, [
+    body('messageId').isMongoId().withMessage('Invalid message ID'),
+    body('targetConversationIds').isArray({ min: 1 }).withMessage('Must provide target conversation IDs'),
+    validate
+], async (req, res) => {
+    try {
+        const { messageId, targetConversationIds } = req.body;
+        
+        // Ensure user is part of the target conversations
+        const targetConvs = await Conversation.find({ _id: { $in: targetConversationIds }, 'participants.userId': req.userId });
+        if (!targetConvs.length) return res.status(400).json({ error: 'No valid target conversations found' });
+
+        const originalMsg = await Message.findById(messageId).lean();
+        if (!originalMsg) return res.status(404).json({ error: 'Message not found' });
+
+        const forwardedMessages = [];
+        
+        for (const conv of targetConvs) {
+            const newMsg = new Message({
+                conversationId: conv._id,
+                sender: req.userId,
+                content: originalMsg.content,
+                media: originalMsg.media,
+                sharedPost: originalMsg.sharedPost,
+                storyReply: originalMsg.storyReply,
+                isForwarded: true,
+                expiresAt: conv.disappearingTimer > 0 ? new Date(Date.now() + conv.disappearingTimer * 1000) : null
+            });
+            await newMsg.save();
+            forwardedMessages.push(newMsg);
+
+            conv.lastMessage = { id: newMsg._id, message: newMsg.media?.type === 'audio' ? 'Voice Note' : newMsg.media?.type ? 'Media' : newMsg.content, isRead: false, isReply: false };
+            conv.lastMessageBy = req.userId;
+            conv.lastMessageAt = Date.now();
+            await conv.save();
+
+            if (_io) {
+                _io.to(conv._id.toString()).emit('newMessage', newMsg);
+                conv.participants.forEach(p => {
+                    if (p.userId.toString() !== req.userId.toString()) {
+                        _io.to(p.userId.toString()).emit('conversationUpdated', conv);
+                    }
+                });
+            }
+        }
+
+        res.json({ success: true, forwardedCount: forwardedMessages.length });
+    } catch (err) {
+        logger.error('[Forward Message Error]:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
 router.setIo = setIo;

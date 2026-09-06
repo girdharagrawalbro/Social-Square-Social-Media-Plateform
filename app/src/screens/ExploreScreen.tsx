@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   useColorScheme,
   TextInput,
   FlatList,
@@ -371,6 +371,16 @@ export default function ExploreScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+      {/* Main Header */}
+      <View style={[styles.header, { backgroundColor: bg, paddingHorizontal: 16, height: 56 }]}>
+        <Text style={{ fontSize: 24, fontWeight: '900', color: textColor, letterSpacing: -0.5 }}>Explore</Text>
+        
+        <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
+          <View style={styles.chatIconWrapper || { position: 'relative' }}>
+            <MaterialCommunityIcons name="bell-outline" size={24} color={isDark ? '#f3f4f6' : '#1f2937'} />
+          </View>
+        </TouchableOpacity>
+      </View>
       {/* Search Header */}
       <View style={[styles.header, { backgroundColor: headerBg, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }]}>
         {isSearchActive && (
@@ -1011,7 +1021,7 @@ const styles = StyleSheet.create({
   skeletonItem: {
     width: gridWidth,
     height: gridWidth * 1.5,
-    margin: 1,
+    margin: 0.5,
     borderRadius: 4,
   },
   // Search Styles

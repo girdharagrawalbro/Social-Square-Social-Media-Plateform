@@ -1,0 +1,3 @@
+<resources>
+    <string name="react_native_devserverhost">10.0.2.2:8081</string>
+</resources>

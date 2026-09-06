@@ -16,6 +16,14 @@ const conversationSchema = new mongoose.Schema(
         type: String,
         required: true,
       },
+      isMuted: {
+        type: Boolean,
+        default: false,
+      },
+      isArchived: {
+        type: Boolean,
+        default: false,
+      }
     },],
 
     isGroup: {
@@ -39,6 +47,16 @@ const conversationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     }],
+
+    pinnedMessages: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+    }],
+
+    disappearingTimer: {
+      type: Number,
+      default: 0, // 0 means off. Value in seconds.
+    },
 
     lastMessage: {
       id: {

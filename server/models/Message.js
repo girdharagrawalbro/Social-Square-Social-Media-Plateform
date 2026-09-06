@@ -20,6 +20,15 @@ const MessageSchema = new mongoose.Schema({
 
     // Reactions: { userId → emoji }
     reactions: { type: Map, of: String, default: {} },
+    
+    // Forwarding
+    isForwarded: { type: Boolean, default: false },
+
+    // Disappearing Messages
+    expiresAt: { type: Date, default: null },
+
+    // Mentions
+    mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
     // Edit/delete
     edited: { type: Boolean, default: false },
@@ -61,5 +70,6 @@ const MessageSchema = new mongoose.Schema({
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
 MessageSchema.index({ sender: 1 });
 MessageSchema.index({ content: 'text' });
+MessageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL Index
 
 module.exports = mongoose.model('Message', MessageSchema);

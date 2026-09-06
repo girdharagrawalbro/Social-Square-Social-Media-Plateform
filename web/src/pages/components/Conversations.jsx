@@ -5,7 +5,7 @@ import useE2eeStore from '../../store/zustand/useE2eeStore';
 import { decryptText } from '../../utils/cryptoUtils';
 import toast from '../../utils/toast';
 import useConversationStore from '../../store/zustand/useConversationStore';
-import { useConversations, useSearchConversations, useClearChat, useDeleteChat, convoKeys } from '../../hooks/queries/useConversationQueries';
+import { useConversations, useSearchConversations, useClearChat, useDeleteChat, useMuteChat, useArchiveChat, useDisappearingMessages, convoKeys } from '../../hooks/queries/useConversationQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchUsers } from '../../hooks/queries/useExploreQueries';
 import { useUserProfile } from '../../hooks/queries/useAuthQueries';
@@ -91,6 +91,7 @@ const Conversations = () => {
     const setActiveCall = useConversationStore(s => s.setActiveCall);
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [showArchived, setShowArchived] = useState(false);
 
     // Infinite Query for conversation list
     const {
@@ -310,6 +311,9 @@ const Conversations = () => {
 
     const clearChatMut = useClearChat();
     const deleteChatMut = useDeleteChat();
+    const muteChatMut = useMuteChat();
+    const archiveChatMut = useArchiveChat();
+    const disappearingMut = useDisappearingMessages();
 
     // Auto-close search when switching chats
     useEffect(() => {
@@ -499,10 +503,16 @@ const Conversations = () => {
 
     // Combine local results and deep search results
     const allConversations = useMemo(() => {
-        if (!searchQuery) return conversations;
+        const myId = toId(user?._id);
+        const filteredByArchive = conversations.filter(conv => {
+            const me = conv.participants?.find(p => toId(p.userId) === myId);
+            const isArchived = me?.isArchived || false;
+            return showArchived ? isArchived : !isArchived;
+        });
 
-        // Filter loaded conversations
-        const filtered = conversations.filter(conv => {
+        if (!searchQuery) return filteredByArchive;
+
+        const filtered = filteredByArchive.filter(conv => {
             const myId = toId(user?._id);
             const other = conv.participants?.find(p => toId(p.userId) !== myId);
             return other?.fullname?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -554,6 +564,13 @@ const Conversations = () => {
                                     title="New Message"
                                 >
                                     <i className="pi pi-plus text-xs font-bold"></i>
+                                </button>
+                                <button
+                                    onClick={() => setShowArchived(!showArchived)}
+                                    className={`w-9 h-9 flex items-center justify-center rounded-full border-0 cursor-pointer transition-all duration-200 ${showArchived ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                    title={showArchived ? "Back to Inbox" : "Archived Chats"}
+                                >
+                                    <i className="pi pi-box text-xs font-bold"></i>
                                 </button>
                             </div>
                         </div>
@@ -816,6 +833,55 @@ const Conversations = () => {
                 closable={true}
             >
                 <div className="p-2 flex flex-col gap-1">
+                    {(() => {
+                        const conv = conversations.find(c => c._id === selectedParticipant?.conversationId);
+                        const me = conv?.participants?.find(p => String(p.userId) === String(user?._id) || String(p.userId?._id) === String(user?._id));
+                        const isMuted = me?.isMuted || false;
+                        const isArchived = me?.isArchived || false;
+                        const timer = conv?.disappearingTimer || 0;
+                        return (
+                            <>
+                                <button
+                                    onClick={() => muteChatMut.mutate({ conversationId: selectedParticipant?.conversationId, until: isMuted ? null : new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000) })}
+                                    className="w-full flex items-center justify-between px-4 py-3.5 text-left border-0 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900 rounded-xl transition-colors font-medium text-[var(--text-main)] cursor-pointer"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <i className={isMuted ? "pi pi-volume-off" : "pi pi-volume-up"} style={{ fontSize: '14px', width: '16px', textAlign: 'center' }}></i>
+                                        <span className="text-sm">{isMuted ? 'Unmute Chat' : 'Mute Chat'}</span>
+                                    </div>
+                                    <div className={`w-10 h-5 rounded-full relative transition-colors ${isMuted ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}>
+                                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${isMuted ? 'left-5' : 'left-0.5'}`} />
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => archiveChatMut.mutate({ conversationId: selectedParticipant?.conversationId, archive: !isArchived })}
+                                    className="w-full flex items-center justify-between px-4 py-3.5 text-left border-0 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900 rounded-xl transition-colors font-medium text-[var(--text-main)] cursor-pointer"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <i className="pi pi-box" style={{ fontSize: '14px', width: '16px', textAlign: 'center' }}></i>
+                                        <span className="text-sm">{isArchived ? 'Unarchive Chat' : 'Archive Chat'}</span>
+                                    </div>
+                                    <div className={`w-10 h-5 rounded-full relative transition-colors ${isArchived ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-700'}`}>
+                                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${isArchived ? 'left-5' : 'left-0.5'}`} />
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const newTimer = timer ? 0 : 7 * 24 * 60 * 60; // Toggle between off and 7 days
+                                        disappearingMut.mutate({ conversationId: selectedParticipant?.conversationId, timer: newTimer });
+                                    }}
+                                    className="w-full flex items-center justify-between px-4 py-3.5 text-left border-0 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900 rounded-xl transition-colors font-medium text-[var(--text-main)] cursor-pointer"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <i className="pi pi-stopwatch" style={{ fontSize: '14px', width: '16px', textAlign: 'center' }}></i>
+                                        <span className="text-sm">Disappearing Messages</span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">{timer ? '7 days' : 'Off'}</span>
+                                </button>
+                                <hr className="border-gray-100 dark:border-gray-800 my-1" />
+                            </>
+                        );
+                    })()}
 
                     <button
                         onClick={() => {

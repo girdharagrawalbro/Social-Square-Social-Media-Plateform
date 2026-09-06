@@ -442,3 +442,27 @@ export function useDeleteChat() {
         },
     });
 }
+
+export function useMuteChat() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ conversationId, until }) => api.post(`${BASE}/api/conversation/${conversationId}/mute`, { until }),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: convoKeys.lists() }); }
+    });
+}
+
+export function useArchiveChat() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ conversationId, archive }) => api.post(`${BASE}/api/conversation/${conversationId}/archive`, { archive }),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: convoKeys.lists() }); }
+    });
+}
+
+export function useDisappearingMessages() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ conversationId, timer }) => api.post(`${BASE}/api/conversation/${conversationId}/disappearing`, { timer }),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: convoKeys.lists() }); }
+    });
+}

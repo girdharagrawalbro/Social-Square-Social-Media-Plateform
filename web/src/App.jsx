@@ -696,10 +696,7 @@ function AppInit() {
                                 style={{
                                     margin: 0,
                                     fontSize: '12px',
-                                    color: 'var(--text-sub)',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
+                                    color: 'var(--text-sub)'
                                 }}
                             >
                                 {actionText}

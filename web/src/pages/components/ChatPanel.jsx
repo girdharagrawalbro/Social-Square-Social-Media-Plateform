@@ -35,6 +35,18 @@ const IconReply = () => (
         <polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" />
     </svg>
 );
+const IconPin = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="17" x2="12" y2="22" />
+        <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z" />
+    </svg>
+);
+const IconForward = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="15 17 20 12 15 7" />
+        <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
+    </svg>
+);
 const IconCopy = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
@@ -379,7 +391,7 @@ const DecryptedAudio = ({ url, fileKey, iv, duration }) => {
 };
 
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
-const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply, handleCancelUpload, retryPendingMessages, onPlayVideo, onRemovePending }) => {
+const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, onReact, onEdit, onDelete, onShowInfo, searchQ, isSelected, onSelect, onReply, onPin, onForward, handleCancelUpload, retryPendingMessages, onPlayVideo, onRemovePending }) => {
     const activeParticipant = useConversationStore(s => s.activeParticipant);
 
     let checkmarkStatus = 'sent';
@@ -1043,6 +1055,14 @@ const MessageBubble = ({ message, isOwn, isGroup, conversationId, loggeduser, on
                                     <IconCopy />
                                 </ToolbarBtn>
                             )}
+                            
+                            <ToolbarBtn title="Forward" onClick={(e) => { e.stopPropagation(); onForward && onForward(message); onSelect(null); }}>
+                                <IconForward />
+                            </ToolbarBtn>
+                            
+                            <ToolbarBtn title="Pin" onClick={(e) => { e.stopPropagation(); onPin && onPin(message); onSelect(null); }}>
+                                <IconPin />
+                            </ToolbarBtn>
 
                             {isOwn ? (
                                 <>
@@ -1136,6 +1156,7 @@ const ChatPanel = ({
     const clearTyping = useConversationStore(s => s.clearTyping);
     const isTyping = useConversationStore(s => s.isTyping);
     const getTypingName = useConversationStore(s => s.getTypingName);
+    const conversations = useConversationStore(s => s.conversations || []);
     const chatRef = useRef(null);
     const shouldAutoScroll = useRef(true);
     const fileInputRef = useRef(null);
@@ -1145,11 +1166,20 @@ const ChatPanel = ({
 
     const [text, setText] = useState('');
     const [uploading, setUploading] = useState(false);
+    
+    // Voice Notes State
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recordingTimerRef = useRef(null);
+
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [messages, setMessages] = useState([]);
     const [conversationId, setConversationId] = useState(null);
+    const [conversationObj, setConversationObj] = useState(null);
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const [selectedMessageId, setSelectedMessageId] = useState(null);
     const [replyTo, setReplyTo] = useState(null);
@@ -1159,6 +1189,9 @@ const ChatPanel = ({
     const [fullscreenVideoUrl, setFullscreenVideoUrl] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previews, setPreviews] = useState([]);
+    const [forwardingMessage, setForwardingMessage] = useState(null);
+    const [selectedForwardIds, setSelectedForwardIds] = useState([]);
+    const [isForwarding, setIsForwarding] = useState(false);
 
     const [infoMessage, setInfoMessage] = useState(null);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -1510,6 +1543,7 @@ const ChatPanel = ({
             const formattedPending = await getPendingMessages(fetchedConversationId);
             setMessages([...fetchedMessages, ...formattedPending]);
             setConversationId(fetchedConversationId);
+            setConversationObj(res.data.conversation);
             setHasMore(fetchedHasMore);
             conversationIdRef.current = fetchedConversationId;
             const unreadMessages = fetchedMessages.filter(
@@ -1671,6 +1705,17 @@ const ChatPanel = ({
             }));
         };
         const handleEdited = ({ messageId, content }) => setMessages(prev => prev.map(m => String(m._id) === String(messageId) ? { ...m, content, edited: true } : m));
+        const handlePinned = ({ conversationId: cId, messageId, pinned }) => {
+            if (cId === conversationIdRef.current) {
+                setConversationObj(prev => {
+                    if (!prev) return prev;
+                    let newPinned = [...(prev.pinnedMessages || [])];
+                    if (pinned && !newPinned.includes(messageId)) newPinned.push(messageId);
+                    else if (!pinned) newPinned = newPinned.filter(id => id !== messageId);
+                    return { ...prev, pinnedMessages: newPinned };
+                });
+            }
+        };
         const handleDeleted = ({ messageId, mode }) => {
             if (mode === 'me') {
                 setMessages(prev => prev.filter(m => String(m._id) !== String(messageId)));
@@ -1702,11 +1747,14 @@ const ChatPanel = ({
         socket.on('seenMessage', handleSeen);
         socket.on('messagesReadSync', handleMessagesReadSync);
         socket.on('messageEdited', handleEdited);
+        socket.on('messagePinned', handlePinned);
         socket.on('messageDeleted', handleDeleted);
         socket.on('messageReaction', handleReaction);
         socket.on('userTyping', handleTyping);
         socket.on('userStoppedTyping', handleStopTyping);
         return () => {
+            socket.off('newMessage');
+            socket.off('messagePinned', handlePinned);
             socket.off('receiveMessage', handleReceive);
             socket.off('seenMessage', handleSeen);
             socket.off('messagesReadSync', handleMessagesReadSync);
@@ -1717,6 +1765,73 @@ const ChatPanel = ({
             socket.off('userStoppedTyping', handleStopTyping);
         };
     }, [participantId, markRead, setTyping, clearTyping, activeParticipant, user?._id]);
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                // If it was cancelled manually and we don't want to send
+                if (audioChunksRef.current.length === 0) return;
+                
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const file = new File([audioBlob], 'voicenote.webm', { type: 'audio/webm' });
+                
+                setUploading(true);
+                try {
+                    const res = await uploadMedia(file, null, { folder: 'chat_audio' });
+                    const url = typeof res === 'string' ? res : res?.url;
+                    if (url) {
+                        sendMessageMut.mutate({ content: '', mediaUrl: url, mediaType: 'audio' });
+                    }
+                } catch (err) {
+                    console.error('Audio upload failed', err);
+                    toast.error('Failed to upload voice note');
+                } finally {
+                    setUploading(false);
+                }
+                
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingTime(0);
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+        } catch (err) {
+            console.error('Microphone access denied', err);
+            toast.error('Microphone access denied');
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            clearInterval(recordingTimerRef.current);
+        }
+    };
+    
+    const cancelRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+             audioChunksRef.current = []; // Clear so it doesn't upload
+             mediaRecorderRef.current.stop();
+             mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+             setIsRecording(false);
+             clearInterval(recordingTimerRef.current);
+        }
+    };
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -1966,6 +2081,41 @@ const ChatPanel = ({
         }
     };
 
+    const handlePin = async (message) => {
+        try {
+            await api.post(`/api/conversation/messages/${message._id}/pin`, {
+                conversationId: conversationIdRef.current
+            });
+        } catch (err) {
+            console.error('Failed to pin message', err);
+            toast.error('Failed to pin message');
+        }
+    };
+
+    const handleForward = (message) => {
+        setForwardingMessage(message);
+        setSelectedForwardIds([]);
+    };
+
+    const handleConfirmForward = async () => {
+        if (!forwardingMessage || selectedForwardIds.length === 0) return;
+        setIsForwarding(true);
+        try {
+            await api.post('/api/conversation/forward', {
+                messageId: forwardingMessage._id,
+                targetConversationIds: selectedForwardIds
+            });
+            toast.success('Message forwarded');
+            setForwardingMessage(null);
+            setSelectedForwardIds([]);
+        } catch (err) {
+            console.error('Failed to forward', err);
+            toast.error('Failed to forward message');
+        } finally {
+            setIsForwarding(false);
+        }
+    };
+
     const handleDelete = (msg) => {
         const isPending = msg.uploadFailed || msg.isOptimistic;
         if (isPending) {
@@ -2026,6 +2176,20 @@ const ChatPanel = ({
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+            {/* Pinned Messages Banner */}
+            {conversationObj?.pinnedMessages?.length > 0 && (
+                <div style={{ padding: '10px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', zIndex: 10 }} onClick={() => scrollToMessage(conversationObj.pinnedMessages[conversationObj.pinnedMessages.length - 1])}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i className="pi pi-thumbtack" style={{ color: '#808bf5', fontSize: '14px', transform: 'rotate(45deg)' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '11px', color: '#808bf5', fontWeight: 700, textTransform: 'uppercase' }}>Pinned Message</span>
+                            <span style={{ fontSize: '13px', color: 'var(--text-main)', opacity: 0.9 }}>
+                                Tap to view {conversationObj.pinnedMessages.length > 1 ? `(${conversationObj.pinnedMessages.length} messages)` : ''}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── Messages list ── */}
             <div
@@ -2113,6 +2277,8 @@ const ChatPanel = ({
                                             isSelected={selectedMessageId === message._id}
                                             onSelect={(msgId = message._id) => setSelectedMessageId(msgId)}
                                             onReply={msg => setReplyTo(msg)}
+                                            onPin={handlePin}
+                                            onForward={handleForward}
                                             handleCancelUpload={handleCancelUpload}
                                             retryPendingMessages={retryPendingMessages}
                                             onPlayVideo={(url) => setFullscreenVideoUrl(url)}
@@ -2237,6 +2403,20 @@ const ChatPanel = ({
                             </button>
                             <input ref={fileInputRef} type="file" multiple accept="*/*" onChange={handleFileSelect} style={{ display: 'none' }} />
 
+                            {isRecording ? (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} />
+                                        <span style={{ color: '#ef4444', fontSize: '14px', fontVariantNumeric: 'tabular-nums' }}>
+                                            {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                        <button type="button" onClick={cancelRecording} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}>Cancel</button>
+                                        <button type="button" onClick={stopRecording} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '16px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>Send</button>
+                                    </div>
+                                </div>
+                            ) : (
                             <input
                                 type="text" value={text} onChange={handleInputChange}
                                 placeholder="Type your message..."
@@ -2262,18 +2442,26 @@ const ChatPanel = ({
                                     }
                                 }}
                             />
+                            )}
+
+                            {!isRecording && (
+                                <button type="button" onClick={startRecording} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', padding: '6px', borderRadius: '50%' }}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                                </button>
+                            )}
+
                             <button
                                 type="submit"
-                                disabled={(!text.trim() && selectedFiles.length === 0) || uploading}
+                                disabled={(!text.trim() && selectedFiles.length === 0 && !isRecording) || uploading}
                                 style={{
                                     width: 36, height: 36, borderRadius: '50%', border: 'none', flexShrink: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: (text.trim() || selectedFiles.length > 0) ? '#808bf5' : 'var(--surface-3)',
-                                    color: (text.trim() || selectedFiles.length > 0) ? '#fff' : 'var(--text-sub)',
-                                    cursor: (text.trim() || selectedFiles.length > 0) ? 'pointer' : 'default',
+                                    background: (text.trim() || selectedFiles.length > 0 || isRecording) ? '#808bf5' : 'var(--surface-3)',
+                                    color: (text.trim() || selectedFiles.length > 0 || isRecording) ? '#fff' : 'var(--text-sub)',
+                                    cursor: (text.trim() || selectedFiles.length > 0 || isRecording) ? 'pointer' : 'default',
                                     transition: 'background 0.2s, transform 0.15s',
                                 }}
-                                onMouseEnter={e => { if (text.trim() || selectedFiles.length > 0) e.currentTarget.style.transform = 'scale(1.08)'; }}
+                                onMouseEnter={e => { if (text.trim() || selectedFiles.length > 0 || isRecording) e.currentTarget.style.transform = 'scale(1.08)'; }}
                                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 <IconSend />
@@ -2464,6 +2652,43 @@ const ChatPanel = ({
                 ) : (
                     <div className="text-center py-8"><i className="pi pi-spin pi-spinner text-lg text-indigo-500" /></div>
                 )}
+            </Dialog>
+
+            {/* Forwarding Dialog */}
+            <Dialog
+                header="Forward Message"
+                visible={!!forwardingMessage}
+                onHide={() => { setForwardingMessage(null); setSelectedForwardIds([]); }}
+                style={{ width: '90vw', maxWidth: '400px', borderRadius: '16px' }}
+            >
+                <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+                    {conversations.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {conversations.map(c => {
+                                const isGroup = c.isGroup;
+                                const otherUser = isGroup ? null : c.participants?.find(p => p.userId?._id?.toString() !== user?._id?.toString() && p.userId?.toString() !== user?._id?.toString());
+                                const title = isGroup ? c.groupName : (otherUser?.userId?.fullname || otherUser?.fullname || 'User');
+                                const image = isGroup ? (c.groupImage || '/default-group.png') : (otherUser?.userId?.profile_picture || otherUser?.profile_picture || '/default-avatar.png');
+                                const isSelected = selectedForwardIds.includes(c._id);
+                                return (
+                                    <div key={c._id} onClick={() => setSelectedForwardIds(prev => isSelected ? prev.filter(id => id !== c._id) : [...prev, c._id])} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', borderRadius: '12px', background: isSelected ? 'rgba(128, 139, 245, 0.15)' : 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.2s', border: isSelected ? '1px solid #808bf5' : '1px solid transparent' }}>
+                                        <img src={image} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                        <span style={{ fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>{title}</span>
+                                        {isSelected && <i className="pi pi-check-circle" style={{ color: '#808bf5', fontSize: '20px' }} />}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-sub)' }}>No recent conversations found.</div>
+                    )}
+                </div>
+                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                    <button onClick={() => { setForwardingMessage(null); setSelectedForwardIds([]); }} style={{ background: 'var(--surface-3)', border: 'none', color: 'var(--text-main)', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                    <button onClick={handleConfirmForward} disabled={selectedForwardIds.length === 0 || isForwarding} style={{ background: '#808bf5', border: 'none', color: '#fff', padding: '10px 16px', borderRadius: '8px', cursor: (selectedForwardIds.length === 0 || isForwarding) ? 'default' : 'pointer', fontWeight: 600, opacity: (selectedForwardIds.length === 0 || isForwarding) ? 0.6 : 1 }}>
+                        {isForwarding ? <i className="pi pi-spin pi-spinner" /> : 'Forward'}
+                    </button>
+                </div>
             </Dialog>
 
             <style>{`

@@ -2261,7 +2261,7 @@ router.get("/confessions", softVerifyToken, async (req, res) => {
 // ─── EXPLORE (Mixed Content & Reels) ──────────────────────────────────────────
 router.get("/explore-reels", softVerifyToken, async (req, res) => {
     const _tag = '[EXPLORE]';
-    const limit = parseInt(req.query.limit) || 9;
+    const limit = parseInt(req.query.limit) || 21;
     const cursor = req.query.cursor;
 
     try {
@@ -2303,7 +2303,6 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
         }
 
         // 3. Fetch Candidate Pool
-        // We fetch a larger pool (100) to allow for ranking and Bloom Filter exclusion
         const bannedUsers = await User.find({ isBanned: true }).select('_id').lean();
         const bannedUserIds = bannedUsers.map(u => u._id.toString());
         const query = {
@@ -2317,9 +2316,10 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
             query._id = { $lt: cursor };
         }
 
+        // Fetch exactly `limit` candidates + 1 to check if there are more
         const candidates = await Post.find(query)
             .sort({ _id: -1 })
-            .limit(100)
+            .limit(limit + 1)
             .lean();
 
         if (candidates.length === 0) {
@@ -2433,10 +2433,11 @@ router.get("/explore-reels", softVerifyToken, async (req, res) => {
             ranked.sort((a, b) => b._score - a._score);
         }
 
-        // 6. Final Result (limit to 10 as requested)
-        const result = ranked.slice(0, limit);
+        // 6. Final Result
         const hasMore = candidates.length > limit;
-        const nextCursor = candidates.length > 0 ? candidates[candidates.length - 1]._id : null;
+        const actualCandidates = hasMore ? candidates.slice(0, limit) : candidates;
+        const result = ranked.slice(0, limit);
+        const nextCursor = actualCandidates.length > 0 ? actualCandidates[actualCandidates.length - 1]._id : null;
 
         // Fetch presence
         const uniqueUserIds = [...new Set(result.map(p => p.user._id.toString()))];

@@ -16,7 +16,7 @@ const validate = (req, res, next) => {
 // GET /api/conversation/call/provider - Return configured calling provider
 router.get('/provider', (req, res) => {
     res.json({
-        provider: process.env.CALL_PROVIDER || 'websocket',
+        provider: process.env.CALL_PROVIDER || 'livekit',
         livekitUrl: process.env.LIVEKIT_URL || 'ws://localhost:7880'
     });
 });
