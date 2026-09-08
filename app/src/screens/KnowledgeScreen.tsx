@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -13,12 +12,16 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomNav from './components/BottomNav';
 import { api } from '../lib/api';
+import { EmptyState, ErrorState } from './components/EmptyState';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
-export default function KnowledgeScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function KnowledgeScreen({ navigation }: AppScreenProps<'Knowledge'>) {
+  const { colors, isDark } = useTheme();
   const [wikis, setWikis] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchWikis = async (isRefresh = false) => {
     if (isRefresh) {
@@ -32,8 +35,10 @@ export default function KnowledgeScreen({ navigation }: any) {
       if (res.data?.success) {
         setWikis(res.data.wikis || []);
       }
+      setLoadError(false);
     } catch (err) {
       console.warn('Failed to fetch wikis:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -44,16 +49,21 @@ export default function KnowledgeScreen({ navigation }: any) {
     fetchWikis();
   }, []);
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#f9fafb';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       <View style={[styles.header, { backgroundColor: bg, borderBottomColor: border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <MaterialCommunityIcons name="chevron-left" size={28} color={textColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textColor }]}>Knowledge Center</Text>
@@ -70,11 +80,14 @@ export default function KnowledgeScreen({ navigation }: any) {
 
         {loading && wikis.length === 0 ? (
           <ActivityIndicator color="#808bf5" style={{ marginTop: 40 }} />
+        ) : loadError && wikis.length === 0 ? (
+          <ErrorState
+            title="Couldn't load articles"
+            subtitle="Check your connection and try again."
+            onAction={() => fetchWikis()}
+          />
         ) : wikis.length === 0 ? (
-          <View style={styles.emptyView}>
-            <MaterialCommunityIcons name="book-open-outline" size={48} color={subText} />
-            <Text style={[styles.emptyText, { color: subText }]}>No articles available.</Text>
-          </View>
+          <EmptyState icon="book-open-outline" title="No articles available." />
         ) : (
           wikis.map((wiki) => (
             <TouchableOpacity

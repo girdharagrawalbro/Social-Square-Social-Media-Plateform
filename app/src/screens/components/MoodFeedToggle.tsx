@@ -1,5 +1,6 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet, useColorScheme } from 'react-native';
+import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../../theme';
 
 const MOODS = [
   { key: 'happy', emoji: '😊', label: 'Happy' },
@@ -19,7 +20,7 @@ interface MoodFeedToggleProps {
 }
 
 export default function MoodFeedToggle({ activeMood, onMoodSelect, onClear }: MoodFeedToggleProps) {
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
 
   return (
     <ScrollView
@@ -38,15 +39,11 @@ export default function MoodFeedToggle({ activeMood, onMoodSelect, onClear }: Mo
               styles.moodBtn,
               {
                 backgroundColor: isActive
-                  ? '#808bf5'
+                  ? colors.primary
                   : isDark
                   ? 'rgba(255, 255, 255, 0.05)'
                   : '#f1f5f9',
-                borderColor: isActive
-                  ? '#808bf5'
-                  : isDark
-                  ? '#1a1a1a'
-                  : '#e2e8f0',
+                borderColor: isActive ? colors.primary : colors.border,
               },
             ]}
           >
@@ -54,7 +51,7 @@ export default function MoodFeedToggle({ activeMood, onMoodSelect, onClear }: Mo
             <Text
               style={[
                 styles.label,
-                { color: isActive ? '#ffffff' : isDark ? '#f1f5f9' : '#0f172a' },
+                { color: isActive ? '#ffffff' : colors.text.primary },
               ]}
             >
               {mood.label}

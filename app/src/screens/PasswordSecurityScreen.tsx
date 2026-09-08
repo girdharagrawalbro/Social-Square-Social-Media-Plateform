@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -14,9 +13,11 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api } from '../lib/api';
 import { toast as Toast } from '../lib/CustomToast';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
-export default function PasswordSecurityScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function PasswordSecurityScreen({ navigation }: AppScreenProps<'PasswordSecurity'>) {
+  const { colors, isDark } = useTheme();
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -25,11 +26,11 @@ export default function PasswordSecurityScreen({ navigation }: any) {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#f9fafb';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const inputBg = isDark ? '#1f2937' : '#f3f4f6';
 
   const handleChangePassword = async () => {

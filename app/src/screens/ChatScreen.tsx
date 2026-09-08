@@ -7,22 +7,24 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  useColorScheme,
   Modal,
   TextInput,
   Alert,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../lib/queryKeys';
 import AppHeader from './components/AppHeader';
 import useAuthStore from '../store/zustand/useAuthStore';
 import BottomNav from './components/BottomNav';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText } from '../lib/cryptoUtils';
 import { api, BASE_URL } from '../lib/api';
+import { useAppNavigation } from '../navigation/types';
 import { pruneOldMessages, cleanupOrphanedConversations } from '../lib/db';
 import { ChatSkeleton } from './components/SkeletonLoader';
+import { useTheme } from '../theme';
 
 interface Participant {
   _id: string;
@@ -127,8 +129,8 @@ const MessagePreview = ({ messageText, conversationId, recipientId, isDark, subC
 };
 
 export default function ChatScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
   const currentUser = useAuthStore((s) => s.user);
 
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
@@ -155,7 +157,7 @@ export default function ChatScreen() {
   );
 
   const { data: conversations = [], isLoading: loading, isRefetching: refreshing, refetch } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: queryKeys.conversations(),
     queryFn: async () => {
       const res = await api.get('/api/conversation');
       const fetchedConversations = res.data?.conversations || res.data || [];
@@ -195,11 +197,11 @@ export default function ChatScreen() {
     return url;
   };
 
-  const bg = isDark ? '#000000' : '#f1f5f9';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const textColor = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const borderColor = colors.border;
 
   useFocusEffect(
     useCallback(() => {
@@ -377,8 +379,10 @@ export default function ChatScreen() {
       {/* Customized Header */}
       <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: borderColor }]}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('StoryCamera')}
+          onPress={() => navigation.navigate('NewPost')}
           style={styles.headerLeftBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Create new post"
         >
           <MaterialCommunityIcons name="plus" size={26} color={textColor} />
         </TouchableOpacity>
@@ -391,6 +395,8 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={() => { setCreateGroupModalVisible(true); setSearchQuery(''); setSearchResults([]); }}
             style={[styles.headerRightBtn, { marginRight: 8 }]}
+            accessibilityRole="button"
+            accessibilityLabel="New group chat"
           >
             <MaterialCommunityIcons name="account-multiple-plus-outline" size={24} color={textColor} />
           </TouchableOpacity>
@@ -398,6 +404,8 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={() => navigation.navigate('Notifications')}
             style={styles.headerRightBtn}
+            accessibilityRole="button"
+            accessibilityLabel={unreadNotificationsCount > 0 ? `Notifications, ${unreadNotificationsCount} unread` : 'Notifications'}
           >
             <View style={styles.badgeWrapper}>
               {unreadNotificationsCount > 0 && (

@@ -7,12 +7,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  useColorScheme,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api } from '../../lib/api';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import SaveAsNoteModal from './SaveAsNoteModal';
+import { useTheme } from '../../theme';
 
 interface PostMenuProps {
   visible: boolean;
@@ -35,16 +35,16 @@ export default function PostMenu({
   onEditPress,
   onMuteBlockSuccess,
 }: PostMenuProps) {
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const { user } = useAuthStore() as any;
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
 
   // Theme colors
-  const cardBg = isDark ? '#000000' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const border = isDark ? '#1a1a1a' : '#e2e8f0';
+  const cardBg = colors.background;
+  const textColor = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const border = colors.border;
 
   if (!post) return null;
 

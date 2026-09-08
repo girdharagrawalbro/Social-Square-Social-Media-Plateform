@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
   Dimensions,
   ActivityIndicator,
   Alert,
@@ -14,6 +13,8 @@ import {
   Platform,
 } from 'react-native';
 import useAuthStore from '../store/zustand/useAuthStore';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,8 +54,8 @@ function PasswordStrengthMeter({ password }: { password?: string }) {
   );
 }
 
-export default function SignupScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function SignupScreen({ navigation }: AppScreenProps<'Signup'>) {
+  const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [fullname, setFullname] = useState('');
   const [password, setPassword] = useState('');
@@ -90,10 +91,10 @@ export default function SignupScreen({ navigation }: any) {
     }
   };
 
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const pageBg = isDark ? '#0a0a0a' : '#f3f4f6';
-  const textColor = isDark ? '#ffffff' : '#1f2937';
-  const subText = isDark ? '#9ca3af' : '#4b5563';
+  const cardBg = colors.surface;
+  const pageBg = colors.background;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff';
   const inputBorder = isDark ? '#1f2937' : '#e5e7eb';
 

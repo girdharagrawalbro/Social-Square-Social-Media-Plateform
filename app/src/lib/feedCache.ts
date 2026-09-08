@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { queryKeys } from './queryKeys';
 
 // Shared helpers to keep the feed's react-query cache as the single source of
 // truth for post data. Interactions (like, react, delete, block) patch the
@@ -10,7 +11,7 @@ type PostUpdater = (post: any) => any;
 type PostPredicate = (post: any) => boolean;
 
 function updateFeedPages(queryClient: QueryClient, mapPage: (page: any) => any) {
-  queryClient.setQueriesData({ queryKey: ['feed'] }, (oldData: any) => {
+  queryClient.setQueriesData({ queryKey: queryKeys.feedAll() }, (oldData: any) => {
     if (!oldData?.pages) return oldData;
     return { ...oldData, pages: oldData.pages.map(mapPage) };
   });

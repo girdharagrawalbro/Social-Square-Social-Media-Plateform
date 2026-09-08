@@ -3,7 +3,6 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
   Dimensions,
   Animated,
   Text,
@@ -13,25 +12,27 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import LinearGradient from 'react-native-linear-gradient';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { useTabStore } from '../../store/zustand/useTabStore';
+import { useTheme } from '../../theme';
+import type { AppNavigationProp } from '../../navigation/types';
 
 const { width } = Dimensions.get('window');
 
 const navItems = [
-  { key: 'feed', icon: 'home', routeName: 'SocialSquare' },
-  { key: 'reels', icon: 'video', routeName: 'Reels' },
+  { key: 'feed', icon: 'home', routeName: 'SocialSquare', label: 'Feed' },
+  { key: 'reels', icon: 'video', routeName: 'Reels', label: 'Reels' },
   // { key: 'pulse', icon: 'flash', routeName: 'Pulse' },
   // { key: 'knowledge', icon: 'book-open', routeName: 'Knowledge' },
-  { key: 'messages', icon: 'email', routeName: 'Chat' },
-  { key: 'explore', icon: 'magnify', routeName: 'Explore' },
-  { key: 'profile', icon: 'account', routeName: 'Profile' },
+  { key: 'messages', icon: 'email', routeName: 'Chat', label: 'Messages' },
+  { key: 'explore', icon: 'magnify', routeName: 'Explore', label: 'Explore' },
+  { key: 'profile', icon: 'account', routeName: 'Profile', label: 'Profile' },
 ];
 
-export default function BottomNav({ currentTab, navigation }: { currentTab: string; navigation: any }) {
+export default function BottomNav({ currentTab, navigation }: { currentTab: string; navigation: AppNavigationProp }) {
   const user = useAuthStore((s) => s.user);
   const { currentTab: storeTab, setTab } = useTabStore();
   const activeTab = storeTab || currentTab;
 
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const itemWidth = width / navItems.length;
 
   // Find the index of the active item
@@ -51,9 +52,9 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
     }
   }, [activeTab, activeIndex]);
 
-  const cardBg = isDark ? 'rgba(10, 10, 10, 0.95)' : 'rgba(255, 255, 255, 0.95)';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const inactiveColor = isDark ? '#9ca3af' : '#6b7280';
+  const cardBg = isDark ? 'rgba(10, 10, 13, 0.96)' : 'rgba(255, 255, 255, 0.96)';
+  const border = colors.border;
+  const inactiveColor = colors.text.muted;
 
   const handlePress = (key: string, routeName: string) => {
     setTab(key);
@@ -61,11 +62,14 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: cardBg, borderTopColor: border }]}>
+    <View
+      style={[styles.container, { backgroundColor: cardBg, borderTopColor: border }]}
+      accessibilityRole="tablist"
+    >
       {/* Sliding Pill Indicator */}
       <Animated.View style={[{ left: slideAnim }]}>
         <LinearGradient
-          colors={['#808bf5', '#6366f1', '#4f46e5']}
+          colors={colors.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.gradient}
@@ -81,6 +85,9 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
             style={styles.navButton}
             onPress={() => handlePress(item.key, item.routeName)}
             activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityLabel={item.label}
+            accessibilityState={{ selected: isActive }}
           >
             {item.key === 'profile' ? (
               user?.profile_picture ? (
@@ -88,15 +95,15 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
                   source={{ uri: user.profile_picture }}
                   style={[
                     styles.profilePicIcon,
-                    isActive && { borderColor: '#808bf5', borderWidth: 2 }
+                    isActive && { borderColor: colors.primaryMuted, borderWidth: 2 }
                   ]}
                 />
               ) : (
                 <View
                   style={[
                     styles.profilePicIconPlaceholder,
-                    { backgroundColor: isActive ? '#6366f1' : inactiveColor },
-                    isActive && { borderColor: '#ffffff', borderWidth: 2 }
+                    { backgroundColor: isActive ? colors.primary : inactiveColor },
+                    isActive && { borderColor: colors.text.inverse, borderWidth: 2 }
                   ]}
                 >
                   <Text style={styles.profilePicInitial}>
@@ -108,7 +115,7 @@ export default function BottomNav({ currentTab, navigation }: { currentTab: stri
               <MaterialCommunityIcons
                 name={item.key === 'explore' ? 'magnify' : (isActive ? item.icon : `${item.icon}-outline`)}
                 size={isActive ? 24 : 22}
-                color={isActive ? '#1f2937' : inactiveColor}
+                color={isActive ? colors.text.primary : inactiveColor}
                 style={isActive ? styles.activeIcon : null}
               />
             )}

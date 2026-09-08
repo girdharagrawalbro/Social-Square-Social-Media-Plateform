@@ -1,58 +1,40 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import * as RN from 'react-native';
-import { StatusBar, StyleSheet } from 'react-native';
+import { StatusBar, StyleSheet, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Theme override — every screen in the app calls the real `useColorScheme()` from
+// 'react-native', so overriding it for Settings' theme toggle has to go through RN's
+// own Appearance module (Appearance.setColorScheme) rather than trying to intercept
+// the hook: `useColorScheme()` is implemented as
+// `useSyncExternalStore(Appearance.addChangeListener, Appearance.getColorScheme)`,
+// so this is the one path guaranteed to reach every already-mounted consumer without
+// touching each screen. (A previous attempt monkeypatched `RN.useColorScheme` via
+// `import * as RN from 'react-native'` — but Babel's CommonJS interop wraps `import *`
+// in a fresh per-file object, so that patch only ever mutated App.tsx's own private
+// copy and never affected the dozens of screens that `import { useColorScheme }`
+// directly, which is why the toggle had no visible effect anywhere.)
 let currentThemeOverride: 'dark' | 'light' | null = null;
-const themeListeners = new Set<() => void>();
 
 export const getThemeOverride = () => currentThemeOverride;
 export const setThemeOverride = async (theme: 'dark' | 'light' | null) => {
   currentThemeOverride = theme;
+  // 'unspecified' is Appearance's own spelling for "no override, follow the system".
+  Appearance.setColorScheme(theme || 'unspecified');
   if (theme) {
     await AsyncStorage.setItem('theme_override', theme);
   } else {
     await AsyncStorage.removeItem('theme_override');
   }
-  themeListeners.forEach(l => l());
 };
 
-// Load initial theme override
+// Re-apply the persisted override on cold start, before the first screen mounts.
 AsyncStorage.getItem('theme_override').then((val) => {
   if (val === 'dark' || val === 'light') {
     currentThemeOverride = val;
-    themeListeners.forEach(l => l());
+    Appearance.setColorScheme(val);
   }
 });
-
-const originalUseColorScheme = RN.useColorScheme;
-const customUseColorScheme = () => {
-  const systemScheme = originalUseColorScheme();
-  const [scheme, setScheme] = useState(currentThemeOverride || systemScheme);
-
-  useEffect(() => {
-    const handleChange = () => {
-      setScheme(currentThemeOverride || systemScheme);
-    };
-    themeListeners.add(handleChange);
-    return () => {
-      themeListeners.delete(handleChange);
-    };
-  }, [systemScheme]);
-
-  return currentThemeOverride || systemScheme;
-};
-
-try {
-  Object.defineProperty(RN, 'useColorScheme', {
-    get() {
-      return customUseColorScheme;
-    },
-    configurable: true,
-  });
-} catch (e) {
-  console.warn('Failed to monkeypatch useColorScheme:', e);
-}
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -97,10 +79,11 @@ import PasswordSecurityScreen from './src/screens/PasswordSecurityScreen';
 import ContactScreen from './src/screens/ContactScreen';
 import { getSocket, connectSocket, disconnectSocket } from './src/lib/socket';
 import { appChannel } from './src/lib/broadcast';
+import type { RootStackParamList } from './src/navigation/types';
 
-export const navigationRef = createNavigationContainerRef();
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function App() {
   const isDarkMode = RN.useColorScheme() === 'dark';
@@ -133,7 +116,7 @@ function App() {
     const handleIncomingCall = (data: any) => {
       console.log('[Socket] Global Incoming Call:', data);
       if (navigationRef.isReady()) {
-        (navigationRef as any).navigate('Call', {
+        navigationRef.navigate('Call', {
           conversationId: data.conversationId,
           callerId: data.callerId,
           callerName: data.callerName,
@@ -176,7 +159,7 @@ function App() {
       if (navigationRef.isReady()) {
         navigationRef.reset({
           index: 0,
-          routes: [{ name: 'Login' as never }],
+          routes: [{ name: 'Login' }],
         });
       }
     };

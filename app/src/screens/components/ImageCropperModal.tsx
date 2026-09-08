@@ -9,9 +9,9 @@ import {
   Dimensions,
   PanResponder,
   Animated,
-  useColorScheme,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTheme } from '../../theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const CROP_SIZE = screenWidth - 40; // square crop box
@@ -31,7 +31,7 @@ export default function ImageCropperModal({
   onCropComplete,
   onCancel,
 }: ImageCropperModalProps) {
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const [aspectRatio, setAspectRatio] = useState<'1:1' | '4:5' | '16:9'>('1:1');
 
   // Animation values for scale and translation
@@ -120,13 +120,13 @@ export default function ImageCropperModal({
 
   return (
     <Modal visible={visible} transparent={true} animationType="slide">
-      <View style={[styles.container, { backgroundColor: isDark ? '#09090f' : '#ffffff' }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onCancel} style={styles.headerBtn}>
-            <MaterialCommunityIcons name="close" size={24} color={isDark ? '#fff' : '#000'} />
+            <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>
+          <Text style={[styles.title, { color: colors.text.primary }]}>
             Crop {mediaType === 'video' ? 'Video' : 'Image'}
           </Text>
           <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
@@ -181,7 +181,7 @@ export default function ImageCropperModal({
                   isSelected && { backgroundColor: 'rgba(128, 139, 245, 0.15)', borderColor: '#808bf5' },
                 ]}
               >
-                <Text style={[styles.ratioText, { color: isSelected ? '#808bf5' : (isDark ? '#94a3b8' : '#64748b') }]}>
+                <Text style={[styles.ratioText, { color: isSelected ? colors.primary : colors.text.secondary }]}>
                   {ratio}
                 </Text>
               </TouchableOpacity>

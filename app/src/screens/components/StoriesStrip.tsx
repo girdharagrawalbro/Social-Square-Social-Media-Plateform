@@ -9,7 +9,6 @@ import {
   Modal,
   ActivityIndicator,
   Dimensions,
-  useColorScheme,
   Alert,
   TextInput,
   Switch,
@@ -24,8 +23,9 @@ import { useBroadcast } from '../../lib/useBroadcast';
 import useAuthStore from '../../store/zustand/useAuthStore';
 import { usePostHog } from 'posthog-react-native';
 import { useLiveStore } from '../../store/zustand/useLiveStore';
-import { useNavigation } from '@react-navigation/native';
 import StoryViewer, { StoryItem, GroupedStory } from './StoryViewer';
+import { useAppNavigation } from '../../navigation/types';
+import { useTheme } from '../../theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const playerHeight = Math.min(screenHeight, screenWidth * (16 / 9));
@@ -33,10 +33,10 @@ const playerHeight = Math.min(screenHeight, screenWidth * (16 / 9));
 const COLOR_OPTIONS = ['#ffffff', '#facc15', '#60a5fa', '#f87171', '#4ade80', '#c084fc'];
 
 export default function StoriesStrip() {
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const myUser = useAuthStore((s) => s.user);
   const { setLiveStream } = useLiveStore();
-  const navigation = useNavigation<any>();
+  const navigation = useAppNavigation();
   const [feed, setFeed] = useState<GroupedStory[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeStreams, setActiveStreams] = useState<any[]>([]);
@@ -113,11 +113,11 @@ export default function StoriesStrip() {
   const [resharedStory, setResharedStory] = useState<any>(null);
   const [stickerSize, setStickerSize] = useState<'small' | 'medium' | 'large'>('medium');
 
-  const bg = isDark ? '#000000' : '#f1f5f9';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const textColorStyle = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const textColorStyle = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const borderColor = colors.border;
 
   const filterExpiredStories = (groupedStories: GroupedStory[]): GroupedStory[] => {
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;

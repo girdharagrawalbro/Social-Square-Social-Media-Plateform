@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -17,13 +16,14 @@ import {
   Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useRoute, useNavigation } from '@react-navigation/native';
 import { useQueryClient, QueryClient } from '@tanstack/react-query';
 import { api, BASE_URL } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { PostItem } from './components/PostItem';
 import { PostSkeleton } from './components/SkeletonLoader';
 import { patchPostInFeedCaches } from '../lib/feedCache';
+import { useAppNavigation, useAppRoute } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -70,12 +70,13 @@ function PostDetailPage({
   // Reply State
   const [replyingToComment, setReplyingToComment] = useState<Comment | null>(null);
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#000000' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
-  const primaryColor = '#808bf5';
+  const { colors } = useTheme();
+  const bg = colors.background;
+  const cardBg = colors.background;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
+  const primaryColor = colors.primary;
 
   const fetchPostDetail = async () => {
     if (!postId) return;
@@ -263,7 +264,11 @@ function PostDetailPage({
             <Text style={{ color: textColor, fontSize: 12, flex: 1 }} numberOfLines={1}>
               Replying to <Text style={{ fontWeight: 'bold' }}>{replyingToComment.user?.fullname}</Text>
             </Text>
-            <TouchableOpacity onPress={() => setReplyingToComment(null)}>
+            <TouchableOpacity
+              onPress={() => setReplyingToComment(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel reply"
+            >
               <MaterialCommunityIcons name="close-circle" size={18} color={subText} />
             </TouchableOpacity>
           </View>
@@ -283,6 +288,8 @@ function PostDetailPage({
             style={[styles.sendBtn, { backgroundColor: commentText.trim() ? primaryColor : (isDark ? '#1a1a1a' : '#e2e8f0') }]}
             disabled={!commentText.trim() || submittingComment}
             onPress={handleAddComment}
+            accessibilityRole="button"
+            accessibilityLabel={replyingToComment ? 'Send reply' : 'Send comment'}
           >
             {submittingComment ? (
               <ActivityIndicator size="small" color="#ffffff" />
@@ -297,14 +304,14 @@ function PostDetailPage({
 }
 
 export default function PostDetailScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const route = useAppRoute<'PostDetail'>();
+  const navigation = useAppNavigation();
   const loggedUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const { postId, posts, initialIndex } = route.params || {};
 
-  const bg = isDark ? '#000000' : '#ffffff';
+  const bg = colors.background;
   const [activeIndex, setActiveIndex] = useState(initialIndex || 0);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {

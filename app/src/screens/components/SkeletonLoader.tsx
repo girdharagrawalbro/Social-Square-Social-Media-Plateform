@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, useColorScheme, Dimensions, ScrollView } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, ScrollView } from 'react-native';
+import { useTheme, spacing, radius } from '../../theme';
 
 const { width } = Dimensions.get('window');
 const gridCellSize = (width - 48 - 8) / 3; // 48 = horizontal padding, 8 = 2 gaps of 4px
@@ -9,7 +10,7 @@ interface SkeletonItemProps {
 }
 
 const SkeletonItem = ({ style }: SkeletonItemProps) => {
-  const isDark = useColorScheme() === 'dark';
+  const { colors } = useTheme();
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -29,7 +30,7 @@ const SkeletonItem = ({ style }: SkeletonItemProps) => {
     ).start();
   }, []);
 
-  const color = isDark ? '#27273a' : '#e2e8f0';
+  const color = colors.border;
 
   return (
     <Animated.View style={[style, { opacity: pulseAnim, backgroundColor: color }]} />
@@ -37,12 +38,11 @@ const SkeletonItem = ({ style }: SkeletonItemProps) => {
 };
 
 export const PostSkeleton = () => {
-  const isDark = useColorScheme() === 'dark';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const { colors } = useTheme();
+  const cardBg = colors.surface;
 
   return (
-    <View style={[styles.postCard, { backgroundColor: cardBg, borderColor: border }]}>
+    <View style={[styles.postCard, { backgroundColor: cardBg }]}>
       {/* Header */}
       <View style={styles.postHeader}>
         <SkeletonItem style={styles.avatar} />
@@ -52,17 +52,23 @@ export const PostSkeleton = () => {
         </View>
       </View>
 
-      {/* Content */}
-      <SkeletonItem style={styles.captionLine} />
-      <SkeletonItem style={[styles.captionLine, { width: '80%', marginTop: 6 }]} />
-
       {/* Media Block */}
       <SkeletonItem style={styles.mediaBlock} />
 
+      {/* Content */}
+      <View style={{ marginBottom: spacing.md }}>
+        <SkeletonItem style={styles.captionLine} />
+        <SkeletonItem style={[styles.captionLine, { width: '80%', marginTop: 6 }]} />
+      </View>
+
       {/* Footer */}
       <View style={styles.footer}>
-        <SkeletonItem style={styles.footerAction} />
-        <SkeletonItem style={styles.footerAction} />
+        <View style={{ flexDirection: 'row', gap: spacing.lg }}>
+          <SkeletonItem style={styles.footerAction} />
+          <SkeletonItem style={styles.footerAction} />
+          <SkeletonItem style={styles.footerAction} />
+          <SkeletonItem style={styles.footerAction} />
+        </View>
         <SkeletonItem style={styles.footerAction} />
       </View>
     </View>
@@ -70,12 +76,11 @@ export const PostSkeleton = () => {
 };
 
 export const NotificationSkeleton = () => {
-  const isDark = useColorScheme() === 'dark';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const { colors } = useTheme();
+  const cardBg = colors.surface;
 
   return (
-    <View style={[styles.notifCard, { backgroundColor: cardBg, borderBottomColor: border }]}>
+    <View style={[styles.notifCard, { backgroundColor: cardBg }]}>
       <SkeletonItem style={styles.notifAvatar} />
       <View style={styles.notifContent}>
         <SkeletonItem style={styles.notifLine} />
@@ -86,12 +91,11 @@ export const NotificationSkeleton = () => {
 };
 
 export const ChatSkeleton = () => {
-  const isDark = useColorScheme() === 'dark';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const { colors } = useTheme();
+  const cardBg = colors.surface;
 
   return (
-    <View style={[styles.chatCard, { backgroundColor: cardBg, borderBottomColor: border }]}>
+    <View style={[styles.chatCard, { backgroundColor: cardBg }]}>
       <SkeletonItem style={styles.chatAvatar} />
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
@@ -105,10 +109,9 @@ export const ChatSkeleton = () => {
 };
 
 export const ProfileSkeleton = () => {
-  const isDark = useColorScheme() === 'dark';
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const bg = isDark ? '#0a0a0a' : '#f3f4f6';
+  const { colors } = useTheme();
+  const cardBg = colors.surface;
+  const bg = colors.background;
 
   return (
     <ScrollView
@@ -117,14 +120,14 @@ export const ProfileSkeleton = () => {
       contentContainerStyle={{ paddingBottom: 32 }}
     >
       {/* Profile Card */}
-      <View style={[sk.card, { backgroundColor: cardBg, borderColor: border }]}>
+      <View style={[sk.card, { backgroundColor: cardBg }]}>
         {/* Avatar */}
         <View style={{ alignItems: 'center', marginBottom: 14 }}>
           <SkeletonItem style={sk.avatar} />
         </View>
 
         {/* Full name + username + bio */}
-        <View style={{ alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <View style={{ alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }}>
           <SkeletonItem style={sk.fullnameLine} />
           <SkeletonItem style={sk.usernameLine} />
           <SkeletonItem style={sk.bioLine} />
@@ -154,7 +157,7 @@ export const ProfileSkeleton = () => {
       </View>
 
       {/* Consistency Graph Card */}
-      <View style={[sk.card, sk.graphCard, { backgroundColor: cardBg, borderColor: border }]}>
+      <View style={[sk.card, sk.graphCard, { backgroundColor: cardBg }]}>
         {/* Title bar */}
         <View style={sk.graphHeader}>
           <SkeletonItem style={sk.graphTitle} />
@@ -173,7 +176,7 @@ export const ProfileSkeleton = () => {
       </View>
 
       {/* Post Grid */}
-      <View style={[sk.card, sk.gridCard, { backgroundColor: cardBg, borderColor: border }]}>
+      <View style={[sk.card, sk.gridCard, { backgroundColor: cardBg }]}>
         {/* Tabs bar */}
         <View style={sk.tabsRow}>
           {[1, 2, 3, 4].map(i => (
@@ -193,10 +196,9 @@ export const ProfileSkeleton = () => {
 
 const sk = StyleSheet.create({
   card: {
-    marginHorizontal: 12,
-    marginTop: 12,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
     borderRadius: 20,
-    borderWidth: 1,
     padding: 18,
   },
   avatar: {
@@ -213,7 +215,7 @@ const sk = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   badge: { width: 80, height: 56, borderRadius: 14 },
 
@@ -221,8 +223,8 @@ const sk = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   statTile: {
     width: '47%',
@@ -233,10 +235,10 @@ const sk = StyleSheet.create({
   // Action buttons
   actionsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
-  actionBtn: { flex: 1, height: 42, borderRadius: 12 },
-  actionBtnSmall: { width: 42, height: 42, borderRadius: 12 },
+  actionBtn: { flex: 1, height: 42, borderRadius: radius.md },
+  actionBtnSmall: { width: 42, height: 42, borderRadius: radius.md },
 
   // Consistency graph card
   graphCard: { paddingVertical: 14 },
@@ -260,46 +262,42 @@ const sk = StyleSheet.create({
   gridCard: { paddingBottom: 14 },
   tabsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     marginBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'transparent',
     paddingBottom: 10,
   },
-  tab: { width: 72, height: 32, borderRadius: 8 },
+  tab: { width: 72, height: 32, borderRadius: radius.sm },
   postGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: spacing.xs,
   },
   gridCell: {
     width: gridCellSize,
     height: gridCellSize,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
 });
 
 const styles = StyleSheet.create({
   // Post Skeleton
   postCard: {
-    marginVertical: 8,
-    marginHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
+    marginBottom: spacing.md,
+    paddingBottom: 14,
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    padding: 6,
+    marginBottom: 6,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   userInfo: {
-    marginLeft: 12,
+    marginLeft: spacing.md,
     flex: 1,
   },
   username: {
@@ -317,32 +315,29 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 4,
     width: '95%',
+    marginLeft: 6,
   },
   mediaBlock: {
-    height: 200,
-    borderRadius: 12,
-    marginTop: 12,
+    aspectRatio: 1.2,
     width: '100%',
+    marginBottom: spacing.md,
   },
   footer: {
     flexDirection: 'row',
-    marginTop: 14,
-    justifyContent: 'space-around',
-    borderTopWidth: 1,
-    borderTopColor: 'transparent', // just spacing
-    paddingTop: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
   },
   footerAction: {
-    width: 50,
-    height: 18,
-    borderRadius: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
 
   // Notification Skeleton
   notifCard: {
     flexDirection: 'row',
     padding: 14,
-    borderBottomWidth: 1,
     alignItems: 'center',
   },
   notifAvatar: {
@@ -351,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   notifContent: {
-    marginLeft: 12,
+    marginLeft: spacing.md,
     flex: 1,
   },
   notifLine: {
@@ -363,8 +358,7 @@ const styles = StyleSheet.create({
   // Chat Skeleton
   chatCard: {
     flexDirection: 'row',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: spacing.lg,
     alignItems: 'center',
   },
   chatAvatar: {
@@ -373,7 +367,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   chatContent: {
-    marginLeft: 12,
+    marginLeft: spacing.md,
     flex: 1,
   },
   chatHeader: {
@@ -400,35 +394,35 @@ const styles = StyleSheet.create({
 });
 
 export const ChatMessageSkeleton = () => {
-  const isDark = useColorScheme() === 'dark';
-  const colorRight = isDark ? 'rgba(128, 139, 245, 0.3)' : 'rgba(128, 139, 245, 0.2)';
+  const { colors } = useTheme();
+  const colorRight = colors.border;
 
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }} scrollEnabled={false}>
+    <ScrollView style={{ flex: 1, padding: spacing.lg }} scrollEnabled={false}>
       {/* Incoming message */}
-      <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end', gap: 8 }}>
+      <View style={{ flexDirection: 'row', marginBottom: spacing.lg, alignItems: 'flex-end', gap: spacing.sm }}>
         <SkeletonItem style={{ width: 28, height: 28, borderRadius: 14 }} />
         <SkeletonItem style={{ width: 140, height: 40, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 }} />
       </View>
 
       {/* Outgoing message */}
-      <View style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
+      <View style={{ alignSelf: 'flex-end', marginBottom: spacing.lg }}>
         <SkeletonItem style={{ width: 200, height: 44, borderTopLeftRadius: 18, borderTopRightRadius: 4, borderBottomRightRadius: 18, borderBottomLeftRadius: 18, backgroundColor: colorRight }} />
       </View>
 
       {/* Incoming message */}
-      <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end', gap: 8 }}>
+      <View style={{ flexDirection: 'row', marginBottom: spacing.lg, alignItems: 'flex-end', gap: spacing.sm }}>
         <SkeletonItem style={{ width: 28, height: 28, borderRadius: 14 }} />
         <SkeletonItem style={{ width: 220, height: 56, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 }} />
       </View>
 
       {/* Outgoing message */}
-      <View style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
+      <View style={{ alignSelf: 'flex-end', marginBottom: spacing.lg }}>
         <SkeletonItem style={{ width: 100, height: 36, borderTopLeftRadius: 18, borderTopRightRadius: 4, borderBottomRightRadius: 18, borderBottomLeftRadius: 18, backgroundColor: colorRight }} />
       </View>
 
       {/* Incoming message */}
-      <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end', gap: 8 }}>
+      <View style={{ flexDirection: 'row', marginBottom: spacing.lg, alignItems: 'flex-end', gap: spacing.sm }}>
         <SkeletonItem style={{ width: 28, height: 28, borderRadius: 14 }} />
         <SkeletonItem style={{ width: 160, height: 40, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 }} />
       </View>

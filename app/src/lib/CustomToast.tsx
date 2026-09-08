@@ -6,9 +6,9 @@ import {
   Animated,
   Dimensions,
   TouchableOpacity,
-  useColorScheme,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTheme } from '../theme';
 
 const { width } = Dimensions.get('window');
 
@@ -48,7 +48,7 @@ export const toast = {
 };
 
 export const CustomToastContainer: React.FC = () => {
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const [currentToast, setCurrentToast] = useState<ToastConfig | null>(null);
   const [slideAnim] = useState(new Animated.Value(-120));
   const [opacityAnim] = useState(new Animated.Value(0));
@@ -139,8 +139,8 @@ export const CustomToastContainer: React.FC = () => {
   };
 
   const theme = getTheme();
-  const textColor = isDark ? '#f8fafc' : '#0f172a';
-  const containerBg = isDark ? '#111827' : '#ffffff';
+  const textColor = colors.text.primary;
+  const containerBg = colors.surface;
 
   return (
     <Animated.View
@@ -172,13 +172,13 @@ export const CustomToastContainer: React.FC = () => {
           {currentToast.title ? (
             <Text style={[styles.title, { color: textColor }]}>{currentToast.title}</Text>
           ) : null}
-          <Text style={[styles.message, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+          <Text style={[styles.message, { color: colors.text.secondary }]}>
             {currentToast.message}
           </Text>
         </View>
 
         <TouchableOpacity onPress={hideToast} style={styles.closeBtn}>
-          <MaterialCommunityIcons name="close" size={18} color={isDark ? '#94a3b8' : '#94a3b8'} />
+          <MaterialCommunityIcons name="close" size={18} color={colors.text.secondary} />
         </TouchableOpacity>
       </TouchableOpacity>
     </Animated.View>

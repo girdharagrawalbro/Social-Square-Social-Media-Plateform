@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -14,14 +13,15 @@ import {
   Image,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useRoute, useNavigation } from '@react-navigation/native';
 import { api } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { useAppNavigation, useAppRoute } from '../navigation/types';
+import { useTheme } from '../theme';
 
 export default function WikiDetailScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const route = useAppRoute<'WikiDetail'>();
+  const navigation = useAppNavigation();
   const user = useAuthStore((s) => s.user);
 
   const { slug } = route.params || {};
@@ -94,39 +94,46 @@ export default function WikiDetailScreen() {
     }
   };
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#f9fafb';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const modalOverlay = isDark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.5)';
-
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#808bf5" />
-          <Text style={[styles.loadingText, { color: subText }]}>Loading wiki details...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-      {/* Header */}
+      {/* Header — kept outside the loading branch so the back button (the only way
+          out of this screen besides the hardware gesture) is always available. */}
       <View style={[styles.header, { borderBottomColor: border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textColor }]} numberOfLines={1}>
           {wiki?.topic || 'Wiki Article'}
         </Text>
-        <TouchableOpacity onPress={() => setContributeModalVisible(true)} style={styles.headerRightBtn}>
-          <MaterialCommunityIcons name="plus-circle-outline" size={24} color="#808bf5" />
+        <TouchableOpacity
+          onPress={() => setContributeModalVisible(true)}
+          style={styles.headerRightBtn}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Suggest a post for this article"
+        >
+          <MaterialCommunityIcons name="plus-circle-outline" size={24} color={loading ? subText : '#808bf5'} />
         </TouchableOpacity>
       </View>
 
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#808bf5" />
+          <Text style={[styles.loadingText, { color: subText }]}>Loading wiki details...</Text>
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Description Banner */}
         <View style={[styles.banner, { backgroundColor: cardBg }]}>
@@ -190,6 +197,7 @@ export default function WikiDetailScreen() {
           </View>
         )}
       </ScrollView>
+      )}
 
       {/* Contribute Modal */}
       <Modal
@@ -202,7 +210,11 @@ export default function WikiDetailScreen() {
           <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
             <View style={[styles.modalHeader, { borderBottomColor: border }]}>
               <Text style={[styles.modalTitle, { color: textColor }]}>Suggest Your Post</Text>
-              <TouchableOpacity onPress={() => setContributeModalVisible(false)}>
+              <TouchableOpacity
+                onPress={() => setContributeModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
                 <MaterialCommunityIcons name="close" size={24} color={textColor} />
               </TouchableOpacity>
             </View>

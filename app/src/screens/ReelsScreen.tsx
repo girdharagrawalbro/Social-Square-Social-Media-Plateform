@@ -13,19 +13,23 @@ import {
   Platform,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useIsFocused, useRoute } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 import { api } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useTabStore } from '../store/zustand/useTabStore';
 import BottomNav from './components/BottomNav';
 import { ReelPlayerItem } from './ExploreScreen';
+import { useAppRoute, type AppNavigationProp } from '../navigation/types';
 
 const { height } = Dimensions.get('window');
 
-export default function ReelsScreen({ navigation }: any) {
+export default function ReelsScreen({ navigation }: { navigation: AppNavigationProp }) {
   const isFocused = useIsFocused();
-  const route = useRoute<any>();
-  const { currentTab } = useTabStore();
+  // Standalone push gets the real 'Reels' route; embedded as MainTabsScreen's tab
+  // content it resolves to the nearest ancestor route instead ('SocialSquare', whose
+  // params are always undefined) — either way `route.params?.posts` below stays safe.
+  const route = useAppRoute<'Reels'>();
+  const { currentTab, setTab } = useTabStore();
   const loggedUser = useAuthStore((s) => s.user);
 
   // When opened with a specific array (from Explore's reel grid or Profile's reels
@@ -147,11 +151,22 @@ export default function ReelsScreen({ navigation }: any) {
 
       {/* FIXED HEADER — rendered AFTER FlatList so it sits on top in paint order */}
       <View style={styles.fixedHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconCircle}>
+        <TouchableOpacity
+          onPress={() => { setTab('feed'); navigation.navigate('SocialSquare'); }}
+          style={styles.iconCircle}
+          accessibilityRole="button"
+          accessibilityLabel="Back to feed"
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reels</Text>
-        <TouchableOpacity onPress={() => setMuted(!muted)} style={styles.iconCircle}>
+        <TouchableOpacity
+          onPress={() => setMuted(!muted)}
+          style={styles.iconCircle}
+          accessibilityRole="button"
+          accessibilityLabel={muted ? 'Unmute' : 'Mute'}
+          accessibilityState={{ selected: muted }}
+        >
           <MaterialCommunityIcons
             name={muted ? 'volume-off' : 'volume-high'}
             size={24}

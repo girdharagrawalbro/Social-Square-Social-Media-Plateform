@@ -7,7 +7,6 @@ import {
   FlatList,
   SafeAreaView,
   ActivityIndicator,
-  useColorScheme,
   Dimensions,
   TextInput,
   Alert,
@@ -15,11 +14,13 @@ import {
   Image,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
 import { api, BASE_URL } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { PostItem } from './components/PostItem';
 import { PostSkeleton } from './components/SkeletonLoader';
+import { EmptyState, ErrorState } from './components/EmptyState';
+import { useAppNavigation } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width } = Dimensions.get('window');
 
@@ -37,8 +38,8 @@ interface Group {
 }
 
 export default function CommunitiesScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
   const user = useAuthStore((s) => s.user);
 
   const [activeTab, setActiveTab] = useState<'confessions' | 'groups'>('confessions');
@@ -49,24 +50,27 @@ export default function CommunitiesScreen() {
   const [refreshingConfessions, setRefreshingConfessions] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMoreConfessions, setHasMoreConfessions] = useState(true);
+  const [confessionsError, setConfessionsError] = useState(false);
 
   // --- GROUPS STATES ---
   const [groups, setGroups] = useState<Group[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState(false);
   const [groupSearch, setGroupSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [groupPosts, setGroupPosts] = useState<any[]>([]);
   const [loadingGroupDetails, setLoadingGroupDetails] = useState(false);
   const [checkins, setCheckins] = useState<any[]>([]);
   const [newWip, setNewWip] = useState('');
+  const [togglingCheckinId, setTogglingCheckinId] = useState<string | null>(null);
   const [submittingCheckin, setSubmittingCheckin] = useState(false);
 
   // Styling
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#f9fafb';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const inputBg = isDark ? '#1a1a24' : '#f3f4f6';
 
   // --- FETCH CONFESSIONS ---
@@ -91,8 +95,10 @@ export default function CommunitiesScreen() {
       }
       setNextCursor(cursor);
       setHasMoreConfessions(!!cursor);
+      setConfessionsError(false);
     } catch (err) {
       console.warn('Failed to fetch confessions:', err);
+      setConfessionsError(true);
     } finally {
       setLoadingConfessions(false);
       setRefreshingConfessions(false);
@@ -105,8 +111,10 @@ export default function CommunitiesScreen() {
     try {
       const res = await api.get('/api/group/all');
       setGroups(res.data || []);
+      setGroupsError(false);
     } catch (err) {
       console.warn('Failed to fetch groups:', err);
+      setGroupsError(true);
     } finally {
       setLoadingGroups(false);
     }
@@ -247,13 +255,16 @@ export default function CommunitiesScreen() {
   };
 
   const handleToggleCheckinStatus = async (checkinId: string, status: string) => {
-    if (!selectedGroup) return;
+    if (!selectedGroup || togglingCheckinId) return;
+    setTogglingCheckinId(checkinId);
     try {
       await api.put(`/api/group/${selectedGroup._id}/checkin/${checkinId}/status`, { status });
       const checkinsRes = await api.get(`/api/group/${selectedGroup._id}/checkins`);
       setCheckins(checkinsRes.data || []);
     } catch (err) {
       Alert.alert('Error', 'Failed to update check-in status.');
+    } finally {
+      setTogglingCheckinId(null);
     }
   };
 
@@ -289,10 +300,15 @@ export default function CommunitiesScreen() {
           ) : null
         }
         ListEmptyComponent={
-          <View style={styles.emptyView}>
-            <MaterialCommunityIcons name="comment-text-multiple-outline" size={48} color={subText} />
-            <Text style={[styles.emptyText, { color: subText }]}>No confessions yet.</Text>
-          </View>
+          confessionsError ? (
+            <ErrorState
+              title="Couldn't load confessions"
+              subtitle="Check your connection and try again."
+              onAction={() => fetchConfessions(true)}
+            />
+          ) : (
+            <EmptyState icon="comment-text-multiple-outline" title="No confessions yet." />
+          )
         }
       />
     );
@@ -301,6 +317,28 @@ export default function CommunitiesScreen() {
   const renderGroupsTab = () => {
     if (selectedGroup) {
       return renderGroupDetails();
+    }
+
+    // `loadingGroups`/`groupsError` were tracked but never actually read here before —
+    // the tab just silently showed "No new communities found" while the very first
+    // fetch was still in flight (or had failed outright), which reads as "there truly
+    // are no communities" when the real state is "still loading" or "request failed".
+    if (loadingGroups && groups.length === 0) {
+      return (
+        <View style={{ flex: 1, padding: 16 }}>
+          <PostSkeleton />
+        </View>
+      );
+    }
+
+    if (groupsError && groups.length === 0) {
+      return (
+        <ErrorState
+          title="Couldn't load communities"
+          subtitle="Check your connection and try again."
+          onAction={fetchGroups}
+        />
+      );
     }
 
     const filtered = groups.filter((g) =>
@@ -341,7 +379,7 @@ export default function CommunitiesScreen() {
             {discoverGroups.length > 0 ? (
               discoverGroups.map((g) => renderGroupCard(g, false))
             ) : (
-              <Text style={[styles.noGroupsText, { color: subText }]}>No new communities found.</Text>
+              <EmptyState icon="account-group-outline" title="No new communities found." />
             )}
           </View>
         </ScrollView>
@@ -403,7 +441,12 @@ export default function CommunitiesScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: bg }}>
         {/* Detail Header */}
         <View style={[styles.detailHeader, { borderBottomColor: border }]}>
-          <TouchableOpacity onPress={() => setSelectedGroup(null)} style={styles.detailBackBtn}>
+          <TouchableOpacity
+            onPress={() => setSelectedGroup(null)}
+            style={styles.detailBackBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
           </TouchableOpacity>
           <Text style={[styles.detailTitle, { color: textColor }]} numberOfLines={1}>
@@ -484,9 +527,14 @@ export default function CommunitiesScreen() {
                           <View style={styles.checkinActionsRow}>
                             <TouchableOpacity
                               onPress={() => handleToggleCheckinStatus(c._id, 'completed')}
-                              style={styles.checkinCompleteBtn}
+                              disabled={togglingCheckinId === c._id}
+                              style={[styles.checkinCompleteBtn, togglingCheckinId === c._id && { opacity: 0.6 }]}
                             >
-                              <Text style={styles.checkinCompleteBtnText}>Mark Completed</Text>
+                              {togglingCheckinId === c._id ? (
+                                <ActivityIndicator size="small" color="#ffffff" />
+                              ) : (
+                                <Text style={styles.checkinCompleteBtnText}>Mark Completed</Text>
+                              )}
                             </TouchableOpacity>
                           </View>
                         )}
@@ -526,7 +574,12 @@ export default function CommunitiesScreen() {
       {/* Header */}
       {selectedGroup === null && (
         <View style={[styles.header, { borderBottomColor: border }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <MaterialCommunityIcons name="chevron-left" size={28} color={textColor} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: textColor }]}>Communities & Confessions</Text>

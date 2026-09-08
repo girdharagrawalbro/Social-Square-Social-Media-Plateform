@@ -5,17 +5,18 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  useColorScheme,
   ActivityIndicator,
   SafeAreaView,
   RefreshControl,
   Alert,
   InteractionManager,
   Platform,
+  Animated,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { queryKeys } from '../lib/queryKeys';
 import StoriesStrip from './components/StoriesStrip';
 import MoodFeedToggle from './components/MoodFeedToggle';
 import { PostItem } from './components/PostItem';
@@ -25,13 +26,15 @@ import { appChannel } from '../lib/broadcast';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useTabStore } from '../store/zustand/useTabStore';
 import BottomNav from './components/BottomNav';
+import type { TabOrStackScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const VIEWABILITY_CONFIG = {
   itemVisiblePercentThreshold: 40,
   minimumViewTime: 250,
 };
 
-export default function SocialSquareScreen({ navigation }: any) {
+export default function SocialSquareScreen({ navigation }: TabOrStackScreenProps<'SocialSquare'>) {
   const { currentTab } = useTabStore();
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
@@ -53,7 +56,7 @@ export default function SocialSquareScreen({ navigation }: any) {
       });
     }, [])
   );
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const { logout, user } = useAuthStore();
   const queryClient = useQueryClient();
   const [isOffline, setIsOffline] = useState(false);
@@ -87,11 +90,13 @@ export default function SocialSquareScreen({ navigation }: any) {
     hasNextPage,
     isFetchingNextPage,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     isRefetching,
     refetch,
     isError
   } = useInfiniteQuery({
-    queryKey: ['feed', activeMood],
+    queryKey: queryKeys.feed(activeMood),
     queryFn: async ({ pageParam = null }) => {
       try {
         const endpoint = activeMood
@@ -110,6 +115,11 @@ export default function SocialSquareScreen({ navigation }: any) {
     },
     getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
     initialPageParam: null as string | null,
+    // Keep showing the previously-selected mood's posts while the new mood's request
+    // is in flight, instead of `data` collapsing to empty the instant `activeMood`
+    // changes (that emptiness was what forced the full-page skeleton to kick in and
+    // take the story strip / mood selector down with it).
+    placeholderData: keepPreviousData,
   });
 
   const posts = data?.pages.flatMap((page) => page.items) || [];
@@ -117,6 +127,9 @@ export default function SocialSquareScreen({ navigation }: any) {
   const refreshing = isRefetching && !isFetchingNextPage;
   const loadingMore = isFetchingNextPage;
   const hasMore = hasNextPage;
+  // True only while a mood switch (or clear) is fetching in the background with the
+  // previous mood's posts still on screen — distinct from the true first-ever load.
+  const isMoodSwitching = isFetching && isPlaceholderData;
 
   const fetchFeed = async (isRefresh = false) => {
     if (isRefresh) {
@@ -125,7 +138,7 @@ export default function SocialSquareScreen({ navigation }: any) {
       // far below the viewport. Truncate to just the first page before refetching so a
       // pull-to-refresh only reloads the top, like Instagram; scrolling back down
       // re-paginates naturally from the freshly refetched page 1's cursor.
-      queryClient.setQueryData(['feed', activeMood], (old: any) => {
+      queryClient.setQueryData(queryKeys.feed(activeMood), (old: any) => {
         if (!old?.pages?.length) return old;
         return { pages: old.pages.slice(0, 1), pageParams: old.pageParams.slice(0, 1) };
       });
@@ -147,11 +160,23 @@ export default function SocialSquareScreen({ navigation }: any) {
     setActiveMood(null);
   }, []);
 
+  // Feed cross-fade for mood changes — dims the current posts while the new mood's
+  // set is fetching, then settles back to full opacity once it lands, so switching
+  // moods reads as the feed content re-flowing in place rather than a hard reload.
+  const feedFade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.timing(feedFade, {
+      toValue: isMoodSwitching ? 0.4 : 1,
+      duration: isMoodSwitching ? 150 : 250,
+      useNativeDriver: true,
+    }).start();
+  }, [isMoodSwitching, feedFade]);
+
   useEffect(() => {
     // Listen to post creation event
     const unsub = appChannel.on('POST_CREATED', (data: any) => {
       if (data?.post) {
-        queryClient.setQueryData(['feed', activeMood], (oldData: any) => {
+        queryClient.setQueryData(queryKeys.feed(activeMood), (oldData: any) => {
           if (!oldData) return oldData;
           return {
             ...oldData,
@@ -169,20 +194,32 @@ export default function SocialSquareScreen({ navigation }: any) {
     return () => unsub();
   }, [activeMood, queryClient]);
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#000000' : '#ffffff';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const border = isDark ? '#1a1a1a' : '#e5e7eb';
+  const bg = colors.background;
+  const cardBg = colors.background;
+  const textColor = colors.text.primary;
+  const border = colors.border;
+
+  // True cold start only — no posts loaded yet for any mood, nothing to fall back to
+  // via keepPreviousData. Renders as skeleton ROWS inside the same list (see below)
+  // rather than swapping out the whole screen, so the story strip / mood selector
+  // (both always the FlatList's header/sticky row) never disappear.
+  const showFeedSkeleton = loading && posts.length === 0;
 
   // Stable reference unless `posts` itself changes — without this, every unrelated
   // re-render (header show/hide, viewability tracking, notification count) built a
   // brand-new array, forcing FlatList to re-diff every mounted row for no reason.
-  const listData = useMemo(
-    () => [{ _id: 'mood_selector', type: 'mood_selector' } as any, ...posts],
-    [posts]
-  );
+  const listData = useMemo(() => {
+    const moodRow = { _id: 'mood_selector', type: 'mood_selector' } as any;
+    if (showFeedSkeleton) {
+      return [moodRow, { _id: 'skeleton-1', type: 'skeleton' }, { _id: 'skeleton-2', type: 'skeleton' }, { _id: 'skeleton-3', type: 'skeleton' }];
+    }
+    return [moodRow, ...posts];
+  }, [posts, showFeedSkeleton]);
 
   const renderItem = useCallback(({ item }: any) => {
+    if (item.type === 'skeleton') {
+      return <PostSkeleton />;
+    }
     if (item.type === 'mood_selector') {
       return (
         <View style={{ backgroundColor: bg }}>
@@ -208,10 +245,18 @@ export default function SocialSquareScreen({ navigation }: any) {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: cardBg, paddingHorizontal: 12, height: showHeader ? 56 : 0, opacity: showHeader ? 1 : 0, overflow: 'hidden' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('NewPost')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('NewPost')}
+            accessibilityRole="button"
+            accessibilityLabel="Create new post"
+          >
             <MaterialCommunityIcons name="plus" size={26} color={isDark ? '#f3f4f6' : '#1f2937'} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Communities')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Communities')}
+            accessibilityRole="button"
+            accessibilityLabel="Communities"
+          >
             <MaterialCommunityIcons name="account-group-outline" size={25} color={isDark ? '#f3f4f6' : '#1f2937'} />
           </TouchableOpacity>
         </View>
@@ -219,10 +264,18 @@ export default function SocialSquareScreen({ navigation }: any) {
         <Text style={styles.headerLogo}>Social Square</Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('Chatbot')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Chatbot')}
+            accessibilityRole="button"
+            accessibilityLabel="Open AI chatbot"
+          >
             <MaterialCommunityIcons name="robot-outline" size={24} color="#808bf5" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Notifications')}
+            accessibilityRole="button"
+            accessibilityLabel={unreadNotificationsCount > 0 ? `Notifications, ${unreadNotificationsCount} unread` : 'Notifications'}
+          >
             <View style={styles.chatIconWrapper}>
               {unreadNotificationsCount > 0 && (
                 <View style={styles.bellBadge}>
@@ -235,13 +288,10 @@ export default function SocialSquareScreen({ navigation }: any) {
         </View>
       </View>
 
-      {loading && posts.length === 0 ? (
-        <View style={{ flex: 1 }}>
-          <PostSkeleton />
-          <PostSkeleton />
-          <PostSkeleton />
-        </View>
-      ) : (
+      {/* The story strip (FlatList's ListHeaderComponent) and the mood selector (a sticky
+          row inside `listData`) live inside this single always-mounted FlatList now —
+          switching moods only fades/refreshes the post rows below them. */}
+      <Animated.View style={{ flex: 1, opacity: feedFade }}>
         <FlatList
           data={listData}
           keyExtractor={(item) => item._id}
@@ -282,6 +332,15 @@ export default function SocialSquareScreen({ navigation }: any) {
           }
           contentContainerStyle={styles.listContent}
         />
+      </Animated.View>
+
+      {/* Small non-blocking cue that the feed is re-fetching for the new mood — the
+          skeleton/full-reload feeling this replaces is handled by feedFade above. */}
+      {isMoodSwitching && (
+        <View pointerEvents="none" style={styles.moodSwitchPill}>
+          <ActivityIndicator size="small" color="#ffffff" />
+          <Text style={styles.moodSwitchPillText}>Updating feed…</Text>
+        </View>
       )}
 
       <BottomNav currentTab="feed" navigation={navigation} />
@@ -339,5 +398,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+  },
+  moodSwitchPill: {
+    position: 'absolute',
+    top: 100,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(30,30,40,0.85)',
+  },
+  moodSwitchPillText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

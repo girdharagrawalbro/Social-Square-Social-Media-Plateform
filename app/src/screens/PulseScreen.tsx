@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -15,14 +14,18 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomNav from './components/BottomNav';
 import { api, BASE_URL } from '../lib/api';
+import { EmptyState, ErrorState } from './components/EmptyState';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width } = Dimensions.get('window');
 
-export default function PulseScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function PulseScreen({ navigation }: AppScreenProps<'Pulse'>) {
+  const { colors, isDark } = useTheme();
   const [pulseData, setPulseData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchTrending = async (isRefresh = false) => {
     if (isRefresh) {
@@ -34,8 +37,10 @@ export default function PulseScreen({ navigation }: any) {
     try {
       const res = await api.get('/api/post/trending');
       setPulseData(res.data);
+      setLoadError(false);
     } catch (err) {
       console.warn('Failed to fetch trending pulse:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -67,11 +72,11 @@ export default function PulseScreen({ navigation }: any) {
     return url;
   };
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#f9fafb';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
@@ -89,6 +94,12 @@ export default function PulseScreen({ navigation }: any) {
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#808bf5" />
         </View>
+      ) : loadError && !pulseData ? (
+        <ErrorState
+          title="Couldn't load Pulse"
+          subtitle="Check your connection and try again."
+          onAction={() => fetchTrending()}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}

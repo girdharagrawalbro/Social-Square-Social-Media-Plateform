@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   Image,
   TouchableOpacity,
   ScrollView,
@@ -30,12 +29,14 @@ import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import { appChannel } from '../lib/broadcast';
 import { ProfileSkeleton } from './components/SkeletonLoader';
 import toast from '../lib/CustomToast';
+import type { TabOrStackScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width } = Dimensions.get('window');
 const gridWidth = (width - 35) / 3;
 
-export default function ProfileScreen({ navigation, route }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function ProfileScreen({ navigation, route }: TabOrStackScreenProps<'Profile'>) {
+  const { colors, isDark } = useTheme();
   const { user, logout, setUser } = useAuthStore();
   const targetUserId = route?.params?.userId;
   const isOwner = !targetUserId || targetUserId === user?._id;
@@ -441,11 +442,11 @@ export default function ProfileScreen({ navigation, route }: any) {
     }
   };
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const border = isDark ? '#1a1a1a' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const primaryColor = '#808bf5';
 
   const resolveMediaUrl = (url?: string) => {
@@ -728,11 +729,21 @@ export default function ProfileScreen({ navigation, route }: any) {
       <View style={[styles.header, { borderBottomColor: border }]}>
         {/* Left Side: Back or Plus Icon */}
         {isOwner ? (
-          <TouchableOpacity onPress={() => navigation.navigate('NewPost')} style={styles.headerLeftBtn}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('NewPost')}
+            style={styles.headerLeftBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Create new post"
+          >
             <MaterialCommunityIcons name="plus" size={26} color={textColor} />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerLeftBtn}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.headerLeftBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <MaterialCommunityIcons name="chevron-left" size={28} color={textColor} />
           </TouchableOpacity>
         )}
@@ -745,7 +756,12 @@ export default function ProfileScreen({ navigation, route }: any) {
         {/* Right Side: Bell & Hamburger */}
         {isOwner ? (
           <View style={styles.headerRightGroup}>
-            <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.headerRightBtn}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Notifications')}
+              style={styles.headerRightBtn}
+              accessibilityRole="button"
+              accessibilityLabel={unreadNotificationsCount > 0 ? `Notifications, ${unreadNotificationsCount} unread` : 'Notifications'}
+            >
               <View style={styles.badgeWrapper}>
                 {unreadNotificationsCount > 0 && (
                   <View style={styles.bellBadge}>
@@ -759,6 +775,8 @@ export default function ProfileScreen({ navigation, route }: any) {
             <TouchableOpacity
               onPress={() => setSettingsVisible(true)}
               style={styles.headerRightBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Settings menu"
             >
               <MaterialCommunityIcons name="menu" size={26} color={textColor} />
             </TouchableOpacity>
@@ -816,7 +834,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                 {/* Level / Streak / XP Row */}
                 <View style={[styles.gamificationRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8f9fe', borderColor: border }]}>
                   <View style={[styles.gamifyBadge]}>
-                    <Text style={[styles.gamifyVal, { color: '#6366f1' }]}>{profileData?.level || 1}</Text>
+                    <Text style={[styles.gamifyVal, { color: '#808bf5' }]}>{profileData?.level || 1}</Text>
                     <Text style={styles.gamifyLabel}>LEVEL</Text>
                   </View>
                   <View style={styles.gamifyDivider} />
@@ -881,9 +899,21 @@ export default function ProfileScreen({ navigation, route }: any) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => {
+                      onPress={async () => {
                         if (profileData?._id) {
-                          navigation.navigate('Chat', { recipientId: profileData._id, recipientName: profileData.fullname });
+                          try {
+                            const res = await api.post('/api/conversation/create', { recipientId: profileData._id });
+                            if (res.data?._id) {
+                              navigation.navigate('ChatPane', {
+                                conversationId: res.data._id,
+                                title: profileData.fullname || profileData.username,
+                                recipientId: profileData._id,
+                                recipientAvatar: profileData.profile_picture || '',
+                              });
+                            }
+                          } catch (e: any) {
+                            Alert.alert('Error', e.response?.data?.message || 'Failed to start conversation.');
+                          }
                         }
                       }}
                       style={{
@@ -983,9 +1013,9 @@ export default function ProfileScreen({ navigation, route }: any) {
                               const count = contributions[dateStr] || 0;
 
                               let cellBg = isDark ? '#1e293b' : '#e2e8f0';
-                              if (count === 1) cellBg = 'rgba(99, 102, 241, 0.35)';
-                              else if (count === 2) cellBg = 'rgba(99, 102, 241, 0.65)';
-                              else if (count > 2) cellBg = '#6366f1';
+                              if (count === 1) cellBg = 'rgba(128, 139, 245, 0.35)';
+                              else if (count === 2) cellBg = 'rgba(128, 139, 245, 0.65)';
+                              else if (count > 2) cellBg = '#808bf5';
 
                               return (
                                 <View
@@ -1008,9 +1038,9 @@ export default function ProfileScreen({ navigation, route }: any) {
                     <View style={styles.legendRow}>
                       <Text style={[styles.legendLabel, { color: subText }]}>Less</Text>
                       <View style={[styles.legendSwatch, { backgroundColor: isDark ? '#1e293b' : '#e2e8f0' }]} />
-                      <View style={[styles.legendSwatch, { backgroundColor: 'rgba(99, 102, 241, 0.35)' }]} />
-                      <View style={[styles.legendSwatch, { backgroundColor: 'rgba(99, 102, 241, 0.65)' }]} />
-                      <View style={[styles.legendSwatch, { backgroundColor: '#6366f1' }]} />
+                      <View style={[styles.legendSwatch, { backgroundColor: 'rgba(128, 139, 245, 0.35)' }]} />
+                      <View style={[styles.legendSwatch, { backgroundColor: 'rgba(128, 139, 245, 0.65)' }]} />
+                      <View style={[styles.legendSwatch, { backgroundColor: '#808bf5' }]} />
                       <Text style={[styles.legendLabel, { color: subText }]}>More</Text>
                     </View>
 
@@ -1439,7 +1469,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                   <MaterialCommunityIcons
                     name={isDark ? 'weather-sunny' : 'weather-night'}
                     size={22}
-                    color={isDark ? '#eab308' : '#6366f1'}
+                    color={isDark ? '#eab308' : '#808bf5'}
                   />
                 </View>
                 <View style={styles.settingsTextWrapper}>

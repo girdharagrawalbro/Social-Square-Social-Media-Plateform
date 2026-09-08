@@ -20,6 +20,7 @@ import Video from 'react-native-video';
 const VideoComponent = Video as any;
 import { api } from '../../lib/api';
 import ShareModal from './ShareModal';
+import { useTheme } from '../../theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -115,6 +116,12 @@ export default function StoryViewer({
 }: StoryViewerProps) {
   const [activeGroupIndex, setActiveGroupIndex] = useState(initialGroupIndex);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+  const currentIndexRef = useRef({ group: initialGroupIndex, story: 0 });
+
+  useEffect(() => {
+    currentIndexRef.current = { group: activeGroupIndex, story: activeStoryIndex };
+  }, [activeGroupIndex, activeStoryIndex]);
+
   const progressAnim = useRef(0);
   const [timerProgress, setTimerProgress] = useState(0);
   const timerRef = useRef<any>(null);
@@ -133,9 +140,12 @@ export default function StoryViewer({
   const [loadingViewers, setLoadingViewers] = useState(false);
   const [shareVisible, setShareVisible] = useState(false);
 
-  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
-  const textColorStyle = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
+  const { colors, spacing, radius } = useTheme();
+  const styles = createStyles(colors, spacing, radius);
+
+  const borderColor = colors.border;
+  const textColorStyle = colors.text.primary;
+  const subColor = colors.text.secondary;
 
   // Re-seed navigation to wherever the tray asked to open, every time the viewer opens.
   useEffect(() => {
@@ -234,7 +244,7 @@ export default function StoryViewer({
     }, intervalTime);
 
     if (progressAnim.current === 1) {
-      api.post(`/api/story/view/${currentStory._id}`).catch(() => {});
+      api.post(`/api/story/view/${currentStory._id}`).catch(() => { });
     }
 
     return () => clearInterval(timerRef.current);
@@ -254,7 +264,7 @@ export default function StoryViewer({
   const nextMedia = getMediaUrlAndType(nextStory || undefined);
   useEffect(() => {
     if (nextMedia.type === 'image' && nextMedia.url) {
-      Image.prefetch(nextMedia.url).catch(() => {});
+      Image.prefetch(nextMedia.url).catch(() => { });
     }
   }, [nextMedia.url, nextMedia.type]);
 
@@ -325,7 +335,7 @@ export default function StoryViewer({
           gestureDirection.current = Math.abs(g.dy) > Math.abs(g.dx) ? 'vertical' : 'horizontal';
         }
         if (gestureDirection.current === 'vertical') {
-          if (g.dy > 0) translateY.setValue(g.dy);
+          translateY.setValue(g.dy);
         } else {
           translateX.setValue(g.dx);
         }
@@ -337,6 +347,24 @@ export default function StoryViewer({
               translateY.setValue(0);
               onClose();
             });
+          } else if (g.dy < -50 || g.vy < -1.2) {
+            Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
+            const currentGroup = feed[currentIndexRef.current.group];
+            const currentStory = currentGroup?.stories?.[currentIndexRef.current.story];
+            if (currentGroup?.user?._id === myUser?._id && currentStory) {
+              setIsPaused(true);
+              setLoadingViewers(true);
+              setViewersVisible(true);
+              api.get(`/api/story/viewers/${currentStory._id}`).then(res => {
+                setViewers(res.data || []);
+              }).catch(e => {
+                console.warn('Failed to fetch viewers on swipe:', e);
+              }).finally(() => {
+                setLoadingViewers(false);
+              });
+            } else {
+              setIsPaused(false);
+            }
           } else {
             Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
             setIsPaused(false);
@@ -466,7 +494,7 @@ export default function StoryViewer({
                 {currentGroup.user.profile_picture ? (
                   <Image source={{ uri: currentGroup.user.profile_picture }} style={styles.playerAvatar} />
                 ) : (
-                  <View style={[styles.playerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                  <View style={[styles.playerAvatar, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
                     <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{currentGroup.user.fullname[0]}</Text>
                   </View>
                 )}
@@ -582,7 +610,7 @@ export default function StoryViewer({
                   {currentStory.sharedPostId.user?.profile_picture ? (
                     <Image source={{ uri: currentStory.sharedPostId.user.profile_picture }} style={styles.stickerAvatar} />
                   ) : (
-                    <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                    <View style={[styles.stickerAvatar, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
                       <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
                         {currentStory.sharedPostId.user?.fullname?.[0]?.toUpperCase() || 'U'}
                       </Text>
@@ -644,7 +672,7 @@ export default function StoryViewer({
                   {currentStory.sharedStoryId.user?.profile_picture ? (
                     <Image source={{ uri: currentStory.sharedStoryId.user.profile_picture }} style={styles.stickerAvatar} />
                   ) : (
-                    <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                    <View style={[styles.stickerAvatar, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
                       <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
                         {currentStory.sharedStoryId.user?.fullname?.[0]?.toUpperCase() || 'U'}
                       </Text>
@@ -768,7 +796,7 @@ export default function StoryViewer({
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.deleteStoryBtn} onPress={() => handleDeleteStory(currentStory._id)}>
-                    <MaterialCommunityIcons name="delete-outline" size={24} color="#ef4444" />
+                    <MaterialCommunityIcons name="delete-outline" size={24} color={colors.danger} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -805,7 +833,7 @@ export default function StoryViewer({
                         <MaterialCommunityIcons
                           name={(currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString()) ? 'heart' : 'heart-outline'}
                           size={28}
-                          color={(currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString()) ? '#ef4444' : '#ffffff'}
+                          color={(currentStory.likes || []).some((id) => id.toString() === myUser?._id?.toString()) ? colors.danger : '#ffffff'}
                         />
                       </TouchableOpacity>
 
@@ -826,7 +854,7 @@ export default function StoryViewer({
               onRequestClose={() => { setViewersVisible(false); setIsPaused(false); }}
             >
               <View style={styles.modalOverlay}>
-                <View style={[styles.modalContent, { backgroundColor: isDark ? '#121212' : '#ffffff' }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
                   <View style={[styles.modalHeader, { borderBottomColor: borderColor }]}>
                     <Text style={[styles.modalTitle, { color: textColorStyle }]}>Viewers ({viewers.length})</Text>
                     <TouchableOpacity onPress={() => { setViewersVisible(false); setIsPaused(false); }}>
@@ -835,7 +863,7 @@ export default function StoryViewer({
                   </View>
 
                   {loadingViewers ? (
-                    <ActivityIndicator size="large" color="#808bf5" style={{ marginVertical: 40 }} />
+                    <ActivityIndicator size="large" color={colors.primaryMuted} style={{ marginVertical: 40 }} />
                   ) : viewers.length === 0 ? (
                     <Text style={{ color: subColor, textAlign: 'center', marginVertical: 40 }}>No views yet</Text>
                   ) : (
@@ -850,7 +878,7 @@ export default function StoryViewer({
                             {item.profile_picture ? (
                               <Image source={{ uri: item.profile_picture }} style={styles.viewerAvatar} />
                             ) : (
-                              <View style={[styles.viewerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                              <View style={[styles.viewerAvatar, { backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' }]}>
                                 <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{item.fullname[0]}</Text>
                               </View>
                             )}
@@ -858,7 +886,7 @@ export default function StoryViewer({
                               <Text style={[styles.viewerName, { color: textColorStyle }]}>{item.fullname}</Text>
                               <Text style={{ color: subColor, fontSize: 12 }}>@{item.username}</Text>
                             </View>
-                            {hasLiked && <MaterialCommunityIcons name="heart" size={20} color="#ef4444" />}
+                            {hasLiked && <MaterialCommunityIcons name="heart" size={20} color={colors.danger} />}
                           </View>
                         );
                       }}
@@ -881,7 +909,8 @@ export default function StoryViewer({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors'], spacing: ReturnType<typeof useTheme>['spacing'], radius: ReturnType<typeof useTheme>['radius']) => StyleSheet.create({
+  // Immersive full-bleed media backdrop — intentionally fixed black regardless of app theme.
   playerContainer: { flex: 1, backgroundColor: '#000000' },
   playerContent: { flex: 1, position: 'relative' },
   playerMedia: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000000' },
@@ -889,70 +918,70 @@ const styles = StyleSheet.create({
   gestureOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row' },
   leftTap: { flex: 1 },
   rightTap: { flex: 2 },
-  progressHeaderContainer: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 50, paddingHorizontal: 8 },
-  progressBarRow: { flexDirection: 'row', gap: 4, marginBottom: 12 },
+  progressHeaderContainer: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 50, paddingHorizontal: spacing.sm },
+  progressBarRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
   progressBarTrack: { flex: 1, height: 2.5, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: '#ffffff' },
-  playerUserInfoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
-  playerAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 10 },
+  playerUserInfoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xs },
+  playerAvatar: { width: 32, height: 32, borderRadius: radius.full, marginRight: 10 },
   playerUsername: { color: '#ffffff', fontWeight: 'bold', fontSize: 14, flex: 1 },
-  closeFriendsBadge: { backgroundColor: 'rgba(74, 222, 128, 0.25)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginRight: 8 },
+  closeFriendsBadge: { backgroundColor: 'rgba(74, 222, 128, 0.25)', borderRadius: 10, paddingHorizontal: spacing.sm, paddingVertical: 3, marginRight: spacing.sm },
   closeFriendsText: { color: '#4ade80', fontSize: 10, fontWeight: 'bold' },
-  muteBtn: { padding: 6, marginRight: 4 },
+  muteBtn: { padding: 6, marginRight: spacing.xs },
   playerCloseBtn: { padding: 6 },
   musicOverlayBadge: {
     position: 'absolute', top: 110, alignSelf: 'center', flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, maxWidth: screenWidth - 80, gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, paddingHorizontal: spacing.md, paddingVertical: 6, maxWidth: screenWidth - 80, gap: 6,
   },
   musicOverlayText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
   textOverlayContainer: { position: 'absolute', left: 20, right: 20, alignItems: 'center' },
   textOverlayContent: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 6 },
   mentionsOverlayContainer: { position: 'absolute', top: 160, left: 16, right: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  mentionChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, gap: 4 },
+  mentionChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, gap: spacing.xs },
   mentionChipText: { color: '#ffffff', fontSize: 11, fontWeight: '600' },
   reshareBtn: {
     position: 'absolute', bottom: 140, alignSelf: 'center', flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(128,139,245,0.85)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, gap: 6,
+    backgroundColor: 'rgba(128,139,245,0.85)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: spacing.sm, gap: 6,
   },
   reshareBtnText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
   stickerCard: {
     position: 'absolute', top: '28%', alignSelf: 'center', width: 260, backgroundColor: 'rgba(20,20,20,0.85)',
-    borderRadius: 16, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: radius.lg, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
   },
-  stickerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  stickerAvatar: { width: 24, height: 24, borderRadius: 12 },
+  stickerHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  stickerAvatar: { width: 24, height: 24, borderRadius: radius.full },
   stickerName: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
   stickerSub: { color: '#9ca3af', fontSize: 10 },
   stickerMediaContainer: { width: '100%', aspectRatio: 1, borderRadius: 10, overflow: 'hidden' },
   stickerMedia1to1: { width: '100%', height: '100%' },
   stickerMediaContainer9to16: { width: '100%', aspectRatio: 9 / 16, borderRadius: 10, overflow: 'hidden', position: 'relative' },
   stickerMedia9to16: { width: '100%', height: '100%' },
-  stickerCaption: { color: '#e5e7eb', fontSize: 12, marginTop: 8 },
+  stickerCaption: { color: '#e5e7eb', fontSize: 12, marginTop: spacing.sm },
   sizeCycleBtn: {
     position: 'absolute', bottom: 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: radius.lg, paddingHorizontal: 10, paddingVertical: 6,
   },
   miniTextOverlayContainer: { position: 'absolute', left: 12, right: 12, alignItems: 'center' },
   miniTextOverlayContent: { fontSize: 13, fontWeight: 'bold', textAlign: 'center' },
-  miniPollCard: { position: 'absolute', left: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 8 },
+  miniPollCard: { position: 'absolute', left: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: spacing.sm },
   miniPollQuestion: { color: '#ffffff', fontSize: 11, fontWeight: 'bold', marginBottom: 4, textAlign: 'center' },
-  miniPollOptionsRow: { flexDirection: 'row', gap: 4, justifyContent: 'center' },
-  miniPollOptionBtn: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  miniPollOptionsRow: { flexDirection: 'row', gap: spacing.xs, justifyContent: 'center' },
+  miniPollOptionBtn: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 3 },
   miniPollOptionText: { color: '#ffffff', fontSize: 10, fontWeight: '600' },
-  pollCard: { position: 'absolute', left: 24, right: 24, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 16, padding: 14 },
+  pollCard: { position: 'absolute', left: 24, right: 24, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.lg, padding: 14 },
   pollQuestion: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
-  pollOptionsRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', flexWrap: 'wrap' },
-  pollOptionBtn: { backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, alignItems: 'center' },
+  pollOptionsRow: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'center', flexWrap: 'wrap' },
+  pollOptionBtn: { backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 20, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, minWidth: 90, alignItems: 'center' },
   pollOptionVoted: { backgroundColor: 'rgba(128,139,245,0.9)' },
-  pollVotedWrapper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pollVotedWrapper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pollOptionText: { color: '#1f2937', fontWeight: 'bold', fontSize: 13 },
   pollPercentText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 },
   reactionBurst: { position: 'absolute', top: '45%', left: '50%', marginTop: -50, marginLeft: -50, justifyContent: 'center', alignItems: 'center', zIndex: 60 },
   quickReactionsRow: {
     position: 'absolute', bottom: 78, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-evenly',
-    backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 24, paddingVertical: 8,
+    backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: radius.xl, paddingVertical: spacing.sm,
   },
-  quickReactionBtn: { paddingHorizontal: 8, paddingVertical: 2 },
+  quickReactionBtn: { paddingHorizontal: spacing.sm, paddingVertical: 2 },
   ownerFooterRow: {
     position: 'absolute', bottom: 24, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
@@ -960,17 +989,18 @@ const styles = StyleSheet.create({
   actionBtn: { padding: 4 },
   deleteStoryBtn: { padding: 4 },
   playerFooterRow: {
-    position: 'absolute', bottom: 24, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 12,
+    position: 'absolute', bottom: 24, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
   },
   replyInput: {
     flex: 1, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
-    paddingHorizontal: 16, color: '#ffffff',
+    paddingHorizontal: spacing.lg, color: '#ffffff',
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  // Viewers-list bottom sheet — genuinely theme-tracking chrome (unlike the media overlays above).
+  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1 },
   modalTitle: { fontSize: 16, fontWeight: 'bold' },
   viewerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1 },
-  viewerAvatar: { width: 40, height: 40, borderRadius: 20 },
+  viewerAvatar: { width: 40, height: 40, borderRadius: radius.full },
   viewerName: { fontWeight: '600', fontSize: 14 },
 });

@@ -8,26 +8,26 @@ import {
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
-  useColorScheme,
   Alert,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
 import { api } from '../lib/api';
+import { useAppNavigation } from '../navigation/types';
+import { useTheme } from '../theme';
 
 export default function NotificationSettingsScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
 
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
 
-  const bg = isDark ? '#000000' : '#f1f5f9';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const textColor = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const borderColor = colors.border;
 
   useEffect(() => {
     fetchSettings();

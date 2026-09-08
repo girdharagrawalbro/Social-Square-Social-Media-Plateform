@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   TouchableOpacity,
   TextInput,
   Image,
@@ -20,7 +19,8 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Video from 'react-native-video';
-import { useNavigation } from '@react-navigation/native';
+import { useAppNavigation } from '../navigation/types';
+import { useTheme } from '../theme';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import ImageCropperModal from './components/ImageCropperModal';
 import { api } from '../lib/api';
@@ -336,6 +336,8 @@ const ModalBody = ({
               }}
               onPress={fetchCurrentLocation}
               disabled={loadingLocation}
+              accessibilityRole="button"
+              accessibilityLabel="Use current location"
             >
               {loadingLocation ? (
                 <ActivityIndicator size="small" color={primaryColor} />
@@ -567,6 +569,8 @@ const ModalBody = ({
               style={[styles.saveBtn, { backgroundColor: primaryColor, flex: 1 }]}
               onPress={generateAiCaption}
               disabled={generatingAi}
+              accessibilityRole="button"
+              accessibilityLabel="Write caption with AI"
             >
               {generatingAi ? (
                 <ActivityIndicator size="small" color="#ffffff" />
@@ -579,6 +583,8 @@ const ModalBody = ({
               style={[styles.saveBtn, { backgroundColor: '#10b981', flex: 1 }]}
               onPress={generateAiImage}
               disabled={generatingAi}
+              accessibilityRole="button"
+              accessibilityLabel="Create image with AI"
             >
               {generatingAi ? (
                 <ActivityIndicator size="small" color="#ffffff" />
@@ -612,8 +618,8 @@ export default function NewPostScreen() {
     };
   }, [posthog]);
 
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
   const user = useAuthStore((s) => s.user);
 
   // Core Form states
@@ -679,11 +685,11 @@ export default function NewPostScreen() {
   const [generatingAi, setGeneratingAi] = useState(false);
   const [aiLimits, setAiLimits] = useState({ textRemaining: 2, imageRemaining: 2 });
 
-  const bg = isDark ? '#000000' : '#f3f4f6';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const border = isDark ? '#1a1a1a' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const primaryColor = '#808bf5';
 
   const fetchAiLimits = async () => {
@@ -948,11 +954,21 @@ export default function NewPostScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: border }]}>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <MaterialCommunityIcons name="close" size={24} color={textColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textColor }]}>Create Post</Text>
-        <TouchableOpacity onPress={handlePublishPost} disabled={uploading}>
+        <TouchableOpacity
+          onPress={handlePublishPost}
+          disabled={uploading}
+          accessibilityRole="button"
+          accessibilityLabel="Share post"
+        >
           {uploading ? (
             <ActivityIndicator size="small" color={primaryColor} />
           ) : (
@@ -1025,6 +1041,8 @@ export default function NewPostScreen() {
                           setCroppingItemIndex(index);
                           setCroppingModalVisible(true);
                         }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Crop image"
                       >
                         <MaterialCommunityIcons name="crop" size={20} color="#ffffff" />
                       </TouchableOpacity>
@@ -1037,6 +1055,8 @@ export default function NewPostScreen() {
                           setActiveMediaIndex(Math.max(0, selectedMedia.length - 2));
                         }
                       }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove media"
                     >
                       <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ffffff" />
                     </TouchableOpacity>
@@ -1193,7 +1213,12 @@ export default function NewPostScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
             <View style={[styles.modalHeader, { borderBottomColor: border }]}>
-              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.modalCloseBtn}>
+              <TouchableOpacity
+                onPress={() => setActiveModal(null)}
+                style={styles.modalCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
                 <MaterialCommunityIcons name="close" size={24} color={textColor} />
               </TouchableOpacity>
               <Text style={[styles.modalTitle, { color: textColor }]}>Post Settings</Text>

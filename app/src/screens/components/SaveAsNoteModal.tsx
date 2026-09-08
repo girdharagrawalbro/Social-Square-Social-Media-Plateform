@@ -8,10 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  useColorScheme,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api } from '../../lib/api';
+import { useTheme } from '../../theme';
 
 interface SaveAsNoteModalProps {
   visible: boolean;
@@ -21,7 +21,7 @@ interface SaveAsNoteModalProps {
 }
 
 export default function SaveAsNoteModal({ visible, post, onClose, onSaved }: SaveAsNoteModalProps) {
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const [type, setType] = useState<'note' | 'learning'>('note');
   const [annotation, setAnnotation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,11 +52,11 @@ export default function SaveAsNoteModal({ visible, post, onClose, onSaved }: Sav
     }
   };
 
-  const bg = isDark ? '#121212' : '#ffffff';
+  const bg = colors.surface;
   const overlayBg = 'rgba(0,0,0,0.6)';
-  const border = isDark ? '#1a1a1a' : '#e2e8f0';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subText = isDark ? '#94a3b8' : '#64748b';
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const previewBg = isDark ? 'rgba(128,139,245,0.08)' : 'rgba(128,139,245,0.05)';
 
   return (

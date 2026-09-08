@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -15,15 +14,19 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api, BASE_URL } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { ErrorState } from './components/EmptyState';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width } = Dimensions.get('window');
 
-export default function CreatorInsightsScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function CreatorInsightsScreen({ navigation }: AppScreenProps<'CreatorInsights'>) {
+  const { colors, isDark } = useTheme();
   const { user } = useAuthStore() as any;
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchAnalytics = async (isRefresh = false) => {
     if (!user?._id) return;
@@ -36,8 +39,10 @@ export default function CreatorInsightsScreen({ navigation }: any) {
     try {
       const res = await api.get(`/api/auth/analytics/${user._id}`);
       setAnalytics(res.data);
+      setLoadError(false);
     } catch (err) {
       console.warn('Failed to fetch creator analytics:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -62,27 +67,11 @@ export default function CreatorInsightsScreen({ navigation }: any) {
     return url;
   };
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#111111' : '#f9fafb';
-  const border = isDark ? '#1a1a1a' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
-
-  if (loading && !analytics) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: textColor }]}>Creator Insights</Text>
-        </View>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#808bf5" />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
 
   const stats = analytics?.stats || { totalViews: 0, engagementRate: 0, totalPosts: 0 };
   const topPosts = analytics?.topPosts || [];
@@ -102,12 +91,28 @@ export default function CreatorInsightsScreen({ navigation }: any) {
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textColor }]}>Creator Insights</Text>
       </View>
 
+      {loading && !analytics ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#808bf5" />
+        </View>
+      ) : loadError && !analytics ? (
+        <ErrorState
+          title="Couldn't load insights"
+          subtitle="Check your connection and try again."
+          onAction={() => fetchAnalytics()}
+        />
+      ) : (
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -236,6 +241,7 @@ export default function CreatorInsightsScreen({ navigation }: any) {
           </View>
         )}
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

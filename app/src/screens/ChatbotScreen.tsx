@@ -10,14 +10,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
-  useColorScheme,
   Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { api, BASE_URL } from '../lib/api';
-import { useNavigation } from '@react-navigation/native';
+import { useAppNavigation } from '../navigation/types';
+import { useTheme } from '../theme';
 
 interface ChatMessage {
   id: string;
@@ -73,8 +73,8 @@ const TypingDots = () => {
 };
 
 export default function ChatbotScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
 
@@ -221,11 +221,11 @@ export default function ChatbotScreen() {
     };
   }, []);
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const cardBg = isDark ? '#121212' : '#f9fafb';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const inputBg = isDark ? '#1a1a24' : '#f3f4f6';
 
   const renderMessageItem = ({ item }: { item: ChatMessage }) => {
@@ -326,7 +326,7 @@ export default function ChatbotScreen() {
             disabled={!input.trim() || loading}
           >
             <LinearGradient
-              colors={['#808bf5', '#6366f1']}
+              colors={['#808bf5', '#4f46e5']}
               style={styles.sendBtnGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   bubbleUser: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#808bf5',
     borderBottomRightRadius: 4,
   },
   msgText: {

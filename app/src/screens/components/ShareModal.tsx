@@ -11,10 +11,10 @@ import {
   StyleSheet,
   Alert,
   Clipboard,
-  useColorScheme,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api } from '../../lib/api';
+import { useTheme } from '../../theme';
 
 interface ShareModalProps {
   visible: boolean;
@@ -25,17 +25,17 @@ interface ShareModalProps {
 }
 
 export default function ShareModal({ visible, onClose, story, post, myUser }: ShareModalProps) {
-  const isDark = useColorScheme() === 'dark';
+  const { colors, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [sharingIds, setSharingIds] = useState<string[]>([]);
 
   // Theme styles
-  const cardBg = isDark ? '#000000' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
+  const cardBg = colors.background;
+  const textColor = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const borderColor = colors.border;
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc';
 
   useEffect(() => {

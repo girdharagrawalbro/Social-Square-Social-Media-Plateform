@@ -4,16 +4,17 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  useColorScheme,
   Dimensions,
   Image,
 } from 'react-native';
 import useAuthStore from '../store/zustand/useAuthStore';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
-export default function SplashScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function SplashScreen({ navigation }: AppScreenProps<'Splash'>) {
+  const { colors } = useTheme();
   const { initAuth } = useAuthStore();
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function SplashScreen({ navigation }: any) {
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#0A0A0A' : '#FFFFFF',
+          backgroundColor: colors.background,
         },
       ]}>
       {/* Content */}
@@ -50,7 +51,7 @@ export default function SplashScreen({ navigation }: any) {
           style={[
             styles.title,
             {
-              color: isDark ? '#FFFFFF' : '#111827',
+              color: colors.text.primary,
             },
           ]}>
           Social Square

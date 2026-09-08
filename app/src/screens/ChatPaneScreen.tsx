@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  useColorScheme,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -17,12 +16,12 @@ import {
   TouchableWithoutFeedback,
   Share,
   Animated,
-  PanResponder,
   Linking,
   Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useRoute, useNavigation, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
+import { useAppNavigation, useAppRoute } from '../navigation/types';
 import { launchImageLibrary } from 'react-native-image-picker';
 import DocumentPicker, { types } from 'react-native-document-picker';
 import { api } from '../lib/api';
@@ -36,7 +35,10 @@ import { ChatMessageSkeleton } from './components/SkeletonLoader';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText, encryptText } from '../lib/cryptoUtils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../lib/queryKeys';
+import { useSwipeGesture } from '../lib/useSwipeGesture';
 import GroupSettingsModal from './components/GroupSettingsModal';
+import { useTheme } from '../theme';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import Video from 'react-native-video';
 const VideoComponent = Video as any;
@@ -129,9 +131,27 @@ function SwipeableBubble({
   isHighlighted,
   isJumpHighlighted,
   searchQuery,
+  isNew,
 }: any) {
-  const translateX = useRef(new Animated.Value(0)).current;
   const replyOpacity = useRef(new Animated.Value(0)).current;
+
+  // Telegram-style entrance for freshly sent/received bubbles only — history that's
+  // just scrolling into view starts fully settled (value 1) so it never animates.
+  const entryAnim = useRef(new Animated.Value(isNew ? 0 : 1)).current;
+  useEffect(() => {
+    if (isNew) {
+      Animated.spring(entryAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 65,
+      }).start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const entryTranslateY = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
+  const entryTranslateX = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [isMe ? 36 : -36, 0] });
+  const entryScale = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] });
 
   // Keep latest callbacks in refs so PanResponder (created once) always calls the fresh version
   const onReplyRef = useRef(onReply);
@@ -141,36 +161,29 @@ function SwipeableBubble({
     itemRef.current = item;
   });
 
-  // PanResponder MUST be in useRef — creating it on every render breaks it
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 8 && Math.abs(g.dy) < 12,
-      onPanResponderMove: (_, g) => {
-        if (g.dx > 0 && g.dx <= 80) {
-          translateX.setValue(g.dx);
-          replyOpacity.setValue(g.dx / 80);
-        }
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dx >= 55) {
-          onReplyRef.current && onReplyRef.current(itemRef.current);
-        }
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 200,
-          friction: 22,
-        }).start();
-        Animated.timing(replyOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }).start();
-      },
-    })
-  ).current;
+  // Reply icon fades in as the bubble drags right, and both reset together whether
+  // the swipe committed (crossed the threshold, reply fired) or not — matches
+  // `dragX`/`replyOpacity` moving in lockstep during the drag itself below.
+  const resetSwipeVisual = () => {
+    springBack();
+    Animated.timing(replyOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+  };
+
+  const { panResponder, dragX: translateX, springBack } = useSwipeGesture({
+    shouldActivate: (g) => Math.abs(g.dx) > 8 && Math.abs(g.dy) < 12,
+    commitThreshold: 55,
+    springConfig: { tension: 200, friction: 22 },
+    transformDx: (dx) => {
+      const clamped = Math.max(0, Math.min(80, dx));
+      replyOpacity.setValue(clamped / 80);
+      return clamped;
+    },
+    onCommitPositive: () => {
+      onReplyRef.current && onReplyRef.current(itemRef.current);
+      resetSwipeVisual();
+    },
+    onCancel: resetSwipeVisual,
+  });
 
   const isDeleted = !!item.deletedAt;
   const incomingBg = '#f8fafc';
@@ -208,7 +221,18 @@ function SwipeableBubble({
   };
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
+    <Animated.View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 2,
+        opacity: entryAnim,
+        transform: [
+          { translateY: entryTranslateY },
+          { translateX: entryTranslateX },
+          { scale: entryScale },
+        ],
+      }}>
       <Animated.View
         style={{
           position: 'absolute',
@@ -293,7 +317,9 @@ function SwipeableBubble({
                       )}
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 12, fontWeight: 'bold', color: isMe ? '#fff' : textColor }}>
-                          Replied to story
+                          {item.storyReply.isShare
+                            ? (item.storyReply.authorName ? `Shared ${item.storyReply.authorName}'s story` : 'Shared a story')
+                            : 'Replied to story'}
                         </Text>
                         <Text style={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : subColor }}>
                           Tap to view ✨
@@ -308,7 +334,7 @@ function SwipeableBubble({
                       onPress={() => onPostPress && onPostPress(item.sharedPost.postId || link.postId)}
                       style={{
                         borderRadius: 14, overflow: 'hidden', marginBottom: content ? 6 : 0,
-                        backgroundColor: isMe ? '#6366f1' : (isDark ? '#1e293b' : '#f1f5f9'),
+                        backgroundColor: isMe ? '#808bf5' : (isDark ? '#1e293b' : '#f1f5f9'),
                         borderWidth: 1, borderColor: isMe ? 'rgba(255,255,255,0.15)' : borderColor,
                         minWidth: 220, maxWidth: 260
                       }}>
@@ -493,19 +519,29 @@ function SwipeableBubble({
           </View>
         </TouchableOpacity>
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }
 
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function ChatPaneScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
+  const route = useAppRoute<'ChatPane'>();
   const isFocused = useIsFocused();
   const currentUser = useAuthStore((s) => s.user);
 
-  const { conversationId, title, recipientId, recipientAvatar, isGroup } = route.params;
+  // Every other screen in the app guards `route.params` with `|| {}` (see CallScreen,
+  // PostDetailScreen, WikiDetailScreen, etc.) — this one didn't, and it's also the one
+  // screen the app's own deep-link config (`chat/:conversationId` in App.tsx) can open
+  // with only `conversationId` set, which would otherwise throw on the very next line.
+  const { title, recipientId, recipientAvatar, isGroup } = route.params || {};
+  // Typing this screen's route against RootStackParamList surfaced that conversationId
+  // is only ever optional (deep link / brand-new-DM-by-recipientId cases) — every
+  // downstream use is a SQLite WHERE clause, a Keychain lookup, or a field sent
+  // alongside recipientId, all of which already treated a missing id as a safe no-op,
+  // so this preserves that exact behavior under the stricter type.
+  const conversationId = route.params?.conversationId || '';
 
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
@@ -534,6 +570,12 @@ export default function ChatPaneScreen() {
   const [searchingServer, setSearchingServer] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
+
+  // Message IDs that should play a Telegram-style slide/pop-in entrance the next time
+  // they're rendered — populated for locally-sent messages and for genuinely new
+  // arrivals after the first network sync, never for history that's just loading in.
+  const newMessageIdsRef = useRef<Set<string>>(new Set());
+  const hasSyncedOnceRef = useRef(false);
 
   const [groupSettingsModalVisible, setGroupSettingsModalVisible] = useState(false);
 
@@ -613,11 +655,11 @@ export default function ChatPaneScreen() {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopTypingEmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const bg = isDark ? '#000000' : '#f1f5f9';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const textColor = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const borderColor = colors.border;
 
   const unescapeHtml = (str: string | null | undefined) => {
     if (!str) return str;
@@ -678,7 +720,7 @@ export default function ChatPaneScreen() {
 
   // Network Sync with React Query
   const { data: networkMessages } = useQuery({
-    queryKey: ['messages', conversationId],
+    queryKey: queryKeys.messages(conversationId),
     queryFn: async () => {
       const payload: any = { limit: 50 };
       if (recipientId) payload.recipientId = recipientId;
@@ -686,8 +728,25 @@ export default function ChatPaneScreen() {
       const res = await api.post('/api/conversation/messages', payload);
       return res.data?.messages || (Array.isArray(res.data) ? res.data : []);
     },
-    refetchInterval: 4000,
+    // The socket 'receiveMessage' listener below triggers an immediate refetch when a
+    // message actually arrives, so this interval is just a slow fallback — it used to
+    // be 4s and was hammering the API on every open chat even though nothing changed.
+    refetchInterval: 20000,
   });
+
+  // Real-time message delivery — refetch as soon as the socket says something changed
+  // for this conversation, instead of waiting up to 4s (formerly the only mechanism).
+  useEffect(() => {
+    const socket = getSocket();
+    const handleReceiveMessage = (msg: any) => {
+      if (msg?.conversationId && String(msg.conversationId) !== String(conversationId)) return;
+      queryClient.invalidateQueries({ queryKey: queryKeys.messages(conversationId) });
+    };
+    socket.on('receiveMessage', handleReceiveMessage);
+    return () => {
+      socket.off('receiveMessage', handleReceiveMessage);
+    };
+  }, [conversationId, queryClient]);
 
   useEffect(() => {
     if (networkMessages && networkMessages.length > 0) {
@@ -697,21 +756,32 @@ export default function ChatPaneScreen() {
 
       // Decrypt and merge for in-RAM display without destroying older messages
       processMessages(networkMessages).then(processed => {
+        // Only animate arrivals from the SECOND sync onward — the first sync is just
+        // catching the screen up to history and shouldn't play an entrance for every row.
+        const shouldFlagAsNew = hasSyncedOnceRef.current;
+        hasSyncedOnceRef.current = true;
+
         setMessages(prev => {
           const prevMap = new Map(prev.map(m => [m._id, m]));
-          const newOrdered = [...processed].reverse();
-          // Merge updates for existing messages and prepend new ones
+          // Merge updates for existing messages and append new ones
           const merged = [...prev];
-          newOrdered.forEach(newMsg => {
+          processed.forEach(newMsg => {
             if (prevMap.has(newMsg._id)) {
               // Update existing
               const index = merged.findIndex(m => m._id === newMsg._id);
               merged[index] = newMsg;
             } else {
-              // Prepend new
-              merged.unshift(newMsg);
+              // Add new
+              merged.push(newMsg);
+              if (shouldFlagAsNew) newMessageIdsRef.current.add(String(newMsg._id));
             }
           });
+          // Always re-sort by time (inverted list = index 0 is newest) — insertion
+          // order alone isn't reliable once optimistic sends and batched network
+          // merges are both touching this array, and a wrong order here is what
+          // was pushing newly-sent messages to the top of the screen instead of
+          // the bottom.
+          merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           return merged;
         });
       }).catch(e => console.warn('Process error:', e));
@@ -729,7 +799,7 @@ export default function ChatPaneScreen() {
         return;
       }
       const processed = await processMessages(older);
-      setMessages(prev => [...processed, ...prev]);
+      setMessages(prev => [...prev, ...processed]);
       setOlderOffset(prev => prev + older.length);
       setHasOlderMessages(older.length >= 30);
     } catch (e) {
@@ -740,7 +810,7 @@ export default function ChatPaneScreen() {
   }, [conversationId, olderOffset, hasOlderMessages, loadingOlder, processMessages]);
 
   const { refetch: refetchOnlineStatus } = useQuery({
-    queryKey: ['online-status', recipientId],
+    queryKey: queryKeys.onlineStatus(recipientId),
     queryFn: async () => {
       const res = await api.get(`/api/auth/online-status/${recipientId}`);
       if (recipientId) {
@@ -820,6 +890,7 @@ export default function ChatPaneScreen() {
     let tempId: string | null = null;
     if (text && !isEditing) {
       tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      newMessageIdsRef.current.add(tempId);
       setMessages(prev => [{
         _id: tempId,
         content: text,
@@ -860,6 +931,9 @@ export default function ChatPaneScreen() {
           const newMsg = { ...res.data, decryptedContent: text, status: 'sent' };
           if (outgoingReplyTo) newMsg.replyTo = outgoingReplyTo;
           setMessages(prev => prev.map(m => m._id === tempId ? newMsg : m));
+          if (res.data && res.data._id) {
+            upsertMessages([{ ...res.data, conversationId: conversationId || res.data.conversationId }]);
+          }
         }
       }
 
@@ -903,7 +977,11 @@ export default function ChatPaneScreen() {
             if (media.type === 'file') {
               newMsg.media = { url: uploadedUrl, type: 'file', name: media.name, size: media.size };
             }
+            if (newMsg._id) newMessageIdsRef.current.add(String(newMsg._id));
             setMessages(prev => [newMsg, ...prev]);
+            if (res.data && res.data._id) {
+              upsertMessages([{ ...res.data, conversationId: conversationId || res.data.conversationId }]);
+            }
           }
         }
         setPendingMedia([]);
@@ -1005,6 +1083,9 @@ export default function ChatPaneScreen() {
       const newMsg = { ...res.data, decryptedContent: plainText, status: 'sent' };
       if (failedMsg.replyTo) newMsg.replyTo = failedMsg.replyTo;
       setMessages((prev) => prev.map((m) => (m._id === failedMsg._id ? newMsg : m)));
+      if (res.data && res.data._id) {
+        upsertMessages([{ ...res.data, conversationId: conversationId || res.data.conversationId }]);
+      }
     } catch (e) {
       console.warn('[ChatPane] retry send failed:', e);
       setMessages((prev) => prev.map((m) => (m._id === failedMsg._id ? { ...m, status: 'failed' } : m)));
@@ -1019,7 +1100,7 @@ export default function ChatPaneScreen() {
         text: 'Delete for Me', onPress: async () => {
           setMessages(prev => prev.filter(m => m._id !== msg._id));
           try { await api.delete(`/api/conversation/messages/${msg._id}?mode=me`); }
-          catch { queryClient.invalidateQueries({ queryKey: ['chat_messages', conversationId] }); }
+          catch { queryClient.invalidateQueries({ queryKey: queryKeys.messages(conversationId) }); }
         },
       },
       ...(isOwn ? [{
@@ -1027,7 +1108,7 @@ export default function ChatPaneScreen() {
           setMessages(prev => prev.map(m => m._id === msg._id
             ? { ...m, deletedAt: new Date().toISOString(), content: '' } : m));
           try { await api.delete(`/api/conversation/messages/${msg._id}?mode=everyone`); }
-          catch { queryClient.invalidateQueries({ queryKey: ['chat_messages', conversationId] }); }
+          catch { queryClient.invalidateQueries({ queryKey: queryKeys.messages(conversationId) }); }
         },
       }] : []),
     ]);
@@ -1052,7 +1133,7 @@ export default function ChatPaneScreen() {
     } catch (e) {
       console.warn('React failed:', e);
       // Revert would go here in a robust implementation, or just rely on refetch
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messages(conversationId) });
     }
   };
 
@@ -1165,6 +1246,12 @@ export default function ChatPaneScreen() {
     const senderId = item.senderId || item.sender?._id || item.sender;
     const isMe = senderId && String(senderId) === String(currentUser?._id);
 
+    // Consume the "play an entrance" flag on first read so scrolling this same cell
+    // out of the virtualization window and back in later never replays the animation.
+    const msgId = item._id ? String(item._id) : '';
+    const isNew = msgId ? newMessageIdsRef.current.has(msgId) : false;
+    if (isNew) newMessageIdsRef.current.delete(msgId);
+
     // Date separator (FlatList is inverted so index 0 = newest)
     const nextItem = index < messages.length - 1 ? messages[index + 1] : null;
     const showSeparator = nextItem &&
@@ -1198,6 +1285,7 @@ export default function ChatPaneScreen() {
           isHighlighted={matchingIndices.includes(index) && matchingIndices[searchIndex] === index}
           isJumpHighlighted={highlightedMessageId === item._id}
           searchQuery={searchQuery}
+          isNew={isNew}
         />
         {showSeparator && (
           <View style={styles.dateSeparator}>
@@ -1237,7 +1325,7 @@ export default function ChatPaneScreen() {
             </View>
 
             <View style={styles.headerInfo}>
-              <Text style={[styles.headerTitle, { color: textColor }]} numberOfLines={1}>{title}</Text>
+              <Text style={[styles.headerTitle, { color: textColor }]} numberOfLines={1}>{title || 'Chat'}</Text>
               <Text style={[styles.headerSub, { color: otherUserTyping ? '#808bf5' : isOnline ? '#10b981' : subColor }]}>
                 {isGroup
                   ? 'Tap for group info'
@@ -1740,7 +1828,7 @@ export default function ChatPaneScreen() {
                     setE2eeModalVisible(false);
                     setE2eePassword('');
                     // Query handles refetch
-                    queryClient.invalidateQueries({ queryKey: ['chat_messages', conversationId] });
+                    queryClient.invalidateQueries({ queryKey: queryKeys.messages(conversationId) });
                   }
                 }}
                 style={{ padding: 10, marginLeft: 10 }}

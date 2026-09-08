@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -15,10 +14,13 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { api } from '../lib/api';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../lib/queryKeys';
 import { toast as Toast } from '../lib/CustomToast';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
-export default function GoalCreateScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function GoalCreateScreen({ navigation }: AppScreenProps<'GoalCreate'>) {
+  const { colors, isDark } = useTheme();
   const user = useAuthStore(s => s.user);
   const queryClient = useQueryClient();
 
@@ -28,11 +30,11 @@ export default function GoalCreateScreen({ navigation }: any) {
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const bg = isDark ? '#000000' : '#ffffff';
+  const bg = colors.background;
   const inputBg = isDark ? '#1f2937' : '#f3f4f6';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -48,7 +50,7 @@ export default function GoalCreateScreen({ navigation }: any) {
         isPrivate,
       });
       Toast.success('Goal Created!');
-      queryClient.invalidateQueries({ queryKey: ['goals', user?._id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.goals(user?._id) });
       navigation.goBack();
     } catch (err: any) {
       Toast.error(err.response?.data?.error || 'Failed to create goal', 'Error');

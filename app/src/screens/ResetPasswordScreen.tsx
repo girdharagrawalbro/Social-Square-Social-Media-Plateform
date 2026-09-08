@@ -5,18 +5,19 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
   Dimensions,
   ActivityIndicator,
   Alert,
   ScrollView,
 } from 'react-native';
 import { api } from '../lib/api';
+import type { AppScreenProps } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
-export default function ResetPasswordScreen({ route, navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function ResetPasswordScreen({ route, navigation }: AppScreenProps<'ResetPassword'>) {
+  const { colors, isDark } = useTheme();
   const { token, email } = route.params || {};
 
   const [password, setPassword] = useState('');
@@ -59,10 +60,10 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
     }
   };
 
-  const cardBg = isDark ? '#121212' : '#ffffff';
-  const pageBg = isDark ? '#0a0a0a' : '#f3f4f6';
-  const textColor = isDark ? '#ffffff' : '#1f2937';
-  const subText = isDark ? '#9ca3af' : '#4b5563';
+  const cardBg = colors.surface;
+  const pageBg = colors.background;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff';
   const inputBorder = isDark ? '#1f2937' : '#e5e7eb';
 

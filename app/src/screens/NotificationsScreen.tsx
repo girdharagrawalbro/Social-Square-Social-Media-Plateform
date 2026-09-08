@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  useColorScheme,
   FlatList,
   TouchableOpacity,
   Image,
@@ -15,9 +14,10 @@ import {
   Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useAppNavigation } from '../navigation/types';
 import { api } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
+import { useTheme } from '../theme';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { NotificationSkeleton } from './components/SkeletonLoader';
 
@@ -53,8 +53,8 @@ interface CollabInvite {
 }
 
 export default function NotificationsScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
   const user = useAuthStore((s) => s.user);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -76,11 +76,11 @@ export default function NotificationsScreen() {
   const [acceptingCollabId, setAcceptingCollabId] = useState<string | null>(null);
   const [contributionText, setContributionText] = useState('');
 
-  const bg = isDark ? '#000000' : '#f3f4f6';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const border = isDark ? '#1a1a1a' : '#e5e7eb';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
   const primaryColor = '#808bf5';
 
   const fetchData = async () => {
@@ -354,15 +354,25 @@ export default function NotificationsScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       handleMarkSingleRead(item._id);
-                      if (item.type === 'message' && item.sender) {
-                        navigation.navigate('Chat', {
-                          recipientId: item.sender._id,
-                          recipientName: item.sender.fullname,
+                      if (item.type === 'system') {
+                        navigation.navigate('ActiveSessions');
+                      } else if (item.type === 'message' && item.sender) {
+                        // ChatPaneScreen destructures conversationId/recipientId/title
+                        // straight off route.params with no fallback, so it needs at
+                        // least a recipientId to resolve (or create) the conversation —
+                        // this used to navigate with no params at all and crash the screen.
+                        const senderId = (item.sender as any).id || item.sender._id;
+                        navigation.navigate('ChatPane', {
+                          recipientId: senderId,
+                          title: item.sender.fullname || item.sender.username || 'Chat',
+                          recipientAvatar: item.sender.profile_picture,
                         });
                       } else if (item.post) {
-                        navigation.navigate('PostDetail', { postId: item.post });
+                        const targetPostId = typeof item.post === 'object' ? (item.post as any)._id : item.post;
+                        navigation.navigate('PostDetail', { postId: targetPostId });
                       } else if (item.type === 'follow' && item.sender) {
-                        navigation.navigate('Profile', { userId: item.sender._id });
+                        const targetUserId = (item.sender as any).id || item.sender._id;
+                        navigation.navigate('Profile', { userId: targetUserId });
                       }
                     }}
                     style={[

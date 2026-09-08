@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  useColorScheme,
   TouchableOpacity,
   Image,
   FlatList,
@@ -12,8 +11,9 @@ import {
   Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useRoute, useNavigation } from '@react-navigation/native';
 import { api, BASE_URL } from '../lib/api';
+import { useAppNavigation, useAppRoute } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const { width } = Dimensions.get('window');
 const gridWidth = (width - 4) / 3;
@@ -32,9 +32,9 @@ const getPreviewSource = (post: any) => {
 };
 
 export default function HashtagResultsScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const route = useAppRoute<'HashtagResults'>();
+  const navigation = useAppNavigation();
   const { tag } = route.params || {};
 
   const [posts, setPosts] = useState<any[]>([]);
@@ -43,10 +43,10 @@ export default function HashtagResultsScreen() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
-  const bg = isDark ? '#000000' : '#ffffff';
-  const textColor = isDark ? '#ffffff' : '#111827';
-  const subText = isDark ? '#9ca3af' : '#6b7280';
-  const border = isDark ? '#1f2937' : '#e5e7eb';
+  const bg = colors.background;
+  const textColor = colors.text.primary;
+  const subText = colors.text.secondary;
+  const border = colors.border;
 
   const fetchPosts = async () => {
     if (!tag) return;

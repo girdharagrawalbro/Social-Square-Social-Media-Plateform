@@ -15,10 +15,10 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { api, BASE_URL } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import useAuthStore from '../store/zustand/useAuthStore';
+import { useAppNavigation, useAppRoute } from '../navigation/types';
 import { Room, RoomEvent, Track, RemoteParticipant, RoomOptions } from 'livekit-client';
 import { registerGlobals, VideoView, AudioSession } from '@livekit/react-native';
 
@@ -33,8 +33,8 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function CallScreen() {
   const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useAppNavigation();
+  const route = useAppRoute<'Call'>();
   const loggedUser = useAuthStore((s) => s.user);
 
   const {

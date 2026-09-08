@@ -8,7 +8,6 @@ import {
   Image,
   Animated,
   Dimensions,
-  useColorScheme,
   Modal,
   PanResponder,
   ScrollView,
@@ -21,11 +20,11 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
 import useAuthStore from '../../store/zustand/useAuthStore';
-import { useNavigation } from '@react-navigation/native';
 import { appChannel } from '../../lib/broadcast';
 import { useBroadcast } from '../../lib/useBroadcast';
 import { useIsFocused } from '@react-navigation/native';
 import { BASE_URL, api } from '../../lib/api';
+import { useAppNavigation } from '../../navigation/types';
 import RNFS from 'react-native-fs';
 import PostMenu from './PostMenu';
 import BeforeAfterView from './BeforeAfterView';
@@ -33,6 +32,8 @@ import ShareModal from './ShareModal';
 import { decryptAesGcm, base64ToBytes, bytesToBase64 } from '../../lib/cryptoUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import { patchPostInFeedCaches, removeFromFeedCaches } from '../../lib/feedCache';
+import { useTheme } from '../../theme';
+import type { Theme } from '../../theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 const aspectRatioCache = new Map<string, number>();
@@ -106,9 +107,14 @@ function timeAgo(dateStr?: string): string {
 let activePlayersCount = 0;
 
 export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackButton = false }: PostItemProps) => {
-  const navigation = useNavigation<any>();
+  const navigation = useAppNavigation();
   const loggedUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+  const { colors, spacing, radius, shadows } = useTheme();
+  const styles = React.useMemo(
+    () => createStyles({ colors, spacing, radius, shadows } as Pick<Theme, 'colors' | 'spacing' | 'radius' | 'shadows'>),
+    [colors, spacing, radius, shadows]
+  );
 
   const resolveMediaUrl = (url?: string) => {
     if (!url) return undefined;
@@ -218,6 +224,14 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
     }
   }, [isVisible]);
 
+  // Stop the voice note if its post scrolls out of view — otherwise it keeps
+  // playing invisibly in the background as the user scrolls the feed.
+  useEffect(() => {
+    if (!isVisible) {
+      setVoicePlaying(false);
+    }
+  }, [isVisible]);
+
   // OPTIMIZATION: Only mount the native Video component if the post is actually visible.
   // Gating this on isVisible prevents having dozens of active video player buffers
   // in memory at once, which is the primary cause of out-of-memory crashes on feeds.
@@ -229,6 +243,25 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
   const [wasPlayingBeforeScrub, setWasPlayingBeforeScrub] = useState(false);
+
+  // ── Voice note playback ─────────────────────────────────────────────────
+  // The player used to just be a static play icon + a hardcoded "0:12" — no
+  // onPress, no real progress. Reuses react-native-video (already a dependency
+  // for post videos) rather than pulling in a separate audio library; the
+  // player is only mounted while actually playing, so a feed full of voice
+  // notes doesn't keep dozens of native players alive at once.
+  const [voicePlaying, setVoicePlaying] = useState(false);
+  const [voiceCurrentTime, setVoiceCurrentTime] = useState(0);
+  const [voiceDuration, setVoiceDuration] = useState(post.voiceNote?.duration || 0);
+
+  const handleToggleVoicePlay = () => {
+    if (voicePlaying) {
+      setVoicePlaying(false);
+    } else {
+      setVoiceCurrentTime(0);
+      setVoicePlaying(true);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds) || seconds === null) return '0:00';
@@ -369,11 +402,11 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   const user = post.user;
   const isAnon = post.isAnonymous;
   const content = post.caption || post.content || '';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const dividerColor = isDark ? '#1a1a1a' : '#f1f5f9';
-  const iconColor = isDark ? '#64748b' : '#94a3b8';
+  const cardBg = colors.surface;
+  const textColor = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const dividerColor = colors.border;
+  const iconColor = colors.text.secondary;
 
   const isOwn = !isAnon && user?._id && loggedUser?._id === user._id;
   const isLocked = post.unlocksAt && new Date(post.unlocksAt) > new Date() && !isOwn;
@@ -536,6 +569,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={{ marginRight: 4, paddingVertical: 4, paddingLeft: 4, paddingRight: 2 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
             <MaterialCommunityIcons name="chevron-left" size={32} color={textColor} />
           </TouchableOpacity>
@@ -548,10 +583,12 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           }}
           disabled={isAnon}
           style={styles.avatarContainer}
+          accessibilityRole="button"
+          accessibilityLabel={isAnon ? 'Anonymous author' : `View ${user?.fullname || 'user'}'s profile`}
         >
           {isAnon ? (
             <LinearGradient
-              colors={['#808bf5', '#ec4899']}
+              colors={[colors.primaryMuted, colors.like]}
               style={styles.avatarFallback}
             >
               <MaterialCommunityIcons name="incognito" size={22} color="#ffffff" />
@@ -562,7 +599,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
               {user?.isOnline && <View style={styles.onlineBadge} />}
             </View>
           ) : (
-            <View style={[styles.avatarFallback, { backgroundColor: '#808bf5' }]}>
+            <View style={[styles.avatarFallback, { backgroundColor: colors.primaryMuted }]}>
               <Text style={styles.avatarInitial}>
                 {(user?.fullname || '?')[0].toUpperCase()}
               </Text>
@@ -591,6 +628,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           <TouchableOpacity
             style={styles.sparkleBtn}
             onPress={() => setAiTooltipVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="View AI summary"
           >
             <MaterialCommunityIcons name="creation" size={20} color="#a855f7" />
           </TouchableOpacity>
@@ -599,6 +638,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
         <TouchableOpacity
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           onPress={() => setMenuVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="More options"
         >
           <MaterialCommunityIcons name="dots-horizontal" size={22} color={iconColor} />
         </TouchableOpacity>
@@ -617,12 +658,12 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
             <View style={[styles.videoWrapper, { aspectRatio }]} {...panResponder.panHandlers}>
               {/* Decrypting overlay spinner */}
               {isDecryptingVideo ? (
-                <View style={[styles.videoPlayOverlay, { flexDirection: 'column', gap: 8 }]}>
+                <View style={[styles.videoPlayOverlay, { flexDirection: 'column', gap: spacing.sm }]}>
                   {videoThumbnailUrl ? (
                     <FastImage source={{ uri: videoThumbnailUrl }} style={[StyleSheet.absoluteFill]} resizeMode={FastImage.resizeMode.contain} />
                   ) : null}
-                  <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 12, alignItems: 'center', gap: 6 }}>
-                    <MaterialCommunityIcons name="lock-open-outline" size={24} color="#808bf5" />
+                  <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', gap: 6 }}>
+                    <MaterialCommunityIcons name="lock-open-outline" size={24} color={colors.primaryMuted} />
                     <Text style={{ color: '#ffffff', fontSize: 12 }}>Decrypting video…</Text>
                   </View>
                 </View>
@@ -690,6 +731,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                     <TouchableOpacity
                       style={styles.videoPlayOverlay}
                       onPress={() => setUserPaused(false)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Resume video"
                     >
                       <MaterialCommunityIcons name="play-circle" size={54} color="#ffffff" />
                     </TouchableOpacity>
@@ -740,25 +783,29 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
               
               {/* Left Arrow */}
               {activeIndex > 0 && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => scrollRef.current?.scrollTo({ x: (activeIndex - 1) * (screenWidth - 24), animated: true })}
                   style={{ position: 'absolute', left: 8, top: '45%', backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous image"
                 >
                   <MaterialCommunityIcons name="chevron-left" size={24} color="#fff" />
                 </TouchableOpacity>
               )}
-              
+
               {/* Right Arrow */}
               {activeIndex < post.image_urls.length - 1 && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => scrollRef.current?.scrollTo({ x: (activeIndex + 1) * (screenWidth - 24), animated: true })}
                   style={{ position: 'absolute', right: 8, top: '45%', backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next image"
                 >
                   <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
                 </TouchableOpacity>
               )}
               {/* Pagination Dots */}
-              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.sm }}>
                 {post.image_urls.map((_: any, index: number) => (
                   <View
                     key={index}
@@ -766,7 +813,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: index === activeIndex ? '#808bf5' : '#64748b',
+                      backgroundColor: index === activeIndex ? colors.primaryMuted : colors.text.muted,
                     }}
                   />
                 ))}
@@ -779,7 +826,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
             <View style={{ position: 'relative', width: '100%', aspectRatio, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', overflow: 'hidden' }}>
               {imageLoading && (
                 <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
-                  <ActivityIndicator size="small" color="#808bf5" />
+                  <ActivityIndicator size="small" color={colors.primaryMuted} />
                 </View>
               )}
               <AnimatedFastImage
@@ -794,7 +841,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           {/* Heart burst double tap animation pop */}
           {showHeartBurst && (
             <Animated.View style={[styles.heartBurst, { transform: [{ scale: heartScale }] }]}>
-              <MaterialCommunityIcons name="heart" size={90} color="#ef4444" />
+              <MaterialCommunityIcons name="heart" size={90} color={colors.danger} />
             </Animated.View>
           )}
         </View>
@@ -803,14 +850,49 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
 
       {/* Voice note audio player container */}
       {post.voiceNote?.url && (
-        <View style={[styles.voicePlayer, { backgroundColor: isDark ? '#121212' : '#f8fafc', borderColor: dividerColor }]}>
-          <TouchableOpacity style={styles.voicePlayBtn}>
-            <MaterialCommunityIcons name="play" size={24} color="#808bf5" />
+        <View style={[styles.voicePlayer, { backgroundColor: colors.surfaceElevated, borderColor: dividerColor }]}>
+          {voicePlaying && (
+            <VideoComponent
+              source={{ uri: post.voiceNote.url }}
+              paused={false}
+              muted={false}
+              repeat={false}
+              playInBackground={false}
+              playWhenInactive={false}
+              style={{ width: 0, height: 0 }}
+              onLoad={(data: any) => {
+                if (data?.duration) setVoiceDuration(data.duration);
+              }}
+              onProgress={(data: any) => setVoiceCurrentTime(data.currentTime)}
+              onEnd={() => {
+                setVoicePlaying(false);
+                setVoiceCurrentTime(0);
+              }}
+              onError={(e: any) => {
+                console.warn('[Voice Note Error] Post:', post._id, e);
+                setVoicePlaying(false);
+              }}
+            />
+          )}
+          <TouchableOpacity
+            style={styles.voicePlayBtn}
+            onPress={handleToggleVoicePlay}
+            accessibilityRole="button"
+            accessibilityLabel={voicePlaying ? 'Pause voice note' : 'Play voice note'}
+          >
+            <MaterialCommunityIcons name={voicePlaying ? 'pause' : 'play'} size={24} color={colors.primaryMuted} />
           </TouchableOpacity>
           <View style={styles.voiceProgressBg}>
-            <View style={styles.voiceProgressFill} />
+            <View
+              style={[
+                styles.voiceProgressFill,
+                { width: voiceDuration > 0 ? `${Math.min(100, (voiceCurrentTime / voiceDuration) * 100)}%` : '0%' },
+              ]}
+            />
           </View>
-          <Text style={[styles.voiceDuration, { color: subColor }]}>0:12</Text>
+          <Text style={[styles.voiceDuration, { color: subColor }]}>
+            {formatTime(voicePlaying ? Math.max(0, voiceDuration - voiceCurrentTime) : voiceDuration)}
+          </Text>
         </View>
       )}
 
@@ -828,7 +910,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
               onPress={() => setIsExpanded(!isExpanded)}
               style={{ marginTop: 4, alignSelf: 'flex-start' }}
             >
-              <Text style={{ color: '#808bf5', fontWeight: '600', fontSize: 13 }}>
+              <Text style={{ color: colors.primaryMuted, fontWeight: '600', fontSize: 13 }}>
                 {isExpanded ? 'Show less' : '...more'}
               </Text>
             </TouchableOpacity>
@@ -881,7 +963,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
                   ]}
                 >
                   <Text style={styles.reactionPillEmoji}>{emoji}</Text>
-                  <Text style={[styles.reactionPillCount, { color: isMine ? '#808bf5' : subColor }]}>{count}</Text>
+                  <Text style={[styles.reactionPillCount, { color: isMine ? colors.primaryMuted : subColor }]}>{count}</Text>
                 </TouchableOpacity>
               );
             });
@@ -891,14 +973,21 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
 
       {/* Footer Actions */}
       <View style={styles.postFooter}>
-        <TouchableOpacity style={styles.footerAction} onPress={toggleLike} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.footerAction}
+          onPress={toggleLike}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={liked ? 'Unlike post' : 'Like post'}
+          accessibilityState={{ selected: liked }}
+        >
           <MaterialCommunityIcons
             name={liked ? 'heart' : 'heart-outline'}
             size={22}
-            color={liked ? '#ef4444' : iconColor}
+            color={liked ? colors.danger : iconColor}
           />
           {likeCount > 0 && (
-            <Text style={[styles.actionCount, { color: liked ? '#ef4444' : subColor }]}>
+            <Text style={[styles.actionCount, { color: liked ? colors.danger : subColor }]}>
               {likeCount}
             </Text>
           )}
@@ -909,6 +998,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           style={styles.footerAction}
           onPress={() => setPickerVisible(true)}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="React to post"
         >
           {(() => {
             const myReaction = reactions?.find((r: any) => {
@@ -928,6 +1019,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           style={styles.footerAction}
           activeOpacity={0.7}
           onPress={() => navigation.navigate('PostDetail', { postId: post._id })}
+          accessibilityRole="button"
+          accessibilityLabel="View comments"
         >
           <MaterialCommunityIcons name="comment-outline" size={22} color={iconColor} />
           {post.comments && post.comments.length > 0 && (
@@ -942,6 +1035,8 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           style={styles.footerAction}
           onPress={() => setShareVisible(true)}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Share post"
         >
           <MaterialCommunityIcons name="send-outline" size={22} color={iconColor} />
         </TouchableOpacity>
@@ -950,11 +1045,14 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           style={styles.footerAction}
           onPress={handleSaveToggle}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? 'Remove from saved' : 'Save post'}
+          accessibilityState={{ selected: saved }}
         >
           <MaterialCommunityIcons
             name={saved ? 'bookmark' : 'bookmark-outline'}
             size={22}
-            color={saved ? '#6366f1' : iconColor}
+            color={saved ? colors.primary : iconColor}
           />
         </TouchableOpacity>
       </View>
@@ -1022,7 +1120,7 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
           activeOpacity={1}
           onPressOut={() => setAiTooltipVisible(false)}
         >
-          <View style={[styles.aiSummaryCard, { backgroundColor: isDark ? '#121212' : '#ffffff' }]}>
+          <View style={[styles.aiSummaryCard, { backgroundColor: colors.surface }]}>
             <View style={styles.aiSummaryHeader}>
               <MaterialCommunityIcons name="creation" size={18} color="#a855f7" />
               <Text style={styles.aiSummaryTitle}>AI Summary</Text>
@@ -1054,9 +1152,9 @@ export const PostItem = React.memo(({ post, isDark, isVisible = false, showBackB
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = ({ colors, spacing, radius, shadows }: Pick<Theme, 'colors' | 'spacing' | 'radius' | 'shadows'>) => StyleSheet.create({
   postCard: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
     position: 'relative',
     overflow: 'hidden',
     paddingBottom: 2,
@@ -1071,19 +1169,20 @@ const styles = StyleSheet.create({
     zIndex: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacing.xl,
   },
   lockedText: {
+    // Always sits on a fixed black scrim regardless of app theme — keep literal white.
     color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
-    marginTop: 12,
+    marginTop: spacing.md,
   },
   lockedSubtext: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 13,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   postHeader: {
     flexDirection: 'row',
@@ -1091,7 +1190,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   avatarContainer: {
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   avatar: {
     width: 44,
@@ -1108,9 +1207,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#22c55e',
+    backgroundColor: colors.success,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: colors.surface,
   },
   avatarFallback: {
     width: 44,
@@ -1120,6 +1219,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarInitial: {
+    // Sits on a theme-invariant brand-colored circle — keep literal white.
     color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
@@ -1136,22 +1236,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sparkleBtn: {
-    marginRight: 8,
-    padding: 4,
+    marginRight: spacing.sm,
+    padding: spacing.xs,
   },
   postContent: {
     fontSize: 15,
     lineHeight: 22,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   mediaContainer: {
     position: 'relative',
     width: '100%',
     maxHeight: 800,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+    // Media placeholder background is intentionally always black, independent of theme.
     backgroundColor: '#000000',
 
   },
@@ -1196,11 +1297,11 @@ const styles = StyleSheet.create({
   voicePlayer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    padding: spacing.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    marginBottom: 12,
-    gap: 12,
+    marginBottom: spacing.md,
+    gap: spacing.md,
   },
   voicePlayBtn: {
     width: 36,
@@ -1220,7 +1321,7 @@ const styles = StyleSheet.create({
   voiceProgressFill: {
     width: '35%',
     height: '100%',
-    backgroundColor: '#808bf5',
+    backgroundColor: colors.primaryMuted,
   },
   voiceDuration: {
     fontSize: 12,
@@ -1230,31 +1331,31 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(128, 139, 245, 0.12)',
     borderRadius: 20,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     paddingVertical: 5,
-    marginBottom: 12,
+    marginBottom: spacing.md,
     marginHorizontal: 5,
   },
   moodText: {
-    color: '#808bf5',
+    color: colors.primaryMuted,
     fontSize: 13,
     fontWeight: '600',
   },
   divider: {
     height: 1,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   postFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   footerAction: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: 20,
     flex: 1,
     justifyContent: 'center',
@@ -1271,8 +1372,10 @@ const styles = StyleSheet.create({
   },
   aiSummaryCard: {
     width: screenWidth - 40,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    // AI accent purple shadow/border are a distinct branded look, not part of the
+    // light/dark surface system — left as literal values on purpose.
     shadowColor: '#a855f7',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
@@ -1285,7 +1388,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
-    gap: 8,
+    gap: spacing.sm,
   },
   aiSummaryTitle: {
     fontSize: 15,
@@ -1308,10 +1411,11 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   scrubText: {
+    // Always over a black scrubbing scrim on top of media — keep literal white.
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   progressBarBg: {
     position: 'absolute',
@@ -1324,13 +1428,13 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#808bf5',
+    backgroundColor: colors.primaryMuted,
   },
   reactionsBreakdown: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     marginBottom: 10,
     alignItems: 'center',
   },
@@ -1341,9 +1445,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.08)',
     borderRadius: 14,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    gap: 4,
+    gap: spacing.xs,
   },
   reactionPillEmoji: {
     fontSize: 12,
@@ -1356,19 +1460,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 16,
+    padding: spacing.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     width: screenWidth - 48,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 10,
+    ...shadows.overlay,
   },
   pickerOption: {
     alignItems: 'center',
-    padding: 8,
+    padding: spacing.sm,
     flex: 1,
   },
 });

@@ -7,15 +7,15 @@ import {
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
-  useColorScheme,
   Alert,
   FlatList,
   RefreshControl,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
 import { api } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
+import { useAppNavigation } from '../navigation/types';
+import { useTheme } from '../theme';
 
 const deviceIcon = (device = '') => {
   const d = device.toLowerCase();
@@ -29,8 +29,8 @@ const deviceIcon = (device = '') => {
 };
 
 export default function ActiveSessionsScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const navigation = useAppNavigation();
 
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,11 +39,11 @@ export default function ActiveSessionsScreen() {
   const [revokingAll, setRevokingAll] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
 
-  const bg = isDark ? '#000000' : '#f1f5f9';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subColor = isDark ? '#64748b' : '#94a3b8';
-  const borderColor = isDark ? '#1a1a1a' : '#e2e8f0';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const textColor = colors.text.primary;
+  const subColor = colors.text.secondary;
+  const borderColor = colors.border;
 
   const fetchSessions = useCallback(async () => {
     const cacheKey = 'active_sessions';

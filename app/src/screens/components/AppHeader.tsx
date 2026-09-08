@@ -1,20 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme, Platform } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../../theme';
 
 export default function AppHeader({ title }: { title: string }) {
-  const isDark = useColorScheme() === 'dark';
+  const { colors } = useTheme();
 
   return (
     <View
       style={[
         styles.header,
         {
-          backgroundColor: isDark ? '#121212' : '#ffffff',
-          borderBottomColor: isDark ? '#1f2937' : '#e5e7eb',
+          backgroundColor: colors.background,
+          borderBottomColor: colors.border,
         },
       ]}
     >
-      <Text style={[styles.title, { color: isDark ? '#ffffff' : '#111827' }]}>{title}</Text>
+      <Text style={[styles.title, { color: colors.text.primary }]}>{title}</Text>
     </View>
   );
 }
@@ -25,10 +26,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: Platform.OS === 'ios' ? 0 : 0, // React navigation handles safe area or AppHeader is inside SafeAreaView
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });

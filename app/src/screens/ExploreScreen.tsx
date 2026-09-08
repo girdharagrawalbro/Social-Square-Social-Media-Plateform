@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
   Text,
   StyleSheet,
-  useColorScheme,
   TextInput,
   FlatList,
   Image,
@@ -30,25 +28,27 @@ import useAuthStore from '../store/zustand/useAuthStore';
 import { useTabStore } from '../store/zustand/useTabStore';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../theme';
+import type { TabOrStackScreenProps } from '../navigation/types';
 
 const { width, height } = Dimensions.get('window');
 const gridWidth = (width - 6) / 3;
 
 function SkeletonSearch() {
-  const isDark = useColorScheme() === 'dark';
-  const skeletonBg = isDark ? '#1e293b' : '#e2e8f0';
+  const { colors, spacing, radius } = useTheme();
+  const skeletonBg = colors.border;
 
   return (
-    <View style={{ padding: 16 }}>
+    <View style={{ padding: spacing.lg }}>
       {/* People Skeleton */}
-      <View style={{ marginBottom: 20 }}>
-        <View style={{ width: 80, height: 12, backgroundColor: skeletonBg, borderRadius: 4, marginBottom: 12 }} />
+      <View style={{ marginBottom: spacing.xl }}>
+        <View style={{ width: 80, height: 12, backgroundColor: skeletonBg, borderRadius: radius.sm, marginBottom: spacing.md }} />
         {[1, 2].map(i => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: skeletonBg, marginRight: 12 }} />
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: skeletonBg, marginRight: spacing.md }} />
             <View style={{ flex: 1 }}>
-              <View style={{ width: '40%', height: 14, backgroundColor: skeletonBg, borderRadius: 4, marginBottom: 8 }} />
-              <View style={{ width: '60%', height: 10, backgroundColor: skeletonBg, borderRadius: 4 }} />
+              <View style={{ width: '40%', height: 14, backgroundColor: skeletonBg, borderRadius: radius.sm, marginBottom: spacing.sm }} />
+              <View style={{ width: '60%', height: 10, backgroundColor: skeletonBg, borderRadius: radius.sm }} />
             </View>
           </View>
         ))}
@@ -56,13 +56,13 @@ function SkeletonSearch() {
 
       {/* AI Results Skeleton */}
       <View>
-        <View style={{ width: 120, height: 12, backgroundColor: skeletonBg, borderRadius: 4, marginBottom: 12 }} />
+        <View style={{ width: 120, height: 12, backgroundColor: skeletonBg, borderRadius: radius.sm, marginBottom: spacing.md }} />
         {[1, 2].map(i => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', marginBottom: 12 }}>
-            <View style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: skeletonBg, marginRight: 12 }} />
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface, marginBottom: spacing.md }}>
+            <View style={{ width: 48, height: 48, borderRadius: radius.sm, backgroundColor: skeletonBg, marginRight: spacing.md }} />
             <View style={{ flex: 1 }}>
-              <View style={{ width: '80%', height: 14, backgroundColor: skeletonBg, borderRadius: 4, marginBottom: 8 }} />
-              <View style={{ width: '50%', height: 10, backgroundColor: skeletonBg, borderRadius: 4 }} />
+              <View style={{ width: '80%', height: 14, backgroundColor: skeletonBg, borderRadius: radius.sm, marginBottom: spacing.sm }} />
+              <View style={{ width: '50%', height: 10, backgroundColor: skeletonBg, borderRadius: radius.sm }} />
             </View>
           </View>
         ))}
@@ -71,8 +71,8 @@ function SkeletonSearch() {
   );
 }
 
-export default function ExploreScreen({ navigation }: any) {
-  const isDark = useColorScheme() === 'dark';
+export default function ExploreScreen({ navigation, route }: TabOrStackScreenProps<'Explore'>) {
+  const { colors, spacing, radius, typography, shadows, isDark } = useTheme();
   const isFocused = useIsFocused();
   const { currentTab } = useTabStore();
   const loggedUser = useAuthStore((s) => s.user);
@@ -85,10 +85,13 @@ export default function ExploreScreen({ navigation }: any) {
   const [cursor, setCursor] = useState<string | null>(null);
 
   // Advanced Search States
-  const [search, setSearch] = useState('');
+  // Seeded from route.params.searchQuery (e.g. tapping a trending tag on Pulse)
+  // instead of always starting blank — this param used to be sent but silently
+  // dropped since ExploreScreen never read `route` at all.
+  const [search, setSearch] = useState(route?.params?.searchQuery || '');
   const [searchResults, setSearchResults] = useState<{ users: any[]; posts: any[] }>({ users: [], posts: [] });
   const [searchLoading, setSearchLoading] = useState(false);
-  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(!!route?.params?.searchQuery);
   const [recentSearches, setRecentSearches] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [typeFilter, setTypeFilter] = useState('all');
@@ -97,14 +100,14 @@ export default function ExploreScreen({ navigation }: any) {
   const [isAiLoading, setIsAiLoading] = useState(false);
 
 
-  // Styling colors
-  const bg = isDark ? '#000000' : '#ffffff';
-  const headerBg = isDark ? '#111111' : '#ffffff';
-  const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#f3f4f6';
-  const textColor = isDark ? '#ffffff' : '#1f2937';
-  const cardBg = isDark ? '#111111' : '#ffffff';
-  const border = isDark ? '#1a1a1a' : '#e5e7eb';
-  const subTextColor = isDark ? '#9ca3af' : '#6b7280';
+  // Styling colors (theme tokens)
+  const bg = colors.background;
+  const headerBg = colors.surface;
+  const inputBg = colors.background;
+  const textColor = colors.text.primary;
+  const cardBg = colors.surface;
+  const border = colors.border;
+  const subTextColor = colors.text.secondary;
 
   // Helper to resolve media URLs
   const resolveMediaUrl = (url?: string) => {
@@ -291,6 +294,7 @@ export default function ExploreScreen({ navigation }: any) {
     remoteUsers.forEach(u => {
       if (!seenIds.has(u._id)) {
         combined.push(u);
+        seenIds.add(u._id);
       }
     });
 
@@ -313,15 +317,19 @@ export default function ExploreScreen({ navigation }: any) {
         style={styles.gridItem}
         onPress={() => openReel(index)}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={item.likes ? `Play reel, ${item.likes.length} likes` : 'Play reel'}
       >
         {thumbUrl ? (
           <Image source={{ uri: thumbUrl }} style={styles.gridImage} resizeMode="cover" />
         ) : (
-          <View style={[styles.gridImage, styles.placeholderGridBg]}>
-            <MaterialCommunityIcons name="video" size={30} color="#808bf5" />
+          <View style={[styles.gridImage, styles.placeholderGridBg, { backgroundColor: colors.surfaceElevated }]}>
+            <MaterialCommunityIcons name="video" size={30} color={colors.primary} />
           </View>
         )}
         <View style={styles.gridOverlay}>
+          {/* Overlays a translucent scrim on the video thumbnail itself, not the app surface,
+              so it stays white in both themes for contrast against the media. */}
           <MaterialCommunityIcons name="play" size={18} color="#ffffff" />
           {item.likes && (
             <Text style={styles.gridOverlayText}>{item.likes.length}</Text>
@@ -365,56 +373,83 @@ export default function ExploreScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+    <View style={[styles.container, { backgroundColor: bg }]}>
       {/* Main Header */}
-      <View style={[styles.header, { backgroundColor: bg, paddingHorizontal: 16, height: 56 }]}>
-        <Text style={{ fontSize: 24, fontWeight: '900', color: textColor, letterSpacing: -0.5 }}>Explore</Text>
-        
-        <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
-          <View style={styles.chatIconWrapper || { position: 'relative' }}>
-            <MaterialCommunityIcons name="bell-outline" size={24} color={isDark ? '#f3f4f6' : '#1f2937'} />
+      <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, backgroundColor: cardBg, borderBottomWidth: 1, borderBottomColor: border, ...shadows.card }}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('NewPost')}
+          style={{ width: 40, height: 40, borderRadius: radius.full, justifyContent: 'center', alignItems: 'flex-start' }}
+          accessibilityRole="button"
+          accessibilityLabel="Create new post"
+        >
+          <MaterialCommunityIcons name="plus" size={26} color={textColor} style={{ marginLeft: -6 }} />
+        </TouchableOpacity>
+
+        <Text style={{ ...typography.h3, color: textColor }}>
+          {loggedUser?.username ? `@${loggedUser.username}` : 'Explore'}
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Notifications')}
+          style={{ width: 40, height: 40, borderRadius: radius.full, justifyContent: 'center', alignItems: 'flex-end' }}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+        >
+          <View style={{ position: 'relative' }}>
+            <MaterialCommunityIcons name="bell-outline" size={24} color={colors.primary} style={{ marginRight: -6 }} />
           </View>
         </TouchableOpacity>
       </View>
       {/* Search Header */}
-      <View style={[styles.header, { backgroundColor: headerBg, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }]}>
+      <View style={[styles.header, { backgroundColor: headerBg, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg }]}>
         {isSearchActive && (
-          <TouchableOpacity onPress={() => { setIsSearchActive(false); setSearch(''); }} style={{ marginRight: 10 }}>
+          <TouchableOpacity
+            onPress={() => { setIsSearchActive(false); setSearch(''); }}
+            style={{ marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Close search"
+          >
             <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
           </TouchableOpacity>
         )}
-        <View style={[styles.searchBar, { backgroundColor: inputBg, flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: 20, paddingHorizontal: 12, height: 40 }]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={isDark ? '#6b7280' : '#9ca3af'} />
+        <View style={[styles.searchBar, { backgroundColor: inputBg, flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: radius.full, paddingHorizontal: spacing.md, height: 40 }]}>
+          <MaterialCommunityIcons name="magnify" size={20} color={colors.text.muted} />
           <TextInput
             placeholder="Search users, posts, categories..."
-            placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
-            style={[styles.input, { color: textColor, flex: 1, paddingVertical: 0, marginLeft: 8 }]}
+            placeholderTextColor={colors.text.muted}
+            style={[styles.input, { color: textColor, flex: 1, paddingVertical: 0, marginLeft: spacing.sm }]}
             value={search}
             onChangeText={setSearch}
             onFocus={() => setIsSearchActive(true)}
             autoCapitalize="none"
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <MaterialCommunityIcons name="close-circle" size={18} color={isDark ? '#6b7280' : '#9ca3af'} />
+            <TouchableOpacity
+              onPress={() => setSearch('')}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
+              <MaterialCommunityIcons name="close-circle" size={18} color={colors.text.muted} />
             </TouchableOpacity>
           )}
         </View>
 
         {!isSearchActive && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginLeft: spacing.md }}>
             <TouchableOpacity
               onPress={() => navigation.navigate('Pulse')}
               style={{
                 width: 36,
                 height: 36,
-                borderRadius: 18,
-                backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : '#fce7f3',
+                borderRadius: radius.full,
+                backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : 'rgba(236, 72, 153, 0.1)',
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Pulse — trending"
             >
-              <MaterialCommunityIcons name="flash" size={20} color="#ec4899" />
+              <MaterialCommunityIcons name="flash" size={20} color={colors.like} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -422,13 +457,15 @@ export default function ExploreScreen({ navigation }: any) {
               style={{
                 width: 36,
                 height: 36,
-                borderRadius: 18,
-                backgroundColor: isDark ? 'rgba(128, 139, 245, 0.15)' : '#f0f2fe',
+                borderRadius: radius.full,
+                backgroundColor: isDark ? 'rgba(128, 139, 245, 0.15)' : colors.primaryTint,
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Knowledge Center"
             >
-              <MaterialCommunityIcons name="book-open-variant" size={20} color="#808bf5" />
+              <MaterialCommunityIcons name="book-open-variant" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -439,22 +476,24 @@ export default function ExploreScreen({ navigation }: any) {
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
           {/* Filter Chips (only when user has typed something) */}
           {search.trim().length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm }}>
               {['all', 'tutorial', 'discussion', 'beginner', 'comments'].map(tf => (
                 <TouchableOpacity
                   key={tf}
                   onPress={() => setTypeFilter(tf)}
                   style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                    borderRadius: 20,
+                    paddingHorizontal: spacing.lg,
+                    paddingVertical: spacing.sm,
+                    borderRadius: radius.full,
                     borderWidth: 1,
-                    borderColor: typeFilter === tf ? '#808bf5' : border,
-                    backgroundColor: typeFilter === tf ? '#808bf5' : (isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc'),
-                    marginRight: 8
+                    borderColor: typeFilter === tf ? colors.primary : border,
+                    // Chip fill is the solid accent color when selected, which stays the same
+                    // hue in both themes, so its label stays literal white for contrast.
+                    backgroundColor: typeFilter === tf ? colors.primary : (isDark ? colors.surfaceElevated : colors.background),
+                    marginRight: spacing.sm,
                   }}
                 >
-                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: typeFilter === tf ? '#ffffff' : subTextColor, textTransform: 'uppercase' }}>{tf}</Text>
+                  <Text style={{ ...typography.caption, color: typeFilter === tf ? '#ffffff' : subTextColor, textTransform: 'uppercase' }}>{tf}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -708,7 +747,7 @@ export default function ExploreScreen({ navigation }: any) {
       )}
 
       <BottomNav currentTab="explore" navigation={navigation} />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -726,7 +765,7 @@ function ReelCommentsSheet({ visible, onClose, postId, loggedUser, onCommentAdde
     setLoading(true);
     api.get('/api/post/comments', { params: { postId } })
       .then((res) => setComments(Array.isArray(res.data) ? res.data : []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   };
 
@@ -791,7 +830,12 @@ function ReelCommentsSheet({ visible, onClose, postId, loggedUser, onCommentAdde
                 value={commentText}
                 onChangeText={setCommentText}
               />
-              <TouchableOpacity onPress={handleAdd} disabled={!commentText.trim() || submitting}>
+              <TouchableOpacity
+                onPress={handleAdd}
+                disabled={!commentText.trim() || submitting}
+                accessibilityRole="button"
+                accessibilityLabel="Send comment"
+              >
                 {submitting ? (
                   <ActivityIndicator size="small" color="#808bf5" />
                 ) : (
@@ -962,14 +1006,25 @@ export function ReelPlayerItem({
         {!hideHeader && (
           <View style={styles.reelHeader}>
             {onClose ? (
-              <TouchableOpacity onPress={onClose} style={styles.iconCircle}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.iconCircle}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
                 <MaterialCommunityIcons name="arrow-left" size={24} color="#ffffff" />
               </TouchableOpacity>
             ) : (
               <View style={{ width: 40 }} />
             )}
             <Text style={styles.reelHeaderTitle}>Reels</Text>
-            <TouchableOpacity onPress={() => setMuted(!muted)} style={styles.iconCircle}>
+            <TouchableOpacity
+              onPress={() => setMuted(!muted)}
+              style={styles.iconCircle}
+              accessibilityRole="button"
+              accessibilityLabel={muted ? 'Unmute' : 'Mute'}
+              accessibilityState={{ selected: muted }}
+            >
               <MaterialCommunityIcons
                 name={muted ? 'volume-off' : 'volume-high'}
                 size={24}
@@ -989,6 +1044,8 @@ export function ReelPlayerItem({
                   navigation.navigate('Profile', { userId: item.user._id });
                 }
               }}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${item.user?.fullname || 'user'}'s profile`}
             >
               {item.user?.profile_picture ? (
                 <Image source={{ uri: item.user.profile_picture }} style={styles.reelAvatar} />
@@ -1000,7 +1057,12 @@ export function ReelPlayerItem({
                 </View>
               )}
               {!isOwnReel && !followSent && (
-                <TouchableOpacity style={styles.reelFollowBadge} onPress={handleFollowAuthor}>
+                <TouchableOpacity
+                  style={styles.reelFollowBadge}
+                  onPress={handleFollowAuthor}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Follow ${item.user?.fullname || 'user'}`}
+                >
                   <MaterialCommunityIcons name="plus" size={12} color="#ffffff" />
                 </TouchableOpacity>
               )}
@@ -1032,7 +1094,13 @@ export function ReelPlayerItem({
 
         {/* Right Actions column */}
         <View style={styles.reelActionsCol}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleLikeToggle}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleLikeToggle}
+            accessibilityRole="button"
+            accessibilityLabel={liked ? 'Unlike' : 'Like'}
+            accessibilityState={{ selected: liked }}
+          >
             <MaterialCommunityIcons
               name={liked ? 'heart' : 'heart-outline'}
               size={32}
@@ -1044,6 +1112,8 @@ export function ReelPlayerItem({
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => setCommentsVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="View comments"
           >
             <MaterialCommunityIcons name="comment-outline" size={32} color="#ffffff" />
             <Text style={styles.actionText}>{commentCount}</Text>
@@ -1052,12 +1122,20 @@ export function ReelPlayerItem({
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => setShareVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Share reel"
           >
             <MaterialCommunityIcons name="send-outline" size={32} color="#ffffff" />
             <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={handleSaveToggle}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleSaveToggle}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? 'Remove from saved' : 'Save reel'}
+            accessibilityState={{ selected: saved }}
+          >
             <MaterialCommunityIcons
               name={saved ? 'bookmark' : 'bookmark-outline'}
               size={30}

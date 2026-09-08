@@ -102,8 +102,7 @@ export function getMessagesFromDB(conversationId: string, limit = 50, offset = 0
       [conversationId, limit, offset]
     );
     const rows = (result as any).rows?._array || [];
-    // Reverse so oldest is first (chat display order)
-    return rows.reverse().map(parseMessageRow);
+    return rows.map(parseMessageRow);
   } catch (e) {
     console.warn('[DB] getMessagesFromDB error:', e);
     return [];

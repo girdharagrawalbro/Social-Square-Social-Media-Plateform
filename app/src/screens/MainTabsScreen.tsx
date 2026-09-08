@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, PanResponder, Modal } from 'react-native';
+import { View, StyleSheet, Modal, Animated, Dimensions } from 'react-native';
 import { useTabStore } from '../store/zustand/useTabStore';
 import { useLiveStore } from '../store/zustand/useLiveStore';
+import { useTheme } from '../theme';
+import { useSwipeGesture } from '../lib/useSwipeGesture';
 
 // Main tab components
 import SocialSquareScreen from './SocialSquareScreen';
@@ -10,13 +12,18 @@ import ChatScreen from './ChatScreen';
 import ExploreScreen from './ExploreScreen';
 import ProfileScreen from './ProfileScreen';
 import LiveStreamScreen from './LiveStreamScreen';
+import type { AppScreenProps } from '../navigation/types';
 
 const SWIPE_THRESHOLD = 40;
+const SWIPE_VELOCITY_THRESHOLD = 0.5;
+const SLIDE_DURATION = 220;
 const navItemsList = ['feed', 'reels', 'messages', 'explore', 'profile'];
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export default function MainTabsScreen({ navigation }: any) {
+export default function MainTabsScreen({ navigation }: AppScreenProps<'SocialSquare'>) {
   const { currentTab, setTab } = useTabStore();
   const { liveStreamId, isLiveHost, clearLiveStream } = useLiveStore();
+  const { colors } = useTheme();
 
   const [mountedTabs, setMountedTabs] = useState<string[]>([currentTab]);
 
@@ -26,62 +33,98 @@ export default function MainTabsScreen({ navigation }: any) {
     }
   }, [currentTab, mountedTabs]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        const { dx, dy } = gestureState;
-        // Detect horizontal gestures (width of horizontal motion > 2.5x vertical motion and distance > 25px)
-        return Math.abs(dx) > Math.abs(dy) * 2.5 && Math.abs(dx) > 25;
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const { dx } = gestureState;
-        const currentIndex = navItemsList.indexOf(currentTab);
+  // Instagram-style swipe-between-tabs — the previous/next tab (whichever the finger
+  // is dragging toward) is already mounted just off-screen, so it visually slides in
+  // alongside the current one instead of the old instant display:none/flex cut.
+  const isAnimatingRef = useRef(false);
+  const currentTabRef = useRef(currentTab);
+  useEffect(() => {
+    currentTabRef.current = currentTab;
+  }, [currentTab]);
 
-        if (dx < -SWIPE_THRESHOLD) {
-          // Swiped left (finger moved right to left) -> go right
-          if (currentIndex < navItemsList.length - 1) {
-            setTab(navItemsList[currentIndex + 1]);
-          }
-        } else if (dx > SWIPE_THRESHOLD) {
-          // Swiped right (finger moved left to right) -> go left
-          if (currentIndex > 0) {
-            setTab(navItemsList[currentIndex - 1]);
-          } else if (currentIndex === 0) {
-            // Swiping right on Feed tab -> open new post
-            navigation.navigate('NewPost');
-          }
-        }
-      },
-    })
-  ).current;
+  const slideToTab = (direction: -1 | 1, targetIndex: number) => {
+    isAnimatingRef.current = true;
+    Animated.timing(dragX, {
+      toValue: direction * SCREEN_WIDTH,
+      duration: SLIDE_DURATION,
+      useNativeDriver: true,
+    }).start(() => {
+      setTab(navItemsList[targetIndex]);
+      dragX.setValue(0);
+      isAnimatingRef.current = false;
+    });
+  };
+
+  const { panResponder, dragX, springBack } = useSwipeGesture({
+    shouldActivate: (g) =>
+      !isAnimatingRef.current && Math.abs(g.dx) > 25 && Math.abs(g.dx) > Math.abs(g.dy) * 2.5,
+    commitThreshold: SWIPE_THRESHOLD,
+    commitVelocity: SWIPE_VELOCITY_THRESHOLD,
+    transformDx: (dx) => {
+      const currentIndex = navItemsList.indexOf(currentTabRef.current);
+      // Rubber-band at the ends — there's no tab to slide in past Feed or Profile.
+      if (currentIndex === 0 && dx > 0) return dx * 0.35;
+      if (currentIndex === navItemsList.length - 1 && dx < 0) return dx * 0.35;
+      return dx;
+    },
+    onCommitNegative: () => {
+      const currentIndex = navItemsList.indexOf(currentTabRef.current);
+      if (currentIndex < navItemsList.length - 1) slideToTab(-1, currentIndex + 1);
+      else springBack();
+    },
+    onCommitPositive: () => {
+      const currentIndex = navItemsList.indexOf(currentTabRef.current);
+      if (currentIndex > 0) {
+        slideToTab(1, currentIndex - 1);
+      } else {
+        // Swiping right on Feed (nothing to slide in from) opens the composer instead.
+        springBack();
+        navigation.navigate('NewPost');
+      }
+    },
+  });
+
+  const currentIndex = navItemsList.indexOf(currentTab);
+
+  const renderTabSlot = (tabName: string, node: React.ReactNode) => {
+    if (!mountedTabs.includes(tabName)) return null;
+    const tabIndex = navItemsList.indexOf(tabName);
+    const offsetSlots = tabIndex - currentIndex;
+
+    // Tabs more than one slot away from the active one aren't part of the live drag —
+    // keep them mounted (fast re-entry) but fully out of the layout.
+    if (Math.abs(offsetSlots) > 1) {
+      return (
+        <View key={tabName} style={[styles.screenContainer, { display: 'none' }]}>
+          {node}
+        </View>
+      );
+    }
+
+    return (
+      <Animated.View
+        key={tabName}
+        style={[
+          styles.screenSlot,
+          {
+            left: offsetSlots * SCREEN_WIDTH,
+            transform: [{ translateX: dragX }],
+          },
+        ]}
+        pointerEvents={offsetSlots === 0 ? 'auto' : 'none'}
+      >
+        {node}
+      </Animated.View>
+    );
+  };
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
-      {mountedTabs.includes('feed') && (
-        <View style={[styles.screenContainer, { display: currentTab === 'feed' ? 'flex' : 'none' }]}>
-          <SocialSquareScreen navigation={navigation} />
-        </View>
-      )}
-      {mountedTabs.includes('reels') && (
-        <View style={[styles.screenContainer, { display: currentTab === 'reels' ? 'flex' : 'none' }]}>
-          <ReelsScreen navigation={navigation} />
-        </View>
-      )}
-      {mountedTabs.includes('messages') && (
-        <View style={[styles.screenContainer, { display: currentTab === 'messages' ? 'flex' : 'none' }]}>
-          <ChatScreen />
-        </View>
-      )}
-      {mountedTabs.includes('explore') && (
-        <View style={[styles.screenContainer, { display: currentTab === 'explore' ? 'flex' : 'none' }]}>
-          <ExploreScreen navigation={navigation} />
-        </View>
-      )}
-      {mountedTabs.includes('profile') && (
-        <View style={[styles.screenContainer, { display: currentTab === 'profile' ? 'flex' : 'none' }]}>
-          <ProfileScreen navigation={navigation} />
-        </View>
-      )}
+    <View style={[styles.container, { backgroundColor: colors.background }]} {...panResponder.panHandlers}>
+      {renderTabSlot('feed', <SocialSquareScreen navigation={navigation} />)}
+      {renderTabSlot('reels', <ReelsScreen navigation={navigation} />)}
+      {renderTabSlot('messages', <ChatScreen />)}
+      {renderTabSlot('explore', <ExploreScreen navigation={navigation} />)}
+      {renderTabSlot('profile', <ProfileScreen navigation={navigation} />)}
 
       {/* Full-screen Native Live Stream Overlay */}
       <Modal
@@ -105,9 +148,15 @@ export default function MainTabsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    overflow: 'hidden',
   },
   screenContainer: {
     flex: 1,
+  },
+  screenSlot: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: SCREEN_WIDTH,
   },
 });
