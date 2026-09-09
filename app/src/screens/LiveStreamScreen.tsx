@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -119,7 +120,7 @@ interface ChatMessage {
   };
 }
 
-const PALETTE = ['#808bf5', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4'];
+const PALETTE = [brand.primary, '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#06b6d4'];
 const getUserColor = (id = '') => {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h);
@@ -433,7 +434,7 @@ export default function LiveStreamScreen({ streamId, isHost, onClose }: LiveStre
     <SafeAreaView style={styles.container}>
       {connecting ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#808bf5" />
+          <ActivityIndicator size="large" color={brand.primary} />
           <Text style={styles.loadingText}>Connecting to stream session...</Text>
           <Text style={styles.subLoadingText}>Waiting for host's video feed</Text>
         </View>
@@ -526,7 +527,7 @@ export default function LiveStreamScreen({ streamId, isHost, onClose }: LiveStre
                 <MaterialCommunityIcons
                   name={showChat ? 'comment' : 'comment-off'}
                   size={16}
-                  color={showChat ? '#808bf5' : '#ffffff'}
+                  color={showChat ? brand.primary : '#ffffff'}
                 />
               </TouchableOpacity>
 
@@ -678,7 +679,7 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
   },
   pauseAvatarFallback: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -714,7 +715,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   resumeBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 24,
@@ -723,7 +724,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   resumeBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -827,7 +828,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(128,139,245,0.5)',
   },
   pausedPauseBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
   },
   endLiveBtn: {
     backgroundColor: '#ef4444',
@@ -940,7 +941,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   sendBtnActive: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
   },
   sendBtnInactive: {
     backgroundColor: 'rgba(255,255,255,0.1)',

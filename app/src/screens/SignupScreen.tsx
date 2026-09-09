@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState } from 'react';
 import {
   View,
@@ -159,7 +160,7 @@ export default function SignupScreen({ navigation }: AppScreenProps<'Signup'>) {
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                <Text style={{ color: '#808bf5', fontWeight: 'bold' }}>
+                <Text style={{ color: brand.primary, fontWeight: 'bold' }}>
                   {showPassword ? 'Hide' : 'Show'}
                 </Text>
               </TouchableOpacity>
@@ -169,7 +170,7 @@ export default function SignupScreen({ navigation }: AppScreenProps<'Signup'>) {
 
             <TouchableOpacity style={styles.submitBtn} onPress={handleSignup} disabled={loading}>
               {loading ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={brand.primaryInverse} />
               ) : (
                 <Text style={styles.submitBtnText}>Sign Up</Text>
               )}
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: height * 0.5,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderBottomLeftRadius: width * 0.1,
     borderBottomRightRadius: width * 0.1,
   },
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
     marginBottom: 6,
   },
   subTitle: {
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitBtn: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: brand.primaryDark,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   submitBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   signupText: {
-    color: '#808bf5',
+    color: brand.primary,
     fontWeight: 'bold',
   },
   strengthContainer: {

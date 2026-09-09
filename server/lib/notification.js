@@ -1,5 +1,16 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const webpush = require('web-push');
+
+// Configure VAPID keys for web push
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:support@social-square.me',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
+
 
 let io;
 
@@ -32,7 +43,7 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
     };
 
     // 🛡️ Safety Guard: Don't notify deleted users
-    const recipient = await User.findById(recipientId).select('deletedAt fcmToken notificationSettings').lean();
+    const recipient = await User.findById(recipientId).select('deletedAt fcmToken webPushSubscription notificationSettings').lean();
     if (!recipient || recipient.deletedAt) {
       console.warn('[Notification] Skipped: Recipient is deleted or does not exist', { recipientId });
       return null;
@@ -155,6 +166,52 @@ const createNotification = async ({ recipientId, sender, type, postId, message, 
       }
     } catch (pushErr) {
       console.error('[Notification Push Error]', pushErr.message);
+    }
+
+    // 3. Web Push (browser push — works when site is closed or not focused)
+    try {
+      if (recipient?.webPushSubscription && process.env.VAPID_PUBLIC_KEY) {
+        const pushEnabled = recipient?.notificationSettings?.pushEnabled !== false;
+        if (pushEnabled) {
+          let title = 'Social Square';
+          let body = '';
+          switch (type) {
+            case 'like': body = `${finalSender.fullname} liked your post`; break;
+            case 'comment': body = `${finalSender.fullname} commented on your post`; break;
+            case 'mention': body = `${finalSender.fullname} mentioned you`; break;
+            case 'follow': body = `${finalSender.fullname} started following you`; break;
+            case 'message': body = `New message from ${finalSender.fullname}`; title = 'Social Square Chat'; break;
+            case 'new_post': body = `${finalSender.fullname} shared a new post`; break;
+            case 'system': body = message?.content || 'New system update'; break;
+            default: body = `${finalSender.fullname} sent you a notification`;
+          }
+
+          const webPushPayload = JSON.stringify({
+            title,
+            body,
+            icon: '/logo.jpg',
+            badge: '/logo.jpg',
+            tag: type, // Replace older notification of same type instead of stacking
+            data: {
+              type,
+              postId: postId ? postId.toString() : '',
+              notificationId: notification._id.toString(),
+              url: url || '/'
+            }
+          });
+
+          await webpush.sendNotification(recipient.webPushSubscription, webPushPayload).catch((err) => {
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              // Subscription expired — clean it up
+              User.findByIdAndUpdate(recipientId, { webPushSubscription: null }).catch(() => {});
+            } else {
+              console.warn('[WebPush] Send error:', err.message);
+            }
+          });
+        }
+      }
+    } catch (webPushErr) {
+      console.error('[WebPush Error]', webPushErr.message);
     }
 
     return notification;

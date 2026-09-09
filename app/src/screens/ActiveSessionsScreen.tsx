@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -182,7 +183,7 @@ export default function ActiveSessionsScreen() {
       <View style={[styles.sessionCard, { backgroundColor: cardBg, borderColor }]}>
         <View style={styles.sessionHeaderRow}>
           <View style={styles.sessionIconWrapper}>
-            <MaterialCommunityIcons name={deviceIcon(item.device)} size={24} color="#808bf5" />
+            <MaterialCommunityIcons name={deviceIcon(item.device)} size={24} color={brand.primary} />
           </View>
           <View style={styles.sessionInfo}>
             <View style={styles.deviceNameRow}>
@@ -257,8 +258,8 @@ export default function ActiveSessionsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#808bf5']}
-            tintColor={'#808bf5'}
+            colors={[brand.primary]}
+            tintColor={brand.primary}
           />
         }
         ListHeaderComponent={
@@ -266,7 +267,7 @@ export default function ActiveSessionsScreen() {
             {/* 2FA Card */}
             <View style={[styles.card2FA, { backgroundColor: cardBg, borderColor }]}>
               <View style={styles.card2FAIconWrapper}>
-                <MaterialCommunityIcons name="shield-key-outline" size={28} color="#808bf5" />
+                <MaterialCommunityIcons name="shield-key-outline" size={28} color={brand.primary} />
               </View>
               <View style={styles.card2FAInfo}>
                 <Text style={[styles.card2FATitle, { color: textColor }]}>Two-Factor Authentication</Text>
@@ -281,7 +282,7 @@ export default function ActiveSessionsScreen() {
                 disabled={toggling2FA}
                 style={[
                   styles.toggle2FABtn,
-                  { backgroundColor: twoFaEnabled ? 'rgba(239, 68, 68, 0.1)' : '#808bf5' },
+                  { backgroundColor: twoFaEnabled ? 'rgba(239, 68, 68, 0.1)' : brand.primary },
                 ]}
               >
                 {toggling2FA ? (
@@ -317,7 +318,7 @@ export default function ActiveSessionsScreen() {
         }
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator size="large" color="#808bf5" style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={brand.primary} style={{ marginTop: 40 }} />
           ) : (
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="devices" size={48} color={subColor} />

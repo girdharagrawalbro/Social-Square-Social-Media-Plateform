@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -66,6 +67,7 @@ interface ModalBodyProps {
   border: string;
   bg: string;
   primaryColor: string;
+  primaryInverse: string;
 }
 
 const ModalBody = ({
@@ -105,6 +107,7 @@ const ModalBody = ({
   border,
   bg,
   primaryColor,
+  primaryInverse,
 }: ModalBodyProps) => {
   const loggedUser = useAuthStore((s) => s.user);
 
@@ -375,7 +378,7 @@ const ModalBody = ({
               const isAdded = collaborators.some((c) => c._id === item._id);
               return (
                 <TouchableOpacity
-                  style={[styles.listItem, { borderBottomColor: border }]}
+                  style={[styles.listItem, { borderBottomColor: border, justifyContent: 'space-between' }]}
                   onPress={() => {
                     if (isAdded) {
                       setCollaborators(collaborators.filter((c) => c._id !== item._id));
@@ -384,10 +387,13 @@ const ModalBody = ({
                     }
                   }}
                 >
-                  <Text style={[styles.listItemText, { color: textColor }]}>{item.fullname} (@{item.username})</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Image source={{ uri: item.profile_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80' }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                    <Text style={[styles.listItemText, { color: textColor }]}>{item.fullname}</Text>
+                  </View>
                   <MaterialCommunityIcons
                     name={isAdded ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                    size={22}
+                    size={24}
                     color={isAdded ? primaryColor : subText}
                   />
                 </TouchableOpacity>
@@ -417,7 +423,7 @@ const ModalBody = ({
               const isAdded = taggedUsers.some((t) => t._id === item._id);
               return (
                 <TouchableOpacity
-                  style={[styles.listItem, { borderBottomColor: border }]}
+                  style={[styles.listItem, { borderBottomColor: border, justifyContent: 'space-between' }]}
                   onPress={() => {
                     if (isAdded) {
                       setTaggedUsers(taggedUsers.filter((t) => t._id !== item._id));
@@ -426,10 +432,13 @@ const ModalBody = ({
                     }
                   }}
                 >
-                  <Text style={[styles.listItemText, { color: textColor }]}>{item.fullname} (@{item.username})</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Image source={{ uri: item.profile_picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80' }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                    <Text style={[styles.listItemText, { color: textColor }]}>{item.fullname}</Text>
+                  </View>
                   <MaterialCommunityIcons
                     name={isAdded ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                    size={22}
+                    size={24}
                     color={isAdded ? primaryColor : subText}
                   />
                 </TouchableOpacity>
@@ -471,7 +480,7 @@ const ModalBody = ({
                       ]}
                       onPress={() => setFeedbackCategory(opt)}
                     >
-                      <Text style={[styles.visibilityBtnText, { color: isSelected ? '#ffffff' : textColor }]}>
+                      <Text style={[styles.visibilityBtnText, { color: isSelected ? primaryInverse : textColor }]}>
                         {opt.toUpperCase()}
                       </Text>
                     </TouchableOpacity>
@@ -504,7 +513,7 @@ const ModalBody = ({
                   ]}
                   onPress={() => setExpiresInHours(h)}
                 >
-                  <Text style={[styles.visibilityBtnText, { color: isSelected ? '#ffffff' : textColor }]}>
+                  <Text style={[styles.visibilityBtnText, { color: isSelected ? primaryInverse : textColor }]}>
                     {label}
                   </Text>
                 </TouchableOpacity>
@@ -528,7 +537,7 @@ const ModalBody = ({
                   ]}
                   onPress={() => setUnlocksInHours(h)}
                 >
-                  <Text style={[styles.visibilityBtnText, { color: isSelected ? '#ffffff' : textColor }]}>
+                  <Text style={[styles.visibilityBtnText, { color: isSelected ? primaryInverse : textColor }]}>
                     {label}
                   </Text>
                 </TouchableOpacity>
@@ -573,7 +582,7 @@ const ModalBody = ({
               accessibilityLabel="Write caption with AI"
             >
               {generatingAi ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={primaryInverse} />
               ) : (
                 <Text style={styles.saveBtnText}>Write Caption</Text>
               )}
@@ -587,7 +596,7 @@ const ModalBody = ({
               accessibilityLabel="Create image with AI"
             >
               {generatingAi ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={primaryInverse} />
               ) : (
                 <Text style={styles.saveBtnText}>Create Image</Text>
               )}
@@ -690,7 +699,8 @@ export default function NewPostScreen() {
   const border = colors.border;
   const textColor = colors.text.primary;
   const subText = colors.text.secondary;
-  const primaryColor = '#808bf5';
+  const primaryColor = colors.primary;
+  const primaryInverse = colors.primaryInverse;
 
   const fetchAiLimits = async () => {
     try {
@@ -981,8 +991,8 @@ export default function NewPostScreen() {
         {/* Caption Input */}
         <TextInput
           multiline
-          numberOfLines={4}
-          placeholder="What's on your mind?..."
+          numberOfLines={10}
+          placeholder="What's on your mind ?"
           placeholderTextColor={subText}
           value={caption}
           onChangeText={setCaption}
@@ -1073,14 +1083,14 @@ export default function NewPostScreen() {
                     key={index}
                     style={[
                       styles.dotItem,
-                      { backgroundColor: index === activeMediaIndex ? '#808bf5' : subText },
+                      { backgroundColor: index === activeMediaIndex ? brand.primary : subText },
                     ]}
                   />
                 ))}
               </View>
 
               <TouchableOpacity style={styles.addMoreBtn} onPress={handlePickMedia}>
-                <MaterialCommunityIcons name="plus" size={16} color="#808bf5" />
+                <MaterialCommunityIcons name="plus" size={16} color={brand.primary} />
                 <Text style={styles.addMoreText}>Add Media</Text>
               </TouchableOpacity>
             </View>
@@ -1103,81 +1113,81 @@ export default function NewPostScreen() {
         <Text style={[styles.sectionTitle, { color: textColor }]}>Post Features</Text>
         <View style={styles.featureGrid}>
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, selectedGroup && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, selectedGroup && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('community')}
           >
-            <MaterialCommunityIcons name="globe-model" size={24} color={selectedGroup ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: selectedGroup ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="globe-model" size={24} color={selectedGroup ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: selectedGroup ? primaryInverse : textColor }]} numberOfLines={1}>
               {selectedGroup ? selectedGroup.name : 'Community'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, selectedGoal && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, selectedGoal && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('goal')}
           >
-            <MaterialCommunityIcons name="flag-outline" size={24} color={selectedGoal ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: selectedGoal ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="flag-outline" size={24} color={selectedGoal ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: selectedGoal ? primaryInverse : textColor }]} numberOfLines={1}>
               {selectedGoal ? selectedGoal.title : 'Goal'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, visibility !== 'public' && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, visibility !== 'public' && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('visibility')}
           >
-            <MaterialCommunityIcons name="eye-outline" size={24} color={visibility !== 'public' ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: visibility !== 'public' ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="eye-outline" size={24} color={visibility !== 'public' ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: visibility !== 'public' ? primaryInverse : textColor }]} numberOfLines={1}>
               {visibility}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, locationName && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, locationName && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('location')}
           >
-            <MaterialCommunityIcons name="map-marker-outline" size={24} color={locationName ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: locationName ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="map-marker-outline" size={24} color={locationName ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: locationName ? primaryInverse : textColor }]} numberOfLines={1}>
               {locationName || 'Location'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, collaborators.length > 0 && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, collaborators.length > 0 && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('collab')}
           >
-            <MaterialCommunityIcons name="account-multiple-plus-outline" size={24} color={collaborators.length > 0 ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: collaborators.length > 0 ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="account-multiple-plus-outline" size={24} color={collaborators.length > 0 ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: collaborators.length > 0 ? primaryInverse : textColor }]} numberOfLines={1}>
               {collaborators.length > 0 ? `${collaborators.length} Collabs` : 'Collab'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, taggedUsers.length > 0 && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, taggedUsers.length > 0 && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('tag')}
           >
-            <MaterialCommunityIcons name="tag-outline" size={24} color={taggedUsers.length > 0 ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: taggedUsers.length > 0 ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="tag-outline" size={24} color={taggedUsers.length > 0 ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: taggedUsers.length > 0 ? primaryInverse : textColor }]} numberOfLines={1}>
               {taggedUsers.length > 0 ? `${taggedUsers.length} Tagged` : 'Tag'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, isFeedbackRequest && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, isFeedbackRequest && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('feedback')}
           >
-            <MaterialCommunityIcons name="message-draw" size={24} color={isFeedbackRequest ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: isFeedbackRequest ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="message-draw" size={24} color={isFeedbackRequest ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: isFeedbackRequest ? primaryInverse : textColor }]} numberOfLines={1}>
               {isFeedbackRequest ? feedbackCategory : 'Feedback'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, !!(expiresInHours || unlocksInHours) && styles.activeGridBtn]}
+            style={[styles.gridBtn, { backgroundColor: cardBg, borderColor: border }, !!(expiresInHours || unlocksInHours) && { backgroundColor: primaryColor, borderColor: primaryColor }]}
             onPress={() => setActiveModal('settings')}
           >
-            <MaterialCommunityIcons name="cog-outline" size={24} color={(expiresInHours || unlocksInHours) ? '#ffffff' : primaryColor} />
-            <Text style={[styles.gridBtnText, { color: (expiresInHours || unlocksInHours) ? '#ffffff' : textColor }]} numberOfLines={1}>
+            <MaterialCommunityIcons name="cog-outline" size={24} color={(expiresInHours || unlocksInHours) ? primaryInverse : textColor} />
+            <Text style={[styles.gridBtnText, { color: (expiresInHours || unlocksInHours) ? primaryInverse : textColor }]} numberOfLines={1}>
               Settings
             </Text>
           </TouchableOpacity>
@@ -1264,6 +1274,7 @@ export default function NewPostScreen() {
               border={border}
               bg={bg}
               primaryColor={primaryColor}
+              primaryInverse={primaryInverse}
             />
           </View>
         </View>
@@ -1316,7 +1327,7 @@ export default function NewPostScreen() {
                 }}
               >
                 <View style={[styles.optionIconBg, { backgroundColor: 'rgba(128, 139, 245, 0.15)' }]}>
-                  <MaterialCommunityIcons name="image-multiple-outline" size={24} color="#808bf5" />
+                  <MaterialCommunityIcons name="image-multiple-outline" size={24} color={brand.primary} />
                 </View>
                 <Text style={[styles.optionText, { color: textColor }]}>Choose from Gallery</Text>
               </TouchableOpacity>
@@ -1379,7 +1390,7 @@ const styles = StyleSheet.create({
   },
   captionInput: {
     fontSize: 16,
-    minHeight: 80,
+    minHeight: 130,
     textAlignVertical: 'top',
     borderBottomWidth: 1,
     paddingBottom: 12,
@@ -1448,8 +1459,8 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   activeGridBtn: {
-    backgroundColor: '#808bf5',
-    borderColor: '#808bf5',
+    backgroundColor: brand.primary,
+    borderColor: brand.primary,
   },
   gridBtnText: {
     fontSize: 10,
@@ -1527,6 +1538,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
   },
   listItemText: {
@@ -1636,7 +1648,7 @@ const styles = StyleSheet.create({
   addMoreText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
   },
   bottomSheetContent: {
     borderTopLeftRadius: 24,

@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -825,7 +826,7 @@ export default function StoryViewer({
 
                   {replyText.trim().length > 0 ? (
                     <TouchableOpacity style={styles.actionBtn} onPress={() => handleSendReply(currentStory._id)} disabled={sendingReply}>
-                      {sendingReply ? <ActivityIndicator size="small" color="#ffffff" /> : <MaterialCommunityIcons name="send" size={24} color="#ffffff" />}
+                      {sendingReply ? <ActivityIndicator size="small" color={brand.primaryInverse} /> : <MaterialCommunityIcons name="send" size={24} color="#ffffff" />}
                     </TouchableOpacity>
                   ) : (
                     <>
@@ -943,7 +944,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors'], spacing: Re
     position: 'absolute', bottom: 140, alignSelf: 'center', flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(128,139,245,0.85)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: spacing.sm, gap: 6,
   },
-  reshareBtnText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
+  reshareBtnText: { color: brand.primaryInverse, fontSize: 12, fontWeight: 'bold' },
   stickerCard: {
     position: 'absolute', top: '28%', alignSelf: 'center', width: 260, backgroundColor: 'rgba(20,20,20,0.85)',
     borderRadius: radius.lg, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',

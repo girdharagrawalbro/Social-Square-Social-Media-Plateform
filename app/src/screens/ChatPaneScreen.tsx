@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -245,7 +246,7 @@ function SwipeableBubble({
           justifyContent: 'center',
           alignItems: 'center',
         }}>
-        <MaterialCommunityIcons name="reply" size={15} color="#808bf5" />
+        <MaterialCommunityIcons name="reply" size={15} color={brand.primary} />
       </Animated.View>
 
       <Animated.View
@@ -263,11 +264,11 @@ function SwipeableBubble({
                 activeOpacity={0.7}
                 onPress={() => onReplyQuotePress && onReplyQuotePress(item.replyTo._id)}
                 style={[styles.replyQuote, {
-                  borderLeftColor: isMe ? 'rgba(255,255,255,0.6)' : '#808bf5',
+                  borderLeftColor: isMe ? 'rgba(255,255,255,0.6)' : brand.primary,
                   backgroundColor: isMe ? 'rgba(0,0,0,0.12)' : (isDark ? '#334155' : '#e8eaf6'),
                 }]}>
                 <Text style={[styles.replyQuoteName, {
-                  color: isMe ? 'rgba(255,255,255,0.9)' : '#808bf5',
+                  color: isMe ? 'rgba(255,255,255,0.9)' : brand.primary,
                 }]}>
                   {item.replyTo.senderName || item.replyTo.sender?.fullname || 'User'}
                 </Text>
@@ -282,7 +283,7 @@ function SwipeableBubble({
             <View style={[styles.bubble, {
               backgroundColor: isJumpHighlighted
                 ? 'rgba(250, 204, 21, 0.35)'
-                : (isSharedPost || isSharedProfile) ? 'transparent' : isMe ? '#808bf5' : incomingBg,
+                : (isSharedPost || isSharedProfile) ? 'transparent' : isMe ? brand.primary : incomingBg,
               borderTopRightRadius: isMe ? 4 : 18,
               borderTopLeftRadius: isMe ? 18 : 4,
               padding: (item.storyReply || item.media?.url || item.mediaUrl || item.decryptedMediaUrl) ? 5 : undefined,
@@ -309,14 +310,14 @@ function SwipeableBubble({
                         <Image source={{ uri: item.storyReply.mediaUrl }} style={{ width: 40, height: 40, borderRadius: 8 }} />
                       ) : (
                         <View style={{
-                          width: 40, height: 40, borderRadius: 8, backgroundColor: '#808bf5',
+                          width: 40, height: 40, borderRadius: 8, backgroundColor: brand.primary,
                           justifyContent: 'center', alignItems: 'center'
                         }}>
                           <Text style={{ fontSize: 18 }}>✨</Text>
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: isMe ? '#fff' : textColor }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: isMe ? brand.primaryInverse : textColor }}>
                           {item.storyReply.isShare
                             ? (item.storyReply.authorName ? `Shared ${item.storyReply.authorName}'s story` : 'Shared a story')
                             : 'Replied to story'}
@@ -334,7 +335,7 @@ function SwipeableBubble({
                       onPress={() => onPostPress && onPostPress(item.sharedPost.postId || link.postId)}
                       style={{
                         borderRadius: 14, overflow: 'hidden', marginBottom: content ? 6 : 0,
-                        backgroundColor: isMe ? '#808bf5' : (isDark ? '#1e293b' : '#f1f5f9'),
+                        backgroundColor: isMe ? brand.primary : (isDark ? '#1e293b' : '#f1f5f9'),
                         borderWidth: 1, borderColor: isMe ? 'rgba(255,255,255,0.15)' : borderColor,
                         minWidth: 220, maxWidth: 260
                       }}>
@@ -348,7 +349,7 @@ function SwipeableBubble({
                         ) : (
                           <View style={{
                             width: 26, height: 26, borderRadius: 13,
-                            backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center'
+                            backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center'
                           }}>
                             <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>
                               {(item.sharedPost.authorName || 'U')[0].toUpperCase()}
@@ -356,7 +357,7 @@ function SwipeableBubble({
                           </View>
                         )}
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: isMe ? '#fff' : textColor }}
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: isMe ? brand.primaryInverse : textColor }}
                             numberOfLines={1}>{item.sharedPost.authorName}</Text>
                           <Text style={{ fontSize: 10, color: isMe ? 'rgba(255,255,255,0.6)' : subColor }}>
                             @{item.sharedPost.authorUsername}
@@ -382,16 +383,16 @@ function SwipeableBubble({
                     <TouchableOpacity
                       onPress={() => onPostPress && onPostPress(link.postId)}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <MaterialCommunityIcons name="image-multiple" size={18} color={isMe ? '#fff' : '#808bf5'} />
-                      <Text style={{ fontSize: 13, color: isMe ? '#fff' : textColor }}>Shared a Post</Text>
+                      <MaterialCommunityIcons name="image-multiple" size={18} color={isMe ? brand.primaryInverse : brand.primary} />
+                      <Text style={{ fontSize: 13, color: isMe ? brand.primaryInverse : textColor }}>Shared a Post</Text>
                     </TouchableOpacity>
                   )}
 
                   {/* Shared Profile */}
                   {isSharedProfile && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <MaterialCommunityIcons name="account-circle" size={18} color={isMe ? '#fff' : '#808bf5'} />
-                      <Text style={{ fontSize: 13, color: isMe ? '#fff' : textColor }}>Shared a Profile</Text>
+                      <MaterialCommunityIcons name="account-circle" size={18} color={isMe ? brand.primaryInverse : brand.primary} />
+                      <Text style={{ fontSize: 13, color: isMe ? brand.primaryInverse : textColor }}>Shared a Profile</Text>
                     </View>
                   )}
 
@@ -433,7 +434,7 @@ function SwipeableBubble({
                       duration={audioProgress?.duration || 0}
                       onPlayPause={() => onPlayAudio && onPlayAudio(item)}
                       onSeek={(ms: number) => onSeekAudio && onSeekAudio(ms)}
-                      iconColor={isMe ? '#fff' : '#808bf5'}
+                      iconColor={isMe ? brand.primaryInverse : brand.primary}
                       trackColor={isMe ? 'rgba(255,255,255,0.35)' : 'rgba(128,139,245,0.25)'}
                       labelColor={isMe ? 'rgba(255,255,255,0.85)' : subColor}
                     />
@@ -441,8 +442,8 @@ function SwipeableBubble({
                   {item.media?.url && item.media?.type === 'file' && !item.storyReply && (
                     <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                       onPress={() => Linking.openURL(item.media.url)}>
-                      <MaterialCommunityIcons name="file-outline" size={20} color={isMe ? '#fff' : '#808bf5'} />
-                      <Text style={{ color: isMe ? '#fff' : textColor, fontSize: 13 }}>
+                      <MaterialCommunityIcons name="file-outline" size={20} color={isMe ? brand.primaryInverse : brand.primary} />
+                      <Text style={{ color: isMe ? brand.primaryInverse : textColor, fontSize: 13 }}>
                         {item.media.name || 'File'}
                       </Text>
                     </TouchableOpacity>
@@ -450,7 +451,7 @@ function SwipeableBubble({
 
                   {/* Text */}
                   {!isPlaceholder && content ? (
-                    <Text style={[styles.messageText, { color: isMe ? '#ffffff' : '#0f172a', marginTop: hasCard ? 6 : 0 }]}>
+                    <Text style={[styles.messageText, { color: isMe ? brand.primaryInverse : '#0f172a', marginTop: hasCard ? 6 : 0 }]}>
                       {renderHighlightedText(content, searchQuery)}
                     </Text>
                   ) : null}
@@ -1326,7 +1327,7 @@ export default function ChatPaneScreen() {
 
             <View style={styles.headerInfo}>
               <Text style={[styles.headerTitle, { color: textColor }]} numberOfLines={1}>{title || 'Chat'}</Text>
-              <Text style={[styles.headerSub, { color: otherUserTyping ? '#808bf5' : isOnline ? '#10b981' : subColor }]}>
+              <Text style={[styles.headerSub, { color: otherUserTyping ? brand.primary : isOnline ? '#10b981' : subColor }]}>
                 {isGroup
                   ? 'Tap for group info'
                   : otherUserTyping
@@ -1341,7 +1342,7 @@ export default function ChatPaneScreen() {
           <TouchableOpacity style={styles.actionBtn}
             onPress={() => { setSearchVisible(v => !v); setSearchQuery(''); }}>
             <MaterialCommunityIcons name={searchVisible ? 'close' : 'magnify'} size={20}
-              color={searchVisible ? '#808bf5' : textColor} />
+              color={searchVisible ? brand.primary : textColor} />
           </TouchableOpacity>
           {!isGroup && (
             <TouchableOpacity style={styles.actionBtn}
@@ -1414,7 +1415,7 @@ export default function ChatPaneScreen() {
             onChangeText={setSearchQuery} autoFocus />
 
           {searchingServer ? (
-            <ActivityIndicator size="small" color="#808bf5" style={{ marginRight: 8 }} />
+            <ActivityIndicator size="small" color={brand.primary} style={{ marginRight: 8 }} />
           ) : searchQuery.length > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: subColor, fontSize: 12, marginRight: 8 }}>
@@ -1467,7 +1468,7 @@ export default function ChatPaneScreen() {
           }}
           ListHeaderComponent={loadingOlder ? (
             <View style={{ paddingVertical: 12 }}>
-              <ActivityIndicator size="small" color="#808bf5" />
+              <ActivityIndicator size="small" color={brand.primary} />
             </View>
           ) : null}
           ListEmptyComponent={() => (
@@ -1496,8 +1497,8 @@ export default function ChatPaneScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {(replyTo || editingMessage) && (
           <View style={[styles.replyBar, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderTopColor: borderColor }]}>
-            <View style={[styles.replyBarInner, { borderLeftColor: '#808bf5' }]}>
-              <Text style={[styles.replyBarTitle, { color: '#808bf5' }]}>
+            <View style={[styles.replyBarInner, { borderLeftColor: brand.primary }]}>
+              <Text style={[styles.replyBarTitle, { color: brand.primary }]}>
                 {editingMessage ? 'Editing message'
                   : `Replying to ${replyTo?.senderName || replyTo?.sender?.fullname || 'User'}`}
               </Text>
@@ -1568,16 +1569,19 @@ export default function ChatPaneScreen() {
                       try {
                         const uploadRes = await api.post('/api/media/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
                         const url = uploadRes.data.url || uploadRes.data.secure_url;
-                        await api.post(`/api/conversation/${conversationId}/messages`, {
+                        await api.post(`/api/conversation/messages/create`, {
+                          conversationId,
+                          recipientId: !isGroup ? recipientId : undefined,
                           content: '🎤 Voice message',
-                          media: [{ url, type: 'audio', mimeType: 'audio/m4a' }],
+                          mediaUrl: url,
+                          mediaType: 'audio',
                         });
                       } finally {
                         setUploadingMedia(false);
                       }
                     } catch (e: any) { Alert.alert('Error', e.message || 'Failed to send voice note'); }
                   }}
-                  style={{ backgroundColor: '#808bf5', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
+                  style={{ backgroundColor: brand.primary, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
                 >
                   <MaterialCommunityIcons name="send" size={18} color="#fff" />
                 </TouchableOpacity>
@@ -1598,7 +1602,7 @@ export default function ChatPaneScreen() {
               <>
                 <TouchableOpacity onPress={promptAttachment} style={styles.attachBtn} disabled={uploadingMedia}>
                   {uploadingMedia
-                    ? <ActivityIndicator size="small" color="#808bf5" />
+                    ? <ActivityIndicator size="small" color={brand.primary} />
                     : <MaterialCommunityIcons name="paperclip" size={24} color={subColor} />}
                 </TouchableOpacity>
                 <TextInput
@@ -1607,7 +1611,7 @@ export default function ChatPaneScreen() {
                   value={inputText} onChangeText={handleInputChange} multiline maxLength={2000} />
                 {inputText.trim() || pendingMedia.length > 0 ? (
                   <TouchableOpacity onPress={handleSend}
-                    style={[styles.sendBtn, { backgroundColor: '#808bf5' }]}
+                    style={[styles.sendBtn, { backgroundColor: brand.primary }]}
                     disabled={sending || uploadingMedia}>
                     <MaterialCommunityIcons name={editingMessage ? 'check' : 'send'} size={20} color="#fff" />
                   </TouchableOpacity>
@@ -1770,7 +1774,7 @@ export default function ChatPaneScreen() {
                 {selectedStory.user?.profile_picture ? (
                   <Image source={{ uri: selectedStory.user.profile_picture }} style={{ width: 36, height: 36, borderRadius: 18 }} />
                 ) : (
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center' }}>
                     <Text style={{ color: '#fff', fontSize: 13, fontWeight: 'bold' }}>
                       {(selectedStory.user?.fullname || 'U')[0].toUpperCase()}
                     </Text>
@@ -1858,7 +1862,7 @@ const styles = StyleSheet.create({
   headerAvatar: { width: 38, height: 38, borderRadius: 19 },
   headerAvatarFallback: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center'
+    backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center'
   },
   headerAvatarInitial: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   onlineDot: {

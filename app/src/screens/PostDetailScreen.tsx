@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -292,9 +293,9 @@ function PostDetailPage({
             accessibilityLabel={replyingToComment ? 'Send reply' : 'Send comment'}
           >
             {submittingComment ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color={brand.primaryInverse} />
             ) : (
-              <MaterialCommunityIcons name="send" size={20} color={commentText.trim() ? "#ffffff" : subText} />
+              <MaterialCommunityIcons name="send" size={20} color={commentText.trim() ? brand.primaryInverse : subText} />
             )}
           </TouchableOpacity>
         </View>

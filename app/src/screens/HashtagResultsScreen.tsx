@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -95,7 +96,7 @@ export default function HashtagResultsScreen() {
 
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#808bf5" />
+          <ActivityIndicator size="large" color={brand.primary} />
         </View>
       ) : (
         <FlatList
@@ -106,7 +107,7 @@ export default function HashtagResultsScreen() {
           onEndReachedThreshold={0.5}
           ListFooterComponent={loadingMore ? (
             <View style={{ paddingVertical: 16, width: '100%', alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#808bf5" />
+              <ActivityIndicator size="small" color={brand.primary} />
             </View>
           ) : null}
           ListEmptyComponent={

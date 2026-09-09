@@ -1791,7 +1791,13 @@ const ChatPanel = ({
                     const res = await uploadMedia(file, null, { folder: 'chat_audio' });
                     const url = typeof res === 'string' ? res : res?.url;
                     if (url) {
-                        sendMessageMut.mutate({ content: '', mediaUrl: url, mediaType: 'audio' });
+                        sendMessageMut.mutate({ 
+                            conversationId, 
+                            recipientId: activeParticipant?.isGroup ? undefined : participantId,
+                            content: '', 
+                            mediaUrl: url, 
+                            mediaType: 'audio' 
+                        });
                     }
                 } catch (err) {
                     console.error('Audio upload failed', err);

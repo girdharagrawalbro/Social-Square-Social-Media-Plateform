@@ -12,6 +12,7 @@ import ChatScreen from './ChatScreen';
 import ExploreScreen from './ExploreScreen';
 import ProfileScreen from './ProfileScreen';
 import LiveStreamScreen from './LiveStreamScreen';
+import BottomNav from './components/BottomNav';
 import type { AppScreenProps } from '../navigation/types';
 
 const SWIPE_THRESHOLD = 40;
@@ -125,6 +126,8 @@ export default function MainTabsScreen({ navigation }: AppScreenProps<'SocialSqu
       {renderTabSlot('messages', <ChatScreen />)}
       {renderTabSlot('explore', <ExploreScreen navigation={navigation} />)}
       {renderTabSlot('profile', <ProfileScreen navigation={navigation} />)}
+
+      {currentTab !== 'reels' && <BottomNav currentTab={currentTab} navigation={navigation} />}
 
       {/* Full-screen Native Live Stream Overlay */}
       <Modal

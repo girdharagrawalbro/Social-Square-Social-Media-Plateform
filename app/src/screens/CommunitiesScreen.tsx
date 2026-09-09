@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { brand } from '../theme/colors';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +13,8 @@ import {
   Alert,
   ScrollView,
   Image,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api, BASE_URL } from '../lib/api';
@@ -37,24 +40,42 @@ interface Group {
   admins: string[];
 }
 
+// Module-level cache so data survives tab switches and re-visits without re-fetching
+const _cache: {
+  confessions: any[];
+  confessionsNextCursor: string | null;
+  groups: any[];
+  lastFetchedAt: { confessions: number; groups: number };
+} = {
+  confessions: [],
+  confessionsNextCursor: null,
+  groups: [],
+  lastFetchedAt: { confessions: 0, groups: 0 },
+};
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — silently refresh if stale
+
 export default function CommunitiesScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useAppNavigation();
   const user = useAuthStore((s) => s.user);
 
   const [activeTab, setActiveTab] = useState<'confessions' | 'groups'>('confessions');
+  const SCREEN_WIDTH = Dimensions.get('window').width;
+  const tabSlide = useRef(new Animated.Value(0)).current;
+  const isAnimatingTab = useRef(false);
 
   // --- CONFESSIONS STATES ---
-  const [confessions, setConfessions] = useState<any[]>([]);
-  const [loadingConfessions, setLoadingConfessions] = useState(false);
+  // Seed from cache immediately — no blank loading screen on revisit
+  const [confessions, setConfessions] = useState<any[]>(_cache.confessions);
+  const [loadingConfessions, setLoadingConfessions] = useState(_cache.confessions.length === 0);
   const [refreshingConfessions, setRefreshingConfessions] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(_cache.confessionsNextCursor);
   const [hasMoreConfessions, setHasMoreConfessions] = useState(true);
   const [confessionsError, setConfessionsError] = useState(false);
 
   // --- GROUPS STATES ---
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groups, setGroups] = useState<Group[]>(_cache.groups);
+  const [loadingGroups, setLoadingGroups] = useState(_cache.groups.length === 0);
   const [groupsError, setGroupsError] = useState(false);
   const [groupSearch, setGroupSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -75,10 +96,10 @@ export default function CommunitiesScreen() {
 
   // --- FETCH CONFESSIONS ---
   const fetchConfessions = async (isRefresh = false) => {
-    if (loadingConfessions) return;
+    if (loadingConfessions && !isRefresh) return;
     if (isRefresh) {
       setRefreshingConfessions(true);
-    } else {
+    } else if (_cache.confessions.length === 0) {
       setLoadingConfessions(true);
     }
 
@@ -90,9 +111,14 @@ export default function CommunitiesScreen() {
 
       if (isRefresh) {
         setConfessions(posts);
+        _cache.confessions = posts;
       } else {
-        setConfessions((prev) => [...prev, ...posts]);
+        const merged = [..._cache.confessions, ...posts];
+        setConfessions(merged);
+        _cache.confessions = merged;
       }
+      _cache.confessionsNextCursor = cursor;
+      _cache.lastFetchedAt.confessions = Date.now();
       setNextCursor(cursor);
       setHasMoreConfessions(!!cursor);
       setConfessionsError(false);
@@ -106,11 +132,16 @@ export default function CommunitiesScreen() {
   };
 
   // --- FETCH GROUPS ---
-  const fetchGroups = async () => {
-    setLoadingGroups(true);
+  const fetchGroups = async (force = false) => {
+    const isStale = Date.now() - _cache.lastFetchedAt.groups > CACHE_TTL_MS;
+    if (!force && !isStale && _cache.groups.length > 0) return; // use cache
+    if (_cache.groups.length === 0) setLoadingGroups(true);
     try {
       const res = await api.get('/api/group/all');
-      setGroups(res.data || []);
+      const data = res.data || [];
+      setGroups(data);
+      _cache.groups = data;
+      _cache.lastFetchedAt.groups = Date.now();
       setGroupsError(false);
     } catch (err) {
       console.warn('Failed to fetch groups:', err);
@@ -120,17 +151,28 @@ export default function CommunitiesScreen() {
     }
   };
 
-  // Initial load
+  // Initial load — only fetch if cache is empty or stale
   useEffect(() => {
-    fetchConfessions(true);
-    fetchGroups();
+    const confessionsStale = Date.now() - _cache.lastFetchedAt.confessions > CACHE_TTL_MS;
+    const groupsStale = Date.now() - _cache.lastFetchedAt.groups > CACHE_TTL_MS;
+    if (_cache.confessions.length === 0 || confessionsStale) fetchConfessions(true);
+    if (_cache.groups.length === 0 || groupsStale) fetchGroups();
   }, []);
 
   const handleTabChange = (tab: 'confessions' | 'groups') => {
+    if (isAnimatingTab.current || tab === activeTab) return;
+    isAnimatingTab.current = true;
+    Animated.spring(tabSlide, {
+      toValue: tab === 'groups' ? -SCREEN_WIDTH : 0,
+      useNativeDriver: true,
+      damping: 20,
+      stiffness: 150,
+    }).start(() => { isAnimatingTab.current = false; });
     setActiveTab(tab);
-    if (tab === 'confessions' && confessions.length === 0) {
+    // Only fetch if cache is empty — tab content is already mounted
+    if (tab === 'confessions' && _cache.confessions.length === 0) {
       fetchConfessions(true);
-    } else if (tab === 'groups') {
+    } else if (tab === 'groups' && _cache.groups.length === 0) {
       fetchGroups();
     }
   };
@@ -296,7 +338,7 @@ export default function CommunitiesScreen() {
         onEndReachedThreshold={0.4}
         ListFooterComponent={
           loadingConfessions ? (
-            <ActivityIndicator size="small" color="#808bf5" style={{ marginVertical: 20 }} />
+            <ActivityIndicator size="small" color={brand.primary} style={{ marginVertical: 20 }} />
           ) : null
         }
         ListEmptyComponent={
@@ -496,7 +538,7 @@ export default function CommunitiesScreen() {
                   disabled={!newWip.trim() || submittingCheckin}
                 >
                   {submittingCheckin ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
+                    <ActivityIndicator size="small" color={brand.primaryInverse} />
                   ) : (
                     <Text style={styles.checkinSubmitBtnText}>Submit WIP</Text>
                   )}
@@ -531,7 +573,7 @@ export default function CommunitiesScreen() {
                               style={[styles.checkinCompleteBtn, togglingCheckinId === c._id && { opacity: 0.6 }]}
                             >
                               {togglingCheckinId === c._id ? (
-                                <ActivityIndicator size="small" color="#ffffff" />
+                                <ActivityIndicator size="small" color={brand.primaryInverse} />
                               ) : (
                                 <Text style={styles.checkinCompleteBtnText}>Mark Completed</Text>
                               )}
@@ -552,7 +594,7 @@ export default function CommunitiesScreen() {
               Community Feed
             </Text>
             {loadingGroupDetails ? (
-              <ActivityIndicator color="#808bf5" style={{ marginVertical: 20 }} />
+              <ActivityIndicator color={brand.primary} style={{ marginVertical: 20 }} />
             ) : groupPosts.length === 0 ? (
               <View style={styles.emptyFeed}>
                 <MaterialCommunityIcons name="image-outline" size={32} color={subText} />
@@ -591,7 +633,7 @@ export default function CommunitiesScreen() {
       {selectedGroup === null && (
         <View style={[styles.tabSelectorRow, { borderBottomColor: border }]}>
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'confessions' && [styles.activeTabBtn, { borderBottomColor: '#808bf5' }]]}
+            style={[styles.tabBtn, activeTab === 'confessions' && [styles.activeTabBtn, { borderBottomColor: brand.primary }]]}
             onPress={() => handleTabChange('confessions')}
           >
             <Text style={[styles.tabText, activeTab === 'confessions' ? styles.activeTabText : { color: subText }]}>
@@ -600,7 +642,7 @@ export default function CommunitiesScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'groups' && [styles.activeTabBtn, { borderBottomColor: '#808bf5' }]]}
+            style={[styles.tabBtn, activeTab === 'groups' && [styles.activeTabBtn, { borderBottomColor: brand.primary }]]}
             onPress={() => handleTabChange('groups')}
           >
             <Text style={[styles.tabText, activeTab === 'groups' ? styles.activeTabText : { color: subText }]}>
@@ -610,9 +652,19 @@ export default function CommunitiesScreen() {
         </View>
       )}
 
-      {/* Tab Contents */}
-      <View style={{ flex: 1 }}>
-        {activeTab === 'confessions' ? renderConfessionsTab() : renderGroupsTab()}
+      {/* Tab Contents — horizontal slide pager */}
+      <View style={{ flex: 1, overflow: 'hidden' }}>
+        <Animated.View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            width: SCREEN_WIDTH * 2,
+            transform: [{ translateX: tabSlide }],
+          }}
+        >
+          <View style={{ width: SCREEN_WIDTH, flex: 1 }}>{renderConfessionsTab()}</View>
+          <View style={{ width: SCREEN_WIDTH, flex: 1 }}>{renderGroupsTab()}</View>
+        </Animated.View>
       </View>
     </SafeAreaView>
   );
@@ -657,7 +709,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   activeTabText: {
-    color: '#808bf5',
+    color: brand.primary,
   },
   postWrapper: {
     marginBottom: 8,
@@ -769,13 +821,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   joinBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
   },
   joinBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -861,7 +913,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   checkinSubmitBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     height: 40,
     paddingHorizontal: 16,
     borderRadius: 12,
@@ -869,7 +921,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkinSubmitBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -918,7 +970,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   checkinCompleteBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 11,
     fontWeight: 'bold',
   },

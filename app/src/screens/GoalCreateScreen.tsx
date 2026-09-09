@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState } from 'react';
 import {
   View,
@@ -119,7 +120,7 @@ export default function GoalCreateScreen({ navigation }: AppScreenProps<'GoalCre
             <MaterialCommunityIcons 
               name={isPrivate ? "toggle-switch" : "toggle-switch-off-outline"} 
               size={40} 
-              color={isPrivate ? '#808bf5' : subText} 
+              color={isPrivate ? brand.primary : subText} 
             />
           </TouchableOpacity>
 
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
   toggleTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
   toggleDesc: { fontSize: 13 },
   submitBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     height: 50,
     borderRadius: 25,
     justifyContent: 'center',
@@ -183,5 +184,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 40,
   },
-  submitBtnText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  submitBtnText: { color: brand.primaryInverse, fontSize: 16, fontWeight: 'bold' },
 });

@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -191,7 +192,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
             fontWeight: 'bold',
             textAlign: 'center',
             marginBottom: 20,
-            color: expiryCountdown !== null && expiryCountdown <= 60 ? '#ef4444' : '#808bf5',
+            color: expiryCountdown !== null && expiryCountdown <= 60 ? '#ef4444' : brand.primary,
           }}>
             {expiryCountdown === null
               ? 'Checking expiry...'
@@ -209,7 +210,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
                   styles.otpInput,
                   {
                     backgroundColor: inputBg,
-                    borderColor: digit ? '#808bf5' : inputBorder,
+                    borderColor: digit ? brand.primary : inputBorder,
                     color: textColor,
                   },
                 ]}
@@ -225,7 +226,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
             {loading ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={brand.primaryInverse} />
             ) : (
               <Text style={styles.submitBtnText}>Verify</Text>
             )}
@@ -233,7 +234,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
 
           <View style={styles.resendRow}>
             {countdown === null ? (
-              <ActivityIndicator size="small" color="#808bf5" />
+              <ActivityIndicator size="small" color={brand.primary} />
             ) : countdown > 0 ? (
               <Text style={{ color: subText }}>
                 Resend code in <Text style={{ fontWeight: 'bold' }}>{countdown}s</Text>
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: height * 0.5,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderBottomLeftRadius: width * 0.1,
     borderBottomRightRadius: width * 0.1,
   },
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   submitBtn: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: brand.primaryDark,
     height: 48,
     borderRadius: 8,
     justifyContent: 'center',
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   submitBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   resendText: {
-    color: '#808bf5',
+    color: brand.primary,
     fontWeight: 'bold',
   },
 });

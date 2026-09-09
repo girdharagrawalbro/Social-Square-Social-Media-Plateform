@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState } from 'react';
 import {
   View,
@@ -74,7 +75,7 @@ export default function ContactScreen({ navigation }: AppScreenProps<'Contact'>)
         <ScrollView style={styles.content}>
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-              <MaterialCommunityIcons name="lifebuoy" size={24} color="#808bf5" />
+              <MaterialCommunityIcons name="lifebuoy" size={24} color={brand.primary} />
               <Text style={[styles.cardTitle, { color: textColor, marginLeft: 10 }]}>
                 Contact Us
               </Text>
@@ -160,12 +161,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   submitBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     height: 48,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 10,
   },
-  submitBtnText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  submitBtnText: { color: brand.primaryInverse, fontSize: 16, fontWeight: 'bold' },
 });

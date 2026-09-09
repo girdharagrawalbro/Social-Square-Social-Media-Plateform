@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -25,7 +26,6 @@ import { api } from '../lib/api';
 import { appChannel } from '../lib/broadcast';
 import useAuthStore from '../store/zustand/useAuthStore';
 import { useTabStore } from '../store/zustand/useTabStore';
-import BottomNav from './components/BottomNav';
 import type { TabOrStackScreenProps } from '../navigation/types';
 import { useTheme } from '../theme';
 
@@ -261,7 +261,7 @@ export default function SocialSquareScreen({ navigation }: TabOrStackScreenProps
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.headerLogo}>Social Square</Text>
+        <Text style={[styles.headerLogo, { color: textColor }]}>Social Square</Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity
@@ -269,7 +269,7 @@ export default function SocialSquareScreen({ navigation }: TabOrStackScreenProps
             accessibilityRole="button"
             accessibilityLabel="Open AI chatbot"
           >
-            <MaterialCommunityIcons name="robot-outline" size={24} color="#808bf5" />
+            <MaterialCommunityIcons name="robot-outline" size={24} color={textColor} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('Notifications')}
@@ -282,7 +282,7 @@ export default function SocialSquareScreen({ navigation }: TabOrStackScreenProps
                   <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
                 </View>
               )}
-              <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
+              <MaterialCommunityIcons name="bell-outline" size={24} color={textColor} />
             </View>
           </TouchableOpacity>
         </View>
@@ -309,12 +309,12 @@ export default function SocialSquareScreen({ navigation }: TabOrStackScreenProps
             <StoriesStrip />
           }
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} colors={['#808bf5']} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => fetchFeed(true)} colors={[brand.primary]} />
           }
           onEndReached={fetchMoreFeed}
           onEndReachedThreshold={0.5}
           ListFooterComponent={loadingMore ? (
-            <ActivityIndicator size="small" color="#808bf5" style={styles.loader} />
+            <ActivityIndicator size="small" color={brand.primary} style={styles.loader} />
           ) : null}
           ListEmptyComponent={
             <View style={styles.emptyView}>
@@ -338,12 +338,11 @@ export default function SocialSquareScreen({ navigation }: TabOrStackScreenProps
           skeleton/full-reload feeling this replaces is handled by feedFade above. */}
       {isMoodSwitching && (
         <View pointerEvents="none" style={styles.moodSwitchPill}>
-          <ActivityIndicator size="small" color="#ffffff" />
+          <ActivityIndicator size="small" color={brand.primaryInverse} />
           <Text style={styles.moodSwitchPillText}>Updating feed…</Text>
         </View>
       )}
 
-      <BottomNav currentTab="feed" navigation={navigation} />
     </SafeAreaView>
   );
 }
@@ -363,7 +362,6 @@ const styles = StyleSheet.create({
   headerLogo: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#808bf5',
     letterSpacing: -0.5,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium',
   },

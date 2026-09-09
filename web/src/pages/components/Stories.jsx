@@ -2809,7 +2809,7 @@ const Stories = () => {
                         const host = stream.host;
                         if (!host) return null;
                         return (
-                            <div key={stream._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(stream._id, false)}>
+                            <div key={stream._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} onClick={() => setLiveStream(stream._id, loggeduser?._id === stream.host?._id)}>
                                 <div style={{ position: 'relative', width: storySize, height: storySize }}>
                                     <div
                                         style={{

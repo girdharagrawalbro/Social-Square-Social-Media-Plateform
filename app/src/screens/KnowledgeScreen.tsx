@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,7 +11,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import BottomNav from './components/BottomNav';
 import { api } from '../lib/api';
 import { EmptyState, ErrorState } from './components/EmptyState';
 import type { AppScreenProps } from '../navigation/types';
@@ -73,13 +73,13 @@ export default function KnowledgeScreen({ navigation }: AppScreenProps<'Knowledg
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchWikis(true)} colors={['#808bf5']} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchWikis(true)} colors={[brand.primary]} />
         }
       >
         <Text style={[styles.sectionTitle, { color: textColor }]}>Wiki & Help Articles</Text>
 
         {loading && wikis.length === 0 ? (
-          <ActivityIndicator color="#808bf5" style={{ marginTop: 40 }} />
+          <ActivityIndicator color={brand.primary} style={{ marginTop: 40 }} />
         ) : loadError && wikis.length === 0 ? (
           <ErrorState
             title="Couldn't load articles"
@@ -98,7 +98,7 @@ export default function KnowledgeScreen({ navigation }: AppScreenProps<'Knowledg
             >
               <View style={styles.cardInfo}>
                 <View style={styles.iconContainer}>
-                  <MaterialCommunityIcons name="book-open-page-variant" size={24} color="#808bf5" />
+                  <MaterialCommunityIcons name="book-open-page-variant" size={24} color={brand.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.categoryTitle, { color: textColor }]}>{wiki.topic}</Text>
@@ -117,7 +117,6 @@ export default function KnowledgeScreen({ navigation }: AppScreenProps<'Knowledg
         )}
       </ScrollView>
 
-      <BottomNav currentTab="knowledge" navigation={navigation} />
     </SafeAreaView>
   );
 }

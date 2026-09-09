@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -23,7 +24,6 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import useAuthStore from '../store/zustand/useAuthStore';
-import BottomNav from './components/BottomNav';
 import { api, BASE_URL } from '../lib/api';
 import { getCache, setCache, invalidateCache, TTL } from '../lib/cache';
 import { appChannel } from '../lib/broadcast';
@@ -275,14 +275,14 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
     return parts.map((part, i) => {
       if (part.startsWith('@') && part.length > 1) {
         return (
-          <Text key={i} style={{ color: '#808bf5', fontWeight: '600' }} onPress={() => handleMentionPress(part.slice(1))}>
+          <Text key={i} style={{ color: brand.primary, fontWeight: '600' }} onPress={() => handleMentionPress(part.slice(1))}>
             {part}
           </Text>
         );
       }
       if (part.startsWith('#') && part.length > 1) {
         return (
-          <Text key={i} style={{ color: '#808bf5', fontWeight: '600' }} onPress={() => navigation.navigate('HashtagResults', { tag: part })}>
+          <Text key={i} style={{ color: brand.primary, fontWeight: '600' }} onPress={() => navigation.navigate('HashtagResults', { tag: part })}>
             {part}
           </Text>
         );
@@ -447,7 +447,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
   const border = colors.border;
   const textColor = colors.text.primary;
   const subText = colors.text.secondary;
-  const primaryColor = '#808bf5';
+  const primaryColor = brand.primary;
 
   const resolveMediaUrl = (url?: string) => {
     if (!url) return undefined;
@@ -515,7 +515,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 20,
-                backgroundColor: activeTab === tab.key ? '#808bf5' : (isDark ? '#1e293b' : '#f1f5f9'),
+                backgroundColor: activeTab === tab.key ? brand.primary : (isDark ? '#1e293b' : '#f1f5f9'),
                 marginHorizontal: 4,
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -525,7 +525,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
               <MaterialCommunityIcons
                 name={tab.icon}
                 size={16}
-                color={activeTab === tab.key ? '#ffffff' : subText}
+                color={activeTab === tab.key ? brand.primaryInverse : subText}
               />
             </TouchableOpacity>
           ))}
@@ -535,7 +535,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
   };
 
   const renderGoals = () => {
-    if (loadingTab) return <ActivityIndicator color="#808bf5" style={{ marginVertical: 40 }} />;
+    if (loadingTab) return <ActivityIndicator color={brand.primary} style={{ marginVertical: 40 }} />;
     if (goals.length === 0) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 40 }}>
@@ -544,7 +544,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
           {isOwner && (
             <TouchableOpacity 
               onPress={() => navigation.navigate('GoalCreate')}
-              style={{ backgroundColor: '#808bf5', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
+              style={{ backgroundColor: brand.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
             >
               <Text style={{ color: '#fff', fontWeight: 'bold' }}>Create Goal</Text>
             </TouchableOpacity>
@@ -559,8 +559,8 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
             onPress={() => navigation.navigate('GoalCreate')}
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: cardBg, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: border, borderStyle: 'dashed' }}
           >
-            <MaterialCommunityIcons name="plus" size={24} color="#808bf5" />
-            <Text style={{ color: '#808bf5', fontWeight: 'bold', marginLeft: 8 }}>Create New Goal</Text>
+            <MaterialCommunityIcons name="plus" size={24} color={brand.primary} />
+            <Text style={{ color: brand.primary, fontWeight: 'bold', marginLeft: 8 }}>Create New Goal</Text>
           </TouchableOpacity>
         )}
         {goals.map((g: any) => {
@@ -572,7 +572,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <Text style={{ fontSize: 16, fontWeight: 'bold', color: textColor, flex: 1, marginRight: 8 }}>{g.title}</Text>
                 <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
-                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase' }}>{g.category || 'General'}</Text>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: brand.primary, textTransform: 'uppercase' }}>{g.category || 'General'}</Text>
                 </View>
               </View>
               <Text style={{ fontSize: 13, color: subText, marginBottom: 12 }}>{g.description}</Text>
@@ -581,10 +581,10 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                 <View style={{ marginBottom: 12 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                     <Text style={{ fontSize: 11, fontWeight: '600', color: subText }}>Progress</Text>
-                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#808bf5' }}>{completedMilestones}/{totalMilestones}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: brand.primary }}>{completedMilestones}/{totalMilestones}</Text>
                   </View>
                   <View style={{ height: 6, backgroundColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
-                    <View style={{ height: '100%', width: `${progress * 100}%`, backgroundColor: '#808bf5' }} />
+                    <View style={{ height: '100%', width: `${progress * 100}%`, backgroundColor: brand.primary }} />
                   </View>
                 </View>
               )}
@@ -611,7 +611,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
   };
 
   const renderGraveyard = () => {
-    if (loadingTab) return <ActivityIndicator color="#808bf5" style={{ marginVertical: 40 }} />;
+    if (loadingTab) return <ActivityIndicator color={brand.primary} style={{ marginVertical: 40 }} />;
     if (graveyardIdeas.length === 0) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 40 }}>
@@ -648,7 +648,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
   };
 
   const renderCollabs = () => {
-    if (loadingTab) return <ActivityIndicator color="#808bf5" style={{ marginVertical: 40 }} />;
+    if (loadingTab) return <ActivityIndicator color={brand.primary} style={{ marginVertical: 40 }} />;
     if (collabInvites.length === 0) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 40 }}>
@@ -665,13 +665,13 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
               <Image source={{ uri: invite.sender?.profile_picture || 'https://via.placeholder.com/150' }} style={{ width: 36, height: 36, borderRadius: 18 }} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: textColor }}>{invite.sender?.fullname}</Text>
-                <Text style={{ fontSize: 11, color: '#808bf5' }}>@{invite.sender?.username}</Text>
+                <Text style={{ fontSize: 11, color: brand.primary }}>@{invite.sender?.username}</Text>
               </View>
             </View>
             <Text style={{ fontSize: 13, color: textColor, marginBottom: 12 }}>Invited you to collaborate on their post.</Text>
 
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }}>
+              <TouchableOpacity style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center' }}>
                 <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#ffffff' }}>Accept</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: isDark ? '#1e293b' : '#e2e8f0', borderWidth: 1, borderColor: border, justifyContent: 'center', alignItems: 'center' }}>
@@ -685,7 +685,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
   };
 
   const renderAnalytics = () => {
-    if (loadingTab) return <ActivityIndicator color="#808bf5" style={{ marginVertical: 40 }} />;
+    if (loadingTab) return <ActivityIndicator color={brand.primary} style={{ marginVertical: 40 }} />;
     if (!analyticsData) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 40 }}>
@@ -705,7 +705,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
             { label: 'Content Shared', value: stats?.totalPosts || 0, icon: 'image-multiple' },
           ].map((item, idx) => (
             <View key={idx} style={{ width: (width - 42) / 2, padding: 16, borderRadius: 16, backgroundColor: cardBg, borderWidth: 1, borderColor: border, marginBottom: 12 }}>
-              <MaterialCommunityIcons name={item.icon as any} size={20} color="#808bf5" style={{ marginBottom: 8 }} />
+              <MaterialCommunityIcons name={item.icon as any} size={20} color={brand.primary} style={{ marginBottom: 8 }} />
               <Text style={{ fontSize: 18, fontWeight: 'bold', color: textColor }}>{item.value}</Text>
               <Text style={{ fontSize: 11, color: subText, marginTop: 2 }}>{item.label}</Text>
             </View>
@@ -768,7 +768,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                     <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
                   </View>
                 )}
-                <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
+                <MaterialCommunityIcons name="bell-outline" size={24} color={brand.primary} />
               </View>
             </TouchableOpacity>
 
@@ -834,7 +834,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                 {/* Level / Streak / XP Row */}
                 <View style={[styles.gamificationRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8f9fe', borderColor: border }]}>
                   <View style={[styles.gamifyBadge]}>
-                    <Text style={[styles.gamifyVal, { color: '#808bf5' }]}>{profileData?.level || 1}</Text>
+                    <Text style={[styles.gamifyVal, { color: brand.primary }]}>{profileData?.level || 1}</Text>
                     <Text style={styles.gamifyLabel}>LEVEL</Text>
                   </View>
                   <View style={styles.gamifyDivider} />
@@ -888,7 +888,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                         borderRadius: 12,
                         justifyContent: 'center',
                         alignItems: 'center',
-                        backgroundColor: isFollowing ? (isDark ? '#1e293b' : '#e2e8f0') : '#808bf5',
+                        backgroundColor: isFollowing ? (isDark ? '#1e293b' : '#e2e8f0') : brand.primary,
                         borderWidth: isFollowing ? 1 : 0,
                         borderColor: border
                       }}
@@ -952,7 +952,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                         borderRadius: 12,
                         justifyContent: 'center',
                         alignItems: 'center',
-                        backgroundColor: '#808bf5',
+                        backgroundColor: brand.primary,
                       }}
                     >
                       <Text style={{ fontSize: 13, color: '#ffffff', fontWeight: 'bold' }}>
@@ -989,7 +989,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: showGraph ? 12 : 0 }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <MaterialCommunityIcons name="calendar-month" size={16} color="#808bf5" />
+                    <MaterialCommunityIcons name="calendar-month" size={16} color={brand.primary} />
                     <Text style={[styles.consistencyTitle, { color: textColor }]}>CONSISTENCY GRAPH</Text>
                   </View>
                   <MaterialCommunityIcons
@@ -1015,7 +1015,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                               let cellBg = isDark ? '#1e293b' : '#e2e8f0';
                               if (count === 1) cellBg = 'rgba(128, 139, 245, 0.35)';
                               else if (count === 2) cellBg = 'rgba(128, 139, 245, 0.65)';
-                              else if (count > 2) cellBg = '#808bf5';
+                              else if (count > 2) cellBg = brand.primary;
 
                               return (
                                 <View
@@ -1040,7 +1040,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                       <View style={[styles.legendSwatch, { backgroundColor: isDark ? '#1e293b' : '#e2e8f0' }]} />
                       <View style={[styles.legendSwatch, { backgroundColor: 'rgba(128, 139, 245, 0.35)' }]} />
                       <View style={[styles.legendSwatch, { backgroundColor: 'rgba(128, 139, 245, 0.65)' }]} />
-                      <View style={[styles.legendSwatch, { backgroundColor: '#808bf5' }]} />
+                      <View style={[styles.legendSwatch, { backgroundColor: brand.primary }]} />
                       <Text style={[styles.legendLabel, { color: subText }]}>More</Text>
                     </View>
 
@@ -1157,8 +1157,8 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={['#808bf5']}
-              tintColor={'#808bf5'}
+              colors={[brand.primary]}
+              tintColor={brand.primary}
             />
           }
         />
@@ -1195,7 +1195,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                       position: 'absolute',
                       bottom: 0,
                       right: 0,
-                      backgroundColor: '#808bf5',
+                      backgroundColor: brand.primary,
                       borderRadius: 15,
                       width: 30,
                       height: 30,
@@ -1206,7 +1206,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                     }}
                   >
                     {uploadingPic ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
+                      <ActivityIndicator size="small" color={brand.primaryInverse} />
                     ) : (
                       <MaterialCommunityIcons name="camera-outline" size={16} color="#ffffff" />
                     )}
@@ -1218,7 +1218,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                   disabled={uploadingPic}
                   style={{ marginTop: 8 }}
                 >
-                  <Text style={{ fontSize: 13, color: '#808bf5', fontWeight: '600' }}>
+                  <Text style={{ fontSize: 13, color: brand.primary, fontWeight: '600' }}>
                     {uploadingPic ? 'Uploading photo...' : 'Change profile photo'}
                   </Text>
                 </TouchableOpacity>
@@ -1297,7 +1297,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                 <Switch
                   value={isPrivateInput}
                   onValueChange={setIsPrivateInput}
-                  trackColor={{ false: border, true: '#808bf5' }}
+                  trackColor={{ false: border, true: brand.primary }}
                   thumbColor={'#ffffff'}
                 />
               </View>
@@ -1310,7 +1310,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                 disabled={savingProfile}
               >
                 {savingProfile ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  <ActivityIndicator size="small" color={brand.primaryInverse} />
                 ) : (
                   <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Save Changes</Text>
                 )}
@@ -1355,11 +1355,11 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                       backgroundColor: isSelected ? (isDark ? 'rgba(128, 139, 245, 0.2)' : '#f0f2fe') : 'transparent',
                     }}
                   >
-                    <Text style={{ fontSize: 14, color: isSelected ? '#808bf5' : textColor, fontWeight: isSelected ? 'bold' : '500' }}>
+                    <Text style={{ fontSize: 14, color: isSelected ? brand.primary : textColor, fontWeight: isSelected ? 'bold' : '500' }}>
                       {m.emoji ? `${m.emoji} ` : ''}{m.label}
                     </Text>
                     {isSelected && (
-                      <MaterialCommunityIcons name="check" size={20} color="#808bf5" />
+                      <MaterialCommunityIcons name="check" size={20} color={brand.primary} />
                     )}
                   </TouchableOpacity>
                 );
@@ -1387,7 +1387,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
             </View>
 
             {loadingFollows ? (
-              <ActivityIndicator size="large" color="#808bf5" style={{ padding: 40 }} />
+              <ActivityIndicator size="large" color={brand.primary} style={{ padding: 40 }} />
             ) : followsList.length === 0 ? (
               <View style={{ padding: 40, alignItems: 'center' }}>
                 <MaterialCommunityIcons name="account-group-outline" size={48} color={subText} />
@@ -1469,7 +1469,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                   <MaterialCommunityIcons
                     name={isDark ? 'weather-sunny' : 'weather-night'}
                     size={22}
-                    color={isDark ? '#eab308' : '#808bf5'}
+                    color={isDark ? '#eab308' : brand.primary}
                   />
                 </View>
                 <View style={styles.settingsTextWrapper}>
@@ -1580,7 +1580,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                 }}
               >
                 <View style={styles.settingsIconWrapper}>
-                  <MaterialCommunityIcons name="book-open" size={22} color="#808bf5" />
+                  <MaterialCommunityIcons name="book-open" size={22} color={brand.primary} />
                 </View>
                 <View style={styles.settingsTextWrapper}>
                   <Text style={[styles.settingsRowTitle, { color: textColor }]}>Knowledge Center</Text>
@@ -1616,7 +1616,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                 }}
               >
                 <View style={styles.settingsIconWrapper}>
-                  <MaterialCommunityIcons name="chart-bar" size={22} color="#808bf5" />
+                  <MaterialCommunityIcons name="chart-bar" size={22} color={brand.primary} />
                 </View>
                 <View style={styles.settingsTextWrapper}>
                   <Text style={[styles.settingsRowTitle, { color: textColor }]}>Creator Insights</Text>
@@ -1654,7 +1654,6 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
         </View>
       </Modal>
 
-      {isOwner && <BottomNav currentTab="profile" navigation={navigation} />}
     </SafeAreaView>
   );
 }
@@ -1790,7 +1789,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     width: 28,
     height: 28,
     borderRadius: 14,

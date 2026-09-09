@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -84,7 +85,7 @@ export default function NotificationSettingsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: bg, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#808bf5" />
+        <ActivityIndicator size="large" color={brand.primary} />
         <Text style={{ marginTop: 12, color: subColor, fontSize: 13, fontWeight: '600' }}>
           Loading Preferences...
         </Text>
@@ -105,7 +106,7 @@ export default function NotificationSettingsScreen() {
     return (
       <View style={[styles.row, { borderColor }]}>
         <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name={icon} size={24} color="#808bf5" />
+          <MaterialCommunityIcons name={icon} size={24} color={brand.primary} />
         </View>
         <View style={styles.textContainer}>
           <Text style={[styles.title, { color: textColor }]}>{title}</Text>
@@ -115,7 +116,7 @@ export default function NotificationSettingsScreen() {
           value={isChecked}
           onValueChange={() => handleToggle(key, title, isDefaultTrue)}
           disabled={isPending}
-          thumbColor={isChecked ? '#808bf5' : '#f4f3f4'}
+          thumbColor={isChecked ? brand.primary : '#f4f3f4'}
           trackColor={{ false: '#767577', true: 'rgba(128, 139, 245, 0.4)' }}
         />
       </View>

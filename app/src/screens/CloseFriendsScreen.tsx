@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -139,7 +140,7 @@ export default function CloseFriendsScreen() {
               {item.fullname}
             </Text>
             {item.username && (
-              <Text style={[styles.username, { color: '#808bf5' }]} numberOfLines={1}>
+              <Text style={[styles.username, { color: brand.primary }]} numberOfLines={1}>
                 @{item.username}
               </Text>
             )}
@@ -197,7 +198,7 @@ export default function CloseFriendsScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator size="large" color="#808bf5" style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={brand.primary} style={{ marginTop: 40 }} />
           ) : (
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="star-outline" size={48} color={subColor} />

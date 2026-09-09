@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -95,11 +96,11 @@ export default function SaveAsNoteModal({ visible, post, onClose, onSaved }: Sav
               onPress={() => setType('note')}
               style={[
                 styles.toggleBtn,
-                { borderColor: type === 'note' ? '#808bf5' : border },
+                { borderColor: type === 'note' ? brand.primary : border },
                 type === 'note' && { backgroundColor: 'rgba(128,139,245,0.1)' },
               ]}
             >
-              <Text style={[styles.toggleText, { color: type === 'note' ? '#808bf5' : textColor }]}>📝 Note</Text>
+              <Text style={[styles.toggleText, { color: type === 'note' ? brand.primary : textColor }]}>📝 Note</Text>
               <Text style={[styles.toggleDesc, { color: subText }]}>Quick reference</Text>
             </TouchableOpacity>
 
@@ -107,11 +108,11 @@ export default function SaveAsNoteModal({ visible, post, onClose, onSaved }: Sav
               onPress={() => setType('learning')}
               style={[
                 styles.toggleBtn,
-                { borderColor: type === 'learning' ? '#808bf5' : border },
+                { borderColor: type === 'learning' ? brand.primary : border },
                 type === 'learning' && { backgroundColor: 'rgba(128,139,245,0.1)' },
               ]}
             >
-              <Text style={[styles.toggleText, { color: type === 'learning' ? '#808bf5' : textColor }]}>🎓 Learning</Text>
+              <Text style={[styles.toggleText, { color: type === 'learning' ? brand.primary : textColor }]}>🎓 Learning</Text>
               <Text style={[styles.toggleDesc, { color: subText }]}>Deep insight</Text>
             </TouchableOpacity>
           </View>
@@ -137,7 +138,7 @@ export default function SaveAsNoteModal({ visible, post, onClose, onSaved }: Sav
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSave} disabled={loading} style={[styles.actionBtn, styles.saveBtn]}>
               {loading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={brand.primaryInverse} />
               ) : (
                 <Text style={styles.saveBtnText}>Save</Text>
               )}
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   saveBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
   },
   actionBtnText: {
     fontSize: 14,
@@ -266,6 +267,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: brand.primaryInverse,
   },
 });

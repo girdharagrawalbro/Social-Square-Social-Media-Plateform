@@ -144,6 +144,8 @@ const UserSchema = new mongoose.Schema({
   deletionAppealText: { type: String, default: null },
 
   deletedAt: { type: Date, default: null },
+  fcmToken: { type: String, default: null }, // Firebase Cloud Messaging token for push notifications
+  webPushSubscription: { type: mongoose.Schema.Types.Mixed, default: null }, // Browser Web Push API subscription object
   created_at: { type: Date, default: Date.now },
 });
 

@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Modal,
@@ -130,7 +131,7 @@ export default function ImageCropperModal({
             Crop {mediaType === 'video' ? 'Video' : 'Image'}
           </Text>
           <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
-            <MaterialCommunityIcons name="check" size={24} color="#808bf5" />
+            <MaterialCommunityIcons name="check" size={24} color={brand.primary} />
           </TouchableOpacity>
         </View>
 
@@ -141,7 +142,7 @@ export default function ImageCropperModal({
               styles.cropBox,
               {
                 height: getCropBoxHeight(),
-                borderColor: '#808bf5',
+                borderColor: brand.primary,
               },
             ]}
           >
@@ -178,7 +179,7 @@ export default function ImageCropperModal({
                 onPress={() => setAspectRatio(ratio)}
                 style={[
                   styles.ratioBtn,
-                  isSelected && { backgroundColor: 'rgba(128, 139, 245, 0.15)', borderColor: '#808bf5' },
+                  isSelected && { backgroundColor: 'rgba(128, 139, 245, 0.15)', borderColor: brand.primary },
                 ]}
               >
                 <Text style={[styles.ratioText, { color: isSelected ? colors.primary : colors.text.secondary }]}>

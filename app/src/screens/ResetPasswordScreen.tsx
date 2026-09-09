@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState } from 'react';
 import {
   View,
@@ -121,7 +122,7 @@ export default function ResetPasswordScreen({ route, navigation }: AppScreenProp
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleReset} disabled={loading}>
             {loading ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={brand.primaryInverse} />
             ) : (
               <Text style={styles.submitBtnText}>Reset Password</Text>
             )}
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: height * 0.5,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderBottomLeftRadius: width * 0.1,
     borderBottomRightRadius: width * 0.1,
   },
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
     marginBottom: 6,
   },
   subTitle: {
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   submitBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     height: 48,
     borderRadius: 8,
     justifyContent: 'center',
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   submitBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontWeight: 'bold',
     fontSize: 15,
   },

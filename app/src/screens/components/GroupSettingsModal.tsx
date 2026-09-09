@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, FlatList, Image, ActivityIndicator, Alert } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -138,7 +139,7 @@ export default function GroupSettingsModal({
           </View>
 
           {loading ? (
-            <ActivityIndicator color="#808bf5" style={{ padding: 40 }} />
+            <ActivityIndicator color={brand.primary} style={{ padding: 40 }} />
           ) : !group ? (
             <Text style={{ color: subColor, padding: 20, textAlign: 'center' }}>Group not found.</Text>
           ) : (
@@ -157,8 +158,8 @@ export default function GroupSettingsModal({
                       placeholderTextColor={subColor}
                     />
                     {groupName !== group.groupName && (
-                      <TouchableOpacity onPress={handleUpdateName} disabled={savingName} style={{ backgroundColor: '#808bf5', padding: 12, borderRadius: 8 }}>
-                        {savingName ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff' }}>Save</Text>}
+                      <TouchableOpacity onPress={handleUpdateName} disabled={savingName} style={{ backgroundColor: brand.primary, padding: 12, borderRadius: 8 }}>
+                        {savingName ? <ActivityIndicator size="small" color={brand.primaryInverse} /> : <Text style={{ color: '#fff' }}>Save</Text>}
                       </TouchableOpacity>
                     )}
                   </View>
@@ -170,7 +171,7 @@ export default function GroupSettingsModal({
                     const isGroupAdmin = group.groupAdmins?.includes(u._id);
                     return (
                       <View key={u._id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
                           {u.profile_picture ? (
                             <Image source={{ uri: u.profile_picture }} style={{ width: 40, height: 40, borderRadius: 20 }} />
                           ) : (
@@ -210,21 +211,21 @@ export default function GroupSettingsModal({
                         {addingMembers.map(m => (
                           <TouchableOpacity key={m._id} style={{ backgroundColor: '#e0e7ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}
                             onPress={() => setAddingMembers(prev => prev.filter(x => x._id !== m._id))}>
-                            <Text style={{ color: '#4f46e5', fontSize: 12, marginRight: 4 }}>{m.fullname}</Text>
-                            <MaterialCommunityIcons name="close" size={14} color="#4f46e5" />
+                            <Text style={{ color: brand.primaryDark, fontSize: 12, marginRight: 4 }}>{m.fullname}</Text>
+                            <MaterialCommunityIcons name="close" size={14} color={brand.primaryDark} />
                           </TouchableOpacity>
                         ))}
                       </View>
                     )}
 
                     {addingMembers.length > 0 && (
-                      <TouchableOpacity onPress={handleAddMembers} style={{ backgroundColor: '#808bf5', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 16 }}>
+                      <TouchableOpacity onPress={handleAddMembers} style={{ backgroundColor: brand.primary, padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 16 }}>
                         <Text style={{ color: '#fff', fontWeight: 'bold' }}>Add Selected Users</Text>
                       </TouchableOpacity>
                     )}
 
                     {searching ? (
-                      <ActivityIndicator color="#808bf5" />
+                      <ActivityIndicator color={brand.primary} />
                     ) : searchResults.length > 0 && (
                       <View style={{ maxHeight: 200, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#fff', borderRadius: 8, padding: 8 }}>
                         {searchResults.map(u => {
@@ -236,7 +237,7 @@ export default function GroupSettingsModal({
                               if (isSelected) setAddingMembers(prev => prev.filter(m => m._id !== u._id));
                               else setAddingMembers(prev => [...prev, u]);
                             }}>
-                              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
                                 {u.profile_picture ? (
                                   <Image source={{ uri: u.profile_picture }} style={{ width: 32, height: 32, borderRadius: 16 }} />
                                 ) : (
@@ -247,7 +248,7 @@ export default function GroupSettingsModal({
                                 <Text style={{ color: textColor }}>{u.fullname}</Text>
                                 <Text style={{ color: subColor, fontSize: 12 }}>@{u.username}</Text>
                               </View>
-                              {isSelected && <MaterialCommunityIcons name="check-circle" size={20} color="#808bf5" />}
+                              {isSelected && <MaterialCommunityIcons name="check-circle" size={20} color={brand.primary} />}
                             </TouchableOpacity>
                           );
                         })}

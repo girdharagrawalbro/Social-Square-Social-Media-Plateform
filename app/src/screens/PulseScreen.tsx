@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,7 +13,6 @@ import {
   Dimensions,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import BottomNav from './components/BottomNav';
 import { api, BASE_URL } from '../lib/api';
 import { EmptyState, ErrorState } from './components/EmptyState';
 import type { AppScreenProps } from '../navigation/types';
@@ -83,7 +83,7 @@ export default function PulseScreen({ navigation }: AppScreenProps<'Pulse'>) {
       <View style={[styles.header, { backgroundColor: bg, borderBottomColor: border }]}>
         <View style={styles.headerInfo}>
           <View style={styles.pulseBadge}>
-            <MaterialCommunityIcons name="flash" size={18} color="#808bf5" />
+            <MaterialCommunityIcons name="flash" size={18} color={brand.primary} />
             <Text style={[styles.headerTitle, { color: textColor }]}>Social Pulse</Text>
           </View>
           <Text style={[styles.headerSub, { color: subText }]}>Live trending updates from Social Square</Text>
@@ -92,7 +92,7 @@ export default function PulseScreen({ navigation }: AppScreenProps<'Pulse'>) {
 
       {loading && !pulseData ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#808bf5" />
+          <ActivityIndicator size="large" color={brand.primary} />
         </View>
       ) : loadError && !pulseData ? (
         <ErrorState
@@ -104,7 +104,7 @@ export default function PulseScreen({ navigation }: AppScreenProps<'Pulse'>) {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => fetchTrending(true)} colors={['#808bf5']} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => fetchTrending(true)} colors={[brand.primary]} />
           }
         >
           {/* Section 1: Trending Tags */}
@@ -207,7 +207,6 @@ export default function PulseScreen({ navigation }: AppScreenProps<'Pulse'>) {
         </ScrollView>
       )}
 
-      <BottomNav currentTab="pulse" navigation={navigation} />
     </SafeAreaView>
   );
 }
@@ -300,14 +299,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#808bf520',
+    backgroundColor: brand.primaryTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
   },
   creatorName: {
     fontSize: 13,
@@ -324,11 +323,11 @@ const styles = StyleSheet.create({
   statVal: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
   },
   statLabel: {
     fontSize: 8,
-    color: '#808bf5',
+    color: brand.primary,
     fontWeight: 'bold',
     marginTop: 2,
   },

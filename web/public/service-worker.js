@@ -70,6 +70,68 @@ self.addEventListener('activate', event => {
           }
         })
       );
+    }).then(() => self.clients.claim()) // Take control immediately
+  );
+});
+
+// ─── Web Push: show notification when received ────────────────────────────────
+self.addEventListener('push', event => {
+  if (!event.data) return;
+
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: 'Social Square', body: event.data.text() };
+  }
+
+  const { title = 'Social Square', body = '', icon = '/logo.jpg', badge = '/logo.jpg', tag, data = {} } = payload;
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon,
+      badge,
+      tag: tag || 'social-square',
+      renotify: true,        // Always vibrate/sound even for same tag
+      requireInteraction: false,
+      data,
     })
   );
 });
+
+// ─── Web Push: handle notification click ─────────────────────────────────────
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+
+  const data = event.notification.data || {};
+  const { type, postId, url } = data;
+
+  let targetUrl = '/';
+  if (url && url !== '/') {
+    targetUrl = url;
+  } else if (type === 'message') {
+    targetUrl = '/chat';
+  } else if ((type === 'like' || type === 'comment' || type === 'mention') && postId) {
+    targetUrl = `/post/${postId}`;
+  } else if (type === 'follow' || type === 'follow_request') {
+    targetUrl = '/notifications';
+  } else {
+    targetUrl = '/notifications';
+  }
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      // If app is already open, focus it and navigate
+      const appClient = windowClients.find(c => c.url.includes(self.location.origin));
+      if (appClient) {
+        appClient.focus();
+        appClient.navigate(targetUrl);
+        return;
+      }
+      // Otherwise open a new tab
+      return clients.openWindow(targetUrl);
+    })
+  );
+});
+

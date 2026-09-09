@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -81,7 +82,7 @@ export default function NotificationsScreen() {
   const border = colors.border;
   const textColor = colors.text.primary;
   const subText = colors.text.secondary;
-  const primaryColor = '#808bf5';
+  const primaryColor = brand.primary;
 
   const fetchData = async () => {
     if (!user?._id) return;
@@ -209,7 +210,7 @@ export default function NotificationsScreen() {
       case 'new_post':
         return { name: 'post-outline', color: '#f59e0b' };
       default:
-        return { name: 'bell-outline', color: '#808bf5' };
+        return { name: 'bell-outline', color: brand.primary };
     }
   };
 
@@ -264,7 +265,7 @@ export default function NotificationsScreen() {
         </View>
         {activeTab === 'notifications' && notifications.some((n) => !n.read) ? (
           <TouchableOpacity onPress={handleMarkAllRead} style={{ padding: 4 }}>
-            <MaterialCommunityIcons name="check-all" size={24} color="#808bf5" />
+            <MaterialCommunityIcons name="check-all" size={24} color={brand.primary} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -588,7 +589,7 @@ const styles = StyleSheet.create({
   },
   markReadText: {
     fontSize: 14,
-    color: '#808bf5',
+    color: brand.primary,
     fontWeight: 'bold',
   },
   tabBar: {
@@ -605,7 +606,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#808bf5',
+    borderBottomColor: brand.primary,
   },
   tabText: {
     fontSize: 14,
@@ -703,7 +704,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 13,
     fontWeight: 'bold',
   },

@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -384,7 +385,7 @@ export default function StoriesStrip() {
             <TouchableOpacity onPress={handlePickMedia}>
               <View style={[styles.avatarBorder, { borderColor }]}>
                 <View style={[styles.avatarFallback, { backgroundColor: isDark ? '#1e1e2f' : '#e2e8f0' }]}>
-                  <MaterialCommunityIcons name="plus" size={32} color="#808bf5" />
+                  <MaterialCommunityIcons name="plus" size={32} color={brand.primary} />
                 </View>
               </View>
             </TouchableOpacity>
@@ -402,7 +403,7 @@ export default function StoriesStrip() {
             <TouchableOpacity
               key={stream._id}
               style={styles.bubbleContainer}
-              onPress={() => setLiveStream(stream._id, false)}
+              onPress={() => setLiveStream(stream._id, myUser?._id === stream.host?._id)}
             >
               <LinearGradient
                 colors={['#ef4444', '#f43f5e']}
@@ -529,7 +530,7 @@ export default function StoriesStrip() {
                         {resharedStory.user?.profile_picture ? (
                           <Image source={{ uri: resharedStory.user.profile_picture }} style={styles.stickerAvatar} />
                         ) : (
-                          <View style={[styles.stickerAvatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                          <View style={[styles.stickerAvatar, { backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center' }]}>
                             <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
                               {resharedStory.user?.fullname?.[0]?.toUpperCase() || 'U'}
                             </Text>
@@ -622,7 +623,7 @@ export default function StoriesStrip() {
                     {COLOR_OPTIONS.map((c) => (
                       <TouchableOpacity
                         key={c}
-                        style={[styles.colorBubble, { backgroundColor: c }, textColor === c && { borderWidth: 2, borderColor: '#808bf5' }]}
+                        style={[styles.colorBubble, { backgroundColor: c }, textColor === c && { borderWidth: 2, borderColor: brand.primary }]}
                         onPress={() => setTextColor(c)}
                       />
                     ))}
@@ -635,7 +636,7 @@ export default function StoriesStrip() {
                         key={pos}
                         style={[
                           styles.posBtn,
-                          { borderColor: textPosition === pos ? '#808bf5' : borderColor },
+                          { borderColor: textPosition === pos ? brand.primary : borderColor },
                         ]}
                         onPress={() => setTextPosition(pos)}
                       >
@@ -659,13 +660,13 @@ export default function StoriesStrip() {
                       style={[
                         styles.visibilityBtn,
                         {
-                          backgroundColor: isSelected ? '#808bf5' : (isDark ? '#1e1e2f' : '#f1f5f9'),
-                          borderColor: isSelected ? '#808bf5' : borderColor,
+                          backgroundColor: isSelected ? brand.primary : (isDark ? '#1e1e2f' : '#f1f5f9'),
+                          borderColor: isSelected ? brand.primary : borderColor,
                         },
                       ]}
                       onPress={() => setVisibility(option as any)}
                     >
-                      <Text style={[styles.visibilityBtnText, { color: isSelected ? '#ffffff' : textColorStyle }]}>
+                      <Text style={[styles.visibilityBtnText, { color: isSelected ? brand.primaryInverse : textColorStyle }]}>
                         {option.replace('_', ' ').toUpperCase()}
                       </Text>
                     </TouchableOpacity>
@@ -683,7 +684,7 @@ export default function StoriesStrip() {
                   value={hasPoll}
                   onValueChange={setHasPoll}
                   trackColor={{ false: '#767577', true: '#a5b4fc' }}
-                  thumbColor={hasPoll ? '#808bf5' : '#f4f3f4'}
+                  thumbColor={hasPoll ? brand.primary : '#f4f3f4'}
                 />
               </View>
 
@@ -710,7 +711,7 @@ export default function StoriesStrip() {
                   onValueChange={setHasMusic}
                   disabled={!!resharedStory?.music}
                   trackColor={{ false: '#767577', true: '#a5b4fc' }}
-                  thumbColor={hasMusic ? '#808bf5' : '#f4f3f4'}
+                  thumbColor={hasMusic ? brand.primary : '#f4f3f4'}
                 />
               </View>
 
@@ -751,13 +752,13 @@ export default function StoriesStrip() {
                 disabled={uploading}
               >
                 <LinearGradient
-                  colors={['#808bf5', '#4f46e5']}
+                  colors={[brand.primary, brand.primaryDark]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.shareGradient}
                 >
                   {uploading ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
+                    <ActivityIndicator size="small" color={brand.primaryInverse} />
                   ) : (
                     <Text style={styles.shareBtnText}>Share Story</Text>
                   )}
@@ -805,7 +806,7 @@ export default function StoriesStrip() {
                 }}
               >
                 <View style={[styles.optionIconBg, { backgroundColor: 'rgba(128, 139, 245, 0.15)' }]}>
-                  <MaterialCommunityIcons name="image-multiple-outline" size={24} color="#808bf5" />
+                  <MaterialCommunityIcons name="image-multiple-outline" size={24} color={brand.primary} />
                 </View>
                 <Text style={[styles.optionText, { color: textColorStyle }]}>Choose from Gallery</Text>
               </TouchableOpacity>
@@ -889,7 +890,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -915,7 +916,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     width: 20,
     height: 20,
     borderRadius: 10,
@@ -1227,7 +1228,7 @@ const styles = StyleSheet.create({
     zIndex: 15,
   },
   reshareBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -1537,7 +1538,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 15,
     fontWeight: 'bold',
   },

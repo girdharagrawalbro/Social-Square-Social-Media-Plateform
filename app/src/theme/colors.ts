@@ -5,12 +5,17 @@
 // its own) — so it was the theme system drifting from the app's actual identity, not
 // the other way around. Fixed to match reality rather than repainting 38 screens to
 // match an unused token.
+import { Appearance } from 'react-native';
+
+const isDarkGlobal = Appearance.getColorScheme() === 'dark';
+
 export const brand = {
-  primary: '#808bf5',
-  primaryMuted: '#818cf8',
-  primaryTint: '#eef0fe',
-  primaryDark: '#4f46e5',
-  gradient: ['#818cf8', '#808bf5', '#4f46e5'] as const,
+  primary: isDarkGlobal ? '#ffffff' : '#15151a',
+  primaryMuted: isDarkGlobal ? '#3f3f46' : '#e4e4e7',
+  primaryTint: isDarkGlobal ? '#18181b' : '#f4f4f5',
+  primaryDark: isDarkGlobal ? '#000000' : '#0a0a0d',
+  primaryInverse: isDarkGlobal ? '#15151a' : '#ffffff',
+  gradient: (isDarkGlobal ? ['#e4e4e7', '#f4f4f5', '#ffffff'] : ['#3f3f46', '#18181b', '#000000']) as any,
 };
 
 export const semantic = {
@@ -35,6 +40,8 @@ export const lightColors = {
     muted: '#9c9ca6',
     inverse: '#ffffff',
   },
+  primary: '#15151a',
+  primaryInverse: '#ffffff',
 };
 
 export const darkColors = {
@@ -52,6 +59,8 @@ export const darkColors = {
     muted: '#6f6f79',
     inverse: '#15151a',
   },
+  primary: '#ffffff',
+  primaryInverse: '#15151a',
 };
 
 export type ThemeColors = typeof lightColors;

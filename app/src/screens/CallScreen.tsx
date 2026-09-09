@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -539,7 +540,7 @@ const styles = StyleSheet.create({
   incomingLabel: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
     textTransform: 'uppercase',
     letterSpacing: 2,
   },
@@ -642,7 +643,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: '#808bf5',
+    borderColor: brand.primary,
   },
   connectedAvatarFallback: {
     width: 120,
@@ -652,7 +653,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#808bf5',
+    borderColor: brand.primary,
   },
   connectedAvatarInitial: {
     fontSize: 40,

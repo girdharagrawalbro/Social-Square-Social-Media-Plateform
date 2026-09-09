@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useEffect } from 'react';
 import {
   View,
@@ -61,7 +62,7 @@ export default function SplashScreen({ navigation }: AppScreenProps<'Splash'>) {
           style={[
             styles.subtitle,
             {
-              color: '#808BF5',
+              color: brand.primary,
             },
           ]}>
           AI Powered Social Media
@@ -69,7 +70,7 @@ export default function SplashScreen({ navigation }: AppScreenProps<'Splash'>) {
 
         {/* <ActivityIndicator
           size="small"
-          color="#808BF5"
+          color={brand.primary}
           style={styles.loader}
         /> */}
       </View>

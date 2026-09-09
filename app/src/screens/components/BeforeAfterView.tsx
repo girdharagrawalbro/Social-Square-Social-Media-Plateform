@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState, useRef } from 'react';
 import { View, Text, Image, StyleSheet, PanResponder, Dimensions, ScrollView } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
     textTransform: 'uppercase',
   },
   paneRow: {

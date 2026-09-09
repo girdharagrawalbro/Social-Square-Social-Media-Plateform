@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -189,7 +190,7 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
 
           {/* User List */}
           {loading ? (
-            <ActivityIndicator size="large" color="#808bf5" style={{ marginVertical: 40 }} />
+            <ActivityIndicator size="large" color={brand.primary} style={{ marginVertical: 40 }} />
           ) : (
             <FlatList
               data={filteredUsers}
@@ -202,7 +203,7 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
                     {item.profile_picture ? (
                       <Image source={{ uri: item.profile_picture }} style={styles.avatar} />
                     ) : (
-                      <View style={[styles.avatar, { backgroundColor: '#808bf5', justifyContent: 'center', alignItems: 'center' }]}>
+                      <View style={[styles.avatar, { backgroundColor: brand.primary, justifyContent: 'center', alignItems: 'center' }]}>
                         <Text style={styles.avatarInitial}>{item.fullname[0]}</Text>
                       </View>
                     )}
@@ -216,7 +217,7 @@ export default function ShareModal({ visible, onClose, story, post, myUser }: Sh
                       disabled={isSharing}
                     >
                       {isSharing ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
+                        <ActivityIndicator size="small" color={brand.primaryInverse} />
                       ) : (
                         <Text style={styles.sendText}>Send</Text>
                       )}
@@ -318,7 +319,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sendBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 18,

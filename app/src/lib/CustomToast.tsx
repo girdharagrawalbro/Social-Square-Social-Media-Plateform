@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme';
+import { brand } from "../theme/colors";
 
 const { width } = Dimensions.get('window');
 
@@ -130,7 +131,7 @@ export const CustomToastContainer: React.FC = () => {
         };
       default:
         return {
-          accent: '#808bf5',
+          accent: brand.primary,
           bg: isDark ? 'rgba(128, 139, 245, 0.15)' : '#f0f2fe',
           border: isDark ? 'rgba(128, 139, 245, 0.3)' : '#c7d2fe',
           icon: currentToast.icon || 'information-outline',

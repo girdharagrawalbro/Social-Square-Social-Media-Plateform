@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -7,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { api } from '../../lib/api';
@@ -39,6 +41,8 @@ export default function PostMenu({
   const { user } = useAuthStore() as any;
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editCaption, setEditCaption] = useState(post?.caption || '');
 
   // Theme colors
   const cardBg = colors.background;
@@ -101,7 +105,7 @@ export default function PostMenu({
           onPress: async () => {
             setLoadingAction('delete');
             try {
-              await api.delete(`/api/post/${post._id}`);
+              await api.delete(`/api/post/delete/${post._id}`);
               Alert.alert('Deleted', 'Post deleted successfully.');
               if (onDeleteSuccess) onDeleteSuccess();
               onClose();
@@ -115,6 +119,21 @@ export default function PostMenu({
         },
       ]
     );
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editCaption.trim()) return;
+    setLoadingAction('edit');
+    try {
+      await api.put(`/api/post/update/${post._id}`, { caption: editCaption });
+      Alert.alert('Success', 'Caption updated successfully.');
+      setEditModalVisible(false);
+      onClose();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update caption.');
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const handleInterest = async (action: 'interested' | 'not_interested') => {
@@ -264,12 +283,12 @@ export default function PostMenu({
               <MaterialCommunityIcons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
                 size={22}
-                color={isSaved ? '#808bf5' : textColor}
+                color={isSaved ? brand.primary : textColor}
               />
               <Text style={[styles.optionText, { color: textColor }]}>
                 {isSaved ? 'Unsave Post' : 'Save Post'}
               </Text>
-              {loadingAction === 'save' && <ActivityIndicator size="small" color="#808bf5" />}
+              {loadingAction === 'save' && <ActivityIndicator size="small" color={brand.primary} />}
             </TouchableOpacity>
 
             {/* Save to Knowledge */}
@@ -282,12 +301,18 @@ export default function PostMenu({
             {isOwner ? (
               <>
                 {/* Edit Post */}
-                {onEditPress && (
-                  <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={() => { onClose(); onEditPress(); }}>
-                    <MaterialCommunityIcons name="pencil-outline" size={22} color={textColor} />
-                    <Text style={[styles.optionText, { color: textColor }]}>Edit Caption</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={() => { 
+                  if (onEditPress) {
+                    onClose(); 
+                    onEditPress(); 
+                  } else {
+                    setEditCaption(post.caption || '');
+                    setEditModalVisible(true);
+                  }
+                }}>
+                  <MaterialCommunityIcons name="pencil-outline" size={22} color={textColor} />
+                  <Text style={[styles.optionText, { color: textColor }]}>Edit Caption</Text>
+                </TouchableOpacity>
 
                 {/* Delete Post */}
                 <TouchableOpacity style={[styles.optionRow, { borderBottomColor: border }]} onPress={handleDelete}>
@@ -348,6 +373,39 @@ export default function PostMenu({
         onClose={() => setNoteModalVisible(false)}
         onSaved={onClose}
       />
+
+      <Modal
+        visible={editModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setEditModalVisible(false)}>
+          <TouchableOpacity style={[styles.editModalContent, { backgroundColor: cardBg }]} activeOpacity={1}>
+            <Text style={[styles.editModalTitle, { color: textColor }]}>Edit Caption</Text>
+            <TextInput
+              style={[styles.editInput, { color: textColor, borderColor: border }]}
+              value={editCaption}
+              onChangeText={setEditCaption}
+              multiline
+              placeholder="Write your new caption..."
+              placeholderTextColor={subColor}
+            />
+            <View style={styles.editButtons}>
+              <TouchableOpacity style={styles.editCancelBtn} onPress={() => setEditModalVisible(false)}>
+                <Text style={styles.editCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.editSaveBtn} onPress={handleEditSubmit} disabled={loadingAction === 'edit'}>
+                {loadingAction === 'edit' ? (
+                  <ActivityIndicator size="small" color={brand.primaryInverse} />
+                ) : (
+                  <Text style={styles.editSaveText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </Modal>
   );
 }
@@ -386,5 +444,54 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
+  },
+  editModalContent: {
+    width: '90%',
+    borderRadius: 20,
+    padding: 20,
+    alignSelf: 'center',
+    marginBottom: 'auto',
+    marginTop: 'auto',
+  },
+  editModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 15,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    fontSize: 15,
+    marginBottom: 20,
+  },
+  editButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  editCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: '#e2e8f0',
+  },
+  editCancelText: {
+    color: '#475569',
+    fontWeight: 'bold',
+  },
+  editSaveBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: brand.primary,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  editSaveText: {
+    color: brand.primaryInverse,
+    fontWeight: 'bold',
   },
 });

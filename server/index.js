@@ -231,6 +231,28 @@ app.post('/api/user/fcm-token', verifyToken, async (req, res) => {
     res.json({ success: true });
 });
 
+// Web Push: expose VAPID public key to the client
+app.get('/api/user/vapid-public-key', (req, res) => {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+});
+
+// Web Push: save browser push subscription
+app.post('/api/user/web-push-subscription', verifyToken, async (req, res) => {
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint) {
+        return res.status(400).json({ error: 'Invalid subscription object' });
+    }
+    await User.findByIdAndUpdate(req.userId, { webPushSubscription: subscription });
+    res.json({ success: true });
+});
+
+// Web Push: remove subscription (on logout / denied)
+app.delete('/api/user/web-push-subscription', verifyToken, async (req, res) => {
+    await User.findByIdAndUpdate(req.userId, { webPushSubscription: null });
+    res.json({ success: true });
+});
+
+
 app.use('/api/auth', authRouter);
 app.use('/api/post', postRouter);
 app.use('/api/goal', require('./routes/goal.js'));

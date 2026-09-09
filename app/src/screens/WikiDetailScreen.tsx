@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -124,13 +125,13 @@ export default function WikiDetailScreen() {
           accessibilityRole="button"
           accessibilityLabel="Suggest a post for this article"
         >
-          <MaterialCommunityIcons name="plus-circle-outline" size={24} color={loading ? subText : '#808bf5'} />
+          <MaterialCommunityIcons name="plus-circle-outline" size={24} color={loading ? subText : brand.primary} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#808bf5" />
+          <ActivityIndicator size="large" color={brand.primary} />
           <Text style={[styles.loadingText, { color: subText }]}>Loading wiki details...</Text>
         </View>
       ) : (
@@ -187,7 +188,7 @@ export default function WikiDetailScreen() {
                     <Text style={[styles.postCaption, { color: subText }]} numberOfLines={2}>
                       {post.caption || 'No caption'}
                     </Text>
-                    <Text style={[styles.postScore, { color: '#808bf5' }]}>
+                    <Text style={[styles.postScore, { color: brand.primary }]}>
                       🔥 Score: {post.wikiScore || 0}
                     </Text>
                   </View>
@@ -220,7 +221,7 @@ export default function WikiDetailScreen() {
             </View>
 
             {loadingMyPosts ? (
-              <ActivityIndicator color="#808bf5" style={{ marginVertical: 40 }} />
+              <ActivityIndicator color={brand.primary} style={{ marginVertical: 40 }} />
             ) : myPosts.length === 0 ? (
               <View style={styles.modalEmpty}>
                 <MaterialCommunityIcons name="image-multiple-outline" size={48} color={subText} />
@@ -249,7 +250,7 @@ export default function WikiDetailScreen() {
                       style={styles.myPostSuggestBtn}
                     >
                       {submittingContribute === item._id ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
+                        <ActivityIndicator size="small" color={brand.primaryInverse} />
                       ) : (
                         <Text style={styles.myPostSuggestBtnText}>Suggest</Text>
                       )}
@@ -371,14 +372,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#808bf520',
+    backgroundColor: brand.primaryTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   postAvatarInit: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
   },
   postUserName: {
     fontSize: 13,
@@ -438,13 +439,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   myPostSuggestBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
   },
   myPostSuggestBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 12,
     fontWeight: 'bold',
   },

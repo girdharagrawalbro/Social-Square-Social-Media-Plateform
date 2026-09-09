@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -104,7 +105,7 @@ export default function ReelsScreen({ navigation }: { navigation: AppNavigationP
 
       {loading && reels.length === 0 ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#808bf5" />
+          <ActivityIndicator size="large" color={brand.primary} />
         </View>
       ) : (
         <FlatList
@@ -122,7 +123,7 @@ export default function ReelsScreen({ navigation }: { navigation: AppNavigationP
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchReels(true)}
-              colors={['#808bf5']}
+              colors={[brand.primary]}
               tintColor="#ffffff"
             />
           }

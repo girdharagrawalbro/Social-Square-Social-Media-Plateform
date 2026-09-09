@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -17,7 +18,6 @@ import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryKeys';
 import AppHeader from './components/AppHeader';
 import useAuthStore from '../store/zustand/useAuthStore';
-import BottomNav from './components/BottomNav';
 import useE2eeStore from '../store/zustand/useE2eeStore';
 import { decryptText } from '../lib/cryptoUtils';
 import { api, BASE_URL } from '../lib/api';
@@ -118,7 +118,7 @@ const MessagePreview = ({ messageText, conversationId, recipientId, isDark, subC
     <Text
       style={[
         styles.lastMessage,
-        { color: unread ? (isDark ? '#ffffff' : '#000000') : subColor },
+        { color: unread ? (isDark ? brand.primaryInverse : '#000000') : subColor },
         unread && styles.unreadMessage,
       ]}
       numberOfLines={1}
@@ -338,7 +338,7 @@ export default function ChatScreen() {
           </View>
           <View style={styles.messageRow}>
             {item.lastMessageBy && String(item.lastMessageBy) === String(currentUser?._id) && (
-              <Text style={{ color: '#808bf5', fontWeight: 'bold', marginRight: 4 }}>You:</Text>
+              <Text style={{ color: brand.primary, fontWeight: 'bold', marginRight: 4 }}>You:</Text>
             )}
             <MessagePreview
               messageText={item.lastMessage?.message || item.lastMessage?.content}
@@ -369,7 +369,7 @@ export default function ChatScreen() {
 
   const unColor = (unread: boolean) => {
     if (unread) {
-      return isDark ? '#ffffff' : '#000000';
+      return isDark ? brand.primaryInverse : '#000000';
     }
     return subColor;
   };
@@ -413,7 +413,7 @@ export default function ChatScreen() {
                   <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
                 </View>
               )}
-              <MaterialCommunityIcons name="bell-outline" size={24} color="#808bf5" />
+              <MaterialCommunityIcons name="bell-outline" size={24} color={brand.primary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -505,7 +505,7 @@ export default function ChatScreen() {
             </View>
 
             {searching ? (
-              <ActivityIndicator color="#808bf5" style={{ padding: 40 }} />
+              <ActivityIndicator color={brand.primary} style={{ padding: 40 }} />
             ) : (
               <FlatList
                 data={searchResults}
@@ -573,8 +573,8 @@ export default function ChatScreen() {
                   {groupMembers.map(m => (
                     <TouchableOpacity key={m._id} style={{ backgroundColor: '#e0e7ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}
                       onPress={() => setGroupMembers(prev => prev.filter(x => x._id !== m._id))}>
-                      <Text style={{ color: '#4f46e5', fontSize: 12, marginRight: 4 }}>{m.fullname}</Text>
-                      <MaterialCommunityIcons name="close" size={14} color="#4f46e5" />
+                      <Text style={{ color: brand.primaryDark, fontSize: 12, marginRight: 4 }}>{m.fullname}</Text>
+                      <MaterialCommunityIcons name="close" size={14} color={brand.primaryDark} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -591,13 +591,13 @@ export default function ChatScreen() {
                 />
               </View>
 
-              <TouchableOpacity onPress={handleCreateGroup} style={{ backgroundColor: '#808bf5', padding: 12, borderRadius: 8, alignItems: 'center', opacity: (!groupName.trim() || groupMembers.length === 0) ? 0.5 : 1 }} disabled={!groupName.trim() || groupMembers.length === 0}>
+              <TouchableOpacity onPress={handleCreateGroup} style={{ backgroundColor: brand.primary, padding: 12, borderRadius: 8, alignItems: 'center', opacity: (!groupName.trim() || groupMembers.length === 0) ? 0.5 : 1 }} disabled={!groupName.trim() || groupMembers.length === 0}>
                 <Text style={{ color: '#fff', fontWeight: '600' }}>Create Group</Text>
               </TouchableOpacity>
             </View>
 
             {searching ? (
-              <ActivityIndicator color="#808bf5" style={{ padding: 20 }} />
+              <ActivityIndicator color={brand.primary} style={{ padding: 20 }} />
             ) : (
               <FlatList
                 data={searchResults}
@@ -625,7 +625,7 @@ export default function ChatScreen() {
                         <Text style={[styles.searchUsername, { color: subColor }]}>@{item.username}</Text>
                       </View>
                       {isSelected && (
-                        <MaterialCommunityIcons name="check-circle" size={24} color="#808bf5" />
+                        <MaterialCommunityIcons name="check-circle" size={24} color={brand.primary} />
                       )}
                     </TouchableOpacity>
                   );
@@ -636,7 +636,6 @@ export default function ChatScreen() {
         </View>
       </Modal>
 
-      <BottomNav currentTab="messages" navigation={navigation} />
     </View>
   );
 }
@@ -670,7 +669,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -713,7 +712,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
   },
   fab: {
     position: 'absolute',
@@ -722,7 +721,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
@@ -800,7 +799,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

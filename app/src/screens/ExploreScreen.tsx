@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -20,7 +21,6 @@ import {
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Video from 'react-native-video';
 const VideoComponent = Video as any;
-import BottomNav from './components/BottomNav';
 import ShareModal from './components/ShareModal';
 import { api, BASE_URL } from '../lib/api';
 import { getCache, setCache, TTL } from '../lib/cache';
@@ -493,7 +493,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
                     marginRight: spacing.sm,
                   }}
                 >
-                  <Text style={{ ...typography.caption, color: typeFilter === tf ? '#ffffff' : subTextColor, textTransform: 'uppercase' }}>{tf}</Text>
+                  <Text style={{ ...typography.caption, color: typeFilter === tf ? brand.primaryInverse : subTextColor, textTransform: 'uppercase' }}>{tf}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -511,7 +511,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <Text style={{ fontSize: 11, fontWeight: 'bold', color: subTextColor, textTransform: 'uppercase', letterSpacing: 1 }}>Recent Searches</Text>
                     <TouchableOpacity onPress={clearRecentSearches}>
-                      <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#808bf5' }}>CLEAR ALL</Text>
+                      <Text style={{ fontSize: 11, fontWeight: 'bold', color: brand.primary }}>CLEAR ALL</Text>
                     </TouchableOpacity>
                   </View>
                   {recentSearches.map((item, index) => {
@@ -536,7 +536,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
                             <Image source={{ uri: item.profile_picture || 'https://via.placeholder.com/150' }} style={{ width: 36, height: 36, borderRadius: 18, marginRight: 12 }} />
                             <View style={{ flex: 1 }}>
                               <Text style={{ fontSize: 14, fontWeight: '600', color: textColor }}>{item.fullname}</Text>
-                              <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#808bf5' }}>@{item.username}</Text>
+                              <Text style={{ fontSize: 11, fontWeight: 'bold', color: brand.primary }}>@{item.username}</Text>
                             </View>
                           </>
                         ) : (
@@ -581,8 +581,8 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
               {aiAnswer && (
                 <View style={{ marginHorizontal: 16, marginBottom: 20, padding: 16, borderRadius: 16, backgroundColor: isDark ? 'rgba(128, 139, 245, 0.15)' : 'rgba(128, 139, 245, 0.08)', borderWidth: 1, borderColor: 'rgba(128, 139, 245, 0.2)' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <MaterialCommunityIcons name="creation" size={18} color="#808bf5" />
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', letterSpacing: 1 }}>AI Answer</Text>
+                    <MaterialCommunityIcons name="creation" size={18} color={brand.primary} />
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: brand.primary, textTransform: 'uppercase', letterSpacing: 1 }}>AI Answer</Text>
                   </View>
                   <Text style={{ fontSize: 14, lineHeight: 22, color: textColor }}>{aiAnswer}</Text>
                 </View>
@@ -613,7 +613,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
                           )}
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', marginBottom: 2 }}>#{post.category || post.topic || 'AI'}</Text>
+                          <Text style={{ fontSize: 10, fontWeight: 'bold', color: brand.primary, textTransform: 'uppercase', marginBottom: 2 }}>#{post.category || post.topic || 'AI'}</Text>
                           <Text style={{ fontSize: 13, color: textColor }} numberOfLines={1}>{post.caption || post.content || '(No content)'}</Text>
                         </View>
                         <MaterialCommunityIcons name="creation" size={16} color={subTextColor} style={{ opacity: 0.5 }} />
@@ -650,11 +650,11 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
                               </View>
                             )} */}
                           </View>
-                          <Text style={{ fontSize: 11, color: '#808bf5', fontWeight: 'bold' }}>@{u.username}</Text>
+                          <Text style={{ fontSize: 11, color: brand.primary, fontWeight: 'bold' }}>@{u.username}</Text>
                         </View>
                         {isFollowing && (
                           <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: isDark ? 'rgba(128,139,245,0.15)' : 'rgba(128,139,245,0.08)' }}>
-                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#808bf5' }}>FOLLOWING</Text>
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: brand.primary }}>FOLLOWING</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -689,7 +689,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
                           )}
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#808bf5', textTransform: 'uppercase', marginBottom: 2 }}>#{post.category || 'GENERAL'}</Text>
+                          <Text style={{ fontSize: 10, fontWeight: 'bold', color: brand.primary, textTransform: 'uppercase', marginBottom: 2 }}>#{post.category || 'GENERAL'}</Text>
                           <Text style={{ fontSize: 13, color: textColor }} numberOfLines={1}>{post.caption || '(No caption)'}</Text>
                         </View>
                       </TouchableOpacity>
@@ -727,7 +727,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={() => fetchReels(true)}
-                colors={['#808bf5']}
+                colors={[brand.primary]}
               />
             }
             onEndReached={() => {
@@ -746,7 +746,6 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
         )
       )}
 
-      <BottomNav currentTab="explore" navigation={navigation} />
     </View>
   );
 }
@@ -755,6 +754,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
 // Bottom-sheet comments — a transparent Modal overlay, so the reel keeps playing
 // behind it instead of navigating away to a full screen (which stopped the video).
 function ReelCommentsSheet({ visible, onClose, postId, loggedUser, onCommentAdded }: any) {
+  const { colors, isDark } = useTheme();
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -797,11 +797,11 @@ function ReelCommentsSheet({ visible, onClose, postId, loggedUser, onCommentAdde
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.commentsSheetOverlay} activeOpacity={1} onPress={onClose}>
         <TouchableWithoutFeedback>
-          <View style={styles.commentsSheetContainer}>
-            <View style={styles.commentsSheetHandle} />
-            <Text style={styles.commentsSheetTitle}>Comments</Text>
+          <View style={[styles.commentsSheetContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.commentsSheetHandle, { backgroundColor: colors.borderStrong }]} />
+            <Text style={[styles.commentsSheetTitle, { color: colors.text.primary }]}>Comments</Text>
             {loading ? (
-              <ActivityIndicator color="#808bf5" style={{ marginTop: 20 }} />
+              <ActivityIndicator color={brand.primary} style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={comments}
@@ -814,19 +814,19 @@ function ReelCommentsSheet({ visible, onClose, postId, loggedUser, onCommentAdde
                       style={styles.commentsSheetAvatar}
                     />
                     <View style={{ flex: 1, marginLeft: 8 }}>
-                      <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 12 }}>{c.user?.fullname || 'User'}</Text>
-                      <Text style={{ color: '#111827', fontSize: 13 }}>{c.content}</Text>
+                      <Text style={{ color: colors.text.primary, fontWeight: 'bold', fontSize: 12 }}>{c.user?.fullname || 'User'}</Text>
+                      <Text style={{ color: colors.text.primary, fontSize: 13 }}>{c.content}</Text>
                     </View>
                   </View>
                 )}
-                ListEmptyComponent={<Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 20 }}>No comments yet. Be the first!</Text>}
+                ListEmptyComponent={<Text style={{ color: colors.text.secondary, textAlign: 'center', marginTop: 10, marginBottom: 20 }}>No comments yet. Be the first!</Text>}
               />
             )}
-            <View style={styles.commentsSheetInputRow}>
+            <View style={[styles.commentsSheetInputRow, { borderTopColor: colors.border }]}>
               <TextInput
-                style={styles.commentsSheetInput}
+                style={[styles.commentsSheetInput, { backgroundColor: colors.background, color: colors.text.primary }]}
                 placeholder="Add a comment..."
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.text.muted}
                 value={commentText}
                 onChangeText={setCommentText}
               />
@@ -837,9 +837,9 @@ function ReelCommentsSheet({ visible, onClose, postId, loggedUser, onCommentAdde
                 accessibilityLabel="Send comment"
               >
                 {submitting ? (
-                  <ActivityIndicator size="small" color="#808bf5" />
+                  <ActivityIndicator size="small" color={brand.primary} />
                 ) : (
-                  <MaterialCommunityIcons name="send" size={22} color={commentText.trim() ? '#808bf5' : '#9ca3af'} />
+                  <MaterialCommunityIcons name="send" size={22} color={commentText.trim() ? brand.primary : '#9ca3af'} />
                 )}
               </TouchableOpacity>
             </View>
@@ -1271,7 +1271,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1367,7 +1367,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#ffffff',
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1405,7 +1405,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   actionText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontSize: 12,
     fontWeight: 'bold',
     marginTop: 4,
@@ -1420,7 +1420,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderWidth: 1.5,
     borderColor: '#ffffff',
     justifyContent: 'center',

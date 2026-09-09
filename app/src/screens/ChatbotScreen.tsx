@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -63,7 +64,7 @@ const TypingDots = () => {
             width: 7,
             height: 7,
             borderRadius: 4,
-            backgroundColor: '#808bf5',
+            backgroundColor: brand.primary,
             transform: [{ translateY: dot }],
           }}
         />
@@ -326,7 +327,7 @@ export default function ChatbotScreen() {
             disabled={!input.trim() || loading}
           >
             <LinearGradient
-              colors={['#808bf5', '#4f46e5']}
+              colors={[brand.primary, brand.primaryDark]}
               style={styles.sendBtnGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -374,12 +375,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     marginRight: 4,
   },
   onlineText: {
     fontSize: 10,
-    color: '#808bf5',
+    color: brand.primary,
     fontWeight: 'bold',
   },
   listContent: {
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   bubbleUser: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderBottomRightRadius: 4,
   },
   msgText: {

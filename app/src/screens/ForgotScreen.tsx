@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState } from 'react';
 import {
   View,
@@ -94,7 +95,7 @@ export default function ForgotScreen({ navigation }: AppScreenProps<'Forgot'>) {
             />
             <TouchableOpacity style={styles.submitBtn} onPress={handleForgot} disabled={loading}>
               {loading ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={brand.primaryInverse} />
               ) : (
                 <Text style={styles.submitBtnText}>Send Reset Link</Text>
               )}
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: height * 0.5,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderBottomLeftRadius: width * 0.1,
     borderBottomRightRadius: width * 0.1,
   },
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
     marginBottom: 6,
   },
   subTitle: {
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   submitBtn: {
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     height: 48,
     borderRadius: 8,
     justifyContent: 'center',
@@ -206,7 +207,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   submitBtnText: {
-    color: '#ffffff',
+    color: brand.primaryInverse,
     fontWeight: 'bold',
     fontSize: 15,
   },
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginText: {
-    color: '#808bf5',
+    color: brand.primary,
     fontWeight: 'bold',
   },
 });

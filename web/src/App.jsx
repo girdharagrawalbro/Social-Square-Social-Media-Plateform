@@ -26,6 +26,7 @@ import Conversations from './pages/components/Conversations';
 import useTabTitle from './hooks/useTabTitle';
 import useFeedSocket from './hooks/useFeedSocket';
 import useAuthCheck from './hooks/useAuthCheck';
+import { useWebPushNotifications } from './hooks/useWebPushNotifications';
 import CallModal from './pages/components/CallModal';
 
 // ─── LAYOUT COMPONENTS ────────────────────────────────────────────────────────
@@ -101,6 +102,9 @@ function AppInit() {
     const initAuth = useAuthStore(s => s.initAuth);
     const user = useAuthStore(s => s.user);
     const initialized = useAuthStore(s => s.initialized);
+
+    // Web push notifications — subscribes browser when user is logged in
+    useWebPushNotifications(user);
 
     const sessionStartTime = useRef(Date.now());
     const prevUserId = useRef(user?._id);

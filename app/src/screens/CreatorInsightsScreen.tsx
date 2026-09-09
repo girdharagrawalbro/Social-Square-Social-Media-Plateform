@@ -1,3 +1,4 @@
+import { brand } from '../theme/colors';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -104,7 +105,7 @@ export default function CreatorInsightsScreen({ navigation }: AppScreenProps<'Cr
 
       {loading && !analytics ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#808bf5" />
+          <ActivityIndicator size="large" color={brand.primary} />
         </View>
       ) : loadError && !analytics ? (
         <ErrorState
@@ -116,7 +117,7 @@ export default function CreatorInsightsScreen({ navigation }: AppScreenProps<'Cr
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchAnalytics(true)} colors={['#808bf5']} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchAnalytics(true)} colors={[brand.primary]} />
         }
       >
         {/* Stats Grid */}
@@ -203,7 +204,7 @@ export default function CreatorInsightsScreen({ navigation }: AppScreenProps<'Cr
                     <Image source={{ uri: resolveMediaUrl(post.image) }} style={styles.postThumbnail} />
                   ) : (
                     <View style={styles.postIconFallback}>
-                      <MaterialCommunityIcons name="text-box-outline" size={24} color="#808bf5" />
+                      <MaterialCommunityIcons name="text-box-outline" size={24} color={brand.primary} />
                     </View>
                   )}
                   <View style={styles.rankBadge}>
@@ -219,7 +220,7 @@ export default function CreatorInsightsScreen({ navigation }: AppScreenProps<'Cr
                   
                   <View style={styles.metricsRow}>
                     <View style={styles.metricItem}>
-                      <MaterialCommunityIcons name="eye" size={14} color="#808bf5" />
+                      <MaterialCommunityIcons name="eye" size={14} color={brand.primary} />
                       <Text style={[styles.metricText, { color: subText }]}>{post.views.toLocaleString()}</Text>
                     </View>
 
@@ -289,14 +290,14 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#808bf5',
+    color: brand.primary,
     letterSpacing: 0.8,
     marginBottom: 6,
   },
   statNumber: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#808bf5',
+    color: brand.primary,
     lineHeight: 30,
   },
   statSub: {
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
   },
   chartFill: {
     width: '100%',
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderRadius: 7,
   },
   chartBarLabel: {
@@ -361,7 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   badgeText: {
-    color: '#808bf5',
+    color: brand.primary,
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -396,7 +397,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    backgroundColor: '#808bf5',
+    backgroundColor: brand.primary,
     borderBottomRightRadius: 8,
     paddingHorizontal: 4,
     paddingVertical: 1,

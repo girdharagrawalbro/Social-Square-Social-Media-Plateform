@@ -1,3 +1,4 @@
+import { brand } from '../../theme/colors';
 import React from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../theme';
@@ -51,7 +52,7 @@ export default function MoodFeedToggle({ activeMood, onMoodSelect, onClear }: Mo
             <Text
               style={[
                 styles.label,
-                { color: isActive ? '#ffffff' : colors.text.primary },
+                { color: isActive ? brand.primaryInverse : colors.text.primary },
               ]}
             >
               {mood.label}

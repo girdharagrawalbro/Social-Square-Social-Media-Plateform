@@ -41,6 +41,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import useAuthStore from './src/store/zustand/useAuthStore';
 import { CustomToastContainer } from './src/lib/CustomToast';
 import { PostHogProvider } from 'posthog-react-native';
+import { usePushNotifications } from './src/lib/usePushNotifications';
 
 import { POSTHOG_API_KEY, POSTHOG_HOST } from './src/lib/posthog';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -88,6 +89,9 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function App() {
   const isDarkMode = RN.useColorScheme() === 'dark';
   const user = useAuthStore(state => state.user);
+
+  // Push notifications — registers FCM token with backend and handles taps
+  usePushNotifications(navigationRef);
 
   useEffect(() => {
     // Socket lifecycle management based on foreground/background and auth state
@@ -207,7 +211,7 @@ function App() {
         <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'none' }} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="NewPost" component={NewPostScreen} />
+        <Stack.Screen name="NewPost" component={NewPostScreen} options={{ animation: 'slide_from_left' }} />
         <Stack.Screen name="PostDetail" component={PostDetailScreen} />
         <Stack.Screen name="HashtagResults" component={HashtagResultsScreen} />
         <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
