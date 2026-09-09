@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
+const { createNotification } = require('../lib/notification');
 const User = require('../models/User');
 const UserMemory = require('../models/UserMemory');
 const { UserInterest } = require('../models/Recommendation');
@@ -95,14 +96,15 @@ async function triggerAiReply(conversationId, userSenderId, userMessageContent, 
             lastMessageBy: aiUser._id
         }, { new: true }).lean();
 
-        // Create in-app notification
-        const notification = await Notification.create({
-            recipient: userSenderId,
+        // Create in-app notification (which handles push, web-push, and sockets automatically)
+        await createNotification({
+            recipientId: userSenderId,
             sender: {
                 id: aiUser._id,
                 fullname: aiUser.fullname,
                 profile_picture: aiUser.profile_picture
             },
+            type: 'message',
             message: {
                 id: replyMsg._id,
                 content: replyMsg.content
@@ -121,15 +123,6 @@ async function triggerAiReply(conversationId, userSenderId, userMessageContent, 
             participants.forEach(p => {
                 _io.to(p).emit('receiveMessage', msgObj);
                 _io.to(p).emit('conversationUpdated', updatedConv);
-            });
-
-            _io.to(userSenderId.toString()).emit('newNotification', {
-                ...notification.toObject(),
-                sender: {
-                    id: aiUser._id,
-                    fullname: aiUser.fullname,
-                    profile_picture: aiUser.profile_picture
-                }
             });
         }
 
@@ -234,13 +227,14 @@ async function triggerAiWelcomeMessage(userId, aiUser) {
         }, { new: true }).lean();
 
         // Create in-app notification
-        const notification = await Notification.create({
-            recipient: userId,
+        await createNotification({
+            recipientId: userId,
             sender: {
                 id: aiUser._id,
                 fullname: aiUser.fullname,
                 profile_picture: aiUser.profile_picture
             },
+            type: 'message',
             message: {
                 id: welcomeMsg._id,
                 content: welcomeMsg.content
@@ -259,15 +253,6 @@ async function triggerAiWelcomeMessage(userId, aiUser) {
             participants.forEach(p => {
                 _io.to(p).emit('receiveMessage', msgObj);
                 _io.to(p).emit('conversationUpdated', updatedConv);
-            });
-
-            _io.to(userId.toString()).emit('newNotification', {
-                ...notification.toObject(),
-                sender: {
-                    id: aiUser._id,
-                    fullname: aiUser.fullname,
-                    profile_picture: aiUser.profile_picture
-                }
             });
         }
 

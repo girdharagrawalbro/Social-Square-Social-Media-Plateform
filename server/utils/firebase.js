@@ -55,9 +55,14 @@ const sendPushNotification = async (token, { title, body, data = {} }) => {
         const response = await admin.messaging().send(message);
         return response;
     } catch (error) {
-        // If the token is invalid/expired, we should ideally remove it from the DB
         if (error.code === 'messaging/registration-token-not-registered') {
-            console.warn('[Firebase] Token expired/unregistered. Should be cleared from DB.');
+            console.warn('[Firebase] Token expired/unregistered. Clearing from DB.');
+            try {
+                const User = require('../models/User');
+                await User.updateOne({ fcmToken: token }, { $unset: { fcmToken: "" } });
+            } catch (dbErr) {
+                console.error('[Firebase] Failed to clear dead token:', dbErr.message);
+            }
         } else {
             console.error('[Firebase] Push Error:', error.message);
         }
@@ -65,7 +70,68 @@ const sendPushNotification = async (token, { title, body, data = {} }) => {
     }
 };
 
+/**
+ * Send a push notification to multiple users (max 500) simultaneously
+ * @param {Array<String>} tokens - Array of FCM registration tokens
+ * @param {Object} payload - Notification data { title, body, data }
+ */
+const sendMulticast = async (tokens, { title, body, data = {} }) => {
+    if (!tokens || !tokens.length) return;
+
+    // FCM Multicast limit is 500 tokens per request
+    const validTokens = tokens.filter(t => !!t).slice(0, 500);
+    if (!validTokens.length) return;
+
+    const message = {
+        notification: { title, body },
+        data: {
+            ...data,
+            click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+        tokens: validTokens,
+        android: {
+            priority: 'high',
+            notification: { sound: 'default', channel_id: 'default' }
+        },
+        apns: {
+            payload: { aps: { sound: 'default', badge: 1 } }
+        }
+    };
+
+    try {
+        const response = await admin.messaging().sendMulticast(message);
+        
+        // Handle failed tokens (cleanup dead tokens)
+        if (response.failureCount > 0) {
+            const failedTokens = [];
+            response.responses.forEach((resp, idx) => {
+                if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
+                    failedTokens.push(validTokens[idx]);
+                }
+            });
+
+            if (failedTokens.length > 0) {
+                console.warn(`[Firebase] Clearing ${failedTokens.length} dead tokens from DB.`);
+                try {
+                    const User = require('../models/User');
+                    await User.updateMany(
+                        { fcmToken: { $in: failedTokens } },
+                        { $unset: { fcmToken: "" } }
+                    );
+                } catch (dbErr) {
+                    console.error('[Firebase] Failed to clear dead tokens:', dbErr.message);
+                }
+            }
+        }
+        return response;
+    } catch (error) {
+        console.error('[Firebase] Multicast Push Error:', error.message);
+        return null;
+    }
+};
+
 module.exports = {
     admin,
-    sendPushNotification
+    sendPushNotification,
+    sendMulticast
 };

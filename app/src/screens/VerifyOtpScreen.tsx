@@ -163,7 +163,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
   };
 
   const cardBg = colors.surface;
-  const pageBg = colors.background;
+  const pageBg = '#808bf5';
   const textColor = colors.text.primary;
   const subText = colors.text.secondary;
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff';
@@ -192,7 +192,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
             fontWeight: 'bold',
             textAlign: 'center',
             marginBottom: 20,
-            color: expiryCountdown !== null && expiryCountdown <= 60 ? '#ef4444' : brand.primary,
+            color: expiryCountdown !== null && expiryCountdown <= 60 ? '#ef4444' : '#808bf5',
           }}>
             {expiryCountdown === null
               ? 'Checking expiry...'
@@ -210,7 +210,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
                   styles.otpInput,
                   {
                     backgroundColor: inputBg,
-                    borderColor: digit ? brand.primary : inputBorder,
+                    borderColor: digit ? '#808bf5' : inputBorder,
                     color: textColor,
                   },
                 ]}
@@ -226,7 +226,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
             {loading ? (
-              <ActivityIndicator color={brand.primaryInverse} />
+              <ActivityIndicator color={'#ffffff'} />
             ) : (
               <Text style={styles.submitBtnText}>Verify</Text>
             )}
@@ -234,7 +234,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
 
           <View style={styles.resendRow}>
             {countdown === null ? (
-              <ActivityIndicator size="small" color={brand.primary} />
+              <ActivityIndicator size="small" color={'#808bf5'} />
             ) : countdown > 0 ? (
               <Text style={{ color: subText }}>
                 Resend code in <Text style={{ fontWeight: 'bold' }}>{countdown}s</Text>
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: height * 0.5,
-    backgroundColor: brand.primary,
+    backgroundColor: '#808bf5',
     borderBottomLeftRadius: width * 0.1,
     borderBottomRightRadius: width * 0.1,
   },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   submitBtn: {
-    backgroundColor: brand.primaryDark,
+    backgroundColor: '#6366f1',
     height: 48,
     borderRadius: 8,
     justifyContent: 'center',
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   submitBtnText: {
-    color: brand.primaryInverse,
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   resendText: {
-    color: brand.primary,
+    color: '#808bf5',
     fontWeight: 'bold',
   },
 });

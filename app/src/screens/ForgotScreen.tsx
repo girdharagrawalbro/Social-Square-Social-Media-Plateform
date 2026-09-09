@@ -46,7 +46,7 @@ export default function ForgotScreen({ navigation }: AppScreenProps<'Forgot'>) {
   };
 
   const cardBg = colors.surface;
-  const pageBg = colors.background;
+  const pageBg = '#808bf5';
   const textColor = colors.text.primary;
   const subText = colors.text.secondary;
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff';
@@ -95,7 +95,7 @@ export default function ForgotScreen({ navigation }: AppScreenProps<'Forgot'>) {
             />
             <TouchableOpacity style={styles.submitBtn} onPress={handleForgot} disabled={loading}>
               {loading ? (
-                <ActivityIndicator color={brand.primaryInverse} />
+                <ActivityIndicator color={'#ffffff'} />
               ) : (
                 <Text style={styles.submitBtnText}>Send Reset Link</Text>
               )}
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: height * 0.5,
-    backgroundColor: brand.primary,
+    backgroundColor: '#808bf5',
     borderBottomLeftRadius: width * 0.1,
     borderBottomRightRadius: width * 0.1,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: brand.primary,
+    color: '#808bf5',
     marginBottom: 6,
   },
   subTitle: {
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   submitBtn: {
-    backgroundColor: brand.primary,
+    backgroundColor: '#808bf5',
     height: 48,
     borderRadius: 8,
     justifyContent: 'center',
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   submitBtnText: {
-    color: brand.primaryInverse,
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 15,
   },
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginText: {
-    color: brand.primary,
+    color: '#808bf5',
     fontWeight: 'bold',
   },
 });

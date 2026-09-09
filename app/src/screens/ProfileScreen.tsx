@@ -888,7 +888,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                         borderRadius: 12,
                         justifyContent: 'center',
                         alignItems: 'center',
-                        backgroundColor: isFollowing ? (isDark ? '#1e293b' : '#e2e8f0') : brand.primary,
+                        backgroundColor: isFollowing ? (isDark ? '#1e293b' : '#e2e8f0') : '#808bf5',
                         borderWidth: isFollowing ? 1 : 0,
                         borderColor: border
                       }}
@@ -952,7 +952,7 @@ export default function ProfileScreen({ navigation, route }: TabOrStackScreenPro
                         borderRadius: 12,
                         justifyContent: 'center',
                         alignItems: 'center',
-                        backgroundColor: brand.primary,
+                        backgroundColor: '#808bf5',
                       }}
                     >
                       <Text style={{ fontSize: 13, color: '#ffffff', fontWeight: 'bold' }}>

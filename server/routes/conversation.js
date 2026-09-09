@@ -10,6 +10,7 @@ router.use((req, res, next) => {
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
+const { createNotification } = require('../lib/notification');
 const User = require('../models/User');
 const verifyToken = require('../middleware/Verifytoken');
 const redis = require('../lib/redis');
@@ -818,12 +819,13 @@ router.post(['/messages/create', '/send'], verifyToken, [
         const senderUser = await User.findById(sender).select('fullname profile_picture').lean();
         const otherParticipants = conv.participants.filter(p => p.userId.toString() !== sender.toString());
 
-        // Create notifications for all other members
+        // Create notifications for all other members (this handles push, web-push, and sockets automatically)
         if (otherParticipants.length > 0) {
             await Promise.all(otherParticipants.map(p => {
-                return Notification.create({
-                    recipient: p.userId,
+                return createNotification({
+                    recipientId: p.userId,
                     sender: { id: sender, fullname: senderName || senderUser?.fullname || 'Someone', profile_picture: senderUser?.profile_picture || '' },
+                    type: 'message',
                     message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
                 });
             }));
@@ -838,13 +840,6 @@ router.post(['/messages/create', '/send'], verifyToken, [
             participants.forEach(p => {
                 _io.to(p).emit('receiveMessage', msgObj);
                 _io.to(p).emit('conversationUpdated', updatedConv);
-            });
-            otherParticipants.forEach(p => {
-                _io.to(p.userId.toString()).emit('newNotification', {
-                    recipient: p.userId,
-                    sender: { id: sender, fullname: senderName || senderUser?.fullname || 'Someone', profile_picture: senderUser?.profile_picture || '' },
-                    message: { id: message._id, content: content || `Sent a ${mediaType || 'file'}` },
-                });
             });
         }
 

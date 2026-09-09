@@ -37,7 +37,7 @@ export default function SplashScreen({ navigation }: AppScreenProps<'Splash'>) {
       style={[
         styles.container,
         {
-          backgroundColor: colors.background,
+          backgroundColor: '#808bf5',
         },
       ]}>
       {/* Content */}
@@ -62,7 +62,7 @@ export default function SplashScreen({ navigation }: AppScreenProps<'Splash'>) {
           style={[
             styles.subtitle,
             {
-              color: brand.primary,
+              color: '#808bf5',
             },
           ]}>
           AI Powered Social Media
@@ -70,7 +70,7 @@ export default function SplashScreen({ navigation }: AppScreenProps<'Splash'>) {
 
         {/* <ActivityIndicator
           size="small"
-          color={brand.primary}
+          color={'#808bf5'}
           style={styles.loader}
         /> */}
       </View>

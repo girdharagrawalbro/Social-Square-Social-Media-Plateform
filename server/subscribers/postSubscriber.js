@@ -4,6 +4,8 @@ const Notification = require('../models/Notification');
 const Feed = require('../models/Feed');
 const Analytics = require('../models/Analytics');
 const Post = require('../models/Post');
+const { sendMulticast } = require('../utils/firebase');
+const webpush = require('../utils/webpush');
 
 
 let _io;
@@ -52,7 +54,13 @@ async function initPostSubscriber() {
 
         const followerIds = author.followers;
 
-        // 1. Save notifications to DB
+        // Fetch followers' notification settings and tokens in bulk
+        const followersData = await User.find({
+            _id: { $in: followerIds },
+            'notificationSettings.postNotifications': { $ne: false } // Only those who haven't disabled post notifications
+        }).select('_id fcmToken webPushSubscription notificationSettings.pushEnabled').lean();
+
+        // 1. Save notifications to DB (for all followers, so they see it in the app's notification list)
         const notifications = followerIds.map(followerId => ({
             recipient: followerId,
             sender: { id: author._id, fullname: author.fullname, profile_picture: author.profile_picture },
@@ -61,6 +69,46 @@ async function initPostSubscriber() {
         }));
         const savedNotifications = await Notification.insertMany(notifications);
         console.log(`[NATS] Notifications saved for ${followerIds.length} followers`);
+
+        // 2. Dispatch Bulk Push Notifications (FCM & Web Push)
+        const fcmTokens = [];
+        const webSubscriptions = [];
+
+        followersData.forEach(f => {
+            if (f.notificationSettings?.pushEnabled !== false) {
+                if (f.fcmToken) fcmTokens.push(f.fcmToken);
+                if (f.webPushSubscription && process.env.VAPID_PUBLIC_KEY) webSubscriptions.push(f.webPushSubscription);
+            }
+        });
+
+        const title = 'Social Square';
+        const body = `${author.fullname} shared a new post`;
+
+        if (fcmTokens.length > 0) {
+            await sendMulticast(fcmTokens, {
+                title,
+                body,
+                data: { type: 'new_post', postId: postId.toString() }
+            });
+            console.log(`[NATS] Dispatched bulk FCM push to ${fcmTokens.length} devices.`);
+        }
+
+        if (webSubscriptions.length > 0) {
+            const webPayload = JSON.stringify({
+                title,
+                body,
+                icon: '/logo.jpg',
+                badge: '/logo.jpg',
+                tag: 'new_post',
+                data: { type: 'new_post', postId: postId.toString(), url: `/post/${postId}` }
+            });
+
+            const webPushPromises = webSubscriptions.map(sub => 
+                webpush.sendNotification(sub, webPayload).catch(() => null)
+            );
+            await Promise.all(webPushPromises);
+            console.log(`[NATS] Dispatched bulk Web Push to ${webSubscriptions.length} browsers.`);
+        }
 
         // 2. Emit real-time socket notification to each follower
         if (_io) {
