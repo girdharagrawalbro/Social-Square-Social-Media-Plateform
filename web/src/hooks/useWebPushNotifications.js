@@ -12,7 +12,7 @@
  */
 
 import { useEffect } from 'react';
-import API from '../api';
+import { api } from '../store/zustand/useAuthStore';
 
 // Convert VAPID base64 public key to Uint8Array (required by browser Push API)
 function urlBase64ToUint8Array(base64String) {
@@ -36,7 +36,7 @@ async function subscribeUserToPush() {
   }
 
   // Get the VAPID public key from the server
-  const { data } = await API.get('/api/user/vapid-public-key');
+  const { data } = await api.get('/api/user/vapid-public-key');
   if (!data.publicKey) {
     console.warn('[WebPush] No VAPID public key from server');
     return;
@@ -57,7 +57,7 @@ async function subscribeUserToPush() {
   }
 
   // Register subscription with backend
-  await API.post('/api/user/web-push-subscription', { subscription });
+  await api.post('/api/user/web-push-subscription', { subscription });
   console.log('[WebPush] Subscribed and registered with server');
 }
 

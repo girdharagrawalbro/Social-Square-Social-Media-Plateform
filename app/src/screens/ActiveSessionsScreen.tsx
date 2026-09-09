@@ -286,9 +286,9 @@ export default function ActiveSessionsScreen() {
                 ]}
               >
                 {toggling2FA ? (
-                  <ActivityIndicator size="small" color={twoFaEnabled ? '#ef4444' : '#ffffff'} />
+                  <ActivityIndicator size="small" color={twoFaEnabled ? '#ef4444' : colors.primaryInverse} />
                 ) : (
-                  <Text style={[styles.toggle2FABtnText, { color: twoFaEnabled ? '#ef4444' : '#ffffff' }]}>
+                  <Text style={[styles.toggle2FABtnText, { color: twoFaEnabled ? '#ef4444' : colors.primaryInverse }]}>
                     {twoFaEnabled ? 'Disable' : 'Enable'}
                   </Text>
                 )}

@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getSocket } from '../lib/socket';
 import { queryKeys } from '../lib/queryKeys';
 import AppHeader from './components/AppHeader';
 import useAuthStore from '../store/zustand/useAuthStore';
@@ -132,6 +133,24 @@ export default function ChatScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useAppNavigation();
   const currentUser = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations() });
+    };
+
+    socket.on('receiveMessage', handleNewMessage);
+    socket.on('newMessage', handleNewMessage);
+
+    return () => {
+      socket.off('receiveMessage', handleNewMessage);
+      socket.off('newMessage', handleNewMessage);
+    };
+  }, [queryClient]);
 
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
@@ -323,14 +342,14 @@ export default function ChatScreen() {
         )}
         <View style={styles.chatInfo}>
           <View style={styles.chatHeader}>
-            <Text style={[styles.name, { color: textColor }]}>{displayTitle}</Text>
+            <Text style={[styles.name, { color: textColor }, unread && { fontWeight: 'bold' }]}>{displayTitle}</Text>
             {(() => {
               const dateStr = item.lastMessageAt || (item.lastMessage && item.lastMessage.createdAt);
               if (!dateStr) return null;
               const d = new Date(dateStr);
               if (isNaN(d.getTime())) return null;
               return (
-                <Text style={[styles.time, { color: subColor }]}>
+                <Text style={[styles.time, { color: unread ? textColor : subColor }, unread && { fontWeight: 'bold' }]}>
                   {d.toLocaleDateString([], { month: 'short', day: 'numeric' })}
                 </Text>
               );
@@ -706,7 +725,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadMessage: {
-    fontWeight: '700',
+    fontWeight: 'bold',
   },
   unreadBadge: {
     width: 8,

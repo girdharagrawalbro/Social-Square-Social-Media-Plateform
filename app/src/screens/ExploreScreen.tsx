@@ -374,32 +374,6 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      {/* Main Header */}
-      <View style={{ height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, backgroundColor: cardBg, borderBottomWidth: 1, borderBottomColor: border, ...shadows.card }}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('NewPost')}
-          style={{ width: 40, height: 40, borderRadius: radius.full, justifyContent: 'center', alignItems: 'flex-start' }}
-          accessibilityRole="button"
-          accessibilityLabel="Create new post"
-        >
-          <MaterialCommunityIcons name="plus" size={26} color={textColor} style={{ marginLeft: -6 }} />
-        </TouchableOpacity>
-
-        <Text style={{ ...typography.h3, color: textColor }}>
-          {loggedUser?.username ? `@${loggedUser.username}` : 'Explore'}
-        </Text>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Notifications')}
-          style={{ width: 40, height: 40, borderRadius: radius.full, justifyContent: 'center', alignItems: 'flex-end' }}
-          accessibilityRole="button"
-          accessibilityLabel="Notifications"
-        >
-          <View style={{ position: 'relative' }}>
-            <MaterialCommunityIcons name="bell-outline" size={24} color={colors.primary} style={{ marginRight: -6 }} />
-          </View>
-        </TouchableOpacity>
-      </View>
       {/* Search Header */}
       <View style={[styles.header, { backgroundColor: headerBg, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg }]}>
         {isSearchActive && (
