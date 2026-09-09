@@ -163,7 +163,7 @@ export default function VerifyOtpScreen({ route, navigation }: AppScreenProps<'V
   };
 
   const cardBg = colors.surface;
-  const pageBg = '#808bf5';
+  const pageBg = colors.background;
   const textColor = colors.text.primary;
   const subText = colors.text.secondary;
   const inputBg = isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff';

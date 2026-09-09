@@ -11,6 +11,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  SafeAreaView
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -180,7 +181,7 @@ export default function ChatScreen() {
     queryFn: async () => {
       const res = await api.get('/api/conversation');
       const fetchedConversations = res.data?.conversations || res.data || [];
-      
+
       // Cleanup orphaned SQLite messages asynchronously
       if (fetchedConversations.length > 0) {
         setTimeout(() => {
@@ -188,7 +189,7 @@ export default function ChatScreen() {
           cleanupOrphanedConversations(activeIds);
         }, 1000);
       }
-      
+
       return fetchedConversations;
     },
   });
@@ -323,13 +324,18 @@ export default function ChatScreen() {
 
     return (
       <TouchableOpacity
-        style={[styles.chatItem, { borderBottomColor: borderColor }]}
+        style={[
+          styles.chatItem, 
+          { borderBottomColor: borderColor },
+          unread && { backgroundColor: isDark ? 'rgba(128,139,245,0.1)' : '#f4f6ff' }
+        ]}
         onPress={() =>
           navigation.navigate('ChatPane', {
             conversationId: item._id,
             title: displayTitle,
             recipientId: recipientId,
             recipientAvatar: displayAvatar,
+            unreadCount: item.unreadCount || 0,
           })
         }
       >
@@ -368,7 +374,11 @@ export default function ChatScreen() {
               unread={unread}
               styles={styles}
             />
-            {unread && <View style={styles.unreadBadge} />}
+            {unread && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -394,66 +404,70 @@ export default function ChatScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: bg }]}>
-      {/* Customized Header */}
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: borderColor }]}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('NewPost')}
-          style={styles.headerLeftBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Create new post"
+    <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+        {/* Search Bar - takes remaining width */}
+        <View
+          style={[
+            styles.mainSearchBarContainer,
+            {
+              flex: 1,
+              backgroundColor: isDark
+                ? 'rgba(255,255,255,0.05)'
+                : '#f3f4f6',
+              borderWidth: 0,
+            },
+          ]}
         >
-          <MaterialCommunityIcons name="plus" size={26} color={textColor} />
-        </TouchableOpacity>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={20}
+            color={subColor}
+            style={{ marginLeft: 8 }}
+          />
 
-        <Text style={[styles.headerTitle, { color: textColor }]}>
-          {currentUser?.username ? `@${currentUser.username}` : 'Conversations'}
-        </Text>
+          <TextInput
+            style={[styles.mainSearchInput, { color: textColor, flex: 1 }]}
+            placeholder="Search people..."
+            placeholderTextColor={subColor}
+            value={mainSearchQuery}
+            onChangeText={setMainSearchQuery}
+          />
 
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity
-            onPress={() => { setCreateGroupModalVisible(true); setSearchQuery(''); setSearchResults([]); }}
-            style={[styles.headerRightBtn, { marginRight: 8 }]}
-            accessibilityRole="button"
-            accessibilityLabel="New group chat"
-          >
-            <MaterialCommunityIcons name="account-multiple-plus-outline" size={24} color={textColor} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Notifications')}
-            style={styles.headerRightBtn}
-            accessibilityRole="button"
-            accessibilityLabel={unreadNotificationsCount > 0 ? `Notifications, ${unreadNotificationsCount} unread` : 'Notifications'}
-          >
-            <View style={styles.badgeWrapper}>
-              {unreadNotificationsCount > 0 && (
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{unreadNotificationsCount}</Text>
-                </View>
-              )}
-              <MaterialCommunityIcons name="bell-outline" size={24} color={brand.primary} />
-            </View>
-          </TouchableOpacity>
+          {mainSearchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setMainSearchQuery('')}
+              style={{ padding: 4, marginRight: 4 }}
+            >
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={18}
+                color={subColor}
+              />
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Add User - stays on right */}
+        <TouchableOpacity
+          onPress={() => {
+            setCreateGroupModalVisible(true);
+            setSearchQuery('');
+            setSearchResults([]);
+          }}
+          style={[styles.headerRightBtn, { marginLeft: 8 }]}
+          accessibilityRole="button"
+          accessibilityLabel="New group chat"
+        >
+          <MaterialCommunityIcons
+            name="account-multiple-plus-outline"
+            size={24}
+            color={textColor}
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* Main Conversation Search Bar */}
-      <View style={[styles.mainSearchBarContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6', borderWidth: 0 }]}>
-        <MaterialCommunityIcons name="magnify" size={20} color={subColor} style={{ marginLeft: 8 }} />
-        <TextInput
-          style={[styles.mainSearchInput, { color: textColor }]}
-          placeholder="Search people..."
-          placeholderTextColor={subColor}
-          value={mainSearchQuery}
-          onChangeText={setMainSearchQuery}
-        />
-        {mainSearchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setMainSearchQuery('')} style={{ padding: 4, marginRight: 4 }}>
-            <MaterialCommunityIcons name="close-circle" size={18} color={subColor} />
-          </TouchableOpacity>
-        )}
-      </View>
+
 
       {loading ? (
         <View style={{ flex: 1 }}>
@@ -585,7 +599,7 @@ export default function ChatScreen() {
                 value={groupName}
                 onChangeText={setGroupName}
               />
-              
+
               <Text style={{ color: subColor, marginBottom: 8, fontSize: 12 }}>MEMBERS ({groupMembers.length})</Text>
               {groupMembers.length > 0 && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12, gap: 8 }}>
@@ -655,7 +669,7 @@ export default function ChatScreen() {
         </View>
       </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -725,13 +739,21 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadMessage: {
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
   unreadBadge: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: brand.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   fab: {
     position: 'absolute',
@@ -740,7 +762,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: brand.primary,
+    backgroundColor: '#808bf5',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
@@ -848,7 +870,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 14,
-    paddingVertical: 0,
+    paddingVertical: 2,
   },
   header: {
     height: 60,

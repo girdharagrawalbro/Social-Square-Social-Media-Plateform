@@ -260,7 +260,6 @@ export default function NotificationsScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={textColor} />
           </TouchableOpacity>
-          <MaterialCommunityIcons name="bell-outline" size={22} color={textColor} style={{ marginLeft: 8 }} />
           <Text style={[styles.headerTitle, { color: textColor, marginLeft: 8 }]}>Notifications</Text>
         </View>
         {activeTab === 'notifications' && notifications.some((n) => !n.read) ? (
@@ -358,10 +357,6 @@ export default function NotificationsScreen() {
                       if (item.type === 'system') {
                         navigation.navigate('ActiveSessions');
                       } else if (item.type === 'message' && item.sender) {
-                        // ChatPaneScreen destructures conversationId/recipientId/title
-                        // straight off route.params with no fallback, so it needs at
-                        // least a recipientId to resolve (or create) the conversation —
-                        // this used to navigate with no params at all and crash the screen.
                         const senderId = (item.sender as any).id || item.sender._id;
                         navigation.navigate('ChatPane', {
                           recipientId: senderId,

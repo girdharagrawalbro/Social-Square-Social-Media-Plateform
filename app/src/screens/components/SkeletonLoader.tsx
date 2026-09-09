@@ -39,10 +39,11 @@ const SkeletonItem = ({ style }: SkeletonItemProps) => {
 
 export const PostSkeleton = () => {
   const { colors } = useTheme();
-  const cardBg = colors.surface;
+  const bg = colors.background;
+
 
   return (
-    <View style={[styles.postCard, { backgroundColor: cardBg }]}>
+    <View style={[styles.postCard, { backgroundColor: bg }]}>
       {/* Header */}
       <View style={styles.postHeader}>
         <SkeletonItem style={styles.avatar} />
@@ -77,10 +78,10 @@ export const PostSkeleton = () => {
 
 export const NotificationSkeleton = () => {
   const { colors } = useTheme();
-  const cardBg = colors.surface;
+  const bg = colors.surface;
 
   return (
-    <View style={[styles.notifCard, { backgroundColor: cardBg }]}>
+    <View style={[styles.notifCard, { backgroundColor: bg }]}>
       <SkeletonItem style={styles.notifAvatar} />
       <View style={styles.notifContent}>
         <SkeletonItem style={styles.notifLine} />
@@ -92,10 +93,10 @@ export const NotificationSkeleton = () => {
 
 export const ChatSkeleton = () => {
   const { colors } = useTheme();
-  const cardBg = colors.surface;
+  const bg = colors.surface;
 
   return (
-    <View style={[styles.chatCard, { backgroundColor: cardBg }]}>
+    <View style={[styles.chatCard, { backgroundColor: bg }]}>
       <SkeletonItem style={styles.chatAvatar} />
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
@@ -110,7 +111,6 @@ export const ChatSkeleton = () => {
 
 export const ProfileSkeleton = () => {
   const { colors } = useTheme();
-  const cardBg = colors.surface;
   const bg = colors.background;
 
   return (
@@ -120,7 +120,7 @@ export const ProfileSkeleton = () => {
       contentContainerStyle={{ paddingBottom: 32 }}
     >
       {/* Profile Card */}
-      <View style={[sk.card, { backgroundColor: cardBg }]}>
+      <View style={[sk.card, { backgroundColor: bg }]}>
         {/* Avatar */}
         <View style={{ alignItems: 'center', marginBottom: 14 }}>
           <SkeletonItem style={sk.avatar} />
@@ -157,7 +157,7 @@ export const ProfileSkeleton = () => {
       </View>
 
       {/* Consistency Graph Card */}
-      <View style={[sk.card, sk.graphCard, { backgroundColor: cardBg }]}>
+      <View style={[sk.card, sk.graphCard, { backgroundColor: bg }]}>
         {/* Title bar */}
         <View style={sk.graphHeader}>
           <SkeletonItem style={sk.graphTitle} />
@@ -176,7 +176,7 @@ export const ProfileSkeleton = () => {
       </View>
 
       {/* Post Grid */}
-      <View style={[sk.card, sk.gridCard, { backgroundColor: cardBg }]}>
+      <View style={[sk.card, sk.gridCard, { backgroundColor: bg }]}>
         {/* Tabs bar */}
         <View style={sk.tabsRow}>
           {[1, 2, 3, 4].map(i => (
@@ -207,8 +207,8 @@ const sk = StyleSheet.create({
     borderRadius: 40,
   },
   fullnameLine: { width: 160, height: 18, borderRadius: 6 },
-  usernameLine:  { width: 100, height: 13, borderRadius: 4 },
-  bioLine:       { width: 230, height: 11, borderRadius: 4 },
+  usernameLine: { width: 100, height: 13, borderRadius: 4 },
+  bioLine: { width: 230, height: 11, borderRadius: 4 },
 
   // Gamification badges row
   badgesRow: {
@@ -248,14 +248,14 @@ const sk = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
-  graphTitle:   { width: 140, height: 12, borderRadius: 4 },
+  graphTitle: { width: 140, height: 12, borderRadius: 4 },
   graphChevron: { width: 18, height: 18, borderRadius: 4 },
   graphGrid: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 3,
   },
-  graphCol:  { flexDirection: 'column', gap: 3 },
+  graphCol: { flexDirection: 'column', gap: 3 },
   graphCell: { width: 10, height: 10, borderRadius: 2 },
 
   // Post grid card

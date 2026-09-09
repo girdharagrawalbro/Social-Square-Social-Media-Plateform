@@ -109,7 +109,7 @@ export default function StoriesStrip() {
   const [hasMusic, setHasMusic] = useState(false);
   const [musicTitle, setMusicTitle] = useState('');
   const [musicArtist, setMusicArtist] = useState('');
-  
+
   // Reshared Story State
   const [resharedStory, setResharedStory] = useState<any>(null);
   const [stickerSize, setStickerSize] = useState<'small' | 'medium' | 'large'>('medium');

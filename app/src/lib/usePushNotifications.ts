@@ -177,38 +177,62 @@ export function usePushNotifications(navigation: any) {
 
     async function setup() {
       // Bail out if native modules aren't linked yet (requires full native rebuild)
-      if (!messaging || !notifee) {
-        console.warn('[Push] Firebase/Notifee native modules not ready. Run a native rebuild.');
+      if (!messaging) {
+        console.warn('[Push] ❌ Firebase messaging native module not linked. Run: cd android && ./gradlew clean, then rebuild.');
         return;
       }
+      if (!notifee) {
+        console.warn('[Push] ❌ Notifee native module not linked. Run: cd android && ./gradlew clean, then rebuild.');
+        return;
+      }
+
+      console.log('[Push] ✅ Native modules loaded. Setting up push notifications...');
+
       // 1. Create channels
       await createChannels();
+      console.log('[Push] ✅ Notification channels created.');
 
       // 2. Request permission
       if (Platform.OS === 'android') {
         if (Platform.Version >= 33) {
-          await PermissionsAndroid.request(
+          const result = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
           );
+          console.log('[Push] Android notification permission result:', result);
+          if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.warn('[Push] ⚠️ POST_NOTIFICATIONS permission denied. FCM token will NOT be registered.');
+            return;
+          }
         }
+        // Android < 33 doesn't need runtime permission
       } else {
         const authStatus = await messaging().requestPermission();
         const enabled =
           authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
           authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-        if (!enabled) return;
+        if (!enabled) {
+          console.warn('[Push] ⚠️ iOS notification permission denied. FCM token will NOT be registered.');
+          return;
+        }
       }
 
       // 3. Get and register FCM token
       try {
+        console.log('[Push] Getting FCM token...');
         const token = await messaging().getToken();
-        if (token) await registerToken(token);
+        if (token) {
+          console.log('[Push] ✅ FCM token obtained:', token.substring(0, 20) + '...');
+          await registerToken(token);
+        } else {
+          console.warn('[Push] ⚠️ messaging().getToken() returned empty token.');
+        }
       } catch (e) {
-        console.warn('[Push] Could not get FCM token:', e);
+        console.warn('[Push] ❌ Could not get FCM token:', e);
       }
 
       // 4. Listen for token refresh
       unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
+        console.log('[Push] FCM token refreshed, re-registering...');
         await registerToken(newToken);
       });
 
@@ -244,6 +268,8 @@ export function usePushNotifications(navigation: any) {
           handleNotificationTap(remoteMessage.data, navigation);
         }
       });
+
+      console.log('[Push] ✅ Push notification setup complete.');
     }
 
     setup();

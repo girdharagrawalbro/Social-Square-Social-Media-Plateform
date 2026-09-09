@@ -226,6 +226,7 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/api/user/fcm-token', verifyToken, async (req, res) => {
+    console.log("FCM Token Called")
     const { token } = req.body;
     await User.findByIdAndUpdate(req.userId, { fcmToken: token });
     res.json({ success: true });

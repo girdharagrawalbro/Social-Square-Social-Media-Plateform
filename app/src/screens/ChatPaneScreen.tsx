@@ -187,7 +187,7 @@ function SwipeableBubble({
   });
 
   const isDeleted = !!item.deletedAt;
-  const incomingBg = '#f8fafc';
+  const incomingBg = isDark ? 'rgba(128,139,245,0.18)' : '#ece9fd';
 
   const extractSharedLink = (text: string = '') => {
     const postMatch = text.match(/\/post\/([a-f0-9]{24})/i);
@@ -532,16 +532,7 @@ export default function ChatPaneScreen() {
   const isFocused = useIsFocused();
   const currentUser = useAuthStore((s) => s.user);
 
-  // Every other screen in the app guards `route.params` with `|| {}` (see CallScreen,
-  // PostDetailScreen, WikiDetailScreen, etc.) — this one didn't, and it's also the one
-  // screen the app's own deep-link config (`chat/:conversationId` in App.tsx) can open
-  // with only `conversationId` set, which would otherwise throw on the very next line.
-  const { title, recipientId, recipientAvatar, isGroup } = route.params || {};
-  // Typing this screen's route against RootStackParamList surfaced that conversationId
-  // is only ever optional (deep link / brand-new-DM-by-recipientId cases) — every
-  // downstream use is a SQLite WHERE clause, a Keychain lookup, or a field sent
-  // alongside recipientId, all of which already treated a missing id as a safe no-op,
-  // so this preserves that exact behavior under the stricter type.
+  const { title, recipientId, recipientAvatar, isGroup, unreadCount = 0 } = route.params || {};
   const conversationId = route.params?.conversationId || '';
 
   const [messages, setMessages] = useState<any[]>([]);
@@ -755,6 +746,28 @@ export default function ChatPaneScreen() {
       upsertMessages(networkMessages.map((m: any) => ({ ...m, conversationId })));
       markMessagesRead(conversationId);
 
+      // ── Mark messages as read on the backend ──────────────────────────────
+      // Collect IDs of messages sent by the OTHER person (not us) that need to be
+      // marked read. This enables the sender's blue double-ticks and resets the
+      // unread badge count in their conversation list.
+      const unreadIds = networkMessages
+        .filter((m: any) => {
+          const senderId = m.senderId || m.sender?._id || m.sender;
+          return senderId && String(senderId) !== String(currentUser?._id) && !m.isRead;
+        })
+        .map((m: any) => m._id)
+        .filter(Boolean);
+
+      const lastMsg = networkMessages[0]; // list is sorted newest-first
+      const lastMsgId = lastMsg?._id;
+
+      if (unreadIds.length > 0 || lastMsgId) {
+        api.post('/api/conversation/messages/mark-read', {
+          unreadMessageIds: unreadIds,
+          lastMessage: lastMsgId,
+        }).catch(err => console.warn('[ChatPane] mark-read error:', err?.message));
+      }
+
       // Decrypt and merge for in-RAM display without destroying older messages
       processMessages(networkMessages).then(processed => {
         // Only animate arrivals from the SECOND sync onward — the first sync is just
@@ -787,7 +800,7 @@ export default function ChatPaneScreen() {
         });
       }).catch(e => console.warn('Process error:', e));
     }
-  }, [networkMessages, conversationId, processMessages]);
+  }, [networkMessages, conversationId, processMessages, currentUser?._id]);
 
   /** Load older messages from SQLite (scroll to top — no network needed) */
   const loadOlderMessages = useCallback(async () => {
@@ -1257,6 +1270,11 @@ export default function ChatPaneScreen() {
     const nextItem = index < messages.length - 1 ? messages[index + 1] : null;
     const showSeparator = nextItem &&
       new Date(item.createdAt).toDateString() !== new Date(nextItem.createdAt).toDateString();
+    
+    // Unread separator (rendered before the first unread message chronologically)
+    // Since list is inverted, index 0 is newest. So index `unreadCount - 1` is the oldest unread message.
+    const showUnreadSeparator = unreadCount > 0 && index === unreadCount - 1;
+
     const formatDate = (d: Date) => {
       const today = new Date();
       const yesterday = new Date(today);
@@ -1288,18 +1306,31 @@ export default function ChatPaneScreen() {
           searchQuery={searchQuery}
           isNew={isNew}
         />
+        {showUnreadSeparator && (
+          <View style={styles.dateSeparator}>
+            <View style={[styles.dateLine, { backgroundColor: isDark ? 'rgba(128,139,245,0.3)' : 'rgba(128,139,245,0.2)' }]} />
+            <View style={{ backgroundColor: isDark ? 'rgba(128,139,245,0.1)' : '#f4f6ff', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginHorizontal: 8 }}>
+              <Text style={{ color: brand.primary, fontSize: 10, fontWeight: 'bold' }}>
+                UNREAD MESSAGES
+              </Text>
+            </View>
+            <View style={[styles.dateLine, { backgroundColor: isDark ? 'rgba(128,139,245,0.3)' : 'rgba(128,139,245,0.2)' }]} />
+          </View>
+        )}
         {showSeparator && (
           <View style={styles.dateSeparator}>
             <View style={[styles.dateLine, { backgroundColor: borderColor }]} />
-            <Text style={[styles.dateLabel, { color: subColor, backgroundColor: bg }]}>
-              {formatDate(new Date(nextItem!.createdAt))}
-            </Text>
+            <View style={[styles.dateLabelPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}>
+              <Text style={[styles.dateLabel, { color: subColor }]}>
+                {formatDate(new Date(item.createdAt))}
+              </Text>
+            </View>
             <View style={[styles.dateLine, { backgroundColor: borderColor }]} />
           </View>
         )}
       </>
     );
-  }, [messages, matchingIndices, searchIndex, isDark, textColor, subColor, borderColor, bg, currentUser, handleStoryPress, handlePostPress, playingAudioId, audioProgress, highlightedMessageId]);
+  }, [messages, matchingIndices, searchIndex, isDark, textColor, subColor, borderColor, bg, currentUser, handleStoryPress, handlePostPress, playingAudioId, audioProgress, highlightedMessageId, unreadCount]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
@@ -1844,6 +1875,14 @@ export default function ChatPaneScreen() {
         </View>
       </Modal>
 
+      {/* Group Settings Modal */}
+      {isGroup && (
+        <GroupSettingsModal
+          visible={groupSettingsModalVisible}
+          onClose={() => setGroupSettingsModalVisible(false)}
+          conversationId={conversationId}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1883,9 +1922,10 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
 
   listContent: { paddingHorizontal: 12, paddingVertical: 10 },
-  dateSeparator: { flexDirection: 'row', alignItems: 'center', marginVertical: 10, paddingHorizontal: 4 },
+  dateSeparator: { flexDirection: 'row', alignItems: 'center', marginVertical: 14, paddingHorizontal: 8 },
   dateLine: { flex: 1, height: 1 },
-  dateLabel: { fontSize: 11, fontWeight: '600', paddingHorizontal: 8 },
+  dateLabelPill: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginHorizontal: 8 },
+  dateLabel: { fontSize: 11, fontWeight: '600' },
 
   bubbleLeft: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'flex-start', width: '100%' },
   bubbleRight: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', width: '100%' },

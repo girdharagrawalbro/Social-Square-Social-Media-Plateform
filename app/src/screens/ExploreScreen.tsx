@@ -375,7 +375,7 @@ export default function ExploreScreen({ navigation, route }: TabOrStackScreenPro
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
       {/* Search Header */}
-      <View style={[styles.header, { backgroundColor: headerBg, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg }]}>
+      <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg }]}>
         {isSearchActive && (
           <TouchableOpacity
             onPress={() => { setIsSearchActive(false); setSearch(''); }}

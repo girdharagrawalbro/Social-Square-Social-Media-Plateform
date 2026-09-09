@@ -37,7 +37,7 @@ export default function SplashScreen({ navigation }: AppScreenProps<'Splash'>) {
       style={[
         styles.container,
         {
-          backgroundColor: '#808bf5',
+          backgroundColor: colors.background,
         },
       ]}>
       {/* Content */}
