@@ -130,8 +130,55 @@ const sendMulticast = async (tokens, { title, body, data = {} }) => {
     }
 };
 
+/**
+ * Send a Data-Only push notification specifically for VoIP/Incoming calls
+ * @param {String} token - The user's FCM registration token
+ * @param {Object} data - Call data (conversationId, callerName, etc)
+ */
+const sendCallPushNotification = async (token, data = {}) => {
+    if (!token) return;
+
+    // Data-only payload (NO notification object)
+    const message = {
+        data: {
+            ...data,
+            type: 'call'
+        },
+        token: token,
+        android: {
+            priority: 'high'
+        },
+        apns: {
+            payload: {
+                aps: {
+                    contentAvailable: true // Wakes up iOS background
+                }
+            }
+        }
+    };
+
+    try {
+        const response = await admin.messaging().send(message);
+        return response;
+    } catch (error) {
+        if (error.code === 'messaging/registration-token-not-registered') {
+            console.warn('[Firebase] Call push: Token expired. Clearing from DB.');
+            try {
+                const User = require('../models/User');
+                await User.updateOne({ fcmToken: token }, { $unset: { fcmToken: "" } });
+            } catch (dbErr) {
+                console.error('[Firebase] Failed to clear dead token:', dbErr.message);
+            }
+        } else {
+            console.error('[Firebase] Call Push Error:', error.message);
+        }
+        return null;
+    }
+};
+
 module.exports = {
     admin,
     sendPushNotification,
-    sendMulticast
+    sendMulticast,
+    sendCallPushNotification
 };

@@ -73,12 +73,51 @@ async function createChannels() {
 }
 
 // ─── Display a local notification via Notifee ───────────────────────────────
-async function displayNotification(remoteMessage: FirebaseMessagingTypes.RemoteMessage) {
+async function displayNotification(remoteMessage: any) {
   const { notification, data } = remoteMessage;
+  const type = (data?.type as string) || 'general';
+  
+  // Data-only Incoming Call payload handling
+  if (type === 'call') {
+    const callerName = data?.callerName || 'Someone';
+    const isVideo = data?.callType === 'video';
+    
+    await notifee.displayNotification({
+      id: 'incoming_call',
+      title: `Incoming ${isVideo ? 'Video ' : ''}Call`,
+      body: `${callerName} is calling you`,
+      data: data as Record<string, string>,
+      android: {
+        channelId: CHANNEL_CALLS,
+        smallIcon: 'ic_notification',
+        category: 'call',
+        ongoing: true,
+        autoCancel: false,
+        importance: AndroidImportance.HIGH,
+        sound: 'default', // Ideally you would use a custom ringtone here
+        // The full-screen action tells Android to wake up the screen and show this app
+        fullScreenAction: {
+          id: 'default',
+        },
+        actions: [
+          {
+            title: 'Reject',
+            pressAction: { id: 'reject_call' },
+          },
+          {
+            title: 'Answer',
+            pressAction: { id: 'answer_call', launchActivity: 'default' },
+          }
+        ],
+      },
+    });
+    return;
+  }
+
+  // Standard notification handling
   if (!notification?.title && !notification?.body) return;
 
-  const type = (data?.type as string) || 'general';
-  const channelId = type === 'message' ? CHANNEL_CHAT : type === 'call' ? CHANNEL_CALLS : CHANNEL_DEFAULT;
+  const channelId = type === 'message' ? CHANNEL_CHAT : CHANNEL_DEFAULT;
 
   await notifee.displayNotification({
     title: notification?.title || 'Social Square',
@@ -112,6 +151,17 @@ if (messaging) {
       await displayNotification(remoteMessage);
     });
   } catch { /* not ready */ }
+}
+
+// Handle Background Actions (e.g. Answer/Reject when app is killed)
+if (notifee) {
+  notifee.onBackgroundEvent(async ({ type, detail }: any) => {
+    if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'reject_call') {
+      await notifee.cancelNotification(detail.notification?.id || 'incoming_call');
+      // If we had a direct socket connection in background we could emit 'callDeclined',
+      // but in a killed state we might need an API call. For now, just cancel.
+    }
+  });
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -169,9 +219,17 @@ export function usePushNotifications(navigation: any) {
       });
 
       // 6. Notifee foreground event — handle tap
-      unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
-        if (type === EventType.PRESS) {
-          handleNotificationTap(detail.notification?.data, navigation);
+      unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }: any) => {
+        if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+          if (detail.pressAction?.id === 'reject_call') {
+            notifee.cancelNotification(detail.notification?.id || 'incoming_call');
+            // Logic to emit socket decline could go here
+            return;
+          }
+          if (detail.pressAction?.id === 'answer_call' || detail.pressAction?.id === 'default') {
+            notifee.cancelNotification('incoming_call');
+            handleNotificationTap(detail.notification?.data, navigation);
+          }
         }
       });
 
@@ -202,10 +260,20 @@ export function usePushNotifications(navigation: any) {
 function handleNotificationTap(data: Record<string, any> | undefined, navigation: any) {
   if (!data || !navigation) return;
 
-  const { type, postId, conversationId } = data;
+  const { type, postId, conversationId, callerId, callerName, callerAvatar, callType } = data;
 
   try {
     switch (type) {
+      case 'call':
+        navigation.navigate('Call', {
+          conversationId,
+          recipientId: callerId,
+          recipientName: callerName,
+          recipientAvatar: callerAvatar,
+          callType: callType || 'video',
+          isIncoming: true,
+        });
+        break;
       case 'message':
         if (conversationId) {
           navigation.navigate('ChatPane', { conversationId });

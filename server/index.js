@@ -588,14 +588,33 @@ io.on('connection', (socket) => {
                 ringTimeoutId,
             });
 
-            io.to(recipientId).emit('incomingCall', {
+            const callData = {
                 callerId: socket.userId,
                 callerName,
                 callerAvatar,
                 type,
                 conversationId,
                 isGroup: false
-            });
+            };
+
+            io.to(recipientId).emit('incomingCall', callData);
+
+            // Dispatch Data-Only FCM Notification to wake up the app for VoIP screen
+            try {
+                const User = require('./models/User');
+                const { sendCallPushNotification } = require('./utils/firebase');
+                User.findById(recipientId).select('fcmToken').lean().then(user => {
+                    if (user && user.fcmToken) {
+                        sendCallPushNotification(user.fcmToken, callData).catch(err => {
+                            logger.error(`[Call Push] Error sending to ${recipientId}: ${err.message}`);
+                        });
+                    }
+                }).catch(err => {
+                    logger.error(`[Call Push] DB error fetching user ${recipientId}: ${err.message}`);
+                });
+            } catch (e) {
+                logger.error(`[Call Push] Failed to trigger sendCallPushNotification: ${e.message}`);
+            }
         }
     });
 
